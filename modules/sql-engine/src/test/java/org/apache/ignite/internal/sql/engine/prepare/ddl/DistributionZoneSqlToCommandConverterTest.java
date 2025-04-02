@@ -239,8 +239,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             expectOptionValidationError("CREATE ZONE test with partitions=-1, storage_profiles='p'", "PARTITION");
             expectOptionValidationError("CREATE ZONE test with replicas=-1, storage_profiles='p'", "REPLICAS");
             assertThrowsWithPos("CREATE ZONE test with replicas=FALL, storage_profiles='p'", "FALL", 32);
-            expectOptionValidationError("CREATE ZONE test with storage_profiles='' ", "STORAGE_PROFILES");
-            expectOptionValidationError("CREATE ZONE test with storage_profiles=' ' ", "STORAGE_PROFILES");
+            emptyProfilesValidationError("CREATE ZONE test with storage_profiles='' ");
+            emptyProfilesValidationError("CREATE ZONE test with storage_profiles=' ' ");
         } else {
             assertThrowsWithPos("CREATE ZONE test (partitions -1)", "-", 30);
             assertThrowsWithPos("CREATE ZONE test (replicas -1)", "-", 28);
@@ -600,6 +600,16 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 Sql.STMT_VALIDATION_ERR,
                 () -> converter.convert(node, createContext()),
                 "Zone option validation failed [option=" + invalidOption
+        );
+    }
+
+    private void emptyProfilesValidationError(String sql) throws SqlParseException {
+        SqlDdl node = (SqlDdl) parse(sql);
+        assertThrowsWithCode(
+                SqlException.class,
+                Sql.STMT_VALIDATION_ERR,
+                () -> converter.convert(node, createContext()),
+                "STORAGE PROFILES can not be empty"
         );
     }
 

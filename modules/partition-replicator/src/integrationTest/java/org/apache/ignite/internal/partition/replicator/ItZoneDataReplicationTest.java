@@ -181,7 +181,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         // Create a zone with the test profile. The storage in it is augmented to lose all data upon restart, but its Raft configuration
         // is persistent, so the data can be restored.
-        createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), new String[]{"test"});
+        createZoneWithProfile(TEST_ZONE_NAME, 1, cluster.size(), "test");
 
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
 

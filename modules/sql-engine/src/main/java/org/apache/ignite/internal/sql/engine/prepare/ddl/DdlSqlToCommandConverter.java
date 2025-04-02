@@ -21,7 +21,6 @@ import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
@@ -109,6 +108,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
@@ -186,8 +186,6 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
-                STORAGE_PROFILES, new DdlOptionInfo<>(String[].class, this::checkNonEmptyStringArray,
-                        (builder, params) -> builder.storageProfilesParams(fillStorageProfiles(params))),
                 CONSISTENCY_MODE, new DdlOptionInfo<>(String.class, this::checkEmptyString,
                         (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
         ));
@@ -691,6 +689,10 @@ public class DdlSqlToCommandConverter {
      * Converts the given '{@code CREATE ZONE}' AST to the {@link CreateZoneCommand} catalog command.
      */
     private CatalogCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
+        if (createZoneNode.storageProfiles().isEmpty()) {
+            throw new SqlException(STMT_VALIDATION_ERR, "STORAGE PROFILES can not be empty");
+        }
+
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
 
         builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
@@ -710,12 +712,9 @@ public class DdlSqlToCommandConverter {
             }
         }
 
-        DdlOptionInfo<CreateZoneCommandBuilder, ?> zoneOptionInfo = zoneOptionInfos.get(STORAGE_PROFILES);
+        List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
 
-        assert zoneOptionInfo != null;
-
-        updateStorageProfileCommandOption("Zone", STORAGE_PROFILES, createZoneNode.storageProfiles(), zoneOptionInfo,
-                ctx.query(), builder);
+        builder.storageProfilesParams(profiles);
 
         return builder.build();
     }
@@ -857,19 +856,6 @@ public class DdlSqlToCommandConverter {
         updateCommandOption("Zone", optionName, literal, zoneOptionInfo, ctx.query(), target);
     }
 
-    private static <S, T> void updateStorageProfileCommandOption(
-            String sqlObjName,
-            Object optId,
-            SqlNodeList value,
-            DdlOptionInfo<S, T> optInfo,
-            String query,
-            S target
-    ) {
-        T expectedValue = extractProfiles(value);
-        validateValue(sqlObjName, optId, optInfo, query, expectedValue);
-        optInfo.setter.accept(target, expectedValue);
-    }
-
     private static <S, T> void updateCommandOption(
             String sqlObjName,
             Object optId,
@@ -905,17 +891,17 @@ public class DdlSqlToCommandConverter {
         }
     }
 
-    private static <T, S> T extractProfiles(SqlNodeList values) {
-        String[] profileNames = new String[values.getList().size()];
+    private static List<StorageProfileParams> extractProfiles(SqlNodeList values) {
+        List<StorageProfileParams> profiles = new ArrayList<>(values.getList().size());
 
         SqlCharStringLiteral literal;
-        int pos = 0;
         for (SqlNode node : values) {
             literal = (SqlCharStringLiteral) node;
-            profileNames[pos++] = literal.getValueAs(String.class).trim();
+            String profile = literal.getValueAs(String.class).trim();
+            profiles.add(StorageProfileParams.builder().storageProfile(profile).build());
         }
 
-        return (T) profileNames;
+        return profiles;
     }
 
     private static <S, T> void validateValue(String sqlObjName, Object optId, DdlOptionInfo<S, T> optInfo, String query, T expectedValue) {
@@ -954,12 +940,6 @@ public class DdlSqlToCommandConverter {
     private void checkPositiveNumber(int num) {
         if (num < 0) {
             throw new SqlException(STMT_VALIDATION_ERR, "Must be positive:" + num);
-        }
-    }
-
-    private void checkNonEmptyStringArray(String[] in) {
-        if (in.length == 0) {
-            throw new SqlException(STMT_VALIDATION_ERR, "Option cannot be empty");
         }
     }
 

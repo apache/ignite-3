@@ -275,7 +275,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 zoneName,
                 partitions,
                 replicas,
-                profiles
+                String.join(",", profiles)
         );
 
         Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());

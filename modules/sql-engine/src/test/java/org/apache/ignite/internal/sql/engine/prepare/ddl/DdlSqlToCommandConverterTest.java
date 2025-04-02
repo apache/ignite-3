@@ -25,7 +25,7 @@ import static org.apache.calcite.sql.type.SqlTypeName.NUMERIC_TYPES;
 import static org.apache.calcite.sql.type.SqlTypeName.REAL;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.fromInternal;
@@ -930,7 +930,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
     private void mockCatalogSchemaAndZone(String zoneName) {
         CatalogSchemaDescriptor schemaMock = Mockito.mock(CatalogSchemaDescriptor.class);
         CatalogZoneDescriptor zoneMock = Mockito.mock(CatalogZoneDescriptor.class);
-        Mockito.when(zoneMock.storageProfiles()).thenReturn(fromParams(fillStorageProfiles(new String[] {"default"})));
+        Mockito.when(zoneMock.storageProfiles()).thenReturn(fromParams(parseStorageProfiles("default")));
         Mockito.when(zoneMock.id()).thenReturn(TEST_ZONE_ID);
         Mockito.when(catalog.schema("PUBLIC")).thenReturn(schemaMock);
         Mockito.when(catalog.defaultZone()).thenReturn(zoneMock);

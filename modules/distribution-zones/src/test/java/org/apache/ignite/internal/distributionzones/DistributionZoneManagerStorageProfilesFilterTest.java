@@ -113,7 +113,7 @@ public class DistributionZoneManagerStorageProfilesFilterTest extends BaseDistri
         topology.putNode(B);
         topology.putNode(C);
 
-        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, null, new String[]{"clock_rocks", "segmented_aipersist"});
+        createZone(ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, null, "clock_rocks,segmented_aipersist");
 
         assertDataNodesFromManager(distributionZoneManager, metaStorageManager::appliedRevision, catalogManager::latestCatalogVersion,
                 getZoneId(ZONE_NAME), Set.of(A, B), ZONE_MODIFICATION_AWAIT_TIMEOUT);

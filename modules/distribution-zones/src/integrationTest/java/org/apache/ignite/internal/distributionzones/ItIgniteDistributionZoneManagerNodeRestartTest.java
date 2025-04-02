@@ -381,8 +381,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         node.logicalTopology().putNode(B);
         node.logicalTopology().putNode(C);
 
-        createZone(getCatalogManager(node), ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null,
-                new String[]{DEFAULT_STORAGE_PROFILE});
+        createZone(getCatalogManager(node), ZONE_NAME, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE, null, DEFAULT_STORAGE_PROFILE);
 
         int zoneId = getZoneId(node, ZONE_NAME);
 
@@ -645,7 +644,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 INFINITE_TIMER_VALUE,
                 null,
                 consistencyMode,
-                new String[]{DEFAULT_STORAGE_PROFILE}
+                DEFAULT_STORAGE_PROFILE
         );
 
         // Assert that after creation of a zone, data nodes are still tombstone, but not the logical topology, as for default zone.
@@ -850,7 +849,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         } else {
             zoneName = ZONE_NAME;
 
-            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, consistencyMode, new String[]{DEFAULT_STORAGE_PROFILE});
+            createZone(getCatalogManager(node), zoneName, scaleUp, scaleDown, null, consistencyMode, DEFAULT_STORAGE_PROFILE);
         }
 
         return zoneName;

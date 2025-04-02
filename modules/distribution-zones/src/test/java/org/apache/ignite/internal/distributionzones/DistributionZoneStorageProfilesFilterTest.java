@@ -19,8 +19,8 @@ package org.apache.ignite.internal.distributionzones;
 
 import static java.util.UUID.randomUUID;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParams;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterStorageProfiles;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -35,9 +35,9 @@ public class DistributionZoneStorageProfilesFilterTest {
         List<String> nodeStorageProfiles = List.of("qwe", "asd", "zxc");
         NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
-        String[] zoneStorageProfiles = {"qwe", "asd"};
+        String zoneStorageProfiles = "qwe,asd";
 
-        assertTrue(filterStorageProfiles(node, fromParams(fillStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 
     @Test
@@ -45,9 +45,9 @@ public class DistributionZoneStorageProfilesFilterTest {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
         NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
-        String[] zoneStorageProfiles = {"qwe", "asd"};
+        String zoneStorageProfiles = "qwe,asd";
 
-        assertFalse(filterStorageProfiles(node, fromParams(fillStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertFalse(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 
     @Test
@@ -55,8 +55,18 @@ public class DistributionZoneStorageProfilesFilterTest {
         List<String> nodeStorageProfiles = List.of("asd", "zxc");
         NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
 
-        String[] zoneStorageProfiles = {"zxc", "asd"};
+        String zoneStorageProfiles = "zxc,asd";
 
-        assertTrue(filterStorageProfiles(node, fromParams(fillStorageProfiles(zoneStorageProfiles)).profiles()));
+        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
+    }
+
+    @Test
+    void testStorageProfilesScenario4() {
+        List<String> nodeStorageProfiles = List.of("asd", "zxc");
+        NodeWithAttributes node = new NodeWithAttributes("n", randomUUID(), Map.of(), nodeStorageProfiles);
+
+        String zoneStorageProfiles = "zxc,   asd";
+
+        assertTrue(filterStorageProfiles(node, fromParams(parseStorageProfiles(zoneStorageProfiles)).profiles()));
     }
 }

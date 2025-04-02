@@ -23,7 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl.LOGICAL_TOPOLOGY_KEY;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertLogicalTopologyVersion;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.fillStorageProfiles;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
@@ -251,7 +251,7 @@ public class DistributionZoneManagerLogicalTopologyEventsTest extends BaseDistri
 
         CatalogCommand createZoneCommand = CreateZoneCommand.builder()
                 .zoneName(ZONE_NAME)
-                .storageProfilesParams(fillStorageProfiles(new String[]{DEFAULT_STORAGE_PROFILE}))
+                .storageProfilesParams(parseStorageProfiles(DEFAULT_STORAGE_PROFILE))
                 .build();
 
         // We intentionally don't wait for the returned future, because we want to wait for the zone to appear, but not for the catalog

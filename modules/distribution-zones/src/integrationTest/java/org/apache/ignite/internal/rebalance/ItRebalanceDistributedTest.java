@@ -1837,7 +1837,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 zoneName,
                 partitions,
                 replicas,
-                testStorageProfile ? new String[]{DEFAULT_TEST_PROFILE_NAME} : new String[]{DEFAULT_STORAGE_PROFILE}
+                testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
         );
     }
 
