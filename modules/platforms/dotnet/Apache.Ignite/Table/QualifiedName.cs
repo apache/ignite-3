@@ -48,10 +48,12 @@ public record struct QualifiedName
     /// <summary>
     /// Initializes a new instance of the <see cref="QualifiedName"/> struct.
     /// </summary>
-    /// <param name="schemaName">Schema name.</param>
-    /// <param name="objectName">Object name.</param>
-    public QualifiedName(string schemaName, string objectName)
+    /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>.</param>
+    /// <param name="objectName">Object name. Can not be null or empty.</param>
+    public QualifiedName(string? schemaName, string objectName)
     {
+        schemaName ??= DefaultSchemaName;
+
         VerifyObjectIdentifier(schemaName);
         VerifyObjectIdentifier(objectName);
 
