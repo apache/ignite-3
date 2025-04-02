@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
@@ -30,7 +31,6 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -49,6 +49,7 @@ import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -143,7 +144,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
         assertEquals(dataNodesBeforeNodeStop, dataNodes(ignite, zoneId, beforeNodesStop));
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testCompactionDuringRebalancing() throws InterruptedException {
         sql("create zone " + ZONE_NAME + " with partitions=1, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'"
                 + ", data_nodes_auto_adjust_scale_down=0");
@@ -161,39 +162,28 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
                 .orElseThrow()
                 .id();
 
+        TablePartitionId partId = new TablePartitionId(tableId, 0);
+
         // Checking that there is only one replica in the stable assignments.
-        assertTrue(waitForCondition(() -> {
-            CompletableFuture<Entry> entryFut = metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, 0)));
-            assertThat(entryFut, willCompleteSuccessfully());
-
-            Entry e = entryFut.join();
-
-            if (e.value() == null) {
-                return false;
-            }
-
-            Assignments a = Assignments.fromBytes(e.value());
-
-            // Check that there is one replica before rebalancing.
-            return a.nodes().size() == 1;
-        }, 3000));
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().size(),
+                1,
+                3_000L
+        );
 
         // Triggering the rebalance.
         sql("alter zone " + ZONE_NAME + " set replicas=2");
 
         // Wait for the rebalancing to finish.
-        assertTrue(waitForCondition(() -> {
-            CompletableFuture<Entry> entryFut = metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, 0)));
-            assertThat(entryFut, willCompleteSuccessfully());
-
-            Entry e = entryFut.join();
-
-            assertNotNull(e.value());
-            Assignments a = Assignments.fromBytes(e.value());
-
-            // Check that there are two replicas after rebalancing.
-            return a.nodes().size() == 2;
-        }, 3000));
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().size(),
+                2,
+                3_000L
+        );
     }
 
     private static void sql(String sql) {
