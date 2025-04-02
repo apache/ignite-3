@@ -86,13 +86,8 @@ public static class JobTarget
     /// <typeparam name="TKey">Key type.</typeparam>
     /// <returns>Colocated job target.</returns>
     public static IJobTarget<TKey> Colocated<TKey>(string tableName, TKey key)
-        where TKey : notnull
-    {
-        IgniteArgumentCheck.NotNull(tableName);
-        IgniteArgumentCheck.NotNull(key);
-
-        return new ColocatedTarget<TKey>(QualifiedName.Parse(tableName), key);
-    }
+        where TKey : notnull =>
+        Colocated(QualifiedName.Parse(tableName), key);
 
     /// <summary>
     /// Single node job target.
