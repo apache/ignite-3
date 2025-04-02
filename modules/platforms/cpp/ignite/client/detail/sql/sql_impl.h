@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "ignite/client/cancellation_token.h"
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/sql/result_set.h"
 #include "ignite/client/sql/sql_statement.h"
@@ -51,26 +52,28 @@ public:
         : m_connection(std::move(connection)) {}
 
     /**
-     * Executes single SQL statement and returns rows.
+     * Executes a single SQL statement and returns rows.
      *
      * @param tx Optional transaction. If nullptr implicit transaction for this
      *   single operation is used.
-     * @param statement statement to execute.
+     * @param token Cancellation token.
+     * @param statement Statement to execute.
      * @param args Arguments for the statement.
      * @param callback A callback called on operation completion with SQL result set.
      */
-    void execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
-        ignite_callback<result_set> &&callback);
+    void execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
+        std::vector<primitive> &&args, ignite_callback<result_set> &&callback);
 
     /**
      * Executes a multi-statement SQL query asynchronously.
      *
-     * @param statement statement to execute.
+     * @param token Cancellation token.
+     * @param statement Statement to execute.
      * @param args Arguments for the template (can be empty).
      * @param callback A callback called on operation completion with SQL result set.
      */
-    void execute_script_async(
-        const sql_statement &statement, std::vector<primitive> &&args, ignite_callback<void> &&callback);
+    void execute_script_async(cancellation_token *token, const sql_statement &statement, std::vector<primitive> &&args,
+        ignite_callback<void> &&callback);
 
 private:
     /** Cluster connection. */

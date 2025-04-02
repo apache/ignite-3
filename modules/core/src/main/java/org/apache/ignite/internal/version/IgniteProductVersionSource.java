@@ -15,12 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.version;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to find nodes. */
-    MULTICAST
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+
+/**
+ * Allows to obtain product name and version.
+ */
+public interface IgniteProductVersionSource {
+    /** Returns product name. */
+    String productName();
+
+    /** Returns product version. */
+    IgniteProductVersion productVersion();
 }

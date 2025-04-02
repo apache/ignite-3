@@ -279,7 +279,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Peer localPeer0 = server.localPeers(COUNTER_GROUP_0).get(0);
 
-        client1.snapshot(localPeer0).get();
+        client1.snapshot(localPeer0, false).get();
 
         long val2 = applyIncrements(client2, 1, 20);
 
@@ -287,7 +287,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         Peer localPeer1 = server.localPeers(COUNTER_GROUP_1).get(0);
 
-        client2.snapshot(localPeer1).get();
+        client2.snapshot(localPeer1, false).get();
 
         Path snapshotDir0 = JraftServerImpl.getServerDataPath(
                 serverWorkingDir.metaPath(),
@@ -339,7 +339,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         assertEquals(sum(10), val);
 
         try {
-            client1.snapshot(peer).get();
+            client1.snapshot(peer, false).get();
 
             fail();
         } catch (Exception e) {
@@ -371,7 +371,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         Peer peer = servers.get(0).localPeers(COUNTER_GROUP_0).get(0);
 
         try {
-            client1.snapshot(peer).get();
+            client1.snapshot(peer, false).get();
 
             fail();
         } catch (Exception e) {
@@ -445,7 +445,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         NodeImpl finalLeader = leader;
-        waitForCondition(() -> finalLeader.getState() == STATE_ERROR, 5_000);
+        assertTrue(waitForCondition(() -> finalLeader.getState() == STATE_ERROR, 5_000));
 
         // Client can't switch to new leader, because only one peer in the list.
         try {
@@ -667,7 +667,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         assertTrue(waitForCondition(() -> counters.get(peer0).get() == 1, 10_000));
 
-        raftClient.snapshot(peer0).get();
+        raftClient.snapshot(peer0, false).get();
 
         raftClient.run(testWriteCommandBuilder.build());
 
@@ -675,7 +675,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
         assertTrue(waitForCondition(() -> counters.get(peer1).get() == 2, 10_000));
 
-        raftClient.snapshot(peer1).get();
+        raftClient.snapshot(peer1, false).get();
 
         raftClient.run(testWriteCommandBuilder.build());
 
@@ -803,8 +803,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         applyIncrements(client2, 0, 20);
 
         // First snapshot will not truncate logs.
-        client1.snapshot(leader1).get();
-        client2.snapshot(leader2).get();
+        client1.snapshot(leader1, false).get();
+        client2.snapshot(leader2, false).get();
 
         JraftServerImpl toStop = null;
 
@@ -849,8 +849,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         applyIncrements(client2, 21, 30);
 
         if (snapshot) {
-            client1.snapshot(leader1).get();
-            client2.snapshot(leader2).get();
+            client1.snapshot(leader1, false).get();
+            client2.snapshot(leader2, false).get();
         }
 
         if (cleanDir) {
@@ -881,8 +881,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             );
         }, opts -> {});
 
-        waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
-        waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000));
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000));
 
         svc2.stopRaftNodes(COUNTER_GROUP_0);
         svc2.stopRaftNodes(COUNTER_GROUP_1);
@@ -923,8 +923,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             );
         }, opts -> {});
 
-        waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
-        waitForCondition(() -> validateStateMachine(sum(30), svc3, COUNTER_GROUP_1), 5_000);
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000));
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(30), svc3, COUNTER_GROUP_1), 5_000));
     }
 
     /**

@@ -60,6 +60,7 @@ class PersistentPageMemoryMvPartitionStorageConcurrencyTest extends AbstractMvPa
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

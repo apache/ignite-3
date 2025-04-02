@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
+package org.apache.ignite.internal.network.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.NodeConfigurationSchema;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * Extension for critical workers configuration schema.
- */
-@ConfigurationExtension
-public class CriticalWorkersExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+/** Configuration specific for Static node finder. */
+@PolymorphicConfigInstance(StaticNodeFinderConfigurationSchema.TYPE)
+public class StaticNodeFinderConfigurationSchema extends NodeFinderConfigurationSchema {
+    public static final String TYPE = "STATIC";
+
+    /** Addresses of nodes in the cluster in a host:port format. */
+    @Value(hasDefault = true)
+    public final String[] netClusterNodes = new String[0];
 }

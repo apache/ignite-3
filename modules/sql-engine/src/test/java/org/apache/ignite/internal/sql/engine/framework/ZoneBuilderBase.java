@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+package org.apache.ignite.internal.sql.engine.framework;
 
 /**
- * Configuration schema for StorageUpdateHandler.
+ * Represents the base interface for describing a complete set of zone-related fields.
+ *
+ * @param <ChildT> The specific type of the builder implementation that will be exposed to the user, enabling fluent builder patterns.
+ * @see ClusterZoneBuilder
  */
-@Config
-public class StorageUpdateConfigurationSchema {
-
+interface ZoneBuilderBase<ChildT> {
     /**
-     * Maximum allowed length (in bytes) of a batch to write into physical storage.
-     **/
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int batchByteLength = 8192;
+     * Sets the name of the zone.
+     *
+     * @param name The name to assign to the zone.
+     * @return The builder instance for chaining methods.
+     */
+    ChildT name(String name);
 }

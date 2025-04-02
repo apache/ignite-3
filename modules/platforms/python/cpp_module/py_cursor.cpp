@@ -94,7 +94,7 @@ public:
             return;
         }
 
-        writer.write(m_size);
+        writer.write(std::int32_t(m_size));
         write_row(writer, m_params, std::int32_t(m_size));
     }
 
@@ -175,7 +175,7 @@ public:
             return;
         }
 
-        writer.write(m_row_size);
+        writer.write(std::int32_t(m_row_size));
         write_row(writer, row, std::int32_t(m_row_size));
     }
 

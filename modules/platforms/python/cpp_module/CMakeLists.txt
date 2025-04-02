@@ -36,6 +36,10 @@ set(LIBRARIES
     ignite3-odbc-obj
 )
 
+if(APPLE)
+    add_link_options(-undefined dynamic_lookup)
+endif()
+
 add_library(${TARGET} SHARED ${SOURCES})
 
 target_include_directories(${TARGET} PUBLIC
@@ -55,6 +59,11 @@ if (WIN32)
     set_target_properties(${TARGET} PROPERTIES SUFFIX ".pyd")
     target_link_libraries(${TARGET} ${Python3_LIBRARIES})
     remove_definitions(-DUNICODE=1)
+elseif(APPLE)
+    set_target_properties(${TARGET} PROPERTIES
+        PREFIX ""
+        SUFFIX ".so"
+    )
 else()
     set_target_properties(${TARGET} PROPERTIES PREFIX "")
 endif()

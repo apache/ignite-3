@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
@@ -42,11 +43,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
@@ -99,11 +100,15 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private NodeAttributesConfiguration defaultNodeAttributesConfiguration;
 
-    @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")
+    @InjectConfiguration("mock.profiles = {"
+            + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, "
+            + DEFAULT_TEST_PROFILE_NAME + ".engine=test, "
+            + DEFAULT_AIMEM_PROFILE_NAME + ".engine=aimem"
+            + "}")
     private StorageConfiguration storageConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -237,7 +242,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 raftConfiguration,
                 nodeAttributesConfiguration,
                 storageConfiguration,
-                metaStorageConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
@@ -253,12 +258,24 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     private static int createZone(Node node, String zoneName, int partitions, int replicas, boolean testStorageProfile) {
+        return createZoneWithStorageProfiles(
+                node,
+                zoneName,
+                partitions,
+                replicas,
+                testStorageProfile
+                        ? DEFAULT_TEST_PROFILE_NAME
+                        : DEFAULT_STORAGE_PROFILE
+        );
+    }
+
+    static int createZoneWithStorageProfiles(Node node, String zoneName, int partitions, int replicas, String... profiles) {
         DistributionZonesTestUtil.createZoneWithStorageProfile(
                 node.catalogManager,
                 zoneName,
                 partitions,
                 replicas,
-                testStorageProfile ? DEFAULT_TEST_PROFILE_NAME : DEFAULT_STORAGE_PROFILE
+                String.join(",", profiles)
         );
 
         Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
@@ -266,6 +283,10 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     static void createTable(Node node, String zoneName, String tableName) {
+        createTable(node, zoneName, tableName, null);
+    }
+
+    static void createTable(Node node, String zoneName, String tableName, String storageProfile) {
         node.waitForMetadataCompletenessAtNow();
 
         TableTestUtils.createTable(
@@ -277,7 +298,8 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                         ColumnParams.builder().name("KEY").type(INT64).build(),
                         ColumnParams.builder().name("VAL").type(INT32).nullable(true).build()
                 ),
-                List.of("KEY")
+                List.of("KEY"),
+                storageProfile
         );
     }
 

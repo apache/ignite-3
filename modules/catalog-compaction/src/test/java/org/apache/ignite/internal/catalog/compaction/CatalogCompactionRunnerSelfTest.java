@@ -30,6 +30,7 @@ import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.arrayWithSize;
 import static org.hamcrest.Matchers.emptyArray;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.instanceOf;
@@ -64,7 +65,6 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -112,7 +112,6 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -705,12 +704,9 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                     logicalNodes
             );
 
-            CompletableFuture<CompletableFuture<Void>> fut = IgniteTestUtils.runAsync(
-                    () -> {
-                        compactor.triggerCompaction(clockService.now());
+            compactor.triggerCompaction(clockService.now());
 
-                        return compactor.lastRunFuture();
-                    });
+            CompletableFuture<Void> fut = compactor.lastRunFuture();
 
             assertTrue(messageBlockLatch.await(5, TimeUnit.SECONDS));
 
@@ -1046,6 +1042,56 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
         }
     }
 
+    /**
+     * Checks that the exception thrown during min time propagation to replicas is not overwritten
+     * by an exception obtained during catalog compaction attempt.
+     */
+    @Test
+    public void timeToReplicasPropagationExceptionSuppressedWhenCompactionFailed() {
+        CreateTableCommandBuilder tableCmdBuilder = CreateTableCommand.builder()
+                .tableName("test")
+                .schemaName("PUBLIC")
+                .columns(List.of(columnParams("key1", INT32), columnParams("key2", INT32), columnParams("val", INT32, true)))
+                .primaryKey(TableHashPrimaryKey.builder().columns(List.of("key1", "key2")).build())
+                .colocationColumns(List.of("key2"));
+
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(tableCmdBuilder.build()), willCompleteSuccessfully());
+        assertThat(catalogManager.execute(TestCommand.ok()), willCompleteSuccessfully());
+
+        RuntimeException expectedCompactionErr = new IllegalStateException("Expected exception 1");
+        RuntimeException expectedPropagationErr = new IllegalArgumentException("Expected exception 2");
+
+        CatalogCompactionRunner compactor = createRunner(
+                NODE1,
+                NODE1,
+                node -> clockService.nowLong()
+        );
+
+        when(placementDriver.getAssignments(any(List.class), any())).thenReturn(CompletableFuture.failedFuture(expectedCompactionErr));
+
+        when(messagingService.send(any(ClusterNode.class), any(NetworkMessage.class)))
+                .thenReturn(CompletableFuture.failedFuture(expectedPropagationErr));
+
+        compactor.triggerCompaction(clockService.now());
+
+        ExecutionException ex = Assertions.assertThrows(ExecutionException.class,
+                () -> compactor.lastRunFuture().get());
+
+        assertThat(ex.getCause(), instanceOf(CompletionException.class));
+        assertThat(ex.getCause().getCause(), instanceOf(expectedCompactionErr.getClass()));
+        assertThat(ex.getCause().getCause().getMessage(), equalTo(expectedCompactionErr.getMessage()));
+
+        Throwable[] suppressed = ex.getCause().getSuppressed();
+
+        assertThat(suppressed, arrayWithSize(1));
+
+        assertThat(suppressed[0], instanceOf(CompletionException.class));
+        assertThat(suppressed[0].getCause(), instanceOf(CompletionException.class));
+        assertThat(suppressed[0].getCause().getCause(), instanceOf(expectedPropagationErr.getClass()));
+        assertThat(suppressed[0].getCause().getCause().getMessage(), equalTo(expectedPropagationErr.getMessage()));
+    }
+
     private void expectEarliestVersion(String reason, Matcher<Integer> versionMatcher) {
         Awaitility.await()
                 .timeout(BUSY_WAIT_TIMEOUT)
@@ -1174,7 +1220,6 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 clockService,
                 schemaSyncService,
                 topologyService,
-                ForkJoinPool.commonPool(),
                 clockService::nowLong,
                 minTimeCollector,
                 rebalanceMinimumRequiredTimeProvider

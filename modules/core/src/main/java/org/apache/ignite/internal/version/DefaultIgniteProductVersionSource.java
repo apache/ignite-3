@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.configuration;
+package org.apache.ignite.internal.version;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.ClusterConfigurationSchema;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * Extension for meta storage configuration schema.
+ * {@link IgniteProductVersionSource} that takes product name and version from the properties.
  */
-@ConfigurationExtension
-public class MetaStorageExtensionConfigurationSchema extends ClusterConfigurationSchema {
-    @ConfigValue
-    public MetaStorageConfigurationSchema metaStorage;
+public class DefaultIgniteProductVersionSource implements IgniteProductVersionSource {
+    @Override
+    public String productName() {
+        return IgniteProductVersion.CURRENT_PRODUCT;
+    }
+
+    @Override
+    public IgniteProductVersion productVersion() {
+        return IgniteProductVersion.CURRENT_VERSION;
+    }
 }

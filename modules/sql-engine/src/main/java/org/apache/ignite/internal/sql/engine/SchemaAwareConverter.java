@@ -15,17 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.sql.engine;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.ClusterConfigurationSchema;
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Extension for StorageUpdateHandler configuration schema.
+ * Schema-aware converter for sql row.
+ *
+ * @param <T> Column value type.
+ * @param <R> Result type.
  */
-@ConfigurationExtension
-public class StorageUpdateExtensionConfigurationSchema extends ClusterConfigurationSchema {
-    @ConfigValue
-    public StorageUpdateConfigurationSchema storageUpdate;
+@FunctionalInterface
+public interface SchemaAwareConverter<T, R> {
+    /**
+     * Applies this function to the given arguments.
+     *
+     * @param index Index of column to convert.
+     * @param value Column value to be converted.
+     * @return Converted value.
+     */
+    @Nullable R convert(int index, @Nullable T value);
 }

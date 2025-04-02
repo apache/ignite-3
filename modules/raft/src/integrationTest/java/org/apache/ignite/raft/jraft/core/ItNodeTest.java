@@ -216,6 +216,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
     private final List<ExecutorService> executors = new ArrayList<>();
 
+    private final List<Scheduler> schedulers = new ArrayList<>();
+
     private final List<FixedThreadsExecutorGroup> appendEntriesExecutors = new ArrayList<>();
 
     private PersistentLogStorageFactories persistentLogStorageFactories;
@@ -263,6 +265,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         });
 
         executors.forEach(ExecutorServiceHelper::shutdownAndAwaitTermination);
+
+        schedulers.forEach(Scheduler::shutdown);
 
         appendEntriesExecutors.forEach(FixedThreadsExecutorGroup::shutdownGracefully);
 
@@ -529,7 +533,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             applyLatch.countDown();
 
             // The state machine is in error state, the node should step down.
-            waitForCondition(() -> !node.isLeader(), 5_000);
+            assertTrue(waitForCondition(() -> !node.isLeader(), 5_000));
 
             latch.await();
             applyCompleteLatch.await();
@@ -616,7 +620,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         cluster.ensureLeader(cluster.waitAndGetLeader());
 
         for (Node follower : cluster.getFollowers())
-            waitForCondition(() -> follower.getLeaderId() != null, 5_000);
+            assertTrue(waitForCondition(() -> follower.getLeaderId() != null, 5_000));
 
         assertEquals(4, startedCounter.get());
         assertEquals(2, cluster.getLeader().getReplicatorStateListeners().size());
@@ -827,14 +831,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
             assertEquals(1, node.listPeers().size());
             assertTrue(node.listPeers().contains(peer.getPeerId()));
-            assertTrue(waitForCondition(() -> node.isLeader(), 1_000));
+            assertTrue(waitForCondition(node::isLeader, 1_000));
 
             sendTestTaskAndWait(node, cnt);
             assertEquals(cnt, fsm.getLogs().size());
             int i = 0;
             for (ByteBuffer data : fsm.getLogs())
                 assertEquals("hello" + i++, stringFromBytes(data.array()));
-            Thread.sleep(1000); //wait for entries to be replicated to learner.
+            // Wait for entries to be replicated to learner. The value is selected according to the period of sending accumulated messages
+            // in NodeManager.
+            Thread.sleep(nodeOptions.getElectionTimeoutMs());
             server.shutdown();
         }
         {
@@ -872,8 +878,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node leader = cluster.waitAndGetLeader();
         cluster.ensureLeader(leader);
 
-        waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000);
-        waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000);
+        assertTrue(waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000));
+        assertTrue(waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000));
 
         sendTestTaskAndWait(leader);
         List<MockStateMachine> fsms = cluster.getFsms();
@@ -2641,11 +2647,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         leader = cluster.waitAndGetLeader();
         assertEquals(follower, leader.getNodeId().getPeerId());
 
-        CountDownLatch latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
-        waitLatch(latch);
-        latch = new CountDownLatch(1);
-        leader.snapshot(new ExpectClosure(latch));
+        var latch = new CountDownLatch(1);
+        leader.snapshot(new ExpectClosure(latch), true);
         waitLatch(latch);
 
         // start the last peer which should be recover with snapshot.
@@ -3228,7 +3231,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
         nodeOpts.setFsm(fsm);
-        nodeOpts.setNodeManager(new NodeManager(null));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
 
@@ -3276,7 +3278,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         DefaultLogStorageFactory log2 = new DefaultLogStorageFactory(path);
         assertThat(log2.startAsync(startComponentContext), willCompleteSuccessfully());
         nodeOpts.setServiceFactory(new IgniteJraftServiceFactory(log2));
-        nodeOpts.setNodeManager(new NodeManager(null));
 
         RaftGroupService service = createService("test", peer, nodeOpts, List.of());
 
@@ -4545,7 +4546,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
 
         options.setServiceFactory(new IgniteJraftServiceFactory(log));
         options.setLogUri("test");
-        options.setNodeManager(new NodeManager(null));
 
         return options;
     }
@@ -4645,8 +4645,14 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 new StaticNodeFinder(addressList)
         );
 
-        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
+        Scheduler scheduler = JRaftUtils.createScheduler(nodeOptions);
+        schedulers.add(scheduler);
 
+        nodeOptions.setScheduler(scheduler);
+
+        nodeOptions.setNodeManager(new NodeManager(clusterService));
+
+        ExecutorService requestExecutor = JRaftUtils.createRequestExecutor(nodeOptions);
         executors.add(requestExecutor);
 
         IgniteRpcServer rpcServer = new TestIgniteRpcServer(clusterService, nodeOptions, requestExecutor);
@@ -4658,7 +4664,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertThat(clusterService.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         var service = new RaftGroupService(groupId, peer.getPeerId(), nodeOptions, rpcServer) {
-            @Override public synchronized void shutdown() {
+            @Override
+            public synchronized void shutdown() {
                 rpcServer.shutdown();
 
                 super.shutdown();
@@ -4670,6 +4677,15 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                 }
 
                 assertThat(clusterService.stopAsync(new ComponentContext()), willCompleteSuccessfully());
+
+                nodeOptions.getNodeManager().shutdown();
+            }
+
+            @Override
+            public synchronized Node start() {
+                nodeOptions.getNodeManager().init(nodeOptions);
+
+                return super.start();
             }
         };
 

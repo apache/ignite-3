@@ -15,26 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
-
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 /**
- * {@link ConfigurationModule} for the configuration of critical workers handling.
+ * Available throttling types.
  */
-@AutoService(ConfigurationModule.class)
-public class CriticalWorkersConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+public enum ThrottlingType {
+    /** Corresponds to no throttling. */
+    DISABLED,
 
-    @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(CriticalWorkersExtensionConfigurationSchema.class);
-    }
+    /** Corresponds to {@link TargetRatioPagesWriteThrottle}. */
+    TARGET_RATIO,
+
+    /** Corresponds to {@link PagesWriteSpeedBasedThrottle}. */
+    SPEED_BASED
 }

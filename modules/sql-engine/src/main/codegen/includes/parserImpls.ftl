@@ -87,9 +87,7 @@ void TableElement(List<SqlNode> list) :
     (
         <DEFAULT_> { s.add(this); }
         (
-            dflt = Literal()
-        |
-            dflt = SimpleIdentifier()
+            dflt = DefaultExpression()
         )  {
             strategy = ColumnStrategy.DEFAULT;
         }
@@ -414,7 +412,7 @@ SqlNode ColumnWithType() :
         }
     ]
     (
-        <DEFAULT_> { s.add(this); } dflt = Literal() {
+        <DEFAULT_> { s.add(this); } dflt = DefaultExpression() {
             strategy = ColumnStrategy.DEFAULT;
         }
     |
@@ -427,6 +425,13 @@ SqlNode ColumnWithType() :
     {
         return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
+}
+
+SqlNode DefaultExpression():
+{
+   SqlNode node;
+} {
+   node = Expression(ExprContext.ACCEPT_NON_QUERY) { return node; }
 }
 
 SqlNodeList ColumnWithTypeOrList() :
@@ -492,7 +497,7 @@ SqlNode SqlAlterColumn(Span s, SqlIdentifier tableId, boolean ifExists) :
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, null, false);
         }
     |
-        <SET> <DEFAULT_> { s.add(this); } dflt = Literal()
+        <SET> <DEFAULT_> { s.add(this); } dflt = DefaultExpression()
         {
             return new IgniteSqlAlterColumn(s.end(this), ifExists, tableId, id, null, false, dflt, null);
         }
@@ -508,7 +513,7 @@ SqlNode DefaultLiteralOrNull() :
     SqlNode dflt;
 }
 {
-    <DEFAULT_> dflt = Literal()
+    <DEFAULT_> dflt = DefaultExpression()
     {
         return dflt;
     }
@@ -658,7 +663,7 @@ void AlterZoneOption(List<SqlNode> list) :
 /**
 * Parse datetime types: date, time, timestamp.
 *
-* TODO Method doesn't recognize 'TIME_WITH_LOCAL_TIME_ZONE' type and should be removed after IGNITE-21555.
+* TODO Method doesn't recognize TIME_WITH_LOCAL_TIME_ZONE, TIME_TZ and TIMESTAMP_TZ types and should be removed after IGNITE-21555.
 */
 SqlTypeNameSpec IgniteDateTimeTypeName() :
 {
@@ -675,6 +680,7 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIME> { s = span(); }
     precision = PrecisionOpt()
+    (<WITHOUT> <TIME> <ZONE>)?
     {
         typeName = SqlTypeName.TIME;
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
@@ -682,10 +688,21 @@ SqlTypeNameSpec IgniteDateTimeTypeName() :
 |
     <TIMESTAMP> { s = span(); }
     precision = PrecisionOpt()
-    typeName = TimeZoneOpt(false)
+    typeName = TimestampZoneOpt()
     {
         return new SqlBasicTypeNameSpec(typeName, precision, s.end(this));
     }
+}
+
+SqlTypeName TimestampZoneOpt() :
+{
+}
+{
+    <WITHOUT> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP; }
+|
+    <WITH> <LOCAL> <TIME> <ZONE> { return SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE; }
+|
+    { return SqlTypeName.TIMESTAMP; }
 }
 
 SqlNode SqlStartTransaction() :

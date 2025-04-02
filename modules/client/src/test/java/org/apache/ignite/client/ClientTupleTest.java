@@ -19,6 +19,7 @@ package org.apache.ignite.client;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,6 +37,10 @@ import org.apache.ignite.internal.client.table.ClientColumn;
 import org.apache.ignite.internal.client.table.ClientSchema;
 import org.apache.ignite.internal.client.table.ClientTuple;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.AbstractMutableTupleTest;
 import org.apache.ignite.table.Tuple;
@@ -187,6 +192,9 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
 
         assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue(13));
         assertEquals(BigDecimal.valueOf(1234, 3), tuple.decimalValue("decimal"));
+
+        assertArrayEquals(BYTE_ARRAY_VALUE, tuple.bytesValue(14));
+        assertArrayEquals(BYTE_ARRAY_VALUE, tuple.bytesValue("bytes"));
     }
 
     @SuppressWarnings("ThrowableNotThrown")
@@ -334,6 +342,22 @@ public class ClientTupleTest extends AbstractMutableTupleTest {
     @Override
     protected Tuple createTuple(Function<Tuple, Tuple> transformer) {
         return transformer.apply(getTuple());
+    }
+
+    @Override
+    protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
+        ClientSchema clientSchema = new ClientSchema(1, new ClientColumn[]{
+                new ClientColumn(columnName, type, false, 0, -1, 0, 0, 5, 0)
+        }, marshallers);
+
+        NativeType nativeType = NativeTypes.fromObject(value);
+        BinaryTupleSchema binaryTupleSchema = BinaryTupleSchema.create(new Element[]{new Element(nativeType, false)});
+
+        var builder = new BinaryTupleBuilder(1);
+        binaryTupleSchema.appendValue(builder, 0, value);
+
+        var reader = new BinaryTupleReader(1, builder.build());
+        return new ClientTuple(clientSchema, TuplePart.KEY_AND_VAL, reader);
     }
 
     @Override

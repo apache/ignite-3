@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -112,6 +113,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
     private FileIoFactory fileIoFactory;
 
+    private DataRegion<PersistentPageMemory> dataRegion;
+
     @BeforeAll
     static void beforeAll() {
         ioRegistry = new PageIoRegistry();
@@ -175,7 +178,8 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         pageStoreManager.start();
         pageMemory.start();
 
-        dataRegions.add(() -> pageMemory);
+        dataRegion = () -> pageMemory;
+        dataRegions.add(dataRegion);
 
         checkpointManager.start();
 
@@ -369,6 +373,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         PagesWriteThrottlePolicy writeThrottle;
         if (speedBasedThrottling) {
             writeThrottle = new PagesWriteSpeedBasedThrottle(
+                    DEFAULT_LOGGING_THRESHOLD,
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
                     checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
@@ -376,6 +381,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
             );
         } else {
             writeThrottle = new TargetRatioPagesWriteThrottle(
+                    DEFAULT_LOGGING_THRESHOLD,
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
                     checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
@@ -389,6 +395,9 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         // Unlike regular "for" loop, "forEach" makes "i" effectively final.
         IntStream.range(0, SEGMENT_SIZE / PAGE_SIZE * 2).forEach(i -> runInLock(() -> {
+            // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
+            checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+
             long pageId = pageMemory.allocatePageNoReuse(GROUP_ID, PART_ID, PageIdAllocator.FLAG_AUX);
 
             pageIds[i] = pageId;
@@ -398,6 +407,9 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
 
         for (int i = 0; i < pageIds.length * 10; i++) {
             runInLock(() -> {
+                // TODO https://issues.apache.org/jira/browse/IGNITE-24877 This line should not be necessary.
+                checkpointManager.markPartitionAsDirty(dataRegion, GROUP_ID, PART_ID);
+
                 long pageId = pageIds[ThreadLocalRandom.current().nextInt(pageIds.length)];
 
                 acquireAndReleaseWriteLock(pageId, true);

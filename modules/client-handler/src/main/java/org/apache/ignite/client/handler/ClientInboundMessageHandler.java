@@ -74,8 +74,10 @@ import org.apache.ignite.client.handler.requests.sql.ClientSqlQueryMetadataReque
 import org.apache.ignite.client.handler.requests.table.ClientSchemasGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerBatchSendRequest;
 import org.apache.ignite.client.handler.requests.table.ClientStreamerWithReceiverBatchSendRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTableGetQualifiedRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTableGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablePartitionPrimaryReplicasGetRequest;
+import org.apache.ignite.client.handler.requests.table.ClientTablesGetQualifiedRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTablesGetRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsAllKeysRequest;
 import org.apache.ignite.client.handler.requests.table.ClientTupleContainsKeyRequest;
@@ -395,7 +397,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             int clientCode = unpacker.unpackInt();
 
-            BitSet features = HandshakeUtils.unpackFeatures(unpacker);
+            BitSet clientFeatures = HandshakeUtils.unpackFeatures(unpacker);
             Map<HandshakeExtension, Object> extensions = HandshakeUtils.unpackExtensions(unpacker);
 
             authenticationManager
@@ -404,7 +406,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
-                            clientContext = new ClientContext(clientVer, clientCode, features, user);
+                            BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
+                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
 
                             sendHandshakeResponse(ctx, packer);
                         }
@@ -862,6 +865,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
                 return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables);
+
+            case ClientOp.TABLES_GET_QUALIFIED:
+                return ClientTablesGetQualifiedRequest.process(out, igniteTables).thenRun(() -> {
+                    out.meta(clockService.current());
+                });
+
+            case ClientOp.TABLE_GET_QUALIFIED:
+                return ClientTableGetQualifiedRequest.process(in, out, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);

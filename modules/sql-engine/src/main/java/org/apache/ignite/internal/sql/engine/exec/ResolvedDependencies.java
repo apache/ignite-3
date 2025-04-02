@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
-import java.util.Map;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
@@ -27,14 +27,14 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
  */
 public class ResolvedDependencies {
 
-    private final Map<Integer, ExecutableTable> tableMap;
+    private final Int2ObjectMap<ExecutableTable> tableMap;
 
-    private final Map<Integer, ScannableDataSource> dataSourceMap;
+    private final Int2ObjectMap<ScannableDataSource> dataSourceMap;
 
     /** Constructor. */
     public ResolvedDependencies(
-            Map<Integer, ExecutableTable> tableMap,
-            Map<Integer, ScannableDataSource> dataSourceMap
+            Int2ObjectMap<ExecutableTable> tableMap,
+            Int2ObjectMap<ScannableDataSource> dataSourceMap
     ) {
         this.tableMap = tableMap;
         this.dataSourceMap = dataSourceMap;

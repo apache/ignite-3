@@ -43,6 +43,14 @@ public interface SnapshotExecutor extends Lifecycle<SnapshotExecutorOptions>, De
     void doSnapshot(final Closure done);
 
     /**
+     * Start to snapshot StateMachine, and |done| is called after the execution finishes or fails.
+     *
+     * @param done snapshot callback
+     * @param forced {@code True} to force snapshot and log truncation.
+     */
+    void doSnapshot(final Closure done, boolean forced);
+
+    /**
      * Returns the last snapshot index.
      * @return
      */

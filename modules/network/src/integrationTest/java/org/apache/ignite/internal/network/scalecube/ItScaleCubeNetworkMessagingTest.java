@@ -93,7 +93,10 @@ import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManage
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
+import org.apache.ignite.internal.version.IgniteProductVersionSource;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.logging.log4j.core.LogEvent;
@@ -659,6 +662,7 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(invokeViaOldChannel, willSucceedIn(3, SECONDS));
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+            // No assertion here on purpose.
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
@@ -776,6 +780,7 @@ class ItScaleCubeNetworkMessagingTest {
         assertThat(sendViaNewChannel, willSucceedIn(3, SECONDS));
 
         List<String> expectedPayloads = List.of("trailblazer", "first", "second");
+        // No assertion here on purpose.
         waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
         assertThat(receivedPayloads, equalTo(expectedPayloads));
 
@@ -856,6 +861,7 @@ class ItScaleCubeNetworkMessagingTest {
             assertThat(invokeViaNewChannel, willCompleteSuccessfully());
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second", "third", "fourth");
+            // No assertion here on purpose.
             waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
             assertThat(receivedPayloads, equalTo(expectedPayloads));
 
@@ -1109,6 +1115,44 @@ class ItScaleCubeNetworkMessagingTest {
         );
     }
 
+    @Test
+    public void nodesWithDifferentProductNamesCannotCommunicate() throws Exception {
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, IgniteProductVersionSource>();
+        Function<NetworkAddress, IgniteProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
+                addr,
+                k -> new ArbitraryIgniteProductVersionSource("product-" + k, IgniteProductVersion.CURRENT_VERSION)
+        );
+        testCluster = new Cluster(2, testInfo, Cluster.normalClusterIdSupplierFactory, versionSourceFactory);
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertFalse(
+                waitForCondition(testCluster::anyMembersSeeEachOther, SECONDS.toMillis(1)),
+                "Nodes with different product names are able to communicate"
+        );
+    }
+
+    @Test
+    public void nodesWithDifferentVersionsCannotCommunicate() throws Exception {
+        var productVersionSourcesMap = new ConcurrentHashMap<NetworkAddress, IgniteProductVersionSource>();
+        var addressCounter = new AtomicInteger();
+        Function<NetworkAddress, IgniteProductVersionSource> versionSourceFactory = addr -> productVersionSourcesMap.computeIfAbsent(
+                addr,
+                k -> {
+                    IgniteProductVersion version = IgniteProductVersion.fromString("1.0." + addressCounter.getAndIncrement());
+                    return new ArbitraryIgniteProductVersionSource(IgniteProductVersion.CURRENT_PRODUCT, version);
+                }
+        );
+        testCluster = new Cluster(2, testInfo, Cluster.normalClusterIdSupplierFactory, versionSourceFactory);
+
+        assertThat(startAsync(new ComponentContext(), testCluster.members), willCompleteSuccessfully());
+
+        assertFalse(
+                waitForCondition(testCluster::anyMembersSeeEachOther, SECONDS.toMillis(1)),
+                "Nodes with different versions are able to communicate"
+        );
+    }
+
     private void knockOutNode(String outcastName, boolean closeConnectionsForcibly) throws InterruptedException {
         CountDownLatch disappeared = new CountDownLatch(testCluster.members.size() - 1);
 
@@ -1263,6 +1307,7 @@ class ItScaleCubeNetworkMessagingTest {
      */
     private static final class Cluster {
         private static final ClusterIdSupplier normalClusterIdSupplier = new SameRandomClusterIdSupplier();
+        private static final Function<NetworkAddress, ClusterIdSupplier> normalClusterIdSupplierFactory = addr -> normalClusterIdSupplier;
 
         /** Members of the cluster. */
         final List<ClusterService> members;
@@ -1277,7 +1322,7 @@ class ItScaleCubeNetworkMessagingTest {
          * @param testInfo   Test info.
          */
         Cluster(int numOfNodes, TestInfo testInfo) {
-            this(numOfNodes, testInfo, addr -> normalClusterIdSupplier);
+            this(numOfNodes, testInfo, normalClusterIdSupplierFactory);
         }
 
         /**
@@ -1288,6 +1333,22 @@ class ItScaleCubeNetworkMessagingTest {
          * @param clusterIdSupplierFactory Allows to obtain a Supplier for cluster ID by node address.
          */
         Cluster(int numOfNodes, TestInfo testInfo, Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory) {
+            this(numOfNodes, testInfo, clusterIdSupplierFactory, addr -> new DefaultIgniteProductVersionSource());
+        }
+
+        /**
+         * Creates a test cluster with the given amount of members.
+         *
+         * @param numOfNodes Amount of cluster members.
+         * @param testInfo   Test info.
+         * @param clusterIdSupplierFactory Allows to obtain a Supplier for cluster ID by node address.
+         */
+        Cluster(
+                int numOfNodes,
+                TestInfo testInfo,
+                Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory,
+                Function<NetworkAddress, IgniteProductVersionSource> productVersionSourceFactory
+        ) {
             int initialPort = INITIAL_PORT;
 
             List<NetworkAddress> addresses = findLocalAddresses(initialPort, initialPort + numOfNodes);
@@ -1295,7 +1356,7 @@ class ItScaleCubeNetworkMessagingTest {
             this.nodeFinder = new StaticNodeFinder(addresses);
 
             members = addresses.stream()
-                    .map(addr -> startNode(testInfo, addr, clusterIdSupplierFactory))
+                    .map(addr -> startNode(testInfo, addr, clusterIdSupplierFactory, productVersionSourceFactory))
                     .collect(toUnmodifiableList());
         }
 
@@ -1305,15 +1366,26 @@ class ItScaleCubeNetworkMessagingTest {
          * @param testInfo Test info.
          * @param addr Node address.
          * @param clusterIdSupplierFactory Factory of cluster ID suppliers.
+         * @param productVersionSourceFactory Factory of product version sources.
          * @return Started cluster node.
          */
         private ClusterService startNode(
                 TestInfo testInfo,
                 NetworkAddress addr,
-                Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory
+                Function<NetworkAddress, ClusterIdSupplier> clusterIdSupplierFactory,
+                Function<NetworkAddress, IgniteProductVersionSource> productVersionSourceFactory
         ) {
             ClusterIdSupplier clusterIdSupplier = clusterIdSupplierFactory.apply(addr);
-            return ClusterServiceTestUtils.clusterService(testInfo, addr.port(), nodeFinder, new InMemoryStaleIds(), clusterIdSupplier);
+            IgniteProductVersionSource productVersionSource = productVersionSourceFactory.apply(addr);
+
+            return ClusterServiceTestUtils.clusterService(
+                    testInfo,
+                    addr.port(),
+                    nodeFinder,
+                    new InMemoryStaleIds(),
+                    clusterIdSupplier,
+                    productVersionSource
+            );
         }
 
         /**
@@ -1325,9 +1397,7 @@ class ItScaleCubeNetworkMessagingTest {
         void startAwait() throws InterruptedException {
             assertThat(startAsync(new ComponentContext(), members), willCompleteSuccessfully());
 
-            if (!waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3))) {
-                throw new AssertionError();
-            }
+            assertTrue(waitForCondition(this::allMembersSeeEachOther, SECONDS.toMillis(3)));
         }
 
         private boolean allMembersSeeEachOther() {

@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.rex.RexNode;
@@ -80,7 +81,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .build();
 
         ColocationGroup group = new ColocationGroup(
-                List.of(1L, 2L), List.of("n1", "n2", "n3"),
+                LongList.of(1L, 2L), List.of("n1", "n2", "n3"),
                 assignments,
                 partitionsPerNode
         );
@@ -125,7 +126,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .build();
 
         ColocationGroup group = new ColocationGroup(
-                List.of(1L, 2L), List.of("n1", "n2", "n3"),
+                LongList.of(1L, 2L), List.of("n1", "n2", "n3"),
                 assignments
         );
 
@@ -169,7 +170,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .build();
 
         ColocationGroup group = new ColocationGroup(
-                List.of(1L, 2L), List.of("n1", "n2", "n3"),
+                LongList.of(1L, 2L), List.of("n1", "n2", "n3"),
                 assignments,
                 Map.of()
         );

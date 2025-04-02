@@ -121,6 +121,7 @@ public class Checkpointer extends IgniteWorker {
             + "pagesWriteTime={}ms, "
             + "fsyncTime={}ms, "
             + "replicatorLogSyncTime={}ms, "
+            + "waitCompletePageReplacementTime={}ms, "
             + "totalTime={}ms, "
             + "avgWriteSpeed={}MB/s]";
 
@@ -150,6 +151,13 @@ public class Checkpointer extends IgniteWorker {
 
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
+
+    /**
+     * Checkpoint progress instance with a more limited range of visibility. It is initialized when checkpoint write lick is acquired, and
+     * nullified when checkpoint finishes (unlike {@link #currentCheckpointProgress} that is updated before we started notifying checkpoint
+     * listeners and is never nullified).
+     */
+    private volatile @Nullable CheckpointProgressImpl currentCheckpointProgressForThrottling;
 
     /** Checkpoint progress after releasing write lock. */
     private volatile @Nullable CheckpointProgressImpl afterReleaseWriteLockCheckpointProgress;
@@ -403,6 +411,7 @@ public class Checkpointer extends IgniteWorker {
                             tracker.pagesWriteDuration(MILLISECONDS),
                             tracker.fsyncDuration(MILLISECONDS),
                             tracker.replicatorLogSyncDuration(MILLISECONDS),
+                            tracker.waitPageReplacementDuration(MILLISECONDS),
                             tracker.checkpointDuration(MILLISECONDS),
                             WriteSpeedFormatter.formatWriteSpeed(avgWriteSpeedInBytes)
                     );
@@ -416,6 +425,8 @@ public class Checkpointer extends IgniteWorker {
             failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
             throw e;
+        } finally {
+            currentCheckpointProgressForThrottling = null;
         }
     }
 
@@ -486,10 +497,14 @@ public class Checkpointer extends IgniteWorker {
             return false;
         }
 
+        tracker.onWaitPageReplacementStart();
+
         // Waiting for the completion of all page replacements if present.
         // Will complete normally or with the first error on one of the page replacements.
         // join() is used intentionally as above.
         currentCheckpointProgress.getUnblockFsyncOnPageReplacementFuture().join();
+
+        tracker.onWaitPageReplacementEnd();
 
         // Must re-check shutdown flag here because threads could take a long time to complete the page replacement.
         // If so, we should not finish checkpoint.
@@ -678,6 +693,10 @@ public class Checkpointer extends IgniteWorker {
             scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
             currentCheckpointProgress = curr;
+
+            curr.futureFor(LOCK_TAKEN).thenRun(() -> {
+                currentCheckpointProgressForThrottling = curr;
+            });
         }
     }
 
@@ -771,6 +790,10 @@ public class Checkpointer extends IgniteWorker {
 
     @Nullable CheckpointProgress currentCheckpointProgress() {
         return currentCheckpointProgress;
+    }
+
+    public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
+        return currentCheckpointProgressForThrottling;
     }
 
     /**

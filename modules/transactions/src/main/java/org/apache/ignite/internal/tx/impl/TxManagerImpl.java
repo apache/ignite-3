@@ -469,11 +469,15 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
-        HybridTimestamp observableTimestamp = timestampTracker.get();
+        HybridTimestamp readTimestamp = options.readTimestamp();
 
-        HybridTimestamp readTimestamp = observableTimestamp != null
-                ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
-                : currentReadTimestamp(beginTimestamp);
+        if (readTimestamp == null) {
+            HybridTimestamp observableTimestamp = timestampTracker.get();
+
+            readTimestamp = observableTimestamp != null
+                    ? HybridTimestamp.max(observableTimestamp, currentReadTimestamp(beginTimestamp))
+                    : currentReadTimestamp(beginTimestamp);
+        }
 
         boolean lockAcquired = lowWatermark.tryLock(txId, readTimestamp);
         if (!lockAcquired) {
@@ -607,7 +611,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId
     ) {
-        LOG.debug("Finish [commit={}, txId={}, groups={}].", commitIntent, txId, enlistedGroups);
+        LOG.debug("Finish [commit={}, txId={}, groups={}, commitPartId={}].", commitIntent, txId, enlistedGroups, commitPartition);
 
         if (commitPartition != null) {
             assertReplicationGroupType(commitPartition);
@@ -702,7 +706,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private CompletableFuture<Void> prepareFinish(
             HybridTimestampTracker observableTimestampTracker,
-            ReplicationGroupId commitPartition,
+            @Nullable ReplicationGroupId commitPartition,
             boolean commit,
             Map<ReplicationGroupId, PendingTxPartitionEnlistment> enlistedGroups,
             UUID txId,
@@ -750,7 +754,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     ) {
         return inBusyLockAsync(busyLock, () -> placementDriverHelper.awaitPrimaryReplicaWithExceptionHandling(commitPartition)
                 .thenCompose(meta ->
-                        makeFinishRequest(
+                        sendFinishRequest(
                                 observableTimestampTracker,
                                 commitPartition,
                                 meta.getLeaseholder(),
@@ -813,7 +817,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 .thenCompose(identity()));
     }
 
-    private CompletableFuture<Void> makeFinishRequest(
+    private CompletableFuture<Void> sendFinishRequest(
             HybridTimestampTracker observableTimestampTracker,
             ReplicationGroupId commitPartition,
             String primaryConsistentId,

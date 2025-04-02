@@ -159,7 +159,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRegistry;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -171,7 +170,9 @@ import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileConfigurationSchema;
@@ -202,15 +203,13 @@ import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -315,7 +314,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private MetaStorageConfiguration metaStorageConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -776,10 +775,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
         }
 
-        waitForCondition(
+        assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
-        );
+        ));
 
         // Wait for rebalance to complete.
         assertTrue(waitForCondition(
@@ -1212,7 +1211,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
-                            VolatilePageMemoryProfileConfigurationSchema.class
+                            VolatilePageMemoryProfileConfigurationSchema.class,
+                            StaticNodeFinderConfigurationSchema.class,
+                            MulticastNodeFinderConfigurationSchema.class
                     )
             );
 
@@ -1327,7 +1328,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     hybridClock,
                     topologyAwareRaftGroupServiceFactory,
                     metricManager,
-                    metaStorageConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -1364,7 +1365,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(ClusterConfiguration.KEY),
                     List.of(
                             GcExtensionConfigurationSchema.class,
-                            StorageUpdateExtensionConfigurationSchema.class,
+                            ReplicationExtensionConfigurationSchema.class,
                             SystemDistributedExtensionConfigurationSchema.class
                     ),
                     List.of()
@@ -1483,9 +1484,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clockService
             );
 
-            StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
-                    .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
-
             MinimumRequiredTimeCollectorService minTimeCollectorService = new MinimumRequiredTimeCollectorServiceImpl();
 
             sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -1514,6 +1512,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     sharedTxStateStorage,
                     txManager,
                     schemaManager,
+                    dataStorageMgr,
                     outgoingSnapshotManager
             );
 
@@ -1522,7 +1521,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     registry,
                     gcConfig,
                     txConfiguration,
-                    storageUpdateConfiguration,
+                    replicationConfiguration,
                     clusterService.messagingService(),
                     clusterService.topologyService(),
                     clusterService.serializationRegistry(),

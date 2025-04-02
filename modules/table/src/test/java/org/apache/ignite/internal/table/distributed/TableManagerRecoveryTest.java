@@ -111,18 +111,17 @@ import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -169,14 +168,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private static final long WAIT_TIMEOUT = SECONDS.toMillis(10);
 
     // Configuration
-    @InjectConfiguration("mock.profiles.default = {engine = aipersist}")
-    private StorageConfiguration storageConfiguration;
+    @InjectConfiguration("mock.storage = {profiles.default = {engine = \"aipersist\"}}")
+    private NodeConfiguration nodeConfiguration;
     @InjectConfiguration
     private GcConfiguration gcConfig;
     @InjectConfiguration
     private TransactionConfiguration txConfig;
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
@@ -382,6 +381,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sharedTxStateStorage,
                 txManager,
                 sm,
+                dsm,
                 outgoingSnapshotManager
         );
 
@@ -390,7 +390,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 revisionUpdater,
                 gcConfig,
                 txConfig,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
@@ -496,9 +496,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private DataStorageManager createDataStorageManager() {
         ConfigurationRegistry mockedRegistry = mock(ConfigurationRegistry.class);
 
-        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
-        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
-        when(mock.storage()).thenReturn(storageConfiguration);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(List.of(dataStorageModule));
 
@@ -514,7 +512,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                         clock,
                         scheduledExecutor
                 ),
-                storageConfiguration
+                ((StorageExtensionConfiguration) nodeConfiguration).storage()
         );
 
         assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());
