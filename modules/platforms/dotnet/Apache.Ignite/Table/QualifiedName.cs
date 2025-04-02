@@ -104,7 +104,7 @@ public record struct QualifiedName
         bool quoted = name[0] == QuoteChar;
         int pos = quoted ? 1 : 0;
 
-        while (true)
+        for (; pos < name.Length; pos++)
         {
             char ch = name[pos];
 
@@ -119,7 +119,7 @@ public record struct QualifiedName
                 if (nextCh == QuoteChar)
                 {
                     // Escaped quote.
-                    pos+= 2;
+                    pos++;
                     continue;
                 }
 
@@ -134,6 +134,23 @@ public record struct QualifiedName
                     // End of quoted identifier, no separator.
                     return -1;
                 }
+
+                throw new FormatException($"Unexpected character after quote at position {pos}: {name}");
+            }
+
+            if (ch == SeparatorChar)
+            {
+                if (quoted)
+                {
+                    continue;
+                }
+
+                return pos;
+            }
+
+            if (!quoted && !IsIdentifierStart(ch) && !IsIdentifierExtend(c))
+            {
+
             }
         }
 
@@ -141,6 +158,18 @@ public record struct QualifiedName
         return -1;
     }
 
+    /** An identifier start is any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”. */
     private static bool IsIdentifierStart(char c) =>
         char.IsLetter(c) || c == '_';
+
+    /** An identifier extend is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.*/
+    private static bool IsIdentifierExtend(char c)
+    {
+        return c == ('·' & 0xff) /* “Middle Dot” character */
+               || ((((1 << (byte) 6)
+                     | (1 << (byte) 8)
+                     | (1 << (byte) 9)
+                     | (1 << (byte) 23)
+                     | (1 << (byte) 16)) >> (int)char.GetUnicodeCategory(c)) & 1) != 0;
+    }
 }
