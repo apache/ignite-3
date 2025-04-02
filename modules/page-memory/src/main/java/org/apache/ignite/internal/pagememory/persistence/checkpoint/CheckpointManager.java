@@ -242,6 +242,10 @@ public class CheckpointManager {
         return checkpointer.currentCheckpointProgress();
     }
 
+    public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
+        return checkpointer.currentCheckpointProgressForThrottling();
+    }
+
     /**
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */

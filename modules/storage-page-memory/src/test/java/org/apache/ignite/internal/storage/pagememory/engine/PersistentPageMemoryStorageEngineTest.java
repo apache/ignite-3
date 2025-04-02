@@ -53,6 +53,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

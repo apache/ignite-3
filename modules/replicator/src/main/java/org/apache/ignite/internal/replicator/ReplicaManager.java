@@ -55,6 +55,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -123,6 +124,7 @@ import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
+import org.apache.ignite.internal.util.TrackerClosedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
@@ -282,7 +284,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         this.replicaStateManager = new ReplicaStateManager(
                 replicaStartStopExecutor,
-                requestsExecutor,
                 clockService,
                 placementDriver,
                 this
@@ -455,7 +456,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     }
 
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
-        return !(unwrapCause(ex) instanceof ExpectedReplicationException);
+        Throwable unwrapped = unwrapCause(ex);
+        return !(unwrapped instanceof ExpectedReplicationException) && !(unwrapped instanceof TrackerClosedException);
     }
 
     /**
@@ -1108,8 +1110,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
-                    && !hasCauseOrSuppressed(ex, CancellationException.class)) {
+            if (ex != null
+                    && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
+                    && !hasCauseOrSuppressed(ex, CancellationException.class)
+                    && !hasCauseOrSuppressed(ex, RejectedExecutionException.class)
+            ) {
                 LOG.error("Could not advance safe time for {}", ex, replica.groupId());
             }
         });

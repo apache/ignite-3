@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
+package org.apache.ignite.internal.version;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.NodeConfigurationSchema;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * Extension for critical workers configuration schema.
+ * Allows to obtain product name and version.
  */
-@ConfigurationExtension
-public class CriticalWorkersExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+public interface IgniteProductVersionSource {
+    /** Returns product name. */
+    String productName();
+
+    /** Returns product version. */
+    IgniteProductVersion productVersion();
 }

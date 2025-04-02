@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft;
 
+import java.util.Collections;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -56,6 +57,6 @@ public class MinimumRequiredTimeCollectorServiceImpl implements MinimumRequiredT
     /** {@inheritDoc} */
     @Override
     public Map<TablePartitionId, Long> minTimestampPerPartition() {
-        return Map.copyOf(partitions);
+        return Collections.unmodifiableMap(partitions);
     }
 }

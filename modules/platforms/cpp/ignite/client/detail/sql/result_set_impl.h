@@ -115,8 +115,10 @@ public:
             self->m_resource_id = std::nullopt;
         };
 
-        return m_connection->perform_request<void>(
+        auto req_id = m_connection->perform_request<void>(
             protocol::client_operation::SQL_CURSOR_CLOSE, writer_func, std::move(reader_func), std::move(callback));
+
+        return req_id.has_value();
     }
 
     /**

@@ -777,6 +777,12 @@ namespace Apache.Ignite.Internal
             }
             catch (Exception e)
             {
+                if (IsDisposed || e is OperationCanceledException)
+                {
+                    // Connection is closing - ignore.
+                    return;
+                }
+
                 var message = "Exception while reading from socket, connection closed: " + e.Message;
 
                 _logger.LogSocketIoError(e, message);

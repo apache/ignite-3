@@ -78,6 +78,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
+import org.apache.ignite.internal.configuration.SystemLocalExtensionConfigurationSchema;
 import org.apache.ignite.internal.configuration.storage.DistributedConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.LocalFileConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
@@ -105,7 +106,6 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -139,13 +139,11 @@ import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfigurationSchema;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateExtensionConfigurationSchema;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.api.PublicApiThreadingIgniteSql;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
@@ -321,7 +319,7 @@ public class Node {
             RaftConfiguration raftConfiguration,
             NodeAttributesConfiguration nodeAttributesConfiguration,
             StorageConfiguration storageConfiguration,
-            MetaStorageConfiguration metaStorageConfiguration,
+            SystemDistributedConfiguration systemConfiguration,
             ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration transactionConfiguration,
             ScheduledExecutorService scheduledExecutorService,
@@ -343,6 +341,7 @@ public class Node {
                 List.of(
                         NetworkExtensionConfigurationSchema.class,
                         StorageExtensionConfigurationSchema.class,
+                        SystemLocalExtensionConfigurationSchema.class,
                         PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                         VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
                 ),
@@ -463,7 +462,7 @@ public class Node {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration,
+                systemConfiguration,
                 msRaftConfigurer,
                 readOperationForCompactionTracker
         ) {
@@ -530,7 +529,7 @@ public class Node {
                 List.of(ClusterConfiguration.KEY),
                 List.of(
                         GcExtensionConfigurationSchema.class,
-                        StorageUpdateExtensionConfigurationSchema.class,
+                        ReplicationExtensionConfigurationSchema.class,
                         SystemDistributedExtensionConfigurationSchema.class
                 ),
                 List.of()
@@ -646,7 +645,6 @@ public class Node {
                 clockService,
                 schemaSyncService,
                 clusterService.topologyService(),
-                threadPoolsManager.commonScheduler(),
                 clockService::nowLong,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
@@ -704,9 +702,6 @@ public class Node {
                 outgoingSnapshotsManager
         );
 
-        StorageUpdateConfiguration storageUpdateConfiguration = clusterConfigRegistry
-                .getConfiguration(StorageUpdateExtensionConfiguration.KEY).storageUpdate();
-
         resourceVacuumManager = new ResourceVacuumManager(
                 name,
                 resourcesRegistry,
@@ -722,7 +717,7 @@ public class Node {
                 registry,
                 gcConfiguration,
                 transactionConfiguration,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),

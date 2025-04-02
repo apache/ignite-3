@@ -533,7 +533,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             applyLatch.countDown();
 
             // The state machine is in error state, the node should step down.
-            waitForCondition(() -> !node.isLeader(), 5_000);
+            assertTrue(waitForCondition(() -> !node.isLeader(), 5_000));
 
             latch.await();
             applyCompleteLatch.await();
@@ -620,7 +620,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         cluster.ensureLeader(cluster.waitAndGetLeader());
 
         for (Node follower : cluster.getFollowers())
-            waitForCondition(() -> follower.getLeaderId() != null, 5_000);
+            assertTrue(waitForCondition(() -> follower.getLeaderId() != null, 5_000));
 
         assertEquals(4, startedCounter.get());
         assertEquals(2, cluster.getLeader().getReplicatorStateListeners().size());
@@ -878,8 +878,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node leader = cluster.waitAndGetLeader();
         cluster.ensureLeader(leader);
 
-        waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000);
-        waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000);
+        assertTrue(waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000));
+        assertTrue(waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000));
 
         sendTestTaskAndWait(leader);
         List<MockStateMachine> fsms = cluster.getFsms();

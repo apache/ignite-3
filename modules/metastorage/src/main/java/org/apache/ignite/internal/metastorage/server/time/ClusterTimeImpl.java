@@ -26,6 +26,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureType;
@@ -35,7 +36,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetrics;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -122,7 +122,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      *
      * @param syncTimeAction Action that performs the time sync operation.
      */
-    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration, long term) {
+    public void startSafeTimeScheduler(SyncTimeAction syncTimeAction, SystemDistributedConfiguration configuration, long term) {
         if (!busyLock.enterBusy()) {
             return;
         }
@@ -202,7 +202,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
     private class SafeTimeScheduler {
         private final SyncTimeAction syncTimeAction;
 
-        private final MetaStorageConfiguration configuration;
+        private final SystemDistributedConfiguration configuration;
 
         private final ScheduledExecutorService executorService =
                 Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "meta-storage-safe-time", LOG));
@@ -215,7 +215,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
         @Nullable
         private ScheduledFuture<?> currentTask;
 
-        SafeTimeScheduler(SyncTimeAction syncTimeAction, MetaStorageConfiguration configuration) {
+        SafeTimeScheduler(SyncTimeAction syncTimeAction, SystemDistributedConfiguration configuration) {
             this.syncTimeAction = syncTimeAction;
             this.configuration = configuration;
         }
@@ -242,7 +242,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                         throw t;
                     }
                 }
-            }, configuration.idleSyncTimeInterval().value(), TimeUnit.MILLISECONDS);
+            }, configuration.idleSafeTimeSyncInterval().value(), TimeUnit.MILLISECONDS);
         }
 
         private void tryToSyncTimeAndReschedule() {

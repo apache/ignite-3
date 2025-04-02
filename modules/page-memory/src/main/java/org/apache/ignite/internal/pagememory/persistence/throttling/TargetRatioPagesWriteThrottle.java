@@ -36,6 +36,8 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TargetRatioPagesWriteThrottle.class);
 
+    private final long logThresholdNanos;
+
     /** Page memory. */
     private final PersistentPageMemory pageMemory;
 
@@ -68,17 +70,20 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
     /**
      * Constructor.
      *
+     * @param logThresholdNanos Minimal throttling duration required for printing a warning message to the log.
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker checkpoint lock state checker.
      * @param metricSource Metric source.
      */
     public TargetRatioPagesWriteThrottle(
+            long logThresholdNanos,
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
             CheckpointLockStateChecker stateChecker,
             PersistentPageMemoryMetricSource metricSource
     ) {
+        this.logThresholdNanos = logThresholdNanos;
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         this.stateChecker = stateChecker;
@@ -132,7 +137,7 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
 
             Thread curThread = Thread.currentThread();
 
-            if (throttleParkTimeNs > LOGGING_THRESHOLD) {
+            if (throttleParkTimeNs > logThresholdNanos) {
                 LOG.warn("Parking thread=" + curThread.getName()
                         + " for timeout(ms)=" + TimeUnit.NANOSECONDS.toMillis(throttleParkTimeNs));
             }
@@ -147,7 +152,7 @@ public class TargetRatioPagesWriteThrottle implements PagesWriteThrottlePolicy {
                 } finally {
                     cpBufThrottledThreads.remove(curThread.getId());
 
-                    if (throttleParkTimeNs > LOGGING_THRESHOLD) {
+                    if (throttleParkTimeNs > logThresholdNanos) {
                         LOG.warn("Unparking thread=" + curThread.getName()
                                 + " with park timeout(ms)=" + TimeUnit.NANOSECONDS.toMillis(throttleParkTimeNs));
                     }

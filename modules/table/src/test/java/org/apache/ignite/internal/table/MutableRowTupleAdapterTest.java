@@ -539,4 +539,19 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
 
         return TableRow.tuple(marshaller.marshal(tuple));
     }
+
+    @Override
+    protected Tuple createTupleOfSingleColumn(ColumnType type, String columnName, Object value) {
+        NativeType nativeType = NativeTypes.fromObject(value);
+        SchemaDescriptor schema = new SchemaDescriptor(42,
+                new Column[]{new Column(columnName.toUpperCase(), nativeType, false)},
+                new Column[]{}
+        );
+
+        Tuple tuple = Tuple.create().set(columnName, value);
+
+        TupleMarshaller marshaller = new TupleMarshallerImpl(schema);
+
+        return TableRow.tuple(marshaller.marshal(tuple));
+    }
 }

@@ -15,22 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.version;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 
-/**
- * Configuration schema for StorageUpdateHandler.
- */
-@Config
-public class StorageUpdateConfigurationSchema {
+import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.junit.jupiter.api.Test;
 
-    /**
-     * Maximum allowed length (in bytes) of a batch to write into physical storage.
-     **/
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int batchByteLength = 8192;
+class DefaultIgniteProductVersionSourceTest {
+    @Test
+    void productNameMatchesValueFromProperties() {
+        var source = new DefaultIgniteProductVersionSource();
+
+        assertThat(source.productName(), equalTo(IgniteProductVersion.CURRENT_PRODUCT));
+    }
+
+    @Test
+    void productVersionMatchesValueFromProperties() {
+        var source = new DefaultIgniteProductVersionSource();
+
+        assertThat(source.productVersion(), equalTo(IgniteProductVersion.CURRENT_VERSION));
+    }
 }

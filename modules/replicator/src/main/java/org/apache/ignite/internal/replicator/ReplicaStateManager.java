@@ -54,8 +54,6 @@ class ReplicaStateManager {
 
     private final Executor replicaStartStopExecutor;
 
-    private final Executor requestsExecutor;
-
     private final ClockService clockService;
 
     private final PlacementDriver placementDriver;
@@ -68,13 +66,11 @@ class ReplicaStateManager {
 
     ReplicaStateManager(
             Executor replicaStartStopExecutor,
-            Executor requestsExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
             ReplicaManager replicaManager
     ) {
         this.replicaStartStopExecutor = replicaStartStopExecutor;
-        this.requestsExecutor = requestsExecutor;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaManager = replicaManager;
@@ -351,7 +347,7 @@ class ReplicaStateManager {
                     : clockService.waitFor(leaseExpirationTime);
 
             return context.deferredStopReadyFuture
-                    .thenComposeAsync(unused -> stopReplica(groupId, context, deferredStopOperation), requestsExecutor);
+                    .thenCompose(unused -> stopReplica(groupId, context, deferredStopOperation));
         }
     }
 

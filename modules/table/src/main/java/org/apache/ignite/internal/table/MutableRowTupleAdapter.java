@@ -223,6 +223,18 @@ public class MutableRowTupleAdapter extends AbstractRowTupleAdapter implements S
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return tuple != null ? tuple.bytesValue(columnName) : super.bytesValue(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return tuple != null ? tuple.bytesValue(columnIndex) : super.bytesValue(columnIndex);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return tuple != null ? tuple.uuidValue(columnName) : super.uuidValue(columnName);
     }

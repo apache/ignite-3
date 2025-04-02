@@ -30,13 +30,11 @@
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 
-#include <array>
 #include <functional>
 #include <future>
 #include <memory>
 #include <mutex>
 #include <random>
-#include <vector>
 #include <optional>
 #include <unordered_map>
 
@@ -61,7 +59,7 @@ public:
     static constexpr uint16_t DEFAULT_TCP_PORT = 10800;
 
     /**
-     * Create new instance of the object.
+     * Create a new instance of the object.
      *
      * @param configuration Configuration.
      * @return New instance.
@@ -101,9 +99,11 @@ public:
      * @param tx Transaction.
      * @param wr Request writer function.
      * @param handler Request handler.
+     * @return A connection used to perform request and the request ID.
      */
-    void perform_request_handler(protocol::client_operation op, transaction_impl *tx,
-        const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler> &handler);
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_handler(protocol::client_operation op,
+        transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+        const std::shared_ptr<response_handler> &handler);
 
     /**
      * Perform request raw.
@@ -112,7 +112,7 @@ public:
      * @param op Operation code.
      * @param tx Transaction.
      * @param wr Request writer function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      */
     void perform_request_raw(protocol::client_operation op, transaction_impl *tx,
         const std::function<void(protocol::writer &)> &wr, ignite_callback<bytes_view> callback);
@@ -124,14 +124,16 @@ public:
      * @param op Operation code.
      * @param tx Transaction.
      * @param wr Request writer function.
-     * @param callback Callback to call on result.
+     * @param rd Response reader function.
+     * @param callback Callback to call on a result.
+     * @return A connection used to perform request and the request ID.
      */
     template<typename T>
-    void perform_request_bytes(protocol::client_operation op, transaction_impl *tx,
-        const std::function<void(protocol::writer &)> &wr,
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_bytes(protocol::client_operation op,
+        transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
         std::function<T(std::shared_ptr<node_connection>, bytes_view)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_bytes<T>>(std::move(rd), std::move(callback));
-        perform_request_handler(op, tx, wr, std::move(handler));
+        return perform_request_handler(op, tx, wr, std::move(handler));
     }
 
     /**
@@ -141,15 +143,15 @@ public:
      * @param op Operation code.
      * @param tx Transaction.
      * @param wr Request writer function.
-     * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param rd Response reader function.
+     * @param callback Callback to call on a result.
      */
     template<typename T>
-    void perform_request(protocol::client_operation op, transaction_impl *tx,
-        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
-        ignite_callback<T> callback) {
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request(protocol::client_operation op,
+        transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
-        perform_request_handler(op, tx, wr, std::move(handler));
+        return perform_request_handler(op, tx, wr, std::move(handler));
     }
 
     /**
@@ -159,7 +161,7 @@ public:
      * @param op Operation code.
      * @param wr Request writer function.
      * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      */
     template<typename T>
     void perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
@@ -175,7 +177,7 @@ public:
      * @param op Operation code.
      * @param wr Request writer function.
      * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      */
     template<typename T>
     void perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
@@ -190,13 +192,12 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      */
     template<typename T>
     void perform_request_rd(
         protocol::client_operation op, std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
-        perform_request<T>(
-            op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+        perform_request<T>(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
     }
 
     /**
@@ -205,13 +206,12 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      */
     template<typename T>
     void perform_request_rd(protocol::client_operation op,
         std::function<T(protocol::reader &, std::shared_ptr<node_connection>)> rd, ignite_callback<T> callback) {
-        perform_request<T>(
-            op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
+        perform_request<T>(op, [](protocol::writer &) {}, std::move(rd), std::move(callback));
     }
 
     /**
@@ -220,13 +220,12 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      */
     template<typename T>
     void perform_request_wr(
         protocol::client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
-        perform_request<T>(
-            op, wr, [](protocol::reader &) {}, std::move(callback));
+        perform_request<T>(op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
     /**
@@ -236,13 +235,13 @@ public:
      * @param op Operation code.
      * @param tx Transaction.
      * @param wr Request writer function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
+     * @return A connection used to perform request and the request ID.
      */
     template<typename T>
-    void perform_request_wr(protocol::client_operation op, transaction_impl *tx,
-        const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
-        perform_request<T>(
-            op, tx, wr, [](protocol::reader &) {}, std::move(callback));
+    std::pair<std::shared_ptr<node_connection>, std::int64_t> perform_request_wr(protocol::client_operation op,
+        transaction_impl *tx, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        return perform_request<T>(op, tx, wr, [](protocol::reader &) {}, std::move(callback));
     }
 
     /**
@@ -254,7 +253,7 @@ public:
 
 private:
     /**
-     * Get random node connection.
+     * Get a random node connection.
      *
      * @return Random node connection or nullptr if there are no active connections.
      */
@@ -276,7 +275,7 @@ private:
     void on_connection_success(const end_point &addr, uint64_t id) override;
 
     /**
-     * Callback that called on error during connection establishment.
+     * Callback that called on error during a connection establishment.
      *
      * @param addr Connection address.
      * @param err Error.
@@ -284,15 +283,15 @@ private:
     void on_connection_error(const end_point &addr, ignite_error err) override;
 
     /**
-     * Callback that called on error during connection establishment.
+     * Callback that called on error during a connection establishment.
      *
      * @param id Async client ID.
-     * @param err Error. Can be null if connection closed without error.
+     * @param err Error. Can be null if connection closed without an error.
      */
     void on_connection_closed(uint64_t id, std::optional<ignite_error> err) override;
 
     /**
-     * Callback that called when new message is received.
+     * Callback that called when a new message is received.
      *
      * @param id Async client ID.
      * @param msg Received message.
@@ -300,7 +299,7 @@ private:
     void on_message_received(uint64_t id, bytes_view msg) override;
 
     /**
-     * Callback that called when message is sent.
+     * Callback that called when a message is sent.
      *
      * @param id Async client ID.
      */
@@ -321,7 +320,7 @@ private:
     void remove_client(uint64_t id);
 
     /**
-     * Handle failed initial connection result.
+     * Handle a failed initial connection result.
      *
      * @param res Connect result.
      */
@@ -345,7 +344,7 @@ private:
     /** Configuration. */
     const ignite_client_configuration m_configuration;
 
-    /** Callback to call on initial connect. */
+    /** Callback to call on initial connecting. */
     std::function<void(ignite_result<void>)> m_on_initial_connect;
 
     /** Cluster ID. */

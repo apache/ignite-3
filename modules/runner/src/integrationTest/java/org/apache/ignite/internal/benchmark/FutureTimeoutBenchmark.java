@@ -19,6 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -124,7 +125,7 @@ public class FutureTimeoutBenchmark {
             futs.clear();
             futs = null;
         } else {
-            assert waitForCondition(requestsMap::isEmpty, 10_000);
+            assertTrue(waitForCondition(requestsMap::isEmpty, 10_000));
 
             awaitForWorkersStop(List.of(timeoutWorker), true, null);
         }

@@ -307,6 +307,13 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             long lastAppliedIndex,
             long lastAppliedTerm
     ) {
+        assert storage.lastAppliedIndex() == 0 || storage.lastAppliedIndex() >= lastAppliedIndex : String.format(
+                "Trying to initialize a non-empty storage with data with a greater applied index: "
+                        + "storageLastAppliedIndex=%d, lastAppliedIndex=%d",
+                storage.lastAppliedIndex(),
+                lastAppliedIndex
+        );
+
         if (lastAppliedIndex <= storage.lastAppliedIndex()) {
             return;
         }
@@ -704,11 +711,11 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     }
 
     /**
-     * Checks whether the primary replica belongs to the raft group topology (peers and learners) within a raft linearized context.
-     * On the primary replica election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that
-     * populates the raft listener and the underneath storage with lease-related information, such as primaryReplicaNodeId,
-     * primaryReplicaNodeName and leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand
-     * processing, given information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
+     * Checks whether the primary replica belongs to the raft group topology (peers and learners) within a raft linearized context. On the
+     * primary replica election prior to the lease publication, the placement driver sends a PrimaryReplicaChangeCommand that populates the
+     * raft listener and the underneath storage with lease-related information, such as primaryReplicaNodeId, primaryReplicaNodeName and
+     * leaseStartTime. In Update(All)Command  handling, which occurs strictly after PrimaryReplicaChangeCommand processing, given
+     * information is used in order to detect whether primary belongs to the raft group topology (peers and learners).
      *
      * @return {@code true} if primary replica belongs to the raft group topology: peers and learners, (@code false) otherwise.
      */

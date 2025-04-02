@@ -22,6 +22,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertAll;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 import java.util.regex.Matcher;
@@ -98,6 +99,6 @@ public class ItClusterInitDefaultMsCmgTest extends CliCommandTestNotInitializedI
     }
 
     private void awaitClusterInitialized() throws InterruptedException {
-        waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000);
+        assertTrue(waitForCondition(() -> CLUSTER.runningNodes().count() == initialNodes(), 30_000));
     }
 }

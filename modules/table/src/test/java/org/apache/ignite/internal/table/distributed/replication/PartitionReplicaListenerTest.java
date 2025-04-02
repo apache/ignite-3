@@ -175,6 +175,7 @@ import org.apache.ignite.internal.replicator.ReplicaResult;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReadOnlyDirectReplicaRequest;
@@ -191,7 +192,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.ColumnsExtractor;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.KvMarshaller;
 import org.apache.ignite.internal.schema.marshaller.MarshallerFactory;
 import org.apache.ignite.internal.schema.marshaller.reflection.ReflectionMarshallerFactory;
@@ -426,7 +426,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     private LowWatermark lowWatermark;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     @InjectConfiguration
     private TransactionConfiguration transactionConfiguration;
@@ -678,7 +678,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                         PART_ID,
                         partitionDataStorage,
                         indexUpdateHandler,
-                        storageUpdateConfiguration
+                        replicationConfiguration
                 ),
                 validationSchemasSource,
                 localNode,

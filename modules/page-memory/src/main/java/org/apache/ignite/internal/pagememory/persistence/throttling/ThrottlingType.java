@@ -15,17 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
-
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.ClusterConfigurationSchema;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 /**
- * Extension for StorageUpdateHandler configuration schema.
+ * Available throttling types.
  */
-@ConfigurationExtension
-public class StorageUpdateExtensionConfigurationSchema extends ClusterConfigurationSchema {
-    @ConfigValue
-    public StorageUpdateConfigurationSchema storageUpdate;
+public enum ThrottlingType {
+    /** Corresponds to no throttling. */
+    DISABLED,
+
+    /** Corresponds to {@link TargetRatioPagesWriteThrottle}. */
+    TARGET_RATIO,
+
+    /** Corresponds to {@link PagesWriteSpeedBasedThrottle}. */
+    SPEED_BASED
 }

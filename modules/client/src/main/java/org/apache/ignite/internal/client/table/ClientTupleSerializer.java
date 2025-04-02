@@ -41,6 +41,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
 import org.apache.ignite.internal.util.HashCalculator;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.TupleHelper;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -138,7 +139,7 @@ public class ClientTupleSerializer {
         int usedCols = 0;
 
         for (ClientColumn col : columns) {
-            Object v = tuple.valueOrDefault(col.name(), NO_VALUE);
+            Object v = TupleHelper.valueOrDefault(tuple, col.name(), NO_VALUE);
 
             if (v != NO_VALUE) {
                 usedCols++;
@@ -188,14 +189,14 @@ public class ClientTupleSerializer {
             Object v;
 
             if (col.key()) {
-                v = key.valueOrDefault(col.name(), NO_VALUE);
+                v = TupleHelper.valueOrDefault(key, col.name(), NO_VALUE);
 
                 if (v != NO_VALUE) {
                     usedKeyCols++;
                 }
             } else {
                 v = val != null
-                        ? val.valueOrDefault(col.name(), NO_VALUE)
+                        ? TupleHelper.valueOrDefault(val, col.name(), NO_VALUE)
                         : NO_VALUE;
 
                 if (v != NO_VALUE) {
@@ -447,7 +448,7 @@ public class ClientTupleSerializer {
 
         for (ClientColumn col : schema.colocationColumns()) {
             // Colocation columns are always part of the key and can't be missing; serializer will check this.
-            Object value = rec.valueOrDefault(col.name(), null);
+            Object value = TupleHelper.valueOrDefault(rec, col.name(), null);
             hashCalc.append(value, col.scale(), col.precision());
         }
 
