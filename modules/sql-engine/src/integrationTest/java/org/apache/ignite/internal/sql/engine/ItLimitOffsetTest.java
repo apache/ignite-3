@@ -62,6 +62,12 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", moreThanUpperLong));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (double) Long.MAX_VALUE + 1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
+                () -> igniteSql().execute(null, "SELECT * FROM test OFFSET ? ROWS", (float) Long.MAX_VALUE + 1));
+
+        assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of offset",
                 () -> igniteSql().execute(null, "SELECT * FROM test OFFSET " + moreThanUpperLong + " ROWS"));
 
         assertThrowsSqlException(Sql.STMT_VALIDATION_ERR, "Illegal value of fetch / limit",

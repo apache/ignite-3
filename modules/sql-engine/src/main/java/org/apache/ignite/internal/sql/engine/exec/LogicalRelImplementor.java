@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
-import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.LIMIT_UPPER;
 import static org.apache.ignite.internal.sql.engine.rule.LogicalScanConverterRule.createMapping;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.combinedRowType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.rowSchemaFromRelTypes;
@@ -26,7 +25,6 @@ import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CollectionUtils.first;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -149,6 +147,7 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -1159,14 +1158,19 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(node);
         Number param = sqlScalar.get(ctx);
 
-        if (param instanceof BigDecimal) {
-            BigDecimal param0 = (BigDecimal) param;
-            if (param0.signum() == -1 || param0.compareTo(LIMIT_UPPER) > 0) {
-                throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str());
-            }
+        long paramAsLong;
+
+        try {
+            paramAsLong = IgniteMath.convertToLongExact(param);
+        } catch (RuntimeException ex) {
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str(), ex);
         }
 
-        return param.longValue();
+        if (paramAsLong < 0) {
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str());
+        }
+
+        return paramAsLong;
     }
 
     /**
