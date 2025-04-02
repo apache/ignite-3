@@ -36,7 +36,7 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.Catalog;
-import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -125,7 +125,7 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
 
         for (int ver = CatalogTableDescriptor.INITIAL_TABLE_VERSION + 1; ver <= tableVersion; ver++) {
             descriptor = descriptor.newDescriptor(
-                    "test", ver, columns, CatalogManagerImpl.INITIAL_TIMESTAMP, DEFAULT_STORAGE_PROFILE);
+                    "test", ver, columns, CatalogManager.INITIAL_TIMESTAMP, DEFAULT_STORAGE_PROFILE);
         }
 
         return descriptor;
