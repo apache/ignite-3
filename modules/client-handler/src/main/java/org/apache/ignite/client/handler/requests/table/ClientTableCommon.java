@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
@@ -429,7 +430,7 @@ public class ClientTableCommon {
 
         try {
             long id = in.unpackLong();
-            if (id == 0) {
+            if (id == TX_ID_DIRECT) {
                 long token = in.unpackLong();
                 UUID txId = in.unpackUuid();
                 int commitTableId = in.unpackInt();

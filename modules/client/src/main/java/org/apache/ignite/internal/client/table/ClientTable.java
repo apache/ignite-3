@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.table;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -310,7 +311,7 @@ public class ClientTable implements Table {
             ClientTransaction tx0 = ClientTransaction.get(tx);
 
             if (ctx != null && ctx.enlistmentToken != null) {
-                out.out().packLong(0); // For direct enlistment, pass 0 for resourceId to distinguish with proxy mode.
+                out.out().packLong(TX_ID_DIRECT); // For direct enlistment, pass 0 for resourceId to distinguish with proxy mode.
                 out.out().packLong(ctx.enlistmentToken);
                 out.out().packUuid(tx0.txId());
                 out.out().packInt(tx0.commitTableId());
