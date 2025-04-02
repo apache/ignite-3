@@ -52,6 +52,11 @@ public record struct QualifiedName
     public const char SeparatorChar = '.';
 
     /// <summary>
+    /// Quote character for identifiers.
+    /// </summary>
+    public const char QuoteChar = '"';
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="QualifiedName"/> struct.
     /// </summary>
     /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>.</param>
@@ -96,7 +101,46 @@ public record struct QualifiedName
 
     private static int IndexOfSeparatorChar(string name)
     {
+        bool quoted = name[0] == QuoteChar;
+        int pos = quoted ? 1 : 0;
+
+        while (true)
+        {
+            char ch = name[pos];
+
+            if (ch == QuoteChar)
+            {
+                if (!quoted)
+                {
+                    throw new FormatException($"Identifier is not quoted, but contains quote character at position {pos}: {name}");
+                }
+
+                char? nextCh = pos + 1 < name.Length ? name[pos + 1] : null;
+                if (nextCh == QuoteChar)
+                {
+                    // Escaped quote.
+                    pos+= 2;
+                    continue;
+                }
+
+                if (nextCh == SeparatorChar)
+                {
+                    // End of quoted identifier, separator follows.
+                    return pos + 1;
+                }
+
+                if (nextCh == null)
+                {
+                    // End of quoted identifier, no separator.
+                    return -1;
+                }
+            }
+        }
+
         // TODO: Find dot with quoted name support.
         return -1;
     }
+
+    private static bool IsIdentifierStart(char c) =>
+        char.IsLetter(c) || c == '_';
 }
