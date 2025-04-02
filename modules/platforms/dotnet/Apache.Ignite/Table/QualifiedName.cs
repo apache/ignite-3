@@ -106,7 +106,7 @@ public record struct QualifiedName
 
         return new QualifiedName(
             Unquote(nameMem[..separatorIndex]),
-            Unquote(nameMem[separatorIndex..]));
+            Unquote(nameMem[(separatorIndex + 1)..]));
     }
 
     private static void VerifyObjectIdentifier(string identifier) =>
