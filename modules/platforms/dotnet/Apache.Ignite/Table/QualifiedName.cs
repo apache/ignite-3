@@ -91,15 +91,29 @@ public record struct QualifiedName
     {
         VerifyObjectIdentifier(simpleOrCanonicalName);
 
-        // TODO: Parsing with quoted name support.
-        var parts = simpleOrCanonicalName.Split('.');
-        return new QualifiedName(parts[0], parts[1]);
+        ReadOnlySpan<char> nameSpan = simpleOrCanonicalName.AsSpan();
+        var separatorIndex = IndexOfSeparatorChar(nameSpan);
+
+        if (separatorIndex == -1)
+        {
+            // No separator, return default schema name.
+            return new QualifiedName(DefaultSchemaName, Unquote(nameSpan));
+        }
+
+        return new QualifiedName(
+            Unquote(nameSpan[..separatorIndex]),
+            Unquote(nameSpan[separatorIndex..]));
     }
 
     private static void VerifyObjectIdentifier(string identifier) =>
         ArgumentException.ThrowIfNullOrEmpty(identifier);
 
-    private static int IndexOfSeparatorChar(string name)
+    private static string Unquote(ReadOnlySpan<char> name) =>
+        name[0] == QuoteChar
+            ? name[1..^1].ToString().Replace("\"\"", "\"", StringComparison.Ordinal)
+            : name.ToString();
+
+    private static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
     {
         bool quoted = name[0] == QuoteChar;
         int pos = quoted ? 1 : 0;
@@ -135,7 +149,7 @@ public record struct QualifiedName
                     return -1;
                 }
 
-                throw new FormatException($"Unexpected character after quote at position {pos}: {name}");
+                throw new FormatException($"Unexpected character '{ch}' after quote at position {pos}: '{name}'");
             }
 
             if (ch == SeparatorChar)
@@ -148,13 +162,17 @@ public record struct QualifiedName
                 return pos;
             }
 
-            if (!quoted && !IsIdentifierStart(ch) && !IsIdentifierExtend(c))
+            if (!quoted && !IsIdentifierStart(ch) && !IsIdentifierExtend(ch))
             {
-
+                throw new FormatException($"Unexpected character '{ch}' at position {pos}: '{name}'");
             }
         }
 
-        // TODO: Find dot with quoted name support.
+        if (quoted)
+        {
+            throw new FormatException($"Missing closing quote: '{name}");
+        }
+
         return -1;
     }
 
