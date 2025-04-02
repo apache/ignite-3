@@ -296,8 +296,26 @@ public class NodeOptions extends RpcOptions implements Copiable<NodeOptions> {
      */
     private @Nullable Long externallyEnforcedConfigIndex;
 
+    /**
+     * If the group is declared as a system group, certain threads are dedicated specifically for that one.
+     */
+    private boolean isSystemGroup = false;
+
     public NodeOptions() {
         raftOptions.setRaftMessagesFactory(getRaftMessagesFactory());
+    }
+
+    /**
+    * Gets a system group flag.
+    *
+    * @return System group flag.
+    */
+    public boolean isSystemGroup() {
+        return isSystemGroup;
+    }
+
+    public void setSystemGroup(boolean systemGroup) {
+        isSystemGroup = systemGroup;
     }
 
     /**
