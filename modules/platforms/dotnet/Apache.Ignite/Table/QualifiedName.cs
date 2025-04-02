@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Table;
 
 using System;
-using System.IO;
 
 /// <summary>
 /// Represents a qualified name of a database object.
@@ -96,7 +95,7 @@ public record struct QualifiedName
 
         if (separatorIndex == -1)
         {
-            // No separator, return default schema name.
+            // No separator, use default schema name.
             return new QualifiedName(DefaultSchemaName, Unquote(nameMem));
         }
 
@@ -186,11 +185,12 @@ public record struct QualifiedName
     /** An identifier extend is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.*/
     private static bool IsIdentifierExtend(char c)
     {
+        // Direct port from Java.
         return c == ('·' & 0xff) /* “Middle Dot” character */
-               || ((((1 << (byte) 6)
-                     | (1 << (byte) 8)
-                     | (1 << (byte) 9)
-                     | (1 << (byte) 23)
-                     | (1 << (byte) 16)) >> (int)char.GetUnicodeCategory(c)) & 1) != 0;
+               || ((((1 << 6)
+                     | (1 << 8)
+                     | (1 << 9)
+                     | (1 << 23)
+                     | (1 << 16)) >> (int)char.GetUnicodeCategory(c)) & 1) != 0;
     }
 }
