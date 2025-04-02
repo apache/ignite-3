@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.tx.TransactionIds.transactionId;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.mockito.Mockito.lenient;
@@ -24,6 +25,9 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import java.util.UUID;
+import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,6 +48,13 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void configureMocks() {
+        HybridClock clock = new TestHybridClock(() -> 0);
+
+        UUID txId1 = transactionId(clock.now(), 0);
+        UUID txId2 = transactionId(clock.now(), 0);
+
+        lenient().when(tx1.id()).thenReturn(txId1);
+        lenient().when(tx2.id()).thenReturn(txId2);
         lenient().when(tx1.rollbackTimeoutExceededAsync()).thenReturn(nullCompletedFuture());
         lenient().when(tx2.rollbackTimeoutExceededAsync()).thenReturn(nullCompletedFuture());
     }
@@ -148,6 +159,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     void removesTransactionOnUnregister() {
         registry.register(tx1, 1000);
 
+        lenient().when(tx1.getTimeout()).thenReturn(1000L);
+
         registry.unregister(tx1);
 
         registry.expireUpTo(2000);
@@ -159,6 +172,8 @@ class TransactionExpirationRegistryTest extends BaseIgniteAbstractTest {
     @Test
     void unregisterIsIdempotent() {
         registry.register(tx1, 1000);
+
+        lenient().when(tx1.getTimeout()).thenReturn(1000L);
 
         registry.unregister(tx1);
 

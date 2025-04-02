@@ -1675,7 +1675,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     Assignments.toBytes(Set.of(Assignment.forPeer(node.name())), timestamp)
             );
 
-            waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+            assertTrue(waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000));
 
             lateChangeFlag.values().forEach(v -> v.set(false));
         }
@@ -1703,7 +1703,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         // Waiting for late prefix on all nodes.
-        waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+        assertTrue(waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000));
 
         var assignmentsKey = stablePartAssignmentsKey(partId).bytes();
 

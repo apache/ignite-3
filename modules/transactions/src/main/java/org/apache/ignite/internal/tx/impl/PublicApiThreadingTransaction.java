@@ -150,11 +150,6 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
-        return transaction.getTimeoutOrDefault(defaultTimeout);
-    }
-
-    @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(transaction);
     }

@@ -74,6 +74,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
+     * @param timeout The timeout.
      */
     public ReadWriteTransactionImpl(
             TxManager txManager,
@@ -206,6 +207,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param executionTimestamp The timestamp is the time when the transaction is applied to the remote node.
      * @param full Full state transaction marker.
      * @param isComplete The flag is true if the transaction is completed through the public API, false for {@link this#kill()} invocation.
+     * @param timeoutExceeded {@code True} if rollback reason is the timeout.
      * @return The future.
      */
     private CompletableFuture<Void> finishInternal(
@@ -272,11 +274,6 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public boolean isFinishingOrFinished() {
         return finishFuture != null;
-    }
-
-    @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
-        return timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? defaultTimeout : timeout;
     }
 
     /** {@inheritDoc} */

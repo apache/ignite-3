@@ -208,10 +208,10 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         InternalTableImpl restartingInternalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
-        waitForCondition(
+        assertTrue(waitForCondition(
                 () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNode, restartingInternalTable, 0),
                 TimeUnit.SECONDS.toMillis(10)
-        );
+        ));
 
         assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
         assertTrue(

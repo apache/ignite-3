@@ -234,6 +234,15 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
         when(catalog.indexes(anyInt())).thenReturn(List.of(catalogIndexDescriptor));
 
+        doAnswer(invocation -> {
+            // This is needed to bump last applied index on corresponding storages.
+            Runnable onApplication = invocation.getArgument(5);
+
+            onApplication.run();
+
+            return null;
+        }).when(storageUpdateHandler).handleUpdate(any(), any(), any(), any(), anyBoolean(), any(), any(), any(), any());
+
         componentWorkingDir = new ComponentWorkingDir(workDir);
 
         var addr = new NetworkAddress("127.0.0.1", 10_000);
@@ -432,9 +441,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         currentRaftListener.addTableProcessor(3, createTableProcessor(3));
 
-        UUID rowForTable3 = UUID.randomUUID();
-
-        assertThat(raftGroupService.run(createUpdateCommand(rowForTable3, 3)), willCompleteSuccessfully());
+        List<UUID> rowIdsForTable3 = applyRandomUpdateCommands(raftGroupService, 3);
 
         stopRaftGroupNode();
 
@@ -447,7 +454,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         rowIds.forEach(this::verifyRowWasNotUpdated);
 
-        verifyRowWasUpdated(rowForTable3);
+        rowIdsForTable3.forEach(this::verifyRowWasUpdated);
     }
 
     /**
@@ -459,7 +466,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         RaftGroupService raftGroupService = startRaftGroupNode(tableIds);
 
-        applyRandomUpdateCommands(raftGroupService, tableIds);
+        List<UUID> rowIds = applyRandomUpdateCommands(raftGroupService, tableIds);
 
         assertThat(
                 raftGroupService.snapshot(new Peer(clusterService.nodeName()), true),
@@ -468,7 +475,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         addTableProcessor(3);
 
-        List<UUID> rowIds = applyRandomUpdateCommands(raftGroupService, 3);
+        List<UUID> rowIdsForTable3 = applyRandomUpdateCommands(raftGroupService, 3);
 
         stopRaftGroupNode();
 
@@ -477,6 +484,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         startRaftGroupNode(1, 2, 3);
 
         rowIds.forEach(this::verifyRowWasNotUpdated);
+        rowIdsForTable3.forEach(this::verifyRowWasNotUpdated);
     }
 
     @Test

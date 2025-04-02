@@ -35,6 +35,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
@@ -215,7 +216,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void awaitDefaultZoneCreation() throws InterruptedException {
-        waitForCondition(() -> catalogManager.latestCatalogVersion() > 0, 5_000);
+        assertTrue(waitForCondition(() -> catalogManager.latestCatalogVersion() > 0, 5_000));
     }
 
     private void startComponentsAndDeployWatches() {

@@ -42,16 +42,16 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
+        client.get_sql().execute(nullptr, nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
 
-        client.get_sql().execute(nullptr,
+        client.get_sql().execute(nullptr, nullptr,
             {"create table column_order_test(val1 varchar, key1 int, val2 bigint, key2 varchar, primary key(key2, "
              "key1))"},
             {});
 
         for (std::int32_t i = 0; i < test_records; ++i) {
             auto stri = std::to_string(i);
-            client.get_sql().execute(nullptr, {"insert into " TEST_TABLE_NAME " values(?, ?, ?, ?)"},
+            client.get_sql().execute(nullptr, nullptr, {"insert into " TEST_TABLE_NAME " values(?, ?, ?, ?)"},
                 {"test val " + stri, std::int32_t(i), std::int64_t(i * 2), "test key " + stri});
         }
     }
@@ -61,7 +61,7 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
+        client.get_sql().execute(nullptr, nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
     }
 
     void SetUp() override {

@@ -85,7 +85,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Supported features. */
     private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
             ProtocolBitmaskFeature.USER_ATTRIBUTES,
-            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
+            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING
     ));
 
     /** Minimum supported heartbeat interval. */

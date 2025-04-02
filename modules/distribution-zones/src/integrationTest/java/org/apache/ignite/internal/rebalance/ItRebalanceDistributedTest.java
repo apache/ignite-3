@@ -775,10 +775,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     .get(AWAIT_TIMEOUT_MILLIS, MILLISECONDS);
         }
 
-        waitForCondition(
+        assertTrue(waitForCondition(
                 () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
-        );
+        ));
 
         // Wait for rebalance to complete.
         assertTrue(waitForCondition(
