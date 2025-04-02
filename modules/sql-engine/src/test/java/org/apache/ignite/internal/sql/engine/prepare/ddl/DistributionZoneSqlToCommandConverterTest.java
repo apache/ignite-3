@@ -280,7 +280,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThrowsWithPos("CREATE ZONE test", "<EOF>", 16);
 
         if (withPresent) {
-            expectOptionValidationError("CREATE ZONE test with replicas=1", "STORAGE_PROFILES");
+            emptyProfilesValidationError("CREATE ZONE test with replicas=1");
         } else {
             assertThrowsWithPos("CREATE ZONE test (replicas 1)", "<EOF>", 29);
         }
