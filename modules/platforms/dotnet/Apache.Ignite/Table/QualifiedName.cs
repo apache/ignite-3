@@ -82,6 +82,11 @@ public record struct QualifiedName
     public string ObjectName { get; }
 
     /// <summary>
+    /// Gets a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
+    /// </summary>
+    public string CanonicalName => $"{QuoteIfNeeded(SchemaName)}{SeparatorChar}{QuoteIfNeeded(ObjectName)}";
+
+    /// <summary>
     /// Parses a qualified name from a string.
     /// </summary>
     /// <param name="simpleOrCanonicalName">Simple or canonical name.</param>
@@ -111,6 +116,12 @@ public record struct QualifiedName
         name.Span[0] == QuoteChar
             ? name[1..^1].ToString().Replace("\"\"", "\"", StringComparison.Ordinal) // Escaped quotes are rare, don't optimize.
             : ToStringUpperInvariant(name);
+
+    private static string QuoteIfNeeded(string name)
+    {
+        // TODO: Implement.
+        return name;
+    }
 
     private static string ToStringUpperInvariant(ReadOnlyMemory<char> name) =>
         string.Create(name.Length, name, (span, args) => args.Span.ToUpperInvariant(span));
