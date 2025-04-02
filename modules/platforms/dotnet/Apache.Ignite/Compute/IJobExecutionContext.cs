@@ -17,33 +17,18 @@
 
 namespace Apache.Ignite.Compute;
 
-using System.Threading.Tasks;
-using Marshalling;
-
 /// <summary>
-/// Ignite compute job interface.
-/// <para />
-/// To define a compute job, implement this interface and deploy the binaries to the cluster with the Deployemnt API.
+/// Compute job execution context. See <see cref="IComputeJob{TArg,TResult}.ExecuteAsync"/>.
 /// </summary>
-/// <typeparam name="TArg">Argument type.</typeparam>
-/// <typeparam name="TResult">Result type.</typeparam>
-public interface IComputeJob<TArg, TResult>
+public interface IJobExecutionContext
 {
     /// <summary>
-    /// Gets the custom marshaller for the job input argument.
+    /// Gets the Ignite API entry point.
     /// </summary>
-    IMarshaller<TArg>? InputMarshaller => null;
+    IIgnite Ignite { get; }
 
     /// <summary>
-    /// Gets the custom marshaller for the job result.
+    /// Gets a value indicating whether the job was cancelled.
     /// </summary>
-    IMarshaller<TResult>? ResultMarshaller => null;
-
-    /// <summary>
-    /// Executes the job.
-    /// </summary>
-    /// <param name="context">Job execution context.</param>
-    /// <param name="arg">Job argument.</param>
-    /// <returns>Job result.</returns>
-    ValueTask<TResult> ExecuteAsync(IJobExecutionContext context, TArg arg);
+    bool Cancelled { get; }
 }
