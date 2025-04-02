@@ -1144,7 +1144,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         for (int i = 0; i < 10; i++) {
             ByteArray key = ByteArray.fromString("some-test-key-" + i);
 
-            byte[] value = restartedMs.getLocally(key, 300/*1000*/).value();
+            byte[] value = restartedMs.getLocally(key, 300).value();
 
             assertEquals(1, value.length);
             assertEquals((byte) i, value[0]);

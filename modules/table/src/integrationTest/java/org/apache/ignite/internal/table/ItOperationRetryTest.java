@@ -78,7 +78,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
         String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), partitionGroupId).getLeaseholder();
 
         IgniteImpl leaseholderNode = findNodeByName(leaseholder);
-        IgniteImpl otherNode = findNode(0, initialNodes(), ignite -> !leaseholderNode.equals(ignite.name()));
+        IgniteImpl otherNode = findNode(0, initialNodes(), ignite -> !leaseholderNode.name().equals(ignite.name()));
 
         log.info("Transactions are executed from a non-primary node [node={}, primary={}].", otherNode.name(), leaseholderNode.name());
 
