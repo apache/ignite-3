@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.client.table;
 
-import java.util.function.Function;
-import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
+import java.util.function.BiFunction;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,44 +30,32 @@ import org.jetbrains.annotations.Nullable;
 public class PartitionAwarenessProvider {
     private final @Nullable Integer partition;
 
-    private final @Nullable Function<ClientSchema, Integer> hashFunc;
+    private final @Nullable BiFunction<ClientSchema, Boolean, Integer> hashFunc;
 
-    private final @Nullable ClientLazyTransaction tx;
+    private PartitionAwarenessProvider(@Nullable BiFunction<ClientSchema, Boolean, Integer> hashFunc, @Nullable Integer partition) {
+        assert hashFunc != null ^ partition != null;
 
-    private PartitionAwarenessProvider(
-            @Nullable Function<ClientSchema, Integer> hashFunc,
-            @Nullable Integer partition,
-            @Nullable ClientLazyTransaction tx) {
         this.hashFunc = hashFunc;
         this.partition = partition;
-        this.tx = tx;
     }
 
     public static PartitionAwarenessProvider of(Integer partition) {
-        return new PartitionAwarenessProvider(null, partition, null);
+        return new PartitionAwarenessProvider(null, partition);
     }
 
-    public static PartitionAwarenessProvider of(@Nullable ClientLazyTransaction tx, Function<ClientSchema, Integer> hashFunc) {
-        return new PartitionAwarenessProvider(hashFunc, null, tx);
-    }
-
-    @Nullable String nodeName() {
-        return tx != null ? tx.nodeName() : null;
+    public static PartitionAwarenessProvider of(BiFunction<ClientSchema, Boolean, Integer> hashFunc) {
+        return new PartitionAwarenessProvider(hashFunc, null);
     }
 
     @Nullable Integer partition() {
         return partition;
     }
 
-    Integer getObjectHashCode(ClientSchema schema) {
+    @Nullable Integer getObjectHashCode(ClientSchema schema, boolean coord) {
         if (hashFunc == null) {
             throw new IllegalStateException("Partition awareness is not enabled. Check channel() first.");
         }
 
-        return hashFunc.apply(schema);
-    }
-
-    boolean isPartitionAwarenessEnabled() {
-        return hashFunc != null || partition != null;
+        return hashFunc.apply(schema, coord);
     }
 }

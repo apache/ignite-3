@@ -124,6 +124,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemViewProvider {
+    /** Expirarion trigger frequency. */
+    public static final long EXPIRE_FREQ_MILLIS = 1000;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
 
@@ -451,7 +454,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         boolean scheduleExpiration = !implicit;
 
         if (scheduleExpiration) {
-            transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+            transactionExpirationRegistry.register(transaction);
         }
 
         return transaction;
@@ -503,7 +506,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean scheduleExpiration = !implicit;
 
             if (scheduleExpiration) {
-                transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+                transactionExpirationRegistry.register(transaction);
             }
 
             txFuture.whenComplete((unused, throwable) -> {
@@ -519,24 +522,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
-        }
-    }
-
-    private static long physicalExpirationTimeMillis(HybridTimestamp beginTimestamp, long effectiveTimeoutMillis) {
-        return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
-    }
-
-    private static long sumWithSaturation(long a, long b) {
-        assert a >= 0 : a;
-        assert b >= 0 : b;
-
-        long sum = a + b;
-
-        if (sum < 0) {
-            // Overflow.
-            return Long.MAX_VALUE;
-        } else {
-            return sum;
         }
     }
 
@@ -893,6 +878,48 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout) {
+        assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
+
+        // Switch to default timeout if needed.
+        timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeout().value() : timeout;
+
+        // Adjust the timeout so local expiration happens after coordinator expiration.
+        var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, topologyService.localMember(),
+                timeout + clockService.maxClockSkewMillis()) {
+            boolean isTimeout = false;
+
+            @Override
+            public TxState state() {
+                TxStateMeta meta = TxManagerImpl.this.stateMeta(txId);
+
+                return meta == null ? null : meta.txState();
+            }
+
+            @Override
+            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+                isTimeout = true;
+
+                // Directly mapped entries become abandoned on local tx timeout.
+                // Release locks to allow write intent resolution on abandoned path.
+                // Can be safely retried multiple times, because releaseAll is idempotent.
+                partitionOperationsExecutor.execute(() -> lockManager.releaseAll(txId));
+
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public boolean isRolledBackWithTimeoutExceeded() {
+                return isTimeout;
+            }
+        };
+
+        transactionExpirationRegistry.register(tx);
+
+        return tx;
+    }
+
+    @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
             var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
@@ -924,7 +951,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-            transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow, 1000, 1000, MILLISECONDS);
+            transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow,
+                    EXPIRE_FREQ_MILLIS, EXPIRE_FREQ_MILLIS, MILLISECONDS);
 
             return nullCompletedFuture();
         });
