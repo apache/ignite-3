@@ -47,7 +47,7 @@ void cluster_connection::start_async(std::function<void(ignite_result<void>)> ca
     for (const auto &str_addr : m_configuration.get_endpoints()) {
         std::optional<tcp_range> ep = tcp_range::parse(str_addr, DEFAULT_TCP_PORT);
         if (!ep)
-            throw ignite_error("Can not parse address range: " + str_addr);
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Can not parse address range: " + str_addr);
 
         addrs.push_back(std::move(ep.value()));
     }
@@ -244,11 +244,11 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
     if (tx) {
         auto channel = tx->get_connection();
         if (!channel)
-            throw ignite_error("Transaction was not started properly");
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Transaction was not started properly");
 
         auto res = channel->perform_request(op, wr, handler);
         if (!res)
-            throw ignite_error("Connection associated with the transaction is closed");
+            throw ignite_error(error::code::CONNECTION, "Connection associated with the transaction is closed");
 
         return {channel, *res};
     }
@@ -256,7 +256,7 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
     while (true) {
         auto channel = get_random_channel();
         if (!channel)
-            throw ignite_error("No nodes connected");
+            throw ignite_error(error::code::CONNECTION, "No nodes connected");
 
         auto res = channel->perform_request(op, wr, handler);
         if (res)

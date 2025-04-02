@@ -31,7 +31,7 @@ namespace ignite::detail::arg_check {
  */
 void inline tuple_non_empty(const ignite_tuple &value, const std::string &title) {
     if (0 == value.column_count())
-        throw ignite_error(title + " can not be empty");
+        throw ignite_error(error::code::ILLEGAL_ARGUMENT, title + " can not be empty");
 }
 
 /**
