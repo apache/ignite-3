@@ -17,15 +17,56 @@
 
 namespace Apache.Ignite.Table;
 
+using System;
+
 /// <summary>
 /// Represents a qualified name of a database object.
 /// </summary>
-/// <param name="SchemaName">Schema name.</param>
-/// <param name="ObjectName">Object name.</param>
-public record struct QualifiedName(string SchemaName, string ObjectName)
+public record struct QualifiedName
 {
     /// <summary>
     /// Default schema name.
     /// </summary>
     public const string DefaultSchemaName = "PUBLIC";
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="QualifiedName"/> struct.
+    /// </summary>
+    /// <param name="schemaName">Schema name.</param>
+    /// <param name="objectName">Object name.</param>
+    public QualifiedName(string schemaName, string objectName)
+    {
+        VerifyObjectIdentifier(schemaName);
+        VerifyObjectIdentifier(objectName);
+
+        SchemaName = schemaName;
+        ObjectName = objectName;
+    }
+
+    /// <summary>
+    /// Gets the schema name.
+    /// </summary>
+    public string SchemaName { get; }
+
+    /// <summary>
+    /// Gets the object name.
+    /// </summary>
+    public string ObjectName { get; }
+
+    /// <summary>
+    /// Parses a qualified name from a string.
+    /// </summary>
+    /// <param name="simpleOrCanonicalName">Simple or canonical name.</param>
+    /// <returns>Parsed qualified name.</returns>
+    public static QualifiedName Parse(string simpleOrCanonicalName)
+    {
+        VerifyObjectIdentifier(simpleOrCanonicalName);
+
+        // TODO: Parsing with quoted name support.
+        var parts = simpleOrCanonicalName.Split('.');
+        return new QualifiedName(parts[0], parts[1]);
+    }
+
+    private static void VerifyObjectIdentifier(string identifier) =>
+        ArgumentException.ThrowIfNullOrEmpty(identifier);
 }
