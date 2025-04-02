@@ -172,6 +172,8 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
                 3_000L
         );
 
+        log.info("Test: created the zone with one replica. Changing replica number to 2.");
+
         // Triggering the rebalance.
         sql("alter zone " + ZONE_NAME + " set replicas=2");
 
