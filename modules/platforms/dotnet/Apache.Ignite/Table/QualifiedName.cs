@@ -21,6 +21,22 @@ using System;
 
 /// <summary>
 /// Represents a qualified name of a database object.
+/// <para />
+/// Schema name and object name should conform to SQL syntax rules for identifiers.
+/// <list type="bullet">
+/// <item>
+/// Identifier must start from any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”.</item>
+/// <item>
+/// Identifier character (expect the first one) may be U+00B7 (middle dot), or any character in the Unicode General Category
+/// classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.
+/// </item>
+/// <item>
+/// Identifier that contains any other characters must be quoted with double-quotes.
+/// </item>
+/// <item>
+/// Double-quote inside the identifier must be encoded as 2 consequent double-quote chars.
+/// </item>
+/// </list>
 /// </summary>
 public record struct QualifiedName
 {
