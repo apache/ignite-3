@@ -31,4 +31,6 @@ public interface IJobExecutionContext
     /// Gets a value indicating whether the job was cancelled.
     /// </summary>
     bool Cancelled { get; }
+
+    // TODO IGNITE-24994 Partition property
 }
