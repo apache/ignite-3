@@ -91,27 +91,30 @@ public record struct QualifiedName
     {
         VerifyObjectIdentifier(simpleOrCanonicalName);
 
-        ReadOnlySpan<char> nameSpan = simpleOrCanonicalName.AsSpan();
-        var separatorIndex = IndexOfSeparatorChar(nameSpan);
+        var separatorIndex = IndexOfSeparatorChar(simpleOrCanonicalName);
+        ReadOnlyMemory<char> nameMem = simpleOrCanonicalName.AsMemory();
 
         if (separatorIndex == -1)
         {
             // No separator, return default schema name.
-            return new QualifiedName(DefaultSchemaName, Unquote(nameSpan));
+            return new QualifiedName(DefaultSchemaName, Unquote(nameMem));
         }
 
         return new QualifiedName(
-            Unquote(nameSpan[..separatorIndex]),
-            Unquote(nameSpan[separatorIndex..]));
+            Unquote(nameMem[..separatorIndex]),
+            Unquote(nameMem[separatorIndex..]));
     }
 
     private static void VerifyObjectIdentifier(string identifier) =>
         ArgumentException.ThrowIfNullOrEmpty(identifier);
 
-    private static string Unquote(ReadOnlySpan<char> name) =>
-        name[0] == QuoteChar
-            ? name[1..^1].ToString().Replace("\"\"", "\"", StringComparison.Ordinal)
-            : name.ToString();
+    private static string Unquote(ReadOnlyMemory<char> name) =>
+        name.Span[0] == QuoteChar
+            ? name[1..^1].ToString().Replace("\"\"", "\"", StringComparison.Ordinal) // Escaped quotes are rare, don't optimize.
+            : ToStringUpperInvariant(name);
+
+    private static string ToStringUpperInvariant(ReadOnlyMemory<char> name) =>
+        string.Create(name.Length, name, (span, args) => args.Span.ToUpperInvariant(span));
 
     private static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
     {
