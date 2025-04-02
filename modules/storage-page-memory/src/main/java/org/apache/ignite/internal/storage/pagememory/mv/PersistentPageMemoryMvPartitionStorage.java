@@ -48,9 +48,7 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -416,13 +414,19 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return runConsistently(locker -> super.getOrCreateHashIndex(indexDescriptor));
+    public void createHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        runConsistently(locker -> {
+            super.createHashIndex(indexDescriptor);
+            return null;
+        });
     }
 
     @Override
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return runConsistently(locker -> super.getOrCreateSortedIndex(indexDescriptor));
+    public void createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        runConsistently(locker -> {
+            super.createSortedIndex(indexDescriptor);
+            return null;
+        });
     }
 
     @Override

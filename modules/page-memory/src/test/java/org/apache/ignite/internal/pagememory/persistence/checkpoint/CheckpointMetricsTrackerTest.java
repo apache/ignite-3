@@ -171,6 +171,19 @@ public class CheckpointMetricsTrackerTest {
         assertThat(tracker.writeLockWaitDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
     }
 
+    @Test
+    void testWaitPageReplacement() {
+        assertThat(tracker.waitPageReplacementDuration(NANOSECONDS), equalTo(0L));
+
+        tracker.onWaitPageReplacementStart();
+
+        waitForTimeChange();
+
+        tracker.onWaitPageReplacementEnd();
+
+        assertThat(tracker.waitPageReplacementDuration(NANOSECONDS), greaterThanOrEqualTo(1L));
+    }
+
     private static void waitForTimeChange() {
         long start = System.nanoTime();
 

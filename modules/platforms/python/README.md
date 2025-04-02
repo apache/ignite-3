@@ -82,7 +82,7 @@ pip install pyignite-dbapi
 To install a specific version:
 
 ```
-pip install pyignite_dbapi==3.0.0
+pip install pyignite_dbapi==3.1.0
 ```
 
 ## Testing

@@ -37,7 +37,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -70,9 +69,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
-
-    @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
     private final TestInfo testInfo;
@@ -102,7 +98,6 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
-                storageUpdateConfiguration,
                 workDir,
                 NODES,
                 NODES,

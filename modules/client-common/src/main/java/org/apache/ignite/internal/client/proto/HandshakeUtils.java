@@ -25,9 +25,6 @@ import java.util.Map;
  * Utils for client protocol handshake handling.
  */
 public class HandshakeUtils {
-    /** Empty features. */
-    public static final BitSet EMPTY_FEATURES = new BitSet();
-
     /** Client type: general. */
     public static final int CLIENT_TYPE_GENERAL = 2;
 
@@ -98,5 +95,12 @@ public class HandshakeUtils {
         } else {
             throw new IllegalArgumentException("Unsupported extension type: " + type.getName());
         }
+    }
+
+    /** Returns a bit that includes only supported features. */
+    public static BitSet supportedFeatures(BitSet supportedFeatures, BitSet requestedFeatures) {
+        BitSet result = (BitSet) supportedFeatures.clone();
+        result.and(requestedFeatures);
+        return result;
     }
 }

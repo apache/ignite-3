@@ -15,18 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.client;
+package org.apache.ignite.internal.client.proto;
 
 import java.util.BitSet;
 import java.util.Collection;
 import java.util.EnumSet;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * Defines supported bitmask features for thin client.
  */
 public enum ProtocolBitmaskFeature {
     /** Feature for user attributes. */
-    USER_ATTRIBUTES(0);
+    USER_ATTRIBUTES(0),
+
+    /**
+     * TABLE_GET/TABLES_GET requests with {@link QualifiedName}.
+     */
+    TABLE_GET_REQS_USE_QUALIFIED_NAME(1),
+
+    /**
+     * Direct mapping for transactions.
+     */
+    TX_DIRECT_MAPPING(2);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
@@ -55,20 +66,14 @@ public enum ProtocolBitmaskFeature {
     /**
      * Returns set of supported features.
      *
-     * @param bytes Feature byte array.
+     * @param bitSet Features bitset.
      * @return Set of supported features.
      */
-    public static EnumSet<ProtocolBitmaskFeature> enumSet(byte[] bytes) {
+    public static EnumSet<ProtocolBitmaskFeature> enumSet(BitSet bitSet) {
         EnumSet<ProtocolBitmaskFeature> set = EnumSet.noneOf(ProtocolBitmaskFeature.class);
 
-        if (bytes == null) {
-            return set;
-        }
-
-        final BitSet bSet = BitSet.valueOf(bytes);
-
-        for (ProtocolBitmaskFeature e : ProtocolBitmaskFeature.values()) {
-            if (bSet.get(e.featureId())) {
+        for (ProtocolBitmaskFeature e : values()) {
+            if (bitSet.get(e.featureId())) {
                 set.add(e);
             }
         }
@@ -82,14 +87,14 @@ public enum ProtocolBitmaskFeature {
      * @param features Feature set.
      * @return Byte array representing all supported features.
      */
-    static byte[] featuresAsBytes(Collection<ProtocolBitmaskFeature> features) {
-        final BitSet set = new BitSet();
+    public static BitSet featuresAsBitSet(Collection<ProtocolBitmaskFeature> features) {
+        BitSet set = new BitSet();
 
         for (ProtocolBitmaskFeature f : features) {
             set.set(f.featureId());
         }
 
-        return set.toByteArray();
+        return set;
     }
 
     /**

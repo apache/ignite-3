@@ -15,12 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.sql.engine.framework;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to find nodes. */
-    MULTICAST
+/**
+ * Represents the base interface for describing a complete set of zone-related fields.
+ *
+ * @param <ChildT> The specific type of the builder implementation that will be exposed to the user, enabling fluent builder patterns.
+ * @see ClusterZoneBuilder
+ */
+interface ZoneBuilderBase<ChildT> {
+    /**
+     * Sets the name of the zone.
+     *
+     * @param name The name to assign to the zone.
+     * @return The builder instance for chaining methods.
+     */
+    ChildT name(String name);
 }

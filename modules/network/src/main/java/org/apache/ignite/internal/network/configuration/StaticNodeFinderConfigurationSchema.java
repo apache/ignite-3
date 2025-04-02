@@ -15,26 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
+package org.apache.ignite.internal.network.configuration;
 
-import com.google.auto.service.AutoService;
-import java.util.Collection;
-import java.util.List;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
-/**
- * {@link ConfigurationModule} for the configuration of critical workers handling.
- */
-@AutoService(ConfigurationModule.class)
-public class CriticalWorkersConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+/** Configuration specific for Static node finder. */
+@PolymorphicConfigInstance(StaticNodeFinderConfigurationSchema.TYPE)
+public class StaticNodeFinderConfigurationSchema extends NodeFinderConfigurationSchema {
+    public static final String TYPE = "STATIC";
 
-    @Override
-    public Collection<Class<?>> schemaExtensions() {
-        return List.of(CriticalWorkersExtensionConfigurationSchema.class);
-    }
+    /** Addresses of nodes in the cluster in a host:port format. */
+    @Value(hasDefault = true)
+    public final String[] netClusterNodes = new String[0];
 }

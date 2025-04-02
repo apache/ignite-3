@@ -15,22 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 /**
- * Configuration schema for StorageUpdateHandler.
+ * Available throttling types.
  */
-@Config
-public class StorageUpdateConfigurationSchema {
+public enum ThrottlingType {
+    /** Corresponds to no throttling. */
+    DISABLED,
 
-    /**
-     * Maximum allowed length (in bytes) of a batch to write into physical storage.
-     **/
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int batchByteLength = 8192;
+    /** Corresponds to {@link TargetRatioPagesWriteThrottle}. */
+    TARGET_RATIO,
+
+    /** Corresponds to {@link PagesWriteSpeedBasedThrottle}. */
+    SPEED_BASED
 }

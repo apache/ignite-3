@@ -525,14 +525,14 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             streamerFut = view.streamData(publisher, options);
 
-            TestUtils.waitForCondition(() -> publisher.requested() > 0, 5000);
+            assertTrue(TestUtils.waitForCondition(() -> publisher.requested() > 0, 5000));
 
             // Submit valid items.
             for (int i = 0; i < 100; i++) {
                 publisher.submit(DataStreamerItem.of(tuple(i, "foo-" + i)));
             }
 
-            TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000);
+            assertTrue(TestUtils.waitForCondition(() -> view.contains(null, tupleKey(99)), 5000));
 
             // Submit invalid items.
             for (int i = 200; i < 300; i++) {

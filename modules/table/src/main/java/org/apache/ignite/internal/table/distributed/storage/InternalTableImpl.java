@@ -395,7 +395,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, false, actualTx, actualTx.implicit()).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = getTimeoutOrDefault(actualTx);
+                    long timeout = actualTx.getTimeout();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -515,7 +515,7 @@ public class InternalTableImpl implements InternalTable {
         return postEnlist(fut, actualTx.implicit() && !singlePart, actualTx, full).handle((r, e) -> {
             if (e != null) {
                 if (actualTx.implicit()) {
-                    long timeout = getTimeoutOrDefault(actualTx);
+                    long timeout = actualTx.getTimeout();
 
                     long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
 
@@ -688,7 +688,7 @@ public class InternalTableImpl implements InternalTable {
             });
         } else {
             if (write) { // Track only write requests from explicit transactions.
-                if (!transactionInflights.addInflight(tx.id(), false)) {
+                if (!tx.remote() && !transactionInflights.addInflight(tx.id(), false)) {
                     int code = TX_ALREADY_FINISHED_ERR;
                     if (tx.isRolledBackWithTimeoutExceeded()) {
                         code = TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
@@ -708,7 +708,7 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (noWriteChecker.test(res, request)) {
+                    if (!tx.remote() && noWriteChecker.test(res, request)) {
                         transactionInflights.removeInflight(tx.id());
                     }
 
@@ -716,7 +716,9 @@ public class InternalTableImpl implements InternalTable {
                 }).handle((r, e) -> {
                     if (e != null) {
                         if (retryOnLockConflict > 0 && matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR)) {
-                            transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            if (!tx.remote()) {
+                                transactionInflights.removeInflight(tx.id()); // Will be retried.
+                            }
 
                             return trackingInvoke(
                                     tx,
@@ -774,7 +776,7 @@ public class InternalTableImpl implements InternalTable {
         assert !(autoCommit && full) : "Invalid combination of flags";
 
         return fut.handle((BiFunction<T, Throwable, CompletableFuture<T>>) (r, e) -> {
-            if (full) {
+            if (full || tx0.remote()) {
                 return e != null ? failedFuture(e) : completedFuture(r);
             }
 
@@ -962,6 +964,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -1172,6 +1175,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -1227,7 +1231,7 @@ public class InternalTableImpl implements InternalTable {
         // Will be finished in one RTT.
         return postEnlist(fut, false, tx, true).handle((r, e) -> {
             if (e != null) {
-                long timeout = getTimeoutOrDefault(tx);
+                long timeout = tx.getTimeout();
 
                 long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
 
@@ -1240,10 +1244,6 @@ public class InternalTableImpl implements InternalTable {
 
             return completedFuture(r);
         }).thenCompose(identity());
-    }
-
-    private long getTimeoutOrDefault(InternalTransaction tx) {
-        return tx.getTimeoutOrDefault(getDefaultTimeout(tx));
     }
 
     private long getDefaultTimeout(InternalTransaction tx) {
@@ -1270,6 +1270,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -1293,6 +1294,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> !res
         );
@@ -1351,6 +1353,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.startTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
+                .skipDelayedAck(tx.remote())
                 .build();
     }
 
@@ -1372,6 +1375,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> !res
         );
@@ -1399,6 +1403,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> !res
         );
@@ -1424,6 +1429,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> res == null
         );
@@ -1447,6 +1453,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> !res
         );
@@ -1470,6 +1477,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> !res
         );
@@ -1495,6 +1503,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.startTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
+                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> res == null
         );
@@ -1862,6 +1871,7 @@ public class InternalTableImpl implements InternalTable {
                     .tableId(tableId)
                     .transactionId(txId)
                     .scanId(scanId)
+                    .timestamp(TransactionIds.beginTimestamp(txId))
                     .build();
 
             closeFut = replicaSvc.invoke(recipientConsistentId, scanCloseReplicaRequest);
@@ -2217,6 +2227,7 @@ public class InternalTableImpl implements InternalTable {
                             .groupId(partitionIdMessage)
                             .tableId(tableId)
                             .enlistmentConsistencyToken(enlistmentConsistencyToken(replicaMeta))
+                            .timestamp(now)
                             .build();
 
             invokeFutures[partId] = sendToPrimaryWithRetry(replicaGroupId, now, 5, requestFactory);
@@ -2226,7 +2237,8 @@ public class InternalTableImpl implements InternalTable {
                 .thenApply(v -> Arrays.stream(invokeFutures).mapToLong(f -> (Long) f.join()).sum());
     }
 
-    private ReplicationGroupId targetReplicationGroupId(int partId) {
+    @Override
+    public final ReplicationGroupId targetReplicationGroupId(int partId) {
         if (enabledColocation()) {
             return new ZonePartitionId(zoneId, partId);
         } else {

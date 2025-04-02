@@ -224,7 +224,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         // 1 COMMIT + 1 ROLLBACK.
         verifyFinishedTxCount(2);
 
-        waitForCondition(() -> txManager().lockManager().isEmpty(), 2_000);
+        assertTrue(waitForCondition(() -> txManager().lockManager().isEmpty(), 2_000));
 
         // Make sure that the last transaction was rolled back.
         assertQuery("select count(id) from test")

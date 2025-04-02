@@ -72,7 +72,7 @@ public class QueryTransactionContextImpl implements QueryTransactionContext {
         }
 
         // Adding inflights only for read-only transactions. See TransactionInflights.ReadOnlyTxContext for details.
-        if (transaction.isReadOnly() && !txTracker.register(transaction.id(), transaction.isReadOnly())) {
+        if (transaction.isReadOnly() && !txTracker.register(transaction.id(), true)) {
             throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", transaction));
         }
 

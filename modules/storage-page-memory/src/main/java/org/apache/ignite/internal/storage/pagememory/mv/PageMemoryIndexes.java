@@ -75,23 +75,23 @@ class PageMemoryIndexes {
         return sortedIndexes.get(indexId);
     }
 
-    PageMemoryHashIndexStorage getOrCreateHashIndex(
+    void createHashIndex(
             StorageHashIndexDescriptor indexDescriptor, IndexStorageFactory indexStorageFactory
     ) {
         assert !sortedIndexes.containsKey(indexDescriptor.id()) : indexDescriptor;
 
-        return hashIndexes.computeIfAbsent(
+        hashIndexes.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> indexStorageFactory.createHashIndexStorage(indexDescriptor)
         );
     }
 
-    PageMemorySortedIndexStorage getOrCreateSortedIndex(
+    void createSortedIndex(
             StorageSortedIndexDescriptor indexDescriptor, IndexStorageFactory indexStorageFactory
     ) {
         assert !hashIndexes.containsKey(indexDescriptor.id()) : indexDescriptor;
 
-        return sortedIndexes.computeIfAbsent(
+        sortedIndexes.computeIfAbsent(
                 indexDescriptor.id(),
                 id -> indexStorageFactory.createSortedIndexStorage(indexDescriptor)
         );

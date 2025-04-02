@@ -46,7 +46,6 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
-import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -122,8 +121,6 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     void setup() {
         List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
         assertEquals(initialNodes(), nodes.size());
-
-        await(((SystemViewManagerImpl) unwrapIgniteImpl(CLUSTER.aliveNode()).systemViewManager()).completeRegistration());
     }
 
     @BeforeEach
@@ -274,7 +271,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     private static void expectEarliestCatalogVersion(int expectedVersion) {
-        Awaitility.await().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
+        Awaitility.await().pollInSameThread().timeout(COMPACTION_INTERVAL_MS, TimeUnit.MILLISECONDS).untilAsserted(() -> {
             for (var node : CLUSTER.runningNodes().collect(Collectors.toList())) {
                 IgniteImpl ignite = unwrapIgniteImpl(node);
                 CatalogManagerImpl catalogManager = ((CatalogManagerImpl) ignite.catalogManager());

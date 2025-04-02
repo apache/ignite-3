@@ -308,7 +308,7 @@ class ClusterInitTest extends IgniteCliInterfaceTestBase {
                 + "}\n"
                 + "ignite.schemaSync.delayDuration: 100,\n"
                 + "ignite.schemaSync.maxClockSkew: 7,\n"
-                + "ignite.metaStorage.idleSyncTimeInterval: 10,\n"
+                + "ignite.system.idleSafeTimeSyncInterval: 10,\n"
                 + "ignite.replication.idleSafeTimePropagationDuration: 100";
 
         String expectedSentContent = "{\n"

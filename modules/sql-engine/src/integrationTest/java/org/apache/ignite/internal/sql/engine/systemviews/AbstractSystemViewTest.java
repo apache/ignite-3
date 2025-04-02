@@ -17,18 +17,10 @@
 
 package org.apache.ignite.internal.sql.engine.systemviews;
 
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
-
 import org.apache.ignite.internal.sql.engine.BaseSqlMultiStatementTest;
-import org.junit.jupiter.api.BeforeAll;
 
 /**
  * Base class for SQL system views integration tests.
  */
 public class AbstractSystemViewTest extends BaseSqlMultiStatementTest {
-    /** Await system view registration. */
-    @BeforeAll
-    protected void awaitSystemViewRegistration() {
-        await(systemViewManager().completeRegistration());
-    }
 }

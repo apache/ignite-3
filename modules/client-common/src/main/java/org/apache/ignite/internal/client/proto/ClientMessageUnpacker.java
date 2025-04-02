@@ -32,6 +32,8 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.sql.BatchedArguments;
+import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 import org.msgpack.core.ExtensionTypeHeader;
 import org.msgpack.core.MessageFormat;
@@ -973,6 +975,18 @@ public class ClientMessageUnpacker implements AutoCloseable {
         }
 
         return res;
+    }
+
+    /**
+     * Unpacks qualified name.
+     *
+     * @return Qualified name.
+     */
+    public QualifiedName unpackQualifiedName() {
+        String schemaName = unpackString();
+        String objectName = unpackString();
+
+        return QualifiedNameHelper.fromNormalized(schemaName, objectName);
     }
 
     private int readLength8() {

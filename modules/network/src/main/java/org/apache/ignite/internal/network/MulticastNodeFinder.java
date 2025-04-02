@@ -65,7 +65,9 @@ public class MulticastNodeFinder implements NodeFinder {
 
     /** Buffer size for receiving responses. */
     private static final int RECEIVE_BUFFER_SIZE = 1024;
-    public static final int UNBOUNDED_TTL = -1;
+
+    /** System default value will be used. */
+    public static final int UNSPECIFIED_TTL = -1;
     public static final int MAX_TTL = 255;
 
     private static final int REQ_ATTEMPTS = 2;
@@ -202,7 +204,7 @@ public class MulticastNodeFinder implements NodeFinder {
 
         socket.setSoTimeout(soTimeout);
 
-        if (ttl != UNBOUNDED_TTL) {
+        if (ttl != UNSPECIFIED_TTL) {
             socket.setTimeToLive(ttl);
         }
     }

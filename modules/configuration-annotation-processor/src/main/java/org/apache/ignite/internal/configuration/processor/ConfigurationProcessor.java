@@ -181,15 +181,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
             ClassName configInterface = getConfigurationInterfaceName(schemaClassName);
 
             TypeSpec.Builder configurationInterfaceBuilder = TypeSpec.interfaceBuilder(configInterface)
-                    .addModifiers(PUBLIC);
+                    .addModifiers(PUBLIC)
+                    .addJavadoc("@see $T", schemaClassName);
 
             for (VariableElement field : classWrapper.fields()) {
-                String fieldName = field.getSimpleName().toString();
-
-                // Get configuration types (VIEW, CHANGE and so on)
-                TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
-
-                createGetters(configurationInterfaceBuilder, fieldName, interfaceGetMethodType);
+                createGetters(configurationInterfaceBuilder, field);
             }
 
             // Is root of the configuration.
@@ -225,8 +221,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
             }
 
             // Generates "public FooConfiguration directProxy();" in the configuration interface.
-            configurationInterfaceBuilder.addMethod(
-                    MethodSpec.methodBuilder("directProxy").addModifiers(PUBLIC, ABSTRACT).returns(configInterface).build()
+            configurationInterfaceBuilder.addMethod(MethodSpec.methodBuilder("directProxy")
+                    .addModifiers(PUBLIC, ABSTRACT)
+                    .addAnnotation(Override.class)
+                    .returns(configInterface).build()
             );
 
             // Write configuration interface.
@@ -283,17 +281,21 @@ public class ConfigurationProcessor extends AbstractProcessor {
      * Create getters for configuration class.
      *
      * @param configurationInterfaceBuilder Interface builder.
-     * @param fieldName Field name.
-     * @param interfaceGetMethodType Return type.
+     * @param field Original schema field.
      */
     private static void createGetters(
-            TypeSpec.Builder configurationInterfaceBuilder,
-            String fieldName,
-            TypeName interfaceGetMethodType
+            Builder configurationInterfaceBuilder,
+            VariableElement field
     ) {
+        String fieldName = field.getSimpleName().toString();
+
+        // Get configuration types (VIEW, CHANGE and so on)
+        TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
+
         MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
                 .addModifiers(PUBLIC, ABSTRACT)
                 .returns(interfaceGetMethodType)
+                .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                 .build();
 
         configurationInterfaceBuilder.addMethod(interfaceGetMethod);
@@ -418,6 +420,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
         // Clone method should be used to guarantee data integrity.
 
         TypeSpec.Builder viewClsBuilder = TypeSpec.interfaceBuilder(viewClsName)
+                .addJavadoc("@see $T", schemaClassName)
                 .addModifiers(PUBLIC);
 
         if (viewBaseSchemaInterfaceType != null) {
@@ -426,6 +429,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         TypeSpec.Builder changeClsBuilder = TypeSpec.interfaceBuilder(changeClsName)
                 .addSuperinterface(viewClsName)
+                .addJavadoc("@see $T", schemaClassName)
                 .addModifiers(PUBLIC);
 
         if (changeBaseSchemaInterfaceType != null) {
@@ -467,6 +471,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
             MethodSpec.Builder getMtdBuilder = MethodSpec.methodBuilder(fieldName)
                     .addModifiers(PUBLIC, ABSTRACT)
+                    .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                     .returns(viewFieldType);
 
             viewClsBuilder.addMethod(getMtdBuilder.build());
@@ -480,6 +485,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
             MethodSpec.Builder changeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
                     .addModifiers(PUBLIC, ABSTRACT)
+                    .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                     .returns(changeClsName);
 
             if (containsAnyAnnotation(field, Value.class, InjectedValue.class)) {
@@ -494,6 +500,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 // Create "FooChange changeFoo()" method with no parameters, if it's a config value or named list value.
                 MethodSpec.Builder shortChangeMtdBuilder = MethodSpec.methodBuilder(changeMtdName)
                         .addModifiers(PUBLIC, ABSTRACT)
+                        .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                         .returns(changeFieldType);
 
                 changeClsBuilder.addMethod(shortChangeMtdBuilder.build());

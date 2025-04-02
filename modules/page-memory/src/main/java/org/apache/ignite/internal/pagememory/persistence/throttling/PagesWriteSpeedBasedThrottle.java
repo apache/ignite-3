@@ -44,11 +44,16 @@ import org.jetbrains.annotations.TestOnly;
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
+    /** The maximum time for a single {@link LockSupport#parkNanos(long)} call if we don't throttle the checkpoint buffer. */
+    private static final int PARKING_UNIT = 10_000;
+
     /**
      * Throttling 'duration' used to signal that no throttling is needed, and no certain side-effects are allowed
      * (like stats collection).
      */
     static final long NO_THROTTLING_MARKER = Long.MIN_VALUE;
+
+    private final long logThresholdNanos;
 
     private final PersistentPageMemory pageMemory;
 
@@ -92,17 +97,20 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /**
      * Constructor.
      *
+     * @param logThresholdNanos Minimal throttling duration required for printing a warning message to the log.
      * @param pageMemory Page memory.
      * @param cpProgress Database manager.
      * @param stateChecker Checkpoint lock state provider.
      * @param metricSource Metric source.
      */
     public PagesWriteSpeedBasedThrottle(
+            long logThresholdNanos,
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
             CheckpointLockStateChecker stateChecker,
             PersistentPageMemoryMetricSource metricSource
     ) {
+        this.logThresholdNanos = logThresholdNanos;
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         cpLockStateChecker = stateChecker;
@@ -177,13 +185,15 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         assert cpLockStateChecker.checkpointLockIsHeldByThread();
 
         long startTimeNs = System.nanoTime();
-        long throttleParkTimeNs = computeThrottlingParkTime(isPageInCheckpoint, startTimeNs);
+
+        long throttleParkTimeNs = parkAndReturnParkingNanos(isPageInCheckpoint);
 
         if (throttleParkTimeNs == NO_THROTTLING_MARKER) {
             return;
-        } else if (throttleParkTimeNs > 0) {
-            recurrentLogIfNeeded();
-            doPark(throttleParkTimeNs);
+        }
+
+        if (throttleParkTimeNs > logThresholdNanos) {
+            LOG.warn("Parking thread={} for timeout(ms)={}", Thread.currentThread().getName(), throttleParkTimeNs / 1_000_000);
         }
 
         totalThrottlingTime.add(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNs));
@@ -191,16 +201,58 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         markSpeedAndAvgParkTime.addMeasurementForAverageCalculation(throttleParkTimeNs);
     }
 
-    private long computeThrottlingParkTime(boolean isPageInCheckpoint, long curNanoTime) {
+    private long parkAndReturnParkingNanos(boolean isPageInCheckpoint) {
         if (isPageInCheckpoint && isCpBufferOverflowThresholdExceeded()) {
-            return cpBufferProtector.protectionParkTime();
+            long parkTimeNanos = cpBufferProtector.protectionParkTime();
+
+            doPark(parkTimeNanos);
+
+            return parkTimeNanos;
         } else {
             if (isPageInCheckpoint) {
                 // The fact that we are here means that we checked whether CP Buffer is in danger zone and found that
                 // it is ok, so its protector may relax, hence we reset it.
                 cpBufferProtector.resetBackoff();
             }
-            return cleanPagesProtector.protectionParkTime(curNanoTime);
+
+            return parkAndReturnParkingNanosWithoutCpBufferProtection();
+        }
+    }
+
+    private long parkAndReturnParkingNanosWithoutCpBufferProtection() {
+        long alreadyParkedNanos = 0L;
+
+        long minimalCalculatedParkNanos = Long.MAX_VALUE;
+
+        // Main idea behind the loop: it is possible to have a wrong estimation of parking time if there's not enough statistic or it is
+        // inaccurate for some reason. Such situations might result in several seconds of parking without any ability to unpark these
+        // threads. In order to deal with these imprecise calculations, we only park threads to small increments amounts of time and then
+        // re-check expected parking time. If current thread has already been parked for longer than any of the proposed time periods, we
+        // consider that it is safe to stop parking and modify the page.
+        while (true) {
+            long calculatedParkNanos = cleanPagesProtector.protectionParkTime(System.nanoTime());
+
+            if (calculatedParkNanos == NO_THROTTLING_MARKER) {
+                // Return "NO_THROTTLING_MARKER" on first iteration, or "alreadyParkedNanos" on any other iteration.
+                return alreadyParkedNanos == 0L ? NO_THROTTLING_MARKER : alreadyParkedNanos;
+            }
+
+            minimalCalculatedParkNanos = Math.min(minimalCalculatedParkNanos, calculatedParkNanos);
+
+            if (alreadyParkedNanos >= minimalCalculatedParkNanos) {
+                return alreadyParkedNanos;
+            }
+
+            long realParkNanos = Math.min(calculatedParkNanos, PARKING_UNIT);
+
+            doPark(realParkNanos);
+
+            // Ignore spurious wake-ups, assuming they don't happen.
+            alreadyParkedNanos += realParkNanos;
+
+            if (calculatedParkNanos == realParkNanos) {
+                return alreadyParkedNanos;
+            }
         }
     }
 
@@ -210,10 +262,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      * @param throttleParkTimeNs The maximum number of nanoseconds to wait.
      */
     protected void doPark(long throttleParkTimeNs) {
-        if (throttleParkTimeNs > LOGGING_THRESHOLD) {
-            LOG.warn("Parking thread=" + Thread.currentThread().getName()
-                    + " for timeout(ms)=" + (throttleParkTimeNs / 1_000_000));
-        }
+        recurrentLogIfNeeded();
 
         parkedThreads.add(Thread.currentThread());
 

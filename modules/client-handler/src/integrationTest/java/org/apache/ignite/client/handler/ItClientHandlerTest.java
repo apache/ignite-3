@@ -34,6 +34,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.util.BitSet;
 import org.apache.ignite.client.handler.configuration.ClientConnectorConfiguration;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -158,7 +159,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(97, len);
+            assertEquals(98, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -465,7 +466,90 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private void writeAndFlushLoop(Socket socket) throws Exception {
+    @Test
+    public void testServerReturnsAllItsFeatures() throws IOException {
+        try (var sock = new Socket("127.0.0.1", serverPort)) {
+            OutputStream out = sock.getOutputStream();
+
+            // Magic: IGNI
+            out.write(MAGIC);
+
+            // Handshake.
+            var packer = MessagePack.newDefaultBufferPacker();
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(0);
+            packer.packInt(8); // Size.
+
+            packer.packInt(3); // Major.
+            packer.packInt(0); // Minor.
+            packer.packInt(0); // Patch.
+
+            packer.packInt(2); // Client type: general purpose.
+
+            BitSet clientFeatures = new BitSet();
+            // Supported feature
+            clientFeatures.set(1);
+            // Unsupported feature
+            clientFeatures.set(3);
+
+            packer.packBinaryHeader(clientFeatures.toByteArray().length); // Features.);
+            packer.writePayload(clientFeatures.toByteArray());
+
+            packer.packInt(0); // Extensions.
+
+            out.write(packer.toByteArray());
+            out.flush();
+
+            // Read response.
+            var unpacker = MessagePack.newDefaultUnpacker(sock.getInputStream());
+            final var magic = unpacker.readPayload(4);
+            unpacker.skipValue(3); // LE int zeros.
+            final var len = unpacker.unpackInt();
+            final var major = unpacker.unpackInt();
+            final var minor = unpacker.unpackInt();
+            final var patch = unpacker.unpackInt();
+            final var success = unpacker.tryUnpackNil();
+            assertTrue(success);
+
+            final var idleTimeout = unpacker.unpackLong();
+            unpacker.skipValue(); // Node id.
+            final var nodeName = unpacker.unpackString();
+            unpacker.skipValue(2); // Cluster ids.
+            unpacker.skipValue(); // Cluster name.
+            unpacker.skipValue(); // Observable timestamp.
+
+            unpacker.skipValue(); // Major.
+            unpacker.skipValue(); // Minor.
+            unpacker.skipValue(); // Maintenance.
+            unpacker.skipValue(); // Patch.
+            unpacker.skipValue(); // Pre release.
+
+            // Features
+            var featuresLen = unpacker.unpackBinaryHeader();
+            assertTrue(featuresLen > 0);
+            byte[] featuresBits = unpacker.readPayload(featuresLen);
+            BitSet supportedFeatures = BitSet.valueOf(featuresBits);
+
+            // Server features
+            BitSet expected = new BitSet();
+            expected.set(1, 3);
+            assertEquals(expected, supportedFeatures);
+
+            var extensionsLen = unpacker.unpackInt();
+            unpacker.skipValue(extensionsLen);
+
+            assertArrayEquals(MAGIC, magic);
+            assertEquals(98, len);
+            assertEquals(3, major);
+            assertEquals(0, minor);
+            assertEquals(0, patch);
+            assertEquals(5000, idleTimeout);
+            assertEquals("consistent-id", nodeName);
+        }
+    }
+
+    private static void writeAndFlushLoop(Socket socket) throws Exception {
         var stop = System.currentTimeMillis() + 5000;
         var out = socket.getOutputStream();
 

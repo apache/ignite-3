@@ -35,6 +35,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.clearInvocations;
@@ -99,8 +100,10 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         createAndStartComponents();
         awaitDefaultZoneCreation();
 
+        // Check that a catalog product key exist, if it does not create it (1 - getLocally + 1 invoke).
         // on the first start default zone must be created
-        verify(metaStorageManager).invoke(any());
+        verify(metaStorageManager).getLocally(any());
+        verify(metaStorageManager, times(2)).invoke(any());
 
         // Let's create a couple of versions of the catalog.
         assertThat(catalogManager.execute(simpleTable(TABLE_NAME)), willCompleteSuccessfully());
@@ -134,9 +137,6 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
         // Check recovery events.
         verify(interceptor, times(3)).handle(any(VersionedUpdate.class), any(), anyLong());
         verify(interceptor, Mockito.never()).handle(any(SnapshotEntry.class), any(), anyLong());
-        // on recovery no additional invocation should happen
-        verify(metaStorageManager, Mockito.never()).invoke(any());
-
 
         // Let's check that the versions for the points in time at which they were created are in place.
         assertThat(catalogManager.activeCatalogVersion(time0), equalTo(catalogVersion0));
@@ -216,7 +216,7 @@ public class CatalogManagerRecoveryTest extends BaseIgniteAbstractTest {
     }
 
     private void awaitDefaultZoneCreation() throws InterruptedException {
-        waitForCondition(() -> catalogManager.latestCatalogVersion() > 0, 5_000);
+        assertTrue(waitForCondition(() -> catalogManager.latestCatalogVersion() > 0, 5_000));
     }
 
     private void startComponentsAndDeployWatches() {

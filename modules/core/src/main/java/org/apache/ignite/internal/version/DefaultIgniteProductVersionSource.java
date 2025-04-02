@@ -15,25 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.configuration;
+package org.apache.ignite.internal.version;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * Configuration schema for the Meta Storage module.
+ * {@link IgniteProductVersionSource} that takes product name and version from the properties.
  */
-@Config
-public class MetaStorageConfigurationSchema {
-    /**
-     * Duration (in milliseconds) used to determine how often to issue time sync commands when the Meta Storage is idle
-     * (no writes are being issued).
-     *
-     * <p>Making this value too small increases the network load, while making this value too large can lead to increased latency of
-     * Meta Storage reads.
-     */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long idleSyncTimeInterval = 250;
+public class DefaultIgniteProductVersionSource implements IgniteProductVersionSource {
+    @Override
+    public String productName() {
+        return IgniteProductVersion.CURRENT_PRODUCT;
+    }
+
+    @Override
+    public IgniteProductVersion productVersion() {
+        return IgniteProductVersion.CURRENT_VERSION;
+    }
 }

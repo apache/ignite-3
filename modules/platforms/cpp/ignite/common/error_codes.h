@@ -157,7 +157,6 @@ enum class code : underlying_t {
     FILE_VALIDATION = 0xb0004,
     RECIPIENT_LEFT = 0xb0005,
     ADDRESS_UNRESOLVED = 0xb0006,
-    DUPLICATE_CONSISTENT_ID = 0xb0007,
 
     // NodeConfiguration group. Group code: 12
     CONFIG_READ = 0xc0001,

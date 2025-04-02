@@ -69,7 +69,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
@@ -145,7 +144,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -192,7 +190,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionC
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
@@ -234,11 +231,13 @@ import org.apache.ignite.internal.tx.test.TestLocalRwTxCounter;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
+import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -292,13 +291,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
-
-    @InjectConfiguration
-    private static StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
     private CriticalWorkersConfiguration workersConfiguration;
@@ -402,7 +398,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterIdService,
                 workerRegistry,
                 failureProcessor,
-                defaultChannelTypeRegistry()
+                defaultChannelTypeRegistry(),
+                new DefaultIgniteProductVersionSource()
         );
 
         var hybridClock = new HybridClockImpl();
@@ -518,7 +515,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                metaStorageConfiguration,
+                systemDistributedConfiguration,
                 msRaftConfigurer,
                 readOperationForCompactionTracker
         ) {
@@ -741,6 +738,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 sharedTxStateStorage,
                 txManager,
                 schemaManager,
+                dataStorageManager,
                 outgoingSnapshotManager
         );
 
@@ -749,7 +747,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 gcConfig,
                 txConfiguration,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
@@ -1109,7 +1107,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
      */
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
-    public void metastorageRecoveryTest(boolean useSnapshot) throws InterruptedException {
+    public void metastorageRecoveryTest(boolean useSnapshot) throws Exception {
         List<IgniteImpl> nodes = startNodes(2);
         IgniteImpl main = nodes.get(0);
 
@@ -1169,7 +1167,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         assertEquals(mainVersion, secondRestartedVersion);
     }
 
-    private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws InterruptedException {
+    private static void forceSnapshotUsageOnRestart(IgniteImpl main) throws Exception {
         // Force log truncation, so that restarting node would request a snapshot.
         JraftServerImpl server = (JraftServerImpl) main.raftManager().server();
         List<Peer> peers = server.localPeers(MetastorageGroupId.INSTANCE);
@@ -1181,19 +1179,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var nodeId = new RaftNodeId(MetastorageGroupId.INSTANCE, learnerPeer);
         RaftGroupService raftGroupService = server.raftGroupService(nodeId);
 
-        for (int i = 0; i < 2; i++) {
-            // Log must be truncated twice.
-            CountDownLatch snapshotLatch = new CountDownLatch(1);
-            AtomicReference<Status> snapshotStatus = new AtomicReference<>();
+        CompletableFuture<Status> fut = new CompletableFuture<>();
+        raftGroupService.getRaftNode().snapshot(fut::complete, true);
 
-            raftGroupService.getRaftNode().snapshot(status -> {
-                snapshotStatus.set(status);
-                snapshotLatch.countDown();
-            });
-
-            assertTrue(snapshotLatch.await(10, TimeUnit.SECONDS), "Snapshot was not finished in time");
-            assertTrue(snapshotStatus.get().isOk(), "Snapshot failed: " + snapshotStatus.get());
-        }
+        assertThat(fut, willCompleteSuccessfully());
+        assertEquals(RaftError.SUCCESS, fut.get().getRaftError());
     }
 
     /**
@@ -1577,7 +1567,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    public void testCorrectPartitionRecoveryOnSnapshot() throws InterruptedException {
+    public void testCorrectPartitionRecoveryOnSnapshot() throws Exception {
         int nodesCount = 3;
         List<IgniteImpl> nodes = startNodes(nodesCount);
 
@@ -1685,7 +1675,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     Assignments.toBytes(Set.of(Assignment.forPeer(node.name())), timestamp)
             );
 
-            waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+            assertTrue(waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000));
 
             lateChangeFlag.values().forEach(v -> v.set(false));
         }
@@ -1713,7 +1703,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         // Waiting for late prefix on all nodes.
-        waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+        assertTrue(waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000));
 
         var assignmentsKey = stablePartAssignmentsKey(partId).bytes();
 
@@ -1861,7 +1851,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     @Test
-    public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws InterruptedException {
+    public void testSequentialAsyncTableCreationThenAlterZoneThenRestartOnMsSnapshot() throws Exception {
         IgniteImpl node0 = startNode(0);
         IgniteImpl node1 = startNode(1);
 
