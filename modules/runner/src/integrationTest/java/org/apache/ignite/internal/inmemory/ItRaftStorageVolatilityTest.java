@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -113,6 +114,15 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).tableId();
     }
 
+    private static String testZonePartitionPrefix(IgniteImpl ignite) {
+        return testZoneId(ignite) + "_part_";
+    }
+
+    private static int testZoneId(IgniteImpl ignite) {
+        TableManager tables = unwrapTableManager(ignite.tables());
+        return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).zoneId();
+    }
+
     @Test
     void raftLogStorageIsVolatileForVolatilePartitions() throws Exception {
         createInMemoryTable();
@@ -177,7 +187,9 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createPersistentTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String tablePartitionPrefix = testTablePartitionPrefix(ignite);
+        String partitionPrefix = enabledColocation()
+                ? testZonePartitionPrefix(ignite)
+                : testTablePartitionPrefix(ignite);
 
         stopNode(0);
 
@@ -193,8 +205,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(0));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
         }
     }
 
