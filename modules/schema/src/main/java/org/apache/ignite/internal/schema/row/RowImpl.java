@@ -19,6 +19,7 @@ package org.apache.ignite.internal.schema.row;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -134,6 +135,18 @@ public class RowImpl extends BinaryTupleReader implements Row, BinaryRowEx {
     public BinaryTupleReader binaryTuple() {
         return new BinaryTuple(binaryTupleSchema.elementCount(), row.tupleSlice());
     }
+
+    /** {@inheritDoc} */
+    @Override
+    public void copyRawValue(BinaryTupleBuilder builder, int columnIndex) {
+        fetch(columnIndex, (index, begin, end) -> {
+            if (begin == end) {
+                builder.appendNull();
+            } else {
+                builder.appendElementBytes(row.tupleSlice(), begin, end - begin);
+            }
+        });
+    };
 
     /** {@inheritDoc} */
     @Override

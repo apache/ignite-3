@@ -31,7 +31,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -458,12 +457,23 @@ public class UpgradingRowAdapter implements Row {
         var builder = new BinaryTupleBuilder(size);
 
         for (int col = 0; col < size; col++) {
-            Element element = newBinaryTupleSchema.element(col);
-
-            BinaryRowConverter.copyColumnValue(this, builder, element, col);
+            copyRawValue(builder, col);
         }
 
         return new BinaryTuple(size, builder.build()).byteBuffer();
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void copyRawValue(BinaryTupleBuilder builder, int colIdx) {
+        int mappedId = mapColumn(colIdx);
+
+        if (mappedId < 0) {
+            Column column = mapper.mappedColumn(colIdx);
+            BinaryRowConverter.appendValue(builder, newBinaryTupleSchema.element(colIdx), column.defaultValue());
+        } else {
+            row.copyRawValue(builder, mappedId);
+        }
     }
 
     /** {@inheritDoc} */
@@ -478,7 +488,7 @@ public class UpgradingRowAdapter implements Row {
         throw new UnsupportedOperationException("Underlying binary can't be accessed directly.");
     }
 
-    private void ensureTypeConversionAllowed(ColumnType from, ColumnType to) throws InvalidTypeException {
+    private static void ensureTypeConversionAllowed(ColumnType from, ColumnType to) throws InvalidTypeException {
         if (!isSupportedColumnTypeChange(from, to)) {
             throw new SchemaException(format("Type conversion is not allowed: {} -> {}", from, to));
         }
