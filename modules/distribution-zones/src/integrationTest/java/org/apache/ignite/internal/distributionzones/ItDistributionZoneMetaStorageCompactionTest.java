@@ -149,9 +149,10 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
                 + ", data_nodes_auto_adjust_scale_down=0");
         sql("create table " + TABLE_NAME + " (id int primary key) zone " + ZONE_NAME);
         sql("insert into " + TABLE_NAME + " values (1)");
-        sql("alter zone " + ZONE_NAME + " set replicas=2");
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
+
+        MetaStorageManager metaStorageManager = ignite.metaStorageManager();
 
         int tableId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).tables()
                 .stream()
@@ -160,7 +161,25 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
                 .orElseThrow()
                 .id();
 
-        MetaStorageManager metaStorageManager = ignite.metaStorageManager();
+        // Checking that there is only one replica in the stable assignments.
+        assertTrue(waitForCondition(() -> {
+            CompletableFuture<Entry> entryFut = metaStorageManager.get(stablePartAssignmentsKey(new TablePartitionId(tableId, 0)));
+            assertThat(entryFut, willCompleteSuccessfully());
+
+            Entry e = entryFut.join();
+
+            if (e.value() == null) {
+                return false;
+            }
+
+            Assignments a = Assignments.fromBytes(e.value());
+
+            // Check that there is one replica before rebalancing.
+            return a.nodes().size() == 1;
+        }, 1000));
+
+        // Triggering the rebalance.
+        sql("alter zone " + ZONE_NAME + " set replicas=2");
 
         // Wait for the rebalancing to finish.
         assertTrue(waitForCondition(() -> {
