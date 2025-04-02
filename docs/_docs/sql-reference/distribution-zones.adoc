@@ -119,7 +119,6 @@ Keywords and parameters:
 * `IF EXISTS` - do not throw an error if a zone with the specified name does not exist.
 * `qualified_zone_name` - a name of the distribution zone.
 * `SET` - assigns values to any or all of the following parameters:
-** `STORAGE_PROFILES` - comma-separated list of the profiles of the storage engines to use.
 ** `PARTITIONS` - the number of partitions
 ** `REPLICAS` - the number of copies of each partition.
 ** `DATA_NODES_FILTER` - specifies the nodes that can be used to store data in the distribution zone based on node attributes.
