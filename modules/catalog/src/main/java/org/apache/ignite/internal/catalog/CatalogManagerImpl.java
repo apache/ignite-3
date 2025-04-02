@@ -27,8 +27,10 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
+import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.BitSet;
@@ -53,6 +55,8 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -66,7 +70,6 @@ import org.apache.ignite.internal.systemview.api.SystemViewProvider;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
-import org.apache.ignite.lang.ErrorGroups.Common;
 
 /**
  * Catalog service implementation.
@@ -105,6 +108,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final ClockService clockService;
 
+    private final FailureManager failureManager;
+
     private final LongSupplier delayDurationMsSupplier;
 
     private final CatalogSystemViewRegistry catalogSystemViewProvider;
@@ -131,10 +136,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
+            FailureManager failureManager,
             LongSupplier delayDurationMsSupplier
     ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
+        this.failureManager = failureManager;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
     }
@@ -283,7 +290,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
                     if (error != null) {
-                        LOG.warn("Unable to create default zone.", error);
+                        failureManager.process(new FailureContext(CRITICAL_ERROR,
+                                new IgniteInternalException(INTERNAL_ERR, "Unable to create default zone.", error)
+                        ));
                     }
 
                     return null;
@@ -387,7 +396,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
         try {
             if (attemptNo >= MAX_RETRY_COUNT) {
-                return failedFuture(new IgniteInternalException(Common.INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
+                return failedFuture(new IgniteInternalException(INTERNAL_ERR, "Max retry limit exceeded: " + attemptNo));
             }
 
             Catalog catalog = catalogByVer.lastEntry().getValue();
@@ -504,8 +513,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
-                            LOG.warn("Failed to apply catalog update.", err);
-                            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
+                            failureManager.process(new FailureContext(CRITICAL_ERROR,
+                                    new IgniteInternalException(INTERNAL_ERR, "Failed to apply catalog update.", err)
+                            ));
                         }
 
                         versionTracker.update(version, null);

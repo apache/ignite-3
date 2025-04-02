@@ -58,6 +58,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -123,6 +124,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockService,
+                new NoOpFailureManager(),
                 delayDuration::get
         );
 
