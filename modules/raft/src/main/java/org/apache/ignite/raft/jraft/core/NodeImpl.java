@@ -54,6 +54,7 @@ import org.apache.ignite.internal.raft.storage.impl.RocksDbSharedLogStorage;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager;
 import org.apache.ignite.internal.raft.storage.impl.StripeAwareLogManager.Stripe;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
@@ -1314,22 +1315,28 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         if (opts.isSystemGroup()) {
-            opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+            opts.setfSMCallerExecutorDisruptor(StripedDisruptor.createSerialDisruptor(
                 opts.getServerName(),
                 "JRaft-FSMCaller-Disruptor-" + groupId,
+                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new FSMCallerImpl.ApplyTask(),
-                1,
-                false,
                 false,
                 null
             ));
         } else {
             if (opts.getfSMCallerExecutorDisruptor() == null) {
-                opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<FSMCallerImpl.ApplyTask>(
+                opts.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                     opts.getServerName(),
                     "JRaft-FSMCaller-Disruptor",
-                    (nodeName, stripeName) -> IgniteThreadFactory.create(nodeName, stripeName, true, LOG, STORAGE_READ, STORAGE_WRITE),
+                    (stripeName, logger) -> IgniteThreadFactory.create(
+                            opts.getServerName(),
+                            stripeName,
+                            true,
+                            LOG,
+                            STORAGE_READ,
+                            STORAGE_WRITE
+                    ),
                     opts.getRaftOptions().getDisruptorBufferSize(),
                     () -> new FSMCallerImpl.ApplyTask(),
                     opts.getStripes(),
@@ -1341,9 +1348,10 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         if (opts.getNodeApplyDisruptor() == null) {
-            opts.setNodeApplyDisruptor(new StripedDisruptor<NodeImpl.LogEntryAndClosure>(
+            opts.setNodeApplyDisruptor(new StripedDisruptor<>(
                 opts.getServerName(),
                 "JRaft-NodeImpl-Disruptor",
+                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new NodeImpl.LogEntryAndClosure(),
                 opts.getStripes(),
@@ -1354,9 +1362,10 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         if (opts.getReadOnlyServiceDisruptor() == null) {
-            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<ReadOnlyServiceImpl.ReadIndexEvent>(
+            opts.setReadOnlyServiceDisruptor(new StripedDisruptor<>(
                 opts.getServerName(),
                 "JRaft-ReadOnlyService-Disruptor",
+                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new ReadOnlyServiceImpl.ReadIndexEvent(),
                 opts.getStripes(),
@@ -1367,9 +1376,10 @@ public class NodeImpl implements Node, RaftServerService {
         }
 
         if (opts.getLogManagerDisruptor() == null) {
-            opts.setLogManagerDisruptor(new StripedDisruptor<LogManagerImpl.StableClosureEvent>(
+            opts.setLogManagerDisruptor(new StripedDisruptor<>(
                 opts.getServerName(),
                 "JRaft-LogManager-Disruptor",
+                (stripeName, logger) -> NamedThreadFactory.create(opts.getServerName(), stripeName, true, logger),
                 opts.getRaftOptions().getDisruptorBufferSize(),
                 () -> new LogManagerImpl.StableClosureEvent(),
                 opts.getLogStripesCount(),
