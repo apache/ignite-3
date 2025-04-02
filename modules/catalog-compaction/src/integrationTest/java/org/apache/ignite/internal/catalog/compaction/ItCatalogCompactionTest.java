@@ -197,7 +197,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             // Read-only transactions are not counted,
             ignoredReadonlyTxs.forEach(tx -> {
-                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.startTimestamp().longValue()));
+                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.schemaTimestamp().longValue()));
             });
 
             assertThat(timeHolder.txMinRequiredTime, greaterThanOrEqualTo(minTime));

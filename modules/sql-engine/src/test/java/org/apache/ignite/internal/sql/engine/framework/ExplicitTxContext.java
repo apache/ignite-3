@@ -37,7 +37,7 @@ public class ExplicitTxContext implements QueryTransactionContext {
     private ExplicitTxContext(QueryTransactionWrapper txWrapper) {
         this.txWrapper = txWrapper;
 
-        observableTimeTracker.update(txWrapper.unwrap().startTimestamp());
+        observableTimeTracker.update(txWrapper.unwrap().schemaTimestamp());
     }
 
     @Override
