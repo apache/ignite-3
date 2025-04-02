@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table;
 
 using System;
+using System.IO;
 
 /// <summary>
 /// Represents a qualified name of a database object.
@@ -44,6 +45,11 @@ public record struct QualifiedName
     /// Default schema name.
     /// </summary>
     public const string DefaultSchemaName = "PUBLIC";
+
+    /// <summary>
+    /// Separator character between schema and object names.
+    /// </summary>
+    public const char SeparatorChar = '.';
 
     /// <summary>
     /// Initializes a new instance of the <see cref="QualifiedName"/> struct.
@@ -87,4 +93,10 @@ public record struct QualifiedName
 
     private static void VerifyObjectIdentifier(string identifier) =>
         ArgumentException.ThrowIfNullOrEmpty(identifier);
+
+    private static int IndexOfSeparatorChar(string name)
+    {
+        // TODO: Find dot with quoted name support.
+        return -1;
+    }
 }
