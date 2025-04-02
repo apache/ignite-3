@@ -73,7 +73,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class})
 public class OrphanDetectorTest extends BaseIgniteAbstractTest {
-
     private static final ClusterNode LOCAL_NODE =
             new ClusterNodeImpl(randomUUID(), "local", new NetworkAddress("127.0.0.1", 2024), null);
 
@@ -135,7 +134,7 @@ public class OrphanDetectorTest extends BaseIgniteAbstractTest {
 
         txStateMetaStorage.start();
 
-        orphanDetector.start(txStateMetaStorage, txConfiguration.abandonedCheckTs());
+        orphanDetector.start(txStateMetaStorage, () -> 30_000L);
     }
 
     @AfterEach

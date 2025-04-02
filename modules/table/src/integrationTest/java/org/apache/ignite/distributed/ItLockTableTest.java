@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -101,6 +102,9 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\" }")
     private static SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
+
     @InjectExecutorService
     protected ScheduledExecutorService commonExecutor;
 
@@ -123,6 +127,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 1,
                 1,
@@ -144,6 +149,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
+                        systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(systemLocalConfiguration),

@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.distributed.ItTxTestCluster;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -117,6 +118,9 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
+    @InjectConfiguration()
+    protected SystemDistributedConfiguration systemDistributedConfiguration;
+
     @InjectConfiguration
     protected TransactionConfiguration txConfiguration;
 
@@ -173,6 +177,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 nodes(),
                 replicas(),

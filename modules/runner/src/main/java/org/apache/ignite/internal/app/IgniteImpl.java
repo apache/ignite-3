@@ -988,6 +988,7 @@ public class IgniteImpl implements Ignite {
         txManager = new TxManagerImpl(
                 name,
                 txConfig,
+                systemDistributedConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaSvc,
