@@ -58,8 +58,16 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
+        public Task<ITable?> GetTableAsync(QualifiedName name)
+        {
+            // TODO: Implement qualified name support.
+            throw new System.NotImplementedException();
+        }
+
+        /// <inheritdoc/>
         public async Task<IList<ITable>> GetTablesAsync()
         {
+            // TODO: ClientOp.TABLES_GET_QUALIFIED
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TablesGet).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
@@ -77,7 +85,7 @@ namespace Apache.Ignite.Internal.Table
                     var table = _cachedTables.GetOrAdd(
                         id,
                         static (int id0, (string Name, Tables Tables) arg) =>
-                            new Table(arg.Name, id0, arg.Tables._socket, arg.Tables._sql),
+                            new Table(QualifiedName.Parse(arg.Name), id0, arg.Tables._socket, arg.Tables._sql),
                         (name, this));
 
                     res.Add(table);
@@ -105,10 +113,10 @@ namespace Apache.Ignite.Internal.Table
             using var writer = ProtoCommon.GetMessageWriter();
             writer.MessageWriter.Write(name);
 
+            // TODO: ClientOp.TABLE_GET_QUALIFIED
             using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
             return Read(resBuf.GetReader());
 
-            // ReSharper disable once LambdaExpressionMustBeStatic (requires .NET 5+)
             Table? Read(MsgPackReader r)
             {
                 if (r.TryReadNil())
@@ -122,7 +130,7 @@ namespace Apache.Ignite.Internal.Table
                 return _cachedTables.GetOrAdd(
                     tableId,
                     static (int id, (string ActualName, Tables Tables) arg) =>
-                        new Table(arg.ActualName, id, arg.Tables._socket, arg.Tables._sql),
+                        new Table(QualifiedName.Parse(arg.ActualName), id, arg.Tables._socket, arg.Tables._sql),
                     (actualName, this));
             }
         }
