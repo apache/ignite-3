@@ -302,7 +302,7 @@ namespace Apache.Ignite.Tests.Compute
             var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPoco), NodeNameJob, null);
+            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(TableName), keyPoco), NodeNameJob, null);
             var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
@@ -374,7 +374,7 @@ namespace Apache.Ignite.Tests.Compute
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
-                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob, null);
+                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(tableName), keyTuple), NodeNameJob, null);
                 var resNodeName2 = await resNodeName2Exec.GetResultAsync();
 
                 Assert.AreEqual(resNodeName, resNodeName2);
