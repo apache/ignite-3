@@ -155,7 +155,7 @@ public class NaiveAsyncReadWriteLock {
                 if (newWriteStamp != 0) {
                     writeLockWaiters.remove();
 
-                    futureCompletionExecutor.execute(() -> writeLockWaiter.complete(newWriteStamp));
+                    writeLockWaiter.completeAsync(() -> newWriteStamp, futureCompletionExecutor);
                 }
             }
         }
