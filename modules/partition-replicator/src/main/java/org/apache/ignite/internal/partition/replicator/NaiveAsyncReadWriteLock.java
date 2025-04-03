@@ -35,7 +35,7 @@ import java.util.concurrent.locks.StampedLock;
  *     <li>Write lock is exclusive; if the lock is write-locked, other attempts to acquire any lock waits for the write lock to be released
  *     </li>
  *     <li>Read lock is non-exclusive: if the lock is read-locked (and there are no waiting write lock attempts), other read locks are
- *     acquired immediately, but attempts to acquire write locks wait for all read locks to be releasaed</li>
+ *     acquired immediately, but attempts to acquire write locks wait for all read locks to be released</li>
  *     <li>Write locks have priority over read locks: if the lock is read-locked, and there is a waiting write lock attempt, read lock
  *     attempts will queue until all write lock attempts are satisfied and released</li>
  *     <li>Lock holder is not bound to any thread; instead, a lock holder gets a stamp that can be used to release the lock</li>
