@@ -61,7 +61,7 @@ public sealed record QualifiedName
     /// <summary>
     /// Initializes a new instance of the <see cref="QualifiedName"/> class.
     /// </summary>
-    /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>.</param>
+    /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>).</param>
     /// <param name="objectName">Object name. Can not be null or empty.</param>
     private QualifiedName(string schemaName, string objectName)
     {
@@ -138,4 +138,14 @@ public sealed record QualifiedName
             Unquote(nameMem[..separatorIndex]),
             Unquote(nameMem[(separatorIndex + 1)..]));
     }
+
+    /// <summary>
+    /// Creates a new instance of the <see cref="QualifiedName"/> struct from normalized names.
+    /// Does not validate input.
+    /// </summary>
+    /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>).</param>
+    /// <param name="objectName">Object name. Can not be null or empty.</param>
+    /// <returns>Qualified name.</returns>
+    internal static QualifiedName FromNormalizedInternal(string? schemaName, string objectName) =>
+        new(schemaName ?? DefaultSchemaName, objectName);
 }

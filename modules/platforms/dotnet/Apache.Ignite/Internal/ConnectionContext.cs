@@ -45,5 +45,13 @@ namespace Apache.Ignite.Internal
         /// Gets the current cluster id.
         /// </summary>
         public Guid ClusterId => ClusterIds[^1];
+
+        /// <summary>
+        /// Gets a value indicating whether the server supports the specified feature.
+        /// </summary>
+        /// <param name="feature">Feature flag.</param>
+        /// <returns>True if the server supports the specified feature; false otherwise.</returns>
+        public bool ServerHasFeature(ProtocolBitmaskFeature feature) =>
+            (Features & feature) == feature;
     }
 }

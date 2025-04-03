@@ -62,39 +62,43 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<ITable>> GetTablesAsync()
         {
-            // TODO: Switch on features.
             return await _socket.DoWithRetryAsync(
                 this,
-                static (_, _) => ClientOp.TablesGet,
+                static (socket, _) => Op(socket),
                 async static (socket, tables) =>
                 {
-                    using var resBuf = await socket.DoOutInOpAsync(ClientOp.TablesGet).ConfigureAwait(false);
-                    return Read(resBuf.GetReader(), tables);
+                    var op = Op(socket);
+                    using var resBuf = await socket.DoOutInOpAsync(op).ConfigureAwait(false);
+                    return Read(resBuf.GetReader(), tables, op);
                 })
                 .ConfigureAwait(false);
 
-            static IList<ITable> Read(MsgPackReader r, Tables tables)
+            static IList<ITable> Read(MsgPackReader r, Tables tables, ClientOp op)
             {
                 var len = r.ReadInt32();
 
                 var res = new List<ITable>(len);
+                bool packedAsQualified = op == ClientOp.TablesGetQualified;
 
                 for (var i = 0; i < len; i++)
                 {
                     var id = r.ReadInt32();
-                    var name = r.ReadString();
+                    var qualifiedName = UnpackQualifiedName(r, packedAsQualified);
 
                     var table = tables._cachedTables.GetOrAdd(
                         id,
-                        static (int id0, (string Name, Tables Tables) arg) =>
-                            new Table(QualifiedName.Parse(arg.Name), id0, arg.Tables._socket, arg.Tables._sql),
-                        (name, tables));
+                        static (int id0, (QualifiedName QualifiedName, Tables Tables) arg) =>
+                            new Table(arg.QualifiedName, id0, arg.Tables._socket, arg.Tables._sql),
+                        (qualifiedName, tables));
 
                     res.Add(table);
                 }
 
                 return res;
             }
+
+            static ClientOp Op(ClientSocket? socket) =>
+                UseQualifiedNames(socket) ? ClientOp.TablesGetQualified : ClientOp.TablesGet;
         }
 
         /// <inheritdoc />
@@ -136,5 +140,23 @@ namespace Apache.Ignite.Internal.Table
                     (actualName, this));
             }
         }
+
+        private static QualifiedName UnpackQualifiedName(MsgPackReader r, bool packedAsQualified)
+        {
+            if (packedAsQualified)
+            {
+                var schemaName = r.ReadString();
+                var objectName = r.ReadString();
+
+                return QualifiedName.FromNormalizedInternal(schemaName, objectName);
+            }
+
+            var canonicalName = r.ReadString();
+
+            return QualifiedName.Parse(canonicalName);
+        }
+
+        private static bool UseQualifiedNames(ClientSocket? socket) =>
+            socket != null && socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.TableReqsUseQualifiedName);
     }
 }
