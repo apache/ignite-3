@@ -19,10 +19,13 @@ package org.apache.ignite.internal.benchmark;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -53,8 +56,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
-    private final Tuple tuple = Tuple.create();
-
     private static KeyValueView<Tuple, Tuple> kvView;
 
     @Param({"1"})
@@ -66,9 +67,16 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"8"})
     private int partitionCount;
 
+    @Param({"0"})
+    private int idxes;
+
+    @Param({"10"})
+    private int fieldLength;
+
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
     private static final ThreadLocal<Integer> GEN = ThreadLocal.withInitial(() -> COUNTER.getAndIncrement() * 20_000_000);
+    private static final ThreadLocal<Random> RANDOM = ThreadLocal.withInitial(Random::new);
 
     @Override
     public void nodeSetUp() throws Exception {
@@ -83,9 +91,51 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Setup
     public void setUp() {
         kvView = igniteImpl.tables().table(TABLE_NAME).keyValueView();
-        for (int i = 1; i < 11; i++) {
-            tuple.set("field" + i, FIELD_VAL);
+
+        String query = "";
+
+        switch (idxes) {
+            case 10:
+                query += "CREATE INDEX " + TABLE_NAME + "_field10_idx ON " + TABLE_NAME + "(field10);";
+            case 9:
+                query += "CREATE INDEX " + TABLE_NAME + "_field9_idx ON " + TABLE_NAME + "(field9);";
+            case 8:
+                query += "CREATE INDEX " + TABLE_NAME + "_field8_idx ON " + TABLE_NAME + "(field8);";
+            case 7:
+                query += "CREATE INDEX " + TABLE_NAME + "_field7_idx ON " + TABLE_NAME + "(field7);";
+            case 6:
+                query += "CREATE INDEX " + TABLE_NAME + "_field6_idx ON " + TABLE_NAME + "(field6);";
+            case 5:
+                query += "CREATE INDEX " + TABLE_NAME + "_field5_idx ON " + TABLE_NAME + "(field5);";
+            case 4:
+                query += "CREATE INDEX " + TABLE_NAME + "_field4_idx ON " + TABLE_NAME + "(field4);";
+            case 3:
+                query += "CREATE INDEX " + TABLE_NAME + "_field3_idx ON " + TABLE_NAME + "(field3);";
+            case 2:
+                query += "CREATE INDEX " + TABLE_NAME + "_field2_idx ON " + TABLE_NAME + "(field2);";
+            case 1:
+                query += "CREATE INDEX " + TABLE_NAME + "_field1_idx ON " + TABLE_NAME + "(field1);";
         }
+
+        if (!query.isEmpty()) {
+            igniteImpl.sql().executeScript(query);
+        }
+    }
+
+    private Tuple valueTuple() {
+        String fieldVal = IgniteTestUtils.randomString(RANDOM.get(), fieldLength);
+
+        return Tuple.create()
+                .set("field1", fieldVal)
+                .set("field2", fieldVal)
+                .set("field3", fieldVal)
+                .set("field4", fieldVal)
+                .set("field5", fieldVal)
+                .set("field6", fieldVal)
+                .set("field7", fieldVal)
+                .set("field8", fieldVal)
+                .set("field9", fieldVal)
+                .set("field10", fieldVal);
     }
 
     /**
@@ -96,15 +146,13 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
         for (int i = 0; i < batch - 1; i++) {
-            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", nextId()), tuple);
+            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", nextId()), valueTuple());
             futs.add(fut);
         }
 
-        for (CompletableFuture<Void> fut : futs) {
-            fut.join();
-        }
+        CompletableFutures.allOf(futs).join();
 
-        kvView.put(null, Tuple.create().set("ycsb_key", nextId()), tuple);
+        kvView.put(null, Tuple.create().set("ycsb_key", nextId()), valueTuple());
     }
 
     private int nextId() {
