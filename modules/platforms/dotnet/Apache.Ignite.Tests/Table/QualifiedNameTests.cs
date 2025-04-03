@@ -105,7 +105,7 @@ public class QualifiedNameTests
     [TestCase("x.", "Canonical name can't have empty parts: 'x.'")]
     [TestCase(".x", "Unexpected character '.' at position 0: '.x'")]
     [TestCase("\"x", "Missing closing quote: '\"x")]
-    [TestCase("x\"", "Identifier is not quoted, but contains quote character at position 1: 'x\"'")]
+    [TestCase("\"xx\"yy\"", "Unexpected character '\"' after quote at position 3: '\"xx\"yy\"'")]
     public void TestParsingErrors(string name, string expectedError)
     {
         var ex = Assert.Throws<ArgumentException>(() => QualifiedName.Parse(name));
