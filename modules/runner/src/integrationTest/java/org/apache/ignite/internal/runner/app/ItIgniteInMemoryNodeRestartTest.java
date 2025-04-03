@@ -56,6 +56,7 @@ import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
@@ -259,11 +260,21 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
-        Predicate<RaftNodeId> predicate = enabledColocation()
-                ? nodeId -> nodeId.groupId() instanceof ZonePartitionId
-                        && ((ZonePartitionId) nodeId.groupId()).zoneId() == table.zoneId()
-                : nodeId -> nodeId.groupId() instanceof TablePartitionId
-                        && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId();
+        Predicate<RaftNodeId> predicate;
+
+        if (enabledColocation()) {
+            predicate = nodeId -> {
+                ReplicationGroupId groupId = nodeId.groupId();
+
+                return groupId instanceof ZonePartitionId && ((ZonePartitionId) groupId).zoneId() == table.zoneId();
+            };
+        } else {
+            predicate = nodeId -> {
+                ReplicationGroupId groupId = nodeId.groupId();
+
+                return groupId instanceof TablePartitionId && ((TablePartitionId) groupId).tableId() == table.tableId();
+            };
+        }
 
         return loza.localNodes().stream().anyMatch(predicate);
     }
