@@ -154,7 +154,7 @@ type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_typ
         m_types.push_back(ignite_type::UUID);
         m_types.push_back(ignite_type::STRING);
         m_types.push_back(ignite_type::BYTE_ARRAY);
-        // TODO: IGNITE-19969 implement support for period an duration
+        // TODO: IGNITE-19969 implement support for period and duration
     } else
         m_types.push_back(sql_type_to_ignite_type(sql_type));
 }
