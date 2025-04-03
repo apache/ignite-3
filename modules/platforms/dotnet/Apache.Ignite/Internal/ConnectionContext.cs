@@ -21,6 +21,7 @@ namespace Apache.Ignite.Internal
     using System.Collections.Generic;
     using Ignite.Network;
     using Network;
+    using Proto;
 
     /// <summary>
     /// Socket connection context.
@@ -37,7 +38,8 @@ namespace Apache.Ignite.Internal
         ClusterNode ClusterNode,
         IReadOnlyList<Guid> ClusterIds,
         string ClusterName,
-        ISslInfo? SslInfo)
+        ISslInfo? SslInfo,
+        ProtocolBitmaskFeature Features)
     {
         /// <summary>
         /// Gets the current cluster id.

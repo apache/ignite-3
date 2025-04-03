@@ -411,7 +411,8 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Patch.
             reader.Skip(); // Pre-release.
 
-            byte[] featureBits = reader.ReadBinary().ToArray();
+            ReadOnlySpan<byte> featureBits = reader.ReadBinary();
+            ProtocolBitmaskFeature features = (ProtocolBitmaskFeature)featureBits[0]; // Only one byte is used for now.
 
             int extensionMapSize = reader.ReadInt32();
             for (int i = 0; i < extensionMapSize; i++)
@@ -426,7 +427,8 @@ namespace Apache.Ignite.Internal
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.MetricsContext),
                 clusterIds,
                 clusterName,
-                sslInfo);
+                sslInfo,
+                features);
         }
 
         private static IgniteException ReadError(ref MsgPackReader reader)
