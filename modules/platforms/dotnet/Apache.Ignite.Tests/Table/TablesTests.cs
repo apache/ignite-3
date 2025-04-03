@@ -32,10 +32,12 @@ namespace Apache.Ignite.Tests.Table
         public async Task TestGetTables()
         {
             var tables = (await Client.Tables.GetTablesAsync()).OrderBy(x => x.Name).ToList();
+            var tableNames = tables.Select(x => x.QualifiedName.ObjectName).ToArray();
 
             Assert.GreaterOrEqual(tables.Count, 2);
-            CollectionAssert.Contains(tables.Select(x => x.Name), TableName);
-            CollectionAssert.Contains(tables.Select(x => x.Name), TableAllColumnsName);
+
+            CollectionAssert.Contains(tableNames, TableName);
+            CollectionAssert.Contains(tableNames, TableAllColumnsName);
         }
 
         [Test]
@@ -44,7 +46,9 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync(TableName);
 
             Assert.IsNotNull(table);
-            Assert.AreEqual(TableName, table!.Name);
+            Assert.AreEqual(TableName, table!.QualifiedName.ObjectName);
+            Assert.AreEqual(QualifiedName.DefaultSchemaName, table.QualifiedName.SchemaName);
+            Assert.AreEqual(QualifiedName.Parse(TableName), table.QualifiedName);
         }
 
         [Test]
