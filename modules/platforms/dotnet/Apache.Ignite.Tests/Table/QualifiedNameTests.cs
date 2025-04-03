@@ -39,12 +39,6 @@ public class QualifiedNameTests
     }
 
     [Test]
-    public void TestCanonicalName()
-    {
-        Assert.Fail("TODO");
-    }
-
-    [Test]
     public void InvalidNullNames()
     {
         Assert.Throws<ArgumentNullException>(() => QualifiedName.Parse(null!));
@@ -188,7 +182,7 @@ public class QualifiedNameTests
         yield return new TestCaseData("\"foo.bar\".baz", "foo.bar", "BAZ");
         yield return new TestCaseData("foo.\"bar.baz\"", "FOO", "bar.baz");
         yield return new TestCaseData("\"foo.\"\"bar\"\"\".baz", "foo.\"bar\"", "BAZ");
-        yield return new TestCaseData("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz\"");
+        yield return new TestCaseData("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz");
         yield return new TestCaseData("_foo.bar", "_FOO", "BAR");
         yield return new TestCaseData("foo._bar", "FOO", "_BAR");
     }
