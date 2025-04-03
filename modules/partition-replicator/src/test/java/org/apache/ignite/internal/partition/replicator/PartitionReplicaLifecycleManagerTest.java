@@ -166,7 +166,12 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         metaStorageManager = StandaloneMetaStorageManager.create();
 
-        catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metaStorageManager), clockService, () -> TEST_DELAY_DURATION);
+        catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metaStorageManager),
+                clockService,
+                failureManager,
+                () -> TEST_DELAY_DURATION
+        );
 
         replicaManager = spy(new ReplicaManager(
                 nodeName,

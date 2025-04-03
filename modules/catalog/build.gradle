@@ -32,6 +32,7 @@ dependencies {
     implementation project(':ignite-metastorage-api')
     implementation project(':ignite-vault')
     implementation project(':ignite-system-view-api')
+    implementation project(':ignite-failure-handler')
 
     implementation libs.jetbrains.annotations
     implementation libs.auto.service.annotations
@@ -58,6 +59,7 @@ dependencies {
     testFixturesImplementation(testFixtures(project(':ignite-core')))
     testFixturesImplementation(testFixtures(project(':ignite-vault')))
     testFixturesImplementation(testFixtures(project(':ignite-metastorage')))
+    testFixturesImplementation(testFixtures(project(':ignite-failure-handler')))
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation testFixtures(project(':ignite-runner'))
