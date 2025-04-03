@@ -83,7 +83,7 @@ namespace Apache.Ignite.Internal.Table
                 for (var i = 0; i < len; i++)
                 {
                     var id = r.ReadInt32();
-                    var qualifiedName = UnpackQualifiedName(r, packedAsQualified);
+                    var qualifiedName = UnpackQualifiedName(ref r, packedAsQualified);
 
                     var table = tables._cachedTables.GetOrAdd(
                         id,
@@ -141,7 +141,7 @@ namespace Apache.Ignite.Internal.Table
             }
         }
 
-        private static QualifiedName UnpackQualifiedName(MsgPackReader r, bool packedAsQualified)
+        private static QualifiedName UnpackQualifiedName(ref MsgPackReader r, bool packedAsQualified)
         {
             if (packedAsQualified)
             {
