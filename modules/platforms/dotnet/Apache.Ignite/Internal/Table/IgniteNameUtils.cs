@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// Ignite name utilities.
@@ -119,7 +120,12 @@ internal static class IgniteNameUtils
                      | (1 << 16)) >> (int)char.GetUnicodeCategory(c)) & 1) != 0;
     }
 
-    private static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
+    /// <summary>
+    /// Finds the index of the first <see cref="SeparatorChar"/> in the specified identifier, respecting quotes.
+    /// </summary>
+    /// <param name="name">Identifier.</param>
+    /// <returns>Index of the <see cref="SeparatorChar"/>, or -1 when not found.</returns>
+    public static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
     {
         bool quoted = name[0] == QuoteChar;
         int pos = quoted ? 1 : 0;
