@@ -521,9 +521,9 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(int partitionId) {
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
         List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
-        ReplicaMeta replica = replicaMetas.get(partitionId);
+        ReplicaMeta replica = replicaMetas.get(partitionIndex);
 
         //noinspection DataFlowIssue
         return completedFuture(
