@@ -100,8 +100,8 @@ public readonly record struct QualifiedName
         VerifyObjectIdentifier(objectName);
 
         return new QualifiedName(
-            ParseIdentifier(schemaName.AsMemory()),
-            ParseIdentifier(objectName.AsMemory()));
+            ParseIdentifier(schemaName),
+            ParseIdentifier(objectName));
     }
 
     /// <summary>
@@ -114,7 +114,7 @@ public readonly record struct QualifiedName
         VerifyObjectIdentifier(simpleOrCanonicalName);
 
         ReadOnlyMemory<char> nameMem = simpleOrCanonicalName.AsMemory();
-        var separatorIndex = IndexOfSeparatorChar(nameMem.Span);
+        var separatorIndex = IndexOfSeparatorChar(simpleOrCanonicalName, 0);
 
         if (separatorIndex == -1)
         {
@@ -122,7 +122,7 @@ public readonly record struct QualifiedName
             return new QualifiedName(DefaultSchemaName, Unquote(nameMem));
         }
 
-        if (IndexOfSeparatorChar(nameMem[(separatorIndex + 1)..].Span) != -1)
+        if (IndexOfSeparatorChar(simpleOrCanonicalName, separatorIndex + 1) != -1)
         {
             throw new ArgumentException($"Canonical name should have at most two parts: '{simpleOrCanonicalName}'");
         }

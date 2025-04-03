@@ -101,14 +101,14 @@ internal static class IgniteNameUtils
     /// </summary>
     /// <param name="identifier">Identifier.</param>
     /// <returns>Parsed identifier.</returns>
-    public static string ParseIdentifier(ReadOnlyMemory<char> identifier)
+    public static string ParseIdentifier(string identifier)
     {
-        if (IndexOfSeparatorChar(identifier.Span) is var separatorPos && separatorPos != -1)
+        if (IndexOfSeparatorChar(identifier, 0) is var separatorPos && separatorPos != -1)
         {
             throw new ArgumentException($"Unexpected separator at position {separatorPos}: '{identifier}'");
         }
 
-        return Unquote(identifier);
+        return Unquote(identifier.AsMemory());
     }
 
     /// <summary>
@@ -140,16 +140,22 @@ internal static class IgniteNameUtils
     /// Finds the index of the first <see cref="SeparatorChar"/> in the specified identifier, respecting quotes.
     /// </summary>
     /// <param name="name">Identifier.</param>
+    /// <param name="startIndex">Start index.</param>
     /// <returns>Index of the <see cref="SeparatorChar"/>, or -1 when not found.</returns>
-    public static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
+    public static int IndexOfSeparatorChar(string name, int startIndex)
     {
-        if (name.IsEmpty)
+        if (startIndex >= name.Length)
         {
             return -1;
         }
 
-        bool quoted = name[0] == QuoteChar;
-        int pos = quoted ? 1 : 0;
+        bool quoted = name[startIndex] == QuoteChar;
+        int pos = quoted ? startIndex + 1 : startIndex;
+
+        if (!quoted && !IsIdentifierStart(name[pos]))
+        {
+            throw new ArgumentException($"Unexpected character '{name[pos]}' at position {pos}: '{name}'");
+        }
 
         for (; pos < name.Length; pos++)
         {
