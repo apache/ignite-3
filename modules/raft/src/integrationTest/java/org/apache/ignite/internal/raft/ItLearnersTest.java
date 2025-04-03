@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -39,6 +40,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.LinkedBlockingQueue;
@@ -54,6 +56,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -142,16 +145,14 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         @Override
         public void close() throws Exception {
-            ComponentContext componentContext = new ComponentContext();
+            List<IgniteComponent> components = Stream.of(loza, logStorageFactory, clusterService)
+                    .filter(Objects::nonNull)
+                    .collect(toList());
 
             closeAll(
                     loza == null ? null : () -> loza.stopRaftNodes(RAFT_GROUP_ID),
-                    loza == null ? null : loza::beforeNodeStop,
-                    clusterService == null ? null : clusterService::beforeNodeStop,
-                    loza == null ? null : () -> assertThat(loza.stopAsync(componentContext), willCompleteSuccessfully()),
-                    logStorageFactory == null ? null : () -> logStorageFactory.stopAsync(componentContext),
-                    clusterService == null ? null :
-                            () -> assertThat(clusterService.stopAsync(componentContext), willCompleteSuccessfully())
+                    () -> closeAll(components.stream().map(component -> component::stopAsync)),
+                    () -> assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully())
             );
         }
     }
@@ -210,7 +211,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         RaftGroupService service = services.get(0);
 
         CompletableFuture<?> writeFuture = service.run(createWriteCommand("foo"))
-                .thenRun(() -> service.run(createWriteCommand("bar")));
+                .thenCompose(v -> service.run(createWriteCommand("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
 
@@ -348,7 +349,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         // Test writing data.
         CompletableFuture<?> writeFuture = peerService.run(createWriteCommand("foo"))
-                .thenRun(() -> peerService.run(createWriteCommand("bar")));
+                .thenCompose(v -> peerService.run(createWriteCommand("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
 
@@ -373,7 +374,6 @@ public class ItLearnersTest extends IgniteAbstractTest {
                 node -> startRaftGroup(node, configuration.peer(node.consistentId()), configuration, new TestRaftGroupListener())
         );
 
-
         var learnerListener = new TestRaftGroupListener();
 
         RaftGroupService learnerService = startRaftGroup(
@@ -381,7 +381,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
         );
 
         CompletableFuture<?> writeFuture = learnerService.run(createWriteCommand("foo"))
-                .thenRun(() -> learnerService.run(createWriteCommand("bar")));
+                .thenCompose(v -> learnerService.run(createWriteCommand("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
         assertThat(learnerListener.storage.poll(1, TimeUnit.SECONDS), is("foo"));
