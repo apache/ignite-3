@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.sql.ResultSet;
@@ -50,6 +52,6 @@ public class ItAddNodeTest extends ClusterPerTestIntegrationTest {
             // No-op.
         }
 
-        cluster.startNode(2);
+        assertDoesNotThrow(() -> cluster.startNode(2));
     }
 }
