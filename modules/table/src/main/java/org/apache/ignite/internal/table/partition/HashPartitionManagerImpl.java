@@ -24,7 +24,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -48,8 +47,6 @@ public class HashPartitionManagerImpl implements PartitionManager {
     private final SchemaRegistry schemaReg;
 
     private final MarshallersProvider marshallers;
-
-    private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
     /**
      * Constructor.
