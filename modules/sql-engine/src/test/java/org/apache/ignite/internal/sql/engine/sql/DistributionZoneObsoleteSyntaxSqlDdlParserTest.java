@@ -18,7 +18,10 @@
 package org.apache.ignite.internal.sql.engine.sql;
 
 import static org.apache.ignite.internal.sql.engine.sql.DistributionZoneSqlDdlParserTest.assertThatZoneOptionPresent;
+import static org.hamcrest.CoreMatchers.hasItems;
 import static org.hamcrest.CoreMatchers.is;
+import static org.hamcrest.CoreMatchers.not;
+import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
@@ -26,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
+import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.junit.jupiter.api.Test;
@@ -97,14 +101,27 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
 
         assertNotNull(createZone.createOptionList());
 
+        assertThat(createZone.storageProfiles(), not(nullValue()));
+        assertThat(
+                createZone.storageProfiles(),
+                hasItems(
+                        ofTypeMatching("profile with name 'default'", SqlNode.class,
+                                literal -> "default".equals(((SqlLiteral) literal).getValueAs(String.class))),
+                        ofTypeMatching("profile with name 'new'", SqlNode.class, 
+                                literal -> "new".equals(((SqlLiteral) literal).getValueAs(String.class)))
+                )
+        );
+
         List<SqlNode> optList = createZone.createOptionList().getList();
 
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.STORAGE_PROFILES, "default, new");
+        assertThat(optList.size(), is(8));
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
 
         expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" ("
@@ -117,6 +134,19 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
                 + "AUTO SCALE DOWN 3, "
                 + "CONSISTENCY MODE 'HIGH_AVAILABILITY') "
                 + "STORAGE PROFILES['default', 'new']");
+    }
+
+    @Test
+    public void createZoneWithInvalidOption() {
+        IgniteSqlCreateZone createZone = parseCreateZone(
+                "create zone test_zone with non_existing_option=1"
+        );
+
+        assertNotNull(createZone.createOptionList());
+
+        expectUnparsed(
+                createZone,
+                "CREATE ZONE \"TEST_ZONE\" (\"NON_EXISTING_OPTION\" 1)");
     }
 
     /**

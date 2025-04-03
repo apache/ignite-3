@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.OPTIONS_MAPPING;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -78,7 +77,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @BeforeAll
     public static void setUp() {
-        assertThat(OPTIONS_MAPPING.size(), is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
+        assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
     }
 
     @ParameterizedTest(name = "with syntax = {0}")
@@ -494,19 +493,19 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @ParameterizedTest(name = "with syntax = {0}, option = {1}")
     @MethodSource("numericOptions")
-    public void createZoneWithInvalidNumericOptionValue(boolean withPresent, ZoneOptionEnum optionName) throws Exception {
+    public void createZoneWithInvalidNumericOptionValue(boolean withPresent, ZoneOptionEnum option) throws Exception {
         String sql = withPresent ? "create zone test_zone with {}={}, storage_profiles='p'" : "create zone test_zone ({} {})";
 
         if (withPresent) {
-            SqlDdl node = (SqlDdl) parse(format(sql, optionName, "'bar'"));
-            expectInvalidOptionType(node, optionName.name());
+            SqlDdl node = (SqlDdl) parse(format(sql, option, "'bar'"));
+            expectInvalidOptionType(node, option.name());
         } else {
-            String option = OPTIONS_MAPPING.get(optionName);
+            String sqlName = option.sqlName;
             String prefix = "create zone test_zone (";
-            assertThrowsWithPos(format(sql, option, "'bar'"), "\\'bar\\'", prefix.length() + option.length() + 1 /* start pos*/
+            assertThrowsWithPos(format(sql, sqlName, "'bar'"), "\\'bar\\'", prefix.length() + sqlName.length() + 1 /* start pos*/
                     + 1 /* first symbol after bracket*/);
 
-            assertThrowsWithPos(format(sql, option, "-1"), "-", prefix.length() + option.length() + 1 /* start pos*/
+            assertThrowsWithPos(format(sql, sqlName, "-1"), "-", prefix.length() + sqlName.length() + 1 /* start pos*/
                     + 1 /* first symbol after bracket*/);
         }
     }
@@ -526,16 +525,16 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
     @ParameterizedTest(name = "with syntax = {0}, option = {1}")
     @MethodSource("stringOptions")
-    public void createZoneWithInvalidStringOptionValue(boolean withPresent, ZoneOptionEnum optionParam) throws Exception {
+    public void createZoneWithInvalidStringOptionValue(boolean withPresent, ZoneOptionEnum option) throws Exception {
         if (withPresent) {
-            SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}, storage_profiles='p'", optionParam.name(), "1"));
-            expectInvalidOptionType(node, optionParam.name());
+            SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}, storage_profiles='p'", option.name(), "1"));
+            expectInvalidOptionType(node, option.name());
         } else {
             String sql = "create zone test_zone ({} {})";
 
-            String option = OPTIONS_MAPPING.get(optionParam);
+            String sqlName = option.sqlName;
             String prefix = "create zone test_zone (";
-            assertThrowsWithPos(format(sql, option, "1"), "1", prefix.length() + option.length() + 1 /* start pos*/
+            assertThrowsWithPos(format(sql, sqlName, "1"), "1", prefix.length() + sqlName.length() + 1 /* start pos*/
                     + 1 /* first symbol after bracket*/);
         }
     }

@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.sql;
 
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.OPTIONS_MAPPING;
-
 import java.util.List;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -88,7 +86,13 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        writer.keyword(OPTIONS_MAPPING.get(ZoneOptionEnum.valueOf(key.names.get(0))));
+        try {
+            writer.keyword(ZoneOptionEnum.valueOf(key.names.get(0)).sqlName);
+        } catch (IllegalArgumentException ignored) {
+            // If option is unknown then unparse it as is.
+            key.unparse(writer, leftPrec, rightPrec);
+        }
+
         value.unparse(writer, leftPrec, rightPrec);
     }
 

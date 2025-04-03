@@ -30,7 +30,6 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DISTRIBUTION_ALGORITHM;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToShortExact;
@@ -700,16 +699,10 @@ public class DdlSqlToCommandConverter {
 
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
-        if (createZoneNode.createOptionList() != null) {
-            for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
-                IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
+        for (SqlNode optionNode : createZoneNode.createOptionList()) {
+            IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-                if (option.key().getSimple().equals(STORAGE_PROFILES.name())) {
-                    continue;
-                }
-
-                updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
-            }
+            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
         }
 
         List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
@@ -892,7 +885,7 @@ public class DdlSqlToCommandConverter {
     }
 
     private static List<StorageProfileParams> extractProfiles(SqlNodeList values) {
-        List<StorageProfileParams> profiles = new ArrayList<>(values.getList().size());
+        List<StorageProfileParams> profiles = new ArrayList<>(values.size());
 
         SqlCharStringLiteral literal;
         for (SqlNode node : values) {

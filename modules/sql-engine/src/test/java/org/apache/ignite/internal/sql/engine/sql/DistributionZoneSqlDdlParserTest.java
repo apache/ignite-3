@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -52,7 +51,8 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
 
         assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(createZone.ifNotExists());
-        assertNull(createZone.createOptionList());
+        assertNotNull(createZone.createOptionList());
+        assertTrue(createZone.createOptionList().isEmpty());
         assertNotNull(createZone.storageProfiles());
         expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" STORAGE PROFILES['p']");
 
@@ -79,7 +79,8 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone storage profiles['p']");
 
         assertTrue(createZone.ifNotExists());
-        assertNull(createZone.createOptionList());
+        assertNotNull(createZone.createOptionList());
+        assertTrue(createZone.createOptionList().isEmpty());
         assertNotNull(createZone.storageProfiles());
 
         expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\" STORAGE PROFILES['p']");
