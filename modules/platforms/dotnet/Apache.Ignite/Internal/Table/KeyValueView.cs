@@ -151,7 +151,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
     public IQueryable<KeyValuePair<TK, TV>> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
     {
         var executor = new IgniteQueryExecutor(_recordView.Sql, transaction, options, _recordView.Table.Socket.Configuration);
-        var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _recordView.Table.Name);
+        var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _recordView.Table.QualifiedName);
 
         return new IgniteQueryable<KeyValuePair<TK, TV>>(provider);
     }
