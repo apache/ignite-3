@@ -41,7 +41,7 @@ using static Internal.Table.IgniteNameUtils;
 /// </item>
 /// </list>
 /// </summary>
-public record QualifiedName
+public sealed record QualifiedName
 {
     /// <summary>
     /// Default schema name.
