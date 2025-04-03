@@ -41,7 +41,7 @@ import java.util.concurrent.locks.StampedLock;
  *     <li>Lock holder is not bound to any thread; instead, a lock holder gets a stamp that can be used to release the lock</li>
  * </ul>
  *
- * <p>This implementation is naive because it implies that time-to-hold the locks can be pretty long and there will be no
+ * <p>This implementation is naive because it implies that time to hold the locks can be pretty long and there will be no
  * high contention on the acquiring side; this simplifies the implementation.</p>
  */
 public class NaiveAsyncReadWriteLock {
