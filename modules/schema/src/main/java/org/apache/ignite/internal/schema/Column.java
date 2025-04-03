@@ -242,7 +242,7 @@ public class Column {
     private <T extends Comparable<T>> void checkBounds(T value, T min, T max) {
         if (value.compareTo(min) < 0 || value.compareTo(max) > 0) {
             throw new ValueOutOfBoundsException(format("Value is out of allowed range"
-                    + " (column='{}', min='{}', max='{}').", name, min, max));
+                    + " (column='{}', value='{}', min='{}', max='{}').", name, value, min, max));
         }
     }
 
