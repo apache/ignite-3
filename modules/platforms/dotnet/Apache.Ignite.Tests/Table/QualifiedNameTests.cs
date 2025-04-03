@@ -115,35 +115,35 @@ public class QualifiedNameTests
         Assert.AreEqual(expectedError, ex.Message);
     }
 
-    private static IEnumerable<TestCaseData> ValidSimpleNames()
-    {
-        yield return new("foo", "FOO");
-        yield return new("fOo", "FOO");
-        yield return new("FOO", "FOO");
-        yield return new("f23", "F23");
-        yield return new("\"23f\"", "23f");
-        yield return new("foo_", "FOO_");
-        yield return new("foo_1", "FOO_1");
-        yield return new("_foo", "_FOO");
-        yield return new("__foo", "__FOO");
-        yield return new("\"FOO\"", "FOO");
-        yield return new("\"foo\"", "foo");
-        yield return new("\"fOo\"", "fOo");
-        yield return new("\"_foo\"", "_foo");
-        yield return new("\"$foo\"", "$foo");
-        yield return new("\"%foo\"", "%foo");
-        yield return new("\"foo_\"", "foo_");
-        yield return new("\"foo$\"", "foo$");
-        yield return new("\"foo%\"", "foo%");
-        yield return new("\"@#$\"", "@#$");
-        yield return new("\"f.f\"", "f.f");
-        yield return new("\"   \"", "   ");
-        yield return new("\"😅\"", "😅");
-        yield return new("\"f\"\"f\"", "f\"f");
-        yield return new("\"f\"\"\"\"f\"", "f\"\"f");
-        yield return new("\"\"\"bar\"\"\"", "\"bar\"");
-        yield return new("\"\"\"\"\"bar\"\"\"", "\"\"bar\"");
-    }
+    private static TestCaseData[] ValidSimpleNames() =>
+    [
+        new("foo", "FOO"),
+        new("fOo", "FOO"),
+        new("FOO", "FOO"),
+        new("f23", "F23"),
+        new("\"23f\"", "23f"),
+        new("foo_", "FOO_"),
+        new("foo_1", "FOO_1"),
+        new("_foo", "_FOO"),
+        new("__foo", "__FOO"),
+        new("\"FOO\"", "FOO"),
+        new("\"foo\"", "foo"),
+        new("\"fOo\"", "fOo"),
+        new("\"_foo\"", "_foo"),
+        new("\"$foo\"", "$foo"),
+        new("\"%foo\"", "%foo"),
+        new("\"foo_\"", "foo_"),
+        new("\"foo$\"", "foo$"),
+        new("\"foo%\"", "foo%"),
+        new("\"@#$\"", "@#$"),
+        new("\"f.f\"", "f.f"),
+        new("\"   \"", "   "),
+        new("\"😅\"", "😅"),
+        new("\"f\"\"f\"", "f\"f"),
+        new("\"f\"\"\"\"f\"", "f\"\"f"),
+        new("\"\"\"bar\"\"\"", "\"bar\""),
+        new("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
+    ];
 
     private static IEnumerable<TestCaseData> MalformedSimpleNames()
     {
