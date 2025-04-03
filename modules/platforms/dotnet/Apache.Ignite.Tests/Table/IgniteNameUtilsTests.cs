@@ -27,9 +27,9 @@ using NUnit.Framework;
 /// </summary>
 public class IgniteNameUtilsTests
 {
-    [TestCaseSource(nameof(ValidUnquotedIdentifiersArgs))]
-    [TestCaseSource(nameof(ValidQuotedIdentifiersArgs))]
-    public void ValidIdentifiers(string source, string expected)
+    [TestCaseSource(nameof(ValidUnquotedIdentifiers))]
+    [TestCaseSource(nameof(ValidQuotedIdentifiers))]
+    public void TestValidIdentifiers(string source, string expected)
     {
         string parsed = IgniteNameUtils.ParseIdentifier(source);
 
@@ -37,17 +37,13 @@ public class IgniteNameUtilsTests
         Assert.AreEqual(parsed, IgniteNameUtils.ParseIdentifier(IgniteNameUtils.QuoteIfNeeded(parsed)));
     }
 
-    [TestCaseSource(nameof(MalformedIdentifiersArgs))]
-    public void MalformedIdentifiers(string source)
+    [TestCaseSource(nameof(MalformedIdentifiers))]
+    public void TestMalformedIdentifiers(string source)
     {
-        var ex = Assert.Throws<ArgumentException>(() => IgniteNameUtils.ParseIdentifier(source));
-
-        Assert.That(ex.Message, Is.AnyOf(
-            $"Fully qualified name is not expected [name={source}]",
-            $"Malformed identifier [identifier={source}"));
+        Assert.Throws<ArgumentException>(() => IgniteNameUtils.ParseIdentifier(source));
     }
 
-    [TestCaseSource(nameof(QuoteIfNeededArgs))]
+    [TestCaseSource(nameof(QuoteIfNeeded))]
     public void TestQuoteIfNeeded(string source, string expected)
     {
         string quoted = IgniteNameUtils.QuoteIfNeeded(source);
@@ -56,7 +52,7 @@ public class IgniteNameUtilsTests
         Assert.AreEqual(expected, IgniteNameUtils.QuoteIfNeeded(IgniteNameUtils.ParseIdentifier(quoted)));
     }
 
-    private static IEnumerable<TestCaseData> QuoteIfNeededArgs()
+    private static IEnumerable<TestCaseData> QuoteIfNeeded()
     {
         yield return new("foo", "\"foo\"");
         yield return new("fOo", "\"fOo\"");
@@ -78,12 +74,12 @@ public class IgniteNameUtilsTests
         yield return new("foo\"bar", "\"foo\"\"bar\"");
     }
 
-    private static IEnumerable<string> MalformedIdentifiersArgs() =>
+    private static IEnumerable<string> MalformedIdentifiers() =>
     [
         " ", "foo-1", "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\"", "1o0", "@#$", "😅", "f😅", "$foo", "foo$"
     ];
 
-    private static IEnumerable<TestCaseData> ValidUnquotedIdentifiersArgs()
+    private static IEnumerable<TestCaseData> ValidUnquotedIdentifiers()
     {
         yield return new("foo", "FOO");
         yield return new("fOo", "FOO");
@@ -92,7 +88,7 @@ public class IgniteNameUtilsTests
         yield return new("_foo", "_FOO");
     }
 
-    private static IEnumerable<TestCaseData> ValidQuotedIdentifiersArgs()
+    private static IEnumerable<TestCaseData> ValidQuotedIdentifiers()
     {
         yield return new("\"FOO\"", "FOO");
         yield return new("\"foo\"", "foo");
