@@ -73,8 +73,12 @@ public class QualifiedNameTests
         Assert.AreEqual(parsed, simple);
     }
 
-    [Test]
-    [TestCaseSource(nameof(ValidCanonicalNamesArgs))]
+    [TestCase("\"foo.bar\".baz", "foo.bar", "BAZ")]
+    [TestCase("foo.\"bar.baz\"", "FOO", "bar.baz")]
+    [TestCase("\"foo.\"\"bar\"\"\".baz", "foo.\"bar\"", "BAZ")]
+    [TestCase("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz")]
+    [TestCase("_foo.bar", "_FOO", "BAR")]
+    [TestCase("foo._bar", "FOO", "_BAR")]
     public void ValidCanonicalNames(string source, string schemaIdentifier, string objectIdentifier)
     {
         var parsed = QualifiedName.Parse(source);
