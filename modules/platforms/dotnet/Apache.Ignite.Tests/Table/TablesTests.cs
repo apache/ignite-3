@@ -57,7 +57,7 @@ namespace Apache.Ignite.Tests.Table
             var table = await Client.Tables.GetTableAsync("tBl1");
 
             Assert.IsNotNull(table);
-            Assert.AreEqual("TBL1", table!.Name);
+            Assert.AreEqual("PUBLIC.TBL1", table!.Name);
         }
 
         [Test]
@@ -87,7 +87,7 @@ namespace Apache.Ignite.Tests.Table
             _ = await Client.Tables.GetTablesAsync();
 
             StringAssert.StartsWith("Tables { CachedTables = [ Table { Name = ", Client.Tables.ToString());
-            StringAssert.Contains("{ Name = TBL_STRING, Id = ", Client.Tables.ToString());
+            StringAssert.Contains("{ Name = PUBLIC.TBL_STRING, Id = ", Client.Tables.ToString());
         }
     }
 }
