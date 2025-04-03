@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
 
 import java.util.List;
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /** Sorted index descriptor. */
@@ -73,7 +74,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             List<CatalogIndexColumnDescriptor> columns,
             boolean isCreatedWithTable
     ) {
-        this(id, name, tableId, unique, status, columns, INITIAL_CAUSALITY_TOKEN, isCreatedWithTable);
+        this(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
     }
 
     /**
@@ -85,7 +86,7 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
      * @param unique Unique flag.
      * @param status Index status.
      * @param columns A list of columns descriptors.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Timestamp of the update of the descriptor.
      * @param isCreatedWithTable Flag indicating that this index has been created at the same time as its table.
      *
      * @throws IllegalArgumentException If columns list contains duplicates or columns size doesn't match the collations size.
@@ -97,10 +98,10 @@ public class CatalogSortedIndexDescriptor extends CatalogIndexDescriptor {
             boolean unique,
             CatalogIndexStatus status,
             List<CatalogIndexColumnDescriptor> columns,
-            long causalityToken,
+            HybridTimestamp timestamp,
             boolean isCreatedWithTable
     ) {
-        super(CatalogIndexDescriptorType.SORTED, id, name, tableId, unique, status, causalityToken, isCreatedWithTable);
+        super(CatalogIndexDescriptorType.SORTED, id, name, tableId, unique, status, timestamp, isCreatedWithTable);
 
         this.columns = Objects.requireNonNull(columns, "columns");
     }

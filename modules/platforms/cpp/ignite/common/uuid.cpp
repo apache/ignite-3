@@ -15,38 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+#include "uuid.h"
 
-/**
- * Raft node disruptor configuration.
- */
-public class RaftNodeDisruptorConfiguration {
-    private final String threadPostfix;
+#include <random>
+#include <mutex>
 
-    private final int stripes;
+namespace ignite {
 
-    /**
-     * Constructor.
-     *
-     * @param threadPostfix Disruptor threads' name postfix.
-     * @param stripes Number of disruptor stripes.
-     */
-    public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
-        this.threadPostfix = threadPostfix;
-        this.stripes = stripes;
-    }
+uuid uuid::random() {
+    static std::mutex random_mutex;
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
 
-    /**
-     * Return disruptor threads' name postfix.
-     */
-    public String getThreadPostfix() {
-        return threadPostfix;
-    }
+    std::uniform_int_distribution<int64_t> distrib;
 
-    /**
-     * Return number of disruptor stripes.
-     */
-    public int getStripes() {
-        return stripes;
-    }
+    std::lock_guard<std::mutex> lock(random_mutex);
+
+    return {distrib(gen), distrib(gen)};
 }
+
+} // namespace ignite

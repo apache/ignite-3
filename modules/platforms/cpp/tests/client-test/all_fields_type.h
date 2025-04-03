@@ -21,7 +21,6 @@
 #include <ignite/client/type_mapping.h>
 
 #include <ignite/common/big_decimal.h>
-#include <ignite/common/bit_array.h>
 #include <ignite/common/ignite_date.h>
 #include <ignite/common/ignite_date_time.h>
 #include <ignite/common/ignite_time.h>

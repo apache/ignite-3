@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSortedIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /** Abstract entry for changing {@link CatalogIndexDescriptor#status() index status}. */
@@ -47,10 +48,10 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
     }
 
     @Override
-    public final Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public final Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogSchemaDescriptor schema = schemaByIndexId(catalog, indexId);
 
-        CatalogIndexDescriptor newIndexDescriptor = updateIndexStatus(catalog, causalityToken, newStatus);
+        CatalogIndexDescriptor newIndexDescriptor = updateIndexStatus(catalog, timestamp, newStatus);
 
         return new Catalog(
                 catalog.version(),
@@ -70,7 +71,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
 
     private CatalogIndexDescriptor updateIndexStatus(
             Catalog catalog,
-            long causalityToken,
+            HybridTimestamp timestamp,
             CatalogIndexStatus newStatus
     ) {
         CatalogIndexDescriptor source = indexOrThrow(catalog, indexId);
@@ -85,7 +86,7 @@ abstract class AbstractChangeIndexStatusEntry implements UpdateEntry {
             throw new CatalogValidationException("Unsupported index type '{}' {}", source.id(), source);
         }
 
-        updateIndexDescriptor.updateToken(causalityToken);
+        updateIndexDescriptor.updateTimestamp(timestamp);
 
         return updateIndexDescriptor;
     }

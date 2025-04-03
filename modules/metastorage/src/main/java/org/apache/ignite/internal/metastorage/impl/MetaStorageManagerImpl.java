@@ -96,7 +96,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftManager;
-import org.apache.ignite.internal.raft.RaftNodeDisruptorConfiguration;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -460,13 +459,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
     private CompletableFuture<MetaStorageServiceImpl> initializeMetastorage(MetaStorageInfo metaStorageInfo) {
         String thisNodeName = clusterService.nodeName();
-        var disruptorConfig = new RaftNodeDisruptorConfiguration("metastorage", 1);
 
         CompletableFuture<? extends RaftGroupService> localRaftServiceFuture;
         try {
             localRaftServiceFuture = metaStorageInfo.metaStorageNodes().contains(thisNodeName)
-                    ? startVotingNode(metaStorageInfo, disruptorConfig)
-                    : startLearnerNode(metaStorageInfo, disruptorConfig);
+                    ? startVotingNode(metaStorageInfo)
+                    : startLearnerNode(metaStorageInfo);
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }
@@ -490,39 +488,36 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     private CompletableFuture<? extends RaftGroupService> startVotingNode(
-            MetaStorageInfo metaStorageInfo,
-            RaftNodeDisruptorConfiguration disruptorConfig
+            MetaStorageInfo metaStorageInfo
     ) throws NodeStoppingException {
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageInfo.metaStorageNodes());
         Peer localPeer = configuration.peer(clusterService.nodeName());
         assert localPeer != null;
 
-        return startRaftNode(configuration, localPeer, metaStorageInfo, disruptorConfig);
+        return startRaftNode(configuration, localPeer, metaStorageInfo);
     }
 
     private CompletableFuture<? extends RaftGroupService> startLearnerNode(
-            MetaStorageInfo metaStorageInfo,
-            RaftNodeDisruptorConfiguration disruptorConfig
+            MetaStorageInfo metaStorageInfo
     ) throws NodeStoppingException {
         String thisNodeName = clusterService.nodeName();
         PeersAndLearners configuration = PeersAndLearners.fromConsistentIds(metaStorageInfo.metaStorageNodes(), Set.of(thisNodeName));
         Peer localPeer = configuration.learner(thisNodeName);
         assert localPeer != null;
 
-        return startRaftNode(configuration, localPeer, metaStorageInfo, disruptorConfig);
+        return startRaftNode(configuration, localPeer, metaStorageInfo);
     }
 
     private CompletableFuture<? extends RaftGroupService> startRaftNode(
             PeersAndLearners configuration,
             Peer localPeer,
-            MetaStorageInfo metaStorageInfo,
-            RaftNodeDisruptorConfiguration disruptorConfig
+            MetaStorageInfo metaStorageInfo
     ) {
         SystemDistributedConfiguration currentSystemConfiguration = systemConfiguration;
         assert currentSystemConfiguration != null : "System configuration has not been set";
 
         CompletableFuture<TopologyAwareRaftGroupService> serviceFuture = CompletableFuture.supplyAsync(() -> {
-            TopologyAwareRaftGroupService service = startRaftNodeItself(configuration, localPeer, metaStorageInfo, disruptorConfig);
+            TopologyAwareRaftGroupService service = startRaftNodeItself(configuration, localPeer, metaStorageInfo);
 
             raftNodeStarted.complete(null);
 
@@ -538,18 +533,16 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     private TopologyAwareRaftGroupService startRaftNodeItself(
             PeersAndLearners configuration,
             Peer localPeer,
-            MetaStorageInfo metaStorageInfo,
-            RaftNodeDisruptorConfiguration disruptorConfig
+            MetaStorageInfo metaStorageInfo
     ) {
         MetaStorageListener raftListener = new MetaStorageListener(storage, clock, clusterTime, this::onConfigurationCommitted);
 
         try {
-            return raftMgr.startRaftGroupNodeAndWaitNodeReady(
+            return raftMgr.startSystemRaftGroupNodeAndWaitNodeReady(
                     raftNodeId(localPeer),
                     configuration,
                     raftListener,
                     RaftGroupEventsListener.noopLsnr,
-                    disruptorConfig,
                     topologyAwareRaftGroupServiceFactory,
                     options -> {
                         raftGroupOptionsConfigurer.configure(options);

@@ -49,15 +49,15 @@ std::vector<std::byte> make_handshake_request(
 handshake_response parse_handshake_response(bytes_view message) {
     handshake_response res{};
 
-    protocol::reader reader(message);
+    reader reader(message);
 
     auto ver_major = reader.read_int16();
     auto ver_minor = reader.read_int16();
     auto ver_patch = reader.read_int16();
 
-    protocol::protocol_version ver(ver_major, ver_minor, ver_patch);
+    protocol_version ver(ver_major, ver_minor, ver_patch);
     res.context.set_version(ver);
-    res.error = protocol::try_read_error(reader);
+    res.error = try_read_error(reader);
 
     if (res.error)
         return res;

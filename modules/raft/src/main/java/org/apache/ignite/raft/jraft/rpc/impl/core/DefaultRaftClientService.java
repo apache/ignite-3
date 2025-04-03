@@ -102,8 +102,7 @@ public class DefaultRaftClientService extends AbstractClientService implements R
                 k -> nodeOptions.getStripedExecutor().next());
 
         if (connect(peerId)) { // Replicator should be started asynchronously by node joined event.
-            // TODO: IGNITE-24788 Configurable coalescing for RAFT heartbeat.
-            if (JRaftUtils.isHeartbeatRequest(request) && !isReadIndexRequest(done)) {
+            if (!nodeOptions.isSystemGroup() && JRaftUtils.isHeartbeatRequest(request) && !isReadIndexRequest(done)) {
                 return sendHeartbeat(peerId, request, timeoutMs, done, executor);
             }
 

@@ -19,12 +19,24 @@ package org.apache.ignite.internal.catalog;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.manager.IgniteComponent;
 
 /**
  * The catalog manager provides schema manipulation methods and is responsible for managing distributed operations.
  */
 public interface CatalogManager extends IgniteComponent, CatalogService {
+    /**
+     * Initial update timestamp for a catalog descriptor, this token is valid only before the first call of
+     * {@link UpdateEntry#applyUpdate(Catalog, HybridTimestamp)}.
+     *
+     * <p>After that {@link CatalogObjectDescriptor#updateTimestamp()} will be initialised with a timestamp from
+     * {@link UpdateEntry#applyUpdate(Catalog, HybridTimestamp)}
+     */
+    HybridTimestamp INITIAL_TIMESTAMP = HybridTimestamp.MIN_VALUE;
+
     /**
      * Executes given command.
      *
