@@ -74,7 +74,7 @@ public class IgniteNameUtilsTests
         yield return new("\"foo\"", "\"\"\"foo\"\"\"");
         yield return new("\"fOo\"", "\"\"\"fOo\"\"\"");
         yield return new("\"f.f\"", "\"\"\"f.f\"\"\"");
-        yield return new("foo\"bar\"", "\"foo\"\"bar\"\"");
+        yield return new("foo\"bar\"", "\"foo\"\"bar\"\"\"");
         yield return new("foo\"bar", "\"foo\"\"bar\"");
     }
 
