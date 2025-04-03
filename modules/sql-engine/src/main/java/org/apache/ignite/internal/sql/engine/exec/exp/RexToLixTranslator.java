@@ -608,9 +608,17 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into date
       return Expressions.isConstantNull(format)
-          ? Expressions.call(BuiltInMethod.STRING_TO_DATE.method, operand)
-          : Expressions.call(Expressions.new_(BuiltInMethod.PARSE_DATE.method.getDeclaringClass()),
-              BuiltInMethod.PARSE_DATE.method, format, operand);
+              ? Expressions.call(BuiltInMethod.STRING_TO_DATE.method, operand)
+              : Expressions.call(
+                      // TODO https://issues.apache.org/jira/browse/IGNITE-25010 Remove redundant call to TO_DATE_EXACT
+                      IgniteMethod.TO_DATE_EXACT.method(),
+                      Expressions.call(
+                              Expressions.new_(BuiltInMethod.PARSE_DATE.method.getDeclaringClass()),
+                              BuiltInMethod.PARSE_DATE.method,
+                              format,
+                              operand
+                      )
+              );
 
     case TIMESTAMP:
       return
@@ -723,8 +731,13 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       return Expressions.isConstantNull(format)
           ? Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand)
           : Expressions.call(
-              Expressions.new_(BuiltInMethod.PARSE_TIMESTAMP.method.getDeclaringClass()),
-              BuiltInMethod.PARSE_TIMESTAMP.method, format, operand);
+                  // TODO https://issues.apache.org/jira/browse/IGNITE-25010 Remove redundant call to TO_TIMESTAMP_EXACT
+                  IgniteMethod.TO_TIMESTAMP_EXACT.method(),
+                  Expressions.call(
+                    Expressions.new_(BuiltInMethod.PARSE_TIMESTAMP.method.getDeclaringClass()),
+                    BuiltInMethod.PARSE_TIMESTAMP.method, format, operand
+                  )
+          );
 
     case DATE:
       return
