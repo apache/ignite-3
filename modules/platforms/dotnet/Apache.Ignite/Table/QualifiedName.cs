@@ -38,7 +38,7 @@ using System;
 /// </item>
 /// </list>
 /// </summary>
-public record struct QualifiedName
+public readonly record struct QualifiedName
 {
     /// <summary>
     /// Default schema name.
@@ -60,10 +60,8 @@ public record struct QualifiedName
     /// </summary>
     /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>.</param>
     /// <param name="objectName">Object name. Can not be null or empty.</param>
-    public QualifiedName(string? schemaName, string objectName)
+    private QualifiedName(string schemaName, string objectName)
     {
-        schemaName ??= DefaultSchemaName;
-
         VerifyObjectIdentifier(schemaName);
         VerifyObjectIdentifier(objectName);
 
@@ -85,6 +83,24 @@ public record struct QualifiedName
     /// Gets a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
     /// </summary>
     public string CanonicalName => $"{QuoteIfNeeded(SchemaName)}{SeparatorChar}{QuoteIfNeeded(ObjectName)}";
+
+    /// <summary>
+    /// Creates a new instance of the <see cref="QualifiedName"/> struct.
+    /// </summary>
+    /// <param name="schemaName">Schema name.</param>
+    /// <param name="objectName">Object name.</param>
+    /// <returns>Qualified name.</returns>
+    public static QualifiedName Of(string? schemaName, string objectName)
+    {
+        schemaName ??= DefaultSchemaName;
+
+        VerifyObjectIdentifier(schemaName);
+        VerifyObjectIdentifier(objectName);
+
+        return new QualifiedName(
+            ParseIdentifier(schemaName.AsMemory()),
+            ParseIdentifier(objectName.AsMemory()));
+    }
 
     /// <summary>
     /// Parses a qualified name from a string.
@@ -126,6 +142,16 @@ public record struct QualifiedName
     private static string ToStringUpperInvariant(ReadOnlyMemory<char> name) =>
         string.Create(name.Length, name, (span, args) => args.Span.ToUpperInvariant(span));
 
+    private static string ParseIdentifier(ReadOnlyMemory<char> name)
+    {
+        if (IndexOfSeparatorChar(name.Span) is var separatorPos && separatorPos != -1)
+        {
+            throw new FormatException($"Unexpected separator at position {separatorPos}: '{name}'");
+        }
+
+        return Unquote(name);
+    }
+
     private static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
     {
         bool quoted = name[0] == QuoteChar;
@@ -139,7 +165,7 @@ public record struct QualifiedName
             {
                 if (!quoted)
                 {
-                    throw new FormatException($"Identifier is not quoted, but contains quote character at position {pos}: {name}");
+                    throw new FormatException($"Identifier is not quoted, but contains quote character at position {pos}: '{name}'");
                 }
 
                 char? nextCh = pos + 1 < name.Length ? name[pos + 1] : null;

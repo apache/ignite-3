@@ -48,15 +48,15 @@ public class QualifiedNameTests
     public void InvalidNullNames()
     {
         Assert.Throws<ArgumentNullException>(() => QualifiedName.Parse(null!));
-        Assert.Throws<ArgumentNullException>(() => new QualifiedName("s1", null!));
-        Assert.Throws<ArgumentNullException>(() => new QualifiedName(null, null!));
+        Assert.Throws<ArgumentNullException>(() => QualifiedName.Of("s1", null!));
+        Assert.Throws<ArgumentNullException>(() => QualifiedName.Of(null, null!));
     }
 
     [Test]
     public void DefaultSchemaName()
     {
         Assert.AreEqual(QualifiedName.DefaultSchemaName, QualifiedName.Parse("foo").SchemaName);
-        Assert.AreEqual(QualifiedName.DefaultSchemaName, new QualifiedName(null, "foo").SchemaName);
+        Assert.AreEqual(QualifiedName.DefaultSchemaName, QualifiedName.Of(null, "foo").SchemaName);
     }
 
     [Test]
@@ -70,7 +70,7 @@ public class QualifiedNameTests
     [TestCaseSource(nameof(ValidSimpleNamesArgs))]
     public void ValidSimpleNames(string actual, string expectedIdentifier)
     {
-        var simple = new QualifiedName(null, actual);
+        var simple = QualifiedName.Of(null, actual);
         var parsed = QualifiedName.Parse(actual);
 
         Assert.AreEqual(expectedIdentifier, simple.ObjectName);
@@ -95,9 +95,9 @@ public class QualifiedNameTests
     [TestCaseSource(nameof(MalformedSimpleNamesArgs))]
     public void MalformedSimpleNames(string source)
     {
-        Assert.Throws<ArgumentException>(() => new QualifiedName(null, source));
+        Assert.Throws<ArgumentException>(() => QualifiedName.Of(null, source));
         Assert.Throws<ArgumentException>(() => QualifiedName.Parse(source));
-        Assert.Throws<ArgumentException>(() => new QualifiedName(source, "bar"));
+        Assert.Throws<ArgumentException>(() => QualifiedName.Of(source, "bar"));
     }
 
     [Test]
@@ -105,8 +105,8 @@ public class QualifiedNameTests
     {
         string canonicalName = "f.f";
 
-        Assert.Throws<ArgumentException>(() => new QualifiedName(canonicalName, "bar"));
-        Assert.Throws<ArgumentException>(() => new QualifiedName(null, canonicalName));
+        Assert.Throws<ArgumentException>(() => QualifiedName.Of(canonicalName, "bar"));
+        Assert.Throws<ArgumentException>(() => QualifiedName.Of(null, canonicalName));
     }
 
     [Test]
