@@ -30,7 +30,7 @@ using NUnit.Framework;
 public class QualifiedNameTests
 {
     [Test]
-    public void InvalidNullNames()
+    public void TestInvalidNullNames()
     {
         Assert.Throws<ArgumentNullException>(() => QualifiedName.Parse(null!));
         Assert.Throws<ArgumentNullException>(() => QualifiedName.Of("s1", null!));
@@ -38,22 +38,22 @@ public class QualifiedNameTests
     }
 
     [Test]
-    public void DefaultSchemaName()
+    public void TestDefaultSchemaName()
     {
         Assert.AreEqual(QualifiedName.DefaultSchemaName, QualifiedName.Parse("foo").SchemaName);
         Assert.AreEqual(QualifiedName.DefaultSchemaName, QualifiedName.Of(null, "foo").SchemaName);
     }
 
     [Test]
-    public void CanonicalForm()
+    public void TestCanonicalForm()
     {
         Assert.AreEqual("FOO.BAR", QualifiedName.Parse("foo.bar").CanonicalName);
         Assert.AreEqual("\"foo\".\"bar\"", QualifiedName.Parse("\"foo\".\"bar\"").CanonicalName);
     }
 
     [Test]
-    [TestCaseSource(nameof(ValidSimpleNamesArgs))]
-    public void ValidSimpleNames(string actual, string expectedIdentifier)
+    [TestCaseSource(nameof(ValidSimpleNames))]
+    public void TestValidSimpleNames(string actual, string expectedIdentifier)
     {
         var simple = QualifiedName.Of(null, actual);
         var parsed = QualifiedName.Parse(actual);
@@ -65,8 +65,8 @@ public class QualifiedNameTests
     }
 
     [Test]
-    [TestCaseSource(nameof(ValidCanonicalNamesArgs))]
-    public void ValidCanonicalNames(string source, string schemaIdentifier, string objectIdentifier)
+    [TestCaseSource(nameof(ValidCanonicalNames))]
+    public void TestValidCanonicalNames(string source, string schemaIdentifier, string objectIdentifier)
     {
         var parsed = QualifiedName.Parse(source);
 
@@ -77,8 +77,8 @@ public class QualifiedNameTests
     }
 
     [Test]
-    [TestCaseSource(nameof(MalformedSimpleNamesArgs))]
-    public void MalformedSimpleNames(string source)
+    [TestCaseSource(nameof(MalformedSimpleNames))]
+    public void TestMalformedSimpleNames(string source)
     {
         Assert.Throws<ArgumentException>(() => QualifiedName.Of(null, source));
         Assert.Throws<ArgumentException>(() => QualifiedName.Parse(source));
@@ -86,7 +86,7 @@ public class QualifiedNameTests
     }
 
     [Test]
-    public void UnexpectedCanonicalName()
+    public void TestUnexpectedCanonicalName()
     {
         string canonicalName = "f.f";
 
@@ -95,13 +95,13 @@ public class QualifiedNameTests
     }
 
     [Test]
-    [TestCaseSource(nameof(MalformedCanonicalNamesArgs))]
-    public void MalformedCanonicalNames(string source)
+    [TestCaseSource(nameof(MalformedCanonicalNames))]
+    public void TestMalformedCanonicalNames(string source)
     {
         Assert.Throws<ArgumentException>(() => QualifiedName.Parse(source));
     }
 
-    private static IEnumerable<TestCaseData> ValidSimpleNamesArgs()
+    private static IEnumerable<TestCaseData> ValidSimpleNames()
     {
         yield return new("foo", "FOO");
         yield return new("fOo", "FOO");
@@ -131,7 +131,7 @@ public class QualifiedNameTests
         yield return new("\"\"\"\"\"bar\"\"\"", "\"\"bar\"");
     }
 
-    private static IEnumerable<TestCaseData> MalformedSimpleNamesArgs()
+    private static IEnumerable<TestCaseData> MalformedSimpleNames()
     {
         yield return new(string.Empty);
         yield return new(" ");
@@ -152,7 +152,7 @@ public class QualifiedNameTests
         yield return new("\"fo\"o\"");
     }
 
-    private static IEnumerable<TestCaseData> MalformedCanonicalNamesArgs()
+    private static IEnumerable<TestCaseData> MalformedCanonicalNames()
     {
         yield return new("foo.");
         yield return new(".bar");
@@ -168,7 +168,7 @@ public class QualifiedNameTests
         yield return new("1oo");
     }
 
-    private static IEnumerable<TestCaseData> ValidCanonicalNamesArgs()
+    private static IEnumerable<TestCaseData> ValidCanonicalNames()
     {
         yield return new("\"foo.bar\".baz", "foo.bar", "BAZ");
         yield return new("foo.\"bar.baz\"", "FOO", "bar.baz");
