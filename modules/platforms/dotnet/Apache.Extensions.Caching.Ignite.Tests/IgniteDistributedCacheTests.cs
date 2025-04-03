@@ -151,10 +151,9 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"INSERT INTO {tableName} (K, V) VALUES ('x', x'010203')");
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove unnecessary uppercasing for tableName.
         var options = new IgniteDistributedCacheOptions
         {
-            TableName = tableName.ToUpperInvariant(),
+            TableName = tableName,
             KeyColumnName = "K",
             ValueColumnName = "V"
         };
