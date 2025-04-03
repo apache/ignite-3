@@ -782,9 +782,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
         try {
             return prepareTableResourcesAndLoadHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, onNodeRecovery, table)
-                    .whenComplete((res, ex) -> {
-                        unlockZoneForRead(zoneDescriptor, acquisitionFuture);
-                    });
+                    .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
         } catch (Throwable e) {
             unlockZoneForRead(zoneDescriptor, acquisitionFuture);
 
