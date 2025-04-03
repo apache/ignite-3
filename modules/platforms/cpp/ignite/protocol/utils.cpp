@@ -190,18 +190,6 @@ bytes_view unpack_binary(const msgpack_object &object) {
     return {reinterpret_cast<const std::byte *>(object.via.bin.ptr), object.via.bin.size};
 }
 
-uuid make_random_uuid() {
-    static std::mutex randomMutex;
-    static std::random_device rd;
-    static std::mt19937 gen(rd());
-
-    std::uniform_int_distribution<int64_t> distrib;
-
-    std::lock_guard<std::mutex> lock(randomMutex);
-
-    return {distrib(gen), distrib(gen)};
-}
-
 std::optional<ignite_error> try_read_error(reader &reader) {
     if (reader.try_read_nil())
         return std::nullopt;
@@ -210,21 +198,19 @@ std::optional<ignite_error> try_read_error(reader &reader) {
 }
 
 ignite_error read_error(reader &reader) {
-    auto trace_id = reader.try_read_nil() ? make_random_uuid() : reader.read_uuid();
+    auto trace_id = reader.try_read_nil() ? uuid::random() : reader.read_uuid();
     auto code = reader.read_object_or_default<std::int32_t>(65537);
     auto class_name = reader.read_string();
     auto message = reader.read_string_nullable();
     auto java_stack_trace = reader.read_string_nullable();
-    UNUSED_VALUE java_stack_trace;
 
     std::stringstream err_msg_builder;
 
     err_msg_builder << class_name;
     if (message)
         err_msg_builder << ": " << *message;
-    err_msg_builder << " (" << code << ", " << trace_id << ")";
 
-    ignite_error res{error::code(code), err_msg_builder.str()};
+    ignite_error res{error::code(code), err_msg_builder.str(), trace_id, std::move(java_stack_trace)};
 
     if (!reader.try_read_nil()) {
         // Reading extensions

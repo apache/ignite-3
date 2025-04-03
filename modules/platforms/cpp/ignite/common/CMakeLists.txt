@@ -48,6 +48,7 @@ set(SOURCES
     big_decimal.cpp
     big_integer.cpp
     detail/mpi.cpp
+    uuid.cpp
 )
 
 add_library(${TARGET} STATIC ${SOURCES})
