@@ -93,7 +93,7 @@ public final class IgniteNameUtils {
 
         int codePoint = identifier.codePointAt(0);
 
-        if (!(Character.isUpperCase(codePoint) && identifierStart(codePoint))) {
+        if (codePoint != '_' && !(Character.isUpperCase(codePoint) && identifierStart(codePoint))) {
             return quote(identifier);
         }
 
