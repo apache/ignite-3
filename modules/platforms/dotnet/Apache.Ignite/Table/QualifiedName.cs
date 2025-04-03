@@ -19,6 +19,7 @@ namespace Apache.Ignite.Table;
 
 using System;
 using Internal.Table;
+using Sql;
 using static Internal.Table.IgniteNameUtils;
 
 /// <summary>
@@ -45,7 +46,7 @@ public readonly record struct QualifiedName
     /// <summary>
     /// Default schema name.
     /// </summary>
-    public const string DefaultSchemaName = "PUBLIC";
+    public const string DefaultSchemaName = SqlStatement.DefaultSchema;
 
     /// <summary>
     /// Separator character between schema and object names.
