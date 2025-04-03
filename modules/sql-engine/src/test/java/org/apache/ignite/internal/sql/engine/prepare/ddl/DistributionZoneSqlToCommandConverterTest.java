@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.prepare.ddl;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -29,7 +28,6 @@ import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
-import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.calcite.sql.SqlDdl;
@@ -50,8 +48,10 @@ import org.apache.ignite.internal.catalog.storage.SetDefaultZoneEntry;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.SqlException;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mockito;
@@ -62,31 +62,52 @@ import org.mockito.Mockito;
 @SuppressWarnings("ThrowableNotThrown")
 public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToCommandConverterTest {
 
-    private static final List<String> NUMERIC_OPTIONS = Arrays.asList("PARTITIONS", "REPLICAS", "DATA_NODES_AUTO_ADJUST",
-            "DATA_NODES_AUTO_ADJUST_SCALE_UP", "DATA_NODES_AUTO_ADJUST_SCALE_DOWN");
+    private static final List<ZoneOptionEnum> NUMERIC_OPTIONS = List.of(
+            ZoneOptionEnum.PARTITIONS,
+            ZoneOptionEnum.REPLICAS,
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST,
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP,
+            ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN);
 
-    private static final List<String> STRING_OPTIONS = Arrays.asList(
-            "DISTRIBUTION_ALGORITHM",
-            "DATA_NODES_FILTER",
-            "STORAGE_PROFILES"
+    private static final List<ZoneOptionEnum> STRING_OPTIONS = List.of(
+            ZoneOptionEnum.DISTRIBUTION_ALGORITHM,
+            ZoneOptionEnum.DATA_NODES_FILTER,
+            ZoneOptionEnum.CONSISTENCY_MODE
     );
 
-    @Test
-    public void testCreateZone() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+    @BeforeAll
+    public static void setUp() {
+        assertThat(ZoneOptionEnum.values().length, is(NUMERIC_OPTIONS.size() + STRING_OPTIONS.size()));
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZone(boolean withPresent) throws SqlParseException {
+        SqlNode node = parse(withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'"
+                : "CREATE ZONE test STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
 
         assertThat(node, instanceOf(SqlDdl.class));
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
-        NewZoneEntry newZoneEntry = invokeAndGetFirstEntry(cmd, NewZoneEntry.class);
+        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
-        assertThat(newZoneEntry.descriptor().name(), equalTo("TEST"));
+        assertThat(desc.name(), equalTo("TEST"));
+
+        assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.STRONG_CONSISTENCY));
     }
 
-    @Test
-    public void testCreateZoneWithConsistencyModeNotSet() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithConsistencyModeStrongConsistency(boolean withPresent) throws SqlParseException {
+        String sql = withPresent
+                ? "CREATE ZONE test WITH storage_profiles='" + DEFAULT_STORAGE_PROFILE + "',"
+                        + " CONSISTENCY_MODE='" + ConsistencyMode.STRONG_CONSISTENCY.name() + "'"
+                : "CREATE ZONE test (CONSISTENCY MODE '" + ConsistencyMode.STRONG_CONSISTENCY.name() + "') "
+                        + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "'] ";
+
+        SqlNode node = parse(sql);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -97,24 +118,16 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.STRONG_CONSISTENCY));
     }
 
-    @Test
-    public void testCreateZoneWithConsistencyModeStrongConsistency() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
-                + " CONSISTENCY_MODE='" + ConsistencyMode.STRONG_CONSISTENCY.name() + "'");
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithConsistencyModeHighAvailability(boolean withPresent) throws SqlParseException {
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
+                        + " CONSISTENCY_MODE='" + ConsistencyMode.HIGH_AVAILABILITY + "'"
+                : "CREATE ZONE test (CONSISTENCY MODE '" + ConsistencyMode.HIGH_AVAILABILITY + "') "
+                        + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "'] ";
 
-        assertThat(node, instanceOf(SqlDdl.class));
-
-        CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
-
-        CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
-
-        assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.STRONG_CONSISTENCY));
-    }
-
-    @Test
-    public void testCreateZoneWithConsistencyModeHighAvailability() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
-                + " CONSISTENCY_MODE='" + ConsistencyMode.HIGH_AVAILABILITY.name() + "'");
+        SqlNode node = parse(sql);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -125,10 +138,16 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(desc.consistencyMode(), equalTo(ConsistencyMode.HIGH_AVAILABILITY));
     }
 
-    @Test
-    public void testCreateZoneWithConsistencyModeInvalid() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test0 WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
-                + " CONSISTENCY_MODE='" + "MY_CUSTOM_MODE" + "'");
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithConsistencyModeInvalid(boolean withPresent) throws SqlParseException {
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
+                        + " CONSISTENCY_MODE='MY_CUSTOM_MODE'"
+                : "CREATE ZONE test (CONSISTENCY MODE 'MY_CUSTOM_MODE') "
+                        + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "'] ";
+
+        SqlNode node = parse(sql);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -140,17 +159,38 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     }
 
     @Test
-    public void testCreateZoneWithOptions() throws SqlParseException {
+    public void testMixedOptions() {
+        String passed = "CREATE ZONE test with partitions=2, replicas=3, storage_profiles='p' S";
+        assertThrowsWithPos("CREATE ZONE test with partitions=2, replicas=3, storage_profiles='p' STORAGE PROFILES ['profile']",
+                "STORAGE", passed.length());
+
+        passed = "CREATE ZONE test with (";
+        assertThrowsWithPos("CREATE ZONE test with (partitions 2, replicas 3, storage_profiles='p') STORAGE PROFILES ['profile']",
+                "(", passed.length());
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithOptions(boolean withPresent) throws SqlParseException {
         // Check non-conflicting options.
         {
-            SqlNode node = parse("CREATE ZONE test with "
-                    + "partitions=2, "
-                    + "replicas=3, "
-                    + "distribution_algorithm='rendezvous', "
-                    + "data_nodes_filter='$[?(@.region == \"US\")]', "
-                    + "data_nodes_auto_adjust=300, "
-                    + "storage_profiles='lru_rocks, segmented_aipersist' "
-            );
+            String sql = withPresent
+                    ? "CREATE ZONE test with "
+                            + "partitions=2, "
+                            + "replicas=3, "
+                            + "distribution_algorithm='rendezvous', "
+                            + "data_nodes_filter='$[?(@.region == \"US\")]', "
+                            + "data_nodes_auto_adjust=300, "
+                            + "storage_profiles='lru_rocks , segmented_aipersist ' "
+                    : "CREATE ZONE test "
+                            + "(partitions 2, "
+                            + "replicas 3, "
+                            + "distribution algorithm 'rendezvous', "
+                            + "nodes filter '$[?(@.region == \"US\")]', "
+                            + "auto adjust 300) "
+                            + "storage profiles ['lru_rocks', 'segmented_aipersist '] ";
+
+            SqlNode node = parse(sql);
 
             assertThat(node, instanceOf(SqlDdl.class));
 
@@ -172,10 +212,17 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         // Check remaining options.
         {
-            SqlNode node = parse("CREATE ZONE test with "
-                    + "data_nodes_auto_adjust_scale_up=100, "
-                    + "data_nodes_auto_adjust_scale_down=200, "
-                    + "storage_profiles='lru_rocks'");
+            String sql = withPresent
+                    ? "CREATE ZONE test with "
+                            + "data_nodes_auto_adjust_scale_up=100, "
+                            + "data_nodes_auto_adjust_scale_down=200, "
+                            + "storage_profiles='lru_rocks'"
+                    : "CREATE ZONE test "
+                            + "(auto scale up 100, "
+                            + "auto scale down 200) "
+                            + "storage profiles ['lru_rocks']";
+
+            SqlNode node = parse(sql);
 
             assertThat(node, instanceOf(SqlDdl.class));
 
@@ -187,15 +234,35 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         }
 
         // Check option validation.
-        expectOptionValidationError("CREATE ZONE test with partitions=-1", "PARTITION");
-        expectOptionValidationError("CREATE ZONE test with replicas=-1", "REPLICAS");
-        expectOptionValidationError("CREATE ZONE test with storage_profiles='' ", "STORAGE_PROFILES");
+        if (withPresent) {
+            expectOptionValidationError("CREATE ZONE test with partitions=-1, storage_profiles='p'", "PARTITION");
+            expectOptionValidationError("CREATE ZONE test with replicas=-1, storage_profiles='p'", "REPLICAS");
+            assertThrowsWithPos("CREATE ZONE test with replicas=FALL, storage_profiles='p'", "FALL", 32);
+            emptyProfilesValidationError("CREATE ZONE test with storage_profiles='' ");
+            emptyProfilesValidationError("CREATE ZONE test with storage_profiles=' ' ");
+        } else {
+            assertThrowsWithPos("CREATE ZONE test (partitions -1)", "-", 30);
+            assertThrowsWithPos("CREATE ZONE test (replicas -1)", "-", 28);
+            assertThrowsWithPos("CREATE ZONE test (replicas FALL)", "FALL", 28);
+            assertThrowsWithPos("CREATE ZONE test (replicas 1, partitions -1)", "-", 42);
+            assertThrowsWithPos("CREATE ZONE test storage_profiles ['']", "storage_profiles", 18);
+            assertThrowsParseException("CREATE ZONE test (distribution algorithm '')", "Validation Error: Empty character literal "
+                    + "is not allowed in this context.");
+            assertThrowsParseException("CREATE ZONE test storage profiles ['']", "Validation Error: Empty character literal "
+                    + "is not allowed in this context.");
+            assertThrowsParseException("CREATE ZONE test storage profiles [' ']", "Validation Error: Empty character literal "
+                    + "is not allowed in this context.");
+        }
     }
 
-    @Test
-    public void testCreateZoneWithReplicasAll() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "',"
-                + " REPLICAS=ALL");
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithReplicasAll(boolean withPresent) throws SqlParseException {
+        String sql = withPresent
+                ? "CREATE ZONE test WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "', REPLICAS=ALL"
+                : "CREATE ZONE test (REPLICAS ALL) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";
+
+        SqlNode node = parse(sql);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -206,32 +273,26 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(desc.replicas(), equalTo(DistributionAlgorithm.ALL_REPLICAS));
     }
 
-    @Test
-    public void testCreateZoneWithoutStorageProfileOptionShouldThrowError() throws SqlParseException {
-        SqlNode node =  parse("CREATE ZONE test");
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithoutStorageProfileOptionShouldThrowError(boolean withPresent) throws SqlParseException {
+        assertThrowsWithPos("CREATE ZONE test", "<EOF>", 16);
 
-        assertThat(node, instanceOf(SqlDdl.class));
-
-        assertThrows(
-                SqlException.class,
-                () -> converter.convert((SqlDdl) node, createContext()),
-                STORAGE_PROFILES + " option cannot be null"
-        );
-
-        SqlNode newNode = parse("CREATE ZONE test with replicas=1");
-
-        assertThat(newNode, instanceOf(SqlDdl.class));
-
-        assertThrows(
-                SqlException.class,
-                () -> converter.convert((SqlDdl) newNode, createContext()),
-                STORAGE_PROFILES + " option cannot be null"
-        );
+        if (withPresent) {
+            emptyProfilesValidationError("CREATE ZONE test with replicas=1");
+        } else {
+            assertThrowsWithPos("CREATE ZONE test (replicas 1)", "<EOF>", 29);
+        }
     }
 
-    @Test
-    public void testCreateZoneWithDuplicateOptions() throws SqlParseException {
-        SqlNode node = parse("CREATE ZONE test with partitions=2, replicas=0, PARTITIONS=1");
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testCreateZoneWithDuplicateOptions(boolean withPresent) throws SqlParseException {
+        String sql = withPresent
+                ? "CREATE ZONE test with partitions=2, replicas=0, PARTITIONS=1, STORAGE_PROFILES='profile'"
+                : "CREATE ZONE test (partitions 2, replicas 0, PARTITIONS 1) STORAGE PROFILES ['profile']";
+
+        SqlNode node = parse(sql);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
@@ -430,31 +491,70 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(entry.zoneId(), is(zoneMock.id()));
     }
 
-    @ParameterizedTest
+    @ParameterizedTest(name = "with syntax = {0}, option = {1}")
     @MethodSource("numericOptions")
-    public void createZoneWithInvalidNumericOptionValue(String optionName) throws Exception {
-        SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}", optionName, "'bar'"));
-        expectInvalidOptionType(node, optionName);
+    public void createZoneWithInvalidNumericOptionValue(boolean withPresent, ZoneOptionEnum option) throws Exception {
+        String sql = withPresent ? "create zone test_zone with {}={}, storage_profiles='p'" : "create zone test_zone ({} {})";
+
+        if (withPresent) {
+            SqlDdl node = (SqlDdl) parse(format(sql, option, "'bar'"));
+            expectInvalidOptionType(node, option.name());
+        } else {
+            String sqlName = option.sqlName;
+            String prefix = "create zone test_zone (";
+            assertThrowsWithPos(format(sql, sqlName, "'bar'"), "\\'bar\\'", prefix.length() + sqlName.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
+
+            assertThrowsWithPos(format(sql, sqlName, "-1"), "-", prefix.length() + sqlName.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
+        }
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}")
+    @ValueSource(booleans = {true, false})
+    public void createZoneWithUnexpectedOption(boolean withPresent) throws SqlParseException {
+        String sql = withPresent ? "create zone test_zone with ABC=1, storage_profiles='p'" : "create zone test_zone (ABC 1)";
+
+        if (withPresent) {
+            SqlDdl node = (SqlDdl) parse(sql);
+            expectUnexpectedOption(node, "ABC");
+        } else {
+            assertThrowsWithPos(sql, "ABC", 24);
+        }
+    }
+
+    @ParameterizedTest(name = "with syntax = {0}, option = {1}")
+    @MethodSource("stringOptions")
+    public void createZoneWithInvalidStringOptionValue(boolean withPresent, ZoneOptionEnum option) throws Exception {
+        if (withPresent) {
+            SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}, storage_profiles='p'", option.name(), "1"));
+            expectInvalidOptionType(node, option.name());
+        } else {
+            String sql = "create zone test_zone ({} {})";
+
+            String sqlName = option.sqlName;
+            String prefix = "create zone test_zone (";
+            assertThrowsWithPos(format(sql, sqlName, "1"), "1", prefix.length() + sqlName.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
+        }
     }
 
     @Test
-    public void createZoneWithUnexpectedOption() throws SqlParseException {
-        SqlDdl node = (SqlDdl) parse("create zone test_zone with ABC=1");
-        expectUnexpectedOption(node, "ABC");
+    public void createZoneWithInvalidStorageProfiles() {
+        String profiles = "STORAGE PROFILES [";
+        String sql = "create zone test_zone {} {}]";
+
+        String prefix = "create zone test_zone ";
+
+        assertThrowsWithPos(format(sql, profiles, "1"), "1", prefix.length() + profiles.length() + 1 /* start pos*/
+                + 1 /* first symbol after bracket*/);
     }
 
     @ParameterizedTest
-    @MethodSource("stringOptions")
-    public void createZoneWithInvalidStringOptionValue(String optionName) throws Exception {
-        SqlDdl node = (SqlDdl) parse(format("create zone test_zone with {}={}", optionName, "1"));
-        expectInvalidOptionType(node, optionName);
-    }
-
-    @ParameterizedTest
-    @MethodSource("numericOptions")
-    public void alterZoneWithInvalidNumericOptionValue(String optionName) throws Exception {
-        SqlDdl node = (SqlDdl) parse(format("alter zone test_zone set {}={}", optionName, "'bar'"));
-        expectInvalidOptionType(node, optionName);
+    @MethodSource("pureNumericOptions")
+    public void alterZoneWithInvalidNumericOptionValue(ZoneOptionEnum optionParam) throws Exception {
+        SqlDdl node = (SqlDdl) parse(format("alter zone test_zone set {}={}", optionParam.name(), "'bar'"));
+        expectInvalidOptionType(node, optionParam.name());
     }
 
     @Test
@@ -463,19 +563,33 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         expectUnexpectedOption(node, "ABC");
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = "DATA_NODES_FILTER")
-    public void alterZoneWithInvalidStringOptionValue(String optionName) throws Exception {
-        SqlDdl node = (SqlDdl) parse(format("alter zone test_zone set {}={}", optionName, "1"));
-        expectInvalidOptionType(node, optionName);
+    private void convert(String query) throws SqlParseException {
+        SqlDdl node = (SqlDdl) parse(query);
+        converter.convert(node, createContext());
     }
 
-    private static Stream<String> numericOptions() {
+    private void assertThrowsWithPos(String query, String encountered, int pos) {
+        assertThrowsParseException(query, format("Encountered \"{}\" at line 1, column {}.", encountered, pos));
+    }
+
+    private void assertThrowsParseException(String query, String message) {
+        assertThrows(SqlParseException.class, () -> convert(query), message);
+    }
+
+    private static Stream<ZoneOptionEnum> pureNumericOptions() {
         return NUMERIC_OPTIONS.stream();
     }
 
-    private static Stream<String> stringOptions() {
-        return STRING_OPTIONS.stream();
+    private static Stream<Arguments> numericOptions() {
+        return Stream.of(true, false).flatMap(t1 -> NUMERIC_OPTIONS.stream()
+                .map(t2 -> Arguments.of(t1, t2))
+        );
+    }
+
+    private static Stream<Arguments> stringOptions() {
+        return Stream.of(true, false).flatMap(t1 -> STRING_OPTIONS.stream()
+                .map(t2 -> Arguments.of(t1, t2))
+        );
     }
 
     private void expectOptionValidationError(String sql, String invalidOption) throws SqlParseException {
@@ -485,6 +599,16 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
                 Sql.STMT_VALIDATION_ERR,
                 () -> converter.convert(node, createContext()),
                 "Zone option validation failed [option=" + invalidOption
+        );
+    }
+
+    private void emptyProfilesValidationError(String sql) throws SqlParseException {
+        SqlDdl node = (SqlDdl) parse(sql);
+        assertThrowsWithCode(
+                SqlException.class,
+                Sql.STMT_VALIDATION_ERR,
+                () -> converter.convert(node, createContext()),
+                "STORAGE PROFILES can not be empty"
         );
     }
 

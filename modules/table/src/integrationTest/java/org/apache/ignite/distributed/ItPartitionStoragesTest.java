@@ -54,7 +54,7 @@ class ItPartitionStoragesTest extends ClusterPerTestIntegrationTest {
     private void createTableWith1ReplicaAnd1Partition() {
         cluster.doInSession(0, session -> {
             executeUpdate(
-                    "create zone test_zone with partitions=1, replicas=1, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "';",
+                    "create zone test_zone (partitions 1, replicas 1) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "'];",
                     session
             );
             executeUpdate("create table " + TABLE_NAME + " (key int primary key, val varchar(20))"

@@ -52,8 +52,8 @@ class ItConcurrentDdlsTest extends ClusterPerTestIntegrationTest {
 
     private void createZoneWith1Partition() {
         node(0).sql().executeScript(
-                "CREATE ZONE " + ZONE_NAME + " with partitions=1, replicas=1, storage_profiles='"
-                        + CatalogService.DEFAULT_STORAGE_PROFILE + "'"
+                "CREATE ZONE " + ZONE_NAME + " (partitions 1, replicas 1) storage profiles ['"
+                        + CatalogService.DEFAULT_STORAGE_PROFILE + "']"
         );
     }
 

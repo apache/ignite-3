@@ -243,7 +243,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
      */
     protected static void createZoneOnlyIfNotExists(String zoneName, int replicas, int partitions, String storageProfile) {
         sql(format(
-                "CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+                "CREATE ZONE IF NOT EXISTS {} (REPLICAS {}, PARTITIONS {}) STORAGE PROFILES ['{}'];",
                 zoneName, replicas, partitions, storageProfile
         ));
     }

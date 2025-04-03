@@ -83,7 +83,7 @@ public class ItIndexSpoolTest extends BaseSqlIntegrationTest {
 
         for (String name : List.of("TEST0", "TEST1")) {
             sql(String.format(
-                    "CREATE ZONE %s with replicas=2, partitions=%d, storage_profiles='%s'",
+                    "CREATE ZONE %s (replicas 2, partitions %d) storage profiles ['%s']",
                     "ZONE_" + name,
                     parts,
                     DEFAULT_STORAGE_PROFILE

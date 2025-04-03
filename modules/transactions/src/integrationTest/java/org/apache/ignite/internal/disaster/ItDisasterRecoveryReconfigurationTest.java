@@ -190,11 +190,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // TODO: IGNITE-22818 Fails with "Race operations took too long"
         // startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
-        executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
-                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d, storage_profiles='%s',"
-                        + " consistency_mode='%s'",
-                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1, DEFAULT_STORAGE_PROFILE,
-                zoneParams.consistencyMode().name()
+        executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
+                        + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
+                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1,
+                zoneParams.consistencyMode().name(), DEFAULT_STORAGE_PROFILE
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);

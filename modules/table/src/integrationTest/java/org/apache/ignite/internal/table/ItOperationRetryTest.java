@@ -54,8 +54,8 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     private static final int PART_ID = 0;
 
     @BeforeEach
-    public void setup() throws Exception {
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_PROFILE_NAME + "'";
+    public void setup() {
+        String zoneSql = "create zone test_zone (partitions 1, replicas 3) storage profiles ['" + DEFAULT_PROFILE_NAME + "']";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone TEST_ZONE";
 
         cluster.doInSession(0, session -> {

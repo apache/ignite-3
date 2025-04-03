@@ -362,7 +362,7 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static void createTableWithData(Ignite ignite, String name, int replicas, int partitions) throws InterruptedException {
         IgniteSql sql = ignite.sql();
 
-        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s WITH REPLICAS=%d, PARTITIONS=%d, STORAGE_PROFILES='%s'",
+        sql.execute(null, String.format("CREATE ZONE IF NOT EXISTS ZONE_%s (REPLICAS %d, PARTITIONS %d) STORAGE PROFILES ['%s']",
                 name, replicas, partitions, DEFAULT_AIMEM_PROFILE_NAME));
         sql.execute(null, "CREATE TABLE " + name
                 + " (id INT PRIMARY KEY, name VARCHAR)"
