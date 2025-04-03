@@ -94,15 +94,19 @@ public class NaiveAsyncReadWriteLock {
 
             if (writeLockWaiter != null) {
                 // Someone is waiting for a write lock, satisfy the request.
-                long newWriteStamp = stampedLock.tryWriteLock();
-                assert newWriteStamp != 0;
-
-                writeLockWaiter.completeAsync(() -> newWriteStamp, futureCompletionExecutor);
+                satisfyWriteLockWaiter(writeLockWaiter);
             } else {
                 // Someone might be waiting for read locks.
                 satisfyReadLockWaiters();
             }
         }
+    }
+
+    private void satisfyWriteLockWaiter(CompletableFuture<Long> writeLockWaiter) {
+        long newWriteStamp = stampedLock.tryWriteLock();
+        assert newWriteStamp != 0;
+
+        writeLockWaiter.completeAsync(() -> newWriteStamp, futureCompletionExecutor);
     }
 
     private void satisfyReadLockWaiters() {
@@ -148,15 +152,14 @@ public class NaiveAsyncReadWriteLock {
         synchronized (mutex) {
             stampedLock.unlockRead(stamp);
 
-            CompletableFuture<Long> writeLockWaiter = writeLockWaiters.peek();
+            if (stampedLock.isReadLocked()) {
+                return;
+            }
+
+            CompletableFuture<Long> writeLockWaiter = writeLockWaiters.poll();
 
             if (writeLockWaiter != null) {
-                long newWriteStamp = stampedLock.tryWriteLock();
-                if (newWriteStamp != 0) {
-                    writeLockWaiters.remove();
-
-                    writeLockWaiter.completeAsync(() -> newWriteStamp, futureCompletionExecutor);
-                }
+                satisfyWriteLockWaiter(writeLockWaiter);
             }
         }
     }

@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,7 +29,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.junit.jupiter.api.Test;
@@ -79,6 +83,21 @@ class NaiveAsyncReadWriteLockTest {
 
         assertThat(writeLockFuture, willCompleteSuccessfully());
         assertDoesNotThrow(() -> lock.unlockWrite(writeLockFuture.join()));
+    }
+
+    @Test
+    void incompleteReadUnlockDoesNotAllowWriteWaiterAcquireWriteLock() throws Exception {
+        CompletableFuture<Long> readLock1 = lock.readLock();
+        @SuppressWarnings("unused")
+        CompletableFuture<Long> readLock2 = lock.readLock();
+        CompletableFuture<Long> writeLock = lock.writeLock();
+
+        AtomicBoolean writeLocked = new AtomicBoolean(false);
+        writeLock.thenAccept(stamp -> writeLocked.set(true));
+
+        readLock1.thenAccept(lock::unlockRead);
+
+        assertFalse(waitForCondition(writeLocked::get, 100), "Write lock was acquired before unlocking all read locks");
     }
 
     @Test
