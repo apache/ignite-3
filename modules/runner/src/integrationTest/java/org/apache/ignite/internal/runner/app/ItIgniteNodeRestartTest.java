@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app;
 
+import static java.lang.Integer.MAX_VALUE;
 import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toSet;
@@ -30,10 +31,12 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.table.NodeUtils.transferPrimary;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdByTableNameStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertionsAsync;
@@ -124,6 +127,8 @@ import org.apache.ignite.internal.configuration.validation.TestConfigurationVali
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.eventlog.api.Event;
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -181,10 +186,12 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfiguration;
 import org.apache.ignite.internal.schema.SchemaManager;
@@ -1140,7 +1147,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         for (int i = 0; i < 10; i++) {
             ByteArray key = ByteArray.fromString("some-test-key-" + i);
 
-            byte[] value = restartedMs.getLocally(key, 100).value();
+            // Integer.MAX_VALUE is used in order to guarantee that the requested revision is big enough to be greater than the true
+            // revision of  corresponding inserts.
+            byte[] value = restartedMs.getLocally(key, MAX_VALUE).value();
 
             assertEquals(1, value.length);
             assertEquals((byte) i, value[0]);
@@ -1327,7 +1336,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         assertNotNull(table);
 
-        ReplicationGroupId groupId = new TablePartitionId(table.tableId(), 0);
+        ReplicationGroupId groupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), 0)
+                : new TablePartitionId(table.tableId(), 0);
 
         CompletableFuture<ReplicaMeta> primaryFut =
                 ignite.placementDriver().awaitPrimaryReplica(groupId, ignite.clock().now(), 30, TimeUnit.SECONDS);
@@ -1600,9 +1611,15 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 .collect(toSet()), Set.of());
 
         for (int p = 0; p < partitions; p++) {
-            TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), p);
-
-            Entry e = restartedNode.metaStorageManager().getLocally(stablePartAssignmentsKey(tablePartitionId), recoveryRevision);
+            PartitionGroupId partitionId;
+            Entry e;
+            if (enabledColocation()) {
+                partitionId = new ZonePartitionId(table.zoneId(), p);
+                e = restartedNode.metaStorageManager().getLocally(ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionId), recoveryRevision);
+            } else {
+                partitionId = new TablePartitionId(table.tableId(), p);
+                e = restartedNode.metaStorageManager().getLocally(RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionId), recoveryRevision);
+            }
 
             Set<Assignment> assignment = Assignments.fromBytes(e.value()).nodes();
 
@@ -1610,7 +1627,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
             Peer peer = configuration.peer(restartedNode.name());
 
-            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(tablePartitionId, peer));
+            boolean isStarted = restartedNode.raftManager().isStarted(new RaftNodeId(partitionId, peer));
 
             assertEquals(shouldBe, isStarted);
         }
@@ -1897,7 +1914,9 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
         node1 = startNode(1);
 
-        ByteArray assignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId(node1, tableName), 0));
+        ByteArray assignmentsKey = enabledColocation()
+                ? ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId(node1, tableName), 0))
+                : RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(tableId(node1, tableName), 0));
 
         waitForValueInLocalMs(node1.metaStorageManager(), assignmentsKey);
 
@@ -1996,6 +2015,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
 
     private static int tableId(IgniteImpl node, String tableName) {
         return getTableIdStrict(node.catalogManager(), tableName, node.clock().nowLong());
+    }
+
+    private static int zoneId(IgniteImpl node, String tableName) {
+        return getZoneIdByTableNameStrict(node.catalogManager(), tableName, node.clock().nowLong());
     }
 
     /**
