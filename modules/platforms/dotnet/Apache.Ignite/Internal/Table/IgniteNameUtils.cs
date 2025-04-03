@@ -94,8 +94,12 @@ internal static class IgniteNameUtils
     /// </summary>
     /// <param name="chars">Chars.</param>
     /// <returns>Uppercased string.</returns>
-    public static string ToStringUpperInvariant(this ReadOnlyMemory<char> chars) =>
-        string.Create(chars.Length, chars, static (span, args) => args.Span.ToUpperInvariant(span));
+    public static string ToStringUpperInvariant(this ReadOnlyMemory<char> chars)
+    {
+        // In theory, converting to upper could produce a string longer than the original, but
+        // Span.ToUpperInvariant returns -1 only when target span is shorter than source span.
+        return string.Create(chars.Length, chars, static (span, args) => args.Span.ToUpperInvariant(span));
+    }
 
     /// <summary>
     /// Parses the identifier and returns it unquoted.
