@@ -1522,9 +1522,7 @@ public class PartitionReplicaLifecycleManager extends
         return lock.writeLock().thenCompose(stamp -> {
             try {
                 return action.get()
-                        .whenComplete((v, e) -> {
-                            lock.unlockWrite(stamp);
-                        });
+                        .whenComplete((v, e) -> lock.unlockWrite(stamp));
             } catch (Throwable e) {
                 lock.unlockWrite(stamp);
 
