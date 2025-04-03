@@ -19,10 +19,13 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
+import it.unimi.dsi.fastutil.longs.LongArrayList;
+import it.unimi.dsi.fastutil.longs.LongList;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
 import java.util.concurrent.locks.StampedLock;
 
 /**
@@ -42,9 +45,6 @@ import java.util.concurrent.locks.StampedLock;
  * high contention on the acquiring side; this simplifies the implementation.</p>
  */
 public class NaiveAsyncReadWriteLock {
-    /** Executor in which the waiting lock attempts' futures are completed. */
-    private final Executor futureCompletionExecutor;
-
     /** Used to manage the lock state (including issuing and using stamps). */
     private final StampedLock stampedLock = new StampedLock();
 
@@ -56,10 +56,6 @@ public class NaiveAsyncReadWriteLock {
 
     /** Queue of futures waiting for read locks to be acquired; served in the order of appearance. */
     private final Queue<CompletableFuture<Long>> readLockWaiters = new ArrayDeque<>();
-
-    public NaiveAsyncReadWriteLock(Executor futureCompletionExecutor) {
-        this.futureCompletionExecutor = futureCompletionExecutor;
-    }
 
     /**
      * Attempts to acquire the write lock.
@@ -87,37 +83,47 @@ public class NaiveAsyncReadWriteLock {
      * @param stamp Stamp returned via write lock future.
      */
     public void unlockWrite(long stamp) {
+        long newWriteStamp = 0;
+        CompletableFuture<Long> writeLockWaiter;
+
+        LongList readStamps = null;
+        List<CompletableFuture<Long>> readLockWaitersToComplete = null;
+
         synchronized (mutex) {
             stampedLock.unlockWrite(stamp);
 
-            CompletableFuture<Long> writeLockWaiter = writeLockWaiters.poll();
+            writeLockWaiter = writeLockWaiters.poll();
 
             if (writeLockWaiter != null) {
                 // Someone is waiting for a write lock, satisfy the request.
-                satisfyWriteLockWaiter(writeLockWaiter);
+                newWriteStamp = stampedLock.tryWriteLock();
+                assert newWriteStamp != 0;
             } else {
                 // Someone might be waiting for read locks.
-                satisfyReadLockWaiters();
+                for (CompletableFuture<Long> readLockWaiter : readLockWaiters) {
+                    long newReadStamp = stampedLock.tryReadLock();
+                    assert newReadStamp != 0;
+
+                    if (readStamps == null) {
+                        readStamps = new LongArrayList(readLockWaiters.size());
+                        readLockWaitersToComplete = new ArrayList<>(readLockWaiters.size());
+                    }
+                    readStamps.add(newReadStamp);
+                    readLockWaitersToComplete.add(readLockWaiter);
+                }
+
+                readLockWaiters.clear();
             }
         }
-    }
 
-    private void satisfyWriteLockWaiter(CompletableFuture<Long> writeLockWaiter) {
-        long newWriteStamp = stampedLock.tryWriteLock();
-        assert newWriteStamp != 0;
-
-        writeLockWaiter.completeAsync(() -> newWriteStamp, futureCompletionExecutor);
-    }
-
-    private void satisfyReadLockWaiters() {
-        for (CompletableFuture<Long> readLockWaiter : readLockWaiters) {
-            long newReadStamp = stampedLock.tryReadLock();
-            assert newReadStamp != 0;
-
-            readLockWaiter.completeAsync(() -> newReadStamp, futureCompletionExecutor);
+        // Completing the futures out of the synchronized block.
+        if (writeLockWaiter != null) {
+            writeLockWaiter.complete(newWriteStamp);
+        } else if (readLockWaitersToComplete != null) {
+            for (int i = 0; i < readLockWaitersToComplete.size(); i++) {
+                readLockWaitersToComplete.get(i).complete(readStamps.getLong(i));
+            }
         }
-
-        readLockWaiters.clear();
     }
 
     /**
@@ -149,6 +155,9 @@ public class NaiveAsyncReadWriteLock {
      * @param stamp Stamp returned via read lock future.
      */
     public void unlockRead(long stamp) {
+        long newWriteStamp = 0;
+        CompletableFuture<Long> writeLockWaiter;
+
         synchronized (mutex) {
             stampedLock.unlockRead(stamp);
 
@@ -156,11 +165,18 @@ public class NaiveAsyncReadWriteLock {
                 return;
             }
 
-            CompletableFuture<Long> writeLockWaiter = writeLockWaiters.poll();
+            writeLockWaiter = writeLockWaiters.poll();
 
             if (writeLockWaiter != null) {
-                satisfyWriteLockWaiter(writeLockWaiter);
+                // Someone is waiting for a write lock, satisfy the request.
+                newWriteStamp = stampedLock.tryWriteLock();
+                assert newWriteStamp != 0;
             }
+        }
+
+        // Completing the future out of the synchronized block.
+        if (writeLockWaiter != null) {
+            writeLockWaiter.complete(newWriteStamp);
         }
     }
 

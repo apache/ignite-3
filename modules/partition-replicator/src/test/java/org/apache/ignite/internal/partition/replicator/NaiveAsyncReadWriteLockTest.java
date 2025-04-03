@@ -28,7 +28,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
@@ -38,7 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ExecutorServiceExtension.class)
 class NaiveAsyncReadWriteLockTest {
-    private final NaiveAsyncReadWriteLock lock = new NaiveAsyncReadWriteLock(ForkJoinPool.commonPool());
+    private final NaiveAsyncReadWriteLock lock = new NaiveAsyncReadWriteLock();
 
     @Test
     void writeLockAttemptsArrivingWhenWriteLockedGetSatisfiedWhenUnlocked() {

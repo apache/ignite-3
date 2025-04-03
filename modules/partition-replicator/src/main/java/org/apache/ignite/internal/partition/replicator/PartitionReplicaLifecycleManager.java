@@ -1453,8 +1453,8 @@ public class PartitionReplicaLifecycleManager extends
         return lock.readLock();
     }
 
-    private NaiveAsyncReadWriteLock newZoneLock() {
-        return new NaiveAsyncReadWriteLock(ioExecutor);
+    private static NaiveAsyncReadWriteLock newZoneLock() {
+        return new NaiveAsyncReadWriteLock();
     }
 
     /**
