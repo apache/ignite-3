@@ -114,16 +114,31 @@ namespace Apache.Ignite.Internal.Table
         /// <returns>Table.</returns>
         internal async Task<Table?> GetTableInternalAsync(QualifiedName name)
         {
-            IgniteArgumentCheck.NotNull(name);
+            return await _socket.DoWithRetryAsync(
+                    (Tables: this, Name: name),
+                    static (socket, _) => Op(socket),
+                    async static (socket, arg) =>
+                    {
+                        var op = Op(socket);
 
-            // TODO: ClientOp.TABLE_GET_QUALIFIED
-            using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(name.CanonicalName);
+                        using var writer = ProtoCommon.GetMessageWriter();
 
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TableGet, writer).ConfigureAwait(false);
-            return Read(resBuf.GetReader());
+                        if (op == ClientOp.TablesGetQualified)
+                        {
+                            writer.MessageWriter.Write(arg.Name.SchemaName);
+                            writer.MessageWriter.Write(arg.Name.ObjectName);
+                        }
+                        else
+                        {
+                            writer.MessageWriter.Write(arg.Name.CanonicalName);
+                        }
 
-            Table? Read(MsgPackReader r)
+                        using var resBuf = await socket.DoOutInOpAsync(op).ConfigureAwait(false);
+                        return Read(resBuf.GetReader(), arg.Tables, op);
+                    })
+                .ConfigureAwait(false);
+
+            static Table? Read(MsgPackReader r, Tables tables, ClientOp op)
             {
                 if (r.TryReadNil())
                 {
@@ -131,14 +146,17 @@ namespace Apache.Ignite.Internal.Table
                 }
 
                 var tableId = r.ReadInt32();
-                var actualName = r.ReadString();
+                var actualName = UnpackQualifiedName(ref r, op == ClientOp.TableGetQualified);
 
-                return _cachedTables.GetOrAdd(
+                return tables._cachedTables.GetOrAdd(
                     tableId,
-                    static (int id, (string ActualName, Tables Tables) arg) =>
-                        new Table(QualifiedName.Parse(arg.ActualName), id, arg.Tables._socket, arg.Tables._sql),
-                    (actualName, this));
+                    static (int id, (QualifiedName ActualName, Tables Tables) arg) =>
+                        new Table(arg.ActualName, id, arg.Tables._socket, arg.Tables._sql),
+                    (actualName, tables));
             }
+
+            static ClientOp Op(ClientSocket? socket) =>
+                UseQualifiedNames(socket) ? ClientOp.TableGetQualified : ClientOp.TableGet;
         }
 
         private static QualifiedName UnpackQualifiedName(ref MsgPackReader r, bool packedAsQualified)
