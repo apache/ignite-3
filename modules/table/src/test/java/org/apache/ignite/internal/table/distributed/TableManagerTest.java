@@ -328,6 +328,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tblManagerFut = new CompletableFuture<>();
 
+        when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(100L));
+
         mockMetastore();
     }
 
