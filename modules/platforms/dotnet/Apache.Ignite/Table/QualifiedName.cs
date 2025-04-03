@@ -41,7 +41,7 @@ using static Internal.Table.IgniteNameUtils;
 /// </item>
 /// </list>
 /// </summary>
-public readonly record struct QualifiedName
+public record QualifiedName
 {
     /// <summary>
     /// Default schema name.
@@ -59,7 +59,7 @@ public readonly record struct QualifiedName
     public const char QuoteChar = IgniteNameUtils.QuoteChar;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="QualifiedName"/> struct.
+    /// Initializes a new instance of the <see cref="QualifiedName"/> class.
     /// </summary>
     /// <param name="schemaName">Schema name. When null, default schema name is assumed (see <see cref="DefaultSchemaName"/>.</param>
     /// <param name="objectName">Object name. Can not be null or empty.</param>
@@ -70,6 +70,7 @@ public readonly record struct QualifiedName
 
         SchemaName = schemaName;
         ObjectName = objectName;
+        CanonicalName = $"{QuoteIfNeeded(schemaName)}{SeparatorChar}{QuoteIfNeeded(objectName)}";
     }
 
     /// <summary>
@@ -85,7 +86,7 @@ public readonly record struct QualifiedName
     /// <summary>
     /// Gets a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double quotes.
     /// </summary>
-    public string CanonicalName => $"{QuoteIfNeeded(SchemaName)}{SeparatorChar}{QuoteIfNeeded(ObjectName)}";
+    public string CanonicalName { get; }
 
     /// <summary>
     /// Creates a new instance of the <see cref="QualifiedName"/> struct.
