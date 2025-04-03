@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Table
     using System.Collections.Concurrent;
     using System.Collections.Generic;
     using System.Threading.Tasks;
+    using Buffers;
     using Common;
     using Ignite.Table;
     using Proto;
@@ -122,21 +123,25 @@ namespace Apache.Ignite.Internal.Table
                         var op = Op(socket);
 
                         using var writer = ProtoCommon.GetMessageWriter();
+                        Write(writer.MessageWriter, op, arg);
 
-                        if (op == ClientOp.TablesGetQualified)
-                        {
-                            writer.MessageWriter.Write(arg.Name.SchemaName);
-                            writer.MessageWriter.Write(arg.Name.ObjectName);
-                        }
-                        else
-                        {
-                            writer.MessageWriter.Write(arg.Name.CanonicalName);
-                        }
-
-                        using var resBuf = await socket.DoOutInOpAsync(op).ConfigureAwait(false);
+                        using var resBuf = await socket.DoOutInOpAsync(op, writer).ConfigureAwait(false);
                         return Read(resBuf.GetReader(), arg.Tables, op);
                     })
                 .ConfigureAwait(false);
+
+            static void Write(MsgPackWriter w, ClientOp op, (Tables Tables, QualifiedName Name) arg)
+            {
+                if (op == ClientOp.TableGetQualified)
+                {
+                    w.Write(arg.Name.SchemaName);
+                    w.Write(arg.Name.ObjectName);
+                }
+                else
+                {
+                    w.Write(arg.Name.CanonicalName);
+                }
+            }
 
             static Table? Read(MsgPackReader r, Tables tables, ClientOp op)
             {
