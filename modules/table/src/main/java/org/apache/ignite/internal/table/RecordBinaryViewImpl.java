@@ -580,9 +580,9 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
 
-        StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
+        StreamerBatchSender<V, Integer, R> batchSender = (partitionIndex, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() ->
-                        tbl.partitionLocation(partitionId)
+                        tbl.partitionLocation(partitionIndex)
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 

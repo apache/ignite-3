@@ -609,9 +609,9 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
         Objects.requireNonNull(payloadFunc);
         Objects.requireNonNull(receiver);
 
-        StreamerBatchSender<V, Integer, R1> batchSender = (partitionId, rows, deleted) ->
+        StreamerBatchSender<V, Integer, R1> batchSender = (partitionIndex, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() ->
-                        tbl.partitionLocation(partitionId)
+                        tbl.partitionLocation(partitionIndex)
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 

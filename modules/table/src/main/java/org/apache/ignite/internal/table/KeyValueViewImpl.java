@@ -819,9 +819,9 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         Objects.requireNonNull(payloadFunc);
         Objects.requireNonNull(receiver);
 
-        StreamerBatchSender<V1, Integer, R> batchSender = (partitionId, rows, deleted) ->
+        StreamerBatchSender<V1, Integer, R> batchSender = (partitionIndex, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() ->
-                        tbl.partitionLocation(partitionId)
+                        tbl.partitionLocation(partitionIndex)
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 
