@@ -100,7 +100,7 @@ public class NaiveAsyncReadWriteLock {
                 long newWriteStamp = stampedLock.tryWriteLock();
                 assert newWriteStamp != 0;
 
-                futureCompletionExecutor.execute(() -> writeLockWaiter.complete(newWriteStamp));
+                writeLockWaiter.completeAsync(() -> newWriteStamp, futureCompletionExecutor);
             } else {
                 // Someone might be waiting for read locks.
                 satisfyReadLockWaiters();
@@ -121,7 +121,7 @@ public class NaiveAsyncReadWriteLock {
             readLockWaitersMap.put(newReadStamp, readLockWaiter);
 
             for (Entry<CompletableFuture<Long>> entry : readLockWaitersMap.long2ObjectEntrySet()) {
-                futureCompletionExecutor.execute(() -> entry.getValue().complete(entry.getLongKey()));
+                entry.getValue().completeAsync(entry::getLongKey, futureCompletionExecutor);
             }
         }
 
