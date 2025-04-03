@@ -779,21 +779,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
         // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
-        CompletableFuture<Long> lockAcquiryFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
+        CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
         try {
-            return prepareTableResourcesAndLoadHavingZoneReadLock(lockAcquiryFuture, causalityToken, zoneDescriptor, onNodeRecovery, table)
+            return prepareTableResourcesAndLoadHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, onNodeRecovery, table)
                     .whenComplete((res, ex) -> {
-                        unlockZoneForRead(zoneDescriptor, lockAcquiryFuture);
+                        unlockZoneForRead(zoneDescriptor, acquisitionFuture);
                     });
         } catch (Throwable e) {
-            unlockZoneForRead(zoneDescriptor, lockAcquiryFuture);
+            unlockZoneForRead(zoneDescriptor, acquisitionFuture);
 
             return failedFuture(e);
         }
     }
 
     private CompletableFuture<Void> prepareTableResourcesAndLoadHavingZoneReadLock(
-            CompletableFuture<Long> readLockAcquiryFuture,
+            CompletableFuture<Long> readLockAcquisitionFuture,
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
             boolean onNodeRecovery,
@@ -803,7 +803,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> readLockAcquiryFuture.thenComposeAsync(unused -> {
+                (ignore, throwable) -> inBusyLock(busyLock, () -> readLockAcquisitionFuture.thenComposeAsync(unused -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     for (int i = 0; i < zoneDescriptor.partitions(); i++) {
