@@ -737,7 +737,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         // TODO: move into {@method Replica#shutdown} https://issues.apache.org/jira/browse/IGNITE-22372
         // TODO: use RaftManager interface, see https://issues.apache.org/jira/browse/IGNITE-18273
-//        System.out.println("<><><><><> " + raftNodeId);
         TopologyAwareRaftGroupService raftClient = ((Loza) raftManager).startRaftGroupNode(
                 raftNodeId,
                 newConfiguration,

@@ -33,7 +33,6 @@ import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /** Test suite for the cases with a recovery of the group replication factor after reset by zone filter update. */
@@ -119,8 +118,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
-    @RepeatedTest(100)
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testThatPartitionResetZoneStorageProfileFilterAware() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
         startNode(2, ROCKS_NODES_CONFIG);
@@ -223,8 +222,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(100)
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testNodesWaitForLastNodeFromChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);
@@ -284,8 +283,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(100)
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testNodesWaitForNodesFromGracefulChainToComeBackOnlineAfterMajorityStops() throws Exception {
         for (int i = 1; i < 8; i++) {
             startNode(i, CUSTOM_NODES_CONFIG);

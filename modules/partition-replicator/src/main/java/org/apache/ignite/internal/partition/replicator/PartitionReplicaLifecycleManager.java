@@ -1016,23 +1016,41 @@ public class PartitionReplicaLifecycleManager extends
             Set<Assignment> stableAssignments,
             long revision
     ) {
-        return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
-            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
+        var replicaF = replicaMgr.replica(zonePartitionId);
+        if (replicaF == null) {
+            return nullCompletedFuture();
+        }
 
-            if (!isLocalInStable && !isLeaseholder) {
-                return nullCompletedFuture();
-            }
+        return replicaF
+                .thenAccept(replica -> {
+                    if (replica == null) {
+                        return;
+                    } else {
+                        replica.updatePeersAndLearners(fromAssignments(stableAssignments), false, revision);
+                    }
+                });
 
-//            assert replicaMgr.isReplicaStarted(zonePartitionId)
-//                    : "The local node is outside of the replication group [groupId=" + zonePartitionId
-//                    + ", stable=" + stableAssignments
-//                    + ", isLeaseholder=" + isLeaseholder + "].";
-
-            // Update raft client peers and learners according to the actual assignments.
-//            System.out.println("QQQ1");
-            return replicaMgr.replica(zonePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments), false, revision));
-        }));
+//        if (isLocalNodeIsPrimary(zonePartitionId) == null) {
+//            System.out.println("isLocalNodeIsPrimary(zonePartitionId) == null");
+//            return nullCompletedFuture();
+//        }
+//        return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
+//            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
+//
+//            if (!isLocalInStable && !isLeaseholder) {
+//                return nullCompletedFuture();
+//            }
+//
+////            assert replicaMgr.isReplicaStarted(zonePartitionId)
+////                    : "The local node is outside of the replication group [groupId=" + zonePartitionId
+////                    + ", stable=" + stableAssignments
+////                    + ", isLeaseholder=" + isLeaseholder + "].";
+//
+//            // Update raft client peers and learners according to the actual assignments.
+////            System.out.println("QQQ1");
+//            return replicaMgr.replica(zonePartitionId)
+//                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments), false, revision));
+//        }));
     }
 
     private CompletableFuture<Void> stopAndMaybeDestroyPartitionAndUpdateClients(
@@ -1045,9 +1063,9 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : nullCompletedFuture();
+//                : nullCompletedFuture();
 //                    : updatePartitionClients(zonePartitionId, stableAssignments, revision);
-//                : updatePartitionClients(zonePartitionId, union(stableAssignments, pendingAssignments.nodes()), revision);
+                : updatePartitionClients(zonePartitionId, union(stableAssignments, pendingAssignments.nodes()), revision);
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()

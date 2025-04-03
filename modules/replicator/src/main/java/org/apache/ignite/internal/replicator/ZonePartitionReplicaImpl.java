@@ -94,13 +94,6 @@ public class ZonePartitionReplicaImpl implements Replica {
 
     @Override
     public void updatePeersAndLearners(PeersAndLearners peersAndLearners, boolean pending, long revision) {
-        if (!pending) {
-            try {
-                Thread.sleep(300);
-            } catch (Exception e) {
-                System.out.println("Exception AAA.");
-            }
-        }
 //        System.out.println("!!! " + pending +
 //                " node=[" + placementDriverMessageProcessor.localNode.name() +
 //                ", groupId=[" + groupId() + "]" +
