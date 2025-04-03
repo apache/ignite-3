@@ -38,6 +38,8 @@ namespace Apache.Ignite.Tests.Table
 
             CollectionAssert.Contains(tableNames, TableName);
             CollectionAssert.Contains(tableNames, TableAllColumnsName);
+
+            Assert.AreEqual(QualifiedName.DefaultSchemaName, tables[0].QualifiedName.SchemaName);
         }
 
         [Test]
@@ -65,11 +67,17 @@ namespace Apache.Ignite.Tests.Table
         {
             var table = await Client.Tables.GetTableAsync(TableName);
             var table2 = await Client.Tables.GetTableAsync(TableName);
+            var table3 = await Client.Tables.GetTableAsync(QualifiedName.Parse(TableName));
 
             // Tables and views are cached to avoid extra allocations and serializer handler initializations.
             Assert.AreSame(table, table2);
+            Assert.AreSame(table, table3);
+
             Assert.AreSame(table!.RecordBinaryView, table2!.RecordBinaryView);
+            Assert.AreSame(table!.RecordBinaryView, table3!.RecordBinaryView);
+
             Assert.AreSame(table.GetRecordView<Poco>(), table2.GetRecordView<Poco>());
+            Assert.AreSame(table.GetRecordView<Poco>(), table3.GetRecordView<Poco>());
         }
 
         [Test]
