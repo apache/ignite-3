@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using System.Buffers.Binary;
+    using System.Collections;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -410,7 +411,10 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Patch.
             reader.Skip(); // Pre-release.
 
-            reader.Skip(); // Features, binary.
+            ReadOnlySpan<byte> featureBits = reader.ReadBinary();
+            ProtocolBitmaskFeature features = featureBits.Length > 0
+                ? (ProtocolBitmaskFeature)featureBits[0] // Only one byte is used for now.
+                : 0;
 
             int extensionMapSize = reader.ReadInt32();
             for (int i = 0; i < extensionMapSize; i++)
@@ -425,7 +429,8 @@ namespace Apache.Ignite.Internal
                 new ClusterNode(clusterNodeId, clusterNodeName, endPoint.EndPoint, endPoint.MetricsContext),
                 clusterIds,
                 clusterName,
-                sslInfo);
+                sslInfo,
+                features);
         }
 
         private static IgniteException ReadError(ref MsgPackReader reader)
