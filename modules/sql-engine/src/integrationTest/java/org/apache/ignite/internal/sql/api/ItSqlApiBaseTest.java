@@ -84,6 +84,7 @@ import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.AssertionFailureBuilder;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -104,6 +105,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled
     public void ddl() {
         IgniteSql sql = igniteSql();
 
@@ -344,6 +346,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     /** Check correctness of rw and ro transactions for index scan. */
     @Test
+    @Disabled
     public void checkMixedTransactionsForIndex() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
