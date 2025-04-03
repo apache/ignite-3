@@ -41,6 +41,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -78,7 +79,19 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
-        assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
+        if (enabledColocation()) {
+            int zoneId = testZoneId(ignite);
+
+            // Check that there are no meta files for partitions of the table.
+            assertThat(
+                    partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith(zoneId + "_part_")),
+                    everyItem(not(exists())));
+
+            // The default zone still exists and uses persistent profile.
+            assertThat(partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith("0_part_")), everyItem(exists()));
+        } else {
+            assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
+        }
     }
 
     private void createInMemoryTable() {
@@ -96,8 +109,19 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
     private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
+        return partitionRaftMetaPaths(ignite, p -> true);
+    }
+
+    /**
+     * Returns paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
+     *
+     * @param ignite Ignite instance.
+     * @param predicate Predicate to filter paths.
+     * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
+     */
+    private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite, Predicate<Path> predicate) {
         try (Stream<Path> paths = Files.list(ignite.partitionsWorkDir().metaPath())) {
-            return paths.collect(toList());
+            return paths.filter(predicate).collect(toList());
         } catch (NoSuchFileException e) {
             return List.of();
         } catch (IOException e) {
