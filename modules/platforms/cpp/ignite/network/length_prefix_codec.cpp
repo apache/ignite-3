@@ -47,7 +47,7 @@ data_buffer_ref length_prefix_codec::decode(data_buffer_ref &data) {
             return {};
 
         if (!std::equal(protocol::MAGIC_BYTES.begin(), protocol::MAGIC_BYTES.end(), m_packet.begin(), m_packet.end()))
-            throw ignite_error("Unknown protocol response");
+            throw ignite_error(error::code::PROTOCOL, "Unknown protocol is used by the server (wrong port?)");
 
         reset_buffer();
         m_magic_received = true;

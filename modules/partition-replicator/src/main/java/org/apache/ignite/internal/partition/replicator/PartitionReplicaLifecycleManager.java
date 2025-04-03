@@ -74,7 +74,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.locks.StampedLock;
 import java.util.function.BiFunction;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -194,7 +193,7 @@ public class PartitionReplicaLifecycleManager extends
     private final Set<ZonePartitionId> replicationGroupIds = ConcurrentHashMap.newKeySet();
 
     /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
-    private final Map<Integer, StampedLock> zonePartitionsLocks = new ConcurrentHashMap<>();
+    private final Map<Integer, NaiveAsyncReadWriteLock> zonePartitionsLocks = new ConcurrentHashMap<>();
 
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -864,7 +863,7 @@ public class PartitionReplicaLifecycleManager extends
      */
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
-        assert zonePartitionsLocks.get(zonePartitionId.zoneId()).tryWriteLock() == 0;
+        assert zonePartitionsLocks.get(zonePartitionId.zoneId()).isReadLocked() : zonePartitionId;
 
         return replicationGroupIds.contains(zonePartitionId);
     }
@@ -1421,9 +1420,7 @@ public class PartitionReplicaLifecycleManager extends
             try {
                 return replicaMgr.stopReplica(zonePartitionId)
                         .thenCompose((replicaWasStopped) -> {
-                            if (afterReplicaStopAction != null) {
-                                afterReplicaStopAction.accept(replicaWasStopped);
-                            }
+                            afterReplicaStopAction.accept(replicaWasStopped);
 
                             if (!replicaWasStopped) {
                                 return falseCompletedFuture();
@@ -1469,10 +1466,15 @@ public class PartitionReplicaLifecycleManager extends
      * Lock the zones replica list for any changes. {@link #hasLocalPartition(ZonePartitionId)} must be executed under this lock always.
      *
      * @param zoneId Zone id.
-     * @return Stamp, which must be used for further unlock.
+     * @return Future completing with a stamp which must be used for further unlock.
      */
-    public long lockZoneForRead(int zoneId) {
-        return zonePartitionsLocks.computeIfAbsent(zoneId, id -> new StampedLock()).readLock();
+    public CompletableFuture<Long> lockZoneForRead(int zoneId) {
+        NaiveAsyncReadWriteLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> newZoneLock());
+        return lock.readLock();
+    }
+
+    private static NaiveAsyncReadWriteLock newZoneLock() {
+        return new NaiveAsyncReadWriteLock();
     }
 
     /**
@@ -1535,18 +1537,18 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {
-        StampedLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> new StampedLock());
+        NaiveAsyncReadWriteLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> newZoneLock());
 
-        long stamp = lock.writeLock();
+        return lock.writeLock().thenCompose(stamp -> {
+            try {
+                return action.get()
+                        .whenComplete((v, e) -> lock.unlockWrite(stamp));
+            } catch (Throwable e) {
+                lock.unlockWrite(stamp);
 
-        try {
-            return action.get()
-                    .whenComplete((v, e) -> lock.unlockWrite(stamp));
-        } catch (Throwable e) {
-            lock.unlockWrite(stamp);
-
-            return failedFuture(e);
-        }
+                return failedFuture(e);
+            }
+        });
     }
 
     private CompletableFuture<Boolean> onPrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {

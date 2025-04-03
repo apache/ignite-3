@@ -36,6 +36,7 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.network.DefaultMessagingService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -56,7 +57,7 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     private static final int PART_ID = 0;
 
     @BeforeEach
-    public void setup() throws Exception {
+    public void setup() {
         String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_PROFILE_NAME + "'";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone TEST_ZONE";
 
@@ -70,13 +71,14 @@ public class ItOperationRetryTest extends ClusterPerTestIntegrationTest {
     public void testLockExceptionRetry() {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp =
-                enabledColocation() ? new ZonePartitionId(tbl.zoneId(), PART_ID) : new TablePartitionId(tbl.tableId(), PART_ID);
+        PartitionGroupId partitionGroupId = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
-        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), partitionGroupId).getLeaseholder();
 
         IgniteImpl leaseholderNode = findNodeByName(leaseholder);
-        IgniteImpl otherNode = findNode(0, initialNodes(), ignite -> !leaseholderNode.equals(ignite.name()));
+        IgniteImpl otherNode = findNode(0, initialNodes(), ignite -> !leaseholderNode.name().equals(ignite.name()));
 
         log.info("Transactions are executed from a non-primary node [node={}, primary={}].", otherNode.name(), leaseholderNode.name());
 

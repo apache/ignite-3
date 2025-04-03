@@ -2067,8 +2067,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId replicationGroupId) {
-        return partitionMeta(replicationGroupId, clockService.current()).thenApply(this::getClusterNode);
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
+        return partitionMeta(targetReplicationGroupId(partitionIndex), clockService.current()).thenApply(this::getClusterNode);
     }
 
     private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId replicationGroupId, HybridTimestamp at) {
@@ -2238,11 +2238,11 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public final ReplicationGroupId targetReplicationGroupId(int partId) {
+    public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
         if (enabledColocation()) {
-            return new ZonePartitionId(zoneId, partId);
+            return new ZonePartitionId(zoneId, partitionIndex);
         } else {
-            return new TablePartitionId(tableId, partId);
+            return new TablePartitionId(tableId, partitionIndex);
         }
     }
 

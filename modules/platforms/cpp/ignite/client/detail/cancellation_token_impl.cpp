@@ -64,6 +64,7 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
             if (results->size() == expected_results) {
                 // We've received all results and need to report it now to all the callbacks.
                 bool error_found{false};
+                error::code err_code{error::code::INTERNAL};
                 std::stringstream msg_builder;
                 for (auto &result : *results) {
                     if (!result.has_error()) {
@@ -71,6 +72,7 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
                     }
 
                     if (!error_found) {
+                        err_code = result.error().get_status_code();
                         msg_builder << "One or more cancel actions failed: " << result.error().what_str();
                         error_found = true;
                         continue;
@@ -83,7 +85,7 @@ void cancellation_token_impl::cancel_async(ignite_callback<void> callback) {
                 // last callback is this one, and no one is going to access results or wait on mutex anyway.
 
                 if (error_found) {
-                    self->set_cancellation_result(ignite_error{msg_builder.str()});
+                    self->set_cancellation_result(ignite_error{err_code, msg_builder.str()});
                 } else {
                     self->set_cancellation_result({});
                 }

@@ -82,15 +82,11 @@ conversion_result put_primitive_to_buffer(application_data_buffer &buffer, const
         case ignite_type::DATETIME:
             return buffer.put_date_time(value.get<ignite_date_time>());
 
-        case ignite_type::BITMASK:
-            return buffer.put_bitmask(value.get<bit_array>());
-
         case ignite_type::BYTE_ARRAY:
             return buffer.put_binary_data(value.get<std::vector<std::byte>>());
 
         case ignite_type::PERIOD:
         case ignite_type::DURATION:
-        case ignite_type::NUMBER:
         default:
             // TODO: IGNITE-19969 implement support for period, duration and big_integer
             return conversion_result::AI_UNSUPPORTED_CONVERSION;
