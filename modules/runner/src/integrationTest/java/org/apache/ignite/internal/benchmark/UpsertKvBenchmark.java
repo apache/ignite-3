@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -56,6 +58,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
+    private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + "(field{});";
+
     private static KeyValueView<Tuple, Tuple> kvView;
 
     @Param({"1"})
@@ -67,7 +71,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"8"})
     private int partitionCount;
 
-    @Param({"0"})
+    @Param({"0", "10"})
     private int idxes;
 
     @Param({"10"})
@@ -91,33 +95,18 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     public void setUp() {
         kvView = igniteImpl.tables().table(TABLE_NAME).keyValueView();
 
-        String query = "";
+        StringBuilder sqlScript = new StringBuilder();
 
-        switch (idxes) {
-            case 10:
-                query += "CREATE INDEX " + TABLE_NAME + "_field10_idx ON " + TABLE_NAME + "(field10);";
-            case 9:
-                query += "CREATE INDEX " + TABLE_NAME + "_field9_idx ON " + TABLE_NAME + "(field9);";
-            case 8:
-                query += "CREATE INDEX " + TABLE_NAME + "_field8_idx ON " + TABLE_NAME + "(field8);";
-            case 7:
-                query += "CREATE INDEX " + TABLE_NAME + "_field7_idx ON " + TABLE_NAME + "(field7);";
-            case 6:
-                query += "CREATE INDEX " + TABLE_NAME + "_field6_idx ON " + TABLE_NAME + "(field6);";
-            case 5:
-                query += "CREATE INDEX " + TABLE_NAME + "_field5_idx ON " + TABLE_NAME + "(field5);";
-            case 4:
-                query += "CREATE INDEX " + TABLE_NAME + "_field4_idx ON " + TABLE_NAME + "(field4);";
-            case 3:
-                query += "CREATE INDEX " + TABLE_NAME + "_field3_idx ON " + TABLE_NAME + "(field3);";
-            case 2:
-                query += "CREATE INDEX " + TABLE_NAME + "_field2_idx ON " + TABLE_NAME + "(field2);";
-            case 1:
-                query += "CREATE INDEX " + TABLE_NAME + "_field1_idx ON " + TABLE_NAME + "(field1);";
+        if (idxes > 10) {
+            throw new IllegalStateException("Unexpected value of idxes: " + idxes);
         }
 
-        if (!query.isEmpty()) {
-            igniteImpl.sql().executeScript(query);
+        for (int i = 1; i <= idxes; i++) {
+            sqlScript.append(format(INDEX_CREATE_SQL, i, i));
+        }
+
+        if (sqlScript.length() > 0) {
+            igniteImpl.sql().executeScript(sqlScript.toString());
         }
     }
 
