@@ -22,6 +22,7 @@ using System.Globalization;
 
 /// <summary>
 /// Ignite name utilities.
+/// Logic converted from Java <c>org.apache.ignite.lang.util.IgniteNameUtils</c>.
 /// </summary>
 internal static class IgniteNameUtils
 {
