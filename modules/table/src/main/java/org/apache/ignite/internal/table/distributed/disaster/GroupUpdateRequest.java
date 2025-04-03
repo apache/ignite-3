@@ -26,10 +26,10 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStableAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignments;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -40,7 +40,7 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.tableState;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.zoneState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.SINGLE_NODE;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -62,8 +62,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -76,7 +76,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CollectionUtils;
@@ -160,13 +160,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         Set<Integer> allZonePartitionsToReset = new HashSet<>();
         partitionIds.values().forEach(allZonePartitionsToReset::addAll);
 
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateMessageByNode>> localStates = disasterRecoveryManager
+        CompletableFuture<Map<ZonePartitionId, LocalPartitionStateMessageByNode>> localStates = disasterRecoveryManager
                 .localPartitionStatesInternal(
                         Set.of(zoneDescriptor.name()),
                         emptySet(),
                         allZonePartitionsToReset,
                         catalog,
-                        tableState()
+                        zoneState()
                 );
 
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
@@ -179,12 +179,12 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
             List<CompletableFuture<Void>> tableFuts = new ArrayList<>(partitionIds.size());
 
-            for (Entry<Integer, Set<Integer>> tablePartitionEntry : partitionIds.entrySet()) {
+            for (Entry<Integer, Set<Integer>> zonePartitionEntry : partitionIds.entrySet()) {
 
-                int[] partitionIdsArray = AssignmentUtil.partitionIds(tablePartitionEntry.getValue(), zoneDescriptor.partitions());
+                int[] partitionIdsArray = AssignmentUtil.partitionIds(zonePartitionEntry.getValue(), zoneDescriptor.partitions());
 
                 tableFuts.add(forceAssignmentsUpdate(
-                        tablePartitionEntry.getKey(),
+                        zonePartitionEntry.getKey(),
                         zoneDescriptor,
                         dataNodes,
                         nodeConsistentIds,
@@ -214,7 +214,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * assignments' majority within the set of currently alive nodes. In this case we calculate new assignments that include all alive
      * stable nodes, and try to save ot with a {@link Assignments#force()} flag enabled.
      *
-     * @param tableId Table id.
+     * @param zoneId Zone id.
      * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
@@ -226,26 +226,26 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
     private static CompletableFuture<Void> forceAssignmentsUpdate(
-            int tableId,
+            int zoneId,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageManager,
-            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
+            Map<ZonePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
             int[] partitionIds,
             boolean manualUpdate
     ) {
-        return tableStableAssignments(metaStorageManager, tableId, partitionIds)
+        return zoneStableAssignments(metaStorageManager, zoneId, partitionIds)
                 .thenCompose(tableAssignments -> {
                     if (tableAssignments.isEmpty()) {
                         return nullCompletedFuture();
                     }
 
                     return updateAssignments(
-                            tableId,
+                            zoneId,
                             zoneDescriptor,
                             dataNodes,
                             aliveNodesConsistentIds,
@@ -262,14 +262,14 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     private static CompletableFuture<Void> updateAssignments(
-            int tableId,
+            int zoneId,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageManager,
-            Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
+            Map<ZonePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
             int[] partitionIds,
             Map<Integer, Assignments> tableAssignments,
@@ -280,7 +280,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
 
         for (int i = 0; i < partitionIds.length; i++) {
-            TablePartitionId replicaGrpId = new TablePartitionId(tableId, partitionIds[i]);
+            ZonePartitionId replicaGrpId = new ZonePartitionId(zoneId, partitionIds[i]);
             LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
                     ? localStatesMap.get(replicaGrpId)
                     : new LocalPartitionStateMessageByNode(emptyMap());
@@ -309,7 +309,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     }
 
     private static CompletableFuture<Integer> partitionUpdate(
-            TablePartitionId partId,
+            ZonePartitionId partId,
             Collection<String> aliveDataNodes,
             Set<String> aliveNodesConsistentIds,
             int partitions,
@@ -369,20 +369,20 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             switch (UpdateStatus.valueOf(sr.getAsInt())) {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
-                            "Force update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
+                            "Force update metastore pending partitions key [key={}, partition={}, zone={}, newVal={}]",
                             pendingPartAssignmentsQueueKey(partId).toString(),
                             partId.partitionId(),
-                            partId.tableId(),
+                            partId.zoneId(),
                             assignmentsQueue
                     );
 
                     break;
                 case OUTDATED_UPDATE_RECEIVED:
                     LOG.info(
-                            "Received outdated force rebalance trigger event [revision={}, partition={}, table={}]",
+                            "Received outdated force rebalance trigger event [revision={}, partition={}, zone={}]",
                             revision,
                             partId.partitionId(),
-                            partId.tableId()
+                            partId.zoneId()
                     );
 
                     break;
@@ -421,23 +421,23 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     /**
      * Creates an {@link Iif} instance for meta-storage's {@link MetaStorageManager#invoke(Iif)} call. Does the following:
      * <ul>
-     *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
+     *     <li>Guards the condition with a standard {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)} check.</li>
      *     <li>Adds additional guard with comparison of real and proposed values of
-     *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
-     *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
-     *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
-     *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
+     *          {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}, just in case.</li>
+     *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)}.</li>
+     *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.</li>
+     *     <li>Updates the value of {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or removes it, if
      *          {@code plannedAssignmentsBytes} is {@code null}.</li>
      * </ul>
      *
      * @param partId Partition ID.
      * @param timestampBytes Properly serialized current meta-storage timestamp.
-     * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.
-     * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
+     * @param pendingAssignmentsBytes Value for {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.
+     * @param plannedAssignmentsBytes Value for {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or {@code null}.
      * @return {@link Iif} instance.
      */
     static Iif prepareMsInvokeClosure(
-            TablePartitionId partId,
+            ZonePartitionId partId,
             byte[] timestampBytes,
             byte[] pendingAssignmentsBytes,
             byte @Nullable [] plannedAssignmentsBytes
@@ -485,7 +485,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * Adds more nodes into {@code partAssignments} until it matches the number of replicas or we run out of nodes.
      */
     private static void enrichAssignments(
-            TablePartitionId partId,
+            ZonePartitionId partId,
             Collection<String> aliveDataNodes,
             int partitions,
             int replicas,

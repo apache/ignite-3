@@ -18,8 +18,8 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingChangeTriggerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingChangeTriggerKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
@@ -44,6 +44,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -64,7 +65,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
     private static final Set<Assignment> assignments1 = calculateAssignmentForPartition(nodes1, partNum, partNum + 1, replicas);
     private static final Set<Assignment> assignments2 = calculateAssignmentForPartition(nodes2, partNum, partNum + 1, replicas);
 
-    private static final TablePartitionId tablePartitionId = new TablePartitionId(1, 1);
+    private static final ZonePartitionId zonePartitionId = new ZonePartitionId(1, 1);
 
     private static final HybridTimestamp expectedPendingChangeTimestampKey = HybridTimestamp.hybridTimestamp(1000L);
 
@@ -83,7 +84,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         metaStorageManager.deployWatches();
 
         assertThat(
-                metaStorageManager.put(pendingChangeTriggerKey(tablePartitionId), longToBytesKeepingOrder(1)), willCompleteSuccessfully()
+                metaStorageManager.put(pendingChangeTriggerKey(zonePartitionId), longToBytesKeepingOrder(1)), willCompleteSuccessfully()
         );
 
         assignmentsTimestamp = clock.now().longValue();
@@ -98,7 +99,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         if (currentPending != null) {
             assertThat(
                     metaStorageManager.put(
-                            pendingPartAssignmentsQueueKey(tablePartitionId),
+                            pendingPartAssignmentsQueueKey(zonePartitionId),
                             AssignmentsQueue.toBytes(Assignments.of(currentPending, assignmentsTimestamp))
                     ),
                     willCompleteSuccessfully()
@@ -108,7 +109,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         assertThat(
                 metaStorageManager.invoke(
                         GroupUpdateRequest.prepareMsInvokeClosure(
-                                tablePartitionId,
+                                zonePartitionId,
                                 longToBytesKeepingOrder(expectedPendingChangeTimestampKey.longValue()),
                                 AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp)),
                                 null
@@ -117,7 +118,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
-        CompletableFuture<Entry> actualPendingFut = metaStorageManager.get(pendingChangeTriggerKey(tablePartitionId));
+        CompletableFuture<Entry> actualPendingFut = metaStorageManager.get(pendingChangeTriggerKey(zonePartitionId));
 
         assertThat(actualPendingFut, willCompleteSuccessfully());
 
