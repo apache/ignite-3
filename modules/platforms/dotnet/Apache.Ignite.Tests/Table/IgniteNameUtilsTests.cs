@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Collections.Generic;
 using Internal.Table;
 using NUnit.Framework;
 
@@ -74,12 +73,12 @@ public class IgniteNameUtilsTests
         new("foo\"bar", "\"foo\"\"bar\""),
     ];
 
-    private static IEnumerable<string> MalformedIdentifiers() =>
+    private static string[] MalformedIdentifiers() =>
     [
         " ", "foo-1", "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\"", "1o0", "@#$", "😅", "f😅", "$foo", "foo$"
     ];
 
-    private static IEnumerable<TestCaseData> ValidUnquotedIdentifiers() =>
+    private static TestCaseData[] ValidUnquotedIdentifiers() =>
     [
         new("foo", "FOO"),
         new("fOo", "FOO"),
@@ -88,7 +87,7 @@ public class IgniteNameUtilsTests
         new("_foo", "_FOO"),
     ];
 
-    private static IEnumerable<TestCaseData> ValidQuotedIdentifiers() =>
+    private static TestCaseData[] ValidQuotedIdentifiers() =>
     [
         new("\"FOO\"", "FOO"),
         new("\"foo\"", "foo"),

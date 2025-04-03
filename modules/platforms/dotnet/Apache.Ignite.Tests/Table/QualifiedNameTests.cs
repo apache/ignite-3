@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Ignite.Table;
 using NUnit.Framework;
@@ -145,7 +144,7 @@ public class QualifiedNameTests
         new("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
     ];
 
-    private static IEnumerable<TestCaseData> MalformedSimpleNames() =>
+    private static TestCaseData[] MalformedSimpleNames() =>
     [
         new(string.Empty),
         new(" "),
@@ -166,7 +165,7 @@ public class QualifiedNameTests
         new("\"fo\"o\""),
     ];
 
-    private static IEnumerable<TestCaseData> MalformedCanonicalNames() =>
+    private static TestCaseData[] MalformedCanonicalNames() =>
     [
         new("foo."),
         new(".bar"),
@@ -182,7 +181,7 @@ public class QualifiedNameTests
         new("1oo")
     ];
 
-    private static IEnumerable<TestCaseData> ValidCanonicalNames() =>
+    private static TestCaseData[] ValidCanonicalNames() =>
     [
         new("\"foo.bar\".baz", "foo.bar", "BAZ"),
         new("foo.\"bar.baz\"", "FOO", "bar.baz"),
