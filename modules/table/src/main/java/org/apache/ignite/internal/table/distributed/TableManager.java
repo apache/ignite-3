@@ -27,7 +27,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
@@ -1060,11 +1059,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-            List<CompletableFuture<Void>> futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
+            CompletableFuture<?>[] futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
                     .map(event -> destroyTableLocally(event.tableId()))
-                    .collect(toList());
+                    .toArray(CompletableFuture[]::new);
 
-            return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
+            return allOf(futures).thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -2744,10 +2743,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
-        if (table == null) {
-            return nullCompletedFuture();
-        }
-
         InternalTable internalTable = table.internalTable();
 
         int partitionId = tablePartitionId.partitionId();

@@ -68,7 +68,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // tableId -> tableProcessor.
-    private final Map<Integer, ReplicaTableProcessor> replicas = new ConcurrentHashMap<>();
+    private final Map<Integer, ReplicaTableProcessor> replicaProcessors = new ConcurrentHashMap<>();
 
     /** Raft client. */
     private final RaftCommandRunner raftClient;
@@ -148,7 +148,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 replicationGroupId);
 
         writeIntentSwitchRequestHandler = new WriteIntentSwitchRequestHandler(
-                replicas::get,
+                replicaProcessors::get,
                 clockService,
                 schemaSyncService,
                 catalogService,
@@ -239,10 +239,24 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        int tableId = ((TableAware) request).tableId();
-
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
-                .thenCompose(ignored -> replicas.get(tableId).process(request, replicaPrimacy, senderId));
+                .thenCompose(ignored -> {
+                    int tableId = ((TableAware) request).tableId();
+
+                    ReplicaTableProcessor replicaProcessor = replicaProcessors.get(tableId);
+
+                    if (replicaProcessor == null) {
+                        // Most of the times this condition should be false. This logging message is added in case a request got stuck
+                        // somewhere while being replicated and arrived on this node after the target table had been removed. In this case
+                        // we ignore the command, which should be safe to do, because the underlying storage was destroyed anyway.
+                        LOG.warn("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
+                                request.toStringForLightLogging());
+
+                        return completedFuture(new ReplicaResult(null, null));
+                    }
+
+                    return replicaProcessor.process(request, replicaPrimacy, senderId);
+                });
     }
 
     /**
@@ -277,7 +291,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param replicaListener Table replica listener.
      */
     public void addTableReplicaProcessor(int tableId, Function<RaftCommandRunner, ReplicaTableProcessor> replicaListener) {
-        replicas.put(tableId, replicaListener.apply(raftClient));
+        replicaProcessors.put(tableId, replicaListener.apply(raftClient));
     }
 
     /**
@@ -286,7 +300,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param tableId Table's identifier.
      */
     public void removeTableReplicaProcessor(int tableId) {
-        replicas.remove(tableId);
+        replicaProcessors.remove(tableId);
     }
 
     /**
@@ -296,12 +310,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     @VisibleForTesting
     public Map<Integer, ReplicaTableProcessor> tableReplicaProcessors() {
-        return replicas;
+        return replicaProcessors;
     }
 
     @Override
     public void onShutdown() {
-        replicas.forEach((tableId, listener) -> {
+        replicaProcessors.forEach((tableId, listener) -> {
                     try {
                         listener.onShutdown();
                     } catch (Throwable th) {

@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToPublisher;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -66,19 +68,24 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
+import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
+import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.table.InternalTable;
-import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.replicator.RemoteResourceIds;
 import org.apache.ignite.internal.table.distributed.storage.PartitionScanPublisher;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.FullyQualifiedResourceId;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry.RemotelyTriggeredResource;
+import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Test;
@@ -113,8 +120,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         long key = 1;
 
         {
-            createTable(node, "test_zone", "test_table");
-            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table", node.hybridClock.nowLong());
+            int tableId = createTable(node, "test_zone", "test_table");
 
             KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
@@ -133,8 +139,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         }
 
         {
-            createTable(node, "test_zone", "test_table1");
-            int tableId = TableTestUtils.getTableId(node.catalogManager, "test_table1", node.hybridClock.nowLong());
+            int tableId = createTable(node, "test_zone", "test_table1");
 
             KeyValueView<Long, Integer> keyValueView = node.tableManager.table(tableId).keyValueView(Long.class, Integer.class);
 
@@ -544,11 +549,9 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         createZone(node, "test_zone", 2, 1);
 
         {
-            createTable(node, "test_zone", "test_table_1");
-            int tableId1 = TableTestUtils.getTableId(node.catalogManager, "test_table_1", node.hybridClock.nowLong());
+            int tableId1 = createTable(node, "test_zone", "test_table_1");
 
-            createTable(node, "test_zone", "test_table_2");
-            int tableId2 = TableTestUtils.getTableId(node.catalogManager, "test_table_2", node.hybridClock.nowLong());
+            int tableId2 = createTable(node, "test_zone", "test_table_2");
 
             KeyValueView<Long, Integer> keyValueView1 = node.tableManager.table(tableId1).keyValueView(Long.class, Integer.class);
             KeyValueView<Long, Integer> keyValueView2 = node.tableManager.table(tableId2).keyValueView(Long.class, Integer.class);
@@ -590,8 +593,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Create a table to work with.
         String tableName = "test_table";
-        createTable(node, zoneName, tableName);
-        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        int tableId = createTable(node, zoneName, tableName);
         TableViewInternal tableViewInternal = node.tableManager.table(tableId);
         KeyValueView<Long, Integer> tableView = tableViewInternal.keyValueView(Long.class, Integer.class);
 
@@ -669,6 +671,28 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         checkSafeTimeWasAdjustedForZoneGroup(node1, zoneId, partId);
     }
 
+    @Test
+    public void testListenersAreRemovedOnTableDrop() throws Exception {
+        startCluster(1);
+        Node node = getNode(0);
+
+        String zoneName = "test_zone";
+        int zoneId = createZone(node, zoneName, 1, 1);
+
+        String tableName = "test_table";
+        int tableId = createTable(node, zoneName, tableName);
+
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 1), AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> raftTableProcessorExists(node, zoneId, tableId), AWAIT_TIMEOUT_MILLIS));
+
+        dropTable(node.catalogManager, DEFAULT_SCHEMA_NAME, tableName);
+
+        node.lowWatermark.updateLowWatermark(node.hybridClock.now());
+
+        assertTrue(waitForCondition(() -> assertTableListenersCount(node, zoneId, 0), AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> !raftTableProcessorExists(node, zoneId, tableId), AWAIT_TIMEOUT_MILLIS));
+    }
+
     private static void waitForZoneReplicaStartedOnNode(Node node, int zoneId, int partId) throws InterruptedException {
         ZonePartitionId zoneReplicationId = new ZonePartitionId(zoneId, partId);
 
@@ -697,8 +721,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
 
         // Create a table to work with.
         String tableName = "test_table";
-        createTable(node, zoneName, tableName);
-        int tableId = TableTestUtils.getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+        int tableId = createTable(node, zoneName, tableName);
         InternalTable internalTable = node.tableManager.table(tableId).internalTable();
 
         // Stop the node
@@ -733,6 +756,22 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         } catch (ExecutionException | InterruptedException | TimeoutException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static boolean raftTableProcessorExists(Node node, int zoneId, int tableId) {
+        var server = (JraftServerImpl) node.raftManager.server();
+
+        var groupId = new ZonePartitionId(zoneId, 0);
+
+        Peer serverPeer = server.localPeers(groupId).get(0);
+
+        RaftGroupService grp = server.raftGroupService(new RaftNodeId(groupId, serverPeer));
+
+        var fsm = (JraftServerImpl.DelegatingStateMachine) grp.getRaftNode().getOptions().getFsm();
+
+        RaftTableProcessor tableProcessor = ((ZonePartitionRaftListener) fsm.getListener()).tableProcessor(tableId);
+
+        return tableProcessor != null;
     }
 
     private static InternalTable getInternalTable(Node node, String tableName) {

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -279,14 +280,14 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         );
 
         Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
-        return requireNonNull(zoneId, "No zone found with name " + zoneName);
+        return requireNonNull(zoneId, "No zones found with name " + zoneName);
     }
 
-    static void createTable(Node node, String zoneName, String tableName) {
-        createTable(node, zoneName, tableName, null);
+    static int createTable(Node node, String zoneName, String tableName) {
+        return createTable(node, zoneName, tableName, null);
     }
 
-    static void createTable(Node node, String zoneName, String tableName, String storageProfile) {
+    static int createTable(Node node, String zoneName, String tableName, String storageProfile) {
         node.waitForMetadataCompletenessAtNow();
 
         TableTestUtils.createTable(
@@ -301,6 +302,10 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 List.of("KEY"),
                 storageProfile
         );
+
+        Integer tableId = getTableId(node.catalogManager, tableName, node.hybridClock.nowLong());
+
+        return requireNonNull(tableId, "No tables found with name " + tableName);
     }
 
     Node getNode(int nodeIndex) {

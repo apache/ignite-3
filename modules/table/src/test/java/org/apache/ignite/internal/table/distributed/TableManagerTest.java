@@ -49,11 +49,11 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -436,8 +436,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-24397 - remove @WithSystemProperty.
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testDropTable() throws Exception {
         mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
@@ -448,9 +446,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
         assertEquals(0, tableManager.tables().size());
 
-        verify(mvTableStorage, atMost(0)).destroy();
-        verify(txStateStorage, atMost(0)).destroy();
-        verify(replicaMgr, atMost(0)).stopReplica(any());
+        verify(mvTableStorage, never()).destroy();
+        verify(txStateStorage, never()).destroy();
+        verify(replicaMgr, never()).stopReplica(any());
 
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
