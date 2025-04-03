@@ -63,8 +63,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         return GLOBAL_EU_NODES_CONFIG;
     }
 
-    @RepeatedTest(100)
-//    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testScaleUpAfterZoneFilterUpdate() throws InterruptedException {
         startNode(1, EU_ONLY_NODES_CONFIG);
         startNode(2, EU_ONLY_NODES_CONFIG);
