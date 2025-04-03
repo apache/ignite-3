@@ -120,8 +120,8 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
-        return transaction.startTimestamp();
+    public HybridTimestamp schemaTimestamp() {
+        return transaction.schemaTimestamp();
     }
 
     @Override
@@ -147,11 +147,6 @@ public class PublicApiThreadingTransaction implements InternalTransaction, Wrapp
     @Override
     public long getTimeout() {
         return transaction.getTimeout();
-    }
-
-    @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
-        return transaction.getTimeoutOrDefault(defaultTimeout);
     }
 
     @Override

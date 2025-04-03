@@ -238,8 +238,9 @@ std::shared_ptr<node_connection> cluster_connection::get_random_channel() {
     return std::next(m_connections.begin(), idx)->second;
 }
 
-void cluster_connection::perform_request_handler(protocol::client_operation op, transaction_impl *tx,
-    const std::function<void(protocol::writer &)> &wr, const std::shared_ptr<response_handler> &handler) {
+std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::perform_request_handler(
+    protocol::client_operation op, transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+    const std::shared_ptr<response_handler> &handler) {
     if (tx) {
         auto channel = tx->get_connection();
         if (!channel)
@@ -249,7 +250,7 @@ void cluster_connection::perform_request_handler(protocol::client_operation op, 
         if (!res)
             throw ignite_error("Connection associated with the transaction is closed");
 
-        return;
+        return {channel, *res};
     }
 
     while (true) {
@@ -259,7 +260,7 @@ void cluster_connection::perform_request_handler(protocol::client_operation op, 
 
         auto res = channel->perform_request(op, wr, handler);
         if (res)
-            return;
+            return {channel, *res};
     }
 }
 

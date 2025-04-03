@@ -42,6 +42,7 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
+import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
@@ -147,36 +148,38 @@ public class RebalanceUtilEx {
         byte[] assignmentsByteArray = Assignments.toBytes(assignments, assignmentsTimestamp);
 
         ByteArray changeTriggerKey = pendingChangeTriggerKey(partId);
-        byte[] rev = longToBytesKeepingOrder(entry.revision());
+        byte[] timestamp = longToBytesKeepingOrder(entry.timestamp().longValue());
 
         // Here is what happens in the MetaStorage:
-        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey) && notExists(stableKey)) {
+        // if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey) && notExists(stableKey)) {
         //     put(pendingKey, pending)
         //     put(stableKey, assignments)
-        //     put(changeTriggerKey, revision)
-        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < revision) && (notExists(pendingKey))) {
+        //     put(changeTriggerKey, timestamp)
+        // } else if ((notExists(changeTriggerKey) || value(changeTriggerKey) < timestamp) && (notExists(pendingKey))) {
         //     put(pendingKey, pending)
-        //     put(changeTriggerKey, revision)
+        //     put(changeTriggerKey, timestamp)
         // }
+
+        Condition revisionAndTimestampDontExistOrLessThan = or(notExists(changeTriggerKey), value(changeTriggerKey).lt(timestamp));
 
         Iif resultingOperation = iif(
                 and(
-                        or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                        revisionAndTimestampDontExistOrLessThan,
                         and(notExists(pendingKey), (notExists(stablePartAssignmentsKey(partId))))
                 ),
                 ops(
                         put(pendingKey, pendingByteArray),
                         put(stablePartAssignmentsKey(partId), assignmentsByteArray),
-                        put(changeTriggerKey, rev)
+                        put(changeTriggerKey, timestamp)
                 ).yield(),
                 iif(
                         and(
-                                or(notExists(changeTriggerKey), value(changeTriggerKey).lt(rev)),
+                                revisionAndTimestampDontExistOrLessThan,
                                 notExists(pendingKey)
                         ),
                         ops(
                                 put(pendingKey, pendingByteArray),
-                                put(changeTriggerKey, rev)
+                                put(changeTriggerKey, timestamp)
                         ).yield(),
                         ops().yield()
                 )

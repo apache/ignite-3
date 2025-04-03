@@ -24,14 +24,14 @@ Update of `zoneId.assignments.*` keys can be expressed by the following pseudo-c
 var newAssignments = calculateZoneAssignments()
 
 metastoreInvoke: // atomic metastore call through multi-invoke api
-    if empty(zoneId.assignments.change.revision) || zoneId.assignments.change.revision < configurationUpdate.revision:
+    if empty(zoneId.assignments.change) || zoneId.assignments.change < configurationUpdate.timestamp:
         if empty(zoneId.assignments.pending) && zoneId.assignments.stable != newAssignments:
             zoneId.assignments.pending = newAssignments 
-            zoneId.assignments.change.revision = configurationUpdate.revision
+            zoneId.assignments.change = configurationUpdate.timestamp
         else:
             if zoneId.assignments.pending != newAssignments
                 zoneId.assignments.planned = newAssignments
-                zoneId.assignments.change.revision = configurationUpdate.revision
+                zoneId.assignments.change = configurationUpdate.timestamp
             else
                 remove(zoneId.assignments.planned)
     else:

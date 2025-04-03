@@ -55,6 +55,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -1110,8 +1111,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
-                    && !hasCauseOrSuppressed(ex, CancellationException.class)) {
+            if (ex != null
+                    && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
+                    && !hasCauseOrSuppressed(ex, CancellationException.class)
+                    && !hasCauseOrSuppressed(ex, RejectedExecutionException.class)
+            ) {
                 LOG.error("Could not advance safe time for {}", ex, replica.groupId());
             }
         });

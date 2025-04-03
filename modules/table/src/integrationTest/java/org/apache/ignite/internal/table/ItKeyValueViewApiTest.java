@@ -44,6 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Unified KeyValueView API test with composite value type.
  */
+@SuppressWarnings("ClassEscapesDefinedScope")
 public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     private static final String TABLE_NAME_COMPOSITE_TYPE = "test";
 
@@ -52,8 +53,8 @@ public class ItKeyValueViewApiTest extends ItKeyValueViewApiBaseTest {
     private final Random rnd = new Random(seed);
 
     @BeforeAll
-    public void createTable() {
-        createTable(TABLE_NAME_COMPOSITE_TYPE, List.of(KeyValueTestUtils.ALL_TYPES_COLUMNS));
+    public void createTables() {
+        createTables(List.of(new TestTableDefinition(TABLE_NAME_COMPOSITE_TYPE, DEFAULT_KEY, KeyValueTestUtils.ALL_TYPES_COLUMNS, true)));
     }
 
     @BeforeEach

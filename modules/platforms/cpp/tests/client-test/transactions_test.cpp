@@ -140,7 +140,7 @@ TEST_F(transactions_test, sql_commit) {
 
     auto tx = m_client.get_transactions().begin();
 
-    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
+    m_client.get_sql().execute(&tx, nullptr, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
         {std::int64_t(42), std::string("Lorem ipsum")});
 
     tx.commit();
@@ -158,7 +158,7 @@ TEST_F(transactions_test, sql_rollback) {
 
     auto tx = m_client.get_transactions().begin();
 
-    m_client.get_sql().execute(&tx, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
+    m_client.get_sql().execute(&tx, nullptr, {"INSERT INTO " + std::string(TABLE_1) + " VALUES (?, ?)"},
         {std::int64_t(42), std::string("Lorem ipsum")});
 
     tx.rollback();

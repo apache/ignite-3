@@ -22,11 +22,13 @@ set(TARGET ${PROJECT_NAME})
 set(PUBLIC_HEADERS
     big_decimal.h
     big_integer.h
+    binary_object.h
     bit_array.h
     bytes_view.h
     detail/bits.h
     detail/bytes.h
     detail/config.h
+    detail/mpi.h
     end_point.h
     error_codes.h
     ignite_date.h

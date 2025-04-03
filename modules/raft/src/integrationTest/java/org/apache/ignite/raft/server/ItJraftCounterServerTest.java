@@ -445,7 +445,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         }
 
         NodeImpl finalLeader = leader;
-        waitForCondition(() -> finalLeader.getState() == STATE_ERROR, 5_000);
+        assertTrue(waitForCondition(() -> finalLeader.getState() == STATE_ERROR, 5_000));
 
         // Client can't switch to new leader, because only one peer in the list.
         try {
@@ -881,8 +881,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             );
         }, opts -> {});
 
-        waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000);
-        waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000);
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(20), svc2, COUNTER_GROUP_0), 5_000));
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(30), svc2, COUNTER_GROUP_1), 5_000));
 
         svc2.stopRaftNodes(COUNTER_GROUP_0);
         svc2.stopRaftNodes(COUNTER_GROUP_1);
@@ -923,8 +923,8 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
             );
         }, opts -> {});
 
-        waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000);
-        waitForCondition(() -> validateStateMachine(sum(30), svc3, COUNTER_GROUP_1), 5_000);
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(20), svc3, COUNTER_GROUP_0), 5_000));
+        assertTrue(waitForCondition(() -> validateStateMachine(sum(30), svc3, COUNTER_GROUP_1), 5_000));
     }
 
     /**

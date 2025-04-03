@@ -56,6 +56,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -154,6 +155,7 @@ public class RebalanceUtil {
             int partitions,
             int replicas,
             long revision,
+            HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
             int partNum,
             Set<Assignment> tableCfgPartAssignments,
@@ -216,24 +218,24 @@ public class RebalanceUtil {
         byte[] partAssignmentsPendingQueueBytes = partAssignmentsPendingQueue.toBytes();
 
 
-        //    if empty(partition.change.trigger.revision) || partition.change.trigger.revision < event.revision:
+        //    if empty(partition.change.trigger) || partition.change.trigger < event.timestamp:
         //        if empty(partition.assignments.pending)
         //              && ((isNewAssignments && empty(partition.assignments.stable))
         //                  || (partition.assignments.stable != calcPartAssignments() && !empty(partition.assignments.stable))):
         //            partition.assignments.pending = partAssignmentsPendingQueue
-        //            partition.change.trigger.revision = event.revision
+        //            partition.change.trigger = event.timestamp
         //        else:
         //            if partition.assignments.pending != partAssignmentsPendingQueue && !empty(partition.assignments.pending)
         //                partition.assignments.planned = calcPartAssignments()
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //            else if partition.assignments.pending == partAssignmentsPendingQueue
         //                remove(partition.assignments.planned)
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because current pending key has the same value."
         //            else if empty(partition.assignments.pending)
         //                remove(partition.assignments.planned)
-        //                partition.change.trigger.revision = event.revision
+        //                partition.change.trigger = event.timestamp
         //                message after the metastorage invoke:
         //                "Remove planned key because pending is empty and calculated assignments are equal to current assignments."
         //    else:
@@ -246,28 +248,28 @@ public class RebalanceUtil {
             newAssignmentsCondition = notExists(partAssignmentsStableKey).or(newAssignmentsCondition);
         }
 
-        byte[] revisionBytes = longToBytesKeepingOrder(revision);
+        byte[] timestampBytes = longToBytesKeepingOrder(timestamp.longValue());
 
-        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(revisionBytes)),
+        Iif iif = iif(or(notExists(partChangeTriggerKey), value(partChangeTriggerKey).lt(timestampBytes)),
                 iif(and(notExists(partAssignmentsPendingKey), newAssignmentsCondition),
                         ops(
                                 put(partAssignmentsPendingKey, partAssignmentsPendingQueueBytes),
-                                put(partChangeTriggerKey, revisionBytes)
+                                put(partChangeTriggerKey, timestampBytes)
                         ).yield(PENDING_KEY_UPDATED.ordinal()),
                         iif(and(value(partAssignmentsPendingKey).ne(partAssignmentsPendingQueueBytes), exists(partAssignmentsPendingKey)),
                                 ops(
                                         put(partAssignmentsPlannedKey, partAssignmentsPlannedBytes),
-                                        put(partChangeTriggerKey, revisionBytes)
+                                        put(partChangeTriggerKey, timestampBytes)
                                 ).yield(PLANNED_KEY_UPDATED.ordinal()),
                                 iif(value(partAssignmentsPendingKey).eq(partAssignmentsPendingQueueBytes),
                                         ops(
                                                 remove(partAssignmentsPlannedKey),
-                                                put(partChangeTriggerKey, revisionBytes)
+                                                put(partChangeTriggerKey, timestampBytes)
                                         ).yield(PLANNED_KEY_REMOVED_EQUALS_PENDING.ordinal()),
                                         iif(notExists(partAssignmentsPendingKey),
                                                 ops(
                                                         remove(partAssignmentsPlannedKey),
-                                                        put(partChangeTriggerKey, revisionBytes)
+                                                        put(partChangeTriggerKey, timestampBytes)
                                                 ).yield(PLANNED_KEY_REMOVED_EMPTY_PENDING.ordinal()),
                                                 ops().yield(ASSIGNMENT_NOT_UPDATED.ordinal()))
                                 ))),
@@ -337,6 +339,7 @@ public class RebalanceUtil {
      * @param zoneDescriptor Zone descriptor.
      * @param dataNodes Data nodes to use.
      * @param storageRevision MetaStorage revision corresponding to this request.
+     * @param storageTimestamp MetaStorage timestamp corresponding to this request.
      * @param metaStorageManager MetaStorage manager used to read/write assignments.
      * @return Array of futures, one per partition of the table; the futures complete when the described
      *     rebalance triggering completes.
@@ -346,6 +349,7 @@ public class RebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
+            HybridTimestamp storageTimestamp,
             MetaStorageManager metaStorageManager,
             long assignmentsTimestamp,
             Set<String> aliveNodes
@@ -363,6 +367,7 @@ public class RebalanceUtil {
                             zoneDescriptor,
                             dataNodes,
                             storageRevision,
+                            storageTimestamp,
                             metaStorageManager,
                             assignmentsTimestamp,
                             stableAssignments,
@@ -376,6 +381,7 @@ public class RebalanceUtil {
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             long storageRevision,
+            HybridTimestamp storageTimestamp,
             MetaStorageManager metaStorageManager,
             long assignmentsTimestamp,
             Map<Integer, Assignments> tableAssignments,
@@ -396,6 +402,7 @@ public class RebalanceUtil {
                     zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
                     storageRevision,
+                    storageTimestamp,
                     metaStorageManager,
                     partId,
                     tableAssignments.get(partId).nodes(),
@@ -463,9 +470,9 @@ public class RebalanceUtil {
     /** Key prefix for change trigger keys. */
     public static final String PENDING_CHANGE_TRIGGER_PREFIX = "pending.change.trigger.";
 
-    public static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
+    static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
 
-    public static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
+    private static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
 
     public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
 

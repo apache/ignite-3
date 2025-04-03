@@ -99,6 +99,7 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommandBuilder;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
@@ -108,7 +109,6 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -225,7 +225,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
     private StorageUpdateHandler storageUpdateHandler;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     private CatalogService catalogService;
 
@@ -258,7 +258,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                storageUpdateConfiguration
+                replicationConfiguration
         ));
 
         catalogService = mock(CatalogService.class);
@@ -507,7 +507,7 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 PARTITION_ID,
                 partitionDataStorage,
                 indexUpdateHandler,
-                storageUpdateConfiguration
+                replicationConfiguration
         );
 
         PartitionListener testCommandListener = new PartitionListener(

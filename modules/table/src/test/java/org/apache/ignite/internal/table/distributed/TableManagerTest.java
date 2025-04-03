@@ -116,18 +116,17 @@ import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
-import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataStorageModule;
@@ -235,13 +234,13 @@ public class TableManagerTest extends IgniteAbstractTest {
 
     /** Storage update configuration. */
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
-
-    @InjectConfiguration("mock = {profiles.default = {engine = \"aipersist\"}}")
-    private StorageConfiguration storageConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
 
     @InjectConfiguration
     private SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration("mock.storage = {profiles.default = {engine = \"aipersist\"}}")
+    private NodeConfiguration nodeConfiguration;
 
     @Mock
     private ConfigurationRegistry configRegistry;
@@ -313,7 +312,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
@@ -401,7 +400,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
-        TableManager tableManager = tblManagerFut.join();
+
+        assertThat(tblManagerFut, willCompleteSuccessfully());
+
+        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager);
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
@@ -409,7 +411,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
-        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = assignmentsService
                 .writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
@@ -421,7 +423,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
         writtenAssignmentsFuture =
-                tableManager.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
+                assignmentsService.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
@@ -688,7 +690,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         var txStateStorage = mock(TxStatePartitionStorage.class);
@@ -783,7 +785,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         TableManager tableManager = createTableManager(tblManagerFut);
@@ -847,7 +849,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 revisionUpdater,
                 gcConfig,
                 txConfig,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 clusterService.serializationRegistry(),
@@ -934,9 +936,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             ConfigurationRegistry mockedRegistry,
             Path storagePath
     ) {
-        StorageExtensionConfiguration mock = mock(StorageExtensionConfiguration.class);
-        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(mock);
-        when(mock.storage()).thenReturn(storageConfiguration);
+        when(mockedRegistry.getConfiguration(NodeConfiguration.KEY)).thenReturn(nodeConfiguration);
 
         DataStorageModules dataStorageModules = new DataStorageModules(
                 List.of(new PersistentPageMemoryDataStorageModule())
@@ -954,7 +954,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                         clock,
                         scheduledExecutor
                 ),
-                storageConfiguration
+                ((StorageExtensionConfiguration) nodeConfiguration).storage()
         );
 
         assertThat(manager.startAsync(new ComponentContext()), willCompleteSuccessfully());

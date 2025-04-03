@@ -546,4 +546,12 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer receiver runner.
      */
     StreamerReceiverRunner streamerReceiverRunner();
+
+    /**
+     * Gets a replication group id for this table.
+     *
+     * @param partId Partition id.
+     * @return The id.
+     */
+    ReplicationGroupId targetReplicationGroupId(int partId);
 }

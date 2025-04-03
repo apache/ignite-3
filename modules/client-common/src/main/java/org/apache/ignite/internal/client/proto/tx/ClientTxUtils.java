@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
-
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.NodeConfigurationSchema;
+package org.apache.ignite.internal.client.proto.tx;
 
 /**
- * Extension for critical workers configuration schema.
+ * Utility class for client transactions.
  */
-@ConfigurationExtension
-public class CriticalWorkersExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+public class ClientTxUtils {
+    /** Tx resource id for direct mapping. */
+    public static long TX_ID_DIRECT = 0L;
 }

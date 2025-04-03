@@ -22,6 +22,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
@@ -40,6 +41,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -68,7 +70,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
@@ -140,7 +141,7 @@ public class DistributionZoneManager extends
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
      * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-19491 properly clean up this map
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-24608 properly clean up this map
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
@@ -268,28 +269,22 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
-     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
-     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
      * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
-     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
-     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
      *
      * <p>Return data nodes or throw the exception:
-     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
+     * {@link IllegalArgumentException} if zoneId is not valid.
      * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
-     * @param causalityToken Causality token.
+     * @param timestamp Timestamp.
      * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
      * @return The future with data nodes for the zoneId.
      */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
-        if (causalityToken < 1) {
-            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
-        }
-
+    public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
         if (catalogVersion < 0) {
             throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
         }
@@ -298,7 +293,9 @@ public class DistributionZoneManager extends
             throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
+        if (timestamp.equals(INITIAL_TIMESTAMP)) {
+            timestamp = hybridTimestamp(catalogManager.catalog(catalogVersion).time());
+        }
 
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
@@ -415,8 +412,9 @@ public class DistributionZoneManager extends
                             newTopology.version()
                     );
                 } else {
-                    LOG.info(
-                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
+                    LOG.debug(
+                            "Failed to update distribution zones' logical topology and version keys due to concurrent update ["
+                                    + "topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );

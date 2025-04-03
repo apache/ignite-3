@@ -52,7 +52,6 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.table.distributed.raft.PartitionListener;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -122,9 +121,6 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     protected TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    protected StorageUpdateConfiguration storageUpdateConfiguration;
-
-    @InjectConfiguration
     protected ReplicationConfiguration replicationConfiguration;
 
     @InjectExecutorService
@@ -177,7 +173,6 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                storageUpdateConfiguration,
                 workDir,
                 nodes(),
                 replicas(),

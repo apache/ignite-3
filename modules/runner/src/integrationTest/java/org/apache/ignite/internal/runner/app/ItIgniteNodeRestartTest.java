@@ -144,7 +144,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -191,7 +190,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionC
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.schema.configuration.GcExtensionConfiguration;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlClusterExtensionConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlNodeExtensionConfiguration;
@@ -293,13 +291,10 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static MetaStorageConfiguration metaStorageConfiguration;
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private static TransactionConfiguration txConfiguration;
-
-    @InjectConfiguration
-    private static StorageUpdateConfiguration storageUpdateConfiguration;
 
     @InjectConfiguration
     private CriticalWorkersConfiguration workersConfiguration;
@@ -313,7 +308,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
-     * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
+     * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(HybridTimestamp, int, int)} method on different nodes.
      */
     private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
@@ -520,7 +515,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 hybridClock,
                 topologyAwareRaftGroupServiceFactory,
                 metricManager,
-                metaStorageConfiguration,
+                systemDistributedConfiguration,
                 msRaftConfigurer,
                 readOperationForCompactionTracker
         ) {
@@ -680,6 +675,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
+                failureProcessor,
                 delayDurationMsSupplier
         );
 
@@ -702,12 +698,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService
         ) {
             @Override
-            public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
+            public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
                 if (dataNodesMock != null) {
                     return dataNodesMock.get();
                 }
 
-                return super.dataNodes(causalityToken, catalogVersion, zoneId);
+                return super.dataNodes(timestamp, catalogVersion, zoneId);
             }
         };
 
@@ -752,7 +748,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 registry,
                 gcConfig,
                 txConfiguration,
-                storageUpdateConfiguration,
+                replicationConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 clusterSvc.serializationRegistry(),
@@ -1680,7 +1676,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                     Assignments.toBytes(Set.of(Assignment.forPeer(node.name())), timestamp)
             );
 
-            waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+            assertTrue(waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000));
 
             lateChangeFlag.values().forEach(v -> v.set(false));
         }
@@ -1708,7 +1704,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         }
 
         // Waiting for late prefix on all nodes.
-        waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000);
+        assertTrue(waitForCondition(() -> lateChangeFlag.values().stream().allMatch(AtomicBoolean::get), 5_000));
 
         var assignmentsKey = stablePartAssignmentsKey(partId).bytes();
 

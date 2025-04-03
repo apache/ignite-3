@@ -239,6 +239,12 @@ public class PartitionReplicaLifecycleManager extends
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
 
     /**
+     * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-17592
+     **/
+    private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
+
+    /**
      * The constructor.
      *
      * @param catalogService Catalog service.
@@ -674,14 +680,14 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Long assignmentsTimestamp
     ) {
-        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
+        CompletableFuture<Set<Assignment>> assignmentsFuture = waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
             Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
 
             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
             int zoneId = zonePartitionId.zoneId();
 
-            return distributionZoneMgr.dataNodes(zoneDescriptor.updateToken(), catalog.version(), zoneId)
+            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneId)
                     .thenApply(dataNodes -> calculateAssignmentForPartition(
                             dataNodes,
                             zonePartitionId.partitionId(),
@@ -689,6 +695,8 @@ public class PartitionReplicaLifecycleManager extends
                             zoneDescriptor.replicas()
                     ));
         });
+
+        return CompletableFuture.anyOf(stopReplicaLifecycleFuture, assignmentsFuture).thenApply(a -> (Set<Assignment>) a);
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
@@ -708,6 +716,8 @@ public class PartitionReplicaLifecycleManager extends
 
     @Override
     public void beforeNodeStop() {
+        stopReplicaLifecycleFuture.completeExceptionally(new NodeStoppingException());
+
         busyLock.block();
 
         executorInclinedPlacementDriver.removeListener(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
@@ -824,7 +834,7 @@ public class PartitionReplicaLifecycleManager extends
             Catalog catalog = catalogService.catalog(catalogVersion);
             long assignmentsTimestamp = catalog.time();
 
-            return distributionZoneMgr.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes -> calculateAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
                             .stream()
                             .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
@@ -915,9 +925,7 @@ public class PartitionReplicaLifecycleManager extends
 
                 CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
-                long causalityToken = zoneDescriptor.updateToken();
-
-                return distributionZoneMgr.dataNodes(causalityToken, catalog.version(), replicaGrpId.zoneId())
+                return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
                         .thenCompose(dataNodes -> handleReduceChanged(
                                 metaStorageMgr,
                                 dataNodes,
@@ -932,7 +940,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Handles the {@link org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil#STABLE_ASSIGNMENTS_PREFIX} update event.
+     * Handles the {@link ZoneRebalanceUtil#STABLE_ASSIGNMENTS_PREFIX} update event.
      *
      * @param evt Event.
      */
@@ -1490,7 +1498,8 @@ public class PartitionReplicaLifecycleManager extends
             int tableId,
             Function<RaftCommandRunner, ReplicaTableProcessor> tablePartitionReplicaProcessorFactory,
             RaftTableProcessor raftTableProcessor,
-            PartitionMvStorageAccess partitionMvStorageAccess
+            PartitionMvStorageAccess partitionMvStorageAccess,
+            boolean onNodeRecovery
     ) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
@@ -1503,7 +1512,11 @@ public class PartitionReplicaLifecycleManager extends
                 tablePartitionReplicaProcessorFactory
         ));
 
-        resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
+        if (onNodeRecovery) {
+            resources.raftListener().addTableProcessorOnRecovery(tableId, raftTableProcessor);
+        } else {
+            resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
+        }
 
         resources.snapshotStorageFactory().addMvPartition(tableId, partitionMvStorageAccess);
     }

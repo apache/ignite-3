@@ -149,7 +149,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
-                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReady(
+                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
@@ -160,6 +160,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     new ClusterIdHolder()
                             ),
                             RaftGroupEventsListener.noopLsnr,
+                            null,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
                     );
                 }
@@ -408,34 +409,6 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 String.format(
                         "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                         incorrectTag, state.clusterTag()
-                )
-        );
-    }
-
-    /**
-     * Test validation of Ignite Product Version upon join.
-     */
-    @Test
-    void testIgniteVersionValidation() {
-        CmgRaftService raftService = cluster.get(0).raftService;
-
-        IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("1.2.3");
-        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
-        ClusterState state = msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(List.of("foo")))
-                .metaStorageNodes(Set.copyOf(List.of("bar")))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag)
-                .build();
-
-        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
-
-        assertThrowsWithCause(
-                () -> raftService.startJoinCluster(state.clusterTag(), null).get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                String.format(
-                        "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
-                        IgniteProductVersion.CURRENT_VERSION, state.igniteVersion()
                 )
         );
     }

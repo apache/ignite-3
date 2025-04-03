@@ -81,7 +81,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Supported server features. */
     private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
-            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
+            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING
     ));
 
     /** Connection id generator.
