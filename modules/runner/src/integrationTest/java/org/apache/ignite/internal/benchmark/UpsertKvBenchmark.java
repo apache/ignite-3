@@ -19,8 +19,8 @@ package org.apache.ignite.internal.benchmark;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
@@ -76,7 +76,6 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
     private static final ThreadLocal<Integer> GEN = ThreadLocal.withInitial(() -> COUNTER.getAndIncrement() * 20_000_000);
-    private static final ThreadLocal<Random> RANDOM = ThreadLocal.withInitial(Random::new);
 
     @Override
     public void nodeSetUp() throws Exception {
@@ -123,7 +122,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     }
 
     private Tuple valueTuple() {
-        String fieldVal = IgniteTestUtils.randomString(RANDOM.get(), fieldLength);
+        String fieldVal = IgniteTestUtils.randomString(ThreadLocalRandom.current(), fieldLength);
 
         return Tuple.create()
                 .set("field1", fieldVal)
