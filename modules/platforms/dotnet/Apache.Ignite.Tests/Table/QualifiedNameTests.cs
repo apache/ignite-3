@@ -145,50 +145,50 @@ public class QualifiedNameTests
         new("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
     ];
 
-    private static IEnumerable<TestCaseData> MalformedSimpleNames()
-    {
-        yield return new(string.Empty);
-        yield return new(" ");
-        yield return new(".f");
-        yield return new("f.");
-        yield return new(".");
-        yield return new("f f");
-        yield return new("1o0");
-        yield return new("@#$");
-        yield return new("foo$");
-        yield return new("foo%");
-        yield return new("foo&");
-        yield return new("f😅");
-        yield return new("😅f");
-        yield return new("f\"f");
-        yield return new("f\"\"f");
-        yield return new("\"foo");
-        yield return new("\"fo\"o\"");
-    }
+    private static IEnumerable<TestCaseData> MalformedSimpleNames() =>
+    [
+        new(string.Empty),
+        new(" "),
+        new(".f"),
+        new("f."),
+        new("."),
+        new("f f"),
+        new("1o0"),
+        new("@#$"),
+        new("foo$"),
+        new("foo%"),
+        new("foo&"),
+        new("f😅"),
+        new("😅f"),
+        new("f\"f"),
+        new("f\"\"f"),
+        new("\"foo"),
+        new("\"fo\"o\""),
+    ];
 
-    private static IEnumerable<TestCaseData> MalformedCanonicalNames()
-    {
-        yield return new("foo.");
-        yield return new(".bar");
-        yield return new(".");
-        yield return new("foo..bar");
-        yield return new("foo.bar.");
-        yield return new("foo..");
-        yield return new("@#$.bar");
-        yield return new("foo.@#$");
-        yield return new("@#$");
-        yield return new("1oo.bar");
-        yield return new("foo.1ar");
-        yield return new("1oo");
-    }
+    private static IEnumerable<TestCaseData> MalformedCanonicalNames() =>
+    [
+        new("foo."),
+        new(".bar"),
+        new("."),
+        new("foo..bar"),
+        new("foo.bar."),
+        new("foo.."),
+        new("@#$.bar"),
+        new("foo.@#$"),
+        new("@#$"),
+        new("1oo.bar"),
+        new("foo.1ar"),
+        new("1oo")
+    ];
 
-    private static IEnumerable<TestCaseData> ValidCanonicalNames()
-    {
-        yield return new("\"foo.bar\".baz", "foo.bar", "BAZ");
-        yield return new("foo.\"bar.baz\"", "FOO", "bar.baz");
-        yield return new("\"foo.\"\"bar\"\"\".baz", "foo.\"bar\"", "BAZ");
-        yield return new("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz");
-        yield return new("_foo.bar", "_FOO", "BAR");
-        yield return new("foo._bar", "FOO", "_BAR");
-    }
+    private static IEnumerable<TestCaseData> ValidCanonicalNames() =>
+    [
+        new("\"foo.bar\".baz", "foo.bar", "BAZ"),
+        new("foo.\"bar.baz\"", "FOO", "bar.baz"),
+        new("\"foo.\"\"bar\"\"\".baz", "foo.\"bar\"", "BAZ"),
+        new("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz"),
+        new("_foo.bar", "_FOO", "BAR"),
+        new("foo._bar", "FOO", "_BAR")
+    ];
 }
