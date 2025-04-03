@@ -33,8 +33,8 @@ namespace Apache.Ignite.Internal.Proto
         {
             return op switch
             {
-                ClientOp.TablesGet => ClientOperationType.TablesGet,
-                ClientOp.TableGet => ClientOperationType.TableGet,
+                ClientOp.TablesGet or ClientOp.TablesGetQualified => ClientOperationType.TablesGet,
+                ClientOp.TableGet or ClientOp.TableGetQualified => ClientOperationType.TableGet,
                 ClientOp.SchemasGet => null,
                 ClientOp.TupleUpsert => ClientOperationType.TupleUpsert,
                 ClientOp.TupleGet => ClientOperationType.TupleGet,
