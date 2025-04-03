@@ -869,7 +869,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestToString()
         {
-            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = TBL1, Id =", PocoView.ToString());
+            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = PUBLIC.TBL1, Id =", PocoView.ToString());
         }
 
         // ReSharper disable NotAccessedPositionalProperty.Local
