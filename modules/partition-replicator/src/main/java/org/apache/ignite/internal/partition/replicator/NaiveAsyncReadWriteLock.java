@@ -19,9 +19,6 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
-import it.unimi.dsi.fastutil.longs.Long2ObjectAVLTreeMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
-import it.unimi.dsi.fastutil.longs.Long2ObjectMap.Entry;
 import java.util.ArrayDeque;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
@@ -109,25 +106,14 @@ public class NaiveAsyncReadWriteLock {
     }
 
     private void satisfyReadLockWaiters() {
-        Long2ObjectMap<CompletableFuture<Long>> readLockWaitersMap = null;
-
         for (CompletableFuture<Long> readLockWaiter : readLockWaiters) {
-            if (readLockWaitersMap == null) {
-                readLockWaitersMap = new Long2ObjectAVLTreeMap<>();
-            }
-
             long newReadStamp = stampedLock.tryReadLock();
             assert newReadStamp != 0;
-            readLockWaitersMap.put(newReadStamp, readLockWaiter);
+
+            readLockWaiter.completeAsync(() -> newReadStamp, futureCompletionExecutor);
         }
 
         readLockWaiters.clear();
-
-        if (readLockWaitersMap != null) {
-            for (Entry<CompletableFuture<Long>> entry : readLockWaitersMap.long2ObjectEntrySet()) {
-                entry.getValue().completeAsync(entry::getLongKey, futureCompletionExecutor);
-            }
-        }
     }
 
     /**
