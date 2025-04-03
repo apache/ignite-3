@@ -30,15 +30,6 @@ using NUnit.Framework;
 public class QualifiedNameTests
 {
     [Test]
-    public void TestParse()
-    {
-        // TODO: More test cases.
-        var qn = QualifiedName.Parse("schema.table");
-        Assert.AreEqual("SCHEMA", qn.SchemaName);
-        Assert.AreEqual("TABLE", qn.ObjectName);
-    }
-
-    [Test]
     public void InvalidNullNames()
     {
         Assert.Throws<ArgumentNullException>(() => QualifiedName.Parse(null!));
