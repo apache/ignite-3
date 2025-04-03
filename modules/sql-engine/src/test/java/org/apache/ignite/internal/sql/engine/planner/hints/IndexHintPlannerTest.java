@@ -243,8 +243,4 @@ public class IndexHintPlannerTest extends AbstractPlannerTest {
     private void assertCertainIndex(String sql, String tblName, String idxName) throws Exception {
         assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)));
     }
-
-    private void assertNoCertainIndex(String sql, String tblName, String idxName) throws Exception {
-        assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)).negate());
-    }
 }

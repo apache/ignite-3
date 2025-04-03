@@ -42,6 +42,8 @@ import org.apache.calcite.rel.RelHomogeneousShuttle;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelRoot;
 import org.apache.calcite.rel.RelShuttle;
+import org.apache.calcite.rel.RelShuttleImpl;
+import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.logical.LogicalCorrelate;
 import org.apache.calcite.rel.logical.LogicalJoin;
 import org.apache.calcite.rel.rules.CoreRules;
@@ -74,13 +76,11 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.engine.hint.Hints;
 import org.apache.ignite.internal.sql.engine.rel.IgniteConvention;
-import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify.Operation;
 import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -149,6 +149,8 @@ public final class PlannerHelper {
             // Transformation chain
             rel = planner.transform(PlannerPhase.HEP_SUBQUERIES_TO_CORRELATES, rel.getTraitSet(), rel);
 
+            validateIndexesFromHints(rel, hints);
+
             rel = RelOptUtil.propagateRelHints(rel, false);
 
             rel = planner.replaceCorrelatesCollisions(rel);
@@ -167,8 +169,6 @@ public final class PlannerHelper {
                 RelNode simpleOperation = planner.transform(PlannerPhase.HEP_TO_SIMPLE_KEY_VALUE_OPERATION, rel.getTraitSet(), rel);
 
                 if (simpleOperation instanceof IgniteRel) {
-                    validateIndexesFromHints((IgniteRel) simpleOperation, hints);
-
                     return (IgniteRel) simpleOperation;
                 }
             }
@@ -199,8 +199,6 @@ public final class PlannerHelper {
 
             result = planner.transform(PlannerPhase.OPTIMIZATION, desired, rel);
 
-            validateIndexesFromHints(result, hints);
-
             if (!root.isRefTrivial()) {
                 List<RexNode> projects = new ArrayList<>();
                 RexBuilder rexBuilder = result.getCluster().getRexBuilder();
@@ -228,30 +226,21 @@ public final class PlannerHelper {
         }
     }
 
-    private static void validateIndexesFromHints(IgniteRel rel, Hints hints) {
+    private static void validateIndexesFromHints(RelNode rel, Hints hints) {
         List<String> noIdxParams = hints.params(NO_INDEX);
         List<String> forceIdxParams = hints.params(FORCE_INDEX);
 
         if (!noIdxParams.isEmpty() || !forceIdxParams.isEmpty()) {
             Set<String> indexes = new HashSet<>();
 
-            IgniteRelShuttle shuttle = new IgniteRelShuttle() {
+            RelShuttleImpl shuttle = new RelShuttleImpl() {
                 @Override
-                public IgniteRel visit(IgniteTableScan rel) {
+                public RelNode visit(TableScan rel) {
                     IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
 
                     indexes.addAll(igniteTable.indexes().keySet());
 
-                    return rel;
-                }
-
-                @Override
-                public IgniteRel visit(IgniteIndexScan rel) {
-                    IgniteTable igniteTable = rel.getTable().unwrapOrThrow(IgniteTable.class);
-
-                    indexes.addAll(igniteTable.indexes().keySet());
-
-                    return rel;
+                    return super.visit(rel);
                 }
             };
 
