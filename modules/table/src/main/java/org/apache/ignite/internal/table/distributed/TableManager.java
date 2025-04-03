@@ -777,11 +777,31 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return schemaManager.schemaRegistry(causalityToken, tableId).thenAccept(table::schemaView);
         }));
 
-        long stamp = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
+        // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
+        // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
+        CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
+        try {
+            return prepareTableResourcesAndLoadHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, onNodeRecovery, table)
+                    .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
+        } catch (Throwable e) {
+            unlockZoneForRead(zoneDescriptor, acquisitionFuture);
+
+            return failedFuture(e);
+        }
+    }
+
+    private CompletableFuture<Void> prepareTableResourcesAndLoadHavingZoneReadLock(
+            CompletableFuture<Long> readLockAcquisitionFuture,
+            long causalityToken,
+            CatalogZoneDescriptor zoneDescriptor,
+            boolean onNodeRecovery,
+            TableImpl table
+    ) {
+        int tableId = table.tableId();
 
         // NB: all vv.update() calls must be made from the synchronous part of the method (not in thenCompose()/etc!).
         CompletableFuture<?> localPartsUpdateFuture = localPartitionsVv.update(causalityToken,
-                (ignore, throwable) -> inBusyLock(busyLock, () -> supplyAsync(() -> {
+                (ignore, throwable) -> inBusyLock(busyLock, () -> readLockAcquisitionFuture.thenComposeAsync(unused -> {
                     PartitionSet parts = new BitSetPartitionSet();
 
                     for (int i = 0; i < zoneDescriptor.partitions(); i++) {
@@ -791,7 +811,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     }
 
                     return getOrCreatePartitionStorages(table, parts).thenRun(() -> localPartsByTableId.put(tableId, parts));
-                }, ioExecutor).thenCompose(identity())));
+                }, ioExecutor))
+        );
 
         CompletableFuture<?> tablesByIdFuture = tablesVv.get(causalityToken);
 
@@ -823,14 +844,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         tables.put(tableId, table);
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
-        return createPartsFut.thenAccept(ignore -> startedTables.put(tableId, table))
-                .whenComplete((v, th) -> {
-                    partitionReplicaLifecycleManager.unlockZoneForRead(zoneDescriptor.id(), stamp);
+        return createPartsFut.thenAccept(ignore -> {
+            startedTables.put(tableId, table);
 
-                    if (th == null) {
-                        addTableToZone(zoneDescriptor.id(), table);
-                    }
-                });
+            addTableToZone(zoneDescriptor.id(), table);
+        });
+    }
+
+    private void unlockZoneForRead(CatalogZoneDescriptor zoneDescriptor, CompletableFuture<Long> readLockAcquiryFuture) {
+        readLockAcquiryFuture.thenAccept(stamp -> {
+            partitionReplicaLifecycleManager.unlockZoneForRead(zoneDescriptor.id(), stamp);
+        });
     }
 
     /**
