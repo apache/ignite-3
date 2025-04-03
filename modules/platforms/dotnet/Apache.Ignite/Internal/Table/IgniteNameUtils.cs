@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
+using System.Globalization;
 
 /// <summary>
 /// Ignite name utilities.
@@ -62,12 +63,29 @@ internal static class IgniteNameUtils
     /// Wraps the given name with double quotes if it is not uppercased non-quoted name,
     /// e.g. "myColumn" -> "\"myColumn\"", "MYCOLUMN" -> "MYCOLUMN".
     /// </summary>
-    /// <param name="name">Name.</param>
+    /// <param name="identifier">Identifier.</param>
     /// <returns>Quoted name.</returns>
-    public static string QuoteIfNeeded(string name)
+    public static string QuoteIfNeeded(string identifier)
     {
-        // TODO: Implement.
-        return name;
+        ArgumentException.ThrowIfNullOrEmpty(identifier);
+
+        char ch = identifier[0];
+        if (!(char.IsUpper(ch) && IsIdentifierStart(ch)))
+        {
+            return Quote(identifier);
+        }
+
+        for (int pos = 1; pos < identifier.Length; pos++)
+        {
+            ch = identifier[pos];
+
+            if (!((char.IsUpper(ch) && IsIdentifierStart(ch)) || IsIdentifierExtend(ch)))
+            {
+                return Quote(identifier);
+            }
+        }
+
+        return identifier;
     }
 
     /// <summary>
@@ -106,17 +124,16 @@ internal static class IgniteNameUtils
     /// Returns a value indicating whether the specified character is a valid identifier extend character.
     /// An identifier extend is U+00B7, or any character in the Unicode General Category classes “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.
     /// </summary>
-    /// <param name="c">Char.</param>
+    /// <param name="ch">Char.</param>
     /// <returns>Whether the specified character is a valid identifier extend character.</returns>
-    public static bool IsIdentifierExtend(char c)
+    public static bool IsIdentifierExtend(char ch)
     {
-        // Direct port from Java.
-        return c == ('·' & 0xff) /* “Middle Dot” character */
-               || ((((1 << 6)
-                     | (1 << 8)
-                     | (1 << 9)
-                     | (1 << 23)
-                     | (1 << 16)) >> (int)char.GetUnicodeCategory(c)) & 1) != 0;
+        return ch == ('·' & 0xff) || /* “Middle Dot” character */
+               char.GetUnicodeCategory(ch) == UnicodeCategory.NonSpacingMark ||
+               char.GetUnicodeCategory(ch) == UnicodeCategory.SpacingCombiningMark ||
+               char.GetUnicodeCategory(ch) == UnicodeCategory.DecimalDigitNumber ||
+               char.GetUnicodeCategory(ch) == UnicodeCategory.ConnectorPunctuation ||
+               char.GetUnicodeCategory(ch) == UnicodeCategory.Format;
     }
 
     /// <summary>
@@ -191,4 +208,7 @@ internal static class IgniteNameUtils
 
         return -1;
     }
+
+    private static string Quote(string name) =>
+        $"\"{name.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }
