@@ -124,7 +124,7 @@ public readonly record struct QualifiedName
 
         if (IndexOfSeparatorChar(nameMem[(separatorIndex + 1)..].Span) != -1)
         {
-            throw new FormatException($"Canonical name should have at most two parts: '{simpleOrCanonicalName}'");
+            throw new ArgumentException($"Canonical name should have at most two parts: '{simpleOrCanonicalName}'");
         }
 
         return new QualifiedName(

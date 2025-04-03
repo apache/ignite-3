@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Table;
 
 using System;
-using System.Collections.Generic;
 
 /// <summary>
 /// Ignite name utilities.
@@ -88,7 +87,7 @@ internal static class IgniteNameUtils
     {
         if (IndexOfSeparatorChar(identifier.Span) is var separatorPos && separatorPos != -1)
         {
-            throw new FormatException($"Unexpected separator at position {separatorPos}: '{identifier}'");
+            throw new ArgumentException($"Unexpected separator at position {separatorPos}: '{identifier}'");
         }
 
         return Unquote(identifier);
@@ -127,6 +126,11 @@ internal static class IgniteNameUtils
     /// <returns>Index of the <see cref="SeparatorChar"/>, or -1 when not found.</returns>
     public static int IndexOfSeparatorChar(ReadOnlySpan<char> name)
     {
+        if (name.IsEmpty)
+        {
+            return -1;
+        }
+
         bool quoted = name[0] == QuoteChar;
         int pos = quoted ? 1 : 0;
 
@@ -138,7 +142,7 @@ internal static class IgniteNameUtils
             {
                 if (!quoted)
                 {
-                    throw new FormatException($"Identifier is not quoted, but contains quote character at position {pos}: '{name}'");
+                    throw new ArgumentException($"Identifier is not quoted, but contains quote character at position {pos}: '{name}'");
                 }
 
                 char? nextCh = pos + 1 < name.Length ? name[pos + 1] : null;
@@ -161,7 +165,7 @@ internal static class IgniteNameUtils
                     return -1;
                 }
 
-                throw new FormatException($"Unexpected character '{ch}' after quote at position {pos}: '{name}'");
+                throw new ArgumentException($"Unexpected character '{ch}' after quote at position {pos}: '{name}'");
             }
 
             if (ch == SeparatorChar)
@@ -176,13 +180,13 @@ internal static class IgniteNameUtils
 
             if (!quoted && !IsIdentifierStart(ch) && !IsIdentifierExtend(ch))
             {
-                throw new FormatException($"Unexpected character '{ch}' at position {pos}: '{name}'");
+                throw new ArgumentException($"Unexpected character '{ch}' at position {pos}: '{name}'");
             }
         }
 
         if (quoted)
         {
-            throw new FormatException($"Missing closing quote: '{name}");
+            throw new ArgumentException($"Missing closing quote: '{name}");
         }
 
         return -1;
