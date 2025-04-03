@@ -52,54 +52,54 @@ public class IgniteNameUtilsTests
         Assert.AreEqual(expected, IgniteNameUtils.QuoteIfNeeded(IgniteNameUtils.ParseIdentifier(quoted)));
     }
 
-    private static IEnumerable<TestCaseData> QuoteIfNeeded()
-    {
-        yield return new("foo", "\"foo\"");
-        yield return new("fOo", "\"fOo\"");
-        yield return new("FOO", "FOO");
-        yield return new("1o0", "\"1o0\"");
-        yield return new("@#$", "\"@#$\"");
-        yield return new("f16", "\"f16\"");
-        yield return new("F16", "F16");
-        yield return new("Ff16", "\"Ff16\"");
-        yield return new("FF16", "FF16");
-        yield return new(" ", "\" \"");
-        yield return new(" F", "\" F\"");
-        yield return new(" ,", "\" ,\"");
-        yield return new("😅", "\"😅\"");
-        yield return new("\"foo\"", "\"\"\"foo\"\"\"");
-        yield return new("\"fOo\"", "\"\"\"fOo\"\"\"");
-        yield return new("\"f.f\"", "\"\"\"f.f\"\"\"");
-        yield return new("foo\"bar\"", "\"foo\"\"bar\"\"\"");
-        yield return new("foo\"bar", "\"foo\"\"bar\"");
-    }
+    private static TestCaseData[] QuoteIfNeeded() =>
+    [
+        new("foo", "\"foo\""),
+        new("fOo", "\"fOo\""),
+        new("FOO", "FOO"),
+        new("1o0", "\"1o0\""),
+        new("@#$", "\"@#$\""),
+        new("f16", "\"f16\""),
+        new("F16", "F16"),
+        new("Ff16", "\"Ff16\""),
+        new("FF16", "FF16"),
+        new(" ", "\" \""),
+        new(" F", "\" F\""),
+        new(" ,", "\" ,\""),
+        new("😅", "\"😅\""),
+        new("\"foo\"", "\"\"\"foo\"\"\""),
+        new("\"fOo\"", "\"\"\"fOo\"\"\""),
+        new("\"f.f\"", "\"\"\"f.f\"\"\""),
+        new("foo\"bar\"", "\"foo\"\"bar\"\"\""),
+        new("foo\"bar", "\"foo\"\"bar\""),
+    ];
 
     private static IEnumerable<string> MalformedIdentifiers() =>
     [
         " ", "foo-1", "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\"", "1o0", "@#$", "😅", "f😅", "$foo", "foo$"
     ];
 
-    private static IEnumerable<TestCaseData> ValidUnquotedIdentifiers()
-    {
-        yield return new("foo", "FOO");
-        yield return new("fOo", "FOO");
-        yield return new("FOO", "FOO");
-        yield return new("fo_o", "FO_O");
-        yield return new("_foo", "_FOO");
-    }
+    private static IEnumerable<TestCaseData> ValidUnquotedIdentifiers() =>
+    [
+        new("foo", "FOO"),
+        new("fOo", "FOO"),
+        new("FOO", "FOO"),
+        new("fo_o", "FO_O"),
+        new("_foo", "_FOO"),
+    ];
 
-    private static IEnumerable<TestCaseData> ValidQuotedIdentifiers()
-    {
-        yield return new("\"FOO\"", "FOO");
-        yield return new("\"foo\"", "foo");
-        yield return new("\"fOo\"", "fOo");
-        yield return new("\"$fOo\"", "$fOo");
-        yield return new("\"f.f\"", "f.f");
-        yield return new("\"f\"\"f\"", "f\"f");
-        yield return new("\" \"", " ");
-        yield return new("\"   \"", "   ");
-        yield return new("\",\"", ",");
-        yield return new("\"😅\"", "😅");
-        yield return new("\"f😅\"", "f😅");
-    }
+    private static IEnumerable<TestCaseData> ValidQuotedIdentifiers() =>
+    [
+        new("\"FOO\"", "FOO"),
+        new("\"foo\"", "foo"),
+        new("\"fOo\"", "fOo"),
+        new("\"$fOo\"", "$fOo"),
+        new("\"f.f\"", "f.f"),
+        new("\"f\"\"f\"", "f\"f"),
+        new("\" \"", " "),
+        new("\"   \"", "   "),
+        new("\",\"", ","),
+        new("\"😅\"", "😅"),
+        new("\"f😅\"", "f😅"),
+    ];
 }
