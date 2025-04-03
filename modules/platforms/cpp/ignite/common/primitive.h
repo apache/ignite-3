@@ -261,7 +261,11 @@ public:
      *
      * @return Primitive type.
      */
-    [[nodiscard]] ignite_type get_type() const noexcept { return static_cast<ignite_type>(m_value.index()); }
+    [[nodiscard]] ignite_type get_type() const noexcept {
+        auto type_idx = m_value.index();
+        type_idx = type_idx <= 13 ? type_idx : type_idx + 1;
+        return static_cast<ignite_type>(type_idx);
+    }
 
     /**
      * @brief Comparison operator.
