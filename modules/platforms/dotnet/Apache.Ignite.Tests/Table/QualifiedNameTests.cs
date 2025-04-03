@@ -101,6 +101,15 @@ public class QualifiedNameTests
         Assert.Throws<ArgumentException>(() => QualifiedName.Parse(source));
     }
 
+    [Test]
+    [TestCase("x.", "Canonical name can't have empty parts: 'x.'")]
+    [TestCase(".x", "Unexpected character '.' at position 0: '.x'")]
+    public void TestParsingErrors(string name, string expectedError)
+    {
+        var ex = Assert.Throws<ArgumentException>(() => QualifiedName.Parse(name));
+        Assert.AreEqual(expectedError, ex.Message);
+    }
+
     private static IEnumerable<TestCaseData> ValidSimpleNames()
     {
         yield return new("foo", "FOO");

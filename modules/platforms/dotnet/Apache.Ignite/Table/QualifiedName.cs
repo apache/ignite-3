@@ -124,6 +124,11 @@ public record QualifiedName
             return new QualifiedName(DefaultSchemaName, Unquote(nameMem));
         }
 
+        if (separatorIndex == 0 || separatorIndex == simpleOrCanonicalName.Length - 1)
+        {
+            throw new ArgumentException($"Canonical name can't have empty parts: '{simpleOrCanonicalName}'");
+        }
+
         if (IndexOfSeparatorChar(simpleOrCanonicalName, separatorIndex + 1) != -1)
         {
             throw new ArgumentException($"Canonical name should have at most two parts: '{simpleOrCanonicalName}'");
