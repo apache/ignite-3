@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using System.Buffers.Binary;
+    using System.Collections;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -410,7 +411,7 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Patch.
             reader.Skip(); // Pre-release.
 
-            reader.Skip(); // Features, binary.
+            byte[] featureBits = reader.ReadBinary().ToArray();
 
             int extensionMapSize = reader.ReadInt32();
             for (int i = 0; i < extensionMapSize; i++)

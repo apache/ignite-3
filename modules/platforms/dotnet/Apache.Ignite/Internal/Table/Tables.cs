@@ -62,11 +62,18 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public async Task<IList<ITable>> GetTablesAsync()
         {
-            // TODO: ClientOp.TABLES_GET_QUALIFIED
-            using var resBuf = await _socket.DoOutInOpAsync(ClientOp.TablesGet).ConfigureAwait(false);
-            return Read(resBuf.GetReader());
+            // TODO: Switch on features.
+            return await _socket.DoWithRetryAsync(
+                this,
+                static (_, _) => ClientOp.TablesGet,
+                async static (socket, tables) =>
+                {
+                    using var resBuf = await socket.DoOutInOpAsync(ClientOp.TablesGet).ConfigureAwait(false);
+                    return Read(resBuf.GetReader(), tables);
+                })
+                .ConfigureAwait(false);
 
-            IList<ITable> Read(MsgPackReader r)
+            static IList<ITable> Read(MsgPackReader r, Tables tables)
             {
                 var len = r.ReadInt32();
 
@@ -77,11 +84,11 @@ namespace Apache.Ignite.Internal.Table
                     var id = r.ReadInt32();
                     var name = r.ReadString();
 
-                    var table = _cachedTables.GetOrAdd(
+                    var table = tables._cachedTables.GetOrAdd(
                         id,
                         static (int id0, (string Name, Tables Tables) arg) =>
                             new Table(QualifiedName.Parse(arg.Name), id0, arg.Tables._socket, arg.Tables._sql),
-                        (name, this));
+                        (name, tables));
 
                     res.Add(table);
                 }
