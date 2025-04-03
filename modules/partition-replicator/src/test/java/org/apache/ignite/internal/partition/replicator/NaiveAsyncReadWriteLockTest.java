@@ -31,7 +31,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.junit.jupiter.api.Test;
@@ -101,22 +100,25 @@ class NaiveAsyncReadWriteLockTest {
     }
 
     @Test
-    void testConcurrency(@InjectExecutorService(threadCount = 4) ExecutorService executor) {
+    void testConcurrency(
+            @InjectExecutorService(threadCount = 4) ExecutorService orchestratingExecutor,
+            @InjectExecutorService(threadCount = 10) ExecutorService sleepTasksExecutor
+    ) {
         List<CompletableFuture<?>> futures = new CopyOnWriteArrayList<>();
 
         for (int thread = 0; thread < 4; thread++) {
-            executor.execute(() -> {
+            orchestratingExecutor.execute(() -> {
                 for (int i = 0; i < 10000; i++) {
                     CompletableFuture<?> future;
 
                     if (i % 2 == 0) {
                         future = lock.readLock().thenCompose(stamp -> {
-                            return CompletableFuture.runAsync(() -> sleep(1))
+                            return CompletableFuture.runAsync(() -> sleep(1), sleepTasksExecutor)
                                     .whenComplete((res, ex) -> lock.unlockRead(stamp));
                         });
                     } else {
                         future = lock.writeLock().thenCompose(stamp -> {
-                            return CompletableFuture.runAsync(() -> sleep(1))
+                            return CompletableFuture.runAsync(() -> sleep(1), sleepTasksExecutor)
                                     .whenComplete((res, ex) -> lock.unlockWrite(stamp));
                         });
                     }
