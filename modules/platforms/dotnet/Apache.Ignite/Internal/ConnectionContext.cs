@@ -32,6 +32,7 @@ namespace Apache.Ignite.Internal
     /// <param name="ClusterIds">Cluster ids, from oldest to newest.</param>
     /// <param name="ClusterName">Cluster name.</param>
     /// <param name="SslInfo">SSL info.</param>
+    /// <param name="Features">Protocol features.</param>
     internal record ConnectionContext(
         ClientProtocolVersion Version,
         TimeSpan IdleTimeout,

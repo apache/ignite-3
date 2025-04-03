@@ -412,7 +412,9 @@ namespace Apache.Ignite.Internal
             reader.Skip(); // Pre-release.
 
             ReadOnlySpan<byte> featureBits = reader.ReadBinary();
-            ProtocolBitmaskFeature features = (ProtocolBitmaskFeature)featureBits[0]; // Only one byte is used for now.
+            ProtocolBitmaskFeature features = featureBits.Length > 0
+                ? (ProtocolBitmaskFeature)featureBits[0] // Only one byte is used for now.
+                : 0;
 
             int extensionMapSize = reader.ReadInt32();
             for (int i = 0; i < extensionMapSize; i++)
