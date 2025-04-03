@@ -106,6 +106,7 @@ public class QualifiedNameTests
     [TestCase(".x", "Unexpected character '.' at position 0: '.x'")]
     [TestCase("\"x", "Missing closing quote: '\"x")]
     [TestCase("\"xx\"yy\"", "Unexpected character '\"' after quote at position 3: '\"xx\"yy\"'")]
+    [TestCase("123", "Unexpected character '1' at position 0: '123'")]
     public void TestParsingErrors(string name, string expectedError)
     {
         var ex = Assert.Throws<ArgumentException>(() => QualifiedName.Parse(name));

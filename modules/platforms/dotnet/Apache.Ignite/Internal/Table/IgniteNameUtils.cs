@@ -159,7 +159,9 @@ internal static class IgniteNameUtils
 
         if (!quoted && !IsIdentifierStart(name[pos]))
         {
-            throw new ArgumentException($"Unexpected character '{name[pos]}' at position {pos}: '{name}'");
+            throw new ArgumentException(
+                $"Invalid identifier start '{name[pos]}' at position {pos}: '{name}'. " +
+                $"Unquoted identifiers must begin with a letter or an underscore");
         }
 
         for (; pos < name.Length; pos++)
