@@ -29,7 +29,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.locks.StampedLock;
 
 /**
- * Asynchronous analogue of read-write lock. It has the following properties:
+ * Asynchronous analogue of a read-write lock. It has the following properties:
  *
  * <ul>
  *     <li>Write lock is exclusive; if the lock is write-locked, other attempts to acquire any lock waits for the write lock to be released
