@@ -351,7 +351,6 @@ namespace Apache.Ignite.Tests.Compute
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24258 revert change that had uppercased names.
             var tableNameExec = await Client.Compute.SubmitAsync(nodes, CreateTableJob, "DROP_ME");
             var tableName = await tableNameExec.GetResultAsync();
 

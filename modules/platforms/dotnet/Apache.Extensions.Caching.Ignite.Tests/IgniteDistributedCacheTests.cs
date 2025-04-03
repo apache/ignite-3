@@ -170,8 +170,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
 
         await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {tableName}");
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove unnecessary uppercasing for tableName.
-        IDistributedCache cache = GetCache(new() { TableName = tableName.ToUpperInvariant() });
+        IDistributedCache cache = GetCache(new() { TableName = tableName });
 
         await cache.SetAsync("x", [1]);
         Assert.AreEqual(new[] { 1 }, await cache.GetAsync("x"));
@@ -182,8 +181,7 @@ public class IgniteDistributedCacheTests : IgniteTestsBase
     {
         var cacheOptions = new IgniteDistributedCacheOptions
         {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove unnecessary uppercasing for tableName.
-            TableName = nameof(TestCustomTableAndColumnNames).ToUpperInvariant(),
+            TableName = nameof(TestCustomTableAndColumnNames),
             KeyColumnName = "_K",
             ValueColumnName = "_V"
         };
