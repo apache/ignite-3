@@ -40,8 +40,7 @@ public class SchemaValidationTest : IgniteTestsBase
     {
         await Client.Sql.ExecuteAsync(null, $"CREATE TABLE {TableNameRequiredVal} (KEY BIGINT PRIMARY KEY, VAL VARCHAR NOT NULL)");
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove uppercase.
-        TableRequiredVal = (await Client.Tables.GetTableAsync(TableNameRequiredVal.ToUpperInvariant()))!;
+        TableRequiredVal = (await Client.Tables.GetTableAsync(TableNameRequiredVal))!;
     }
 
     [OneTimeTearDown]

@@ -26,8 +26,7 @@ using NUnit.Framework;
 /// </summary>
 public class KeyColumnOrderTests : IgniteTestsBase
 {
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Revert changing names to uppercase.
-    private static readonly string[] Tables = { "TEST1", "TEST2", "TEST3", "TEST4" };
+    private static readonly string[] Tables = ["TEST1", "TEST2", "TEST3", "TEST4"];
 
     private int _key;
 

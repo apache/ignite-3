@@ -166,7 +166,6 @@ public class ColocationHashTests : IgniteTestsBase
         await Client.Sql.ExecuteAsync(null, sql);
 
         // Perform get to populate schema.
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove uppercase.
         var table = await Client.Tables.GetTableAsync(tableName.ToUpperInvariant());
         var view = table!.RecordBinaryView;
         await view.GetAsync(null, new IgniteTuple{["id"] = 1, ["id0"] = 2L, ["id1"] = "3"});

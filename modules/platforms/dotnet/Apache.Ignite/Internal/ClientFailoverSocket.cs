@@ -205,6 +205,37 @@ namespace Apache.Ignite.Internal
                 return (buffer, tx.Socket);
             }
 
+            return await DoWithRetryAsync(
+                (clientOp, request, expectNotifications),
+                static (_, arg) => arg.clientOp,
+                async static (socket, arg) =>
+                {
+                    var res = await socket.DoOutInOpAsync(arg.clientOp, arg.request, arg.expectNotifications).ConfigureAwait(false);
+                    return (Buffer: res, Socket: socket);
+                },
+                preferredNode,
+                retryPolicyOverride)
+                .ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Performs a socket operation with retry and reconnect.
+        /// </summary>
+        /// <param name="arg">Func argument.</param>
+        /// <param name="opFunc">Client op func.</param>
+        /// <param name="func">Result func.</param>
+        /// <param name="preferredNode">Preferred node.</param>
+        /// <param name="retryPolicyOverride">Retry policy.</param>
+        /// <typeparam name="T">Result type.</typeparam>
+        /// <typeparam name="TArg">Arg type.</typeparam>
+        /// <returns>Result.</returns>
+        public async Task<T> DoWithRetryAsync<T, TArg>(
+            TArg arg,
+            Func<ClientSocket?, TArg, ClientOp> opFunc,
+            Func<ClientSocket, TArg, Task<T>> func,
+            PreferredNode preferredNode = default,
+            IRetryPolicy? retryPolicyOverride = null)
+        {
             var attempt = 0;
             List<Exception>? errors = null;
 
@@ -216,9 +247,7 @@ namespace Apache.Ignite.Internal
                 {
                     socket = await GetSocketAsync(preferredNode).ConfigureAwait(false);
 
-                    var buffer = await socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
-
-                    return (buffer, socket);
+                    return await func(socket, arg).ConfigureAwait(false);
                 }
                 catch (Exception e)
                 {
@@ -232,7 +261,7 @@ namespace Apache.Ignite.Internal
 
                     IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.RetryPolicy;
 
-                    if (!HandleOpError(e, clientOp, ref attempt, ref errors, retryPolicy, metricsContext))
+                    if (!HandleOpError(e, opFunc(socket, arg), ref attempt, ref errors, retryPolicy, metricsContext))
                     {
                         throw;
                     }

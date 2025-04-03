@@ -33,6 +33,13 @@ namespace Apache.Ignite.Table
         Task<ITable?> GetTableAsync(string name);
 
         /// <summary>
+        /// Gets a table by qualified name.
+        /// </summary>
+        /// <param name="name">Table name.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task<ITable?> GetTableAsync(QualifiedName name);
+
+        /// <summary>
         /// Gets all tables.
         /// </summary>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>

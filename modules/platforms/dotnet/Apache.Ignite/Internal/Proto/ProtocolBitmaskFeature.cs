@@ -15,35 +15,28 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Linq;
+namespace Apache.Ignite.Internal.Proto;
 
-using Ignite.Table;
-using Remotion.Linq;
+using System;
 
 /// <summary>
-/// Internal queryable interface.
+/// Protocol bitmask features.
 /// </summary>
-internal interface IIgniteQueryableInternal
+[Flags]
+internal enum ProtocolBitmaskFeature
 {
     /// <summary>
-    /// Gets the table name.
+    /// User attributes in handshake.
     /// </summary>
-    QualifiedName TableName { get; }
+    UserAttributes = 1,
 
     /// <summary>
-    /// Gets the provider.
+    /// Qualified name table requests.
     /// </summary>
-    IgniteQueryProvider Provider { get; }
+    TableReqsUseQualifiedName = 2,
 
     /// <summary>
-    /// Gets the query model.
+    /// Transaction direct mapping.
     /// </summary>
-    /// <returns>Query model.</returns>
-    QueryModel GetQueryModel();
-
-    /// <summary>
-    /// Gets the query data.
-    /// </summary>
-    /// <returns>Query data.</returns>
-    QueryData GetQueryData();
+    TxDirectMapping = 4
 }

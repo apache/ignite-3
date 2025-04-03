@@ -600,7 +600,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestToString()
         {
-            StringAssert.StartsWith("RecordView`1[IIgniteTuple] { Table = Table { Name = TBL1, Id =", TupleView.ToString());
+            StringAssert.StartsWith("RecordView`1[IIgniteTuple] { Table = Table { Name = PUBLIC.TBL1, Id =", TupleView.ToString());
         }
     }
 }
