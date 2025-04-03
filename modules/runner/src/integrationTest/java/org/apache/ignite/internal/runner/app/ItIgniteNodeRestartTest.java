@@ -308,7 +308,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
     private final Map<Integer, InvokeInterceptor> metaStorageInvokeInterceptorByNode = new ConcurrentHashMap<>();
 
     /**
-     * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(long, int, int)} method on different nodes.
+     * Mocks the data nodes returned by {@link DistributionZoneManager#dataNodes(HybridTimestamp, int, int)} method on different nodes.
      */
     private final Map<Integer, Supplier<CompletableFuture<Set<String>>>> dataNodesMockByNode = new ConcurrentHashMap<>();
 
@@ -675,6 +675,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
+                failureProcessor,
                 delayDurationMsSupplier
         );
 
@@ -697,12 +698,12 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clockService
         ) {
             @Override
-            public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
+            public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
                 if (dataNodesMock != null) {
                     return dataNodesMock.get();
                 }
 
-                return super.dataNodes(causalityToken, catalogVersion, zoneId);
+                return super.dataNodes(timestamp, catalogVersion, zoneId);
             }
         };
 

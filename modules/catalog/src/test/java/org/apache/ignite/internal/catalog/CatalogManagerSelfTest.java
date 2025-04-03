@@ -67,6 +67,7 @@ import org.apache.ignite.internal.catalog.storage.ObjectIdGenUpdateEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -203,7 +204,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(updateLogMock.startAsync(componentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, delayDuration::get);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
         assertThat(manager.startAsync(componentContext), willCompleteSuccessfully());
 
         reset(updateLogMock);
@@ -342,7 +343,7 @@ public class CatalogManagerSelfTest extends BaseCatalogManagerTest {
         when(updateLogMock.stopAsync(stopComponentContext)).thenReturn(nullCompletedFuture());
         when(updateLogMock.append(any())).thenReturn(CompletableFuture.completedFuture(true));
 
-        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, delayDuration::get);
+        CatalogManagerImpl manager = new CatalogManagerImpl(updateLogMock, clockService, new NoOpFailureManager(), delayDuration::get);
 
         assertThat(manager.startAsync(startComponentContext), willCompleteSuccessfully());
 

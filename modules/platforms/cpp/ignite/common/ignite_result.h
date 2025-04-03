@@ -241,7 +241,7 @@ ignite_result<T> result_of_operation(const std::function<T()> &operation) noexce
         msg += err.what();
         return {ignite_error(error::code::INTERNAL, msg, std::current_exception())};
     } catch (...) {
-        return {ignite_error(error::code::INTERNAL, "Unknown error is encountered when processing network event",
+        return {ignite_error(error::code::INTERNAL, "Unknown error is encountered",
             std::current_exception())};
     }
 }

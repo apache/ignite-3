@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readArray;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeArray;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
 import java.util.Arrays;
@@ -30,6 +33,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSer
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.IndexDescriptorSerializerHelper;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Serializers for {@link CatalogSchemaDescriptor}.
@@ -57,13 +61,16 @@ public class CatalogSchemaDescriptorSerializers {
 
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+
+            // Read the update token.
+            input.readVarInt();
 
             CatalogTableDescriptor[] tables = readArray(tableDescriptorSerializer, input, CatalogTableDescriptor.class);
             CatalogIndexDescriptor[] indexes = readArray(indexSerializeHelper, input, CatalogIndexDescriptor.class);
             CatalogSystemViewDescriptor[] systemViews = readArray(viewDescriptorSerializer, input, CatalogSystemViewDescriptor.class);
 
-            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, updateToken);
+            // Here we use the initial timestamp because it's old storage.
+            return new CatalogSchemaDescriptor(id, name, tables, indexes, systemViews, INITIAL_TIMESTAMP);
         }
 
         @Override
@@ -75,7 +82,7 @@ public class CatalogSchemaDescriptorSerializers {
 
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             writeArray(descriptor.tables(), tableDescriptorSerializer, output);
             writeArray(descriptor.indexes(), indexSerializeHelper, output);
@@ -90,7 +97,8 @@ public class CatalogSchemaDescriptorSerializers {
         public CatalogSchemaDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
 
             List<CatalogTableDescriptor> tables = input.readCompactEntryList(CatalogTableDescriptor.class);
             List<CatalogIndexDescriptor> indexes = input.readEntryList(CatalogIndexDescriptor.class);
@@ -100,7 +108,7 @@ public class CatalogSchemaDescriptorSerializers {
                     tables.toArray(new CatalogTableDescriptor[0]),
                     indexes.toArray(new CatalogIndexDescriptor[0]),
                     systemViews.toArray(new CatalogSystemViewDescriptor[0]),
-                    updateToken
+                    updateTimestamp
             );
         }
 
@@ -108,7 +116,7 @@ public class CatalogSchemaDescriptorSerializers {
         public void writeTo(CatalogSchemaDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
 
             output.writeCompactEntryList(Arrays.asList(descriptor.tables()));
             output.writeEntryList(Arrays.asList(descriptor.indexes()));

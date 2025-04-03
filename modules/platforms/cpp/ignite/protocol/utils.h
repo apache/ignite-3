@@ -213,13 +213,6 @@ template<>
 [[nodiscard]] bytes_view unpack_binary(const msgpack_object &object);
 
 /**
- * Make random UUID.
- *
- * @return Random UUID instance.
- */
-[[nodiscard]] ignite::uuid make_random_uuid();
-
-/**
  * Read error.
  *
  * @param reader reader.

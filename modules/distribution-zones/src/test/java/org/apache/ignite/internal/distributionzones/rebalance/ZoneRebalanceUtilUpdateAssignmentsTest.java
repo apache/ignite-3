@@ -139,6 +139,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
     private static final Set<Assignment> assignments4 = calculateAssignmentForPartition(nodes4, partNum, partNum + 1, replicas);
 
     private static final long expectedPendingChangeTriggerKey = 10L;
+    private static final HybridTimestamp expectedPendingChangeTimestampKey = hybridTimestamp(1000L);
 
     private long assignmentsTimestamp;
 
@@ -320,6 +321,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
                 partNum + 1,
                 replicas,
                 expectedPendingChangeTriggerKey,
+                expectedPendingChangeTimestampKey,
                 metaStorageManager,
                 partNum,
                 zoneCfgAssignments,
@@ -350,7 +352,7 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
         }
 
         byte[] pendingChangeTriggerKey = keyValueStorage.get(ZoneRebalanceUtil.pendingChangeTriggerKey(zonePartitionId).bytes()).value();
-        long actualPendingChangeTrigger = bytesToLongKeepingOrder(pendingChangeTriggerKey);
+        HybridTimestamp actualPendingChangeTimestamp = hybridTimestamp(bytesToLongKeepingOrder(pendingChangeTriggerKey));
 
         LOG.info("stableAssignments {}", actualStableAssignments);
         LOG.info("pendingAssignments {}", actualPendingAssignments);
@@ -377,6 +379,6 @@ public class ZoneRebalanceUtilUpdateAssignmentsTest extends IgniteAbstractTest {
             assertNull(actualPlannedBytes);
         }
 
-        assertEquals(expectedPendingChangeTriggerKey, actualPendingChangeTrigger);
+        assertEquals(expectedPendingChangeTimestampKey, actualPendingChangeTimestamp);
     }
 }

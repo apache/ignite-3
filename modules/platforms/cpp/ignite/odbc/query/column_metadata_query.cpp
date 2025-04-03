@@ -242,7 +242,7 @@ sql_result column_metadata_query::get_column(std::uint16_t column_idx, applicati
         }
 
         case result_column::COLUMN_SIZE: {
-            if (current_column.data_type == ignite_type::DECIMAL || current_column.data_type == ignite_type::NUMBER) {
+            if (current_column.data_type == ignite_type::DECIMAL) {
                 buffer.put_int16(std::int16_t(current_column.precision));
                 break;
             }

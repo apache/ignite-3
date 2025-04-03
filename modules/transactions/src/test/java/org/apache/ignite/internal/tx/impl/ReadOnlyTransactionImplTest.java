@@ -53,6 +53,6 @@ class ReadOnlyTransactionImplTest extends BaseIgniteAbstractTest {
                 new CompletableFuture<>()
         );
 
-        assertThat(tx.startTimestamp(), is(readTimestamp));
+        assertThat(tx.schemaTimestamp(), is(readTimestamp));
     }
 }

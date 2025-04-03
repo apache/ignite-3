@@ -17,12 +17,16 @@
 
 package org.apache.ignite.client.handler.requests.tx;
 
+import static org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest.merge;
+
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
-import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.internal.table.IgniteTablesInternal;
+import org.apache.ignite.internal.table.TableViewInternal;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
  * Client transaction rollback request.
@@ -34,17 +38,38 @@ public class ClientTransactionRollbackRequest {
      * @param in        Unpacker.
      * @param resources Resources.
      * @param metrics   Metrics.
+     * @param igniteTables Tables facade.
+     * @param enableDirectMapping Enable direct mapping.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics)
+            ClientHandlerMetricSource metrics,
+            IgniteTablesInternal igniteTables,
+            boolean enableDirectMapping)
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
-        Transaction t = resources.remove(resourceId).get(Transaction.class);
+        InternalTransaction tx = resources.remove(resourceId).get(InternalTransaction.class);
 
-        return t.rollbackAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
+        if (enableDirectMapping && !tx.isReadOnly()) {
+            // Attempt to merge server and client transactions.
+            int cnt = in.unpackInt(); // Number of direct enlistments.
+            for (int i = 0; i < cnt; i++) {
+                int tableId = in.unpackInt();
+                int partId = in.unpackInt();
+                String consistentId = in.unpackString();
+                long token = in.unpackLong();
+
+                TableViewInternal table = igniteTables.cachedTable(tableId);
+
+                if (table != null) {
+                    merge(table.internalTable(), partId, consistentId, token, tx, false);
+                }
+            }
+        }
+
+        return tx.rollbackAsync().whenComplete((res, err) -> metrics.transactionsActiveDecrement());
     }
 }

@@ -74,6 +74,7 @@ import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPar
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateMessage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.tostring.S;
@@ -166,7 +167,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                         catalog
                 );
 
-        CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msRevision, catalogVersion, zoneId);
+        CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
 
         return dataNodesFuture.thenCombine(localStates, (dataNodes, localStatesMap) -> {
             Set<String> nodeConsistentIds = disasterRecoveryManager.dzManager.logicalTopology(msRevision)
@@ -186,6 +187,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                         dataNodes,
                         nodeConsistentIds,
                         msRevision,
+                        msTimestamp,
                         disasterRecoveryManager.metaStorageManager,
                         localStatesMap,
                         catalog.time(),
@@ -215,6 +217,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * @param dataNodes Current DZ data nodes.
      * @param aliveNodesConsistentIds Set of alive nodes according to logical topology.
      * @param revision Meta-storage revision to be associated with reassignment.
+     * @param timestamp Meta-storage timestamp to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
      * @param localStatesMap Local partition states retrieved by
      *         {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
@@ -226,6 +229,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
             long revision,
+            HybridTimestamp timestamp,
             MetaStorageManager metaStorageManager,
             Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
@@ -244,6 +248,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                             dataNodes,
                             aliveNodesConsistentIds,
                             revision,
+                            timestamp,
                             metaStorageManager,
                             localStatesMap,
                             assignmentsTimestamp,
@@ -260,6 +265,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
             long revision,
+            HybridTimestamp timestamp,
             MetaStorageManager metaStorageManager,
             Map<TablePartitionId, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
@@ -284,6 +290,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                     zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
                     revision,
+                    timestamp,
                     metaStorageManager,
                     tableAssignments.get(replicaGrpId.partitionId()).nodes(),
                     localStatesByNode,
@@ -306,6 +313,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             int partitions,
             int replicas,
             long revision,
+            HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
             Set<Assignment> currentAssignments,
             LocalPartitionStateMessageByNode localPartitionStateMessageByNode,
@@ -340,13 +348,15 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         // There are nodes with data, and we set pending assignments to this set of nodes. It'll be the source of peers for
         // "resetPeers", and after that new assignments with restored replica factor wil be picked up from planned assignments
         // for the case of the manual update, that was triggered by a user.
+        AssignmentsQueue assignmentsQueue = pendingAssignmentsCalculator()
+                .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
+                .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
+                .toQueue();
+
         Iif invokeClosure = prepareMsInvokeClosure(
                 partId,
-                longToBytesKeepingOrder(revision),
-                pendingAssignmentsCalculator()
-                        .stable(Assignments.of(currentAssignments, assignmentsTimestamp))
-                        .target(Assignments.forced(Set.of(nextAssignment), assignmentsTimestamp))
-                        .toQueue().toBytes(),
+                longToBytesKeepingOrder(timestamp.longValue()),
+                assignmentsQueue.toBytes(),
                 // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                 isProposedPendingEqualsProposedPlanned
                         ? null
@@ -358,10 +368,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                 case PENDING_KEY_UPDATED:
                     LOG.info(
                             "Force update metastore pending partitions key [key={}, partition={}, table={}, newVal={}]",
-                            pendingChangeTriggerKey(partId).toString(),
+                            pendingPartAssignmentsQueueKey(partId).toString(),
                             partId.partitionId(),
                             partId.tableId(),
-                            nextAssignment
+                            assignmentsQueue
                     );
 
                     break;
@@ -419,14 +429,14 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * </ul>
      *
      * @param partId Partition ID.
-     * @param revisionBytes Properly serialized current meta-storage revision.
+     * @param timestampBytes Properly serialized current meta-storage timestamp.
      * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.
      * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or {@code null}.
      * @return {@link Iif} instance.
      */
     static Iif prepareMsInvokeClosure(
             TablePartitionId partId,
-            byte[] revisionBytes,
+            byte[] timestampBytes,
             byte[] pendingAssignmentsBytes,
             byte @Nullable [] plannedAssignmentsBytes
     ) {
@@ -434,9 +444,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
         ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
 
-        return iif(notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(revisionBytes)),
+        return iif(
+                notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(timestampBytes)),
                 ops(
-                        put(pendingChangeTriggerKey, revisionBytes),
+                        put(pendingChangeTriggerKey, timestampBytes),
                         put(partAssignmentsPendingKey, pendingAssignmentsBytes),
                         plannedAssignmentsBytes == null
                                 ? remove(partAssignmentsPlannedKey)

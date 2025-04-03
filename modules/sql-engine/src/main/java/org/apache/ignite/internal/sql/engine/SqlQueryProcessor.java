@@ -488,7 +488,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             validateParsedStatement(properties0, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
-            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.startTimestamp() : clockService.now();
+            HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.schemaTimestamp() : clockService.now();
 
             CompletableFuture<QueryMetadata> f = prepareParsedStatement(schemaName, result, timestamp,
                     queryCancel, params)

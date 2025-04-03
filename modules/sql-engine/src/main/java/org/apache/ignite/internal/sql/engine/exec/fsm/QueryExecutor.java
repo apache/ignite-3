@@ -498,7 +498,7 @@ public class QueryExecutor implements LifecycleAware {
             return clockService.now();
         }
 
-        return txWrapper.unwrap().startTimestamp();
+        return txWrapper.unwrap().schemaTimestamp();
     }
 
     CompletableFuture<Void> waitForMetadata(HybridTimestamp timestamp) {
