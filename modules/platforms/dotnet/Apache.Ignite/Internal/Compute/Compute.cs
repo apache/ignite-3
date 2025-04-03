@@ -431,7 +431,7 @@ namespace Apache.Ignite.Internal.Compute
 
             _tableCache.TryRemove(tableName, out _);
 
-            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
+            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName.CanonicalName}' does not exist.");
         }
 
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]

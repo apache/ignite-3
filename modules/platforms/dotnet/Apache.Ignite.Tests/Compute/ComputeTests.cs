@@ -331,7 +331,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
                 await Client.Compute.SubmitAsync(JobTarget.Colocated("unknownTable", new IgniteTuple()), EchoJob, null));
 
-            Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
+            Assert.AreEqual("Table 'PUBLIC.UNKNOWNTABLE' does not exist.", ex!.Message);
         }
 
         [Test]
@@ -370,7 +370,7 @@ namespace Apache.Ignite.Tests.Compute
 
                 if (forceLoadAssignment)
                 {
-                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[tableName]!;
+                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[QualifiedName.Parse(tableName)]!;
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
