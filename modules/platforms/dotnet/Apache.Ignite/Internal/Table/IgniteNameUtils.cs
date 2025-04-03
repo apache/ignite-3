@@ -161,7 +161,7 @@ internal static class IgniteNameUtils
         {
             throw new ArgumentException(
                 $"Invalid identifier start '{name[pos]}' at position {pos}: '{name}'. " +
-                $"Unquoted identifiers must begin with a letter or an underscore");
+                $"Unquoted identifiers must begin with a letter or an underscore.");
         }
 
         for (; pos < name.Length; pos++)

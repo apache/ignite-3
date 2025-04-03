@@ -103,10 +103,10 @@ public class QualifiedNameTests
 
     [Test]
     [TestCase("x.", "Canonical name can't have empty parts: 'x.'")]
-    [TestCase(".x", "Unexpected character '.' at position 0: '.x'")]
+    [TestCase(".x", "Invalid identifier start '.' at position 0: '.x'. Unquoted identifiers must begin with a letter or an underscore.")]
     [TestCase("\"x", "Missing closing quote: '\"x")]
     [TestCase("\"xx\"yy\"", "Unexpected character '\"' after quote at position 3: '\"xx\"yy\"'")]
-    [TestCase("123", "Unexpected character '1' at position 0: '123'")]
+    [TestCase("123", "Invalid identifier start '1' at position 0: '123'. Unquoted identifiers must begin with a letter or an underscore.")]
     public void TestParsingErrors(string name, string expectedError)
     {
         var ex = Assert.Throws<ArgumentException>(() => QualifiedName.Parse(name));
