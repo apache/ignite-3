@@ -97,7 +97,7 @@ public:
     [[nodiscard]] char const *what() const noexcept override { return m_message.c_str(); }
 
     /**
-     * Get an error message as std::string.
+     * Get the error message as std::string.
      */
     [[nodiscard]] const std::string &what_str() const noexcept { return m_message; }
 
