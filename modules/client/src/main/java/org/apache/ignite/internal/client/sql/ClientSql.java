@@ -361,10 +361,6 @@ public class ClientSql implements IgniteSql {
     private void addCancelAction(CancellationToken cancellationToken, long correlationToken) {
         CompletableFuture<Void> cancelFuture = new CompletableFuture<>();
 
-        if (CancelHandleHelper.isCancelled(cancellationToken)) {
-            throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
-        }
-
         Runnable cancelAction = () -> ch.serviceAsync(ClientOp.SQL_CANCEL_EXEC, w -> w.out().packLong(correlationToken), null)
                 .whenComplete((r, e) -> {
                     if (e != null) {
@@ -374,7 +370,9 @@ public class ClientSql implements IgniteSql {
                     }
                 });
 
-        CancelHandleHelper.addCancelAction(cancellationToken, cancelAction, cancelFuture);
+        if (!CancelHandleHelper.tryAddCancelAction(cancellationToken, cancelAction, cancelFuture)) {
+            throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
+        }
     }
 
     private static void packProperties(

@@ -82,17 +82,28 @@ final class CancelHandleImpl implements CancelHandle {
         void addCancelAction(Runnable action, CompletableFuture<?> fut) {
             Cancellation cancellation = new Cancellation(action, fut);
 
-            if (cancelFut != null) {
+            if (!tryAddCancellation(cancellation)) {
                 cancellation.run();
-            } else {
-                synchronized (mux) {
-                    if (cancelFut == null) {
-                        cancellations.add(cancellation);
-                        return;
-                    }
+            }
+        }
+
+        boolean tryAddCancelAction(Runnable action, CompletableFuture<?> fut) {
+            return tryAddCancellation(new Cancellation(action, fut));
+        }
+
+        private boolean tryAddCancellation(Cancellation cancellation) {
+            if (cancelFut != null) {
+                return false;
+            }
+
+            synchronized (mux) {
+                if (cancelFut != null) {
+                    return false;
                 }
 
-                cancellation.run();
+                cancellations.add(cancellation);
+
+                return true;
             }
         }
 
