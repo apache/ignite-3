@@ -81,7 +81,7 @@ public interface Replica {
      *
      * @param peersAndLearners Peers and learners.
      */
-    void updatePeersAndLearners(PeersAndLearners peersAndLearners);
+    void updatePeersAndLearners(PeersAndLearners peersAndLearners, boolean pending, long revision);
 
     /**
      * Creates a snapshot on a given group member.

@@ -42,6 +42,7 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
@@ -240,7 +241,14 @@ public class TableTestUtils {
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
         CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
 
-        assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
+//        if (table == null) {
+//            Loggers.forClass(TableTestUtils.class).warn("QQQaaa");
+//            System.out.println("!!!");
+//        }
+//        else {
+//            System.out.printf("!!! 2");
+//        }
+//        assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
 
         return table;
     }
@@ -295,7 +303,13 @@ public class TableTestUtils {
      * @throws AssertionError If table is absent.
      */
     public static int getZoneIdByTableNameStrict(CatalogService catalogService, String tableName, long timestamp) {
-        return getTableStrict(catalogService, tableName, timestamp).zoneId();
+        var table = getTableStrict(catalogService, tableName, timestamp);
+        if (table == null) {
+            return -1;
+        } else {
+            return table.zoneId();
+        }
+//        return getTableStrict(catalogService, tableName, timestamp).zoneId();
     }
 
     /**

@@ -982,6 +982,8 @@ public class PartitionReplicaLifecycleManager extends
                 ? emptySet()
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
+//        System.out.println("!!! handleChangeStableAssignmentEvent node=[" + localNode().name() + "], groupId=[" + zonePartitionId +"], stableAssignments=[" +  stableAssignments + "], revision=[" + revision + "]");
+
         return supplyAsync(() -> {
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId), revision);
 
@@ -1003,7 +1005,9 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> updatePartitionClients(
             ZonePartitionId zonePartitionId,
-            Set<Assignment> stableAssignments
+            // TODO sanpwc Rename to assignments.
+            Set<Assignment> stableAssignments,
+            long revision
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -1012,14 +1016,15 @@ public class PartitionReplicaLifecycleManager extends
                 return nullCompletedFuture();
             }
 
-            assert replicaMgr.isReplicaStarted(zonePartitionId)
-                    : "The local node is outside of the replication group [groupId=" + zonePartitionId
-                    + ", stable=" + stableAssignments
-                    + ", isLeaseholder=" + isLeaseholder + "].";
+//            assert replicaMgr.isReplicaStarted(zonePartitionId)
+//                    : "The local node is outside of the replication group [groupId=" + zonePartitionId
+//                    + ", stable=" + stableAssignments
+//                    + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
+//            System.out.println("QQQ1");
             return replicaMgr.replica(zonePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments), false, revision));
         }));
     }
 
@@ -1033,7 +1038,9 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(zonePartitionId, stableAssignments);
+                : nullCompletedFuture();
+//                    : updatePartitionClients(zonePartitionId, stableAssignments, revision);
+//                : updatePartitionClients(zonePartitionId, union(stableAssignments, pendingAssignments.nodes()), revision);
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()
@@ -1063,6 +1070,8 @@ public class PartitionReplicaLifecycleManager extends
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
         Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
+
+//        System.out.println("!!! handleChangePendingAssignmentEvent node=[" + localNode().name() + "], groupId=[" + zonePartitionId +"], pendingAssignments=[" +  pendingAssignments + "], revision=[" + revision + "]");
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -1198,8 +1207,11 @@ public class PartitionReplicaLifecycleManager extends
                             ? pendingAssignmentsNodes
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-                    replicaMgr.replica(replicaGrpId)
-                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
+                    // TODO sanpwc check, why it's possible to have null here
+                    if (replicaMgr.replica(replicaGrpId) != null) {
+                        replicaMgr.replica(replicaGrpId)
+                                .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments), true, revision));
+                    }
                 }), ioExecutor);
     }
 

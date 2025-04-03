@@ -119,7 +119,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private static final String SC_TABLE_NAME = "SC_TABLE";
 
-    private static final int PARTITIONS_NUMBER = 2;
+    private static final int PARTITIONS_NUMBER = 25;
 
     private static final int ENTRIES = 2;
 

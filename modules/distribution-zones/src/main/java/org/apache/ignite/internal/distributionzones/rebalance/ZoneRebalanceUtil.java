@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PLANNED_KEY_REMOVED_EMPTY_PENDING;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PLANNED_KEY_REMOVED_EQUALS_PENDING;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PLANNED_KEY_UPDATED;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -64,10 +65,12 @@ import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -676,5 +679,24 @@ public class ZoneRebalanceUtil {
         Entry entry = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, partitionId)), revision);
 
         return entry != null ? AssignmentsQueue.fromBytes(entry.value()).poll() : null;
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone ID.
+     * @param partitionId Partition ID.
+     * @return Future with partition assignments as a value.
+     */
+    @TestOnly
+    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 }

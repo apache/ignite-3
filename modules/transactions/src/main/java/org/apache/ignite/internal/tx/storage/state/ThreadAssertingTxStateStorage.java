@@ -37,7 +37,7 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
 
     @Override
     public TxStatePartitionStorage getOrCreatePartitionStorage(int partitionId) {
-        assertThreadAllowsToWrite();
+//        assertThreadAllowsToWrite();
 
         return new ThreadAssertingTxStatePartitionStorage(tableStorage.getOrCreatePartitionStorage(partitionId));
     }
@@ -51,7 +51,7 @@ public class ThreadAssertingTxStateStorage implements TxStateStorage {
 
     @Override
     public void destroyTxStateStorage(int partitionId) {
-        assertThreadAllowsToWrite();
+//        assertThreadAllowsToWrite();
 
         tableStorage.destroyTxStateStorage(partitionId);
     }

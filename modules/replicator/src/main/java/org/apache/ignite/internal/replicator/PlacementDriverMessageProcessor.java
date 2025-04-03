@@ -61,7 +61,7 @@ public class PlacementDriverMessageProcessor {
 
     private final ReplicationGroupId groupId;
 
-    private final ClusterNode localNode;
+    public final ClusterNode localNode;
 
     private final PlacementDriver placementDriver;
 

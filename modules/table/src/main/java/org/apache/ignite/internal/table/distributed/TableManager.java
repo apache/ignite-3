@@ -2472,7 +2472,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
                     replicaMgr.replica(replicaGrpId)
-                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
+                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments), true, revision));
                 }), ioExecutor);
     }
 
@@ -2771,7 +2771,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> updatePartitionClients(
             TablePartitionId tablePartitionId,
-            Set<Assignment> stableAssignments
+            Set<Assignment> stableAssignments,
+            long revision
     ) {
         return isLocalNodeIsPrimary(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -2786,7 +2787,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(tablePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments), false, revision));
         }));
     }
 
@@ -2800,7 +2801,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(tablePartitionId, stableAssignments);
+//                : nullCompletedFuture();
+                : updatePartitionClients(tablePartitionId, stableAssignments, revision);
+//         : updatePartitionClients(tablePartitionId, union(stableAssignments, pendingAssignments.nodes()), revision);
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                         ? pendingAssignments.nodes().stream()
