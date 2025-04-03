@@ -42,7 +42,7 @@ import java.util.concurrent.locks.StampedLock;
  * </ul>
  *
  * <p>This implementation is naive because it implies that time-to-hold the locks can be pretty long and there will be no
- * high contension on the acquiring side; this simplifies the implementation.</p>
+ * high contention on the acquiring side; this simplifies the implementation.</p>
  */
 public class NaiveAsyncReadWriteLock {
     /** Executor in which the waiting lock attempts' futures are completed. */
