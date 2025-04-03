@@ -778,7 +778,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }));
 
         // Obtain future, but don't chain on it yet because update() on VVs must be called in the same thread. The method we call
-        // will call update() on VVs and inside those updates it will chain on the lock acquiry future.
+        // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
         CompletableFuture<Long> lockAcquiryFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
         try {
             return prepareTableResourcesAndLoadHavingZoneReadLock(lockAcquiryFuture, causalityToken, zoneDescriptor, onNodeRecovery, table)
