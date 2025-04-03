@@ -312,11 +312,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
             builder.claim_number(dec_value);
             break;
         }
-        case ignite_type::NUMBER: {
-            claim_type_and_scale(builder, ignite_type::NUMBER);
-            builder.claim_number(value.get<big_integer>());
-            break;
-        }
         case ignite_type::DATE: {
             claim_type_and_scale(builder, ignite_type::DATE);
             builder.claim_date(value.get<ignite_date>());
@@ -345,11 +340,6 @@ void claim_primitive_with_type(binary_tuple_builder &builder, const primitive &v
         case ignite_type::DURATION: {
             claim_type_and_scale(builder, ignite_type::DURATION);
             builder.claim_duration(value.get<ignite_duration>());
-            break;
-        }
-        case ignite_type::BITMASK: {
-            claim_type_and_scale(builder, ignite_type::BITMASK);
-            builder.claim_varlen(value.get<bit_array>().get_raw());
             break;
         }
         default:
@@ -423,11 +413,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
             builder.append_number(dec_value);
             break;
         }
-        case ignite_type::NUMBER: {
-            append_type_and_scale(builder, ignite_type::NUMBER);
-            builder.append_number(value.get<big_integer>());
-            break;
-        }
         case ignite_type::DATE: {
             append_type_and_scale(builder, ignite_type::DATE);
             builder.append_date(value.get<ignite_date>());
@@ -456,11 +441,6 @@ void append_primitive_with_type(binary_tuple_builder &builder, const primitive &
         case ignite_type::DURATION: {
             append_type_and_scale(builder, ignite_type::DURATION);
             builder.append_duration(value.get<ignite_duration>());
-            break;
-        }
-        case ignite_type::BITMASK: {
-            append_type_and_scale(builder, ignite_type::BITMASK);
-            builder.append_varlen(value.get<bit_array>().get_raw());
             break;
         }
         default:
@@ -496,8 +476,6 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
             return std::vector<std::byte>(binary_tuple_parser::get_varlen(val));
         case ignite_type::DECIMAL:
             return binary_tuple_parser::get_decimal(val, scale);
-        case ignite_type::NUMBER:
-            return binary_tuple_parser::get_number(val);
         case ignite_type::DATE:
             return binary_tuple_parser::get_date(val);
         case ignite_type::TIME:
@@ -510,8 +488,6 @@ primitive read_next_column(binary_tuple_parser &parser, ignite_type typ, std::in
             return binary_tuple_parser::get_period(val);
         case ignite_type::DURATION:
             return binary_tuple_parser::get_duration(val);
-        case ignite_type::BITMASK:
-            return bit_array(binary_tuple_parser::get_varlen(val));
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
     }
