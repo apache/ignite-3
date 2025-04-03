@@ -197,7 +197,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             // Read-only transactions are not counted,
             ignoredReadonlyTxs.forEach(tx -> {
-                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.startTimestamp().longValue()));
+                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.schemaTimestamp().longValue()));
             });
 
             assertThat(timeHolder.txMinRequiredTime, greaterThanOrEqualTo(minTime));
@@ -208,7 +208,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testCompactionRun() throws InterruptedException {
+    public void testCompactionRun() {
         sql(format("create zone if not exists test (partitions {}, replicas {}) storage profiles ['default']",
                 CLUSTER_SIZE, CLUSTER_SIZE)
         );

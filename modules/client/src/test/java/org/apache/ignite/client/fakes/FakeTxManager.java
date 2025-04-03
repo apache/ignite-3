@@ -151,7 +151,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public HybridTimestamp startTimestamp() {
+            public HybridTimestamp schemaTimestamp() {
                 return timestamp;
             }
 

@@ -135,7 +135,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
+    public HybridTimestamp schemaTimestamp() {
         return hybridTimestamp;
     }
 

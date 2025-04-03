@@ -92,7 +92,7 @@ class ReadWriteTransactionImplTest extends BaseIgniteAbstractTest {
                 txManager, HybridTimestampTracker.atomicTracker(null), txId, CLUSTER_NODE.id(), false, 10_000
         );
 
-        assertThat(tx.startTimestamp(), is(beginTs));
+        assertThat(tx.schemaTimestamp(), is(beginTs));
     }
 
     /**

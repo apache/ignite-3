@@ -42,7 +42,6 @@ import org.apache.ignite.internal.catalog.commands.AlterZoneSetDefaultCommand;
 import org.apache.ignite.internal.catalog.commands.CreateSchemaCommand;
 import org.apache.ignite.internal.catalog.commands.CreateZoneCommand;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
-import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.Fireable;
@@ -77,15 +76,6 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public static final String DEFAULT_ZONE_NAME = "Default";
 
     private static final int MAX_RETRY_COUNT = 10;
-
-    /**
-     * Initial update token for a catalog descriptor, this token is valid only before the first call of
-     * {@link UpdateEntry#applyUpdate(Catalog, long)}.
-     *
-     * <p>After that {@link CatalogObjectDescriptor#updateToken()} will be initialised with a causality token from
-     * {@link UpdateEntry#applyUpdate(Catalog, long)}
-     */
-    public static final long INITIAL_CAUSALITY_TOKEN = 0L;
 
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(CatalogManagerImpl.class);
@@ -405,7 +395,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                     }
 
                     for (UpdateEntry entry : entries) {
-                        updateContext.updateCatalog(cat -> entry.applyUpdate(cat, INITIAL_CAUSALITY_TOKEN));
+                        updateContext.updateCatalog(cat -> entry.applyUpdate(cat, INITIAL_TIMESTAMP));
                     }
 
                     applyResults.set(i);
@@ -476,7 +466,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             assert catalog != null : version - 1;
 
             for (UpdateEntry entry : update.entries()) {
-                catalog = entry.applyUpdate(catalog, causalityToken);
+                catalog = entry.applyUpdate(catalog, metaStorageUpdateTimestamp);
             }
 
             catalog = applyUpdateFinal(catalog, update, metaStorageUpdateTimestamp);

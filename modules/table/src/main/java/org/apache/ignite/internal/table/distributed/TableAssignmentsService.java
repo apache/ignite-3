@@ -40,6 +40,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
@@ -79,11 +80,12 @@ public class TableAssignmentsService {
     CompletableFuture<List<Assignments>> createAndWriteTableAssignmentsToMetastorage(
             int tableId,
             CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
         CompletableFuture<List<Assignments>> assignments =
-                getOrCreateAssignments(tableId, zoneDescriptor, causalityToken, catalogVersion);
+                getOrCreateAssignments(tableId, zoneDescriptor, tableDescriptor, causalityToken, catalogVersion);
 
         return writeTableAssignmentsToMetastore(tableId, zoneDescriptor.consistencyMode(), assignments);
     }
@@ -141,6 +143,7 @@ public class TableAssignmentsService {
     private CompletableFuture<List<Assignments>> getOrCreateAssignments(
             int tableId,
             CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
@@ -154,7 +157,7 @@ public class TableAssignmentsService {
 
             long assignmentsTimestamp = catalog.time();
 
-            assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+            assignmentsFuture = distributionZoneManager.dataNodes(tableDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes ->
                             PartitionDistributionUtils.calculateAssignments(
                                             dataNodes,

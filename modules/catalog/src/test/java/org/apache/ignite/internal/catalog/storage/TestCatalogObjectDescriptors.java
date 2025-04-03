@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -128,10 +130,13 @@ final class TestCatalogObjectDescriptors {
         list.add(list.get(0).newDescriptor(
                 table1.name() + "_1", 2,
                 columns(state).subList(0, 10),
-                1232L,
+                hybridTimestamp(1232L),
                 "S1")
         );
-        list.add(list.get(list.size() - 1).newDescriptor(table1.name() + "_2", 3, columns(state).subList(0, 20), 21232L, "S1"));
+        list.add(
+                list.get(list.size() - 1)
+                        .newDescriptor(table1.name() + "_2", 3, columns(state).subList(0, 20), hybridTimestamp(21232L), "S1")
+        );
 
         CatalogTableDescriptor table2 = new CatalogTableDescriptor(
                 state.id(),
@@ -147,12 +152,12 @@ final class TestCatalogObjectDescriptors {
         list.add(list.get(list.size() - 1).newDescriptor(
                 table2.name() + "_1", 2,
                 columns(state).subList(0, 10),
-                4567L, "S2")
+                hybridTimestamp(4567L), "S2")
         );
         list.add(list.get(list.size() - 1).newDescriptor(
                 table2.name() + "_2", 3,
                 columns(state).subList(0, 20),
-                8833L,
+                hybridTimestamp(8833L),
                 "S2")
         );
 
@@ -172,7 +177,7 @@ final class TestCatalogObjectDescriptors {
                 table3.name() + "_1",
                 2,
                 columns(state),
-                123234L,
+                hybridTimestamp(123234L),
                 "S4")
         );
 
@@ -244,7 +249,7 @@ final class TestCatalogObjectDescriptors {
                 state.id(),
                 state.name("SYS_VIEW"),
                 columns(state),
-                SystemViewType.NODE, 90323L)
+                SystemViewType.NODE, hybridTimestamp(90323L))
         );
         list.add(new CatalogSystemViewDescriptor(
                 state.id(),
@@ -252,7 +257,7 @@ final class TestCatalogObjectDescriptors {
                 state.name("SYS_VIEW"),
                 columns(state),
                 SystemViewType.CLUSTER,
-                213232L)
+                hybridTimestamp(213232L))
         );
 
         return list;
@@ -455,7 +460,7 @@ final class TestCatalogObjectDescriptors {
                 new CatalogTableDescriptor[0],
                 new CatalogIndexDescriptor[0],
                 new CatalogSystemViewDescriptor[0],
-                123232L)
+                hybridTimestamp(123232L))
         );
 
         list.add(new CatalogSchemaDescriptor(
@@ -464,7 +469,7 @@ final class TestCatalogObjectDescriptors {
                 tables,
                 new CatalogIndexDescriptor[0],
                 new CatalogSystemViewDescriptor[0],
-                76765754L)
+                hybridTimestamp(76765754L))
         );
 
         list.add(new CatalogSchemaDescriptor(
@@ -473,7 +478,7 @@ final class TestCatalogObjectDescriptors {
                 tables,
                 indexes,
                 new CatalogSystemViewDescriptor[0],
-                2212L)
+                hybridTimestamp(2212L))
         );
 
         list.add(new CatalogSchemaDescriptor(
@@ -482,7 +487,7 @@ final class TestCatalogObjectDescriptors {
                 tables,
                 indexes,
                 systemViews,
-                435546L)
+                hybridTimestamp(435546L))
         );
 
         return list;

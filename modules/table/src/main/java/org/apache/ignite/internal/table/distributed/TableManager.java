@@ -1356,7 +1356,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId,
             Long assignmentsTimestamp
     ) {
-        return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
+        return orStopManagerFuture(waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
             int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
 
             CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
@@ -1364,7 +1364,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
             return distributionZoneManager.dataNodes(
-                    zoneDescriptor.updateToken(),
+                    zoneDescriptor.updateTimestamp(),
                     catalogVersion,
                     tableDescriptor.zoneId()
             ).thenApply(dataNodes ->
@@ -1375,7 +1375,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             zoneDescriptor.replicas()
                     )
             );
-        });
+        }));
     }
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
@@ -1655,6 +1655,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     assignmentsService.createAndWriteTableAssignmentsToMetastorage(
                             tableId,
                             zoneDescriptor,
+                            tableDescriptor,
                             causalityToken,
                             catalogVersion
                     );
@@ -2460,9 +2461,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                     CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
 
-                                    long causalityToken = zoneDescriptor.updateToken();
-
-                                    return distributionZoneManager.dataNodes(causalityToken, catalogVersion,
+                                    return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion,
                                                     tableDescriptor.zoneId())
                                             .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                                                     metaStorageMgr,

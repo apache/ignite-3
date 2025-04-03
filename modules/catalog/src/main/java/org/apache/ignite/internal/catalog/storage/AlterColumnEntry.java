@@ -32,6 +32,7 @@ import org.apache.ignite.internal.catalog.events.AlterColumnEventParameters;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -79,7 +80,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
@@ -89,7 +90,7 @@ public class AlterColumnEntry implements UpdateEntry, Fireable {
                 table.columns().stream()
                         .map(source -> source.name().equals(column.name()) ? column : source)
                         .collect(toList()),
-                causalityToken,
+                timestamp,
                 table.storageProfile()
         );
 

@@ -81,6 +81,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -1954,10 +1955,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertTrue(waitForCondition(() -> {
             long causalityToken = node.metaStorageManager().appliedRevision();
+            HybridTimestamp timestamp = node.metaStorageManager().timestampByRevisionLocally(causalityToken);
 
             int catalogVersion = node.catalogManager().latestCatalogVersion();
 
-            CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(causalityToken, catalogVersion, zoneId);
+            CompletableFuture<Set<String>> dataNodes = dzManager.dataNodes(timestamp, catalogVersion, zoneId);
 
             try {
                 return dataNodes.get(10, SECONDS).size() == targetDataNodesCount;

@@ -120,7 +120,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
+    public HybridTimestamp schemaTimestamp() {
         return TransactionIds.beginTimestamp(txId);
     }
 

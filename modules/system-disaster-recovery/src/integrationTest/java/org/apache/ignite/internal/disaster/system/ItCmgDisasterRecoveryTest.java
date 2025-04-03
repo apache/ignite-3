@@ -40,6 +40,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
 import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.Test;
 
@@ -331,9 +332,10 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
     private static Set<String> currentDataNodes(IgniteImpl ignite, int catalogVersion, int zoneId) {
         long currentRevision = ignite.metaStorageManager().appliedRevision();
+        HybridTimestamp timestamp = ignite.metaStorageManager().timestampByRevisionLocally(currentRevision);
 
         CompletableFuture<Set<String>> dataNodesFuture = ignite.distributionZoneManager()
-                .dataNodes(currentRevision, catalogVersion, zoneId);
+                .dataNodes(timestamp, catalogVersion, zoneId);
 
         assertThat(dataNodesFuture, willCompleteSuccessfully());
         return dataNodesFuture.join();
