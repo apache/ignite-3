@@ -119,13 +119,15 @@ public class NaiveAsyncReadWriteLock {
             long newReadStamp = stampedLock.tryReadLock();
             assert newReadStamp != 0;
             readLockWaitersMap.put(newReadStamp, readLockWaiter);
+        }
 
+        readLockWaiters.clear();
+
+        if (readLockWaitersMap != null) {
             for (Entry<CompletableFuture<Long>> entry : readLockWaitersMap.long2ObjectEntrySet()) {
                 entry.getValue().completeAsync(entry::getLongKey, futureCompletionExecutor);
             }
         }
-
-        readLockWaiters.clear();
     }
 
     /**
