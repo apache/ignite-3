@@ -147,7 +147,11 @@ import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
+import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.lang.ErrorGroups.Sql;
+import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -647,17 +651,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     /** {@inheritDoc} */
     @Override
     public Node<RowT> visit(IgniteLimit rel) {
-        Supplier<Integer> offset = null;
-        if (rel.offset() != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.offset());
-            offset = () -> sqlScalar.get(ctx);
-        }
-
-        Supplier<Integer> fetch = null;
-        if (rel.fetch() != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.fetch());
-            fetch = () -> sqlScalar.get(ctx);
-        }
+        long offset = rel.offset() == null ? 0 : validateAndGetFetchOffsetParams(rel.offset(), "offset");
+        long fetch = rel.fetch() == null ? -1 : validateAndGetFetchOffsetParams(rel.fetch(), "fetch");
 
         LimitNode<RowT> node = new LimitNode<>(ctx, offset, fetch);
 
@@ -673,17 +668,8 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
     public Node<RowT> visit(IgniteSort rel) {
         RelCollation collation = rel.getCollation();
 
-        Supplier<Integer> offset = null;
-        if (rel.offset != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.offset);
-            offset = () -> sqlScalar.get(ctx);
-        }
-
-        Supplier<Integer> fetch = null;
-        if (rel.fetch != null) {
-            SqlScalar<RowT, Integer> sqlScalar = expressionFactory.scalar(rel.fetch);
-            fetch = () -> sqlScalar.get(ctx);
-        }
+        long offset = rel.offset == null ? 0 : validateAndGetFetchOffsetParams(rel.offset, "offset");
+        long fetch = rel.fetch == null ? -1 : validateAndGetFetchOffsetParams(rel.fetch, "fetch");
 
         SqlComparator<RowT> sqlComparator = expressionFactory.comparator(collation);
         SortNode<RowT> node = new SortNode<>(
@@ -1166,6 +1152,25 @@ public class LogicalRelImplementor<RowT> implements IgniteRelVisitor<Node<RowT>>
         }
 
         return joinProjection;
+    }
+
+    private long validateAndGetFetchOffsetParams(RexNode node, String op) {
+        SqlScalar<RowT, Number> sqlScalar = expressionFactory.scalar(node);
+        Number param = sqlScalar.get(ctx);
+
+        long paramAsLong;
+
+        try {
+            paramAsLong = IgniteMath.convertToLongExact(param);
+        } catch (RuntimeException ex) {
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str(), ex);
+        }
+
+        if (paramAsLong < 0) {
+            throw new SqlException(Sql.STMT_VALIDATION_ERR, IgniteResource.INSTANCE.illegalFetchLimit(op).str());
+        }
+
+        return paramAsLong;
     }
 
     /**
