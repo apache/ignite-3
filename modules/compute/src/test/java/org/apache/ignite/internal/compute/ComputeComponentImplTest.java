@@ -138,7 +138,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
     @Mock
     private LogicalTopologyService logicalTopologyService;
 
-    @InjectConfiguration("mock{threadPoolSize=1, threadPoolStopTimeoutMillis=100}")
+    @InjectConfiguration("mock{threadPoolSize=1}")
     private ComputeConfiguration computeConfiguration;
 
     @Mock

@@ -78,8 +78,7 @@ See the link:developers-guide/clients/overview[Clients] section for information 
     "compute" : {
       "queueMaxSize" : 2147483647,
       "statesLifetimeMillis" : 60000,
-      "threadPoolSize" : 10,
-      "threadPoolStopTimeoutMillis" : 10000
+      "threadPoolSize" : 10
     }
   }
 }
@@ -91,7 +90,6 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |queueMaxSize|2147483647|Maximum number of compute tasks in queue.| Yes | Yes | 1 - Integer.MAX_VALUE
 |statesLifetimeMillis|60000|The lifetime of job states after the job finishes, in milliseconds.| Yes | Yes | 0 - inf
 |threadPoolSize|10|The number of threads available to compute jobs.| Yes | Yes | 1 - Integer.MAX_VALUE
-|threadPoolStopTimeoutMillis|10000| Job thread pool stop timeout, in milliseconds.| Yes | Yes | 1 - inf 
 |======
 
 === Code Deployment Configuration

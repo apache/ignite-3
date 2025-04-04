@@ -33,8 +33,6 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 public class PriorityQueueExecutor {
     private static final long THREAD_KEEP_ALIVE_SECONDS = 60;
 
-    private final ComputeConfiguration configuration;
-
     private final ComputeThreadPoolExecutor executor;
 
     private final ComputeStateMachine stateMachine;
@@ -50,7 +48,6 @@ public class PriorityQueueExecutor {
             ThreadFactory threadFactory,
             ComputeStateMachine stateMachine
     ) {
-        this.configuration = configuration;
         this.stateMachine = stateMachine;
         BlockingQueue<Runnable> workQueue = new BoundedPriorityBlockingQueue<>(() -> configuration.queueMaxSize().value());
         executor = new ComputeThreadPoolExecutor(
@@ -97,6 +94,6 @@ public class PriorityQueueExecutor {
      * Shutdown executor. After shutdown executor is not usable anymore.
      */
     public void shutdown() {
-        executor.shutdown(configuration.threadPoolStopTimeoutMillis().value());
+        executor.shutdown();
     }
 }
