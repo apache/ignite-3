@@ -192,8 +192,8 @@ public class CommitManyWritesBenchmark {
         RocksDbProfileView rocksDbProfileView = mock(RocksDbProfileView.class);
 
         when(rocksDbProfileView.name()).thenReturn(STORAGE_PROFILE_NAME);
-        when(rocksDbProfileView.size()).thenReturn(16777216L);
-        when(rocksDbProfileView.writeBufferSize()).thenReturn(16777216L);
+        when(rocksDbProfileView.sizeBytes()).thenReturn(16777216L);
+        when(rocksDbProfileView.writeBufferSizeBytes()).thenReturn(16777216L);
 
         when(config.profiles()).thenReturn(profilesTree);
         when(profilesTree.value()).thenReturn(profilesView);

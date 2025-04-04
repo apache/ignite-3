@@ -133,10 +133,10 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final int YIELD_RESULT = 10;
     private static final int ANOTHER_YIELD_RESULT = 20;
 
-    @InjectConfiguration("mock.retryTimeout = 10000")
+    @InjectConfiguration("mock.retryTimeoutMillis = 10000")
     private RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.idleSafeTimeSyncInterval = 100")
+    @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100")
     private SystemDistributedConfiguration systemConfiguration;
 
     @InjectExecutorService
@@ -452,7 +452,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             assertThat(node.clockService.waitFor(
                     new HybridTimestamp(
-                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeout().value()
+                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeoutMillis().value()
                                     + node.clockService.maxClockSkewMillis(),
                             0
                     )
@@ -460,7 +460,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         HybridTimestamp evictionTimestamp = node0ClockService.now().subtractPhysicalTime(
-                raftConfiguration.retryTimeout().value() + node0ClockService.maxClockSkewMillis()
+                raftConfiguration.retryTimeoutMillis().value() + node0ClockService.maxClockSkewMillis()
         );
 
         assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());

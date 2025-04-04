@@ -93,7 +93,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     private static PageIoRegistry ioRegistry;
 
-    @InjectConfiguration("mock : {checkpointThreads=1, interval=1000, intervalDeviation=0}")
+    @InjectConfiguration("mock : {checkpointThreads=1, intervalMillis=1000, intervalDeviationPercent=0}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @BeforeAll
@@ -247,7 +247,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testWaitCheckpointEvent() throws Exception {
-        checkpointConfig.interval().update(200L).get(100, MILLISECONDS);
+        checkpointConfig.intervalMillis().update(200L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = new Checkpointer(
                 "test",
@@ -277,7 +277,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
     @Test
     void testCheckpointBody() throws Exception {
-        checkpointConfig.interval().update(100L).get(100, MILLISECONDS);
+        checkpointConfig.intervalMillis().update(100L).get(100, MILLISECONDS);
 
         Checkpointer checkpointer = spy(new Checkpointer(
                 "test",
@@ -296,7 +296,7 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
                 .futureFor(FINISHED)
                 .whenComplete((unused, throwable) -> {
                     try {
-                        checkpointConfig.interval().update(10_000L).get(100, MILLISECONDS);
+                        checkpointConfig.intervalMillis().update(10_000L).get(100, MILLISECONDS);
 
                         verify(checkpointer, times(1)).doCheckpoint();
 
@@ -442,24 +442,24 @@ public class CheckpointerTest extends BaseIgniteAbstractTest {
 
         // Checks case 0 deviation.
 
-        checkpointConfig.intervalDeviation().update(0).get(100, MILLISECONDS);
+        checkpointConfig.intervalDeviationPercent().update(0).get(100, MILLISECONDS);
 
-        checkpointConfig.interval().update(1_000L).get(100, MILLISECONDS);
+        checkpointConfig.intervalMillis().update(1_000L).get(100, MILLISECONDS);
         assertEquals(1_000, checkpointer.nextCheckpointInterval());
 
-        checkpointConfig.interval().update(2_000L).get(100, MILLISECONDS);
+        checkpointConfig.intervalMillis().update(2_000L).get(100, MILLISECONDS);
         assertEquals(2_000, checkpointer.nextCheckpointInterval());
 
         // Checks for non-zero deviation.
 
-        checkpointConfig.intervalDeviation().update(10).get(100, MILLISECONDS);
+        checkpointConfig.intervalDeviationPercent().update(10).get(100, MILLISECONDS);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),
                 allOf(greaterThanOrEqualTo(1_900L), lessThanOrEqualTo(2_100L))
         );
 
-        checkpointConfig.intervalDeviation().update(20).get(100, MILLISECONDS);
+        checkpointConfig.intervalDeviationPercent().update(20).get(100, MILLISECONDS);
 
         assertThat(
                 checkpointer.nextCheckpointInterval(),

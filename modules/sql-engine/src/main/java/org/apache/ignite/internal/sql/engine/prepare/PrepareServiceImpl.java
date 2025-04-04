@@ -149,7 +149,7 @@ public class PrepareServiceImpl implements PrepareService {
                 clusterCfg.planner().estimatedNumberOfQueries().value(),
                 cacheFactory,
                 new DdlSqlToCommandConverter(),
-                clusterCfg.planner().maxPlanningTime().value(),
+                clusterCfg.planner().maxPlanningTimeMillis().value(),
                 nodeCfg.planner().threadCount().value(),
                 metricManager,
                 schemaManager

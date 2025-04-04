@@ -409,7 +409,7 @@ public class LeaseUpdater {
 
             leaseUpdateStatistics = new LeaseStats();
 
-            long leaseExpirationInterval = replicationConfiguration.leaseExpirationInterval().value();
+            long leaseExpirationInterval = replicationConfiguration.leaseExpirationIntervalMillis().value();
 
             long outdatedLeaseThreshold = currentTime.getPhysical() + leaseExpirationInterval / 2;
 
@@ -650,7 +650,7 @@ public class LeaseUpdater {
         ) {
             HybridTimestamp startTs = clockService.now();
 
-            long interval = replicationConfiguration.leaseAgreementAcceptanceTimeLimit().value();
+            long interval = replicationConfiguration.leaseAgreementAcceptanceTimeLimitMillis().value();
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + interval, 0);
 

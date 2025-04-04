@@ -33,12 +33,12 @@ public class WebhookSinkRetryPolicyConfigurationSchema {
     /** Base delay between retry attempt, in milliseconds. */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public final long initBackoff = TimeUnit.SECONDS.toMillis(1L);
+    public final long initBackoffMillis = TimeUnit.SECONDS.toMillis(1L);
 
     /** Maximum delay between retry attempt, in milliseconds. */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public final long maxBackoff = TimeUnit.SECONDS.toMillis(5L);
+    public final long maxBackoffMillis = TimeUnit.SECONDS.toMillis(5L);
 
     /** Delay multiplier. */
     @Value(hasDefault = true)

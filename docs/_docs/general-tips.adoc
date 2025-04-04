@@ -64,8 +64,8 @@ You can get information about the data region by using the `cluster config show 
       "compactionThreads" : 4,
       "frequency" : 180000,
       "frequencyDeviation" : 40,
-      "logReadLockThresholdTimeout" : 0,
-      "readLockTimeout" : 10000,
+      "logReadLockThresholdTimeoutMillis" : 0,
+      "readLockTimeoutMillis" : 10000,
       "useAsyncFileIoFactory" : true
     },
     "defaultRegion" : {
@@ -75,7 +75,7 @@ You can get information about the data region by using the `cluster config show 
       "replacementMode" : "CLOCK",
       "size" : 268435456
     },
-    "pageSize" : 16384,
+    "pageSizeBytes" : 16384,
     "regions" : [ ]
   }
 }

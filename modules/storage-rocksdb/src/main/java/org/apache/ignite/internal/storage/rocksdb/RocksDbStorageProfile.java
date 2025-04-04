@@ -49,9 +49,9 @@ public class RocksDbStorageProfile {
      * Start the profile.
      */
     public void start() {
-        long writeBufferSize = storageProfileConfig.writeBufferSize();
+        long writeBufferSize = storageProfileConfig.writeBufferSizeBytes();
 
-        long totalCacheSize = storageProfileConfig.size() + writeBufferSize;
+        long totalCacheSize = storageProfileConfig.sizeBytes() + writeBufferSize;
 
         cache = new LRUCache(totalCacheSize, -1, false);
 

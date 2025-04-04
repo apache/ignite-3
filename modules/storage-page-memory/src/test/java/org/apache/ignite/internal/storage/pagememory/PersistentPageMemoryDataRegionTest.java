@@ -54,34 +54,34 @@ public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
         PersistentPageMemoryProfileView dataRegionConfigView = (PersistentPageMemoryProfileView) dataRegionConfig.value();
 
         assertArrayEquals(
-                fill(new long[concurrencyLevel], dataRegionConfigView.size() / concurrencyLevel),
-                calculateSegmentSizes(dataRegionConfigView.size(), concurrencyLevel)
+                fill(new long[concurrencyLevel], dataRegionConfigView.sizeBytes() / concurrencyLevel),
+                calculateSegmentSizes(dataRegionConfigView.sizeBytes(), concurrencyLevel)
         );
-        dataRegionConfig().size().update(1024L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().sizeBytes().update(1024L).get(1, TimeUnit.SECONDS);
 
         assertArrayEquals(
                 fill(new long[concurrencyLevel], MiB),
-                calculateSegmentSizes(((PersistentPageMemoryProfileView) dataRegionConfig.value()).size(), concurrencyLevel)
+                calculateSegmentSizes(((PersistentPageMemoryProfileView) dataRegionConfig.value()).sizeBytes(), concurrencyLevel)
         );
     }
 
     @Test
     void testCalculateCheckpointBufferSize() throws Exception {
-        dataRegionConfig().size().update(GiB / 4L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().sizeBytes().update(GiB / 4L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfigView().size()));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfigView().sizeBytes()));
 
-        dataRegionConfig().size().update(GiB / 2L).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().sizeBytes().update(GiB / 2L).get(1, TimeUnit.SECONDS);
 
-        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfigView().size()));
+        assertEquals(GiB / 4L, calculateCheckpointBufferSize(dataRegionConfigView().sizeBytes()));
 
-        dataRegionConfig().size().update(6L * GiB).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().sizeBytes().update(6L * GiB).get(1, TimeUnit.SECONDS);
 
-        assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfigView().size()));
+        assertEquals((6L * GiB) / 4L, calculateCheckpointBufferSize(dataRegionConfigView().sizeBytes()));
 
-        dataRegionConfig().size().update(8L * GiB).get(1, TimeUnit.SECONDS);
+        dataRegionConfig().sizeBytes().update(8L * GiB).get(1, TimeUnit.SECONDS);
 
-        assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfigView().size()));
+        assertEquals(2L * GiB, calculateCheckpointBufferSize(dataRegionConfigView().sizeBytes()));
     }
 
     private long[] fill(long[] arr, long v) {

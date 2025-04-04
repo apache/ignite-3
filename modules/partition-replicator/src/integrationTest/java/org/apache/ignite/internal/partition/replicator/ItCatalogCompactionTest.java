@@ -155,8 +155,8 @@ public class ItCatalogCompactionTest extends ItAbstractColocationTest {
      */
     private void updateLowWatermarkConfiguration(long dataAvailabilityTime, long updateInterval) {
         CompletableFuture<?> updateFuture = gcConfiguration.lowWatermark().change(change -> {
-            change.changeDataAvailabilityTime(dataAvailabilityTime);
-            change.changeUpdateInterval(updateInterval);
+            change.changeDataAvailabilityTimeMillis(dataAvailabilityTime);
+            change.changeUpdateIntervalMillis(updateInterval);
         });
 
         assertThat(updateFuture, willSucceedFast());

@@ -42,7 +42,7 @@ Node configuration is changed from the CLI tool.  To change the configuration:
 +
 [source, shell]
 ----
-node config update ignite.clientConnector.connectTimeout=10000
+node config update ignite.clientConnector.connectTimeoutMillis=10000
 ----
 +
 - To update the configuration of a node other than the default one, run the `node config update` command with the target node explicitly specified. For example, for node named `node1`:
@@ -119,9 +119,9 @@ See the link:developers-guide/clients/overview[Clients] section for information 
   "ignite" : {
     "network" : {
       "fileTransfer" : {
-        "chunkSize" : 1048576,
+        "chunkSizeBytes" : 1048576,
         "maxConcurrentRequests" : 4,
-        "responseTimeout" : 10000,
+        "responseTimeoutMillis" : 10000,
         "threadPoolSize" : 8
       },
       "inbound" : {
@@ -133,14 +133,14 @@ See the link:developers-guide/clients/overview[Clients] section for information 
       },
       "listenAddress" : "",
       "membership" : {
-        "failurePingInterval" : 1000,
-        "membershipSyncInterval" : 30000,
+        "failurePingIntervalMillis" : 1000,
+        "membershipSyncIntervalMillis" : 30000,
         "scaleCube" : {
           "failurePingRequestMembers" : 3,
-          "gossipInterval" : 200,
+          "gossipIntervalMillis" : 200,
           "gossipRepeatMult" : 3,
           "membershipSuspicionMultiplier" : 5,
-          "metadataTimeout" : 3000
+          "metadataTimeoutMillis" : 3000
         }
       },
       "nodeFinder" : {
@@ -153,8 +153,8 @@ See the link:developers-guide/clients/overview[Clients] section for information 
         "tcpNoDelay" : true
       },
       "port" : 3344,
-      "shutdownQuietPeriod" : 0,
-      "shutdownTimeout" : 15000,
+      "shutdownQuietPeriodMillis" : 0,
+      "shutdownTimeoutMillis" : 15000,
       "ssl" : {
         "ciphers" : "",
         "clientAuth" : "none",
@@ -179,9 +179,9 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 |fileTransfer||File transfer configuration.|||
-|fileTransfer.chunkSize|1048576|Chunk size in bytes.| Yes | Yes | 1 - 1 - Integer.MAX_VALUE
+|fileTransfer.chunkSizeBytes|1048576|Chunk size in bytes.| Yes | Yes | 1 - 1 - Integer.MAX_VALUE
 |fileTransfer.maxConcurrentRequests|4|Maximum number of concurrent requests.| Yes | Yes | 1 - Integer.MAX_VALUE
-|fileTransfer.responseTimeout|10000|Node response timeout during file transfer.| Yes | Yes | 0 - inf
+|fileTransfer.responseTimeoutMillis|10000|Node response timeout during file transfer.| Yes | Yes | 0 - inf
 |fileTransfer.threadPoolSize|8|File sender thread pool size.| Yes | Yes | 1 - Integer.MAX_VALUE
 |inbound||Server socket configuration. See link:https://man7.org/linux/man-pages/man7/tcp.7.html[TCP documentation] and link:https://man7.org/linux/man-pages/man7/socket.7.html[socket documentation] for more information.|||
 |inbound.soBacklog|128| The size of the backlog.| Yes | Yes | 0 - Integer.MAX_VALUE
@@ -191,14 +191,14 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |inbound.tcpNoDelay|true| Defines if the TCP no delay option is used.| Yes | Yes | true, false
 |listenAddress| |Address (IP or hostname) to listen on. Listens on all interfaces if empty.| Yes | Yes | A valid address
 |membership||Node membership configuration.|||
-|membership.failurePingInterval|1000| Failure detector ping interval.| Yes | Yes | 0 - inf
-|membership.membershipSyncInterval|30000|Periodic membership data synchronization interval.| Yes | Yes | 0 - inf
+|membership.failurePingIntervalMillis|1000| Failure detector ping interval.| Yes | Yes | 0 - inf
+|membership.membershipSyncIntervalMills|30000|Periodic membership data synchronization interval.| Yes | Yes | 0 - inf
 |membership.scaleCube|| ScaleCube-specific configuration.|||
 |scaleCube.failurePingRequestMembers|3|Number of members that are randomly selected by a cluster node for an indirect ping request.| Yes | Yes | 1 - inf
-|scaleCube.gossipInterval|200|link:https://en.wikipedia.org/wiki/Gossip_protocol[Gossip] spreading interval.| Yes | Yes | 1 - inf
+|scaleCube.gossipIntervalMillis|200|link:https://en.wikipedia.org/wiki/Gossip_protocol[Gossip] spreading interval.| Yes | Yes | 1 - inf
 |scaleCube.gossipRepeatMult|3|Gossip repeat multiplier.| Yes | Yes | 1 - inf
 |scaleCube.membershipSuspicionMultiplier|5|The multiplier that is used to calculate the timeout after which the node is considered dead.| Yes | Yes | 1 - inf
-|scaleCube.metadataTimeout|3000|The timeout on metadata update operation, in milliseconds.| Yes | Yes | 1 - inf
+|scaleCube.metadataTimeoutMillis|3000|The timeout on metadata update operation, in milliseconds.| Yes | Yes | 1 - inf
 |nodeFinder||Configuration for how the node finds other nodes in the cluster.|||
 |nodeFinder.netClusterNodes| |Addresses of all nodes in the cluster in the host:port format.| Yes | Yes | Addresses in a valid format
 |nodeFinder.type|STATIC|Node finder type.| Yes | Yes | STATIC is the only currently supported type
@@ -207,8 +207,8 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |outbound.soLinger|0|Defines how long the closed socket should linger.| Yes | Yes | 0-65535
 |outbound.tcpNoDelay|true| Defines if the TCP no delay option is used.| Yes | Yes | true, false
 |port|3344|Node port.| Yes | Yes | A valid port number
-|shutdownQuietPeriod|0| The period during node shutdown when Ignite ensures that no tasks are submitted for the before the node shuts itself down. If a task is submitted during this period, it is guaranteed to be accepted.| Yes | No | 0 - inf
-|shutdownTimeout|15000|The maximum amount of time until the node is shut down regardless of if new network messages were submitted during shutdownQuietPeriod.| Yes | No | 0 - inf
+|shutdownQuietPeriodMillis|0| The period during node shutdown when Ignite ensures that no tasks are submitted for the before the node shuts itself down. If a task is submitted during this period, it is guaranteed to be accepted.| Yes | No | 0 - inf
+|shutdownTimeoutMillis|15000|The maximum amount of time until the node is shut down regardless of if new network messages were submitted during shutdownQuietPeriodMillis.| Yes | No | 0 - inf
 |ssl.ciphers| "" |List of ciphers to enable, comma-separated. Empty for automatic cipher selection.| Yes | Yes | TLS_AES_256_GCM_SHA384, etc. (standard cipher ids)
 |ssl.clientAuth| |Whether the SSL client authentication is enabled and whether it is mandatory.| Yes | Yes | non, optional, require
 |ssl.enabled|false|Defines if SSL is enabled for the node.| Yes | Yes | true, false
@@ -253,10 +253,10 @@ See the link:developers-guide/clients/overview[Clients] section for information 
       "logPath" : "",
       "logStripesCount" : 4,
       "logYieldStrategy" : false,
-      "responseTimeout" : 3000,
-      "retryDelay" : 200,
-      "retryTimeout" : 10000,
-      "rpcInstallSnapshotTimeout" : 300000,
+      "responseTimeoutMillis" : 3000,
+      "retryDelayMillis" : 200,
+      "retryTimeoutMillis" : 10000,
+      "rpcInstallSnapshotTimeoutMillis" : 300000,
       "stripes" : 10,
       "volatileRaft" : {
         "logStorage" : {
@@ -275,10 +275,10 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |logPath| | Directory where the RAFT log is stored. | Yes | Yes | A valid path
 |logStripesCount|4| Amount of stripes in disruptors of log manager | Yes | Yes | 1 - inf
 |logYieldStrategy|false| If true, the non-blocking strategy is used in the Disruptor of log manager. | Yes | Yes | true, false
-|responseTimeout|3000| Period for which the RAFT client will try to receive a response from a remote peer.| Yes | No | 0 - inf
-|retryDelay|200| Delay between re-sends of a failed request by the RAFT client. | Yes | No | 0 - inf
-|retryTimeout|10000| Period for which the RAFT client will try to receive a successful response from a remote peer.| Yes | No | 0 - inf
-|installSnapshotTimeout|300000|The maximum period allowed for transferring a RAFT snapshot to a recipient and installing it.| Yes | Yes | 1 - inf
+|responseTimeoutMillis|3000| Period for which the RAFT client will try to receive a response from a remote peer.| Yes | No | 0 - inf
+|retryDelayMillis|200| Delay between re-sends of a failed request by the RAFT client. | Yes | No | 0 - inf
+|retryTimeoutMillis|10000| Period for which the RAFT client will try to receive a successful response from a remote peer.| Yes | No | 0 - inf
+|installSnapshotTimeoutMillis|300000|The maximum period allowed for transferring a RAFT snapshot to a recipient and installing it.| Yes | Yes | 1 - inf
 |volatileRaft.logStorageBudget.name|unlimited|The name of the log storage budget used by the node.| Yes | No, but the new values are only applied to new partitions | unlimited, entry-count
 |======
 
@@ -404,7 +404,7 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
     "storage" : {
       "engines" : {
         "aimem" : {
-          "pageSize" : 16384
+          "pageSizeBytes" : 16384
         },
         "aipersist" : {
           "checkpoint" : {
@@ -413,11 +413,11 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
             "compactionThreads" : 4,
             "frequency" : 180000,
             "frequencyDeviation" : 40,
-            "logReadLockThresholdTimeout" : 0,
-            "readLockTimeout" : 10000,
+            "logReadLockThresholdTimeoutMillis" : 0,
+            "readLockTimeoutMillis" : 10000,
             "useAsyncFileIoFactory" : true
           },
-          "pageSize" : 16384
+          "pageSizeBytes" : 16384
         },
         "rocksdb" : {
           "flushDelayMillis" : 100
@@ -426,7 +426,7 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
         "engine" : "aipersist",
         "name" : "default",
         "replacementMode" : "CLOCK",
-        "size" : 268435456
+        "sizeBytes" : 268435456
       }, 
       {
         "engine" : "aimem",
@@ -440,14 +440,14 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
           "mode" : "DISABLED",
           "threshold" : "90%"
         },
-        "initSize" : 268435456,
-        "maxSize" : 268435456
+        "initSizeBytes" : 268435456,
+        "maxSizeBytes" : 268435456
       }, 
       {
         "engine" : "rocksdb",
         "name" : "default_rocksdb",
-        "size" : 268435456,
-        "writeBufferSize" : 67108864
+        "sizeBytes" : 268435456,
+        "writeBufferSizeBytes" : 67108864
       } ]
     }
   }
@@ -459,17 +459,17 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
 
 |engines.aimem|| Aimem configuration.|||
-|aimem.pageSize|16384|The size of pages in the storage, in bytes.| Yes | Yes | 1024-16384
+|aimem.pageSizeBytes|16384|The size of pages in the storage, in bytes.| Yes | Yes | 1024-16384
 |engines.aipersist||Aipersist configuration.|||
 |aipersist.checkpoint.checkpointDelayMillis|200| Delay before staring a checkpoint after receiving the command.| Yes | No | 0 - inf
 |aipersist.checkpoint.checkpointThreads|4| Number of CPU threads dedicated to checkpointing.| Yes | Yes | 1 - inf
 |aipersist.checkpoint.compactionThreads|4| Number of CPU threads dedicated to data compaction.| Yes | Yes | 1 - inf
-|aipersist.checkpoint.interval|180000|Interval between checkpoints in milliseconds.| Yes | No | 0 - inf
-|aipersist.checkpoint.intervalDeviation|40| Jitter that will be added or subtracted from time period till next scheduled checkpoint (percentage).| Yes | No | 0-100
-|aipersist.checkpoint.logReadLockThresholdTimeout|0| Threshold for logging long read locks, in milliseconds.| Yes | Yes | 0 - inf
-|aipersist.checkpoint.readLockTimeout|10000| Timeout for checkpoint read lock acquisition, in milliseconds.| Yes | Yes | 0 - inf
+|aipersist.checkpoint.intervalMillis|180000|Interval between checkpoints in milliseconds.| Yes | No | 0 - inf
+|aipersist.checkpoint.intervalDeviationPercent|40| Jitter that will be added or subtracted from time period till next scheduled checkpoint (percentage).| Yes | No | 0-100
+|aipersist.checkpoint.logReadLockThresholdTimeoutMillis|0| Threshold for logging long read locks, in milliseconds.| Yes | Yes | 0 - inf
+|aipersist.checkpoint.readLockTimeoutMillis|10000| Timeout for checkpoint read lock acquisition, in milliseconds.| Yes | Yes | 0 - inf
 |aipersist.checkpoint.useAsyncFileIoFactory|true| If Ignite uses asynchronous file I/O operations provider.| Yes | Yes | true, false
-|aipersist.pageSize|16384| The size of pages in the storage, in bytes.| No | N/A | 1024-16384
+|aipersist.pageSizeBytes|16384| The size of pages in the storage, in bytes.| No | N/A | 1024-16384
 |engines.rocksdb|| Rocksdb configuration.|||
 |rocksdb.flushDelayMillis|100| Delay before executing a flush triggered by RAFT. | Yes | Refreshed on engine registration | 0 - inf
 |profiles||The list of available storage profiles.||| 
@@ -477,10 +477,10 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
 |name| | User-defined profile name.| No | N/A | A valid name
 |replacementMode|CLOCK|Sets the page replacement algorithm.| Yes | Yes | CLOCK, RANDOM_LRU, SEGMENTED_LRU
 |size|256Mb| Memory (RAM) region size. | Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
-|aipersist.size|268435456| Memory (offheap) region size. | Yes | Yes | Min 268435456, max defined by the addressable memory limit of the OS
+|aipersist.sizeBytes|268435456| Memory (offheap) region size. | Yes | Yes | Min 268435456, max defined by the addressable memory limit of the OS
 |aipersist.replacementMode|CLOCK|Sets the page replacement algorithm.| Yes | Yes | CLOCK, RANDOM_LRU, SEGMENTED_LRU
-|aimem.initSize|268435456| Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
-|aimem.maxSize|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
+|aimem.initSizeBytes|268435456| Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
+|aimem.maxSizeBytes|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
 |aimem.eviction.mode|DISABLED| Eviction mode.| Yes | No | DISABLED, HISTORY_ONLY, RANDOM
 |aimem.eviction.threshold|90% a| Threshold for eviction initiation. A number with a dimension identifier:
 
@@ -496,8 +496,8 @@ For instance, "90%" means that the page memory starts eviction only after 90% of
 |aimem.eviction.interval|60000| Interval between the data eviction iterations.| Yes | No | 1 - inf
 |aimem.eviction.lwmThreshold|1000| If the low watermark is less than evictionLwmThreshold from the current timestamp, the row eviction is triggered.| Yes | No | 0 - inf
 |aimem.eviction.batchSize|60000| Eviction batch size in rows.| Yes | No | 1 - inf
-|rocksdb.size|268435456| Size of the rocksdb offheap cache.| Yes | Yes | Min 0, max defined by the addressable memory limit of the OS
-|rocksdb.writeBufferSize|67108864| Size of rocksdb write buffer.| Yes | Yes | Min 1, max defined by the addressable memory limit of the OS
+|rocksdb.sizeBytes|268435456| Size of the rocksdb offheap cache.| Yes | Yes | Min 0, max defined by the addressable memory limit of the OS
+|rocksdb.writeBufferSizeBytes|67108864| Size of rocksdb write buffer.| Yes | Yes | Min 1, max defined by the addressable memory limit of the OS
 |======
 
 
@@ -518,9 +518,9 @@ NOTE: Note that the property names are in `camelCase`.
       "partitionsLogPath" : "",
       "properties":[],
       "criticalWorkers" : {
-        "livenessCheckInterval" : 200,
-        "maxAllowedLag" : 500,
-        "nettyThreadsHeartbeatInterval" : 100
+        "livenessCheckIntervalMillis" : 200,
+        "maxAllowedLagMillis" : 500,
+        "nettyThreadsHeartbeatIntervalMillis" : 100
       }
     }
   }
@@ -536,8 +536,8 @@ NOTE: Note that the property names are in `camelCase`.
 |partitionsBasePath| The path data partitions are saved to on the node. By default, partitions are stored in `{IGNITE_HOME}/work/partitions`. It is recommended to only change this path on an empty node.| | Yes | Yes | Valid absolute path.
 |partitionsLogPath| The path RAFT log the partitions are stored at. By default, this log is stored in `{system.partitionsBasePath}/log`. It is recommended to only change this path on an empty node. | | Yes | Yes | Valid absolute path.
 |properties| System properties used by the Ignite components.| | Yes | Yes | An array of properties.
-|criticalWorkers.livenessCheckInterval|200|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLag)
-|criticalWorkers.maxAllowedLag|500|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckInterval)
-|criticalWorkers.nettyThreadsHeartbeatInterval|100|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
+|criticalWorkers.livenessCheckIntervalMillis|200|Interval between liveness checks (ms) performed by the critical worker infrastructure. | Yes | Yes | 1 - inf (not greater than half of maxAllowedLagMillis)
+|criticalWorkers.maxAllowedLagMillis|500|Maximum allowed delay from the last heartbeat to the current time (ms). If exceeded, the critical worker is considered to be blocked.| Yes | No | 1 - inf (should be at least twice livenessCheckIntervalMillis)
+|criticalWorkers.nettyThreadsHeartbeatIntervalMillis|100|Interval between heartbeats used to update the Netty threads' heartbeat timestamps (ms).| Yes | Yes | 1 - inf
 
 |======

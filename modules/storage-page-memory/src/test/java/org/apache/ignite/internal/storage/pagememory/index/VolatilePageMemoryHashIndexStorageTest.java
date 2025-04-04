@@ -58,7 +58,7 @@ class VolatilePageMemoryHashIndexStorageTest extends AbstractPageMemoryHashIndex
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engine.configuration().pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSizeBytes().value());
     }
 
     @AfterEach

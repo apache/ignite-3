@@ -143,7 +143,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration("mock.idleSafeTimeSyncInterval = 100") SystemDistributedConfiguration systemConfiguration
+            @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100") SystemDistributedConfiguration systemConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
 

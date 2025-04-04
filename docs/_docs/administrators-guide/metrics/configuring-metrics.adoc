@@ -110,7 +110,7 @@ OpenTelemetry exporter created by this command will look like this:
         exporterName=otlp
         headers=[]
         name=test
-        period=30000
+        periodMillis=30000
         protocol="http/protobuf"
         ssl {
             ciphers=""
@@ -143,7 +143,7 @@ Below are the descriptions of configuration parameters:
 |exporterName|Exporter name. Must be `otlp` to use OpenTelemetry.|
 |headers|Request headers, if any.|
 |name|User-defined exporter name, used to refer to it in Ignite.|
-|period|Export interval for the metrics, in milliseconds.|30000
+|periodMillis|Export interval for the metrics, in milliseconds.|30000
 |protocol|The protocol that is used to send OpenTelemetry data. Possible values: `grpc`, `http/protobuf`.|`grpc`
 |ssl.ciphers|List of ciphers to enable, comma-separated. Empty for automatic cipher selection.|
 |ssl.clientAuth|Whether the SSL client authentication is enabled and whether it is mandatory.|

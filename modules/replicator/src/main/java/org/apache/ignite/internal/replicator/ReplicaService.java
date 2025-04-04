@@ -138,7 +138,7 @@ public class ReplicaService {
         messagingService.invoke(
                 targetNodeConsistentId,
                 req,
-                replicationConfiguration.rpcTimeout().value()
+                replicationConfiguration.rpcTimeoutMillis().value()
         ).whenComplete((response, throwable) -> {
             if (throwable != null) {
                 throwable = unwrapCause(throwable);
@@ -183,7 +183,7 @@ public class ReplicaService {
                             messagingService.invoke(
                                     targetNodeConsistentId,
                                     awaitReplicaReq,
-                                    replicationConfiguration.rpcTimeout().value()
+                                    replicationConfiguration.rpcTimeoutMillis().value()
                             ).whenComplete((networkMessage, e) -> {
                                 if (e != null) {
                                     awaitReplicaFut.completeExceptionally(e);
@@ -241,7 +241,7 @@ public class ReplicaService {
                             return null;
                         }, partitionOperationsExecutor);
                     } else {
-                        int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryInterval().value();
+                        int replicaOperationRetryInterval = replicationConfiguration.replicaOperationRetryIntervalMillis().value();
                         if (retryExecutor != null && matchAny(unwrapCause(errResp.throwable()), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR)
                                 && replicaOperationRetryInterval > 0) {
                             retryExecutor.schedule(
