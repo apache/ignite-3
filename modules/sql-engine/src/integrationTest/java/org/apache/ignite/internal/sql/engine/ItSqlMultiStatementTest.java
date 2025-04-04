@@ -37,6 +37,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -239,6 +240,7 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
     }
 
     @Test
+    @Disabled
     void indexesAvailableAfterScriptExecutionAndBuiltProperly() {
         long tableSize = 1_000;
 

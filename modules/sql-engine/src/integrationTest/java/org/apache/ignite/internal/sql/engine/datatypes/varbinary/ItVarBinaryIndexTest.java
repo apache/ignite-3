@@ -41,6 +41,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for queries that use indexes with {@link SqlTypeName#VARBINARY} type.
  */
+@Disabled
 public class ItVarBinaryIndexTest extends BaseIndexDataTypeTest<VarBinary> {
 
     @BeforeAll

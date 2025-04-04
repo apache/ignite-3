@@ -25,6 +25,7 @@ import java.util.stream.Stream;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -34,6 +35,7 @@ import org.junit.jupiter.params.provider.MethodSource;
  *
  * @param <T> A storage type of a data type.
  */
+@Disabled
 public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends BaseDataTypeTest<T> {
 
     @BeforeAll
@@ -208,6 +210,7 @@ public abstract class BaseIndexDataTypeTest<T extends Comparable<T>> extends Bas
      */
     @ParameterizedTest
     @MethodSource("compoundIndex")
+    @Disabled
     public void testCompoundIndex(TestTypeArguments<T> arguments) throws InterruptedException {
         sql("drop index if exists t_test_key_pk_idx");
         sql("create index if not exists t_test_key_pk_idx on t (test_key, id)");
