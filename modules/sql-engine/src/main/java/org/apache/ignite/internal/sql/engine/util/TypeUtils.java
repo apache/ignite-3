@@ -40,6 +40,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -226,6 +227,8 @@ public class TypeUtils {
     /**
      * Converts the given value to its presentation used by the execution engine.
      */
+    // TODO https://issues.apache.org/jira/browse/IGNITE-25037: Drop this method.
+    @Deprecated(forRemoval = true)
     public static @Nullable Object toInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
@@ -272,15 +275,100 @@ public class TypeUtils {
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
-            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
-            return customType != null ? customType : val;
+            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
         }
     }
 
     /**
-     * FromInternal.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Converts the given value to its presentation used by the execution engine.
      */
+    public static Object toInternal(Object val, NativeTypeSpec spec) {
+        switch (spec) {
+            case INT8: {
+                assert val instanceof Byte : val.getClass();
+                return val;
+            }
+            case INT16: {
+                assert val instanceof Short : val.getClass();
+                return val;
+            }
+            case INT32: {
+                assert val instanceof Integer : val.getClass();
+                return val;
+            }
+            case INT64: {
+                assert val instanceof Long : val.getClass();
+                return val;
+            }
+            case FLOAT: {
+                assert val instanceof Float : val.getClass();
+                return val;
+            }
+            case DOUBLE: {
+                assert val instanceof Double : val.getClass();
+                return val;
+            }
+            case DECIMAL: {
+                assert val instanceof BigDecimal : val.getClass();
+                return val;
+            }
+            case UUID: {
+                assert val instanceof UUID : val.getClass();
+                return val;
+            }
+            case STRING: {
+                assert val instanceof String : val.getClass();
+                return val;
+            }
+            case BYTES: {
+                if (val instanceof String) {
+                    return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
+                } else if (val instanceof byte[]) {
+                    return new ByteString((byte[]) val);
+                } else {
+                    assert val instanceof ByteString : val.getClass();
+                    return val;
+                }
+            }
+            case DATE: {
+                assert val instanceof LocalDate : val.getClass();
+                return (int) ((LocalDate) val).toEpochDay();
+            }
+            case TIME: {
+                assert val instanceof LocalTime : val.getClass();
+                return (int) (TimeUnit.NANOSECONDS.toMillis(((LocalTime) val).toNanoOfDay()));
+            }
+            case DATETIME: {
+                assert val instanceof LocalDateTime : val.getClass();
+                var dt = (LocalDateTime) val;
+                return TimeUnit.SECONDS.toMillis(dt.toEpochSecond(ZoneOffset.UTC)) + TimeUnit.NANOSECONDS.toMillis(dt.getNano());
+            }
+            case TIMESTAMP: {
+                assert val instanceof Instant : val.getClass();
+                return ((Instant) val).toEpochMilli();
+            }
+            case BOOLEAN:
+                assert val instanceof Boolean : val.getClass();
+                return val;
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23295 Support native types for DURATION and PERIOD
+            // case DURATION:
+            //     return TimeUnit.SECONDS.toMillis(((Duration) val).getSeconds())
+            //             + TimeUnit.NANOSECONDS.toMillis(((Duration) val).getNano());
+            // case PREIOD:
+            //     return (int) ((Period) val).toTotalMonths();
+
+            default: {
+                var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, spec);
+                return customType != null ? customType : val;
+            }
+        }
+    }
+
+    /**
+     * Converts the value from its presentation used by the execution engine.
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-23295 Remove this method.
+    @Deprecated(forRemoval = true)
     public static @Nullable Object fromInternal(@Nullable Object val, Type storageType) {
         if (val == null) {
             return null;
@@ -302,8 +390,49 @@ public class TypeUtils {
             var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
             assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
 
-            var customType = SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
-            return customType != null ? customType : val;
+            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
+        }
+    }
+
+    /**
+     * Converts the value from its presentation used by the execution engine.
+     */
+    public static Object fromInternal(Object val, NativeTypeSpec spec) {
+        switch (spec) {
+            case INT8:
+            case INT16:
+            case INT32:
+            case INT64:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case UUID:
+            case STRING:
+                return val;
+            case BYTES:
+                return ((ByteString) val).getBytes();
+            case DATE:
+                return LocalDate.ofEpochDay((Integer) val);
+            case TIME:
+                return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(Long.valueOf((Integer) val)));
+            case DATETIME:
+                return LocalDateTime.ofInstant(Instant.ofEpochMilli((Long) val), ZoneOffset.UTC);
+            case TIMESTAMP:
+                return Instant.ofEpochMilli((Long) val);
+            case BOOLEAN:
+                return val;
+            // TODO https://issues.apache.org/jira/browse/IGNITE-23295 Support native types for DURATION and PERIOD
+            // case DURATION: {
+            //     assert val instanceof Long;
+            //    return Duration.ofMillis((Long) val);
+            // }
+            // case PREIOD: {
+            //     assert val instanceof Integer;
+            //     return Period.of((Integer) val / 12, (Integer) val % 12, 0);
+            //     }
+            default: {
+                return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, spec);
+            }
         }
     }
 

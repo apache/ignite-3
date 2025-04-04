@@ -35,11 +35,9 @@ import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchemaTypes;
 import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -262,7 +260,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
 
             NativeType nativeType = RowSchemaTypes.toNativeType(schemaType);
 
-            value = TypeUtils.fromInternal(value, NativeTypeSpec.toClass(nativeType.spec(), schemaType.isNullable()));
+            value = TypeUtils.fromInternal(value, nativeType.spec());
 
             assert value != null : nativeType;
 
@@ -365,7 +363,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                 return null;
             }
 
-            return TypeUtils.toInternal(value, Commons.nativeTypeToClass(nativeType));
+            return TypeUtils.toInternal(value, nativeType.spec());
         }
 
         @Override
