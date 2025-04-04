@@ -67,7 +67,7 @@ public class BinaryTupleParser {
     private final int valueBase;
 
     /** Binary tuple. */
-    private final ByteBuffer buffer;
+    protected final ByteBuffer buffer;
 
     /**
      * Constructor.

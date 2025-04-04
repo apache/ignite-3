@@ -18,79 +18,95 @@
 package org.apache.ignite.internal.sql.engine.util;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
-import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
+import org.apache.ignite.internal.schema.InternalTupleEx;
 import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
 
 /**
- * A projected tuple that enriches {@link FieldDeserializingProjectedTuple} with extra columns.
+ * A projected tuple that enriches {@link ProjectedTuple} with extra columns.
  *
  * <p>Not thread safe!
  *
- * @see FieldDeserializingProjectedTuple
+ * @see ProjectedTuple
  */
-public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializingProjectedTuple {
+public class ExtendedProjectedTuple extends ProjectedTuple {
 
-    private final Int2ObjectMap<VirtualColumn> extraColumns;
+    private Int2ObjectMap<VirtualColumn> extraColumns;
 
     /**
      * Constructor.
      *
-     * @param schema A schema of the original tuple (represented by delegate). Used to read content of the delegate to build a
-     *         proper byte buffer which content satisfying the schema with regard to given projection.
      * @param delegate An original tuple to create projection from.
      * @param projection A projection. That is, desired order of fields in original tuple. In that projection, index of the array is
      *         an index of field in resulting projection, and an element of the array at that index is an index of column in original
      *         tuple.
      * @param extraColumns Extra columns.
      */
-    public ExtendedFieldDeserializingProjectedTuple(BinaryTupleSchema schema, InternalTuple delegate, int[] projection,
-            List<VirtualColumn> extraColumns) {
-        super(schema, delegate, projection);
+    public ExtendedProjectedTuple(InternalTupleEx delegate, int[] projection,
+            Int2ObjectMap<VirtualColumn> extraColumns) {
+        super(delegate, projection);
 
-        this.extraColumns = new Int2ObjectOpenHashMap<>(extraColumns.size());
-
-        extraColumns.forEach(c -> this.extraColumns.put(c.columnIndex(), c));
+        this.extraColumns = extraColumns;
     }
 
     @Override
     protected void normalize() {
-        var builder = new BinaryTupleBuilder(projection.length, 32, false);
+        int estimatedValueSize = 32;
+
+        if (delegate instanceof BinaryTuple) {
+            // Estimate total data size.
+            var stats = new Sink() {
+                int estimatedValueSize = 0;
+
+                @Override
+                public void nextElement(int index, int begin, int end) {
+                    estimatedValueSize += end - begin;
+                }
+            };
+
+
+            for (int columnIndex : projection) {
+                if (extraColumns.containsKey(columnIndex)) {
+                    stats.estimatedValueSize += 8;
+                    continue;
+                }
+                ((BinaryTuple) delegate).fetch(columnIndex, stats);
+            }
+            estimatedValueSize = stats.estimatedValueSize;
+        }
+
+        var builder = new BinaryTupleBuilder(projection.length, estimatedValueSize, false);
         var newProjection = new int[projection.length];
+
+        assert delegate instanceof InternalTupleEx;
+        InternalTupleEx delegate0 = (InternalTupleEx) delegate;
 
         for (int i = 0; i < projection.length; i++) {
             int col = projection[i];
-
             newProjection[i] = i;
 
             if (extraColumns.containsKey(col)) {
-                VirtualColumn column = extraColumns.get(col);
-
-                BinaryRowConverter.appendValue(builder, new Element(column.type(), true), column.value());
-
+                VirtualColumn virtualColumn = extraColumns.get(col);
+                BinaryRowConverter.appendValue(builder, virtualColumn.schemaType(), virtualColumn.value());
                 continue;
             }
 
-            Element element = schema.element(col);
-
-            BinaryRowConverter.appendValue(builder, element, schema.value(delegate, col));
+            delegate0.copyValue(builder, col);
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());
         projection = newProjection;
-        extraColumns.clear();
+        extraColumns = Int2ObjectMaps.emptyMap();
     }
 
     private boolean isExtraColumn(int col) {
