@@ -565,23 +565,17 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void setIndexAndTerm(long index, long term) {
-        rwLock.writeLock().lock();
-
         try (WriteBatch batch = new WriteBatch()) {
             data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
 
             db.write(writeOptions, batch);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 
     @Override
     public @Nullable IndexWithTerm getIndexWithTerm() {
-        rwLock.readLock().lock();
-
         try {
             byte[] bytes = data.get(INDEX_AND_TERM_KEY);
 
@@ -592,8 +586,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return new IndexWithTerm(bytesToLong(bytes, 0), bytesToLong(bytes, Long.BYTES));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
@@ -1281,8 +1273,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
-        rwLock.readLock().lock();
-
         try {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
@@ -1295,15 +1285,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, "Error reading revision timestamp: " + revision, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
     @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
-        rwLock.readLock().lock();
-
         // Find a revision with timestamp lesser or equal to the timestamp.
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
             rocksIterator.seekForPrev(hybridTsToArray(timestamp));
@@ -1312,15 +1298,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             byte[] tsValue = rocksIterator.value();
 
-            if (tsValue.length == 0) {
+            if (tsValue.length == 0) { // TODO The fuck? How can it be empty?
                 throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
             return bytesToLong(tsValue);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
@@ -1395,16 +1379,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public long checksum(long revision) {
-        rwLock.readLock().lock();
-
         try {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
             return checksumByRevision(revision);
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
