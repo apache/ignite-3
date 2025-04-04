@@ -97,7 +97,7 @@ class ProjectedTupleTest {
         InternalTuple projection1 = new FieldDeserializingProjectedTuple(
                 ALL_TYPES_SCHEMA, TUPLE, new int[projectionSize]
         );
-        InternalTuple projection2 = new FormatAwareProjectedTuple(
+        InternalTuple projection2 = new ProjectedTuple(
                 TUPLE, new int[projectionSize]
         );
 
@@ -115,7 +115,7 @@ class ProjectedTupleTest {
         int[] projection = {f1, f2, f3};
 
         InternalTuple projectedTuple = useOptimizeProjection
-                ? new FormatAwareProjectedTuple(TUPLE, projection)
+                ? new ProjectedTuple(TUPLE, projection)
                 : new FieldDeserializingProjectedTuple(ALL_TYPES_SCHEMA, TUPLE, projection);
 
         Element e1 = ALL_TYPES_SCHEMA.element(f1);
@@ -135,6 +135,11 @@ class ProjectedTupleTest {
         assertThat(projectedSchema.value(restored, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
         assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
         assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+
+        // Ensure projected tuple is the same after normalization.
+        assertThat(projectedSchema.value(projectedTuple, 0), equalTo(projectedSchema.value(restored, 0)));
+        assertThat(projectedSchema.value(projectedTuple, 1), equalTo(projectedSchema.value(restored, 1)));
+        assertThat(projectedSchema.value(projectedTuple, 2), equalTo(projectedSchema.value(restored, 2)));
     }
 
     @Test
@@ -142,39 +147,35 @@ class ProjectedTupleTest {
         int f1 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
         int f2 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
         int f3 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
-
-        int vColumnIdx = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
-        Object virtualColValue = ALL_TYPES_SCHEMA.value(TUPLE, vColumnIdx);
+        int f4 = RND.nextInt(ALL_TYPES_SCHEMA.elementCount());
 
         VirtualColumn virtualColumn = new VirtualColumn(
                 ALL_TYPES_SCHEMA.elementCount(),
-                specToType(ALL_TYPES_SCHEMA.element(vColumnIdx).typeSpec()),
-                true, virtualColValue);
+                specToType(ALL_TYPES_SCHEMA.element(f2).typeSpec()),
+                true, ALL_TYPES_SCHEMA.value(TUPLE, f2));
 
-        int[] projection = {f1, virtualColumn.columnIndex(), f2, f3};
+        int[] projection = {f1, virtualColumn.columnIndex(), f3, f4};
 
-        InternalTuple projectedTuple = new ExtendedFieldDeserializingProjectedTuple(ALL_TYPES_SCHEMA, TUPLE, projection,
+        InternalTuple projectedTuple = new ExtendedProjectedTuple(TUPLE, projection,
                 Int2ObjectMaps.singleton(ALL_TYPES_SCHEMA.elementCount(), virtualColumn));
 
         Element e1 = ALL_TYPES_SCHEMA.element(f1);
-        Element e2 = ALL_TYPES_SCHEMA.element(vColumnIdx);
-        Element e3 = ALL_TYPES_SCHEMA.element(f2);
-        Element e4 = ALL_TYPES_SCHEMA.element(f3);
+        Element e2 = ALL_TYPES_SCHEMA.element(f2);
+        Element e3 = ALL_TYPES_SCHEMA.element(f3);
+        Element e4 = ALL_TYPES_SCHEMA.element(f4);
 
-        BinaryTupleSchema projectedSchema = BinaryTupleSchema.create(new Element[]{
-                e1, e2, e3, e4
-        });
+        BinaryTupleSchema projectedSchema = BinaryTupleSchema.create(new Element[]{e1, e2, e3, e4});
 
         assertThat(projectedSchema.value(projectedTuple, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
-        assertThat(projectedSchema.value(projectedTuple, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, vColumnIdx)));
-        assertThat(projectedSchema.value(projectedTuple, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
-        assertThat(projectedSchema.value(projectedTuple, 3), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+        assertThat(projectedSchema.value(projectedTuple, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
+        assertThat(projectedSchema.value(projectedTuple, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+        assertThat(projectedSchema.value(projectedTuple, 3), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f4)));
 
         InternalTuple restored = new BinaryTuple(projection.length, projectedTuple.byteBuffer());
 
         assertThat(projectedSchema.value(restored, 0), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f1)));
-        assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, vColumnIdx)));
-        assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
-        assertThat(projectedSchema.value(restored, 3), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+        assertThat(projectedSchema.value(restored, 1), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f2)));
+        assertThat(projectedSchema.value(restored, 2), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f3)));
+        assertThat(projectedSchema.value(restored, 3), equalTo(ALL_TYPES_SCHEMA.value(TUPLE, f4)));
     }
 }

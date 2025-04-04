@@ -23,7 +23,7 @@ import org.apache.ignite.internal.lang.InternalTuple;
 /**
  * Interface that provides a method to copy value (maybe raw) of the given column directly into a tuple builder.
  */
- public interface InternalTupleEx extends InternalTuple {
+public interface InternalTupleEx extends InternalTuple {
     /**
      * Copy value of the given column.
      *

@@ -29,35 +29,32 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Sink;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.InternalTupleEx;
 import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
 
 /**
- * A projected tuple that enriches {@link FieldDeserializingProjectedTuple} with extra columns.
+ * A projected tuple that enriches {@link ProjectedTuple} with extra columns.
  *
  * <p>Not thread safe!
  *
- * @see FieldDeserializingProjectedTuple
+ * @see ProjectedTuple
  */
-public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializingProjectedTuple {
+public class ExtendedProjectedTuple extends ProjectedTuple {
 
     private Int2ObjectMap<VirtualColumn> extraColumns;
 
     /**
      * Constructor.
      *
-     * @param schema A schema of the original tuple (represented by delegate). Used to read content of the delegate to build a
-     *         proper byte buffer which content satisfying the schema with regard to given projection.
      * @param delegate An original tuple to create projection from.
      * @param projection A projection. That is, desired order of fields in original tuple. In that projection, index of the array is
      *         an index of field in resulting projection, and an element of the array at that index is an index of column in original
      *         tuple.
      * @param extraColumns Extra columns.
      */
-    public ExtendedFieldDeserializingProjectedTuple(BinaryTupleSchema schema, InternalTupleEx delegate, int[] projection,
+    public ExtendedProjectedTuple(InternalTupleEx delegate, int[] projection,
             Int2ObjectMap<VirtualColumn> extraColumns) {
-        super(schema, delegate, projection);
+        super(delegate, projection);
 
         this.extraColumns = extraColumns;
     }
@@ -91,10 +88,20 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
         var builder = new BinaryTupleBuilder(projection.length, estimatedValueSize, false);
         var newProjection = new int[projection.length];
 
-        for (int i = 0; i < projection.length; i++) {
-            copyValue(builder, i);
+        assert delegate instanceof InternalTupleEx;
+        InternalTupleEx delegate0 = (InternalTupleEx) delegate;
 
+        for (int i = 0; i < projection.length; i++) {
+            int col = projection[i];
             newProjection[i] = i;
+
+            if (extraColumns.containsKey(col)) {
+                VirtualColumn virtualColumn = extraColumns.get(col);
+                BinaryRowConverter.appendValue(builder, virtualColumn.schemaType(), virtualColumn.value());
+                continue;
+            }
+
+            delegate0.copyValue(builder, col);
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());
@@ -314,18 +321,5 @@ public class ExtendedFieldDeserializingProjectedTuple extends FieldDeserializing
             return extraColumn(col).value();
         }
         return super.timestampValue(col);
-    }
-
-    @Override
-    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
-        int col = projection[columnIndex];
-
-        if (extraColumns.containsKey(col)) {
-            VirtualColumn virtualColumn = extraColumns.get(col);
-            BinaryRowConverter.appendValue(builder, virtualColumn.schemaType(), virtualColumn.value());
-            return;
-        }
-
-        delegate.copyValue(builder, col);
     }
 }

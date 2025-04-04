@@ -139,7 +139,7 @@ public class RowImpl extends BinaryTupleReader implements Row {
     @Override
     public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
         copyRawValue(builder, columnIndex);
-    };
+    }
 
     /** {@inheritDoc} */
     @Override

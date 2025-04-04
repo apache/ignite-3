@@ -21,7 +21,6 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.schema.ColumnDescriptor;
@@ -36,7 +35,6 @@ import org.jetbrains.annotations.Nullable;
 public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private final SchemaRegistry schemaRegistry;
     private final SchemaDescriptor schemaDescriptor;
-    private final BinaryTupleSchema fullTupleSchema;
     private final TableRowConverter fullRowConverter;
     private final BitSet tableColumnSet;
     private IntFunction<VirtualColumn> virtualColumnFactory;
@@ -57,7 +55,6 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     ) {
         this.schemaRegistry = schemaRegistry;
         this.schemaDescriptor = schemaDescriptor;
-        this.fullTupleSchema = BinaryTupleSchema.createRowSchema(schemaDescriptor);
 
         fullRowConverter = new TableRowConverterImpl(
                 schemaRegistry,
@@ -100,7 +97,6 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
 
         return new ProjectedTableRowConverterImpl(
                 schemaRegistry,
-                fullTupleSchema,
                 schemaDescriptor,
                 requiredColumns,
                 requireVirtualColumn ? createVirtualColumns(partId) : Int2ObjectMaps.emptyMap()

@@ -111,5 +111,3 @@ public class UpgradeRowBenchmark extends AbstractMultiNodeBenchmark {
         return clusterSize;
     }
 }
-
-

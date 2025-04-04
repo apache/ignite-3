@@ -19,9 +19,10 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.lang.InternalTuple;
+import org.apache.ignite.internal.schema.BinaryRowConverter;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleSchema;
-import org.apache.ignite.internal.schema.InternalTupleEx;
+import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 
 /**
  * A projected tuple that doesn't require delegate to be in particular format.
@@ -48,7 +49,7 @@ public class FieldDeserializingProjectedTuple extends AbstractProjectedTuple {
      *         tuple.
      */
     public FieldDeserializingProjectedTuple(BinaryTupleSchema schema, InternalTuple delegate, int[] projection) {
-        super((InternalTupleEx) delegate, projection);
+        super(delegate, projection);
 
         this.schema = schema;
     }
@@ -59,19 +60,16 @@ public class FieldDeserializingProjectedTuple extends AbstractProjectedTuple {
         var newProjection = new int[projection.length];
 
         for (int i = 0; i < projection.length; i++) {
-            newProjection[i] = i;
+            int col = projection[i];
 
-            copyValue(builder, i);
+            Element element = schema.element(col);
+
+            BinaryRowConverter.copyColumnValue(delegate, builder, element, col);
+
+            newProjection[i] = i;
         }
 
         delegate = new BinaryTuple(projection.length, builder.build());
         projection = newProjection;
-    }
-
-    @Override
-    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
-        int col = projection[columnIndex];
-
-        delegate.copyValue(builder, col);
     }
 }

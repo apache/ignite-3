@@ -22,15 +22,13 @@ import java.util.BitSet;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InternalTupleEx;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
-import org.apache.ignite.internal.sql.engine.util.ExtendedFieldDeserializingProjectedTuple;
-import org.apache.ignite.internal.sql.engine.util.FieldDeserializingProjectedTuple;
-import org.apache.ignite.internal.sql.engine.util.FormatAwareProjectedTuple;
+import org.apache.ignite.internal.sql.engine.util.ExtendedProjectedTuple;
+import org.apache.ignite.internal.sql.engine.util.ProjectedTuple;
 
 /**
  * Converts rows to execution engine representation.
@@ -41,21 +39,17 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
      */
     private final int[] requiredColumnsMapping;
 
-    private final BinaryTupleSchema fullTupleSchema;
-
     private final Int2ObjectMap<VirtualColumn> virtualColumns;
 
     /** Constructor. */
     ProjectedTableRowConverterImpl(
             SchemaRegistry schemaRegistry,
-            BinaryTupleSchema fullTupleSchema,
             SchemaDescriptor schemaDescriptor,
             BitSet requiredColumns,
             Int2ObjectMap<VirtualColumn> extraColumns
     ) {
         super(schemaRegistry, schemaDescriptor);
 
-        this.fullTupleSchema = fullTupleSchema;
         this.virtualColumns = extraColumns;
 
         int size = requiredColumns.cardinality();
@@ -84,11 +78,9 @@ public class ProjectedTableRowConverterImpl extends TableRowConverterImpl {
                 : schemaRegistry.resolve(tableRow, schemaDescriptor);
 
         if (!virtualColumns.isEmpty()) {
-            tuple = new ExtendedFieldDeserializingProjectedTuple(fullTupleSchema, tableTuple, requiredColumnsMapping, virtualColumns);
-        } else if (rowSchemaMatches) {
-            tuple = new FormatAwareProjectedTuple(tableTuple, requiredColumnsMapping);
+            tuple = new ExtendedProjectedTuple(tableTuple, requiredColumnsMapping, virtualColumns);
         } else {
-            tuple = new FieldDeserializingProjectedTuple(fullTupleSchema, tableTuple, requiredColumnsMapping);
+            tuple = new ProjectedTuple(tableTuple, requiredColumnsMapping);
         }
 
         return factory.create(tuple);

@@ -32,6 +32,7 @@ public class VirtualColumn {
     @IgniteToStringExclude
     private final Object value;
 
+    /** Creates a new virtual column. */
     public VirtualColumn(int columnIndex, NativeType type, boolean nullable, Object value) {
         this.columnIndex = columnIndex;
         this.value = value;

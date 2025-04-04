@@ -67,7 +67,7 @@ public class BinaryTupleParser {
     private final int valueBase;
 
     /** Binary tuple. */
-    private final ByteBuffer buffer;
+    protected final ByteBuffer buffer;
 
     /**
      * Constructor.
@@ -502,22 +502,6 @@ public class BinaryTupleParser {
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
-    }
-
-    /**
-     * Copies raw value of the specified element to the builder.
-     *
-     * @param builder Builder to copy value to.
-     * @param index Index of the element.
-     */
-    protected void copyRawValue(BinaryTupleBuilder builder, int index) {
-        fetch(index, (idx, begin, end) -> {
-            if (begin == end) {
-                builder.appendNull();
-            } else {
-                builder.appendElementBytes(buffer, begin, end - begin);
-            }
-        });
     }
 
     /**
