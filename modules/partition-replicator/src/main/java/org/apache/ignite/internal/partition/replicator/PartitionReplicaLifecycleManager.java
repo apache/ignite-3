@@ -1370,9 +1370,17 @@ public class PartitionReplicaLifecycleManager extends
                 ? Assignments.fromBytes(reduceEntry.value())
                 : null;
 
-        Set<Assignment> reducedStableAssignments = reduceAssignments != null
-                ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
-                : stableAssignments.nodes();
+        // TODO sanpwc Caused by: java.lang.NullPointerException: Cannot invoke "org.apache.ignite.internal.partitiondistribution.Assignments.nodes()" because "stableAssignments" is null
+        Set<Assignment> reducedStableAssignments;
+        if (stableAssignments != null) {
+            reducedStableAssignments = reduceAssignments != null
+                    ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
+                    : stableAssignments.nodes();
+        } else {
+            assert reduceAssignments == null : "reduceAssignments not null.";
+
+            reducedStableAssignments = emptySet();
+        }
 
         if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
             return false;
