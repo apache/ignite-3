@@ -15,38 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+
+package org.apache.ignite.internal.client;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Raft node disruptor configuration.
+ * Write context.
  */
-public class RaftNodeDisruptorConfiguration {
-    private final String threadPostfix;
-
-    private final int stripes;
-
-    /**
-     * Constructor.
-     *
-     * @param threadPostfix Disruptor threads' name postfix.
-     * @param stripes Number of disruptor stripes.
-     */
-    public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
-        this.threadPostfix = threadPostfix;
-        this.stripes = stripes;
-    }
-
-    /**
-     * Return disruptor threads' name postfix.
-     */
-    public String getThreadPostfix() {
-        return threadPostfix;
-    }
-
-    /**
-     * Return number of disruptor stripes.
-     */
-    public int getStripes() {
-        return stripes;
-    }
+public class WriteContext {
+    public @Nullable PartitionMapping pm;
+    public @Nullable Long enlistmentToken;
 }

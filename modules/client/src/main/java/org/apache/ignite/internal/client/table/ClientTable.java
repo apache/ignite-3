@@ -17,9 +17,18 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
+import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,15 +36,16 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.BiConsumer;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.PayloadOutputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
+import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
@@ -46,6 +56,7 @@ import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteTriConsumer;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.UnmappedColumnsException;
@@ -268,7 +279,7 @@ public class ClientTable implements Table {
         var schema = new ClientSchema(schemaVer, columns, marshallers);
 
         if (schemaVer != targetVer) {
-            schemas.put(schemaVer, CompletableFuture.completedFuture(schema));
+            schemas.put(schemaVer, completedFuture(schema));
         }
 
         synchronized (latestSchemaLock) {
@@ -291,20 +302,31 @@ public class ClientTable implements Table {
      *
      * @param tx Transaction.
      * @param out Packer.
+     * @param ctx Write context.
      */
-    public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out) {
+    public static void writeTx(@Nullable Transaction tx, PayloadOutputChannel out, @Nullable WriteContext ctx) {
         if (tx == null) {
             out.out().packNil();
         } else {
-            ClientTransaction clientTx = ClientTransaction.get(tx);
+            ClientTransaction tx0 = ClientTransaction.get(tx);
 
-            //noinspection resource
-            if (clientTx.channel() != out.clientChannel()) {
-                // Do not throw IgniteClientConnectionException to avoid retry kicking in.
-                throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+            if (ctx != null && ctx.enlistmentToken != null) {
+                out.out().packLong(TX_ID_DIRECT); // For direct enlistment, pass 0 for resourceId to distinguish with proxy mode.
+                out.out().packLong(ctx.enlistmentToken);
+                out.out().packUuid(tx0.txId());
+                out.out().packInt(tx0.commitTableId());
+                out.out().packInt(tx0.commitPartition());
+                out.out().packUuid(tx0.coordinatorId());
+                out.out().packLong(tx0.timeout());
+            } else {
+                //noinspection resource
+                if (tx0.channel() != out.clientChannel()) {
+                    // Do not throw IgniteClientConnectionException to avoid retry kicking in.
+                    throw new IgniteException(CONNECTION_ERR, "Transaction context has been lost due to connection errors.");
+                }
+
+                out.out().packLong(tx0.id());
             }
-
-            out.out().packLong(clientTx.id());
         }
     }
 
@@ -321,9 +343,9 @@ public class ClientTable implements Table {
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
                 opCode,
@@ -352,9 +374,9 @@ public class ClientTable implements Table {
      */
     public <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             boolean expectNotifications,
             @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
@@ -384,9 +406,9 @@ public class ClientTable implements Table {
      */
     <T> CompletableFuture<T> doSchemaOutOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             Function<PayloadInputChannel, T> reader,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Transaction tx) {
         return doSchemaOutInOpAsync(
@@ -416,10 +438,10 @@ public class ClientTable implements Table {
      */
     <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable Transaction tx
     ) {
         return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
@@ -443,46 +465,72 @@ public class ClientTable implements Table {
      */
     private <T> CompletableFuture<T> doSchemaOutInOpAsync(
             int opCode,
-            BiConsumer<ClientSchema, PayloadOutputChannel> writer,
+            IgniteTriConsumer<ClientSchema, PayloadOutputChannel, WriteContext> writer,
             BiFunction<ClientSchema, PayloadInputChannel, T> reader,
             @Nullable T defaultValue,
             boolean responseSchemaRequired,
-            @Nullable PartitionAwarenessProvider provider,
+            PartitionAwarenessProvider provider,
             @Nullable RetryPolicy retryPolicyOverride,
             @Nullable Integer schemaVersionOverride,
             boolean expectNotifications,
-            @Nullable Transaction tx) {
+            @Nullable Transaction tx
+    ) {
         CompletableFuture<T> fut = new CompletableFuture<>();
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(schemaVersionOverride == null ? latestSchemaVer : schemaVersionOverride);
-        CompletableFuture<List<String>> partitionsFut = provider == null || !provider.isPartitionAwarenessEnabled()
-                ? nullCompletedFuture()
-                : getPartitionAssignment();
+        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
 
         // Wait for schema and partition assignment.
         CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
-                    String txPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
 
-                    return ClientLazyTransaction.ensureStarted(tx, ch, txPreferredNodeName).thenCompose(unused -> {
-                                // Update preferred node name after starting the transaction.
-                                // All operations for a given explicit transaction should go to the same node (tx coordinator).
-                                String opPreferredNodeName = getPreferredNodeName(provider, partitionsFut.getNow(null), schema);
+                    PartitionMapping forCrd = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true);
 
-                                return ch.serviceAsync(opCode,
-                                        w -> writer.accept(schema, w),
-                                        r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired),
-                                        opPreferredNodeName,
+                    return ClientLazyTransaction.ensureStarted(tx, ch, forCrd).thenCompose(tx0 -> {
+                        @Nullable PartitionMapping forOp = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema,
+                                tx0 == null); // Force coordinator mode for implicit transactions.
+
+                        WriteContext ctx = new WriteContext();
+                        ctx.pm = forOp;
+
+                        return ch.serviceAsync(opCode,
+                                        (opCh) -> tx0 == null || tx0.isReadOnly() || forOp == null
+                                                || !opCh.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
+                                                : tx0.enlistFuture(opCh, ctx),
+                                        w -> writer.accept(schema, w, ctx),
+                                        r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
+                                        resolvePreferredNode(tx0, forOp),
+                                        tx0 == null ? null : tx0.nodeName(),
                                         retryPolicyOverride,
-                                        expectNotifications);
-                            }
-                    );
-                })
+                                        expectNotifications)
+                                // Read resulting schema and the rest of the response.
+                                .thenCompose(t -> loadSchemaAndReadData(t, reader))
+                                .handle((ret, ex) -> {
+                                    if (ex != null) {
+                                        // In case of direct mapping failure try to roll back the transaction.
+                                        if (ctx.enlistmentToken != null && !matchAny(unwrapCause(ex), TX_ALREADY_FINISHED_ERR,
+                                                TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR)) {
+                                            assert tx0 != null && !tx0.isReadOnly() : "Invalid transaction for direct mapping " + tx;
 
-                // Read resulting schema and the rest of the response.
-                .thenCompose(t -> loadSchemaAndReadData(t, reader))
-                .whenComplete((res, err) -> {
+                                            return tx0.rollbackAsync().handle((ignored, err0) -> {
+                                                if (err0 != null) {
+                                                    ex.addSuppressed(err0);
+                                                }
+
+                                                sneakyThrow(ex);
+
+                                                return (T) null;
+                                            });
+                                        } else {
+                                            sneakyThrow(ex);
+                                        }
+                                    }
+
+                                    return completedFuture(ret);
+                                }).thenCompose(identity());
+                    });
+                }).whenComplete((res, err) -> {
                     if (err == null) {
                         fut.complete(res);
                         return;
@@ -534,13 +582,39 @@ public class ClientTable implements Table {
         return fut;
     }
 
+    private static @Nullable String resolvePreferredNode(@Nullable ClientTransaction tx, @Nullable PartitionMapping pm) {
+        String opNode = pm == null ? null : pm.nodeConsistentId();
+
+        if (tx != null) {
+            return tx.hasCommitPartition() && opNode != null ? opNode : tx.nodeName();
+        } else {
+            return opNode;
+        }
+    }
+
     private <T> @Nullable Object readSchemaAndReadData(
             ClientSchema knownSchema,
             PayloadInputChannel in,
             BiFunction<ClientSchema, PayloadInputChannel, T> fn,
             @Nullable T defaultValue,
-            boolean responseSchemaRequired
+            boolean responseSchemaRequired,
+            WriteContext ctx,
+            @Nullable ClientTransaction tx
     ) {
+        // Use enlistment meta only for remote transactions.
+        if (ctx.enlistmentToken != null) {
+            assert tx != null;
+            assert ctx.pm != null;
+
+            String consistentId = in.in().unpackString();
+            long token = in.in().unpackLong();
+
+            // Finish enlist on first request only.
+            if (ctx.enlistmentToken == 0) {
+                tx.tryFinishEnlist(ctx.pm, consistentId, token);
+            }
+        }
+
         int schemaVer = in.in().unpackInt();
 
         if (!responseSchemaRequired) {
@@ -572,7 +646,7 @@ public class ClientTable implements Table {
             BiFunction<ClientSchema, PayloadInputChannel, T> fn
     ) {
         if (!(data instanceof IgniteBiTuple)) {
-            return CompletableFuture.completedFuture((T) data);
+            return completedFuture((T) data);
         }
 
         var biTuple = (IgniteBiTuple<PayloadInputChannel, Integer>) data;
@@ -608,7 +682,12 @@ public class ClientTable implements Table {
                 && !pa.partitionsFut.isCompletedExceptionally();
     }
 
-    synchronized CompletableFuture<List<String>> getPartitionAssignment() {
+    /**
+     * Gets partition assignment.
+     *
+     * @return The future.
+     */
+    public synchronized CompletableFuture<List<String>> getPartitionAssignment() {
         long timestamp = ch.partitionAssignmentTimestamp();
         PartitionAssignment pa = partitionAssignment;
 
@@ -687,20 +766,13 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
-    @Nullable
-    private static String getPreferredNodeName(
-            @Nullable PartitionAwarenessProvider provider,
+    private static @Nullable PartitionMapping getPreferredNodeName(
+            int tableId,
+            PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
-            ClientSchema schema) {
-        if (provider == null) {
-            return null;
-        }
-
-        String nodeName = provider.nodeName();
-
-        if (nodeName != null) {
-            return nodeName;
-        }
+            ClientSchema schema,
+            boolean coord) {
+        assert provider != null;
 
         if (partitions == null || partitions.isEmpty()) {
             return null;
@@ -709,16 +781,25 @@ public class ClientTable implements Table {
         Integer partition = provider.partition();
 
         if (partition != null) {
-            return partitions.get(partition);
+            String node = partitions.get(partition);
+            if (node == null) {
+                return null; // Mapping is incomplete.
+            }
+            return new PartitionMapping(tableId, node, partition);
         }
 
-        Integer hash = provider.getObjectHashCode(schema);
-
+        Integer hash = provider.getObjectHashCode(schema, coord);
         if (hash == null) {
             return null;
         }
 
-        return partitions.get(Math.abs(hash % partitions.size()));
+        int part = Math.abs(hash % partitions.size());
+
+        String node = partitions.get(part);
+        if (node == null) {
+            return null; // Mapping is incomplete.
+        }
+        return new PartitionMapping(tableId, node, part);
     }
 
     private static List<String> emptyAssignment(int size) {

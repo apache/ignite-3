@@ -1462,6 +1462,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             catalogManager = new CatalogManagerImpl(
                     new UpdateLogImpl(metaStorageManager),
                     clockService,
+                    failureManager,
                     delayDurationMsSupplier
             );
 

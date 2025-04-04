@@ -621,6 +621,7 @@ public class Node {
         catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageManager),
                 clockService,
+                failureManager,
                 delayDurationMsSupplier
         );
 

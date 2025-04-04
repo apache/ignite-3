@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
-
 /**
  * Tests for catalog storage objects. Protocol version 2 reads protocol 2.
  */
@@ -30,7 +28,7 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     }
 
     @Override
-    protected int entryVersion(MarshallableEntryType entryType) {
+    protected int entryVersion() {
         return 2;
     }
 

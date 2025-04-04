@@ -296,7 +296,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService, () -> TEST_DELAY_DURATION);
+        var catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metastore),
+                clockService,
+                new NoOpFailureManager(),
+                () -> TEST_DELAY_DURATION
+        );
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,

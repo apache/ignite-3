@@ -909,6 +909,7 @@ public class IgniteImpl implements Ignite {
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
                 new UpdateLogImpl(metaStorageMgr),
                 clockService,
+                failureManager,
                 delayDurationMsSupplier
         );
 

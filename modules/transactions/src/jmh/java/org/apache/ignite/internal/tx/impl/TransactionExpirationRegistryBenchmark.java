@@ -154,7 +154,7 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public HybridTimestamp startTimestamp() {
+        public HybridTimestamp schemaTimestamp() {
             return null;
         }
 
@@ -182,11 +182,6 @@ public class TransactionExpirationRegistryBenchmark {
 
         @Override
         public long getTimeout() {
-            return 0;
-        }
-
-        @Override
-        public long getTimeoutOrDefault(long defaultTimeout) {
             return 0;
         }
 

@@ -140,6 +140,12 @@ namespace Apache.Ignite.Internal.Proto
         PrimaryReplicasGet = 65,
 
         /** Send streamer batch with receiver. */
-        StreamerWithReceiverBatchSend = 66
+        StreamerWithReceiverBatchSend = 66,
+
+        /** Get tables with qualified names. */
+        TablesGetQualified = 71,
+
+        /** Get table by qualified name. */
+        TableGetQualified = 72
     }
 }
