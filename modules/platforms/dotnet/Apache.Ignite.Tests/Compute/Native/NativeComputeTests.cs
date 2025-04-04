@@ -30,18 +30,22 @@ public class NativeComputeTests : IgniteTestsBase
     public async Task TestSimpleJob()
     {
         // TODO: Shortcut method to create a job descriptor from a job type.
-        var jobDesc = new JobDescriptor<object, string>(typeof(ToStringJob).AssemblyQualifiedName!);
+        var jobDesc = new JobDescriptor<object?, string?>(typeof(ToStringJob).AssemblyQualifiedName!);
 
         var target = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
-        IJobExecution<string> jobExec = await Client.Compute.SubmitAsync(target, jobDesc, 123);
-        string jobRes = await jobExec.GetResultAsync();
+        IJobExecution<string?> jobExec = await Client.Compute.SubmitAsync(target, jobDesc, 123);
+        string? jobRes = await jobExec.GetResultAsync();
 
         Assert.AreEqual("123", jobRes);
     }
 
-    private class ToStringJob : IComputeJob<object, string>
+    private class ToStringJob : IComputeJob<object?, string?>
     {
-        public ValueTask<string> ExecuteAsync(IJobExecutionContext context, object arg) =>
-            ValueTask.FromResult(arg.ToString())!;
+        public async ValueTask<string?> ExecuteAsync(IJobExecutionContext context, object? arg)
+        {
+            // await context.Ignite.Tables.GetTablesAsync();
+            await Task.Delay(1);
+            return arg?.ToString();
+        }
     }
 }
