@@ -235,9 +235,9 @@ public class ClientSchema {
             case KEY:
                 return marshallers.getKeysMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
             case VAL:
-                return marshallers.getValuesMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getValuesMarshaller(marshallerSchema(), mapper, false, allowUnmappedFields);
             case KEY_AND_VAL:
-                return marshallers.getRowMarshaller(marshallerSchema(), mapper, true, allowUnmappedFields);
+                return marshallers.getRowMarshaller(marshallerSchema(), mapper, false, allowUnmappedFields);
             default:
                 throw new AssertionError("Unexpected tuple part: " + part);
         }

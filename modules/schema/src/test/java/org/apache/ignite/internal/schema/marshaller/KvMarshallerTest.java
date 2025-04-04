@@ -227,11 +227,22 @@ public class KvMarshallerTest {
                 columnsAllTypes(true)
         );
 
-        IllegalArgumentException ex = assertThrows(
-                IllegalArgumentException.class,
-                () -> factory.create(schema, Integer.class, TestTruncatedObject.class));
+        KvMarshaller<Long, TestTruncatedObject> marshaller =
+                factory.create(schema, Long.class, TestTruncatedObject.class);
 
-        assertEquals("No mapped object field found for column 'PRIMITIVEBOOLEANCOL'", ex.getMessage());
+        Long key = rnd.nextLong();
+        TestTruncatedObject val = TestTruncatedObject.randomObject(rnd);
+
+        Row row = Row.wrapBinaryRow(schema, marshaller.marshal(key, val));
+
+        Object restoredKey = marshaller.unmarshalKey(row);
+        Object restoredVal = marshaller.unmarshalValue(row);
+
+        assertTrue(key.getClass().isInstance(restoredKey));
+        assertTrue(val.getClass().isInstance(restoredVal));
+
+        assertEquals(key, restoredKey);
+        assertEquals(val, restoredVal);
     }
 
     @ParameterizedTest

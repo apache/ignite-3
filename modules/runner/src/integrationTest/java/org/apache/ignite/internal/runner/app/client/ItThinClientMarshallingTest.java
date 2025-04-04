@@ -23,6 +23,7 @@ import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.startsWith;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
@@ -148,7 +149,68 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
-        assertEquals("No mapped object field found for column 'VAL'", ex.getMessage());
+        assertEquals("Fields [unknown] of type org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$MissingFieldPojo "
+                + "are not mapped to columns", ex.getMessage());
+    }
+
+    @Test
+    public void testKvValMissingPojoFieldsWithDefault() {
+        String tableName = "testKvExtraValPojoFields";
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR, EXTRA VARCHAR)");
+
+        Table table = ignite().tables().table(tableName);
+
+        {
+            var kvPojoView = table.keyValueView(Mapper.of(Integer.class), Mapper.builder(TestPojo.class).map("val", "VAL").build());
+
+            TestPojo expected = new TestPojo();
+            expected.val = "val";
+            kvPojoView.put(null, 1, expected);
+            TestPojo actual = kvPojoView.get(null, 1);
+
+            assertNotNull(actual);
+            assertEquals(expected.val, actual.val);
+        }
+        {
+            var recPojoView = table.recordView(TestPojo.class);
+
+            TestPojo expected = new TestPojo(2);
+            expected.val = "val";
+
+            recPojoView.insert(null, expected);
+            TestPojo actual = recPojoView.get(null, new TestPojo(2));
+
+            assertNotNull(actual);
+            assertEquals(expected.val, actual.val);
+        }
+    }
+
+    @Test
+    public void testKvUnmappedPojoField() {
+        Table table = ignite().tables().table(TABLE_NAME);
+        {
+            var kvPojoView = table.keyValueView(Mapper.of(Integer.class), Mapper.builder(TestPojo.class).map("val", "VAL").build());
+
+            TestPojo expected = new TestPojo();
+            expected.val = "val";
+            kvPojoView.put(null, 1, expected);
+            TestPojo actual = kvPojoView.get(null, 1);
+
+            assertNotNull(actual);
+            assertEquals(expected.val, actual.val);
+        }
+        {
+            var recPojoView = table.recordView(TestPojo.class);
+
+            TestPojo expected = new TestPojo(2);
+            expected.val = "val";
+
+            recPojoView.insert(null, expected);
+            TestPojo actual = recPojoView.get(null, new TestPojo(2));
+
+            assertNotNull(actual);
+            assertEquals(expected.val, actual.val);
+        }
     }
 
     @Test
