@@ -151,6 +151,10 @@ public abstract class Marshaller {
                 Set<String> fieldSet = new TreeSet<>(fields);
                 for (MarshallerColumn col : cols) {
                     String fieldName = mapper.fieldForColumn(col.name());
+                    if (fieldName == null) {
+                        assert !requireAllFields;
+                        continue;
+                    }
                     fieldSet.remove(fieldName);
                 }
 
