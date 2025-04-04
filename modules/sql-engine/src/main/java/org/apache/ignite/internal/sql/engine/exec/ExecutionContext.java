@@ -298,7 +298,7 @@ public class ExecutionContext<RowT> implements DataContext {
             return null;
         }
 
-        return storageType == null ? TypeUtils.toInternal(param, param.getClass()) : TypeUtils.toInternal(param, storageType);
+        return TypeUtils.toInternal(param, storageType == null ? param.getClass() : storageType);
     }
 
     /**

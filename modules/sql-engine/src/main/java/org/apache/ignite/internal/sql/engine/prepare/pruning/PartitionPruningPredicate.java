@@ -159,7 +159,7 @@ public final class PartitionPruningPredicate {
                 NativeType physicalType = descriptor.physicalType();
 
                 Object valueInInternalForm = expressionFactory.scalar(node).get(context);
-                Object value = TypeUtils.fromInternal(valueInInternalForm, physicalType.spec());
+                Object value = valueInInternalForm == null ? null : TypeUtils.fromInternal(valueInInternalForm, physicalType.spec());
 
                 partitionCalculator.append(value);
             }

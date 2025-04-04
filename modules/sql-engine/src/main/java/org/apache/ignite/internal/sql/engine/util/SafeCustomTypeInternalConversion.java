@@ -52,7 +52,6 @@ final class SafeCustomTypeInternalConversion {
         return val;
     }
 
-    @Nullable
     Object tryConvertFromInternal(Object val, NativeTypeSpec storageType) {
         Class<?> internalType = internalTypes.get(storageType);
 
