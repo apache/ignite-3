@@ -729,9 +729,8 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into timestamp
       return Expressions.isConstantNull(format)
-          ? Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand)
+          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand))
           : Expressions.call(
-                  // TODO https://issues.apache.org/jira/browse/IGNITE-25010 Remove redundant call to TO_TIMESTAMP_EXACT
                   IgniteMethod.TO_TIMESTAMP_EXACT.method(),
                   Expressions.call(
                     Expressions.new_(BuiltInMethod.PARSE_TIMESTAMP.method.getDeclaringClass()),

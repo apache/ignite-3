@@ -1266,7 +1266,6 @@ public class RexUtils {
             return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
         }
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-24984 Remove this block.
         if (literal.getTypeName() == SqlTypeName.TIMESTAMP) {
             return IgniteSqlFunctions.toTimestampExact((long) val);
         }
