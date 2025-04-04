@@ -289,7 +289,7 @@ public class ReadWriteTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
+    public HybridTimestamp schemaTimestamp() {
         return TransactionIds.beginTimestamp(id());
     }
 

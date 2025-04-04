@@ -73,9 +73,6 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
             builder.claim_number(to_write);
             break;
         }
-        case ignite_type::NUMBER:
-            builder.claim_number(value.get<big_integer>());
-            break;
         case ignite_type::DATE:
             builder.claim_date(value.get<ignite_date>());
             break;
@@ -93,9 +90,6 @@ void claim_column(binary_tuple_builder &builder, ignite_type typ, const primitiv
             break;
         case ignite_type::DURATION:
             builder.claim_duration(value.get<ignite_duration>());
-            break;
-        case ignite_type::BITMASK:
-            builder.claim_varlen(value.get<bit_array>().get_raw());
             break;
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");
@@ -148,9 +142,6 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
             builder.append_number(to_write);
             break;
         }
-        case ignite_type::NUMBER:
-            builder.append_number(value.get<big_integer>());
-            break;
         case ignite_type::DATE:
             builder.append_date(value.get<ignite_date>());
             break;
@@ -168,9 +159,6 @@ void append_column(binary_tuple_builder &builder, ignite_type typ, const primiti
             break;
         case ignite_type::DURATION:
             builder.append_duration(value.get<ignite_duration>());
-            break;
-        case ignite_type::BITMASK:
-            builder.append_varlen(value.get<bit_array>().get_raw());
             break;
         default:
             throw ignite_error("Type with id " + std::to_string(int(typ)) + " is not yet supported");

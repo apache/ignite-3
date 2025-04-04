@@ -302,7 +302,7 @@ namespace Apache.Ignite.Tests.Compute
             var requestTargetNodeName = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPoco = new Poco { Key = key };
-            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(TableName, keyPoco), NodeNameJob, null);
+            var resNodeName2 = await client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(TableName), keyPoco), NodeNameJob, null);
             var requestTargetNodeName2 = GetRequestTargetNodeName(proxies, ClientOp.ComputeExecuteColocated);
 
             var keyPocoStruct = new PocoStruct(key, null);
@@ -331,7 +331,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<IgniteClientException>(async () =>
                 await Client.Compute.SubmitAsync(JobTarget.Colocated("unknownTable", new IgniteTuple()), EchoJob, null));
 
-            Assert.AreEqual("Table 'unknownTable' does not exist.", ex!.Message);
+            Assert.AreEqual("Table 'PUBLIC.UNKNOWNTABLE' does not exist.", ex!.Message);
         }
 
         [Test]
@@ -351,7 +351,6 @@ namespace Apache.Ignite.Tests.Compute
             // Create table and use it in ExecuteColocated.
             var nodes = await GetNodeAsync(0);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24258 revert change that had uppercased names.
             var tableNameExec = await Client.Compute.SubmitAsync(nodes, CreateTableJob, "DROP_ME");
             var tableName = await tableNameExec.GetResultAsync();
 
@@ -371,11 +370,11 @@ namespace Apache.Ignite.Tests.Compute
 
                 if (forceLoadAssignment)
                 {
-                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[tableName]!;
+                    var table = Client.Compute.GetFieldValue<IDictionary>("_tableCache")[QualifiedName.Parse(tableName)]!;
                     table.SetFieldValue("_partitionAssignment", null);
                 }
 
-                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(tableName, keyTuple), NodeNameJob, null);
+                var resNodeName2Exec = await Client.Compute.SubmitAsync(JobTarget.Colocated(QualifiedName.Parse(tableName), keyTuple), NodeNameJob, null);
                 var resNodeName2 = await resNodeName2Exec.GetResultAsync();
 
                 Assert.AreEqual(resNodeName, resNodeName2);

@@ -126,7 +126,7 @@ int secure_socket_client::send(const std::byte* data, std::size_t size, std::int
     assert(gateway.is_loaded());
 
     if (!m_ssl)
-        throw ignite_error("Trying to send data using closed connection");
+        throw ignite_error(error::code::CONNECTION, "Trying to send data using closed connection");
 
     SSL* ssl0 = reinterpret_cast<SSL*>(m_ssl);
 
@@ -153,7 +153,7 @@ int secure_socket_client::receive(std::byte* buffer, std::size_t size, std::int3
     assert(gateway.is_loaded());
 
     if (!m_ssl)
-        throw ignite_error("Trying to receive data using closed connection");
+        throw ignite_error(error::code::CONNECTION, "Trying to receive data using closed connection");
 
     SSL* ssl0 = reinterpret_cast<SSL*>(m_ssl);
 

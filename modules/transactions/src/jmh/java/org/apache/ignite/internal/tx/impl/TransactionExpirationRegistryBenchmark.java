@@ -154,7 +154,7 @@ public class TransactionExpirationRegistryBenchmark {
         }
 
         @Override
-        public HybridTimestamp startTimestamp() {
+        public HybridTimestamp schemaTimestamp() {
             return null;
         }
 

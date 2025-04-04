@@ -397,7 +397,7 @@ public class InternalTableImpl implements InternalTable {
                 if (actualTx.implicit()) {
                     long timeout = actualTx.getTimeout();
 
-                    long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
+                    long ts = (txStartTs == null) ? actualTx.schemaTimestamp().getPhysical() : txStartTs;
 
                     if (canRetry(e, ts, timeout)) {
                         return enlistInTx(row, null, fac, noWriteChecker, ts);
@@ -517,7 +517,7 @@ public class InternalTableImpl implements InternalTable {
                 if (actualTx.implicit()) {
                     long timeout = actualTx.getTimeout();
 
-                    long ts = (txStartTs == null) ? actualTx.startTimestamp().getPhysical() : txStartTs;
+                    long ts = (txStartTs == null) ? actualTx.schemaTimestamp().getPhysical() : txStartTs;
 
                     if (canRetry(e, ts, timeout)) {
                         return enlistInTx(keyRows, null, fac, reducer, noOpChecker, ts);
@@ -575,7 +575,7 @@ public class InternalTableImpl implements InternalTable {
                 (enlistmentConsistencyToken) -> TABLE_MESSAGES_FACTORY.readWriteScanRetrieveBatchReplicaRequest()
                         .groupId(serializeReplicationGroupId(replicationGroupId))
                         .tableId(tableId)
-                        .timestamp(tx.startTimestamp())
+                        .timestamp(tx.schemaTimestamp())
                         .transactionId(tx.id())
                         .scanId(scanId)
                         .indexToUse(indexId)
@@ -865,7 +865,7 @@ public class InternalTableImpl implements InternalTable {
             ReplicationGroupId replicationGroupId,
             BiFunction<ReplicationGroupId, Long, ReplicaRequest> op
     ) {
-        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, tx.startTimestamp());
+        ReplicaMeta meta = placementDriver.getCurrentPrimaryReplica(replicationGroupId, tx.schemaTimestamp());
 
         Function<ReplicaMeta, CompletableFuture<R>> evaluateClo = primaryReplica -> {
             try {
@@ -891,7 +891,7 @@ public class InternalTableImpl implements InternalTable {
                 return failedFuture(e);
             }
         } else {
-            fut = awaitPrimaryReplica(replicationGroupId, tx.startTimestamp())
+            fut = awaitPrimaryReplica(replicationGroupId, tx.schemaTimestamp())
                     .thenCompose(evaluateClo);
         }
 
@@ -961,7 +961,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1107,7 +1107,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
-                .timestamp(tx.startTimestamp())
+                .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .build();
@@ -1172,7 +1172,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_UPSERT)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1233,7 +1233,7 @@ public class InternalTableImpl implements InternalTable {
             if (e != null) {
                 long timeout = tx.getTimeout();
 
-                long ts = (txStartTs == null) ? tx.startTimestamp().getPhysical() : txStartTs;
+                long ts = (txStartTs == null) ? tx.schemaTimestamp().getPhysical() : txStartTs;
 
                 if (canRetry(e, ts, timeout)) {
                     return updateAllWithRetry(rows, deleted, partition, ts);
@@ -1267,7 +1267,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_UPSERT)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1291,7 +1291,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_INSERT)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1350,7 +1350,7 @@ public class InternalTableImpl implements InternalTable {
                 .transactionId(tx.id())
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .requestType(requestType)
-                .timestamp(tx.startTimestamp())
+                .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
                 .skipDelayedAck(tx.remote())
@@ -1372,7 +1372,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_REPLACE_IF_EXIST)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1400,7 +1400,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_REPLACE)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1426,7 +1426,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_REPLACE)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1450,7 +1450,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_DELETE)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1474,7 +1474,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_DELETE_EXACT)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -1500,7 +1500,7 @@ public class InternalTableImpl implements InternalTable {
                         .transactionId(txo.id())
                         .enlistmentConsistencyToken(enlistmentConsistencyToken)
                         .requestType(RW_GET_AND_DELETE)
-                        .timestamp(txo.startTimestamp())
+                        .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
                         .skipDelayedAck(txo.remote())
@@ -2036,7 +2036,7 @@ public class InternalTableImpl implements InternalTable {
      * @return The enlist future (then will a leader become known).
      */
     protected CompletableFuture<PendingTxPartitionEnlistment> enlist(int partId, InternalTransaction tx) {
-        HybridTimestamp now = tx.startTimestamp();
+        HybridTimestamp now = tx.schemaTimestamp();
 
         ReplicationGroupId replicationGroupId = targetReplicationGroupId(partId);
         tx.assignCommitPartition(replicationGroupId);
@@ -2067,8 +2067,8 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId replicationGroupId) {
-        return partitionMeta(replicationGroupId, clockService.current()).thenApply(this::getClusterNode);
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
+        return partitionMeta(targetReplicationGroupId(partitionIndex), clockService.current()).thenApply(this::getClusterNode);
     }
 
     private CompletableFuture<ReplicaMeta> partitionMeta(ReplicationGroupId replicationGroupId, HybridTimestamp at) {
@@ -2238,11 +2238,11 @@ public class InternalTableImpl implements InternalTable {
     }
 
     @Override
-    public final ReplicationGroupId targetReplicationGroupId(int partId) {
+    public final ReplicationGroupId targetReplicationGroupId(int partitionIndex) {
         if (enabledColocation()) {
-            return new ZonePartitionId(zoneId, partId);
+            return new ZonePartitionId(zoneId, partitionIndex);
         } else {
-            return new TablePartitionId(tableId, partId);
+            return new TablePartitionId(tableId, partitionIndex);
         }
     }
 

@@ -32,7 +32,7 @@ namespace Apache.Ignite
         TablesGet,
 
         /// <summary>
-        /// Get table (<see cref="ITables.GetTableAsync"/>).
+        /// Get table (<see cref="ITables.GetTableAsync(string)"/>).
         /// </summary>
         TableGet,
 

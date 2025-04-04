@@ -368,7 +368,7 @@ public class CatalogUtils {
                         tableDescriptors,
                         schema.indexes(),
                         schema.systemViews(),
-                        newTableDescriptor.updateToken()
+                        newTableDescriptor.updateTimestamp()
                 );
             }
         }
@@ -398,7 +398,7 @@ public class CatalogUtils {
                         schema.tables(),
                         indexDescriptors,
                         schema.systemViews(),
-                        newIndexDescriptor.updateToken()
+                        newIndexDescriptor.updateTimestamp()
                 );
             }
         }

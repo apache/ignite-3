@@ -15,38 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+namespace Apache.Ignite.Internal.Proto;
 
-/**
- * Raft node disruptor configuration.
- */
-public class RaftNodeDisruptorConfiguration {
-    private final String threadPostfix;
+using System;
 
-    private final int stripes;
+/// <summary>
+/// Protocol bitmask features.
+/// </summary>
+[Flags]
+internal enum ProtocolBitmaskFeature
+{
+    /// <summary>
+    /// User attributes in handshake.
+    /// </summary>
+    UserAttributes = 1,
 
-    /**
-     * Constructor.
-     *
-     * @param threadPostfix Disruptor threads' name postfix.
-     * @param stripes Number of disruptor stripes.
-     */
-    public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
-        this.threadPostfix = threadPostfix;
-        this.stripes = stripes;
-    }
+    /// <summary>
+    /// Qualified name table requests.
+    /// </summary>
+    TableReqsUseQualifiedName = 2,
 
-    /**
-     * Return disruptor threads' name postfix.
-     */
-    public String getThreadPostfix() {
-        return threadPostfix;
-    }
-
-    /**
-     * Return number of disruptor stripes.
-     */
-    public int getStripes() {
-        return stripes;
-    }
+    /// <summary>
+    /// Transaction direct mapping.
+    /// </summary>
+    TxDirectMapping = 4
 }

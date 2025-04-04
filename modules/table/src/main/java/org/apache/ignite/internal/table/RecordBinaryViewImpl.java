@@ -35,7 +35,6 @@ import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
 import java.util.function.Function;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -581,9 +580,9 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
 
         var partitioner = new TupleStreamerPartitionAwarenessProvider(rowConverter.registry(), tbl.partitions());
 
-        StreamerBatchSender<V, Integer, R> batchSender = (partitionId, rows, deleted) ->
+        StreamerBatchSender<V, Integer, R> batchSender = (partitionIndex, rows, deleted) ->
                 PublicApiThreading.execUserAsyncOperation(() ->
-                        tbl.partitionLocation(new TablePartitionId(tbl.tableId(), partitionId))
+                        tbl.partitionLocation(partitionIndex)
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 
