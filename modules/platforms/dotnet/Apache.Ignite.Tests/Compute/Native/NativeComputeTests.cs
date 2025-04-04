@@ -29,7 +29,7 @@ public class NativeComputeTests : IgniteTestsBase
     [Test]
     public async Task TestSimpleJob()
     {
-        JobDescriptor<object?, string?> jobDesc = new ToStringJob().GetDescriptor() with
+        var jobDesc = new ToStringJob().GetDescriptor() with
         {
             Options = new JobExecutionOptions { MaxRetries = 2 }
         };
