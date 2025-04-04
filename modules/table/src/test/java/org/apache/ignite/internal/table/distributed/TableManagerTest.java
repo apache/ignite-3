@@ -312,7 +312,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         distributionZoneManager = mock(DistributionZoneManager.class);
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(emptySetCompletedFuture());
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
                 .thenReturn(nullCompletedFuture());
@@ -327,6 +327,8 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
 
         tblManagerFut = new CompletableFuture<>();
+
+        when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(100L));
 
         mockMetastore();
     }
@@ -400,7 +402,10 @@ public class TableManagerTest extends IgniteAbstractTest {
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
-        TableManager tableManager = tblManagerFut.join();
+
+        assertThat(tblManagerFut, willCompleteSuccessfully());
+
+        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager);
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
@@ -408,7 +413,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         CompletableFuture<List<Assignments>> assignmentsFuture = new CompletableFuture<>();
         var outerExceptionMsg = "Outer future is interrupted";
         assignmentsFuture.completeExceptionally(new TimeoutException(outerExceptionMsg));
-        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = tableManager
+        CompletableFuture<List<Assignments>> writtenAssignmentsFuture = assignmentsService
                 .writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, outerExceptionMsg);
@@ -420,7 +425,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         invokeTimeoutFuture.completeExceptionally(new TimeoutException(innerExceptionMsg));
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(invokeTimeoutFuture);
         writtenAssignmentsFuture =
-                tableManager.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
+                assignmentsService.writeTableAssignmentsToMetastore(tableId, ConsistencyMode.STRONG_CONSISTENCY, assignmentsFuture);
         assertTrue(writtenAssignmentsFuture.isCompletedExceptionally());
         assertThrowsWithCause(writtenAssignmentsFuture::get, TimeoutException.class, innerExceptionMsg);
     }
@@ -687,7 +692,7 @@ public class TableManagerTest extends IgniteAbstractTest {
     private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         var txStateStorage = mock(TxStatePartitionStorage.class);
@@ -782,7 +787,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                     .thenReturn(mock(SchemaDescriptor.class));
         }
 
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt()))
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
                 .thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         TableManager tableManager = createTableManager(tblManagerFut);

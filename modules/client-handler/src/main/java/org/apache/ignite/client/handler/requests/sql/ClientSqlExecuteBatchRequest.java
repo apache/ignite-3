@@ -50,7 +50,7 @@ public class ClientSqlExecuteBatchRequest {
             QueryProcessor sql,
             ClientResourceRegistry resources
     ) {
-        InternalTransaction tx = readTx(in, out, resources);
+        InternalTransaction tx = readTx(in, out, resources, null);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         BatchedArguments arguments = in.unpackBatchedArgumentsFromBinaryTupleArray();

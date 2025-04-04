@@ -524,10 +524,10 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
-     * @param partitionId Replication group ID.
+     * @param partitionIndex Partition index.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partitionId);
+    CompletableFuture<ClusterNode> partitionLocation(int partitionIndex);
 
     /**
      * Returns the <em>estimated size</em> of this table.
@@ -546,4 +546,12 @@ public interface InternalTable extends ManuallyCloseable {
      * @return Streamer receiver runner.
      */
     StreamerReceiverRunner streamerReceiverRunner();
+
+    /**
+     * Gets a replication group id for this table.
+     *
+     * @param partId Partition id.
+     * @return The id.
+     */
+    ReplicationGroupId targetReplicationGroupId(int partId);
 }

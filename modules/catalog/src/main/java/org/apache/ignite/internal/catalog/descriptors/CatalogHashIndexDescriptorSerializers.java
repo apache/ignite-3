@@ -17,8 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.readStringCollection;
 import static org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializationUtils.writeStringCollection;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -27,6 +30,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDat
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectDataOutput;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogSerializer;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataInput;
 import org.apache.ignite.internal.util.io.IgniteUnsafeDataOutput;
 
@@ -43,21 +47,25 @@ public class CatalogHashIndexDescriptorSerializers {
         public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+
+            // Read the update token.
+            input.readVarInt();
+
             int tableId = input.readVarIntAsInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
             List<String> columns = readStringCollection(input, ArrayList::new);
 
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
+            // Here we use the initial timestamp because it's old storage.
+            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, INITIAL_TIMESTAMP, isCreatedWithTable);
         }
 
         @Override
         public void writeTo(CatalogHashIndexDescriptor descriptor, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(descriptor.id());
             output.writeUTF(descriptor.name());
-            output.writeVarInt(descriptor.updateToken());
+            output.writeVarInt(descriptor.updateTimestamp().longValue());
             output.writeVarInt(descriptor.tableId());
             output.writeBoolean(descriptor.unique());
             output.writeByte(descriptor.status().id());
@@ -72,21 +80,22 @@ public class CatalogHashIndexDescriptorSerializers {
         public CatalogHashIndexDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             int id = input.readVarIntAsInt();
             String name = input.readUTF();
-            long updateToken = input.readVarInt();
+            long updateTimestampLong = input.readVarInt();
+            HybridTimestamp updateTimestamp = updateTimestampLong == 0 ? MIN_VALUE : hybridTimestamp(updateTimestampLong);
             int tableId = input.readVarIntAsInt();
             boolean unique = input.readBoolean();
             CatalogIndexStatus status = CatalogIndexStatus.forId(input.readByte());
             boolean isCreatedWithTable = input.readBoolean();
             List<String> columns = input.readObjectCollection(IgniteUnsafeDataInput::readUTF, ArrayList::new);
 
-            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateToken, isCreatedWithTable);
+            return new CatalogHashIndexDescriptor(id, name, tableId, unique, status, columns, updateTimestamp, isCreatedWithTable);
         }
 
         @Override
         public void writeTo(CatalogHashIndexDescriptor value, CatalogObjectDataOutput output) throws IOException {
             output.writeVarInt(value.id());
             output.writeUTF(value.name());
-            output.writeVarInt(value.updateToken());
+            output.writeVarInt(value.updateTimestamp().longValue());
             output.writeVarInt(value.tableId());
             output.writeBoolean(value.unique());
             output.writeByte(value.status().id());

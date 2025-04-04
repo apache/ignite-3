@@ -142,7 +142,7 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public UUID coordinatorId() {
-                return null;
+                return id;
             }
 
             @Override
@@ -151,7 +151,7 @@ public class FakeTxManager implements TxManager {
             }
 
             @Override
-            public HybridTimestamp startTimestamp() {
+            public HybridTimestamp schemaTimestamp() {
                 return timestamp;
             }
 
@@ -174,11 +174,6 @@ public class FakeTxManager implements TxManager {
 
             @Override
             public long getTimeout() {
-                return 10_000;
-            }
-
-            @Override
-            public long getTimeoutOrDefault(long defaultTimeout) {
                 return 10_000;
             }
 
@@ -283,5 +278,11 @@ public class FakeTxManager implements TxManager {
             HybridTimestampTracker timestampTracker, UUID txId, HybridTimestamp ts, boolean commit, boolean timeoutExceeded
     ) {
         // No-op.
+    }
+
+    @Override
+    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token,
+            long timeout) {
+        return null;
     }
 }

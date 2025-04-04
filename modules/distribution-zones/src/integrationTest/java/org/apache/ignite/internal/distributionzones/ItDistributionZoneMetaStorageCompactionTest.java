@@ -20,7 +20,9 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -34,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -42,14 +44,19 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHi
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test for case of meta storage compaction.
  */
-public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClassIntegrationTest {
+public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestIntegrationTest {
     private static final String ZONE_NAME = "TEST_ZONE";
+    private static final String TABLE_NAME = "TEST_TABLE";
 
     @Override
     protected int initialNodes() {
@@ -57,7 +64,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
     }
 
     @Override
-    protected void configureInitParameters(InitParametersBuilder builder) {
+    protected void customizeInitParameters(InitParametersBuilder builder) {
         builder.clusterConfiguration(createClusterConfigWithCompactionProperties(10, 10));
     }
 
@@ -71,6 +78,12 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
         );
     }
 
+    @AfterEach
+    public void tearDown() {
+        sql("drop table if exists " + TABLE_NAME);
+        sql("drop zone " + ZONE_NAME);
+    }
+
     /**
      * Tests that data nodes history is available for timestamp that matches a revision that was compacted.
      */
@@ -79,11 +92,11 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
         String zoneSql = "create zone " + ZONE_NAME + " with partitions=1, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'"
                 + ", data_nodes_auto_adjust_scale_down=0";
 
-        CLUSTER.doInSession(0, session -> {
+        cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
         });
 
-        IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.node(0));
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(0));
 
         HybridTimestamp beforeNodesStop = ignite.clock().now();
 
@@ -109,7 +122,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
         assertTrue(waitForCondition(() -> ignite.metaStorageManager().appliedRevision() > revisionAfterCreateZone, 1000));
 
-        CLUSTER.stopNode(1);
+        cluster.stopNode(1);
 
         // Wait for data nodes adjustment.
         assertTrue(waitForCondition(
@@ -128,6 +141,56 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerClass
 
         // Check that data nodes for old timestamp are still available.
         assertEquals(dataNodesBeforeNodeStop, dataNodes(ignite, zoneId, beforeNodesStop));
+    }
+
+    @Test
+    public void testCompactionDuringRebalancing() throws InterruptedException {
+        sql("create zone " + ZONE_NAME + " with partitions=1, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'"
+                + ", data_nodes_auto_adjust_scale_down=0");
+        sql("create table " + TABLE_NAME + " (id int primary key) zone " + ZONE_NAME);
+        sql("insert into " + TABLE_NAME + " values (1)");
+
+        IgniteImpl ignite = unwrapIgniteImpl(cluster.node(0));
+
+        MetaStorageManager metaStorageManager = ignite.metaStorageManager();
+
+        int tableId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).tables()
+                .stream()
+                .filter(t -> t.name().equals(TABLE_NAME))
+                .findFirst()
+                .orElseThrow()
+                .id();
+
+        TablePartitionId partId = new TablePartitionId(tableId, 0);
+
+        // Checking that there is only one replica in the stable assignments.
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().size(),
+                1,
+                3_000L
+        );
+
+        log.info("Test: created the zone with one replica. Changing replica number to 2.");
+
+        // Triggering the rebalance.
+        sql("alter zone " + ZONE_NAME + " set replicas=2");
+
+        // Wait for the rebalancing to finish.
+        assertValueInStorage(
+                metaStorageManager,
+                stablePartAssignmentsKey(partId),
+                (v) -> Assignments.fromBytes(v).nodes().size(),
+                2,
+                3_000L
+        );
+    }
+
+    private void sql(String sql) {
+        cluster.doInSession(0, session -> {
+            executeUpdate(sql, session);
+        });
     }
 
     private static Set<String> dataNodes(IgniteImpl ignite, int zoneId, HybridTimestamp ts) {

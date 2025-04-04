@@ -82,8 +82,8 @@ public final class IgniteNameUtils {
     }
 
     /**
-     * Wraps the given name with double quotes if it not uppercased non-quoted name, e.g. "myColumn" -&gt; "\"myColumn\"", "MYCOLUMN" -&gt;
-     * "MYCOLUMN"
+     * Wraps the given name with double quotes if it is not uppercased non-quoted name, e.g. "myColumn" -&gt; "\"myColumn\"",
+     * "MYCOLUMN" -&gt; "MYCOLUMN"
      *
      * @param identifier Object identifier.
      * @return Quoted object name.

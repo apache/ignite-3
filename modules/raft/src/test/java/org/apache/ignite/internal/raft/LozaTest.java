@@ -32,6 +32,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
+import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
 import org.apache.ignite.internal.replicator.TestReplicationGroupId;
@@ -89,12 +90,12 @@ public class LozaTest extends IgniteAbstractTest {
 
         assertThrows(
                 NodeStoppingException.class,
-                () -> loza.startRaftGroupNodeAndWaitNodeReady(
+                () -> loza.startRaftGroupNode(
                         new RaftNodeId(raftGroupId, serverPeer),
                         configuration,
                         null,
                         null,
-                        RaftGroupOptionsConfigurer.EMPTY
+                        RaftGroupOptions.defaults()
                 )
         );
         assertThrows(NodeStoppingException.class, () -> loza.startRaftGroupService(raftGroupId, configuration));

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.descriptors;
 
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /** Index descriptor base class. */
@@ -54,10 +55,10 @@ public abstract class CatalogIndexDescriptor extends CatalogObjectDescriptor imp
             int tableId,
             boolean unique,
             CatalogIndexStatus status,
-            long causalityToken,
+            HybridTimestamp timestamp,
             boolean createdWithTable
     ) {
-        super(id, Type.INDEX, name, causalityToken);
+        super(id, Type.INDEX, name, timestamp);
         this.indexType = indexType;
         this.tableId = tableId;
         this.unique = unique;

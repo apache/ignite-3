@@ -2341,6 +2341,9 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
      * @param full {@code True} if this is a full transaction.
      * @param txCoordinatorId Transaction coordinator id.
      * @param catalogVersion Validated catalog version associated with given operation.
+     * @param leaseStartTime Lease start time.
+     * @param skipDelayedAck {@code True} to skip delayed ack optimization.
+     *
      * @return A local update ready future, possibly having a nested replication future as a result for delayed ack purpose.
      */
     private CompletableFuture<CommandApplicationResult> applyUpdateCommand(
@@ -2352,6 +2355,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             boolean full,
             UUID txCoordinatorId,
             int catalogVersion,
+            boolean skipDelayedAck,
             long leaseStartTime
     ) {
         UpdateCommand cmd = updateCommand(
@@ -2368,24 +2372,42 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         );
 
         if (!cmd.full()) {
-            if (!SKIP_UPDATES) {
-                // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
-                storageUpdateHandler.handleUpdate(
-                        cmd.txId(),
-                        cmd.rowUuid(),
-                        cmd.commitPartitionId().asReplicationGroupId(),
-                        cmd.rowToUpdate(),
-                        true,
-                        null,
-                        null,
-                        null,
-                        indexIdsAtRwTxBeginTs(txId)
-                );
+            if (skipDelayedAck) {
+                if (!SKIP_UPDATES) {
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.commitPartitionId().asReplicationGroupId(),
+                            cmd.rowToUpdate(),
+                            true,
+                            null,
+                            null,
+                            null,
+                            indexIdsAtRwTxBeginTs(txId)
+                    );
+                }
+
+                return applyCmdWithExceptionHandling(cmd).thenApply(res -> null);
+            } else {
+                if (!SKIP_UPDATES) {
+                    // We don't need to take the partition snapshots read lock, see #INTERNAL_DOC_PLACEHOLDER why.
+                    storageUpdateHandler.handleUpdate(
+                            cmd.txId(),
+                            cmd.rowUuid(),
+                            cmd.commitPartitionId().asReplicationGroupId(),
+                            cmd.rowToUpdate(),
+                            true,
+                            null,
+                            null,
+                            null,
+                            indexIdsAtRwTxBeginTs(txId)
+                    );
+                }
+
+                CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
+
+                return completedFuture(new CommandApplicationResult(null, repFut));
             }
-
-            CompletableFuture<UUID> repFut = applyCmdWithExceptionHandling(cmd).thenApply(res -> cmd.txId());
-
-            return completedFuture(new CommandApplicationResult(null, repFut));
         } else {
             return applyCmdWithExceptionHandling(cmd).thenCompose(res -> {
                 UpdateCommandResult updateCommandResult = (UpdateCommandResult) res;
@@ -2450,6 +2472,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                 request.full(),
                 request.coordinatorId(),
                 catalogVersion,
+                request.skipDelayedAck(),
                 leaseStartTime
         );
     }
@@ -2846,6 +2869,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             request.full(),
                                             request.coordinatorId(),
                                             catalogVersion,
+                                            request.skipDelayedAck(),
                                             leaseStartTime
                                     )
                             )
@@ -2871,6 +2895,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                             request.full(),
                                             request.coordinatorId(),
                                             catalogVersion,
+                                            request.skipDelayedAck(),
                                             leaseStartTime
                                     )
                             )
@@ -3110,6 +3135,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                                     request.full(),
                                                     request.coordinatorId(),
                                                     catalogVersion,
+                                                    request.skipDelayedAck(),
                                                     leaseStartTime
                                             )
                                     )

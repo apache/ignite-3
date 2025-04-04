@@ -312,7 +312,7 @@ TEST_F(meta_queries_test, test_get_type_info_all_types) {
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
 
-    constexpr auto TYPES_NUM = 16;
+    constexpr auto TYPES_NUM = 15;
     for (int i = 0; i < TYPES_NUM; ++i) {
         ret = SQLFetch(m_statement);
         EXPECT_EQ(ret, SQL_SUCCESS) << "Index " << i;

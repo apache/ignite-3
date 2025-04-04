@@ -131,8 +131,11 @@ enum class client_operation {
     /** Change compute job priority. */
     COMPUTE_CHANGE_PRIORITY = 61,
 
-    /** Execute SQL query with the parameters batch. */
+    /** Execute SQL query with the parameter batch. */
     SQL_EXEC_BATCH = 63,
+
+    /** Cancel execution of an SQL query previously initiated on the same connection. */
+    SQL_CANCEL_EXEC = 70,
 };
 
 } // namespace ignite::protocol

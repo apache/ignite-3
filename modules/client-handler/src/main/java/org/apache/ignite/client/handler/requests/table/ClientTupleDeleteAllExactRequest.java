@@ -21,11 +21,13 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTuples;
+import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -48,12 +50,14 @@ public class ClientTupleDeleteAllExactRequest {
             ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager
+            TxManager txManager,
+            ClockService clockService
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
             return readTuples(in, table, false).thenCompose(tuples -> {
                 return table.recordView().deleteAllExactAsync(tx, tuples).thenAccept(skippedTuples -> {
+                    writeTxMeta(out, clockService, tx);
                     writeTuples(out, skippedTuples, table.schemaView());
                 });
             });
