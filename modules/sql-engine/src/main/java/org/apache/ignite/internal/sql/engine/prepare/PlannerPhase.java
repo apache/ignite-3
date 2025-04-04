@@ -73,6 +73,7 @@ import org.apache.ignite.internal.sql.engine.rule.logical.ExposeIndexRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.FilterScanMergeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteJoinConditionPushRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.IgniteMultiJoinOptimizeBushyRule;
+import org.apache.ignite.internal.sql.engine.rule.logical.IgniteProjectCorrelateTransposeRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.LogicalOrToUnionRule;
 import org.apache.ignite.internal.sql.engine.rule.logical.ProjectScanMergeRule;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -131,6 +132,7 @@ public enum PlannerPhase {
             "Heuristic phase to push down and merge projects",
             ProjectScanMergeRule.TABLE_SCAN_SKIP_CORRELATED,
             ProjectScanMergeRule.SYSTEM_VIEW_SCAN_SKIP_CORRELATED,
+            IgniteProjectCorrelateTransposeRule.INSTANCE,
 
             CoreRules.JOIN_PUSH_EXPRESSIONS,
             CoreRules.PROJECT_MERGE,
