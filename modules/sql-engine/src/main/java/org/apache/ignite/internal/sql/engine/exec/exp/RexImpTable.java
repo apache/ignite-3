@@ -4061,9 +4061,9 @@ public class RexImpTable {
       case INTERVAL_SECOND:
         switch (call.getKind()) {
         case MINUS:
-          return normalize(typeName, IgniteExpressions.subtractExact(trop0, trop1));
+          return normalize(typeName, IgniteExpressions.addBoundsCheckIfNeeded(typeName, IgniteExpressions.subtractExact(trop0, trop1)));
         default:
-          return normalize(typeName, IgniteExpressions.addExact(trop0, trop1));
+          return normalize(typeName, IgniteExpressions.addBoundsCheckIfNeeded(typeName, IgniteExpressions.addExact(trop0, trop1)));
         }
 
       default:
