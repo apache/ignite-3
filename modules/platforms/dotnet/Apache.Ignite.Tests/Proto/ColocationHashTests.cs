@@ -96,10 +96,11 @@ public class ColocationHashTests : IgniteTestsBase
         LocalTime.Noon,
         LocalDateTime.FromDateTime(DateTime.UtcNow).TimeOfDay,
         default(LocalTime),
-        new LocalDateTime(year: 1, month: 1, day: 1, hour: 1, minute: 1, second: 1, millisecond: 1),
+
+        // Minimum allowed DATETIME value.
+        new LocalDateTime(year: 1, month: 1, day: 1, hour: 18, minute: 0, second: 0, millisecond: 0),
         new LocalDateTime(year: 2022, month: 10, day: 22, hour: 10, minute: 30, second: 55, millisecond: 123),
         LocalDateTime.FromDateTime(DateTime.UtcNow),
-        default(LocalDateTime),
         Instant.FromUnixTimeSeconds(0),
         default(Instant)
     };
