@@ -156,6 +156,7 @@ INSERT INTO times_sub_ms VALUES(5, '00:00:00.999999'::${type}, '00:00:00.999999'
 statement ok
 INSERT INTO times_sub_ms VALUES(6, '00:00:00.999999999'::${type}, '00:00:00.999999999'::${type}, '00:00:00.999999999'::${type}, '00:00:00.999999999'::${type})
 
+# TODO https://issues.apache.org/jira/browse/IGNITE-24934 Make behavior consistent for truncated values
 query TTTT
 SELECT t1_0::VARCHAR, t1_1::VARCHAR, t1_2::VARCHAR, t1_3::VARCHAR FROM times_sub_ms ORDER BY id ASC
 ----
