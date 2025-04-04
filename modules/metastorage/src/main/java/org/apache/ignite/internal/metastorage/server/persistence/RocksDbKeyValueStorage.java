@@ -565,10 +565,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void setIndexAndTerm(long index, long term) {
-        try (WriteBatch batch = new WriteBatch()) {
-            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
-
-            db.write(writeOptions, batch);
+        try {
+            db.put(writeOptions, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }

@@ -73,7 +73,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      *
      * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    protected long rev;
+    protected volatile long rev;
 
     /**
      * Last compaction revision that was set or restored from a snapshot.
