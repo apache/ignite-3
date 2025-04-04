@@ -101,7 +101,7 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 {
   "ignite" : {
     "deployment" : {
-      "deploymentLocation" : "deployment"
+      "location" : "deployment"
     }
   }
 }
@@ -110,7 +110,7 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 [cols="1,1,3,1,1,2",opts="header", stripes=none]
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
-|deploymentLocation|deployment|Relative path to folder in the working directory. All deployment units content will be stored there.| Yes | No | A valid path
+|location|deployment|Relative path to folder in the working directory. All deployment units content will be stored there.| Yes | No | A valid path
 |======
 
 === Network Configuration
