@@ -566,7 +566,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     @Override
     public void setIndexAndTerm(long index, long term) {
         try {
-            db.put(writeOptions, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+            db.put(data.handle(), writeOptions, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
@@ -1296,7 +1296,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             byte[] tsValue = rocksIterator.value();
 
-            if (tsValue.length == 0) {
+            if (tsValue.length == 0) { // TODO The fuck? How can it be empty?
                 throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
