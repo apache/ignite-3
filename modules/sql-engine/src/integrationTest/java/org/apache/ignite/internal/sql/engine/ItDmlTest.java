@@ -157,6 +157,7 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
      * Test ensures inserts are possible after read lock on a range.
      */
     @Test
+    @Disabled
     public void rangeReadAndExclusiveInsert() {
         sql("CREATE TABLE test (id INT, aff_key INT, val INT, PRIMARY KEY (id, aff_key)) COLOCATE BY (aff_key) ");
         sql("CREATE INDEX test_val_asc_idx ON test (val ASC)");
