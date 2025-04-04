@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.table.distributed.schema;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 import org.apache.ignite.internal.catalog.CatalogService;
@@ -36,6 +38,7 @@ class CatalogVersionSufficiencyTest extends BaseIgniteAbstractTest {
     @Test
     void exceedingLocalVersionIsSufficient() {
         when(catalogService.latestCatalogVersion()).thenReturn(10);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         assertTrue(CatalogVersionSufficiency.isMetadataAvailableFor(8, catalogService));
     }
@@ -43,6 +46,7 @@ class CatalogVersionSufficiencyTest extends BaseIgniteAbstractTest {
     @Test
     void equalLocalVersionIsSufficient() {
         when(catalogService.latestCatalogVersion()).thenReturn(10);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         assertTrue(CatalogVersionSufficiency.isMetadataAvailableFor(10, catalogService));
     }
@@ -50,6 +54,7 @@ class CatalogVersionSufficiencyTest extends BaseIgniteAbstractTest {
     @Test
     void lowerLocalVersionIsSufficient() {
         when(catalogService.latestCatalogVersion()).thenReturn(10);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         assertFalse(CatalogVersionSufficiency.isMetadataAvailableFor(12, catalogService));
     }

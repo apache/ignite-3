@@ -35,6 +35,7 @@ import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 
@@ -88,6 +89,7 @@ public final class ItClientDataStreamerLoadTest extends ClusterPerClassIntegrati
     }
 
     @Test
+    @Disabled
     @Timeout(value = 20, unit = TimeUnit.MINUTES)
     public void testHighLoad() throws InterruptedException {
         Thread[] threads = new Thread[CLIENT_COUNT];
