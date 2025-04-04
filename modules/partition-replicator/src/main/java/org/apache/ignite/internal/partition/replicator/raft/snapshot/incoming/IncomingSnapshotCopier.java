@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -237,7 +238,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 Throwable cause = e.getCause();
 
                 if (!(cause instanceof CancellationException)) {
-                    LOG.error("Error when completing the copier", cause);
+                    processCriticalFailure(partitionSnapshotStorage.failureProcessor(), e, "Error when completing the copier");
 
                     if (isOk()) {
                         setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
@@ -493,7 +494,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         try {
             if (throwable != null) {
-                LOG.error("Partition rebalancing error [{}]", throwable, createPartitionInfo());
+                processCriticalFailure(
+                        partitionSnapshotStorage.failureProcessor(),
+                        throwable,
+                        "Partition rebalancing error [%s]",
+                        createPartitionInfo()
+                );
 
                 if (isOk()) {
                     setError(RaftError.UNKNOWN, throwable.getMessage());

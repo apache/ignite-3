@@ -25,6 +25,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
@@ -50,9 +51,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
-import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
@@ -128,7 +127,7 @@ abstract class ChangeIndexStatusTask {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final Executor executor;
 
@@ -146,7 +145,7 @@ abstract class ChangeIndexStatusTask {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -157,7 +156,7 @@ abstract class ChangeIndexStatusTask {
         this.logicalTopologyService = logicalTopologyService;
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -189,9 +188,11 @@ abstract class ChangeIndexStatusTask {
                                     // The index's table might have been dropped while we were waiting for the ability
                                     // to switch the index status to a new state, so IndexNotFound is not a problem.
                                     && !(cause instanceof IndexNotFoundValidationException)) {
-                                LOG.error("Error starting index task: {}", throwable, indexDescriptor.id());
-
-                                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, throwable));
+                                processCriticalFailure(
+                                        failureProcessor,
+                                        throwable,
+                                        "Error starting index task: %s", indexDescriptor.id()
+                                );
                             }
                         }
                     })

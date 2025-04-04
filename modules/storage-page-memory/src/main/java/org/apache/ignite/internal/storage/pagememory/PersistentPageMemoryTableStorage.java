@@ -26,6 +26,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.pagememory.PageMemory;
@@ -58,6 +59,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
     private final ExecutorService destructionExecutor;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -65,19 +68,22 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
      * @param indexDescriptorSupplier Index descriptor supplier.
      * @param engine Storage engine instance.
      * @param dataRegion Data region for the table.
+     * @param failureProcessor Failure processor.
      */
     PersistentPageMemoryTableStorage(
             StorageTableDescriptor tableDescriptor,
             StorageIndexDescriptorSupplier indexDescriptorSupplier,
             PersistentPageMemoryStorageEngine engine,
             PersistentPageMemoryDataRegion dataRegion,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(tableDescriptor, indexDescriptorSupplier);
 
         this.engine = engine;
         this.dataRegion = dataRegion;
         this.destructionExecutor = destructionExecutor;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -125,7 +131,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     versionChainTree,
                     indexMetaTree,
                     gcQueue,
-                    destructionExecutor
+                    destructionExecutor,
+                    failureProcessor
             );
         });
     }

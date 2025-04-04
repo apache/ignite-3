@@ -55,6 +55,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -937,6 +938,6 @@ public class PlacementDriverTest extends BaseIgniteAbstractTest {
     }
 
     private AssignmentsTracker createAssignmentsPlacementDriver() {
-        return new AssignmentsTracker(metastore);
+        return new AssignmentsTracker(metastore, mock(FailureProcessor.class));
     }
 }

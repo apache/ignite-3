@@ -20,6 +20,7 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -45,6 +46,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -109,6 +111,8 @@ public class LeaseUpdater {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
+    private final FailureProcessor failureProcessor;
+
     /** Assignments tracker. */
     private final AssignmentsTracker assignmentsTracker;
 
@@ -150,6 +154,7 @@ public class LeaseUpdater {
             String nodeName,
             ClusterService clusterService,
             MetaStorageManager msManager,
+            FailureProcessor failureProcessor,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
             ClockService clockService,
@@ -159,6 +164,7 @@ public class LeaseUpdater {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
+        this.failureProcessor = failureProcessor;
         this.leaseTracker = leaseTracker;
         this.clockService = clockService;
         this.replicationConfiguration = replicationConfiguration;
@@ -385,7 +391,7 @@ public class LeaseUpdater {
                         updateLeaseBatchInternal();
                     }
                 } catch (Throwable e) {
-                    LOG.error("Error occurred when updating the leases.", e);
+                    processCriticalFailure(failureProcessor, e, "Error occurred when updating the leases.");
 
                     if (e instanceof Error) {
                         // TODO IGNITE-20368 The node should be halted in case of an error here.
@@ -582,7 +588,7 @@ public class LeaseUpdater {
             ).whenComplete((success, e) -> {
                 if (e != null) {
                     if (!(ExceptionUtils.unwrapCause(e) instanceof NodeStoppingException)) {
-                        LOG.error("Lease update invocation failed", e);
+                        processCriticalFailure(failureProcessor, e, "Lease update invocation failed");
                     }
 
                     return;

@@ -34,6 +34,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
@@ -121,6 +122,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
                 busyLock,
                 clusterService,
                 mock(LogicalTopologyService.class),
+                new NoOpFailureManager(),
                 metaStorageSvcFut,
                 mock(MetaStorageLearnerManager.class),
                 clusterTime,

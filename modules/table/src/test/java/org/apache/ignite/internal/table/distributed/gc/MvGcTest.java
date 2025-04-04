@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
@@ -75,7 +76,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        gc = new MvGc("test", gcConfig, lowWatermark);
+        gc = new MvGc("test", gcConfig, lowWatermark, new NoOpFailureManager());
 
         gc.start();
     }
@@ -315,7 +316,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.close();
 
-        gc = new MvGc("test", gcConfig, lowWatermark);
+        gc = new MvGc("test", gcConfig, lowWatermark, new NoOpFailureManager());
 
         gc.start();
 

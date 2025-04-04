@@ -50,6 +50,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -476,7 +477,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 resourcesRegistry,
                 schemaManager,
                 mock(IndexMetaStorage.class),
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                mock(FailureProcessor.class)
         );
 
         if (enabledColocation) {
@@ -490,6 +492,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     placementDriver,
                     mock(ClusterNodeResolver.class),
                     svc,
+                    mock(FailureProcessor.class),
                     LOCAL_NODE,
                     zonePartitionId
             );

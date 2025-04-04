@@ -45,6 +45,7 @@ dependencies {
     implementation project(':ignite-workers')
     implementation project(':ignite-low-watermark')
     implementation project(':ignite-system-view-api')
+    implementation project(':ignite-failure-handler')
     implementation libs.auto.service.annotations
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core

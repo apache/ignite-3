@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.command.BuildIndexCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
@@ -65,6 +66,8 @@ class IndexBuilder implements ManuallyCloseable {
 
     private final ReplicaService replicaService;
 
+    private final FailureProcessor failureProcessor;
+
     private final Map<IndexBuildTaskId, IndexBuildTask> indexBuildTaskById = new ConcurrentHashMap<>();
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -74,9 +77,10 @@ class IndexBuilder implements ManuallyCloseable {
     private final List<IndexBuildCompletionListener> listeners = new CopyOnWriteArrayList<>();
 
     /** Constructor. */
-    IndexBuilder(Executor executor, ReplicaService replicaService) {
-        this.replicaService = replicaService;
+    IndexBuilder(Executor executor, ReplicaService replicaService, FailureProcessor failureProcessor) {
         this.executor = executor;
+        this.replicaService = replicaService;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -128,6 +132,7 @@ class IndexBuilder implements ManuallyCloseable {
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    failureProcessor,
                     executor,
                     busyLock,
                     BATCH_SIZE,
@@ -189,6 +194,7 @@ class IndexBuilder implements ManuallyCloseable {
                     indexStorage,
                     partitionStorage,
                     replicaService,
+                    failureProcessor,
                     executor,
                     busyLock,
                     BATCH_SIZE,

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.union;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -50,6 +51,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -110,6 +112,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
+    private final FailureProcessor failureProcessor;
+
     /** Unique table partition id. */
     private final ZonePartitionId zonePartitionId;
 
@@ -144,6 +148,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      */
     public ZoneRebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
+            FailureProcessor failureProcessor,
             ZonePartitionId zonePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
@@ -152,6 +157,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
     ) {
         this.metaStorageMgr = metaStorageMgr;
+        this.failureProcessor = failureProcessor;
         this.zonePartitionId = zonePartitionId;
         this.busyLock = busyLock;
         this.partitionMover = partitionMover;
@@ -203,7 +209,12 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    LOG.warn("Unable to start rebalance [tablePartitionId, term={}]", e, zonePartitionId, term);
+                    processCriticalFailure(
+                            failureProcessor,
+                            e,
+                            "Unable to start rebalance [tablePartitionId=%s, term=%s]",
+                            zonePartitionId, term
+                    );
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -318,7 +329,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
     /**
      * Updates stable value with the new applied assignment.
      */
-    private static void doStableKeySwitch(
+    private void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             ZonePartitionId zonePartitionId,
             MetaStorageManager metaStorageMgr,
@@ -525,7 +536,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            LOG.warn("Unable to commit partition configuration to metastore: " + zonePartitionId, e);
+            processCriticalFailure(failureProcessor, e, "Unable to commit partition configuration to metastore: %s", zonePartitionId);
         }
     }
 

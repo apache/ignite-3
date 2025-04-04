@@ -67,6 +67,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -411,6 +412,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
                 ))),
                 new PartitionTxStateAccessImpl(incomingTxStateStorage.getPartitionStorage(PARTITION_ID)),
                 catalogService,
+                mock(FailureProcessor.class),
                 mock(SnapshotMeta.class),
                 executorService,
                 0

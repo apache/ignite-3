@@ -488,21 +488,13 @@ public class OutgoingSnapshot {
                 rows.add(txDataCursor.next());
             } else {
                 finishedTxData = true;
-                closeLoggingProblems(txDataCursor);
+                txDataCursor.close();
             }
         }
 
         this.finishedTxData = finishedTxData;
 
         return buildTxDataResponse(rows, finishedTxData);
-    }
-
-    private static void closeLoggingProblems(Cursor<?> cursor) {
-        try {
-            cursor.close();
-        } catch (RuntimeException e) {
-            LOG.error("Problem while closing a cursor", e);
-        }
     }
 
     private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {
@@ -629,7 +621,7 @@ public class OutgoingSnapshot {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
 
             if (txCursor != null) {
-                closeLoggingProblems(txCursor);
+                txCursor.close();
                 finishedTxData = true;
             }
         }

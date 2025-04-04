@@ -79,6 +79,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -354,14 +355,21 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         sm = new SchemaManager(revisionUpdater, catalogManager);
 
+        FailureProcessor failureProcessor = mock(FailureProcessor.class);
+
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,
-                logSyncer
+                logSyncer,
+                failureProcessor
         );
 
-        var outgoingSnapshotManager = new OutgoingSnapshotsManager(node.name(), clusterService.messagingService());
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(
+                node.name(),
+                clusterService.messagingService(),
+                failureProcessor
+        );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
@@ -370,6 +378,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 lowWatermark,
+                failureProcessor,
                 ForkJoinPool.commonPool(),
                 mock(ScheduledExecutorService.class),
                 partitionOperationsExecutor,
@@ -410,6 +419,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
+                new NoOpFailureManager(),
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 () -> mock(IgniteSql.class),

@@ -28,6 +28,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -53,7 +54,14 @@ class TxStateMetaRocksDbPartitionStorageTest extends IgniteAbstractTest {
             @InjectExecutorService ScheduledExecutorService scheduledExecutor,
             @InjectExecutorService ExecutorService executor
     ) {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
+        sharedStorage = new TxStateRocksDbSharedStorage(
+                workDir,
+                scheduledExecutor,
+                executor,
+                mock(LogSyncer.class),
+                mock(FailureProcessor.class),
+                () -> 0
+        );
 
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
     }

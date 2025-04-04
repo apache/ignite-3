@@ -537,7 +537,8 @@ public class ItTxTestCluster {
                     clusterService.messagingService(),
                     transactionInflights,
                     txMgr,
-                    lowWatermark
+                    lowWatermark,
+                    new NoOpFailureManager()
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -604,7 +605,8 @@ public class ItTxTestCluster {
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                executor
+                executor,
+                new NoOpFailureManager()
         );
     }
 
@@ -957,6 +959,7 @@ public class ItTxTestCluster {
                             placementDriver,
                             clusterNodeResolver,
                             raftClient,
+                            new NoOpFailureManager(),
                             localNode,
                             partitionId
                     )
@@ -1096,7 +1099,8 @@ public class ItTxTestCluster {
                 resourcesRegistry,
                 schemaRegistry,
                 mock(IndexMetaStorage.class),
-                lowWatermark
+                lowWatermark,
+                new NoOpFailureManager()
         );
     }
 
@@ -1303,7 +1307,8 @@ public class ItTxTestCluster {
                 resourceRegistry,
                 clientTransactionInflights,
                 lowWatermark,
-                executor
+                executor,
+                new NoOpFailureManager()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
@@ -1313,7 +1318,8 @@ public class ItTxTestCluster {
                 client.messagingService(),
                 clientTransactionInflights,
                 clientTxManager,
-                lowWatermark
+                lowWatermark,
+                new NoOpFailureManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(

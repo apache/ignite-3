@@ -58,6 +58,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockServiceImpl;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -335,7 +336,8 @@ public class InternalTableEstimatedSizeTest extends BaseIgniteAbstractTest {
                 remotelyTriggeredResourceRegistry,
                 schemaRegistry,
                 indexMetaStorage,
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                new NoOpFailureManager()
         );
     }
 

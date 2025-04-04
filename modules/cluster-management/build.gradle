@@ -54,6 +54,7 @@ dependencies {
     testImplementation testFixtures(project(':ignite-configuration'))
     testImplementation testFixtures(project(':ignite-network'))
     testImplementation testFixtures(project(':ignite-vault'))
+    testImplementation testFixtures(project(':ignite-failure-handler'))
 
     testImplementation libs.hamcrest.core
     testImplementation libs.mockito.junit
@@ -90,6 +91,7 @@ dependencies {
     integrationTestImplementation testFixtures(project(':ignite-runner'))
     integrationTestImplementation testFixtures(project(':ignite-metrics:'))
     integrationTestImplementation testFixtures(project(':ignite-raft'))
+    integrationTestImplementation testFixtures(project(':ignite-failure-handler'))
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.jetbrains.annotations
 }

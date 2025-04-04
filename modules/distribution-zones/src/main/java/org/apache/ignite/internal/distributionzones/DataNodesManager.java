@@ -44,6 +44,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -84,6 +85,7 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHi
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -132,6 +134,8 @@ public class DataNodesManager {
 
     private final ClockService clockService;
 
+    private final FailureProcessor failureProcessor;
+
     /** External busy lock. */
     private final IgniteSpinBusyLock busyLock;
 
@@ -165,6 +169,7 @@ public class DataNodesManager {
      * @param metaStorageManager Meta storage manager.
      * @param catalogManager Catalog manager.
      * @param clockService Clock service.
+     * @param failureProcessor Failure processor.
      * @param partitionResetClosure Closure to reset partitions.
      * @param partitionDistributionResetTimeoutSupplier Supplier for partition distribution reset timeout.
      */
@@ -174,12 +179,14 @@ public class DataNodesManager {
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
             ClockService clockService,
+            FailureProcessor failureProcessor,
             BiConsumer<Long, Integer> partitionResetClosure,
             IntSupplier partitionDistributionResetTimeoutSupplier
     ) {
         this.metaStorageManager = metaStorageManager;
         this.catalogManager = catalogManager;
         this.clockService = clockService;
+        this.failureProcessor = failureProcessor;
         this.localNodeName = nodeName;
         this.partitionResetClosure = partitionResetClosure;
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
@@ -1083,7 +1090,7 @@ public class DataNodesManager {
                                 })
                                 .whenComplete((v, e) -> {
                                     if (e != null) {
-                                        LOG.error(metaStorageOperation.failureLogMessage(), e);
+                                        processCriticalFailure(failureProcessor, e, metaStorageOperation.failureLogMessage());
                                     }
                                 });
                     }
@@ -1129,12 +1136,11 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error(
-                                    "Failed to initialize zone's dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
+                            processCriticalFailure(
+                                    failureProcessor,
                                     e,
-                                    zoneId,
-                                    timestamp,
-                                    nodeNames(dataNodes)
+                                    "Failed to initialize zone's dataNodes history [zoneId = %s, timestamp = %s, dataNodes = %s]",
+                                    zoneId, timestamp, nodeNames(dataNodes)
                             );
                         } else if (invokeResult) {
                             LOG.info("Initialized zone's dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
@@ -1193,11 +1199,11 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error(
-                                    "Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]",
+                            processCriticalFailure(
+                                    failureProcessor,
                                     e,
-                                    zoneId,
-                                    timestamp
+                                    "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
+                                    zoneId, timestamp
                             );
                         } else if (invokeResult) {
                             LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);

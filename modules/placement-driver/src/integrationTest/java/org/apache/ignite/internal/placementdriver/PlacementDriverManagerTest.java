@@ -69,6 +69,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -260,6 +261,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
+                mock(FailureProcessor.class),
                 replicationConfiguration
         );
 

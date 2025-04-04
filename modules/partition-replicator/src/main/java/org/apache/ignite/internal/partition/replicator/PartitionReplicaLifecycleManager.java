@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
@@ -95,6 +96,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftG
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -177,6 +179,8 @@ public class PartitionReplicaLifecycleManager extends
     private final TopologyService topologyService;
 
     private final LowWatermark lowWatermark;
+
+    private final FailureProcessor failureProcessor;
 
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
@@ -271,6 +275,7 @@ public class PartitionReplicaLifecycleManager extends
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
             LowWatermark lowWatermark,
+            FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -291,6 +296,7 @@ public class PartitionReplicaLifecycleManager extends
                 metaStorageMgr,
                 topologyService,
                 lowWatermark,
+                failureProcessor,
                 ioExecutor,
                 rebalanceScheduler,
                 partitionOperationsExecutor,
@@ -307,6 +313,7 @@ public class PartitionReplicaLifecycleManager extends
                         outgoingSnapshotsManager,
                         topologyService,
                         catalogService,
+                        failureProcessor,
                         partitionOperationsExecutor
                 )
         );
@@ -320,6 +327,7 @@ public class PartitionReplicaLifecycleManager extends
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
             LowWatermark lowWatermark,
+            FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -338,6 +346,7 @@ public class PartitionReplicaLifecycleManager extends
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
         this.lowWatermark = lowWatermark;
+        this.failureProcessor = failureProcessor;
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -417,7 +426,7 @@ public class PartitionReplicaLifecycleManager extends
         return allOf(startZoneFutures.toArray(CompletableFuture[]::new))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Error starting zones", throwable);
+                        processCriticalFailure(failureProcessor, throwable, "Error starting zones");
                     } else {
                         LOG.debug(
                                 "Zones started successfully [earliestCatalogVersion={}, latestCatalogVersion={}, startedZoneIds={}]",
@@ -475,7 +484,7 @@ public class PartitionReplicaLifecycleManager extends
             return allOf(futures)
                     .whenComplete((res, e) -> {
                         if (e != null) {
-                            LOG.error("Error when performing assignments recovery", e);
+                            processCriticalFailure(failureProcessor, e, "Error when performing assignments recovery", e);
                         }
                     });
         }
@@ -602,6 +611,7 @@ public class PartitionReplicaLifecycleManager extends
 
         ZoneRebalanceRaftGroupEventsListener raftGroupEventsListener = new ZoneRebalanceRaftGroupEventsListener(
                 metaStorageMgr,
+                failureProcessor,
                 zonePartitionId,
                 busyLock,
                 createPartitionMover(zonePartitionId),
@@ -640,6 +650,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 executorInclinedPlacementDriver,
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
+                                                failureProcessor,
                                                 topologyService.localMember(),
                                                 zonePartitionId
                                         );
@@ -670,7 +681,12 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.warn("Unable to update raft groups on the node [zonePartitionId={}]", ex, zonePartitionId);
+                        processCriticalFailure(
+                                failureProcessor,
+                                ex,
+                                "Unable to update raft groups on the node [zonePartitionId=%s]",
+                                zonePartitionId
+                        );
                     }
                 });
     }
@@ -756,9 +772,10 @@ public class PartitionReplicaLifecycleManager extends
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Couldn't write assignments [assignmentsList={}] to metastore during invoke.",
+                        processCriticalFailure(
+                                failureProcessor,
                                 e,
+                                "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                 assignmentListToString(newAssignments)
                         );
                     }
@@ -804,7 +821,11 @@ public class PartitionReplicaLifecycleManager extends
                                 })
                                 .whenComplete((realAssignments, e) -> {
                                     if (e != null) {
-                                        LOG.error("Couldn't get assignments from metastore for zone [zoneId={}].", e, zoneId);
+                                        processCriticalFailure(
+                                                failureProcessor,
+                                                e,
+                                                "Couldn't get assignments from metastore for zone [zoneId=%s].", zoneId
+                                        );
                                     }
                                 });
                     }

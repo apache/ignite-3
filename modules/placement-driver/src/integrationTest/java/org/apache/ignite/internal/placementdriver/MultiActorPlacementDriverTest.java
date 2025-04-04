@@ -48,6 +48,7 @@ import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -321,6 +322,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
                     clockService,
+                    mock(FailureProcessor.class),
                     replicationConfiguration
             );
 

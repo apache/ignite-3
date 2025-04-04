@@ -23,6 +23,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -63,6 +64,8 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
 
     private final CatalogService catalogService;
 
+    private final FailureProcessor failureProcessor;
+
     /** Incoming snapshots executor. */
     private final Executor incomingSnapshotsExecutor;
 
@@ -73,6 +76,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             PartitionTxStateAccess txStateStorage,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             Executor incomingSnapshotsExecutor
     ) {
         this.partitionKey = partitionKey;
@@ -80,6 +84,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.txStateStorage = txStateStorage;
         this.catalogService = catalogService;
+        this.failureProcessor = failureProcessor;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
     }
 
@@ -107,6 +112,7 @@ public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
                 partitionsByTableId,
                 txStateStorage,
                 catalogService,
+                failureProcessor,
                 createStartupSnapshotMeta(),
                 incomingSnapshotsExecutor
         );

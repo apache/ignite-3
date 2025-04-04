@@ -28,6 +28,7 @@ import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -71,7 +72,14 @@ public class RocksDbTxStatePartitionStorageTest extends AbstractTxStatePartition
     @Override
     @BeforeEach
     protected void beforeTest() {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduledExecutor, executor, mock(LogSyncer.class), () -> 0);
+        sharedStorage = new TxStateRocksDbSharedStorage(
+                workDir,
+                scheduledExecutor,
+                executor,
+                mock(LogSyncer.class),
+                mock(FailureProcessor.class),
+                () -> 0
+        );
         assertThat(sharedStorage.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         super.beforeTest();

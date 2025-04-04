@@ -1460,7 +1460,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             LongSupplier delayDurationMsSupplier = () -> 10L;
 
             catalogManager = new CatalogManagerImpl(
-                    new UpdateLogImpl(metaStorageManager),
+                    new UpdateLogImpl(metaStorageManager, failureManager),
                     clockService,
                     failureManager,
                     delayDurationMsSupplier
@@ -1491,10 +1491,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storagePath.resolve("tx-state"),
                     threadPoolsManager.commonScheduler(),
                     threadPoolsManager.tableIoExecutor(),
-                    logStorageFactory
+                    logStorageFactory,
+                    failureManager
             );
 
-            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService(), failureManager);
 
             var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
@@ -1503,6 +1504,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     clusterService.topologyService(),
                     lowWatermark,
+                    failureManager,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler,
                     threadPoolsManager.partitionOperationsExecutor(),
@@ -1543,6 +1545,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
+                    failureManager,
                     HybridTimestampTracker.atomicTracker(null),
                     placementDriver,
                     () -> mock(IgniteSql.class),
