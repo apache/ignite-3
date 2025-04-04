@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -65,16 +67,19 @@ public class TableAssignmentsService {
     private final MetaStorageManager metaStorageMgr;
     private final CatalogService catalogService;
     private final DistributionZoneManager distributionZoneManager;
+    private final FailureProcessor failureProcessor;
 
     /** Constructor. */
     public TableAssignmentsService(
             MetaStorageManager metaStorageMgr,
             CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            FailureProcessor failureProcessor
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.catalogService = catalogService;
         this.distributionZoneManager = distributionZoneManager;
+        this.failureProcessor = failureProcessor;
     }
 
     CompletableFuture<List<Assignments>> createAndWriteTableAssignmentsToMetastorage(
@@ -112,9 +117,10 @@ public class TableAssignmentsService {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error(
-                                    "Couldn't write assignments [assignmentsList={}] to metastore during invoke.",
+                            processCriticalFailure(
+                                    failureProcessor,
                                     e,
+                                    "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                     Assignments.assignmentListToString(newAssignments)
                             );
                         }
@@ -208,7 +214,7 @@ public class TableAssignmentsService {
             return realAssignments;
         }).whenComplete((realAssignments, e) -> {
             if (e != null) {
-                LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
+                processCriticalFailure(failureProcessor, e, "Couldn't get assignments from metastore for table [tableId=%s].", tableId);
             }
         });
     }

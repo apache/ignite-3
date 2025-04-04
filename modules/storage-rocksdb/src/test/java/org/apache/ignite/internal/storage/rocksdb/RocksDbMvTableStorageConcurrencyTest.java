@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.AbstractMvTableStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -51,7 +52,14 @@ class RocksDbMvTableStorageConcurrencyTest extends AbstractMvTableStorageConcurr
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
+        engine = new RocksDbStorageEngine(
+                "test",
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 

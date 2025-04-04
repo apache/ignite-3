@@ -22,6 +22,7 @@ import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -37,10 +38,14 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link LogicalTopology}.
@@ -53,6 +58,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
     private final ClusterStateStorage storage;
 
+    private final FailureProcessor failureProcessor;
+
     private final ClusterStateStorageManager clusterStateStorageManager;
 
     private final List<LogicalTopologyEventListener> listeners = new CopyOnWriteArrayList<>();
@@ -60,8 +67,15 @@ public class LogicalTopologyImpl implements LogicalTopology {
     private volatile @Nullable UUID clusterId;
 
     /** Constructor. */
+    @TestOnly
     public LogicalTopologyImpl(ClusterStateStorage storage) {
+        this(storage, new FailureManager(new NoOpFailureHandler()));
+    }
+
+    /** Constructor. */
+    public LogicalTopologyImpl(ClusterStateStorage storage, FailureProcessor failureProcessor) {
         this.storage = storage;
+        this.failureProcessor = failureProcessor;
 
         clusterStateStorageManager = new ClusterStateStorageManager(storage);
     }
@@ -218,13 +232,13 @@ public class LogicalTopologyImpl implements LogicalTopology {
             try {
                 action.accept(listener);
             } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying {}() listener {}", methodName, listener);
+                notifyFailureHandlerAndRethrowIfError(e, "Failure while notifying %s() listener %s", methodName, listener);
             }
         }
     }
 
-    private static void logAndRethrowIfError(Throwable e, String logMessagePattern, Object... params) {
-        LOG.error(logMessagePattern, e, params);
+    private void notifyFailureHandlerAndRethrowIfError(Throwable e, String logMessagePattern, Object... args) {
+        processCriticalFailure(failureProcessor, e, logMessagePattern, args);
 
         if (e instanceof Error) {
             throw (Error) e;

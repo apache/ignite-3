@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -27,10 +28,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -60,6 +61,8 @@ class ReplicaStateManager {
 
     private final ReplicaManager replicaManager;
 
+    private final FailureProcessor failureProcessor;
+
     private volatile UUID localNodeId;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -68,12 +71,14 @@ class ReplicaStateManager {
             Executor replicaStartStopExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
-            ReplicaManager replicaManager
+            ReplicaManager replicaManager,
+            FailureProcessor failureProcessor
     ) {
         this.replicaStartStopExecutor = replicaStartStopExecutor;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaManager = replicaManager;
+        this.failureProcessor = failureProcessor;
     }
 
     void start(UUID localNodeId) {
@@ -232,10 +237,10 @@ class ReplicaStateManager {
 
                     return partitionStarted;
                 }))
-                .exceptionally(e -> {
-                    LOG.error("Replica start failed [groupId={}]", e, groupId);
-
-                    throw new CompletionException(e);
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        processCriticalFailure(failureProcessor, ex, "Replica start failed [groupId=%s]", groupId);
+                    }
                 });
 
         return context.previousOperationFuture;
@@ -324,10 +329,10 @@ class ReplicaStateManager {
 
                     return true;
                 }))
-                .exceptionally(e -> {
-                    LOG.error("Replica stop failed [groupId={}]", e, groupId);
-
-                    throw new CompletionException(e);
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        processCriticalFailure(failureProcessor, ex, "Replica stop failed [groupId=%s]", groupId);
+                    }
                 });
 
         return context.previousOperationFuture.thenApply(v -> null);

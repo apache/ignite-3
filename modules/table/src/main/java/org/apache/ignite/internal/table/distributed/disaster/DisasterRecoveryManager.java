@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -180,6 +182,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Metric manager. */
     private final MetricManager metricManager;
 
+    private final FailureManager failureManager;
+
     /**
      * Map of operations, triggered by local node, that have not yet been processed by {@link #watchListener}. Values in the map are the
      * futures, returned from the {@link #processNewRequest(DisasterRecoveryRequest)}, they are completed by
@@ -200,7 +204,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Loza raftManager,
             TopologyService topologyService,
             TableManager tableManager,
-            MetricManager metricManager
+            MetricManager metricManager,
+            FailureManager failureManager
     ) {
         this.threadPool = threadPool;
         this.messagingService = messagingService;
@@ -211,6 +216,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.topologyService = topologyService;
         this.tableManager = tableManager;
         this.metricManager = metricManager;
+        this.failureManager = failureManager;
 
         watchListener = event -> {
             handleTriggerKeyUpdate(event);
@@ -709,7 +715,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         try {
             request = VersionedSerialization.fromBytes(requestBytes, DisasterRecoveryRequestSerializer.INSTANCE);
         } catch (Exception e) {
-            LOG.warn("Unable to deserialize disaster recovery request.", e);
+            processCriticalFailure(failureManager, e, "Unable to deserialize disaster recovery request.");
 
             return;
         }

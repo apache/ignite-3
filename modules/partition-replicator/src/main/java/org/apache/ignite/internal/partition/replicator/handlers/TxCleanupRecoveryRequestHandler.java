@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.partition.replicator.handlers;
 
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -42,16 +44,19 @@ public class TxCleanupRecoveryRequestHandler {
 
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final TxManager txManager;
+    private final FailureProcessor failureProcessor;
     private final ReplicationGroupId replicationGroupId;
 
     /** Constructor. */
     public TxCleanupRecoveryRequestHandler(
             TxStatePartitionStorage txStatePartitionStorage,
             TxManager txManager,
+            FailureProcessor failureProcessor,
             ReplicationGroupId replicationGroupId
     ) {
         this.txStatePartitionStorage = txStatePartitionStorage;
         this.txManager = txManager;
+        this.failureProcessor = failureProcessor;
         this.replicationGroupId = replicationGroupId;
     }
 
@@ -99,7 +104,12 @@ public class TxCleanupRecoveryRequestHandler {
                 });
             }
         } catch (IgniteInternalException e) {
-            LOG.warn("Failed to scan transaction state storage [commitPartition={}].", e, replicationGroupId);
+            processCriticalFailure(
+                    failureProcessor,
+                    e,
+                    "Failed to scan transaction state storage [commitPartition=%s].",
+                    replicationGroupId
+            );
         }
 
         LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);

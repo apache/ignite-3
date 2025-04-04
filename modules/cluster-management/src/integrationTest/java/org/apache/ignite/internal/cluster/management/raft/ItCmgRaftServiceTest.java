@@ -55,6 +55,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -157,7 +158,8 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     logicalTopology,
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {},
-                                    new ClusterIdHolder()
+                                    new ClusterIdHolder(),
+                                    new NoOpFailureManager()
                             ),
                             RaftGroupEventsListener.noopLsnr,
                             null,

@@ -18,12 +18,12 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.tx.message.FinishedTransactionsBatchMessage;
@@ -34,8 +34,6 @@ import org.apache.ignite.network.ClusterNode;
  * Keeps track of all finished RO transactions.
  */
 public class FinishedReadOnlyTransactionTracker {
-    private static final IgniteLogger LOG = Loggers.forClass(FinishedReadOnlyTransactionTracker.class);
-
     /** Tx messages factory. */
     private static final TxMessagesFactory FACTORY = new TxMessagesFactory();
 
@@ -48,21 +46,26 @@ public class FinishedReadOnlyTransactionTracker {
     /** Transaction inflights. */
     private final TransactionInflights transactionInflights;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
      * @param topologyService Topology service.
      * @param messagingService Messaging service.
      * @param transactionInflights Transaction inflights.
+     * @param failureProcessor Failure processor.
      */
     public FinishedReadOnlyTransactionTracker(
             TopologyService topologyService,
             MessagingService messagingService,
-            TransactionInflights transactionInflights
+            TransactionInflights transactionInflights,
+            FailureProcessor failureProcessor
     ) {
         this.topologyService = topologyService;
         this.messagingService = messagingService;
         this.transactionInflights = transactionInflights;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -84,8 +87,7 @@ public class FinishedReadOnlyTransactionTracker {
                 allOf(messages).thenRun(() -> transactionInflights.removeTxContexts(txToSend));
             }
         } catch (Throwable err) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21829 Use failure handler instead.
-            LOG.error("Error occurred during broadcasting closed transactions.", err);
+            processCriticalFailure(failureProcessor, err, "Error occurred during broadcasting closed transactions.");
 
             throw err;
         }

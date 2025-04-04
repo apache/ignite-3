@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.IgniteUtils.capacity;
 
 import java.io.Serializable;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.cluster.management.raft.responses.LogicalTopol
 import org.apache.ignite.internal.cluster.management.raft.responses.ValidationErrorResponse;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -81,6 +83,8 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
     private final ClusterIdStore clusterIdStore;
 
+    private final FailureProcessor failureProcessor;
+
     private final CmgMessagesFactory cmgMessagesFactory = new CmgMessagesFactory();
 
     /**
@@ -91,19 +95,22 @@ public class CmgRaftGroupListener implements RaftGroupListener {
      * @param validationManager Validator for cluster nodes.
      * @param onLogicalTopologyChanged Callback invoked (with the corresponding RAFT term) when logical topology gets changed.
      * @param clusterIdStore Used to store cluster ID when init command is executed.
+     * @param failureProcessor Failure processor.
      */
     public CmgRaftGroupListener(
             ClusterStateStorageManager storageManager,
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
             LongConsumer onLogicalTopologyChanged,
-            ClusterIdStore clusterIdStore
+            ClusterIdStore clusterIdStore,
+            FailureProcessor failureProcessor
     ) {
         this.storageManager = storageManager;
         this.logicalTopology = logicalTopology;
         this.validationManager = validationManager;
         this.onLogicalTopologyChanged = onLogicalTopologyChanged;
         this.clusterIdStore = clusterIdStore;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -337,7 +344,7 @@ public class CmgRaftGroupListener implements RaftGroupListener {
 
             return true;
         } catch (IgniteInternalException e) {
-            LOG.error("Failed to restore snapshot [path={}]", path, e);
+            processCriticalFailure(failureProcessor, e, "Failed to restore snapshot [path=%s]", path);
 
             return false;
         }

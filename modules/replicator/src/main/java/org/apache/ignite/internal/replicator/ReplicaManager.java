@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
@@ -67,7 +68,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManager;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -202,7 +203,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private final Executor requestsExecutor;
 
     /** Failure processor. */
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     /** Set of message groups to handler as replica requests. */
     private final Set<Class<?>> messageGroupsToHandle;
@@ -236,7 +237,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
      * @param placementDriver A placement driver.
      * @param requestsExecutor Executor that will be used to execute requests by replicas.
      * @param idleSafeTimePropagationPeriodMsSupplier Used to get idle safe time propagation period in ms.
-     * @param failureManager Failure processor.
+     * @param failureProcessor Failure processor.
      * @param raftCommandsMarshaller Command marshaller for raft groups creation.
      * @param raftGroupServiceFactory A factory for raft-clients creation.
      * @param raftManager The manager made up of songs and words to spite all my troubles is not so bad at all.
@@ -255,7 +256,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             PlacementDriver placementDriver,
             Executor requestsExecutor,
             LongSupplier idleSafeTimePropagationPeriodMsSupplier,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             @Nullable Marshaller raftCommandsMarshaller,
             TopologyAwareRaftGroupServiceFactory raftGroupServiceFactory,
             RaftManager raftManager,
@@ -274,7 +275,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         this.placementDriver = placementDriver;
         this.requestsExecutor = requestsExecutor;
         this.idleSafeTimePropagationPeriodMsSupplier = idleSafeTimePropagationPeriodMsSupplier;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.raftCommandsMarshaller = raftCommandsMarshaller;
         this.raftGroupServiceFactory = raftGroupServiceFactory;
         this.raftManager = raftManager;
@@ -286,7 +287,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 replicaStartStopExecutor,
                 clockService,
                 placementDriver,
-                this
+                this,
+                failureProcessor
         );
 
         // This pool MUST be single-threaded to make sure idle safe time propagation attempts are not reordered on it.
@@ -447,7 +449,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 return null;
             }).whenComplete((res, ex) -> {
                 if (ex != null) {
-                    failureManager.process(new FailureContext(CRITICAL_ERROR, ex));
+                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, ex));
                 }
             });
         } finally {
@@ -502,7 +504,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
                         } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
-                            LOG.error("Failed to process placement driver message [msg={}].", ex, msg);
+                            processCriticalFailure(failureProcessor, ex, "Failed to process placement driver message [msg=%s].", msg);
                         }
                     });
         } finally {
@@ -642,7 +644,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 replicaStateManager::reserveReplica,
                                 executor,
                                 storageIndexTracker,
-                                raftClient
+                                raftClient,
+                                failureProcessor
                         );
 
                         return new ReplicaImpl(
@@ -651,7 +654,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 localNode,
                                 placementDriver,
                                 getPendingAssignmentsSupplier,
-                                failureManager,
+                                failureProcessor,
                                 placementDriverMessageProcessor
                         );
                     }
@@ -706,7 +709,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 replicaStateManager::reserveReplica,
                                 executor,
                                 storageIndexTracker,
-                                raftClient
+                                raftClient,
+                                failureProcessor
                         );
 
                         return new ZonePartitionReplicaImpl(
@@ -851,7 +855,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
-                LOG.error("Error when notifying about BEFORE_REPLICA_STOPPED event.", e);
+                processCriticalFailure(failureProcessor, e, "Error when notifying about BEFORE_REPLICA_STOPPED event.");
             }
 
             if (!enterBusy()) {
@@ -877,7 +881,12 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 .thenCompose(Replica::shutdown)
                                 .whenComplete((notUsed, throwable) -> {
                                     if (throwable != null) {
-                                        LOG.error("Failed to stop replica [replicaGrpId={}].", throwable, grpId);
+                                        processCriticalFailure(
+                                                failureProcessor,
+                                                throwable,
+                                                "Failed to stop replica [replicaGrpId=%s].",
+                                                grpId
+                                        );
                                     }
 
                                     isRemovedFuture.complete(throwable == null);
@@ -1088,12 +1097,13 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         for (Entry<ReplicationGroupId, CompletableFuture<Replica>> entry : replicas.entrySet()) {
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue());
-            } catch (Exception | AssertionError e) {
-                LOG.warn("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
-            } catch (Error e) {
-                LOG.error("Error while trying to send a safe time sync request [groupId={}]", e, entry.getKey());
-
-                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+            } catch (Throwable e) {
+                processCriticalFailure(
+                        failureProcessor,
+                        e,
+                        "Error while trying to send a safe time sync request [groupId=%s]",
+                        entry.getKey()
+                );
             }
         }
     }
@@ -1115,7 +1125,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     && !hasCauseOrSuppressed(ex, CancellationException.class)
                     && !hasCauseOrSuppressed(ex, RejectedExecutionException.class)
             ) {
-                LOG.error("Could not advance safe time for {}", ex, replica.groupId());
+                processCriticalFailure(failureProcessor, ex, "Could not advance safe time for %s", replica.groupId());
             }
         });
     }

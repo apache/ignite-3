@@ -18,21 +18,26 @@
 package org.apache.ignite.internal.hlc;
 
 import static java.lang.Math.max;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * A Hybrid Logical Clock implementation.
  */
 public class HybridClockImpl implements HybridClock {
     private final IgniteLogger log = Loggers.forClass(HybridClockImpl.class);
+
+    private final @Nullable FailureProcessor failureProcessor;
 
     /**
      * Var handle for {@link #latestTime}.
@@ -43,6 +48,14 @@ public class HybridClockImpl implements HybridClock {
     private volatile long latestTime;
 
     private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
+
+    public HybridClockImpl() {
+        this.failureProcessor = null;
+    }
+
+    public HybridClockImpl(FailureProcessor failureProcessor) {
+        this.failureProcessor = failureProcessor;
+    }
 
     @Override
     public final long nowLong() {
@@ -133,7 +146,11 @@ public class HybridClockImpl implements HybridClock {
             try {
                 listener.onUpdate(newTs);
             } catch (Throwable e) {
-                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+                if (failureProcessor != null) {
+                    processCriticalFailure(failureProcessor, e, "ClockUpdateListener#onUpdate() failed for %s at %s", listener, newTs);
+                } else {
+                    log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+                }
 
                 if (e instanceof Error) {
                     throw e;

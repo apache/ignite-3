@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BUILD_INDEX_KEY_PREFIX;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
@@ -59,6 +60,7 @@ import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParamete
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -131,6 +133,8 @@ class IndexAvailabilityController implements ManuallyCloseable {
 
     private final MetaStorageManager metaStorageManager;
 
+    private final FailureProcessor failureProcessor;
+
     private final IndexBuilder indexBuilder;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -138,9 +142,15 @@ class IndexAvailabilityController implements ManuallyCloseable {
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     /** Constructor. */
-    IndexAvailabilityController(CatalogManager catalogManager, MetaStorageManager metaStorageManager, IndexBuilder indexBuilder) {
+    IndexAvailabilityController(
+            CatalogManager catalogManager,
+            MetaStorageManager metaStorageManager,
+            FailureProcessor failureProcessor,
+            IndexBuilder indexBuilder
+    ) {
         this.catalogManager = catalogManager;
         this.metaStorageManager = metaStorageManager;
+        this.failureProcessor = failureProcessor;
         this.indexBuilder = indexBuilder;
     }
 
@@ -184,7 +194,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
 
             allOf(futures.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> {
                 if (throwable != null && !(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                    LOG.error("Error when trying to recover index availability", throwable);
+                    processCriticalFailure(failureProcessor, throwable, "Error when trying to recover index availability");
                 } else if (!futures.isEmpty()) {
                     LOG.debug("Successful recovery of index availability");
                 }
@@ -303,7 +313,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
 
             // We will not wait for the command to be executed, since we will then find ourselves in a dead lock since we will not be able
             // to free the metastore thread.
-            makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
+            makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, failureProcessor);
 
             return nullCompletedFuture();
         });
@@ -318,10 +328,11 @@ class IndexAvailabilityController implements ManuallyCloseable {
                     .invoke(exists(partitionBuildIndexKey), remove(partitionBuildIndexKey), noop())
                     .whenComplete((operationResult, throwable) -> {
                         if (throwable != null && !(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                            LOG.error(
-                                    "Error processing the operation to delete the partition index building key: "
-                                            + "[indexId={}, partitionId={}]",
+                            processCriticalFailure(
+                                    failureProcessor,
                                     throwable,
+                                    "Error processing the operation to delete the partition index building key: "
+                                            + "[indexId=%s, partitionId=%s]",
                                     indexId, partitionId
                             );
                         }
@@ -364,7 +375,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
         if (!isAnyMetastoreKeyPresentLocally(metaStorageManager, partitionBuildIndexMetastoreKeyPrefix(indexId), recoveryRevision)) {
             // Without wait, since the metastore watches deployment will be only after the start of the components is completed and this
             // will cause a dead lock.
-            makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, LOG);
+            makeIndexAvailableInCatalogWithoutFuture(catalogManager, indexId, failureProcessor);
         }
 
         return nullCompletedFuture();

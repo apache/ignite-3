@@ -251,13 +251,15 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         components.add(clusterService);
 
+        var failureProcessor = new NoOpFailureManager();
+
         raftManager = new Loza(
                 clusterService,
                 new NoOpMetricManager(),
                 raftConfiguration,
                 clock,
                 new RaftGroupEventsClientListener(),
-                new NoOpFailureManager()
+                failureProcessor
         );
 
         components.add(raftManager);
@@ -266,12 +268,17 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 workDir.resolve("tx"),
                 scheduledExecutorService,
                 executor,
-                new NoOpLogSyncer()
+                new NoOpLogSyncer(),
+                failureProcessor
         );
 
         components.add(sharedRockDbStorage);
 
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterService.nodeName(), clusterService.messagingService());
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(
+                clusterService.nodeName(),
+                clusterService.messagingService(),
+                failureProcessor
+        );
 
         components.add(outgoingSnapshotsManager);
 
@@ -294,6 +301,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId())),
                 catalogService,
+                failureProcessor,
                 executor
         );
     }

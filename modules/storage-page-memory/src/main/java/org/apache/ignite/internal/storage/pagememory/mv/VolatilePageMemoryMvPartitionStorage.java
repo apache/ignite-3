@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -30,11 +31,10 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTask;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -53,8 +53,6 @@ import org.jetbrains.annotations.Nullable;
  * Implementation of {@link MvPartitionStorage} based on a {@link BplusTree} for in-memory case.
  */
 public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPartitionStorage {
-    private static final IgniteLogger LOG = Loggers.forClass(VolatilePageMemoryMvPartitionStorage.class);
-
     private static final Predicate<HybridTimestamp> NEVER_LOAD_VALUE = ts -> false;
 
     private static final AtomicLongFieldUpdater<VolatilePageMemoryMvPartitionStorage> ESTIMATED_SIZE_UPDATER =
@@ -83,6 +81,7 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param destructionExecutor Executor used to destruct partitions.
      * @param gcQueue Garbage collection queue.
+     * @param failureProcessor Failure processor.
      */
     public VolatilePageMemoryMvPartitionStorage(
             VolatilePageMemoryTableStorage tableStorage,
@@ -90,7 +89,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(
                 partitionId,
@@ -103,7 +103,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor
+                destructionExecutor,
+                failureProcessor
         );
     }
 
@@ -256,9 +257,10 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.versionChainTree(), chainKey -> destroyVersionChain((VersionChain) chainKey, renewableState))
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Version chains destruction failed: [tableId={}, partitionId={}]",
+                        processCriticalFailure(
+                                failureProcessor,
                                 e,
+                                "Version chains destruction failed: [tableId=%s, partitionId=%s]",
                                 tableStorage.getTableId(), partitionId
                         );
                     }
@@ -290,9 +292,10 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.indexMetaTree(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Index meta tree destruction failed: [tableId={}, partitionId={}]",
+                        processCriticalFailure(
+                                failureProcessor,
                                 e,
+                                "Index meta tree destruction failed: [tableId=%s, partitionId=%s]",
                                 tableStorage.getTableId(), partitionId
                         );
                     }
@@ -303,10 +306,12 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.gcQueue(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Garbage collection tree destruction failed: [tableId={}, partitionId={}]",
+                        processCriticalFailure(
+                                failureProcessor,
                                 e,
-                                tableStorage.getTableId(), partitionId
+                                "Garbage collection tree destruction failed: [tableId=%s, partitionId=%s]",
+                                tableStorage.getTableId(),
+                                partitionId
                         );
                     }
                 });

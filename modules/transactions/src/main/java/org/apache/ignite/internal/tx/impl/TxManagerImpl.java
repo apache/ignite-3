@@ -24,6 +24,7 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -63,6 +64,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -210,6 +214,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final FailureProcessor failureProcessor;
+
     private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
@@ -268,7 +274,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                commonScheduler
+                commonScheduler,
+                new FailureManager(new NoOpFailureHandler())
         );
     }
 
@@ -306,7 +313,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            FailureProcessor failureProcessor
     ) {
         this.txConfig = txConfig;
         this.lockManager = lockManager;
@@ -324,6 +332,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.lowWatermark = lowWatermark;
         this.replicaService = replicaService;
         this.commonScheduler = commonScheduler;
+        this.failureProcessor = failureProcessor;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -934,8 +943,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(replicaService, topologyService.localMember(), clockService,
-                    placementDriver);
+            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
+                    replicaService,
+                    topologyService.localMember(),
+                    clockService,
+                    placementDriver,
+                    failureProcessor
+            );
 
             txStateVolatileStorage.start();
 
@@ -965,7 +979,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             expirationTime = clockService.current();
             transactionExpirationRegistry.expireUpTo(expirationTime.getPhysical());
         } catch (Throwable t) {
-            LOG.error("Could not expire transactions up to {}", t, expirationTime);
+            processCriticalFailure(failureProcessor, t, "Could not expire transactions up to %s", expirationTime);
         }
     }
 

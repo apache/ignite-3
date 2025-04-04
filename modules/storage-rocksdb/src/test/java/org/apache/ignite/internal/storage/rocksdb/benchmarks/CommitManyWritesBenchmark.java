@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -100,7 +101,8 @@ public class CommitManyWritesBenchmark {
                 storageConfiguration(),
                 workDir,
                 () -> {},
-                scheduledExecutor
+                scheduledExecutor,
+                mock(FailureProcessor.class)
         );
 
         storageEngine.start();
