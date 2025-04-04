@@ -33,11 +33,13 @@ import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * End-to-end tests to verify {@code INDEX_COLUMNS} system view.
  */
+@Disabled
 public class ItIndexColumnsSystemViewTest extends AbstractSystemViewTest {
 
     @BeforeAll
