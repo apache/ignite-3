@@ -672,7 +672,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
     }
 
     @Test
-    public void testListenersAreRemovedOnTableDrop() throws Exception {
+    public void testListenersAreRemovedOnTableDestruction() throws Exception {
         startCluster(1);
         Node node = getNode(0);
 
