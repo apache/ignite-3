@@ -79,6 +79,35 @@ public final class CancelHandleHelper {
     }
 
     /**
+     * Attaches a cancellable operation to the given token. A cancellation procedure started its handle completes
+     * when {@code completionFut} completes.
+     *
+     * <p>The following methods request cancellation of a handle:
+     * <ul>
+     *     <li>{@link CancelHandle#cancel()}</li>
+     *     <li>{@link CancelHandle#cancelAsync()}</li>
+     * </ul>
+     *
+     * @param token Cancellation token.
+     * @param cancelAction Action that terminates an operation.
+     * @param completionFut Future that completes when operation completes and all resources it created are released.
+     * @return {@code True} if cancellable operation attached to the given token, {@code false} if a handle, this token
+     *         is associated with, was cancelled or its cancellation was requested.
+     */
+    public static boolean tryAddCancelAction(
+            CancellationToken token,
+            Runnable cancelAction,
+            CompletableFuture<?> completionFut
+    ) {
+        Objects.requireNonNull(token, "token");
+        Objects.requireNonNull(cancelAction, "cancelAction");
+        Objects.requireNonNull(completionFut, "completionFut");
+
+        CancellationTokenImpl t = unwrapToken(token);
+        return t.tryAddCancelAction(cancelAction, completionFut);
+    }
+
+    /**
      * Flag indicating whether cancellation was requested or not.
      *
      * <p>This method will return true even if cancellation has not been completed yet.
