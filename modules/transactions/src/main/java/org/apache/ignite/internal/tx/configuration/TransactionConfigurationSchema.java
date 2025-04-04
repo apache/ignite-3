@@ -28,11 +28,6 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class TransactionConfigurationSchema {
-    /** How often abandoned transactions are searched for (milliseconds). */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final long abandonedCheckTs = 5_000;
-
     /** Default timeout for read-only transactions. */
     @Range(min = 1)
     @Value(hasDefault = true)
