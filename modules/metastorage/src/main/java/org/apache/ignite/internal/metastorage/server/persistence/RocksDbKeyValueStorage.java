@@ -1296,7 +1296,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             byte[] tsValue = rocksIterator.value();
 
-            if (tsValue.length == 0) { // TODO The fuck? How can it be empty?
+            if (tsValue.length == 0) {
                 throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
