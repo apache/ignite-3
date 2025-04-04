@@ -29,8 +29,10 @@ public class NativeComputeTests : IgniteTestsBase
     [Test]
     public async Task TestSimpleJob()
     {
-        // TODO: Shortcut method to create a job descriptor from a job type.
-        var jobDesc = new JobDescriptor<object?, string?>(typeof(ToStringJob).AssemblyQualifiedName!);
+        JobDescriptor<object?, string?> jobDesc = new ToStringJob().GetDescriptor() with
+        {
+            Options = new JobExecutionOptions { MaxRetries = 2 }
+        };
 
         var target = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
         IJobExecution<string?> jobExec = await Client.Compute.SubmitAsync(target, jobDesc, 123);
