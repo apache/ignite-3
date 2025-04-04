@@ -265,7 +265,7 @@ class SchemaManagerTest extends BaseIgniteAbstractTest {
     void destroyTableMakesRegistryUnavailable() {
         createSomeTable();
 
-        assertThat(schemaManager.dropRegistryAsync(TABLE_ID), willCompleteSuccessfully());
+        schemaManager.dropRegistry(TABLE_ID);
 
         completeCausalityToken(CAUSALITY_TOKEN_2);
 
