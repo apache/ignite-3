@@ -74,7 +74,7 @@ public class KvMarshallerImpl<K, V> implements KvMarshaller<K, V> {
 
         MarshallerSchema marshallerSchema = schema.marshallerSchema();
         keyMarsh = marshallers.getKeysMarshaller(marshallerSchema, keyMapper, true, false);
-        valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, true, false);
+        valMarsh = marshallers.getValuesMarshaller(marshallerSchema, valueMapper, false, false);
         keyPositions = schema.keyColumns().stream().mapToInt(Column::positionInRow).toArray();
         valPositions = schema.valueColumns().stream().mapToInt(Column::positionInRow).toArray();
     }
