@@ -241,14 +241,7 @@ public class TableTestUtils {
     public static CatalogTableDescriptor getTableStrict(CatalogService catalogService, String tableName, long timestamp) {
         CatalogTableDescriptor table = catalogService.activeCatalog(timestamp).table(DEFAULT_SCHEMA_NAME, tableName);
 
-//        if (table == null) {
-//            Loggers.forClass(TableTestUtils.class).warn("QQQaaa");
-//            System.out.println("!!!");
-//        }
-//        else {
-//            System.out.printf("!!! 2");
-//        }
-//        assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
+        assertNotNull(table, "tableName=" + tableName + ", timestamp=" + timestamp);
 
         return table;
     }
@@ -303,13 +296,7 @@ public class TableTestUtils {
      * @throws AssertionError If table is absent.
      */
     public static int getZoneIdByTableNameStrict(CatalogService catalogService, String tableName, long timestamp) {
-        var table = getTableStrict(catalogService, tableName, timestamp);
-        if (table == null) {
-            return -1;
-        } else {
-            return table.zoneId();
-        }
-//        return getTableStrict(catalogService, tableName, timestamp).zoneId();
+        return getTableStrict(catalogService, tableName, timestamp).zoneId();
     }
 
     /**

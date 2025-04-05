@@ -989,8 +989,6 @@ public class PartitionReplicaLifecycleManager extends
                 ? emptySet()
                 : Assignments.fromBytes(stableAssignmentsWatchEvent.value()).nodes();
 
-//        System.out.println("!!! handleChangeStableAssignmentEvent node=[" + localNode().name() + "], groupId=[" + zonePartitionId +"], stableAssignments=[" +  stableAssignments + "], revision=[" + revision + "]");
-
         return supplyAsync(() -> {
             Entry pendingAssignmentsEntry = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId), revision);
 
@@ -1012,9 +1010,7 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> updatePartitionClients(
             ZonePartitionId zonePartitionId,
-            // TODO sanpwc Rename to assignments.
-            Set<Assignment> stableAssignments,
-            long revision
+            Set<Assignment> stableAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -1044,7 +1040,7 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(zonePartitionId, stableAssignments, revision);
+                : updatePartitionClients(zonePartitionId, stableAssignments);
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()
@@ -1074,8 +1070,6 @@ public class PartitionReplicaLifecycleManager extends
         Assignments stableAssignments = stableAssignments(zonePartitionId, revision);
 
         Assignments pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsEntry.value()).poll();
-
-//        System.out.println("!!! handleChangePendingAssignmentEvent node=[" + localNode().name() + "], groupId=[" + zonePartitionId +"], pendingAssignments=[" +  pendingAssignments + "], revision=[" + revision + "]");
 
         if (!busyLock.enterBusy()) {
             return failedFuture(new NodeStoppingException());
@@ -1211,11 +1205,8 @@ public class PartitionReplicaLifecycleManager extends
                             ? pendingAssignmentsNodes
                             : union(pendingAssignmentsNodes, stableAssignments.nodes());
 
-                    // TODO sanpwc check, why it's possible to have null here
-                    if (replicaMgr.replica(replicaGrpId) != null) {
-                        replicaMgr.replica(replicaGrpId)
-                                .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
-                    }
+                    replicaMgr.replica(replicaGrpId)
+                            .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(newAssignments)));
                 }), ioExecutor);
     }
 
@@ -1349,17 +1340,9 @@ public class PartitionReplicaLifecycleManager extends
                 ? Assignments.fromBytes(reduceEntry.value())
                 : null;
 
-        // TODO sanpwc Caused by: java.lang.NullPointerException: Cannot invoke "org.apache.ignite.internal.partitiondistribution.Assignments.nodes()" because "stableAssignments" is null
-        Set<Assignment> reducedStableAssignments;
-        if (stableAssignments != null) {
-            reducedStableAssignments = reduceAssignments != null
-                    ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
-                    : stableAssignments.nodes();
-        } else {
-            assert reduceAssignments == null : "reduceAssignments not null.";
-
-            reducedStableAssignments = emptySet();
-        }
+        Set<Assignment> reducedStableAssignments = reduceAssignments != null
+                ? subtract(stableAssignments.nodes(), reduceAssignments.nodes())
+                : stableAssignments.nodes();
 
         if (!isLocalNodeInAssignments(union(reducedStableAssignments, pendingAssignments.nodes()))) {
             return false;

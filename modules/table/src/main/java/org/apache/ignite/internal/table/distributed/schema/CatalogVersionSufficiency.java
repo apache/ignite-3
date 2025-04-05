@@ -35,6 +35,7 @@ public class CatalogVersionSufficiency {
      * @return {@code true} iff the local Catalog version is sufficient.
      */
     public static boolean isMetadataAvailableFor(int requiredCatalogVersion, CatalogService catalogService) {
+        // TODO sanpwc check whether catalogService.catalogReadyFuture(requiredCatalogVersion) won't be compacted.
         return requiredCatalogVersion <= catalogService.latestCatalogVersion() && catalogService.catalogReadyFuture(requiredCatalogVersion)
                 .isDone();
     }

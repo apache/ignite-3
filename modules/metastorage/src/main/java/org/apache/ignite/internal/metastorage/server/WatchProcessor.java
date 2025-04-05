@@ -95,7 +95,6 @@ public class WatchProcessor implements ManuallyCloseable {
     private volatile CompletableFuture<Void> notificationFuture = nullCompletedFuture();
 
     private final EntryReader entryReader;
-    private final String nodeName;
 
     private volatile WatchEventHandlingCallback watchEventHandlingCallback;
 
@@ -124,7 +123,6 @@ public class WatchProcessor implements ManuallyCloseable {
      * @param entryReader Function for reading an entry from the storage using a given key and revision.
      */
     public WatchProcessor(String nodeName, EntryReader entryReader, FailureManager failureManager) {
-        this.nodeName = nodeName;
         this.entryReader = entryReader;
 
         this.watchExecutor = Executors.newFixedThreadPool(
@@ -181,7 +179,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
         CompletableFuture<Void> newFuture = notificationFuture
                 .thenComposeAsync(v -> {
-//                    System.out.println(">>> " + nodeName +  " notifyWatches revision=[" + updatedEntries.get(0).revision() + "]");
                     // Revision must be the same for all entries.
                     long newRevision = updatedEntries.get(0).revision();
 
@@ -203,8 +200,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
                     notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
                     return notificationFuture;
-
-//                    return notificationFuture.whenComplete((unused, e) -> System.out.println("<<< " + nodeName + "notifyWatches revision=[" + updatedEntries.get(0).revision() + "]"));
                 }, watchExecutor)
                 .whenComplete((unused, e) -> {
                     if (e != null) {
