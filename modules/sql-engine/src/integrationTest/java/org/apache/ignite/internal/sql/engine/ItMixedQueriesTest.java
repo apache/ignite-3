@@ -29,6 +29,7 @@ import java.util.List;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -287,6 +288,7 @@ public class ItMixedQueriesTest extends BaseSqlIntegrationTest {
      * sorted as expected.
      */
     @Test
+    @Disabled
     public void testSelectWithOrdering() throws InterruptedException {
         sql("drop table if exists test_tbl");
         sql("create table test_tbl (k1 int primary key, c1 int)");

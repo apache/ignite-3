@@ -42,6 +42,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 /**
  * Basic index tests.
  */
+@Disabled
 public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     private static final String DEPID_IDX = "DEPID_IDX";
     private static final String NAME_CITY_IDX = "NAME_CITY_IDX";

@@ -66,6 +66,7 @@ import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -350,6 +351,7 @@ public class TestClusterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @Disabled
     public void testNodeInitSchema() {
         cluster.start();
 

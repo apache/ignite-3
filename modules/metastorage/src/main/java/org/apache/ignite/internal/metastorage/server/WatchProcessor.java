@@ -199,7 +199,6 @@ public class WatchProcessor implements ManuallyCloseable {
                             .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor);
 
                     notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
-
                     return notificationFuture;
                 }, watchExecutor)
                 .whenComplete((unused, e) -> {

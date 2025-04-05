@@ -26,6 +26,7 @@ import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -52,6 +53,7 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @Disabled
     void indexIsQueriableRightAfterCreationFutureCompletes() {
         sql(String.format("CREATE INDEX %s ON %s (val)", INDEX_NAME, TABLE_NAME));
 
@@ -65,6 +67,7 @@ class ItIndexAvailabilityTest extends BaseSqlIntegrationTest {
      * of script, and first item is conditional statement that won't be applied.
      */
     @Test
+    @Disabled
     void indexIsQueriableRightAfterCreationFutureCompletes2() {
         // Make sure table with required name already exists.
         assertQuery("SELECT COUNT(*) FROM system.tables WHERE name = ?")

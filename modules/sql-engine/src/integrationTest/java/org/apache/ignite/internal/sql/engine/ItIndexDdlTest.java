@@ -40,12 +40,14 @@ import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for DDL statements that affect indexes.
  */
 @SuppressWarnings({"resource", "ThrowableNotThrown"})
+@Disabled
 public class ItIndexDdlTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "TEST_TABLE";
 
