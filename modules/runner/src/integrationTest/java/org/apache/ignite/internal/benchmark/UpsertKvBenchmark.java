@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.benchmark;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -53,7 +58,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
-    private final Tuple tuple = Tuple.create();
+    private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + "(field{});";
 
     private static KeyValueView<Tuple, Tuple> kvView;
 
@@ -65,6 +70,12 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Param({"8"})
     private int partitionCount;
+
+    @Param({"0", "10"})
+    private int idxes;
+
+    @Param({"10"})
+    private int fieldLength;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
@@ -83,9 +94,36 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Setup
     public void setUp() {
         kvView = igniteImpl.tables().table(TABLE_NAME).keyValueView();
-        for (int i = 1; i < 11; i++) {
-            tuple.set("field" + i, FIELD_VAL);
+
+        StringBuilder sqlScript = new StringBuilder();
+
+        if (idxes > 10) {
+            throw new IllegalStateException("Unexpected value of idxes: " + idxes);
         }
+
+        for (int i = 1; i <= idxes; i++) {
+            sqlScript.append(format(INDEX_CREATE_SQL, i, i));
+        }
+
+        if (sqlScript.length() > 0) {
+            igniteImpl.sql().executeScript(sqlScript.toString());
+        }
+    }
+
+    private Tuple valueTuple() {
+        String fieldVal = IgniteTestUtils.randomString(ThreadLocalRandom.current(), fieldLength);
+
+        return Tuple.create()
+                .set("field1", fieldVal)
+                .set("field2", fieldVal)
+                .set("field3", fieldVal)
+                .set("field4", fieldVal)
+                .set("field5", fieldVal)
+                .set("field6", fieldVal)
+                .set("field7", fieldVal)
+                .set("field8", fieldVal)
+                .set("field9", fieldVal)
+                .set("field10", fieldVal);
     }
 
     /**
@@ -96,15 +134,13 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
         for (int i = 0; i < batch - 1; i++) {
-            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", nextId()), tuple);
+            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", nextId()), valueTuple());
             futs.add(fut);
         }
 
-        for (CompletableFuture<Void> fut : futs) {
-            fut.join();
-        }
+        CompletableFutures.allOf(futs).join();
 
-        kvView.put(null, Tuple.create().set("ycsb_key", nextId()), tuple);
+        kvView.put(null, Tuple.create().set("ycsb_key", nextId()), valueTuple());
     }
 
     private int nextId() {
