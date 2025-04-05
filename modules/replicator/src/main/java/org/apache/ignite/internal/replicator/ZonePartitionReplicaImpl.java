@@ -93,13 +93,7 @@ public class ZonePartitionReplicaImpl implements Replica {
     }
 
     @Override
-    public void updatePeersAndLearners(PeersAndLearners peersAndLearners, boolean pending, long revision) {
-//        System.out.println("!!! " + pending +
-//                " node=[" + placementDriverMessageProcessor.localNode.name() +
-//                ", groupId=[" + groupId() + "]" +
-//                ", oldPeers =[" + raftClient.peers() + "]" +
-//                ", newPeers=[" + peersAndLearners.peers() +
-//                ", revision=[" + revision + ']');
+    public void updatePeersAndLearners(PeersAndLearners peersAndLearners) {
         raftClient.updateConfiguration(peersAndLearners);
     }
 

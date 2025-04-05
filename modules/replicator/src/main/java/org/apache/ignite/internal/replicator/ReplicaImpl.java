@@ -152,7 +152,7 @@ public class ReplicaImpl implements Replica {
     }
 
     @Override
-    public void updatePeersAndLearners(PeersAndLearners peersAndLearners, boolean pending, long revision) {
+    public void updatePeersAndLearners(PeersAndLearners peersAndLearners) {
         raftClient.updateConfiguration(peersAndLearners);
     }
 
