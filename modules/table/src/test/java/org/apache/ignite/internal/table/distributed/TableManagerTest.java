@@ -155,7 +155,6 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -168,7 +167,6 @@ import org.mockito.quality.Strictness;
 // TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
 @ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
-@Disabled
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is preconfigured. */
     private static final String PRECONFIGURED_TABLE_NAME = "T1";

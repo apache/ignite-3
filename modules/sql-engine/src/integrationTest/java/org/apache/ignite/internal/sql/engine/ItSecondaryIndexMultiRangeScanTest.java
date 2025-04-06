@@ -26,7 +26,6 @@ import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.hamcrest.CoreMatchers;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -36,7 +35,6 @@ import org.junit.jupiter.params.provider.ValueSource;
  * Tests index multi-range scans (with SEARCH/SARG operator or with dynamic parameters).
  */
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
-@Disabled
 public class ItSecondaryIndexMultiRangeScanTest extends BaseSqlIntegrationTest {
     private static final String TEST_DISPLAY_NAME = "dynamicParams={0}, direction={1}";
 

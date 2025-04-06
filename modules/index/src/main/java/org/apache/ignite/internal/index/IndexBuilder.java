@@ -101,6 +101,7 @@ class IndexBuilder implements ManuallyCloseable {
      * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
      *      to the replica.
      */
+    // TODO sanpwc javadoc
     public void scheduleBuildIndex(
             int zoneId,
             int tableId,
@@ -110,7 +111,8 @@ class IndexBuilder implements ManuallyCloseable {
             MvPartitionStorage partitionStorage,
             ClusterNode node,
             long enlistmentConsistencyToken,
-            HybridTimestamp initialOperationTimestamp
+            HybridTimestamp initialOperationTimestamp,
+            int schemaVersion
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -135,7 +137,8 @@ class IndexBuilder implements ManuallyCloseable {
                     listeners,
                     enlistmentConsistencyToken,
                     false,
-                    initialOperationTimestamp
+                    initialOperationTimestamp,
+                    schemaVersion
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);
@@ -175,7 +178,8 @@ class IndexBuilder implements ManuallyCloseable {
             MvPartitionStorage partitionStorage,
             ClusterNode node,
             long enlistmentConsistencyToken,
-            HybridTimestamp initialOperationTimestamp
+            HybridTimestamp initialOperationTimestamp,
+            int schemaVersion
     ) {
         inBusyLockSafe(busyLock, () -> {
             if (indexStorage.getNextRowIdToBuild() == null) {
@@ -196,7 +200,8 @@ class IndexBuilder implements ManuallyCloseable {
                     listeners,
                     enlistmentConsistencyToken,
                     true,
-                    initialOperationTimestamp
+                    initialOperationTimestamp,
+                    schemaVersion
             );
 
             putAndStartTaskIfAbsent(taskId, newTask);

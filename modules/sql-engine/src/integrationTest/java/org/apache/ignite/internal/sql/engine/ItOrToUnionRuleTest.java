@@ -26,20 +26,9 @@ import static org.hamcrest.CoreMatchers.not;
 import java.util.List;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-/**
- * Test OR -> UnionAll rewrite rule.
- *
- * <p>Example: SELECT * FROM products WHERE category = 'Photo' OR subcategory ='Camera Media';
- *
- * <p>A query above will be rewritten to next (or equivalent similar query)
- *
- * <p>SELECT * FROM products WHERE category = 'Photo' UNION ALL SELECT * FROM products WHERE subcategory ='Camera Media' AND LNNVL(category,
- * 'Photo');
- */
-@Disabled
+
 public class ItOrToUnionRuleTest extends BaseSqlIntegrationTest {
     public static final String IDX_SUBCAT_ID = "IDX_SUBCAT_ID";
 

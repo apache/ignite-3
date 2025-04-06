@@ -53,7 +53,6 @@ import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -129,7 +128,6 @@ public class ItTablesApiTest extends ClusterPerTestIntegrationTest {
      * Tries to create an index which is already created.
      */
     @Test
-    @Disabled
     public void testAddIndex() {
         cluster.runningNodes().forEach(ign -> assertNull(ign.tables().table(TABLE_NAME)));
 

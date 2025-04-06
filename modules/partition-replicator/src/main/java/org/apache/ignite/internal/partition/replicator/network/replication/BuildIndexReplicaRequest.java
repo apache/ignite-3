@@ -23,6 +23,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
+import org.apache.ignite.internal.replicator.message.SchemaVersionAwareReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TableAware;
 
 /**
@@ -31,7 +32,7 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  * <p>It is possible to receive a {@link PrimaryReplicaMissException} in response to message processing if the leaseholder changes.</p>
  */
 @Transferable(PartitionReplicationMessageGroup.BUILD_INDEX_REPLICA_REQUEST)
-public interface BuildIndexReplicaRequest extends PrimaryReplicaRequest, TableAware {
+public interface BuildIndexReplicaRequest extends PrimaryReplicaRequest, TableAware, SchemaVersionAwareReplicaRequest {
     /** Returns index ID. */
     int indexId();
 

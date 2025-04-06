@@ -93,6 +93,8 @@ class IndexBuildTask {
 
     private final HybridTimestamp initialOperationTimestamp;
 
+    private final int schemaVersion;
+
     IndexBuildTask(
             IndexBuildTaskId taskId,
             IndexStorage indexStorage,
@@ -105,7 +107,8 @@ class IndexBuildTask {
             List<IndexBuildCompletionListener> listeners,
             long enlistmentConsistencyToken,
             boolean afterDisasterRecovery,
-            HybridTimestamp initialOperationTimestamp
+            HybridTimestamp initialOperationTimestamp,
+            int schemaVersion
     ) {
         this.taskId = taskId;
         this.indexStorage = indexStorage;
@@ -120,6 +123,7 @@ class IndexBuildTask {
         this.enlistmentConsistencyToken = enlistmentConsistencyToken;
         this.afterDisasterRecovery = afterDisasterRecovery;
         this.initialOperationTimestamp = initialOperationTimestamp;
+        this.schemaVersion = schemaVersion;
     }
 
     /** Starts building the index. */
@@ -189,7 +193,7 @@ class IndexBuildTask {
         try {
             List<RowId> batchRowIds = createBatchRowIds();
 
-            return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds, initialOperationTimestamp))
+            return replicaService.invoke(node, createBuildIndexReplicaRequest(batchRowIds, initialOperationTimestamp, schemaVersion))
                     .handleAsync((unused, throwable) -> {
                         if (throwable != null) {
                             Throwable cause = unwrapCause(throwable);
@@ -237,7 +241,11 @@ class IndexBuildTask {
         return batch;
     }
 
-    private BuildIndexReplicaRequest createBuildIndexReplicaRequest(List<RowId> rowIds, HybridTimestamp initialOperationTimestamp) {
+    private BuildIndexReplicaRequest createBuildIndexReplicaRequest(
+            List<RowId> rowIds,
+            HybridTimestamp initialOperationTimestamp,
+            int schemaVersion
+    ) {
         boolean finish = rowIds.size() < batchSize;
 
         ReplicationGroupIdMessage groupIdMessage = enabledColocation()
@@ -252,6 +260,7 @@ class IndexBuildTask {
                 .finish(finish)
                 .enlistmentConsistencyToken(enlistmentConsistencyToken)
                 .timestamp(initialOperationTimestamp)
+                .schemaVersion(schemaVersion)
                 .build();
     }
 

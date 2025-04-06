@@ -42,7 +42,6 @@ import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;

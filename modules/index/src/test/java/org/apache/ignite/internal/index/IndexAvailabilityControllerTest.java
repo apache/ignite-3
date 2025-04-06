@@ -411,7 +411,8 @@ public class IndexAvailabilityControllerTest extends BaseIgniteAbstractTest {
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                clock.current()
+                clock.current(),
+                1
         );
 
         assertThat(finishBuildIndexFuture, willCompleteSuccessfully());

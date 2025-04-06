@@ -216,7 +216,8 @@ class IndexBuildController implements ManuallyCloseable {
                                             primaryReplicationGroupId,
                                             indexDescriptor,
                                             mvTableStorage,
-                                            replicaMeta
+                                            replicaMeta,
+                                            catalog.table(indexDescriptor.tableId()).tableVersion()
                                     ))
                             );
 
@@ -345,7 +346,8 @@ class IndexBuildController implements ManuallyCloseable {
                             indexDescriptor,
                             mvTableStorage,
                             enlistmentConsistencyToken(replicaMeta),
-                            clockService.current()
+                            clockService.current(),
+                            tableDescriptor.tableVersion()
                     );
                 } else if (indexDescriptor.status() == AVAILABLE) {
                     scheduleBuildIndexAfterDisasterRecovery(
@@ -354,7 +356,8 @@ class IndexBuildController implements ManuallyCloseable {
                             ((PartitionGroupId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
-                            enlistmentConsistencyToken(replicaMeta)
+                            enlistmentConsistencyToken(replicaMeta),
+                            tableDescriptor.tableVersion()
                     );
                 }
             }
@@ -368,7 +371,8 @@ class IndexBuildController implements ManuallyCloseable {
             ReplicationGroupId primaryReplicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
-            ReplicaMeta replicaMeta
+            ReplicaMeta replicaMeta,
+            int schemaVersion
     ) {
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522
         // Remove TablePartitionId check.
@@ -395,7 +399,8 @@ class IndexBuildController implements ManuallyCloseable {
                     indexDescriptor,
                     mvTableStorage,
                     enlistmentConsistencyToken(replicaMeta),
-                    clockService.current()
+                    clockService.current(),
+                    schemaVersion
             );
         });
     }
@@ -450,7 +455,8 @@ class IndexBuildController implements ManuallyCloseable {
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken,
-            HybridTimestamp initialOperationTimestamp
+            HybridTimestamp initialOperationTimestamp,
+            int schemaVersion
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
@@ -465,7 +471,8 @@ class IndexBuildController implements ManuallyCloseable {
                 mvPartition,
                 localNode(),
                 enlistmentConsistencyToken,
-                initialOperationTimestamp
+                initialOperationTimestamp,
+                schemaVersion
         );
     }
 
@@ -476,7 +483,8 @@ class IndexBuildController implements ManuallyCloseable {
             int partitionId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
-            long enlistmentConsistencyToken
+            long enlistmentConsistencyToken,
+            int schemaVersion
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
@@ -491,7 +499,8 @@ class IndexBuildController implements ManuallyCloseable {
                 mvPartition,
                 localNode(),
                 enlistmentConsistencyToken,
-                clockService.current()
+                clockService.current(),
+                schemaVersion
         );
     }
 

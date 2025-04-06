@@ -594,7 +594,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void createIndexSimpleCase() {
         var query = "create index my_index on my_table (col)";
 
@@ -615,7 +614,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void createIndexImplicitTypeExplicitDirection() {
         var query = "create index my_index on my_table (col1 asc, col2 desc)";
 
@@ -642,7 +640,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void createIndexExplicitTypeMixedDirection() {
         var query = "create index my_index on my_table using sorted (col1, col2 asc, col3 desc)";
 
@@ -671,7 +668,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void createHashIndex() {
         var query = "create index my_index on my_table using hash (col)";
 
@@ -692,7 +688,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void sortDirectionMustNotBeSpecifiedForHashIndex() {
         var query = "create index my_index on my_table using hash (col1, col2 asc)";
 
@@ -703,7 +698,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void createIndexIfNotExists() {
         var query = "create index if not exists my_index on my_table (col)";
 
@@ -721,7 +715,6 @@ public class SqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    @Disabled
     public void createIndexTableInParticularSchema() {
         var query = "create index my_index on my_schema.my_table (col)";
 

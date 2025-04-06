@@ -100,7 +100,6 @@ public class ItIndexColumnsSystemViewTest extends AbstractSystemViewTest {
     }
 
     @Test
-    @Disabled
     public void hashIndex() {
         sql("CREATE INDEX test_table1_hash_idx ON test_schema1.test_table1 USING HASH (col2, col1, col3)");
         checkHashIndex("TEST_SCHEMA1", "TEST_TABLE1_HASH_IDX", List.of("COL2", "COL1", "COL3"));
@@ -141,7 +140,6 @@ public class ItIndexColumnsSystemViewTest extends AbstractSystemViewTest {
     }
 
     @Test
-    @Disabled
     public void sortedIndex() {
         sql("CREATE INDEX test_table1_sorted_idx ON test_schema1.test_table1 USING SORTED (col3, col1 ASC, col2 DESC)");
         checkSortedIndex(
