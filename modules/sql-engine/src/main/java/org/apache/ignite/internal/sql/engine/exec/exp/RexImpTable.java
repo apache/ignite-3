@@ -931,8 +931,9 @@ public class RexImpTable {
           NullPolicy.STRICT);
       defineMethod(UNIX_MICROS, BuiltInMethod.UNIX_MICROS.method,
           NullPolicy.STRICT);
-      defineMethod(DATE_FROM_UNIX_DATE,
-          BuiltInMethod.DATE_FROM_UNIX_DATE.method, NullPolicy.STRICT);
+      // Uses ignite version
+      //defineMethod(DATE_FROM_UNIX_DATE,
+      //    BuiltInMethod.DATE_FROM_UNIX_DATE.method, NullPolicy.STRICT);
       defineMethod(UNIX_DATE, BuiltInMethod.UNIX_DATE.method,
           NullPolicy.STRICT);
 
@@ -1285,6 +1286,7 @@ public class RexImpTable {
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
       defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
       defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
+      defineMethod(DATE_FROM_UNIX_DATE, IgniteMethod.TO_DATE_EXACT.method(), NullPolicy.STRICT);
 
       define(LN, new LogImplementor());
       define(LOG, new LogImplementor());

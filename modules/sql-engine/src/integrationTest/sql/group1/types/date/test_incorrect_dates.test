@@ -117,3 +117,9 @@ INSERT INTO dates VALUES (DATE '9999-12-31' + INTERVAL 1 DAYS)
 
 statement error: DATE out of range
 INSERT INTO dates VALUES ('9999-12-31'::DATE + INTERVAL 1 DAYS)
+
+statement error: DATE out of range
+INSERT INTO dates VALUES (DATE_FROM_UNIX_DATE(2932896 + 1))
+
+statement error: DATE out of range
+INSERT INTO dates VALUES (DATE_FROM_UNIX_DATE(-719162 - 1))
