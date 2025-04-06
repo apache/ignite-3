@@ -141,3 +141,9 @@ INSERT INTO timestamp_t VALUES ('9999-12-31 06:00:00'::TIMESTAMP)
 
 statement error: TIMESTAMP out of range
 INSERT INTO timestamp_t VALUES (TIMESTAMP '9999-12-31 06:00:00')
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '9999-12-31 06:00:00')
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (CURRENT_TIMESTAMP + INTERVAL 7999 YEARS)
