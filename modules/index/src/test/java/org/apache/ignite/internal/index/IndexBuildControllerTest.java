@@ -156,7 +156,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
@@ -168,7 +169,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
     }
 
@@ -191,7 +193,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
@@ -203,7 +206,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
     }
 
@@ -224,7 +228,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
@@ -236,7 +241,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
     }
 
@@ -257,7 +263,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
 
         verify(indexBuilder, never()).scheduleBuildIndexAfterDisasterRecovery(
@@ -269,7 +276,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
     }
 
@@ -317,7 +325,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
 
         verify(indexBuilder).scheduleBuildIndexAfterDisasterRecovery(
@@ -329,7 +338,8 @@ public class IndexBuildControllerTest extends BaseIgniteAbstractTest {
                 any(),
                 eq(LOCAL_NODE),
                 anyLong(),
-                any()
+                any(),
+                anyInt()
         );
     }
 
