@@ -29,6 +29,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.executor.platform.DotNetComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
@@ -88,7 +90,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     @Override
-    public <T, R> JobExecutionInternal<ComputeJobDataHolder> executeJob(
+    public JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
             String jobClassName,
             JobClassLoader classLoader,
@@ -98,18 +100,50 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
-        Class<ComputeJob<T, R>> jobClass = jobClass(classLoader, jobClassName);
-        ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
-        Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
-        Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
+
+        Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
+                options.executorType(), jobClassName, classLoader, input, context);
 
         QueueExecution<ComputeJobDataHolder> execution = executorService.submit(
-                unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller),
+                jobCallable,
                 options.priority(),
                 options.maxRetries()
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
+    }
+
+    private static Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
+            JobExecutorType executorType,
+            String jobClassName,
+            JobClassLoader classLoader,
+            ComputeJobDataHolder input,
+            JobExecutionContext context) {
+        switch (executorType) {
+            case Java:
+                return getJavaJobCallable(jobClassName, classLoader, input, context);
+
+            case DotNet:
+                return DotNetComputeExecutor.getJobCallable(jobClassName, input, context);
+
+            default:
+                throw new IllegalArgumentException("Unsupported executor type: " + executorType);
+        }
+    }
+
+    private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(
+            String jobClassName,
+            JobClassLoader classLoader,
+            ComputeJobDataHolder input,
+            JobExecutionContext context) {
+        Class<ComputeJob<Object, Object>> jobClass = jobClass(classLoader, jobClassName);
+        ComputeJob<Object, Object> jobInstance = ComputeUtils.instantiateJob(jobClass);
+
+        Marshaller<Object, byte[]> inputMarshaller = jobInstance.inputMarshaller();
+        Marshaller<Object, byte[]> resultMarshaller = jobInstance.resultMarshaller();
+
+        return unmarshalExecMarshal(
+                input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(

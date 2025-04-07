@@ -17,12 +17,17 @@
 
 package org.apache.ignite.internal.compute.executor.platform;
 
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.internal.compute.executor.JobExecutionInternal;
 
 public class DotNetComputeExecutor {
-    public static JobExecutionInternal<ComputeJobDataHolder> executeJob() {
-        // TODO
-        return null;
+    public static Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
+            String jobClassName,
+            ComputeJobDataHolder input,
+            JobExecutionContext context) {
+        // TODO: Call into .NET process.
+        return () -> CompletableFuture.completedFuture(null);
     }
 }
