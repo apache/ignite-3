@@ -230,6 +230,10 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Map<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
+    private final Consumer<ClientInboundMessageHandler> onHandshake;
+
+    private final Consumer<ClientInboundMessageHandler> onDisconnect;
+
     /**
      * Constructor.
      *
@@ -269,7 +273,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Executor commonExecutor
+            Executor commonExecutor,
+            Consumer<ClientInboundMessageHandler> onHandshake,
+            Consumer<ClientInboundMessageHandler> onDisconnect
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -318,6 +324,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.extensions = extensions;
 
         this.commonExecutor = commonExecutor;
+
+        this.onHandshake = onHandshake;
+        this.onDisconnect = onDisconnect;
+    }
+
+    @Nullable String computeExecutorId() {
+        return clientContext != null ? clientContext.computeExecutorId() : null;
     }
 
     @Override
@@ -384,6 +397,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
+
+        onDisconnect.accept(this);
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
@@ -399,18 +414,22 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             int clientCode = unpacker.unpackInt();
 
             BitSet clientFeatures = HandshakeUtils.unpackFeatures(unpacker);
-            Map<HandshakeExtension, Object> extensions = HandshakeUtils.unpackExtensions(unpacker);
+            Map<HandshakeExtension, Object> clientHandshakeExtensions = HandshakeUtils.unpackExtensions(unpacker);
 
             authenticationManager
-                    .authenticateAsync(createAuthenticationRequest(extensions))
+                    .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
                     .handleAsync((user, err) -> {
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
                             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
-                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
+                            String computeExecutorId = (String) clientHandshakeExtensions.get(HandshakeExtension.COMPUTE_EXECUTOR_ID);
+
+                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user, computeExecutorId);
 
                             sendHandshakeResponse(ctx, packer);
+
+                            onHandshake.accept(this);
                         }
 
                         return null;

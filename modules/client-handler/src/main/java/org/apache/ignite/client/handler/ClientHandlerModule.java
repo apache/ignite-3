@@ -39,6 +39,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -141,6 +142,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     private final Executor partitionOperationsExecutor;
 
     private final Executor commonExecutor;
+
+    private final ConcurrentHashMap<String, ClientInboundMessageHandler> computeExecutors = new ConcurrentHashMap<>();
 
     @TestOnly
     @SuppressWarnings("unused")
@@ -433,8 +436,26 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
                 Map.of(),
-                commonExecutor
+                commonExecutor,
+                this::onHandshake,
+                this::onDisconnect
         );
+    }
+
+    private void onHandshake(ClientInboundMessageHandler messageHandler) {
+        String execId = messageHandler.computeExecutorId();
+
+        if (execId != null) {
+            computeExecutors.put(execId, messageHandler);
+        }
+    }
+
+    private void onDisconnect(ClientInboundMessageHandler messageHandler) {
+        String execId = messageHandler.computeExecutorId();
+
+        if (execId != null) {
+            computeExecutors.remove(execId);
+        }
     }
 
     @TestOnly
