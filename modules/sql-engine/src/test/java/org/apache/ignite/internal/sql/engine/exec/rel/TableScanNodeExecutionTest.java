@@ -116,7 +116,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectExecutorService
@@ -334,7 +334,6 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
                     timestampTracker,
                     mock(PlacementDriver.class),
                     mock(TransactionInflights.class),
-                    0,
                     null,
                     mock(StreamerReceiverRunner.class),
                     () -> 10_000L,

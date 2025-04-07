@@ -75,8 +75,8 @@ public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
 
         builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
-                + "      readOnlyTimeout: 30000,"
-                + "      readWriteTimeout: 30000,"
+                + "      readOnlyTimeoutMillis: 30000,"
+                + "      readWriteTimeoutMillis: 30000,"
                 + "      txnResourceTtl: 2"
                 + "  },"
                 + "  replication: {"
@@ -144,6 +144,7 @@ public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
         return findNode(0, initialNodes(), n -> leaseholder.equals(n.name()));
     }
 
+    @Override
     protected int initialNodes() {
         return 2;
     }
