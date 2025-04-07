@@ -385,7 +385,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 partitionOperationsExecutor
         );
 
-        txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
+        txMessageSender = new TxMessageSender(messagingService, replicaService, clockService);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 

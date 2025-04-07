@@ -651,8 +651,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
-                        clockService,
-                        transactionConfiguration
+                        clockService
                 )
         );
 

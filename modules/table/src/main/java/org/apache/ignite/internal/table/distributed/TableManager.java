@@ -545,8 +545,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,
                 replicaSvc,
-                clockService,
-                txCfg
+                clockService
         );
 
         transactionStateResolver = new TransactionStateResolver(
