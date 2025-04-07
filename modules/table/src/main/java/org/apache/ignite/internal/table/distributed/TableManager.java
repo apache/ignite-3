@@ -1059,11 +1059,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-            CompletableFuture<?>[] futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
-                    .map(event -> destroyTableLocally(event.tableId()))
-                    .toArray(CompletableFuture[]::new);
+            // Run table destruction fully asynchronously.
+            destructionEventsQueue.drainUpTo(newEarliestCatalogVersion)
+                    .forEach(event -> destroyTableLocally(event.tableId()));
 
-            return allOf(futures).thenApply(unused -> false);
+            return falseCompletedFuture();
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -1837,41 +1837,41 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private CompletableFuture<Void> destroyTableLocally(int tableId) {
         TableImpl table = startedTables.remove(tableId);
+
         localPartsByTableId.remove(tableId);
 
         assert table != null : tableId;
 
         InternalTable internalTable = table.internalTable();
-        int partitions = internalTable.partitions();
 
-        Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
+        Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
                 .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
                 .collect(toSet());
-        metaStorageMgr.removeAll(assignmentKeys);
 
-        CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
+        metaStorageMgr.removeAll(assignmentKeys)
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to remove assignments from metastorage [tableId={}]", e, tableId);
+                    }
+                });
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
-        //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
-        for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            if (enabledColocation) {
-                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
-                        new ZonePartitionId(internalTable.zoneId(), partitionId),
-                        tableId
-                );
-            }
+        return stopAndDestroyTablePartitions(table)
+                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                    CompletableFuture<Void> tableStorageDestroyFuture = internalTable.storage().destroy();
 
-            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyTablePartition(new TablePartitionId(tableId, partitionId), table);
-        }
+                    // TX state storage destruction is synchronous.
+                    internalTable.txStateStorage().destroy();
 
-        return allOf(stopReplicaAndDestroyFutures)
-                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> allOf(
-                        internalTable.storage().destroy(),
-                        runAsync(() -> inBusyLock(busyLock, () -> internalTable.txStateStorage().destroy()), ioExecutor)
-                )), ioExecutor)
-                .thenAccept(unused -> {
+                    return tableStorageDestroyFuture;
+                }), ioExecutor)
+                .thenAccept(unused -> inBusyLock(busyLock, () -> {
                     tables.remove(tableId);
                     schemaManager.dropRegistry(tableId);
+                }))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Unable to destroy table [name={}, tableId={}]", e, table.name(), tableId);
+                    }
                 });
     }
 
@@ -2679,6 +2679,31 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 WeakReplicaStopReason.EXCLUDED_FROM_ASSIGNMENTS,
                 () -> stopAndDestroyTablePartition(tablePartitionId, causalityToken)
         );
+    }
+
+    private CompletableFuture<Void> stopAndDestroyTablePartitions(TableImpl table) {
+        InternalTable internalTable = table.internalTable();
+
+        int partitions = internalTable.partitions();
+
+        CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
+        //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            if (enabledColocation) {
+                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                        new ZonePartitionId(internalTable.zoneId(), partitionId),
+                        internalTable.tableId()
+                );
+            }
+
+            var tablePartitionId = new TablePartitionId(internalTable.tableId(), partitionId);
+
+            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyTablePartition(tablePartitionId, table);
+        }
+
+        return allOf(stopReplicaAndDestroyFutures);
     }
 
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
