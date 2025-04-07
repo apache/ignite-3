@@ -555,11 +555,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
     private void handleAndRethrowIfError(InNetworkObject obj, Throwable e) {
         NetworkMessage message = obj.message();
 
+        Object messageDetails = LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging();
         if (e instanceof UnresolvableConsistentIdException && message instanceof InvokeRequest) {
             if (LOG.isInfoEnabled()) {
                 LOG.info(
                         "onMessage() failed while processing {} from {} as the sender has left the topology",
-                        LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                        messageDetails,
                         obj.sender()
                 );
             }
@@ -568,7 +569,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                     failureProcessor,
                     e,
                     "onMessage() failed while processing %s from %s",
-                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                    messageDetails,
                     obj.sender()
             );
         }
