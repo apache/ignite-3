@@ -377,24 +377,24 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
 
     @Test
     public void explicitCastBoundaryValues() {
-        String maxTs = "9999-12-30 11:59:59.999999999";
-        String minTs = "0001-01-02 12:00:00";
-        String maxDate = "9999-12-30";
-        String minDate = "0001-01-03";
+        // Insert source values for check cast.
+        {
+            String template = "INSERT INTO src "
+                    + "(id, s, ts, d) VALUES "
+                    + "({}, '{}', timestamp '{}', date '{}')";
 
-        String maxTsOverflow = "9999-12-30 12:00:00";
-        String minTsOverflow = "0001-01-02 11:59:59";
-        String maxDateOverflow = "9999-12-31";
-        // The following date must throw out of range exception,
-        // because '0001-01-01 18:00' (minimum) > ('0001-01-02' - 18 HOURS)
-        String minDateOverflow = "0001-01-02";
+            // Maximum allowed values (VARCHAR, TIMESTAMP, DATETIME).
+            sql(format(template, 0, "9999-12-30 11:59:59.999999999", "9999-12-30 11:59:59.999999999", "9999-12-30"));
+            // Minimum allowed values.
+            sql(format(template, 1, "0001-01-02 12:00:00", "0001-01-02 12:00:00", "0001-01-03"));
 
-        String[] literals = {maxTs, minTs, maxTsOverflow, minTsOverflow};
-        String[] dateLiterals = {maxDate, minDate, maxDateOverflow, minDateOverflow};
+            // Out of range values for maximum boundary.
+            sql(format(template, 2, "9999-12-30 12:00:00", "9999-12-30 12:00:00", "9999-12-31"));
 
-        for (int i = 0; i < literals.length; i++) {
-            assertQuery(format("INSERT INTO src (id, s, ts, d) VALUES ({}, '{}', timestamp '{}', date '{}')",
-                    i, literals[i], literals[i], dateLiterals[i])).check();
+            // Out of range values for minimum boundary.
+            // The date '0001-01-02' must throw out of range exception,
+            // because '0001-01-01 18:00' (minimum) > ('0001-01-02' - 18 HOURS)
+            sql(format(template, 3, "0001-01-02 11:59:59", "0001-01-02 11:59:59", "0001-01-02"));
         }
 
         // INSERT allowed boundary values
