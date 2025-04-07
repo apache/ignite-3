@@ -183,16 +183,16 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     raftGroupEventsClientListener
             );
 
+            this.failureManager = new NoOpFailureManager();
+
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
-
-            this.failureManager = new NoOpFailureManager();
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(workDir.resolve("cmg"));
 

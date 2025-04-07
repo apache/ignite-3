@@ -393,16 +393,16 @@ public class Node {
                 new NoOpFailureManager()
         );
 
+        failureManager = new NoOpFailureManager();
+
         var clusterStateStorage = new TestClusterStateStorage();
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
         var clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
                 new TestConfigurationValidator()
         );
-
-        failureManager = new NoOpFailureManager();
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 

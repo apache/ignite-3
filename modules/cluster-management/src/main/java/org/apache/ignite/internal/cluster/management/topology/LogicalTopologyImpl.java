@@ -38,14 +38,11 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Implementation of {@link LogicalTopology}.
@@ -65,12 +62,6 @@ public class LogicalTopologyImpl implements LogicalTopology {
     private final List<LogicalTopologyEventListener> listeners = new CopyOnWriteArrayList<>();
 
     private volatile @Nullable UUID clusterId;
-
-    /** Constructor. */
-    @TestOnly
-    public LogicalTopologyImpl(ClusterStateStorage storage) {
-        this(storage, new FailureManager(new NoOpFailureHandler()));
-    }
 
     /** Constructor. */
     public LogicalTopologyImpl(ClusterStateStorage storage, FailureProcessor failureProcessor) {

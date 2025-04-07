@@ -241,7 +241,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new DefaultIgniteProductVersionSource()
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var failureProcessor = new NoOpFailureManager();
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureProcessor);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -252,7 +253,6 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var readOperationForCompactionTracker = new ReadOperationForCompactionTracker();
 
-        var failureProcessor = new NoOpFailureManager();
         var storage = new RocksDbKeyValueStorage(
                 name,
                 workDir.resolve("metastorage"),

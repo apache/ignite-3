@@ -74,7 +74,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     private LongConsumer onLogicalTopologyChanged;
 
     @Spy
-    private final LogicalTopology logicalTopology = new LogicalTopologyImpl(storage);
+    private final LogicalTopology logicalTopology = new LogicalTopologyImpl(storage, new NoOpFailureManager());
 
     private CmgRaftGroupListener listener;
 

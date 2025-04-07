@@ -121,7 +121,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
         }
 
         void start() {
