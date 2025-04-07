@@ -53,8 +53,8 @@ public class IgniteSqlFunctions {
     private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, LocalDate.class);
     private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, LocalDate.class);
 
-    private static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, LocalDateTime.class);
-    private static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, LocalDateTime.class);
+    public static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, LocalDateTime.class);
+    public static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, LocalDateTime.class);
 
     private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, Instant.class);
     private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, Instant.class);

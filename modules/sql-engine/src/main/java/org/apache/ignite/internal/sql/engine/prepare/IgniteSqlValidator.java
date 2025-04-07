@@ -99,6 +99,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -553,6 +555,12 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             super.validateLiteral(literal);
         }
 
+        if (typeName == SqlTypeName.TIMESTAMP) {
+            var tsString = literal.getValueAs(TimestampString.class);
+
+
+        }
+
         // SqlLiteral createSqlType can not be called on
         // SqlUnknownLiteral because SELECT TIMESTAMP 'valid-ts' is a SqlUnknownLiteral later converted to timestamp literal
         if (literal instanceof SqlUnknownLiteral) {
@@ -567,6 +575,23 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         RelDataType dataType = literal.createSqlType(typeFactory);
         validatePrecisionScale(literal, dataType, dataType.getPrecision(), dataType.getScale());
+    }
+
+    @Override
+    public SqlLiteral resolveLiteral(SqlLiteral literal) {
+        SqlLiteral resolved = super.resolveLiteral(literal);
+        SqlTypeName typeName = resolved.getTypeName();
+
+        if (typeName == SqlTypeName.TIMESTAMP) {
+            // Check bounds.
+            long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
+
+            if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                throw newValidationError(literal, IgniteResource.INSTANCE.temporalOutOfRange(typeName.getSpaceName()));
+            }
+        }
+
+        return resolved;
     }
 
     @Override

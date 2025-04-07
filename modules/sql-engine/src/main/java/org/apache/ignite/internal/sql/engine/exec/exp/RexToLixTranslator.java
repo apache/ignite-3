@@ -959,14 +959,6 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       javaClass = int.class;
       break;
     case TIMESTAMP:
-      // TODO https://issues.apache.org/jira/browse/IGNITE-24984 Remove this block
-      Object tsValue = literal.getValueAs(Long.class);
-
-      return Expressions.call(
-              IgniteSqlFunctions.class,
-              "toTimestampExact",
-              constant(tsValue, long.class)
-      );
     case INTERVAL_DAY:
     case INTERVAL_DAY_HOUR:
     case INTERVAL_DAY_MINUTE:

@@ -1266,10 +1266,6 @@ public class RexUtils {
             return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
         }
 
-        if (literal.getTypeName() == SqlTypeName.TIMESTAMP) {
-            return IgniteSqlFunctions.toTimestampExact((long) val);
-        }
-
         return val;
     }
 

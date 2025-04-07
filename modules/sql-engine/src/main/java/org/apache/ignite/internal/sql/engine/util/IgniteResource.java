@@ -111,6 +111,9 @@ public interface IgniteResource {
     @BaseMessage("Unexpected statement: {0} ")
     ExInst<CalciteException> unexpectedStatement(String type);
 
+    @BaseMessage("{0} out of range.")
+    ExInst<SqlValidatorException> temporalOutOfRange(String typeName);
+
     /** Constructs a signature string to use in error messages. */
     static String makeSignature(SqlCallBinding binding, RelDataType... operandTypes) {
         return makeSignature(binding, Arrays.asList(operandTypes));
