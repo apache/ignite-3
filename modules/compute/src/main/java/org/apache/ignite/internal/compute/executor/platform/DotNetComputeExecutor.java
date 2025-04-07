@@ -65,6 +65,9 @@ public class DotNetComputeExecutor {
 
         int clientPort = clientAddressSupplier.get().port();
         process = startDotNetProcess(clientPort, secret);
+
+        // TODO: Wait for the process to start and connect.
+        // We need access to ClientInboundMessageHandler to do that, through some interface.
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
