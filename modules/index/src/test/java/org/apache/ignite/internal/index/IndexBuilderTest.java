@@ -176,8 +176,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                mock(HybridTimestamp.class),
-                1
+                mock(HybridTimestamp.class)
         );
     }
 
@@ -197,8 +196,7 @@ public class IndexBuilderTest extends BaseIgniteAbstractTest {
                 mock(MvPartitionStorage.class),
                 mock(ClusterNode.class),
                 ANY_ENLISTMENT_CONSISTENCY_TOKEN,
-                mock(HybridTimestamp.class),
-                1
+                mock(HybridTimestamp.class)
         );
     }
 

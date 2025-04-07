@@ -346,8 +346,7 @@ class IndexBuildController implements ManuallyCloseable {
                             indexDescriptor,
                             mvTableStorage,
                             enlistmentConsistencyToken(replicaMeta),
-                            clockService.current(),
-                            tableDescriptor.tableVersion()
+                            clockService.current()
                     );
                 } else if (indexDescriptor.status() == AVAILABLE) {
                     scheduleBuildIndexAfterDisasterRecovery(
@@ -356,8 +355,7 @@ class IndexBuildController implements ManuallyCloseable {
                             ((PartitionGroupId) primaryReplicaId).partitionId(),
                             indexDescriptor,
                             mvTableStorage,
-                            enlistmentConsistencyToken(replicaMeta),
-                            tableDescriptor.tableVersion()
+                            enlistmentConsistencyToken(replicaMeta)
                     );
                 }
             }
@@ -399,8 +397,7 @@ class IndexBuildController implements ManuallyCloseable {
                     indexDescriptor,
                     mvTableStorage,
                     enlistmentConsistencyToken(replicaMeta),
-                    clockService.current(),
-                    schemaVersion
+                    clockService.current()
             );
         });
     }
@@ -455,8 +452,7 @@ class IndexBuildController implements ManuallyCloseable {
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
             long enlistmentConsistencyToken,
-            HybridTimestamp initialOperationTimestamp,
-            int schemaVersion
+            HybridTimestamp initialOperationTimestamp
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
@@ -471,8 +467,7 @@ class IndexBuildController implements ManuallyCloseable {
                 mvPartition,
                 localNode(),
                 enlistmentConsistencyToken,
-                initialOperationTimestamp,
-                schemaVersion
+                initialOperationTimestamp
         );
     }
 
@@ -483,8 +478,7 @@ class IndexBuildController implements ManuallyCloseable {
             int partitionId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
-            long enlistmentConsistencyToken,
-            int schemaVersion
+            long enlistmentConsistencyToken
     ) {
         MvPartitionStorage mvPartition = mvPartitionStorage(mvTableStorage, zoneId, tableId, partitionId);
 
@@ -499,8 +493,7 @@ class IndexBuildController implements ManuallyCloseable {
                 mvPartition,
                 localNode(),
                 enlistmentConsistencyToken,
-                clockService.current(),
-                schemaVersion
+                clockService.current()
         );
     }
 
