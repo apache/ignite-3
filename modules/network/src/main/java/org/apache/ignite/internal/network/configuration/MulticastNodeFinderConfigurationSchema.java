@@ -43,7 +43,7 @@ public class MulticastNodeFinderConfigurationSchema extends NodeFinderConfigurat
     /** Time to wait for multicast responses. */
     @Value(hasDefault = true)
     @Range(min = 0)
-    public int resultWaitTimeMillis = 500;
+    public int resultWaitTimeMillis = 1000;
 
     /** Time to live for multicast packets. Value {@link MulticastNodeFinder#UNSPECIFIED_TTL} corresponds to system default value. */
     @Value(hasDefault = true)
