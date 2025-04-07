@@ -436,7 +436,7 @@ public class ClientInboundMessageHandler
 
                             sendHandshakeResponse(ctx, packer);
 
-                            onHandshake.accept(this);
+                            commonExecutor.execute(() -> onHandshake.accept(this));
                         }
 
                         return null;
@@ -1183,6 +1183,6 @@ public class ClientInboundMessageHandler
             String jobClassName,
             ComputeJobDataHolder arg) {
         // TODO: use COMPUTE_EXECUTOR_REQUEST_FLAG with a generated id.
-        return CompletableFuture.completedFuture(new ComputeJobDataHolder(ComputeJobDataType.NATIVE, new byte[0]));
+        return CompletableFuture.failedFuture(new UnsupportedOperationException("IMPLEMENT ME"));
     }
 }
