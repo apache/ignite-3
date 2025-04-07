@@ -32,7 +32,7 @@ public class DotNetComputeExecutor {
 
     private final Supplier<NetworkAddress> clientAddressSupplier;
 
-    private final String secret = UUID.randomUUID().toString();
+    private final String connectionId = UUID.randomUUID().toString();
 
     private Process process;
 
@@ -64,7 +64,7 @@ public class DotNetComputeExecutor {
         }
 
         int clientPort = clientAddressSupplier.get().port();
-        process = startDotNetProcess(clientPort, secret);
+        process = startDotNetProcess(clientPort, connectionId);
 
         // TODO: Wait for the process to start and connect.
         // We need access to ClientInboundMessageHandler to do that, through some interface.
