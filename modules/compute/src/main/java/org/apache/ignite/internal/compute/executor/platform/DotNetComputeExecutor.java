@@ -29,7 +29,7 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 public class DotNetComputeExecutor {
     private final PlatformComputeTransport transport;
 
-    private final String connectionId = UUID.randomUUID().toString();
+    private final String computeExecutorId = UUID.randomUUID().toString(); // TODO: Secure random.
 
     private Process process;
 
@@ -59,7 +59,7 @@ public class DotNetComputeExecutor {
         // TODO: Configurable timeout
         // TODO: Handle disconnects and crashed processes.
         return transport
-                .getConnectionAsync(connectionId)
+                .getConnectionAsync(computeExecutorId)
                 .orTimeout(3000, TimeUnit.MILLISECONDS)
                 .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
@@ -76,20 +76,20 @@ public class DotNetComputeExecutor {
             return;
         }
 
-        process = startDotNetProcess(transport.serverAddress(), connectionId);
+        process = startDotNetProcess(transport.serverAddress(), computeExecutorId);
 
         // TODO: Wait for the process to start and connect.
         // We need access to ClientInboundMessageHandler to do that, through some interface.
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
-    private static Process startDotNetProcess(String address, String secret) {
+    private static Process startDotNetProcess(String address, String computeConnectionId) {
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "dotnet",
-                "Apache.Ignite.Server.Internal",
+                "Apache.Ignite.Internal.ComputeExecutor.dll",
                 "--",
                 address,
-                secret);
+                computeConnectionId);
 
         try {
             return processBuilder.start();
