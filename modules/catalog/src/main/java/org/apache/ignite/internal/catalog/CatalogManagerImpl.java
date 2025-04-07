@@ -27,7 +27,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -280,9 +279,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
                     if (error != null) {
-                        failureProcessor.process(new FailureContext(CRITICAL_ERROR,
-                                new IgniteInternalException(INTERNAL_ERR, "Unable to create default zone.", error)
-                        ));
+                        failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
                     }
 
                     return null;
@@ -503,9 +500,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
                         if (err != null) {
-                            failureProcessor.process(new FailureContext(CRITICAL_ERROR,
-                                    new IgniteInternalException(INTERNAL_ERR, "Failed to apply catalog update.", err)
-                            ));
+                            failureProcessor.process(new FailureContext(err, "Failed to apply catalog update."));
                         }
 
                         versionTracker.update(version, null);
