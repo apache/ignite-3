@@ -50,6 +50,7 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -285,6 +286,20 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         BroadcastExecution<Object> execution = executionFut.join();
 
         assertThat(execution.resultsAsync(), will(everyItem(nullValue())));
+    }
+
+    @Test
+    void executesDotNetJob() {
+        Ignite entryNode = node(0);
+
+        JobDescriptor<Object, Object> job = JobDescriptor
+                .builder("DotNetJob")
+                .options(JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build())
+                .build();
+
+        var result = entryNode.compute().execute(JobTarget.node(clusterNode(entryNode)), job, "testArg");
+
+        assertEquals("x", result);
     }
 
     private Stream<Arguments> targetNodeIndexes() {

@@ -84,9 +84,11 @@ public class DotNetComputeExecutor {
 
     @SuppressWarnings("UseOfProcessBuilder")
     private static Process startDotNetProcess(String address, String executorId) {
-        ProcessBuilder processBuilder = new ProcessBuilder(
-                "dotnet",
-                "Apache.Ignite.Internal.ComputeExecutor.dll");
+        // TODO: Resolve relative path to the executable.
+        String executorPath = "/home/pavel/w/ignite-3/modules/platforms/dotnet/"
+                + "Apache.Ignite.Internal.ComputeExecutor/bin/Debug/net8.0/Apache.Ignite.Internal.ComputeExecutor.dll";
+
+        ProcessBuilder processBuilder = new ProcessBuilder("dotnet", executorPath);
 
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_ID", executorId);
