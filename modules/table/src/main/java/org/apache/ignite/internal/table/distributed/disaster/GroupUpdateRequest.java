@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PendingAssignmentsCalculator.pendingAssignmentsCalculator;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.tableState;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryRequestType.SINGLE_NODE;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -164,7 +165,8 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
                         Set.of(zoneDescriptor.name()),
                         emptySet(),
                         allZonePartitionsToReset,
-                        catalog
+                        catalog,
+                        tableState()
                 );
 
         CompletableFuture<Set<String>> dataNodesFuture = disasterRecoveryManager.dzManager.dataNodes(msTimestamp, catalogVersion, zoneId);
@@ -220,7 +222,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * @param timestamp Meta-storage timestamp to be associated with reassignment.
      * @param metaStorageManager Meta-storage manager.
      * @param localStatesMap Local partition states retrieved by
-     *         {@link DisasterRecoveryManager#localPartitionStates(Set, Set, Set)}.
+     *         {@link DisasterRecoveryManager#localTablePartitionStates(Set, Set, Set)}.
      * @return A future that will be completed when reassignments data is written into a meta-storage, if that's required.
      */
     private static CompletableFuture<Void> forceAssignmentsUpdate(

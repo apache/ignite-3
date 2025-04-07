@@ -22,22 +22,33 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Global partition state.
  */
-public class GlobalPartitionState {
+public class GlobalTablePartitionState {
     public final int zoneId;
+    public final int schemaId;
+    public final int tableId;
 
+    public final String schemaName;
+    public final String tableName;
     public final String zoneName;
 
     public final int partitionId;
-
     public final GlobalPartitionStateEnum state;
 
-    GlobalPartitionState(
+    GlobalTablePartitionState(
             int zoneId,
             String zoneName,
+            int schemaId,
+            String schemaName,
+            int tableId,
+            String tableName,
             int partitionId,
             GlobalPartitionStateEnum state
     ) {
         this.zoneId = zoneId;
+        this.schemaId = schemaId;
+        this.tableId = tableId;
+        this.schemaName = schemaName;
+        this.tableName = tableName;
         this.zoneName = zoneName;
         this.partitionId = partitionId;
         this.state = state;
@@ -45,6 +56,6 @@ public class GlobalPartitionState {
 
     @Override
     public String toString() {
-        return S.toString(GlobalPartitionState.class, this);
+        return S.toString(GlobalTablePartitionState.class, this);
     }
 }
