@@ -212,7 +212,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     processCriticalFailure(
                             failureProcessor,
                             e,
-                            "Unable to start rebalance [tablePartitionId=%s, term=%s]",
+                            "Unable to start rebalance [zonePartitionId=%s, term=%s]",
                             zonePartitionId, term
                     );
                 } finally {
