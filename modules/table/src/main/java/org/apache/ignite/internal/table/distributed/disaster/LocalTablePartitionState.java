@@ -23,9 +23,13 @@ import org.apache.ignite.internal.tostring.S;
 /**
  * Local partition state.
  */
-public class LocalZonePartitionState {
+public class LocalTablePartitionState {
+    public final int tableId;
     public final int zoneId;
+    public final int schemaId;
 
+    public final String schemaName;
+    public final String tableName;
     public final String zoneName;
 
     public final int partitionId;
@@ -34,14 +38,22 @@ public class LocalZonePartitionState {
 
     public final long estimatedRows;
 
-    LocalZonePartitionState(
+    LocalTablePartitionState(
             int zoneId,
             String zoneName,
+            int schemaId,
+            String schemaName,
+            int tableId,
+            String tableName,
             int partitionId,
             LocalPartitionStateEnum state,
             long estimatedRows
     ) {
         this.zoneId = zoneId;
+        this.schemaId = schemaId;
+        this.tableId = tableId;
+        this.schemaName = schemaName;
+        this.tableName = tableName;
         this.zoneName = zoneName;
         this.partitionId = partitionId;
         this.state = state;
@@ -50,6 +62,6 @@ public class LocalZonePartitionState {
 
     @Override
     public String toString() {
-        return S.toString(LocalZonePartitionState.class, this);
+        return S.toString(LocalTablePartitionState.class, this);
     }
 }

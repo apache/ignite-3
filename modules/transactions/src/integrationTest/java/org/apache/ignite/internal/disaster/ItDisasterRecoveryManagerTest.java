@@ -47,11 +47,11 @@ import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalZonePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
-import org.apache.ignite.internal.table.distributed.disaster.LocalZonePartitionState;
-import org.apache.ignite.internal.table.distributed.disaster.LocalZonePartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -128,6 +128,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
     void testLocalPartitionStateTable() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -135,11 +136,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0);
         insert(1, 1);
 
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
-                node.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet());
+        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> localStateTableFuture =
+                node.disasterRecoveryManager().localTablePartitionStates(emptySet(), emptySet(), emptySet());
 
         assertThat(localStateTableFuture, willCompleteSuccessfully());
-        Map<TablePartitionId, LocalPartitionStateByNode> localState = localStateTableFuture.get();
+        Map<TablePartitionId, LocalTablePartitionStateByNode> localState = localStateTableFuture.get();
 
         // 2 partitions.
         assertThat(localState, aMapWithSize(2));
@@ -148,11 +149,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // Partitions size is 2.
         for (int partitionId = 0; partitionId < 2; partitionId++) {
-            LocalPartitionStateByNode partitionStateByNode = localState.get(new TablePartitionId(tableId, partitionId));
+            LocalTablePartitionStateByNode partitionStateByNode = localState.get(new TablePartitionId(tableId, partitionId));
             // 2 nodes.
             assertThat(partitionStateByNode.values(), hasSize(2));
 
-            for (LocalPartitionState state : partitionStateByNode.values()) {
+            for (LocalTablePartitionState state : partitionStateByNode.values()) {
                 assertThat(state.tableId, is(tableId));
                 assertThat(state.tableName, is(TABLE_NAME));
                 assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
@@ -172,11 +173,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0);
         insert(1, 1);
 
-        CompletableFuture<Map<ZonePartitionId, LocalZonePartitionStateByNode>> localStateTableFuture =
-                node.disasterRecoveryManager().localZonePartitionStates(emptySet(), emptySet(), emptySet());
+        CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
+                node.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet());
 
         assertThat(localStateTableFuture, willCompleteSuccessfully());
-        Map<ZonePartitionId, LocalZonePartitionStateByNode> localState = localStateTableFuture.get();
+        Map<ZonePartitionId, LocalPartitionStateByNode> localState = localStateTableFuture.get();
 
         // A default zone and a custom zone, which was created in `BeforeEach`.
         // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
@@ -186,11 +187,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // Partitions size is 2.
         for (int partitionId = 0; partitionId < 2; partitionId++) {
-            LocalZonePartitionStateByNode partitionStateByNode = localState.get(new ZonePartitionId(zoneId, partitionId));
+            LocalPartitionStateByNode partitionStateByNode = localState.get(new ZonePartitionId(zoneId, partitionId));
             // 2 nodes.
             assertThat(partitionStateByNode.values(), hasSize(2));
 
-            for (LocalZonePartitionState state : partitionStateByNode.values()) {
+            for (LocalPartitionState state : partitionStateByNode.values()) {
                 assertThat(state.zoneId, is(zoneId));
                 assertThat(state.zoneName, is(ZONE_NAME));
                 assertThat(state.partitionId, is(partitionId));
@@ -200,6 +201,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
     void testGlobalPartitionStateTable() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -207,11 +209,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0);
         insert(1, 1);
 
-        CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> globalStatesFuture =
-                node.disasterRecoveryManager().globalPartitionStates(emptySet(), emptySet());
+        CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalStatesFuture =
+                node.disasterRecoveryManager().globalTablePartitionStates(emptySet(), emptySet());
 
         assertThat(globalStatesFuture, willCompleteSuccessfully());
-        Map<TablePartitionId, GlobalPartitionState> globalState = globalStatesFuture.get();
+        Map<TablePartitionId, GlobalTablePartitionState> globalState = globalStatesFuture.get();
 
         // 2 partitions.
         assertThat(globalState, aMapWithSize(2));
@@ -220,7 +222,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // Partitions size is 2.
         for (int partitionId = 0; partitionId < 2; partitionId++) {
-            GlobalPartitionState state = globalState.get(new TablePartitionId(tableId, partitionId));
+            GlobalTablePartitionState state = globalState.get(new TablePartitionId(tableId, partitionId));
             assertThat(state.tableId, is(tableId));
             assertThat(state.tableName, is(TABLE_NAME));
             assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
@@ -239,11 +241,11 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0);
         insert(1, 1);
 
-        CompletableFuture<Map<ZonePartitionId, GlobalZonePartitionState>> globalStatesFuture =
-                node.disasterRecoveryManager().globalZonePartitionStates(emptySet(), emptySet());
+        CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalStatesFuture =
+                node.disasterRecoveryManager().globalPartitionStates(emptySet(), emptySet());
 
         assertThat(globalStatesFuture, willCompleteSuccessfully());
-        Map<ZonePartitionId, GlobalZonePartitionState> globalState = globalStatesFuture.get();
+        Map<ZonePartitionId, GlobalPartitionState> globalState = globalStatesFuture.get();
 
         // A default zone and a custom zone, which was created in `BeforeEach`.
         // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
@@ -253,7 +255,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // Partitions size is 2.
         for (int partitionId = 0; partitionId < 2; partitionId++) {
-            GlobalZonePartitionState state = globalState.get(new ZonePartitionId(zoneId, partitionId));
+            GlobalPartitionState state = globalState.get(new ZonePartitionId(zoneId, partitionId));
             assertThat(state.zoneId, is(zoneId));
             assertThat(state.zoneName, is(ZONE_NAME));
             assertThat(state.partitionId, is(partitionId));

@@ -23,22 +23,22 @@ import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
-/** Container for LocalPartitionState to node name map. */
-public class LocalZonePartitionStateByNode {
+/** Container for LocalTablePartitionState to node name map. */
+public class LocalTablePartitionStateByNode {
     @IgniteToStringInclude
-    private final Map<String, LocalZonePartitionState> map;
+    private final Map<String, LocalTablePartitionState> map;
 
-    LocalZonePartitionStateByNode(Map<String, LocalZonePartitionState> map) {
+    LocalTablePartitionStateByNode(Map<String, LocalTablePartitionState> map) {
         this.map = Map.copyOf(map);
     }
 
     /** Returns collection of local partition states. */
-    public Collection<LocalZonePartitionState> values() {
+    public Collection<LocalTablePartitionState> values() {
         return map.values();
     }
 
     /** Returns set of map entries. */
-    public Set<Entry<String, LocalZonePartitionState>> entrySet() {
+    public Set<Entry<String, LocalTablePartitionState>> entrySet() {
         return map.entrySet();
     }
 
