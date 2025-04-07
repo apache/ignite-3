@@ -30,6 +30,7 @@ import java.util.function.Function;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
@@ -68,11 +69,15 @@ public class ClientComputeExecuteRequest {
 
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
         String jobClassName = in.unpackString();
-        JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
+        JobExecutionOptions.Builder options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt());
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
+        // TODO: Feature flag, handle more types.
+        JobExecutorType jobExecutorType = in.unpackInt() == 0 ? JobExecutorType.Java : JobExecutorType.DotNet;
+        options.executorType(jobExecutorType);
+
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
-                candidates, deploymentUnits, jobClassName, options, arg, null
+                candidates, deploymentUnits, jobClassName, options.build(), arg, null
         );
         sendResultAndState(executionFut, notificationSender);
 

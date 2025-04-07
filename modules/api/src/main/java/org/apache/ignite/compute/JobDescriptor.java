@@ -39,16 +39,13 @@ public class JobDescriptor<T, R> {
 
     private final Class<R> resultClass;
 
-    private final JobExecutorType executorType;
-
     private JobDescriptor(
             String jobClassName,
             List<DeploymentUnit> units,
             JobExecutionOptions options,
             @Nullable Marshaller<T, byte[]> argumentMarshaller,
             @Nullable Marshaller<R, byte[]> resultMarshaller,
-            @Nullable Class<R> resultClass,
-            JobExecutorType executorType
+            @Nullable Class<R> resultClass
     ) {
         this.jobClassName = jobClassName;
         this.units = units;
@@ -56,7 +53,6 @@ public class JobDescriptor<T, R> {
         this.argumentMarshaller = argumentMarshaller;
         this.resultMarshaller = resultMarshaller;
         this.resultClass = resultClass;
-        this.executorType = executorType == null ? JobExecutorType.Java : executorType;
     }
 
     /**
@@ -121,15 +117,6 @@ public class JobDescriptor<T, R> {
     }
 
     /**
-     * Gets the job executor type.
-     *
-     * @return Job executor type.
-     */
-    public JobExecutorType executorType() {
-        return executorType;
-    }
-
-    /**
      * Builder.
      */
     public static class Builder<T, R> {
@@ -139,7 +126,6 @@ public class JobDescriptor<T, R> {
         private Marshaller<T, byte[]> argumentMarshaller;
         private Marshaller<R, byte[]> resultMarshaller;
         private Class<R> resultClass;
-        private JobExecutorType executorType;
 
         private Builder(String jobClassName) {
             Objects.requireNonNull(jobClassName);
@@ -217,18 +203,6 @@ public class JobDescriptor<T, R> {
         }
 
         /**
-         * Sets the job executor type.
-         *
-         * @param executorType Job executor type.
-         *
-         * @return This builder.
-         */
-        public Builder<T, R> executorType(JobExecutorType executorType) {
-            this.executorType = executorType;
-            return this;
-        }
-
-        /**
          * Builds the job descriptor.
          *
          * @return Job descriptor.
@@ -240,8 +214,7 @@ public class JobDescriptor<T, R> {
                     options == null ? JobExecutionOptions.DEFAULT : options,
                     argumentMarshaller,
                     resultMarshaller,
-                    resultClass,
-                    executorType
+                    resultClass
             );
         }
     }
