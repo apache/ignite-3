@@ -40,7 +40,7 @@ public class MulticastNodeFinderConfigurationSchema extends NodeFinderConfigurat
     @Range(min = 1, max = 65535)
     public int port = 47401;
 
-    /** Time to wait for multicast responses (m. */
+    /** Time to wait for multicast responses. */
     @Value(hasDefault = true)
     @Range(min = 0)
     public int resultWaitTimeMillis = 1000;
