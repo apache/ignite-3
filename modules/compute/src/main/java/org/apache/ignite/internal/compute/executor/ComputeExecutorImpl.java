@@ -40,6 +40,7 @@ import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.platform.DotNetComputeExecutor;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
@@ -80,20 +81,20 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
      * @param topologyService Topology service.
-     * @param clientAddressSupplier Client address supplier.
+     * @param platformComputeTransport Platform compute transport.
      */
     public ComputeExecutorImpl(
             Ignite ignite,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
             TopologyService topologyService,
-            Supplier<NetworkAddress> clientAddressSupplier
+            PlatformComputeTransport platformComputeTransport
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
         this.topologyService = topologyService;
-        this.dotNetComputeExecutor = new DotNetComputeExecutor(ignite, clientAddressSupplier);
+        this.dotNetComputeExecutor = new DotNetComputeExecutor(platformComputeTransport);
     }
 
     @Override
@@ -131,7 +132,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
             case DotNet:
-                return dotNetComputeExecutor.getJobCallable(ignite, jobClassName, input, context);
+                // TODO: Deployment unit location.
+                return dotNetComputeExecutor.getJobCallable(jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);

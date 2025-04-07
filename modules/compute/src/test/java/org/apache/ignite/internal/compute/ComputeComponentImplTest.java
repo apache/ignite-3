@@ -167,7 +167,7 @@ class ComputeComponentImplTest extends BaseIgniteAbstractTest {
         }).when(messagingService).addMessageHandler(eq(ComputeMessageTypes.class), any());
 
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, INSTANCE_NAME);
-        ComputeExecutor computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService, () -> null);
+        ComputeExecutor computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService, null);
 
         computeComponent = new ComputeComponentImpl(
                 INSTANCE_NAME,

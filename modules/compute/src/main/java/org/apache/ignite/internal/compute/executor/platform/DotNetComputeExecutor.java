@@ -21,34 +21,42 @@ import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Supplier;
-import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 
 public class DotNetComputeExecutor {
-    private final Ignite ignite;
-
-    private final Supplier<NetworkAddress> clientAddressSupplier;
+    private final PlatformComputeTransport transport;
 
     private final String connectionId = UUID.randomUUID().toString();
 
     private Process process;
 
-    public DotNetComputeExecutor(Ignite ignite, Supplier<NetworkAddress> clientAddressSupplier) {
-        this.ignite = ignite;
-        this.clientAddressSupplier = clientAddressSupplier;
+    public DotNetComputeExecutor(PlatformComputeTransport transport) {
+        this.transport = transport;
     }
 
     public Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
-            Ignite ignite,
             String jobClassName,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         // TODO: Call into .NET process:
         // Send client port, job class name, and job data to .NET process.
-        return () -> CompletableFuture.completedFuture(null);
+        return () -> executeJobAsync(jobClassName, input, context);
+    }
+
+    private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+            String jobClassName,
+            ComputeJobDataHolder input,
+            JobExecutionContext context) {
+        ensureProcessStarted();
+
+        // TODO: Wait for connection with some timeout.
+        PlatformComputeConnection connection = transport.getConnection(connectionId);
+
+        // TODO: Ser/de, add class name and deployment unit info.
+        return connection.sendMessage(input.data())
+                .thenApply(response -> new ComputeJobDataHolder(ComputeJobDataType.TUPLE, response));
     }
 
     public synchronized void stop() {
@@ -63,20 +71,19 @@ public class DotNetComputeExecutor {
             return;
         }
 
-        int clientPort = clientAddressSupplier.get().port();
-        process = startDotNetProcess(clientPort, connectionId);
+        process = startDotNetProcess(transport.serverAddress(), connectionId);
 
         // TODO: Wait for the process to start and connect.
         // We need access to ClientInboundMessageHandler to do that, through some interface.
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
-    private static Process startDotNetProcess(int clientPort, String secret) {
+    private static Process startDotNetProcess(String address, String secret) {
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "dotnet",
                 "Apache.Ignite.Server.Internal",
                 "--",
-                String.valueOf(clientPort),
+                address,
                 secret);
 
         try {
