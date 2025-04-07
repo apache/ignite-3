@@ -826,8 +826,8 @@ public class Checkpointer extends IgniteWorker {
     long nextCheckpointInterval() {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        long interval = checkpointConfigView.interval();
-        int deviation = checkpointConfigView.intervalDeviation();
+        long interval = checkpointConfigView.intervalMillis();
+        int deviation = checkpointConfigView.intervalDeviationPercent();
 
         if (deviation == 0) {
             return interval;

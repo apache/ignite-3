@@ -242,7 +242,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                         throw t;
                     }
                 }
-            }, configuration.idleSafeTimeSyncInterval().value(), TimeUnit.MILLISECONDS);
+            }, configuration.idleSafeTimeSyncIntervalMillis().value(), TimeUnit.MILLISECONDS);
         }
 
         private void tryToSyncTimeAndReschedule() {

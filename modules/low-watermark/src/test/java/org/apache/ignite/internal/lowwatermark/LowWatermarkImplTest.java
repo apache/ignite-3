@@ -157,7 +157,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     void testCreateNewLowWatermarkCandidate() {
         when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
 
-        assertThat(lowWatermarkConfig.dataAvailabilityTime().update(100L), willSucceedFast());
+        assertThat(lowWatermarkConfig.dataAvailabilityTimeMillis().update(100L), willSucceedFast());
 
         HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
@@ -200,14 +200,14 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     /** Let's make sure that the low watermark update happens one by one and not in parallel. */
     @Test
     void testUpdateWatermarkSequentially() throws Exception {
-        assertThat(lowWatermarkConfig.updateInterval().update(10L), willSucceedFast());
+        assertThat(lowWatermarkConfig.updateIntervalMillis().update(10L), willSucceedFast());
 
         var onLwmChangedLatch = new CountDownLatch(3);
 
         var onLwmChangedFinishFuture = new CompletableFuture<>();
 
         try {
-            assertThat(lowWatermarkConfig.updateInterval().update(100L), willSucceedFast());
+            assertThat(lowWatermarkConfig.updateIntervalMillis().update(100L), willSucceedFast());
 
             when(lwmChangedListener.notify(any())).then(invocation -> {
                 onLwmChangedLatch.countDown();

@@ -48,7 +48,7 @@ public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfi
 
     /** Memory region size in bytes. */
     @Value(hasDefault = true)
-    public long size = DFLT_DATA_REGION_SIZE;
+    public long sizeBytes = DFLT_DATA_REGION_SIZE;
 
     /** Memory pages replacement mode. */
     @OneOf({RANDOM_LRU_REPLACEMENT_MODE, SEGMENTED_LRU_REPLACEMENT_MODE, CLOCK_REPLACEMENT_MODE})

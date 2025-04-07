@@ -126,7 +126,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
 
     private static final TestReplicaMessagesFactory TEST_REPLICA_MESSAGES_FACTORY = new TestReplicaMessagesFactory();
 
-    @InjectConfiguration("mock {retryTimeout=4000, responseTimeout=1000}")
+    @InjectConfiguration("mock {retryTimeoutMillis=4000, responseTimeoutMillis=1000}")
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration

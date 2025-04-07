@@ -60,7 +60,7 @@ public class ItBplusTreeReuseListPersistentPageMemoryTest extends AbstractBplusT
     protected PageMemory createPageMemory() throws Exception {
         dataRegionCfg
                 .change(c -> ((PersistentPageMemoryProfileChange) c)
-                        .changeSize(MAX_MEMORY_SIZE))
+                        .changeSizeBytes(MAX_MEMORY_SIZE))
                 .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();

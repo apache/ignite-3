@@ -59,7 +59,7 @@ public class HoconDynamicCompleter implements DynamicCompleter {
      *
      * <p>Example: given typed words ["cluster", "config", "show", "a"], The last word is "a", only root config values will be suggested to
      * autocomplete: "aimem", "aipersist". If user hits "aimem" and types dot "." then only subkeys of "aimem." will be suggested:
-     * "aimem.pageSize", "aimem.regions".
+     * "aimem.pageSizeBytes", "aimem.regions".
      */
     @Override
     public List<String> complete(String[] words) {
