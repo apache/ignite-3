@@ -1170,7 +1170,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
-                new ComputeExecutorImpl(this, stateMachine, computeCfg, clusterSvc.topologyService()),
+                new ComputeExecutorImpl(this, stateMachine, computeCfg, clusterSvc.topologyService(), () -> clientAddress()),
                 computeCfg
         );
 

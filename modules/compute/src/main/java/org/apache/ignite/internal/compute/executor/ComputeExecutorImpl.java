@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -51,6 +52,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.marshalling.Marshaller;
+import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -69,6 +71,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private PriorityQueueExecutor executorService;
 
+    private DotNetComputeExecutor dotNetComputeExecutor;
+
     /**
      * Constructor.
      *
@@ -76,17 +80,20 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
      * @param topologyService Topology service.
+     * @param clientAddressSupplier Client address supplier.
      */
     public ComputeExecutorImpl(
             Ignite ignite,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
-            TopologyService topologyService
+            TopologyService topologyService,
+            Supplier<NetworkAddress> clientAddressSupplier
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
         this.topologyService = topologyService;
+        this.dotNetComputeExecutor = new DotNetComputeExecutor(ignite, clientAddressSupplier);
     }
 
     @Override
@@ -113,7 +120,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
     }
 
-    private static Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
+    private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
             JobExecutorType executorType,
             String jobClassName,
             JobClassLoader classLoader,
@@ -124,7 +131,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
             case DotNet:
-                return DotNetComputeExecutor.getJobCallable(jobClassName, input, context);
+                return dotNetComputeExecutor.getJobCallable(ignite, jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
@@ -192,5 +199,6 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public void stop() {
         stateMachine.stop();
         executorService.shutdown();
+        dotNetComputeExecutor.stop();
     }
 }

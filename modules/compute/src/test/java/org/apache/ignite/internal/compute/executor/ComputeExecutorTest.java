@@ -76,7 +76,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
-        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService);
+        computeExecutor = new ComputeExecutorImpl(ignite, stateMachine, computeConfiguration, topologyService, () -> null);
         computeExecutor.start();
     }
 
