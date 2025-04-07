@@ -335,7 +335,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             } catch (Throwable th) {
                 String errorMessage = String.format(
                         "Error during table partition listener stop for [tableId=%s, partitionId=%s].",
-                        tableId, replicationGroupId.partitionId()
+                        tableId,
+                        replicationGroupId.partitionId()
                 );
                 failureProcessor.process(new FailureContext(th, errorMessage));
             }

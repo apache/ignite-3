@@ -1170,7 +1170,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         if (ex != null) {
                             String errorMessage = String.format(
                                     "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
-                                    tableId, partId
+                                    tableId,
+                                    partId
                             );
                             failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
@@ -1306,8 +1307,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 forcedAssignments
         ).handle((res, ex) -> {
             if (ex != null) {
-                failureProcessor.process(new FailureContext(
-                        ex, String.format("Unable to update raft groups on the node [tableId=%s, partitionId=%s]", tableId, partId)));
+                String errorMessage = String.format(
+                        "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
+                        tableId,
+                        partId
+                );
+                failureProcessor.process(new FailureContext(ex, errorMessage));
             }
             return null;
         });
@@ -1606,8 +1611,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        failureProcessor.process(new FailureContext(
-                                ex, String.format("Unable to stop table [name=%s, tableId=%s]", table.name(), table.tableId())));
+                        String errorMessage = String.format("Unable to stop table [name=%s, tableId=%s]", table.name(), table.tableId());
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
     }
@@ -2920,7 +2925,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        failureProcessor.process(new FailureContext(throwable, String.format("Error starting tables")));
+                        failureProcessor.process(new FailureContext(throwable, "Error starting tables"));
                     } else {
                         LOG.info("Tables started successfully [count={}]", startTableFutures.size());
                     }

@@ -259,7 +259,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                     if (e != null) {
                         String errorMessage = String.format(
                                 "Version chains destruction failed: [tableId=%s, partitionId=%s]",
-                                tableStorage.getTableId(), partitionId
+                                tableStorage.getTableId(),
+                                partitionId
                         );
                         failureProcessor.process(new FailureContext(e, errorMessage));
                     }
@@ -293,7 +294,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                     if (e != null) {
                         String errorMessage = String.format(
                                 "Index meta tree destruction failed: [tableId=%s, partitionId=%s]",
-                                tableStorage.getTableId(), partitionId
+                                tableStorage.getTableId(),
+                                partitionId
                         );
                         failureProcessor.process(new FailureContext(e, errorMessage));
                     }
@@ -306,7 +308,8 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
                     if (e != null) {
                         String errorMessage = String.format(
                                 "Garbage collection tree destruction failed: [tableId=%s, partitionId=%s]",
-                                tableStorage.getTableId(), partitionId
+                                tableStorage.getTableId(),
+                                partitionId
                         );
                         failureProcessor.process(new FailureContext(e, errorMessage));
                     }

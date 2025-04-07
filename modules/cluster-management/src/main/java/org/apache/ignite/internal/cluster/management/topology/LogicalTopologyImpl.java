@@ -223,13 +223,13 @@ public class LogicalTopologyImpl implements LogicalTopology {
             try {
                 action.accept(listener);
             } catch (Throwable e) {
-                notifyFailureHandlerAndRethrowIfError(e, "Failure while notifying %s() listener %s", methodName, listener);
+                notifyFailureHandlerAndRethrowIfError(e, String.format("Failure while notifying %s() listener %s", methodName, listener));
             }
         }
     }
 
-    private void notifyFailureHandlerAndRethrowIfError(Throwable e, String logMessagePattern, Object... args) {
-        failureProcessor.process(new FailureContext(e, String.format(logMessagePattern, args)));
+    private void notifyFailureHandlerAndRethrowIfError(Throwable e, String logMessage) {
+        failureProcessor.process(new FailureContext(e, logMessage));
 
         if (e instanceof Error) {
             throw (Error) e;

@@ -1138,7 +1138,9 @@ public class DataNodesManager {
                         if (e != null) {
                             String errorMessage = String.format(
                                     "Failed to initialize zone's dataNodes history [zoneId = %s, timestamp = %s, dataNodes = %s]",
-                                    zoneId, timestamp, nodeNames(dataNodes)
+                                    zoneId,
+                                    timestamp,
+                                    nodeNames(dataNodes)
                             );
                             failureProcessor.process(new FailureContext(e, errorMessage));
                         } else if (invokeResult) {
@@ -1200,7 +1202,8 @@ public class DataNodesManager {
                         if (e != null) {
                             String errorMessage = String.format(
                                     "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
-                                    zoneId, timestamp
+                                    zoneId,
+                                    timestamp
                             );
                             failureProcessor.process(new FailureContext(e, errorMessage));
                         } else if (invokeResult) {

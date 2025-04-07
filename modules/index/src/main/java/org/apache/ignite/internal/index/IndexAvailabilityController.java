@@ -331,7 +331,8 @@ class IndexAvailabilityController implements ManuallyCloseable {
                             String errorMessage = String.format(
                                     "Error processing the operation to delete the partition index building key: "
                                             + "[indexId=%s, partitionId=%s]",
-                                    indexId, partitionId
+                                    indexId,
+                                    partitionId
                             );
                             failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
