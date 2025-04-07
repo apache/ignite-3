@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,17 +15,9 @@
  * limitations under the License.
  */
 
-using Apache.Ignite;
+namespace Apache.Ignite.Internal.Compute.Executor;
 
-const string envServerAddr = "IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS";
-var serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
-
-if (string.IsNullOrWhiteSpace(serverAddr))
+internal class ComputeExecutorUtils
 {
-    throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");
+    public const string IgniteComputeExecutorId = "IGNITE_COMPUTE_EXECUTOR_ID";
 }
-
-await IgniteClient.StartAsync(new IgniteClientConfiguration(serverAddr)).ConfigureAwait(false);
-
-// Sleep forever. Host process will terminate us when the executor is stopped.
-await Task.Delay(Timeout.Infinite).ConfigureAwait(false);

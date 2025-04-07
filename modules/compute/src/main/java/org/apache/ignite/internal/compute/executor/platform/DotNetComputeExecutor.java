@@ -83,13 +83,13 @@ public class DotNetComputeExecutor {
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
-    private static Process startDotNetProcess(String address, String computeConnectionId) {
+    private static Process startDotNetProcess(String address, String executorId) {
         ProcessBuilder processBuilder = new ProcessBuilder(
                 "dotnet",
-                "Apache.Ignite.Internal.ComputeExecutor.dll",
-                "--",
-                address,
-                computeConnectionId);
+                "Apache.Ignite.Internal.ComputeExecutor.dll");
+
+        processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
+        processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_ID", executorId);
 
         try {
             return processBuilder.start();

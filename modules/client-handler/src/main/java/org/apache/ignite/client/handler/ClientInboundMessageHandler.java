@@ -421,7 +421,9 @@ public class ClientInboundMessageHandler
 
             BitSet clientFeatures = HandshakeUtils.unpackFeatures(unpacker);
             Map<HandshakeExtension, Object> clientHandshakeExtensions = HandshakeUtils.unpackExtensions(unpacker);
+            String computeExecutorId = (String) clientHandshakeExtensions.get(HandshakeExtension.COMPUTE_EXECUTOR_ID);
 
+            // TODO: Bypass authentication if computeExecutorId is set.
             authenticationManager
                     .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
                     .handleAsync((user, err) -> {
@@ -429,7 +431,6 @@ public class ClientInboundMessageHandler
                             handshakeError(ctx, packer, err);
                         } else {
                             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
-                            String computeExecutorId = (String) clientHandshakeExtensions.get(HandshakeExtension.COMPUTE_EXECUTOR_ID);
 
                             clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user, computeExecutorId);
 

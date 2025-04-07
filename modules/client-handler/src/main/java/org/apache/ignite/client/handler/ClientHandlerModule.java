@@ -452,6 +452,10 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                     return completedFuture(messageHandler);
                 }
 
+                if (fut.isDone()) {
+                    // TODO: Duplicate executor with same id - log error?
+                }
+
                 fut.complete(messageHandler);
                 return fut;
             });
