@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -444,7 +445,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                if (tookMillis > 100 && IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false)) {
+                if (tookMillis > 100 && IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false)) {
                     LOG.warn(
                             "Processing of {} from {} took {} ms",
                             LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
