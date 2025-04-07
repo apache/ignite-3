@@ -663,13 +663,11 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
         {
             String sqlQuery = format("INSERT INTO t2 (id, C_{}) VALUES(1, {})", type.getName(), expr);
-            System.out.println(sqlQuery);
             assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(sqlQuery, param));
         }
 
         {
             String sqlQuery = format("UPDATE t2 SET C_{}={} WHERE id=0", type.getName(), expr);
-            System.out.println(sqlQuery);
             assertThrowsSqlException(RUNTIME_ERR, type.getName() + " out of range", () -> sql(sqlQuery, param));
         }
     }
