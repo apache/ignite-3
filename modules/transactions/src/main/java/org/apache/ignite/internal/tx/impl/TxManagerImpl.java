@@ -135,7 +135,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private static final long ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE = 5_000;
 
-    private static final String LOCK_RETRY_COUNT_PROP = "lockRetryCount";
+    private static final String LOCK_RETRY_COUNT_PROP = "txnLockRetryCount";
 
     private static final int LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE = 3;
 

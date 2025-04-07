@@ -116,7 +116,7 @@ public class TableScanNodeExecutionTest extends AbstractExecutionTest<Object[]> 
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectExecutorService

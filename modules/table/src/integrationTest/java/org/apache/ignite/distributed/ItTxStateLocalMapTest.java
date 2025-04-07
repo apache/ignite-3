@@ -69,7 +69,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration

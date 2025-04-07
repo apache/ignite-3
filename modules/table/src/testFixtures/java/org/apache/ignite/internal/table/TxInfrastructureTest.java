@@ -118,7 +118,7 @@ public abstract class TxInfrastructureTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
     protected SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
