@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
 public interface ComputeExecutor {
     <T, R> JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
-            Class<? extends ComputeJob<T, R>> jobClass,
+            String jobClassName,
             JobClassLoader classLoader,
             @Nullable ComputeJobDataHolder input);
 

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
+import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -89,7 +90,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     @Override
     public <T, R> JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
-            Class<? extends ComputeJob<T, R>> jobClass,
+            String jobClassName,
             JobClassLoader classLoader,
             ComputeJobDataHolder input
     ) {
@@ -97,6 +98,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
+        Class<ComputeJob<T, R>> jobClass = jobClass(classLoader, jobClassName);
         ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
         Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
         Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
