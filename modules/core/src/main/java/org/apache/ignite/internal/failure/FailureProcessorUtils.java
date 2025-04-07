@@ -17,11 +17,6 @@
 
 package org.apache.ignite.internal.failure;
 
-import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
-
-import org.apache.ignite.internal.lang.IgniteInternalException;
-
 /**
  * Utils making it easier to report failures with {@link FailureProcessor}.
  */
@@ -35,8 +30,6 @@ public class FailureProcessorUtils {
      * @param args Arguments for the message.
      */
     public static void processCriticalFailure(FailureProcessor processor, Throwable th, String messageFormat, Object... args) {
-        processor.process(new FailureContext(CRITICAL_ERROR,
-                new IgniteInternalException(INTERNAL_ERR, String.format(messageFormat, args))
-        ));
+        processor.process(new FailureContext(th, String.format(messageFormat, args)));
     }
 }
