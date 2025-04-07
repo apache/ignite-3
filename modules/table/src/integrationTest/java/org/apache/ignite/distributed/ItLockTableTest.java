@@ -93,7 +93,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: -1, txIdComparator: NONE } }")
+    @InjectConfiguration()
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
