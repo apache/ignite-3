@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.util.ByteUtils.toBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -43,12 +44,15 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
@@ -138,11 +142,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), 0)
+                : new TablePartitionId(table.tableId(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                enabledColocation()
+                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                        : stablePartAssignmentsKey((TablePartitionId) partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 TIMEOUT_MILLIS
@@ -176,7 +184,9 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We check that two nodes that pass the filter and storage profiles are presented in the stable key.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                enabledColocation()
+                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                        : stablePartAssignmentsKey((TablePartitionId) partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(3).name()),
@@ -211,11 +221,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), 0)
+                : new TablePartitionId(table.tableId(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                enabledColocation()
+                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                        : stablePartAssignmentsKey((TablePartitionId) partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
@@ -235,7 +249,9 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
         // We check that all nodes that pass the filter are presented in the stable key because altering filter triggers immediate scale up.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                enabledColocation()
+                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                        : stablePartAssignmentsKey((TablePartitionId) partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name(), node(1).name()),
@@ -270,11 +286,15 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         TableViewInternal table = (TableViewInternal) tableManager.table(TABLE_NAME);
 
-        TablePartitionId partId = new TablePartitionId(table.tableId(), 0);
+        PartitionGroupId partId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), 0)
+                : new TablePartitionId(table.tableId(), 0);
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                enabledColocation()
+                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                        : stablePartAssignmentsKey((TablePartitionId) partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),
@@ -300,7 +320,9 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
 
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                enabledColocation()
+                        ? ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partId)
+                        : stablePartAssignmentsKey((TablePartitionId) partId),
                 (v) -> Assignments.fromBytes(v).nodes()
                         .stream().map(Assignment::consistentId).collect(Collectors.toSet()),
                 Set.of(node(0).name()),

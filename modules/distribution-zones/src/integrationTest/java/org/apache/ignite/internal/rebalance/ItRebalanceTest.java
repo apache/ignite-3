@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -34,12 +35,14 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
@@ -94,7 +97,7 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 nodeName(0),
                 nodeName(1),
                 nodeName(2)
-        ), table.tableId());
+        ), table);
 
         BinaryRowEx row = marshalTuple(table, Tuple.create().set("id", 1).set("val", "value1"));
         BinaryRowEx key = marshalKey(table, 1, Integer.class);
@@ -120,7 +123,7 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 nodeName(0),
                 nodeName(1),
                 nodeName(3)
-        ), table.tableId());
+        ), table);
 
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(0)), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(1)), willBe(notNullValue()));
@@ -132,7 +135,7 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
                 nodeName(0),
                 nodeName(1),
                 nodeName(2)
-        ), table.tableId());
+        ), table);
 
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(0)), willBe(notNullValue()));
         assertThat(table.internalTable().get(key, clock.now(), clusterNode(1)), willBe(notNullValue()));
@@ -163,15 +166,18 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         return marshaller.marshal(key);
     }
 
-    private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, int table) throws InterruptedException {
+    private void waitForStableAssignmentsInMetastore(Set<String> expectedNodes, TableViewInternal table) throws InterruptedException {
         Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
         assertTrue(waitForCondition(() -> {
-            Set<String> assignments =
-                    await(stablePartitionAssignments(unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager(), table, 0))
-                            .stream()
-                            .map(Assignment::consistentId)
-                            .collect(Collectors.toSet());
+            CompletableFuture<Set<Assignment>> assignmentsFuture = enabledColocation()
+                    ? ZoneRebalanceUtil.stablePartitionAssignments(unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager(), table.zoneId(), 0)
+                    : stablePartitionAssignments(unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager(), table.tableId(), 0);
+
+            Set<String> assignments = await(assignmentsFuture)
+                    .stream()
+                    .map(Assignment::consistentId)
+                    .collect(Collectors.toSet());
 
             lastAssignmentsHolderForLog[0] = assignments;
 

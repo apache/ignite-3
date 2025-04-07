@@ -609,6 +609,24 @@ public class ZoneRebalanceUtil {
     }
 
     /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Table ID.
+     * @param partitionId Partition ID.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+    }
+
+    /**
      * Returns zone assignments for zone partitions from meta storage.
      *
      * @param metaStorageManager Meta storage manager.
