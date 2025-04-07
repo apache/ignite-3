@@ -32,6 +32,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -111,6 +112,7 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
@@ -1005,7 +1007,7 @@ public class ClientInboundMessageHandler
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        int flags = ResponseFlags.getFlags(primaryReplicasUpdated, isNotification, isError);
+        int flags = ResponseFlags.getFlags(primaryReplicasUpdated, isNotification, isError, false);
         out.packInt(flags);
 
         if (primaryReplicasUpdated) {
@@ -1174,8 +1176,11 @@ public class ClientInboundMessageHandler
     }
 
     @Override
-    public CompletableFuture<byte[]> sendMessage(byte[] message) {
-        // TODO: Send platform compute message and wait for result.
+    public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+            List<String> deploymentUnitPaths,
+            String jobClassName,
+            ComputeJobDataHolder arg) {
+        // TODO: use COMPUTE_EXECUTOR_REQUEST_FLAG with a generated id.
         return null;
     }
 }

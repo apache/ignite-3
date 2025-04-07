@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.executor.platform;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
@@ -49,13 +50,17 @@ public class DotNetComputeExecutor {
             String jobClassName,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
+        if (context.isCancelled()) {
+            // TODO early exit?
+        }
+
         ensureProcessStarted();
 
         // TODO: Connection wait timeout.
-        // TODO: Ser/de, add class name and deployment unit info.
-        return transport.getConnectionAsync(connectionId)
-                .thenCompose(conn -> conn.sendMessage(input.data())
-                .thenApply(response -> new ComputeJobDataHolder(ComputeJobDataType.TUPLE, response)));
+        // TODO: Combine getConnectionAsync and executeJobAsync?
+        return transport
+                .getConnectionAsync(connectionId)
+                .thenCompose(conn -> conn.executeJobAsync(List.of(), jobClassName, input));
     }
 
     public synchronized void stop() {

@@ -30,13 +30,20 @@ public class ResponseFlags {
     /** Error flag. */
     private static final int ERROR_FLAG = 4;
 
+    /** Compute executor request flag. */
+    private static final int COMPUTE_EXECUTOR_REQUEST_FLAG = 8;
+
     /**
      * Gets flags as int.
      *
      * @param partitionAssignmentChanged Assignment changed flag.
      * @return Flags as int.
      */
-    public static int getFlags(boolean partitionAssignmentChanged, boolean isNotification, boolean hasError) {
+    public static int getFlags(
+            boolean partitionAssignmentChanged,
+            boolean isNotification,
+            boolean hasError,
+            boolean computeExecutorRequest) {
         var flags = 0;
 
         if (partitionAssignmentChanged) {
@@ -49,6 +56,10 @@ public class ResponseFlags {
 
         if (hasError) {
             flags |= ERROR_FLAG;
+        }
+
+        if (computeExecutorRequest) {
+            flags |= COMPUTE_EXECUTOR_REQUEST_FLAG;
         }
 
         return flags;
