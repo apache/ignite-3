@@ -50,6 +50,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,7 +77,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
  */
-public class ClientHandlerModule implements IgniteComponent {
+public class ClientHandlerModule implements IgniteComponent, PlatformComputeTransport {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
@@ -438,5 +440,16 @@ public class ClientHandlerModule implements IgniteComponent {
     @TestOnly
     public ClientInboundMessageHandler handler() {
         return handler;
+    }
+
+    @Override
+    public String serverAddress() {
+        return "127.0.0.1:" + localAddress().getPort();
+    }
+
+    @Override
+    public @Nullable PlatformComputeConnection getConnection(String id) {
+        // TODO: Map of special connections by id.
+        return null;
     }
 }

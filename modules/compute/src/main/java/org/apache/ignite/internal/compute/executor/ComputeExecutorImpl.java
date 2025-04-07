@@ -81,20 +81,21 @@ public class ComputeExecutorImpl implements ComputeExecutor {
      * @param stateMachine Compute jobs state machine.
      * @param configuration Compute configuration.
      * @param topologyService Topology service.
-     * @param platformComputeTransport Platform compute transport.
      */
     public ComputeExecutorImpl(
             Ignite ignite,
             ComputeStateMachine stateMachine,
             ComputeConfiguration configuration,
-            TopologyService topologyService,
-            PlatformComputeTransport platformComputeTransport
+            TopologyService topologyService
     ) {
         this.ignite = ignite;
         this.configuration = configuration;
         this.stateMachine = stateMachine;
         this.topologyService = topologyService;
-        this.dotNetComputeExecutor = new DotNetComputeExecutor(platformComputeTransport);
+    }
+
+    public void setPlatformComputeTransport(PlatformComputeTransport transport) {
+        this.dotNetComputeExecutor = new DotNetComputeExecutor(transport);
     }
 
     @Override

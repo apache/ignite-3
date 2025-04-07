@@ -1164,13 +1164,15 @@ public class IgniteImpl implements Ignite {
 
         ComputeConfiguration computeCfg = nodeConfigRegistry.getConfiguration(ComputeExtensionConfiguration.KEY).compute();
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeCfg, name);
+        ComputeExecutorImpl computeExecutor = new ComputeExecutorImpl(this, stateMachine, computeCfg, clusterSvc.topologyService());
+
         computeComponent = new ComputeComponentImpl(
                 name,
                 clusterSvc.messagingService(),
                 clusterSvc.topologyService(),
                 logicalTopologyService,
                 new JobContextManager(deploymentManagerImpl, deploymentManagerImpl.deploymentUnitAccessor(), new JobClassLoaderFactory()),
-                new ComputeExecutorImpl(this, stateMachine, computeCfg, clusterSvc.topologyService(), () -> clientAddress()),
+                computeExecutor,
                 computeCfg
         );
 
@@ -1211,6 +1213,8 @@ public class IgniteImpl implements Ignite {
                 threadPoolsManager.partitionOperationsExecutor(),
                 threadPoolsManager.commonScheduler()
         );
+
+        computeExecutor.setPlatformComputeTransport(clientHandlerModule);
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());
 
