@@ -3067,10 +3067,10 @@ public class NodeImpl implements Node, RaftServerService {
                     getNodeId(), this.currTerm);
                 return;
             }
-            if (!this.conf.contains(this.serverId)) {
-                LOG.warn("Node {} can't do preVote as it is not in conf <{}>.", getNodeId(), this.conf);
-                return;
-            }
+//            if (!this.conf.contains(this.serverId)) {
+//                LOG.warn("Node {} can't do preVote as it is not in conf <{}>.", getNodeId(), this.conf);
+//                return;
+//            }
             preVoteTerm = this.currTerm;
         }
         finally {

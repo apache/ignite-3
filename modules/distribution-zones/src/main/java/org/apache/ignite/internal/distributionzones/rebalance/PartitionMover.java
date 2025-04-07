@@ -74,6 +74,7 @@ public class PartitionMover {
 
                         try {
                             if (err != null) {
+//                                System.out.printf("<><><> Error is not null.");
                                 if (recoverable(err)) {
                                     LOG.debug("Recoverable error received during changePeersAndLearnersAsync invocation, retrying", err);
                                 } else {
