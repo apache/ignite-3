@@ -95,7 +95,7 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
     @InjectConfiguration
     private static ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration("mock.idleSafeTimeSyncInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+    @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
     private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration("mock.profiles = {" + DEFAULT_STORAGE_PROFILE + ".engine = aipersist, test.engine=test}")

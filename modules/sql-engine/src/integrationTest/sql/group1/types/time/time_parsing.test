@@ -27,3 +27,85 @@ query I
 SELECT '14:42:04.999000'::TIME(6)::VARCHAR
 ----
 14:42:04.999
+
+query T
+SELECT '1'::TIME
+----
+01:00:00
+
+query T
+SELECT '11'::TIME
+----
+11:00:00
+
+statement error
+SELECT '11:'::TIME
+
+query T
+SELECT '11:1'::TIME
+----
+11:01:00
+
+statement error
+SELECT '23:60:00'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '23:00:60'::TIME
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '22:60:60'::TIME
+
+statement error
+SELECT '23:59:60'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '-00:00:00'::TIME
+----
+
+statement error
+SELECT '-1:00:00'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '1:-00:00'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '1:-01:00'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '10:-01:00'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '1:01:-00'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '1:01:-01'::TIME
+----
+
+# https://issues.apache.org/jira/browse/IGNITE-25000 Negative time components / out of range values
+skipif ignite3
+statement error
+SELECT '1:10:-01'::TIME
+----

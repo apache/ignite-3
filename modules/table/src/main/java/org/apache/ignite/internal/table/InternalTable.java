@@ -490,6 +490,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Transaction states' storage.
      */
+    // TODO: remove this method as a part of https://issues.apache.org/jira/browse/IGNITE-22522.
     TxStateStorage txStateStorage();
 
     // TODO: IGNITE-14488. Add invoke() methods.

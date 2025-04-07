@@ -86,7 +86,7 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
     @Language("HOCON")
     protected static final String RAFT_CFG = "{\n"
             + "  fsync: false,\n"
-            + "  retryDelay: 20\n"
+            + "  retryDelayMillis: 20\n"
             + "}";
 
     /** Nodes bootstrap configuration pattern. */
@@ -95,12 +95,12 @@ public abstract class BaseIgniteRestartTest extends IgniteAbstractTest {
             + "  network.port: {},\n"
             + "  network.nodeFinder.netClusterNodes: {}\n"
             + "  network.membership: {\n"
-            + "    membershipSyncInterval: 1000,\n"
-            + "    failurePingInterval: 500,\n"
+            + "    membershipSyncIntervalMillis: 1000,\n"
+            + "    failurePingIntervalMillis: 500,\n"
             + "    scaleCube: {\n"
             + "      membershipSuspicionMultiplier: 1,\n"
             + "      failurePingRequestMembers: 1,\n"
-            + "      gossipInterval: 10\n"
+            + "      gossipIntervalMillis: 10\n"
             + "    },\n"
             + "  },\n"
             + "  raft: " + RAFT_CFG + ",\n"

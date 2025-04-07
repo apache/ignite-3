@@ -70,10 +70,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
-     *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    protected long rev;
+    protected volatile long rev;
 
     /**
      * Last compaction revision that was set or restored from a snapshot.

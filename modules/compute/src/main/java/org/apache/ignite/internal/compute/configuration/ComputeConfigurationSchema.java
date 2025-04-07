@@ -34,11 +34,6 @@ public class ComputeConfigurationSchema {
     @Value(hasDefault = true)
     public final int threadPoolSize = max(Runtime.getRuntime().availableProcessors(), 8);
 
-    /** Job thread pool stop timeout (milliseconds). */
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final long threadPoolStopTimeoutMillis = 10_000;
-
     /**
      * Job queue max size.
      */

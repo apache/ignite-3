@@ -110,7 +110,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 )
                 .respond(response(null));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSendFrequency(200L));
+        WebhookSink sink = createSink(c -> c.changeBatchSendFrequencyMillis(200L));
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
@@ -188,7 +188,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 )
                 .respond(response().withStatusCode(statusCode));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoff(100L));
+        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
@@ -221,7 +221,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 )
                 .respond(response().withStatusCode(statusCode));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoff(100L));
+        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 

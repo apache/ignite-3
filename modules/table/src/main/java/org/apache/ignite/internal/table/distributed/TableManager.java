@@ -27,7 +27,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
@@ -718,7 +717,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
         CompletableFuture<?>[] futures = zoneTables.stream()
-                .map(table -> supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity()))
+                .map(this::tableStopFuture)
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures).thenApply(v -> false);
@@ -1060,11 +1059,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-            List<CompletableFuture<Void>> futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
+            CompletableFuture<?>[] futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
                     .map(event -> destroyTableLocally(event.tableId()))
-                    .collect(toList());
+                    .toArray(CompletableFuture[]::new);
 
-            return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
+            return allOf(futures).thenApply(unused -> false);
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -1555,9 +1554,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
 
         for (TableImpl table : tables.values()) {
-            futures.add(
-                    supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity())
-            );
+            futures.add(tableStopFuture(table));
         }
 
         try {
@@ -1570,16 +1567,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> tableStopFuture(TableImpl table) {
         InternalTable internalTable = table.internalTable();
 
-        var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
+        CompletableFuture<Void> replicasStopFuture = supplyAsync(() -> {
+            var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
 
-        for (int p = 0; p < internalTable.partitions(); p++) {
-            TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+            for (int p = 0; p < internalTable.partitions(); p++) {
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-            stopReplicaFutures[p] = stopTablePartition(replicationGroupId, table);
-        }
+                stopReplicaFutures[p] = stopTablePartition(replicationGroupId, table);
+            }
 
-        return allOf(stopReplicaFutures)
-                .thenRunAsync(() -> {
+            return allOf(stopReplicaFutures);
+        }, ioExecutor).thenCompose(identity());
+
+        return replicasStopFuture
+                .thenRun(() -> {
                     try {
                         closeAllManually(
                                 internalTable.storage(),
@@ -1589,7 +1590,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     } catch (Exception e) {
                         throw new CompletionException(e);
                     }
-                }, ioExecutor)
+                })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
@@ -1864,14 +1865,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return allOf(stopReplicaAndDestroyFutures)
-                .thenComposeAsync(
-                        unused -> inBusyLockAsync(busyLock, () -> allOf(
-                                internalTable.storage().destroy(),
-                                runAsync(() -> inBusyLock(busyLock, () -> internalTable.txStateStorage().destroy()), ioExecutor)
-                        )),
-                        ioExecutor)
-                .thenAccept(ignore0 -> tables.remove(tableId))
-                .thenAcceptAsync(ignore0 -> schemaManager.dropRegistryAsync(tableId), ioExecutor);
+                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> allOf(
+                        internalTable.storage().destroy(),
+                        runAsync(() -> inBusyLock(busyLock, () -> internalTable.txStateStorage().destroy()), ioExecutor)
+                )), ioExecutor)
+                .thenAccept(unused -> {
+                    tables.remove(tableId);
+                    schemaManager.dropRegistry(tableId);
+                });
     }
 
     @Override
@@ -1897,6 +1898,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return emptyListCompletedFuture();
                     }
 
+                    @SuppressWarnings("unchecked")
                     CompletableFuture<Table>[] tableImplFutures = tableDescriptors.stream()
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
@@ -2741,10 +2743,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
-        if (table == null) {
-            return nullCompletedFuture();
-        }
-
         InternalTable internalTable = table.internalTable();
 
         int partitionId = tablePartitionId.partitionId();

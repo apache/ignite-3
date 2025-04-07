@@ -1517,10 +1517,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param zonePartitionId Zone partition id.
      * @param tableId Table's identifier.
      */
-    public void unloadTableResourcesFromZoneReplica(
-            ZonePartitionId zonePartitionId,
-            int tableId
-    ) {
+    public void unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
         zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
     }
 

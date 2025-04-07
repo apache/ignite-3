@@ -192,7 +192,7 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
                         .clusterConfiguration()
                         .getConfiguration(ReplicationExtensionConfiguration.KEY)
                         .replication()
-                        .rpcTimeout()
+                        .rpcTimeoutMillis()
                         .update(3000L),
                 willCompleteSuccessfully()
         );

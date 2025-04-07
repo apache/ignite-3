@@ -257,7 +257,7 @@ public class Node {
 
     private final ConfigurationTreeGenerator clusterCfgGenerator;
 
-    private final LowWatermarkImpl lowWatermark;
+    public final LowWatermarkImpl lowWatermark;
 
     public final RemotelyTriggeredResourceRegistry resourcesRegistry;
 

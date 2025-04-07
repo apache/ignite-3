@@ -29,8 +29,8 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
 {
   "ignite" : {
     "clientConnector" : {
-      "connectTimeout" : 5000,
-      "idleTimeout" : 0,
+      "connectTimeoutMillis" : 5000,
+      "idleTimeoutMillis" : 0,
       "listenAddresses" : "",
       "metricsEnabled" : false,
       "port" : 10800,
@@ -58,8 +58,8 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
 [cols="10%,10%,50%,10%,10%,10%",opts="header", stripes=none]
 |======
 |Property|Default|Description|Changeable|Requires Restart|Acceptable Values
-|connectTimeout|5000| Connection attempt timeout, in milliseconds.| Yes | Yes | 0 - inf
-|idleTimeout|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit (0).| Yes | Yes | 0-2147483647
+|connectTimeoutMillis|5000| Connection attempt timeout, in milliseconds.| Yes | Yes | 0 - inf
+|idleTimeoutMillis|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit (0).| Yes | Yes | 0-2147483647
 |listenAddresses| "" | Address (IP or hostname) to listen on. Listens on all interfaces if empty. | Yes | Yes | Valid IP address or host name
 |metricsEnabled|false|Defines if client metrics are collected. | Yes | Yes | true, false
 |port|10800|The port the client connector will be listening to. | Yes | Yes | 1024-65535
@@ -92,7 +92,7 @@ When Ignite client is starting (when the `build()` or `buildAsync()` method is c
 
 Once the client connects to the cluster, it keeps attempting to connect to all other specified nodes in the background, and uses them as failover in case the connection to the primary node is interrupted. Client does not directly connect to nodes not specified in its configuration, but is aware of them through cluster topology and can send indirect write or read requests.
 
-An inactive client sends periodic heartbeat messages to the cluster to confirm that it is still active and running. If no heartbeat messages are received for the duration specified in the `idleTimeout` configuration, the client will be disconnected. By default, the heartbeat interval is equal to half the idle timeout or 30 seconds, whichever is shorter.
+An inactive client sends periodic heartbeat messages to the cluster to confirm that it is still active and running. If no heartbeat messages are received for the duration specified in the `idleTimeoutMillis` configuration, the client will be disconnected. By default, the heartbeat interval is equal to half the idle timeout or 30 seconds, whichever is shorter.
 
 
 == Partition Awareness

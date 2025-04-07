@@ -85,7 +85,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testIdleSafeTimeScheduler(@InjectConfiguration("mock.idleSafeTimeSyncInterval=1") SystemDistributedConfiguration config) {
+    void testIdleSafeTimeScheduler(@InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=1") SystemDistributedConfiguration config) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
@@ -96,7 +96,9 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testIdleSafeTimeSchedulerStop(@InjectConfiguration("mock.idleSafeTimeSyncInterval=1") SystemDistributedConfiguration config) {
+    void testIdleSafeTimeSchedulerStop(
+            @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=1") SystemDistributedConfiguration config
+    ) {
         SyncTimeAction action = mock(SyncTimeAction.class);
 
         when(action.syncTime(any())).thenReturn(nullCompletedFuture());
@@ -116,7 +118,7 @@ public class ClusterTimeTest extends BaseIgniteAbstractTest {
      * Tests that {@link ClusterTimeImpl#adjustClock} re-schedules the idle time sync timer.
      */
     @Test
-    void testSchedulerProlongation(@InjectConfiguration("mock.idleSafeTimeSyncInterval=250") SystemDistributedConfiguration config) {
+    void testSchedulerProlongation(@InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis=250") SystemDistributedConfiguration config) {
         assertDoesNotThrow(() -> clusterTime.adjustClock(clock.now()));
 
         SyncTimeAction action = mock(SyncTimeAction.class);

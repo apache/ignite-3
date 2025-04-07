@@ -175,7 +175,7 @@ public class ItGeneratedRestClientTest extends ClusterPerClassIntegrationTest {
     @Test
     void getNodeConfigurationByPath() {
         assertDoesNotThrow(() -> {
-            String configuration = nodeConfigurationApi.getNodeConfigurationByPath("ignite.clientConnector.connectTimeout");
+            String configuration = nodeConfigurationApi.getNodeConfigurationByPath("ignite.clientConnector.connectTimeoutMillis");
 
             assertNotNull(configuration);
             assertFalse(configuration.isEmpty());

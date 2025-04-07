@@ -18,7 +18,7 @@ All queries in Ignite 3 are transactional. You can provide an explicit transacti
 
 == Transaction Lifecycle
 
-When the transaction is created, the node that the transaction was started from is chosen as *transaction coordinator*. The coordinator finds the required link:administrators-guide/data-partitions[partitions] and sends the read or write requests to the nodes holding primary partitions. For correct transaction operation, all nodes in cluster must have similar time, that can be different by no more than `schemaSync.maxClockSkew`.
+When the transaction is created, the node that the transaction was started from is chosen as *transaction coordinator*. The coordinator finds the required link:administrators-guide/data-partitions[partitions] and sends the read or write requests to the nodes holding primary partitions. For correct transaction operation, all nodes in cluster must have similar time, that can be different by no more than `schemaSync.maxClockSkewMillis`.
 
 If the key is not locked by a different transaction, the node gets the locks on the involved keys, and attempts to apply the changes in the transaction. When the operation finishes, the lock is removed. This way, several transactions can work on the same partition, while changing separate keys. Additionally, some operations may perform *short-term* locks on the keys in advance, to ensure operations proceed correctly.
 
