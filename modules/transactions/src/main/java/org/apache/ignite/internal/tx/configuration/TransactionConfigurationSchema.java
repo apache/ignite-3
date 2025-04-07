@@ -19,7 +19,6 @@ package org.apache.ignite.internal.tx.configuration;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
@@ -37,17 +36,4 @@ public class TransactionConfigurationSchema {
     @Range(min = 1)
     @Value(hasDefault = true)
     public final long readWriteTimeoutMillis = TimeUnit.SECONDS.toMillis(30);
-
-    /** Transaction resource time to live (ms), the minimum lifetime of a transaction state. */
-    @Value(hasDefault = true)
-    @Range(min = 0)
-    public long txnResourceTtl = TimeUnit.SECONDS.toMillis(30);
-
-    /** Transaction system remote call timeout. RPC timeout for operations like cleanup and write intent resolution. */
-    @Value(hasDefault = true)
-    @Range(min = 1000)
-    public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
-
-    @ConfigValue
-    public DeadlockPreventionPolicyConfigurationSchema deadlockPreventionPolicy;
 }

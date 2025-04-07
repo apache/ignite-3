@@ -49,6 +49,8 @@ import org.jetbrains.annotations.Nullable;
  * This class is responsible for interacting with the messaging layer. Sends transaction messages.
  */
 public class TxMessageSender {
+    private static final int RPC_TIMEOUT = 60 * 1000;
+
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -141,7 +143,7 @@ public class TxMessageSender {
                         .timestamp(clockService.now())
                         .groups(toPartitionMessages(enlistedPartitionGroups))
                         .build(),
-                transactionConfiguration.rpcTimeout().value());
+                RPC_TIMEOUT);
     }
 
     /**
@@ -226,7 +228,7 @@ public class TxMessageSender {
                                 .readTimestamp(timestamp)
                                 .txId(txId)
                                 .build(),
-                        transactionConfiguration.rpcTimeout().value())
+                        RPC_TIMEOUT)
                 .thenApply(resp -> {
                     assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 

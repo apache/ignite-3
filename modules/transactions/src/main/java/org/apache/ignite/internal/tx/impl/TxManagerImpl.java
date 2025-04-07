@@ -113,6 +113,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
@@ -137,6 +138,14 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private static final String LOCK_RETRY_COUNT_PROP = "lockRetryCount";
 
     private static final int LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE = 3;
+
+    private static final String RESOURCE_TTL_PROP = "txnResourceTtl";
+
+    private static final int RESOURCE_TTL_PROP_DEFAULT_VALUE = 30 * 1000;
+
+    private static final TxIdComparators DEFAULT_TX_ID_COMPARATOR = TxIdComparators.NATURAL;
+
+    private static final long DEFAULT_LOCK_TIMEOUT = 0;
 
     /** Expiration trigger frequency. */
     private static final long EXPIRE_FREQ_MILLIS = 1000;
@@ -952,10 +961,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
-                    txConfig.deadlockPreventionPolicy().txIdComparator().value(),
-                    txConfig.deadlockPreventionPolicy().waitTimeout().value()
-            );
+            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(DEFAULT_TX_ID_COMPARATOR, DEFAULT_LOCK_TIMEOUT);
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-23539
             lockManager.start(deadlockPreventionPolicy);
@@ -1089,7 +1095,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         return txStateVolatileStorage.vacuum(
                 vacuumObservationTimestamp,
-                txConfig.txnResourceTtl().value(),
+                longProperty(systemCfg, RESOURCE_TTL_PROP, RESOURCE_TTL_PROP_DEFAULT_VALUE),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 
