@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Buffers;
 using Proto;
@@ -37,24 +38,45 @@ internal static class ComputeJobExecutor
     /// <summary>
     /// Executes compute job.
     /// </summary>
-    /// <param name="jobId">Request id.</param>
+    /// <param name="requestId">Request id.</param>
     /// <param name="request">Request.</param>
     /// <param name="socket">Socket.</param>
     /// <returns>Task.</returns>
-    internal static async Task ExecuteJobAsync(long jobId, PooledBuffer request, ClientSocket socket)
+    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
+    internal static async Task ExecuteJobAsync(long requestId, PooledBuffer request, ClientSocket socket)
     {
         using (request)
         {
-            var jobReq = Read(request.GetReader());
+            try
+            {
+                var jobReq = Read(request.GetReader());
 
-            using var responseBuf = new PooledArrayBuffer();
-            Write(responseBuf.MessageWriter, "Hello from .NET: " + jobReq.Arg);
+                using var responseBuf = new PooledArrayBuffer();
+                Write(responseBuf.MessageWriter, jobReq.JobId, "Hello from .NET: " + jobReq.Arg);
 
-            using var ignored = await socket.DoOutInOpAsync(ClientOp.ComputeExecutorReturnJobResult, responseBuf).ConfigureAwait(false);
+                using var ignored = await socket.DoOutInOpAsync(ClientOp.ComputeExecutorReturnJobResult, responseBuf)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception jobEx)
+            {
+                // TODO: Log error.
+                Console.WriteLine(jobEx);
+
+                try
+                {
+                    // TODO: Send error to the server.
+                }
+                catch (Exception resultSendEx)
+                {
+                    // TODO: Log failed to reply with error.
+                    Console.WriteLine(resultSendEx.Message);
+                }
+            }
         }
 
-        JobExecuteRequest Read(MsgPackReader r)
+        static JobExecuteRequest Read(MsgPackReader r)
         {
+            long jobId = r.ReadInt64();
             int cnt = r.ReadInt32();
             List<string> deploymentUnitPaths = new List<string>(cnt);
             for (int i = 0; i < cnt; i++)
@@ -67,15 +89,16 @@ internal static class ComputeJobExecutor
             string jobClassName = r.ReadString();
             object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
 
-            return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
+            return new JobExecuteRequest(jobId, deploymentUnitPaths, jobClassName, arg);
         }
 
-        void Write(MsgPackWriter w, object res)
+        void Write(MsgPackWriter w, long jobId, object res)
         {
+            w.Write(requestId);
             w.Write(jobId);
             ComputePacker.PackArgOrResult(ref w, res, null);
         }
     }
 
-    private record JobExecuteRequest(IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
+    private record JobExecuteRequest(long JobId, IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
 }

@@ -914,7 +914,7 @@ namespace Apache.Ignite.Internal
             return notificationHandler.TrySetResult(response);
         }
 
-        private bool HandleComputeExecutorRequest(long jobId, PooledBuffer request)
+        private bool HandleComputeExecutorRequest(long requestId, PooledBuffer request)
         {
             // Invoke compute handler in another thread to continue the receive loop.
             // Response buffer should be disposed by the task handler.
@@ -924,7 +924,7 @@ namespace Apache.Ignite.Internal
                     // Ignore the returned task.
                     _ = ComputeJobExecutor.ExecuteJobAsync(state.JobId, state.Buf, state.Socket);
                 },
-                state: (this, request, jobId),
+                state: (this, request, requestId),
                 preferLocal: true);
 
             return true;
