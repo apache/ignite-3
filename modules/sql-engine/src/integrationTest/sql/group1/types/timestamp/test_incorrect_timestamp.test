@@ -115,7 +115,7 @@ INSERT INTO timestamp_t VALUES (CAST('9999-99-99' AS TIMESTAMP FORMAT 'YYYY-MM-D
 statement error: Invalid DATE value, '10000-00-01 01:01:01'
 INSERT INTO timestamp_t VALUES ('10000-00-01 01:01:01'::TIMESTAMP)
 
-# The value is lower than the minimum allowed
+# The value is less than the minimum allowed
 statement error: TIMESTAMP out of range
 INSERT INTO timestamp_t VALUES (TIMESTAMP '0001-01-01 18:00:00' - INTERVAL 1 SECONDS)
 

@@ -397,11 +397,14 @@ public class ItCastToTsWithLocalTimeZoneTest extends BaseSqlIntegrationTest {
             sql(format(template, 3, "0001-01-02 11:59:59", "0001-01-02 11:59:59", "0001-01-02"));
         }
 
-        // INSERT allowed boundary values
+        // INSERT allowed boundary values.
         {
             String insert = "INSERT INTO test VALUES "
+                    // VARCHAR -> TIMESTAMP WITH LOCAL TIME ZONE
                     + "(SELECT CAST(s as TIMESTAMP WITH LOCAL TIME ZONE) FROM src WHERE id=?),"
-                    + "(SELECT CAST(ts as TIMESTAMP WITH LOCAL TIME ZONE) FROM src WHERE id=?),"
+                    // TIMESTAMP -> TIMESTAMP WITH LOCAL TIME ZONE (implicit)
+                    + "(SELECT ts FROM src WHERE id=?),"
+                    // DATE -> TIMESTAMP WITH LOCAL TIME ZONE
                     + "(SELECT CAST(d as TIMESTAMP WITH LOCAL TIME ZONE) FROM src WHERE id=?)";
 
             assertQuery(insert)
