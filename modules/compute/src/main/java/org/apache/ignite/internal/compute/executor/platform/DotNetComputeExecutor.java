@@ -51,12 +51,11 @@ public class DotNetComputeExecutor {
             JobExecutionContext context) {
         ensureProcessStarted();
 
-        // TODO: Wait for connection with some timeout.
-        PlatformComputeConnection connection = transport.getConnection(connectionId);
-
+        // TODO: Connection wait timeout.
         // TODO: Ser/de, add class name and deployment unit info.
-        return connection.sendMessage(input.data())
-                .thenApply(response -> new ComputeJobDataHolder(ComputeJobDataType.TUPLE, response));
+        return transport.getConnectionAsync(connectionId)
+                .thenCompose(conn -> conn.sendMessage(input.data())
+                .thenApply(response -> new ComputeJobDataHolder(ComputeJobDataType.TUPLE, response)));
     }
 
     public synchronized void stop() {

@@ -478,7 +478,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     }
 
     @Override
-    public @Nullable CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id) {
+    public CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id) {
         return computeExecutors.computeIfAbsent(id, k -> new CompletableFuture<>());
     }
 }
