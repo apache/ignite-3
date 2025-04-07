@@ -360,7 +360,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .thenCompose(res -> changePeersAndLearnersAsync(peersAndLearners, term));
         }
 
-//        System.out.println("!!! 1");
         Function<Peer, ChangePeersAndLearnersAsyncRequest> requestFactory = targetPeer -> factory.changePeersAndLearnersAsyncRequest()
                 .leaderId(peerId(targetPeer))
                 .groupId(groupId)

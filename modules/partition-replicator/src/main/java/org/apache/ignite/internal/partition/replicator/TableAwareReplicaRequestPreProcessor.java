@@ -104,6 +104,9 @@ public class TableAwareReplicaRequestPreProcessor {
                 ? ((BuildIndexReplicaRequest) request).timestamp()
                 : txTs;
         Runnable validateClo = () -> {
+            if (request instanceof BuildIndexReplicaRequest) {
+                System.out.println("<<< 1");
+            }
             schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId);
 
             boolean hasSchemaVersion = request instanceof SchemaVersionAwareReplicaRequest;
@@ -119,6 +122,9 @@ public class TableAwareReplicaRequestPreProcessor {
             }
         };
 
+        if (request instanceof BuildIndexReplicaRequest) {
+            System.out.println(">>> 1");
+        }
         return schemaSyncService.waitForMetadataCompleteness(opTs).thenRun(validateClo);
     }
 
