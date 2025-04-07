@@ -30,6 +30,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A Hybrid Logical Clock implementation.
@@ -49,6 +50,7 @@ public class HybridClockImpl implements HybridClock {
 
     private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
 
+    @TestOnly
     public HybridClockImpl() {
         this.failureProcessor = null;
     }
