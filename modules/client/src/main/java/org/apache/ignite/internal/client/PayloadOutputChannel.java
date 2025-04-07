@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client;
 
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Thin client payload output channel.
@@ -32,7 +33,7 @@ public class PayloadOutputChannel implements AutoCloseable {
     /** Client request ID. */
     private final long requestId;
 
-    private Runnable onSent;
+    private volatile @Nullable Runnable onSent;
 
     /**
      * Constructor.
@@ -89,7 +90,7 @@ public class PayloadOutputChannel implements AutoCloseable {
         this.onSent = onSent;
     }
 
-    public Runnable onSent() {
+    public @Nullable Runnable onSent() {
         return onSent;
     }
 }
