@@ -18,14 +18,19 @@
 using Apache.Ignite;
 
 const string envServerAddr = "IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS";
-var serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
+string? serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
 
 if (string.IsNullOrWhiteSpace(serverAddr))
 {
     throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");
 }
 
-await IgniteClient.StartAsync(new IgniteClientConfiguration(serverAddr)).ConfigureAwait(false);
+var clientCfg = new IgniteClientConfiguration(serverAddr)
+{
+    RetryPolicy = RetryNonePolicy.Instance // No reconnect.
+};
+
+using var client = await IgniteClient.StartAsync(clientCfg).ConfigureAwait(false);
 
 // Sleep forever. Host process will terminate us when the executor is stopped.
 await Task.Delay(Timeout.Infinite).ConfigureAwait(false);

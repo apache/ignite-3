@@ -17,7 +17,15 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
-internal class ComputeExecutorUtils
+using System;
+
+/// <summary>
+/// Compute executor utilities.
+/// </summary>
+internal static class ComputeExecutorUtils
 {
-    public const string IgniteComputeExecutorId = "IGNITE_COMPUTE_EXECUTOR_ID";
+    /// <summary>
+    /// Compute executor id.
+    /// </summary>
+    internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
 }

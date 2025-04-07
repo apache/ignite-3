@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using System.Buffers.Binary;
-    using System.Collections;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -30,6 +29,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Compute.Executor;
     using Ignite.Network;
     using Microsoft.Extensions.Logging;
     using Network;
@@ -559,7 +559,7 @@ namespace Apache.Ignite.Internal
 
             if (configuration.Authenticator != null)
             {
-                w.Write(3); // Extensions.
+                w.Write(4); // Extensions.
 
                 w.Write(HandshakeExtensions.AuthenticationType);
                 w.Write(configuration.Authenticator.Type);
@@ -569,6 +569,12 @@ namespace Apache.Ignite.Internal
 
                 w.Write(HandshakeExtensions.AuthenticationSecret);
                 w.Write((string?)configuration.Authenticator.Secret);
+            }
+            else if (ComputeExecutorUtils.IgniteComputeExecutorId != null)
+            {
+                // Mutually exclusive with authenticator.
+                w.Write(HandshakeExtensions.ComputeExecutorId);
+                w.Write(ComputeExecutorUtils.IgniteComputeExecutorId);
             }
             else
             {
