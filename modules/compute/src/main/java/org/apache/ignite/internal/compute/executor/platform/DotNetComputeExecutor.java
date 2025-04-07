@@ -38,15 +38,17 @@ public class DotNetComputeExecutor {
     }
 
     public Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
+            List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         // TODO: Call into .NET process:
         // Send client port, job class name, and job data to .NET process.
-        return () -> executeJobAsync(jobClassName, input, context);
+        return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
     }
 
     private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+            List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
@@ -60,7 +62,7 @@ public class DotNetComputeExecutor {
         // TODO: Combine getConnectionAsync and executeJobAsync?
         return transport
                 .getConnectionAsync(connectionId)
-                .thenCompose(conn -> conn.executeJobAsync(List.of(), jobClassName, input));
+                .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
 
     public synchronized void stop() {

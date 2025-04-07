@@ -23,6 +23,9 @@ import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNu
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,12 +51,12 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.marshalling.Marshaller;
-import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -133,12 +136,26 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
             case DotNet:
-                // TODO: Deployment unit location.
-                return dotNetComputeExecutor.getJobCallable(jobClassName, input, context);
+                ArrayList<String> unitPaths = getDeploymentUnitPaths(classLoader);
+
+                return dotNetComputeExecutor.getJobCallable(unitPaths, jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
         }
+    }
+
+    private static ArrayList<String> getDeploymentUnitPaths(JobClassLoader classLoader) {
+        ArrayList<String> unitPaths = new ArrayList<>();
+
+        for (DisposableDeploymentUnit unit : classLoader.units()) {
+            try {
+                unitPaths.add(unit.path().toRealPath().toString());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return unitPaths;
     }
 
     private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(
