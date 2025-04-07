@@ -24,7 +24,6 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.internal.compute.ComputeJobDataType;
 
 public class DotNetComputeExecutor {
     private final PlatformComputeTransport transport;
@@ -42,8 +41,6 @@ public class DotNetComputeExecutor {
             String jobClassName,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
-        // TODO: Call into .NET process:
-        // Send client port, job class name, and job data to .NET process.
         return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
     }
 

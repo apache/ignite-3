@@ -113,6 +113,7 @@ import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
@@ -1181,6 +1182,6 @@ public class ClientInboundMessageHandler
             String jobClassName,
             ComputeJobDataHolder arg) {
         // TODO: use COMPUTE_EXECUTOR_REQUEST_FLAG with a generated id.
-        return null;
+        return CompletableFuture.completedFuture(new ComputeJobDataHolder(ComputeJobDataType.NATIVE, new byte[0]));
     }
 }
