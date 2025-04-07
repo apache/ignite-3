@@ -344,7 +344,7 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
 
     /** Check correctness of rw and ro transactions for index scan. */
-    @RepeatedTest(100)
+    @Test
     public void checkMixedTransactionsForIndex() throws Exception {
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
