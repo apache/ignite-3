@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.executor.platform;
 
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -39,5 +40,5 @@ public interface PlatformComputeTransport {
      * @param id Connection id.
      * @return Compute connection.
      */
-    @Nullable PlatformComputeConnection getConnection(String id);
+    @Nullable CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id);
 }

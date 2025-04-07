@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -143,7 +144,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final Executor commonExecutor;
 
-    private final ConcurrentHashMap<String, ClientInboundMessageHandler> computeExecutors = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
 
     @TestOnly
     @SuppressWarnings("unused")
@@ -446,7 +447,14 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         String execId = messageHandler.computeExecutorId();
 
         if (execId != null) {
-            computeExecutors.put(execId, messageHandler);
+            computeExecutors.compute(execId, (key, fut) -> {
+                if (fut == null) {
+                    return completedFuture(messageHandler);
+                }
+
+                fut.complete(messageHandler);
+                return fut;
+            });
         }
     }
 
@@ -454,6 +462,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         String execId = messageHandler.computeExecutorId();
 
         if (execId != null) {
+            // TODO: ???
             computeExecutors.remove(execId);
         }
     }
@@ -469,8 +478,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     }
 
     @Override
-    public @Nullable PlatformComputeConnection getConnection(String id) {
-        // TODO: Map of special connections by id.
-        return null;
+    public @Nullable CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id) {
+        return computeExecutors.computeIfAbsent(id, k -> new CompletableFuture<>());
     }
 }

@@ -112,6 +112,7 @@ import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -154,7 +155,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements EventListener<AuthenticationEventParameters> {
+public class ClientInboundMessageHandler
+        extends ChannelInboundHandlerAdapter
+        implements EventListener<AuthenticationEventParameters>, PlatformComputeConnection {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -1168,5 +1171,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     @TestOnly
     public int cancelHandlesCount() {
         return cancelHandles.size();
+    }
+
+    @Override
+    public CompletableFuture<byte[]> sendMessage(byte[] message) {
+        // TODO: Send platform compute message and wait for result.
+        return null;
     }
 }
