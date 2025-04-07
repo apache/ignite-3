@@ -559,7 +559,7 @@ namespace Apache.Ignite.Internal
 
             if (configuration.Authenticator != null)
             {
-                w.Write(4); // Extensions.
+                w.Write(3); // Extensions map size.
 
                 w.Write(HandshakeExtensions.AuthenticationType);
                 w.Write(configuration.Authenticator.Type);
@@ -573,6 +573,8 @@ namespace Apache.Ignite.Internal
             else if (ComputeJobExecutor.IgniteComputeExecutorId != null)
             {
                 // Mutually exclusive with authenticator.
+                w.Write(1); // Extensions map size.
+
                 w.Write(HandshakeExtensions.ComputeExecutorId);
                 w.Write(ComputeJobExecutor.IgniteComputeExecutorId);
             }
