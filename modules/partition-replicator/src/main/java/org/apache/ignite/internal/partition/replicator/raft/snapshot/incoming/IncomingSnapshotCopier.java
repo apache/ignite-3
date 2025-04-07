@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.anyOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
@@ -44,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -238,7 +238,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 Throwable cause = e.getCause();
 
                 if (!(cause instanceof CancellationException)) {
-                    processCriticalFailure(partitionSnapshotStorage.failureProcessor(), e, "Error when completing the copier");
+                    partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
 
                     if (isOk()) {
                         setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
@@ -494,12 +494,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         try {
             if (throwable != null) {
-                processCriticalFailure(
-                        partitionSnapshotStorage.failureProcessor(),
-                        throwable,
-                        "Partition rebalancing error [%s]",
-                        createPartitionInfo()
-                );
+                String errorMessage = String.format("Partition rebalancing error [%s]", createPartitionInfo());
+                partitionSnapshotStorage.failureProcessor().process(new FailureContext(throwable, errorMessage));
 
                 if (isOk()) {
                     setError(RaftError.UNKNOWN, throwable.getMessage());

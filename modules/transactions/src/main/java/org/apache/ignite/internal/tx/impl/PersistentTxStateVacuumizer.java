@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -33,6 +32,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -151,7 +151,10 @@ public class PersistentTxStateVacuumizer {
                                 } else if (unwrapCause(e) instanceof PrimaryReplicaMissException) {
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
-                                    processCriticalFailure(failureProcessor, e, "Failed to vacuum tx states from the persistent storage.");
+                                    failureProcessor.process(new FailureContext(
+                                            e,
+                                            "Failed to vacuum tx states from the persistent storage."
+                                    ));
                                 }
                             });
                         } else {

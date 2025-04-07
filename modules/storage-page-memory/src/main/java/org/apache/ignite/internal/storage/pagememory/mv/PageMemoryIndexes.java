@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage.pagememory.mv;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -27,6 +26,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
@@ -119,12 +119,11 @@ class PageMemoryIndexes {
                         destroyIndexOnRecovery(indexMeta, indexStorageFactory, indexMetaTree)
                                 .whenComplete((v, e) -> {
                                     if (e != null) {
-                                        processCriticalFailure(
-                                                failureProcessor,
-                                                e,
+                                        String errorMessage = String.format(
                                                 "Unable to destroy existing index %s, that has been removed from the Catalog",
                                                 indexId
                                         );
+                                        failureProcessor.process(new FailureContext(e, errorMessage));
                                     }
                                 });
 

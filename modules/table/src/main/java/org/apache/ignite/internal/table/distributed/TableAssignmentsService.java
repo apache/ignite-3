@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
@@ -46,6 +45,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -117,12 +117,11 @@ public class TableAssignmentsService {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    e,
+                            String errorMessage = String.format(
                                     "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                     Assignments.assignmentListToString(newAssignments)
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     })
                     .thenCompose(invokeResult -> {
@@ -214,7 +213,8 @@ public class TableAssignmentsService {
             return realAssignments;
         }).whenComplete((realAssignments, e) -> {
             if (e != null) {
-                processCriticalFailure(failureProcessor, e, "Couldn't get assignments from metastore for table [tableId=%s].", tableId);
+                String errorMessage = String.format("Couldn't get assignments from metastore for table [tableId=%s].", tableId);
+                failureProcessor.process(new FailureContext(e, errorMessage));
             }
         });
     }

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
@@ -43,6 +42,7 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -241,12 +241,8 @@ class IndexManagementUtils {
                         if (!(unwrappedCause instanceof IndexNotFoundValidationException)
                                 && !(unwrappedCause instanceof ChangeIndexStatusValidationException)
                                 && !(unwrappedCause instanceof NodeStoppingException)) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    throwable,
-                                    "Error processing the command to make the index available: %s",
-                                    indexId
-                            );
+                            String errorMessage = "Error processing the command to make the index available: " + indexId;
+                            failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
                     }
                 });

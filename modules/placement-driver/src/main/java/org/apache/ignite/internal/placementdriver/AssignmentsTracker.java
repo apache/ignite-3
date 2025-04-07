@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -36,6 +35,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -118,7 +118,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             );
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                processCriticalFailure(failureProcessor, ex, "Failed to start assignment tracker due to recovery error");
+                failureProcessor.process(new FailureContext(ex, "Failed to start assignment tracker due to recovery error"));
             } else if (LOG.isInfoEnabled()) {
                 LOG.info(
                         "Assignment cache initialized for placement driver [stableAssignments=[{}], pendingAssignments=[{}]]",

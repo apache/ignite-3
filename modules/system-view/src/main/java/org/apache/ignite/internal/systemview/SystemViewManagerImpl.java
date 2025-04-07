@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.systemview;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.systemview.utils.SystemViewUtils.tupleSchemaForView;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -40,6 +39,7 @@ import org.apache.ignite.internal.cluster.management.NodeAttributesProvider;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.InternalTuple;
@@ -122,7 +122,7 @@ public class SystemViewManagerImpl implements SystemViewManager, NodeAttributesP
                         viewsRegistrationFuture.complete(null);
 
                         if (t != null) {
-                            processCriticalFailure(failureProcessor, t, "Failed to register system views.");
+                            failureProcessor.process(new FailureContext(t, "Failed to register system views."));
                         }
                     }
             );

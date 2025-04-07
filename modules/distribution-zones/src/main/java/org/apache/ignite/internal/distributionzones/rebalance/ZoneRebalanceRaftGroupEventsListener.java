@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchAppendKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.switchReduceKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.union;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
@@ -51,6 +50,7 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -209,12 +209,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
-                    processCriticalFailure(
-                            failureProcessor,
-                            e,
-                            "Unable to start rebalance [zonePartitionId=%s, term=%s]",
-                            zonePartitionId, term
-                    );
+                    String errorMessage = String.format("Unable to start rebalance [zonePartitionId=%s, term=%s]", zonePartitionId, term);
+                    failureProcessor.process(new FailureContext(e, errorMessage));
                 } finally {
                     busyLock.leaveBusy();
                 }
@@ -536,7 +532,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            processCriticalFailure(failureProcessor, e, "Unable to commit partition configuration to metastore: %s", zonePartitionId);
+            String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
+            failureProcessor.process(new FailureContext(e, errorMessage));
         }
     }
 

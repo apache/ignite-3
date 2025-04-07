@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server.time;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.concurrent.CancellationException;
@@ -259,7 +258,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                                 Throwable cause = unwrapCause(e);
 
                                 if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
-                                    processCriticalFailure(failureProcessor, e, "Unable to perform idle time sync");
+                                    failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
                                 }
                             }
                         });

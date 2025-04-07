@@ -22,7 +22,6 @@ import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -38,6 +37,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -238,7 +238,7 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private void notifyFailureHandlerAndRethrowIfError(Throwable e, String logMessagePattern, Object... args) {
-        processCriticalFailure(failureProcessor, e, logMessagePattern, args);
+        failureProcessor.process(new FailureContext(e, String.format(logMessagePattern, args)));
 
         if (e instanceof Error) {
             throw (Error) e;

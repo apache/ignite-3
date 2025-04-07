@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -593,7 +592,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 if (unwrapCause(e) instanceof NodeStoppingException) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
-                                    processCriticalFailure(failureProcessor, e, "Error when executing onLeaderElected callback");
+                                    failureProcessor.process(new FailureContext(
+                                            e,
+                                            "Error when executing onLeaderElected callback"
+                                    ));
                                 }
                             } else {
                                 LOG.info("onLeaderElected callback executed successfully");

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -29,6 +28,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -180,7 +180,7 @@ public class ResourceVacuumManager implements IgniteComponent {
                 }
             }
         } catch (Throwable err) {
-            processCriticalFailure(failureProcessor, err, "Error occurred during the orphan resources closing.");
+            failureProcessor.process(new FailureContext(err, "Error occurred during the orphan resources closing."));
 
             throw err;
         }
@@ -190,7 +190,7 @@ public class ResourceVacuumManager implements IgniteComponent {
         try {
             txManager.vacuum();
         } catch (Throwable err) {
-            processCriticalFailure(failureProcessor, err, "Error occurred during txn resources vacuum.");
+            failureProcessor.process(new FailureContext(err, "Error occurred during txn resources vacuum."));
 
             throw err;
         }

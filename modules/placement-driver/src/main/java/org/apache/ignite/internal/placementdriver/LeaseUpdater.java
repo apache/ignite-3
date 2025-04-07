@@ -20,7 +20,6 @@ package org.apache.ignite.internal.placementdriver;
 import static java.util.Objects.hash;
 import static java.util.Objects.requireNonNullElse;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -46,6 +45,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -391,7 +391,7 @@ public class LeaseUpdater {
                         updateLeaseBatchInternal();
                     }
                 } catch (Throwable e) {
-                    processCriticalFailure(failureProcessor, e, "Error occurred when updating the leases.");
+                    failureProcessor.process(new FailureContext(e, "Error occurred when updating the leases."));
 
                     if (e instanceof Error) {
                         // TODO IGNITE-20368 The node should be halted in case of an error here.
@@ -588,7 +588,7 @@ public class LeaseUpdater {
             ).whenComplete((success, e) -> {
                 if (e != null) {
                     if (!(ExceptionUtils.unwrapCause(e) instanceof NodeStoppingException)) {
-                        processCriticalFailure(failureProcessor, e, "Lease update invocation failed");
+                        failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));
                     }
 
                     return;

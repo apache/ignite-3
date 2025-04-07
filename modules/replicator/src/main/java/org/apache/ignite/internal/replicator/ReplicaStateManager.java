@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.replicator;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -31,6 +30,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -239,7 +239,7 @@ class ReplicaStateManager {
                 }))
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        processCriticalFailure(failureProcessor, ex, "Replica start failed [groupId=%s]", groupId);
+                        failureProcessor.process(new FailureContext(ex, String.format("Replica start failed [groupId=%s]", groupId)));
                     }
                 });
 
@@ -331,7 +331,7 @@ class ReplicaStateManager {
                 }))
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        processCriticalFailure(failureProcessor, ex, "Replica stop failed [groupId=%s]", groupId);
+                        failureProcessor.process(new FailureContext(ex, String.format("Replica stop failed [groupId=%s]", groupId)));
                     }
                 });
 

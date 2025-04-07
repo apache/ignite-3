@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.hlc;
 
 import static java.lang.Math.max;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -149,7 +149,8 @@ public class HybridClockImpl implements HybridClock {
                 listener.onUpdate(newTs);
             } catch (Throwable e) {
                 if (failureProcessor != null) {
-                    processCriticalFailure(failureProcessor, e, "ClockUpdateListener#onUpdate() failed for %s at %s", listener, newTs);
+                    String errorMessage = String.format("ClockUpdateListener#onUpdate() failed for %s at %s", listener, newTs);
+                    failureProcessor.process(new FailureContext(e, errorMessage));
                 } else {
                     log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
                 }

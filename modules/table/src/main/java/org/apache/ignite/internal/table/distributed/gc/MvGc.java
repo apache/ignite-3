@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.gc;
 
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -37,6 +36,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -239,7 +239,7 @@ public class MvGc implements ManuallyCloseable {
 
                                     currentGcFuture.complete(null);
                                 } else {
-                                    processCriticalFailure(failureProcessor, throwable, "Error when running GC");
+                                    failureProcessor.process(new FailureContext(throwable, "Error when running GC"));
 
                                     currentGcFuture.completeExceptionally(throwable);
                                 }
@@ -256,7 +256,7 @@ public class MvGc implements ManuallyCloseable {
                             }
                         });
             } catch (Throwable t) {
-                processCriticalFailure(failureProcessor, t, "Error when running GC");
+                failureProcessor.process(new FailureContext(t, "Error when running GC"));
 
                 currentGcFuture.completeExceptionally(t);
             }

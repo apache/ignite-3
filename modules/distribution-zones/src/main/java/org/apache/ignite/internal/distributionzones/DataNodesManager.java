@@ -44,7 +44,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleUpTimerPrefix;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.and;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.exists;
@@ -85,6 +84,7 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHi
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1090,7 +1090,7 @@ public class DataNodesManager {
                                 })
                                 .whenComplete((v, e) -> {
                                     if (e != null) {
-                                        processCriticalFailure(failureProcessor, e, metaStorageOperation.failureLogMessage());
+                                        failureProcessor.process(new FailureContext(e, metaStorageOperation.failureLogMessage()));
                                     }
                                 });
                     }
@@ -1136,12 +1136,11 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    e,
+                            String errorMessage = String.format(
                                     "Failed to initialize zone's dataNodes history [zoneId = %s, timestamp = %s, dataNodes = %s]",
                                     zoneId, timestamp, nodeNames(dataNodes)
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         } else if (invokeResult) {
                             LOG.info("Initialized zone's dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
                                     zoneId,
@@ -1199,12 +1198,11 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    e,
+                            String errorMessage = String.format(
                                     "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
                                     zoneId, timestamp
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         } else if (invokeResult) {
                             LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
                         } else {

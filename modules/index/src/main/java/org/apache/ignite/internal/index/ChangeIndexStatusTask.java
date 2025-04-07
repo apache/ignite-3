@@ -25,7 +25,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.index.IndexManagementUtils.AWAIT_PRIMARY_REPLICA_TIMEOUT_SEC;
 import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryReplica;
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -188,11 +188,10 @@ abstract class ChangeIndexStatusTask {
                                     // The index's table might have been dropped while we were waiting for the ability
                                     // to switch the index status to a new state, so IndexNotFound is not a problem.
                                     && !(cause instanceof IndexNotFoundValidationException)) {
-                                processCriticalFailure(
-                                        failureProcessor,
+                                failureProcessor.process(new FailureContext(
                                         throwable,
-                                        "Error starting index task: %s", indexDescriptor.id()
-                                );
+                                        String.format("Error starting index task: %s", indexDescriptor.id())
+                                ));
                             }
                         }
                     })

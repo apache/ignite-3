@@ -21,7 +21,6 @@ import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -55,6 +54,7 @@ import org.apache.ignite.internal.disaster.system.message.ResetClusterMessage;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
 import org.apache.ignite.internal.disaster.system.storage.MetastorageRepairStorage;
 import org.apache.ignite.internal.disaster.system.storage.NoOpMetastorageRepairStorage;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -615,7 +615,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        processCriticalFailure(failureProcessor, ex, "Error while handling ConfigurationCommitted event");
+                        failureProcessor.process(new FailureContext(ex, "Error while handling ConfigurationCommitted event"));
                     }
                 });
     }
@@ -656,12 +656,8 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 raftService.changePeersAndLearners(newConfig, configuration.term())
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                processCriticalFailure(
-                                        failureProcessor,
-                                        ex,
-                                        "Error while changing voting set to %s",
-                                        currentState.targetPeers
-                                );
+                                String errorMessage = String.format("Error while changing voting set to %s", currentState.targetPeers);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
                             } else {
                                 LOG.info("Changed voting set successfully to {}", currentState.targetPeers);
                             }
@@ -675,12 +671,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 learnerManager.updateLearners(configuration.term())
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                processCriticalFailure(
-                                        failureProcessor,
-                                        ex,
+                                String errorMessage = String.format(
                                         "Error while updating learners as a reaction to commit of %s",
                                         configuration
                                 );
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
                             }
                         });
             }

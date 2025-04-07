@@ -41,7 +41,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -86,6 +85,7 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -434,13 +434,12 @@ public class DistributionZoneManager extends
 
             metaStorageManager.invoke(iff).whenComplete((res, e) -> {
                 if (e != null) {
-                    processCriticalFailure(
-                            failureProcessor,
-                            e,
+                    String errorMessage = String.format(
                             "Failed to update distribution zones' logical topology and version keys [topology = %s, version = %s]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
+                    failureProcessor.process(new FailureContext(e, errorMessage));
                 } else if (res.getAsBoolean()) {
                     LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
@@ -632,12 +631,11 @@ public class DistributionZoneManager extends
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
                         if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    e,
+                            String errorMessage = String.format(
                                     "Failed to update recoverable state for distribution zone manager [revision = %s]",
                                     revision
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);

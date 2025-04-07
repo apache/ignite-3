@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
@@ -48,6 +47,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
@@ -565,13 +565,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 );
             }
         } else {
-            processCriticalFailure(
-                    failureProcessor,
-                    e,
-                    "onMessage() failed while processing %s from %s",
-                    messageDetails,
-                    obj.sender()
-            );
+            String errorMessage = String.format("onMessage() failed while processing %s from %s", messageDetails, obj.sender());
+            failureProcessor.process(new FailureContext(e, errorMessage));
         }
 
         if (e instanceof Error) {

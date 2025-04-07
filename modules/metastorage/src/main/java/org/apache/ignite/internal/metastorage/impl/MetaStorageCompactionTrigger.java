@@ -20,7 +20,6 @@ package org.apache.ignite.internal.metastorage.impl;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
@@ -37,6 +36,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -208,13 +208,12 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                                 Throwable cause = unwrapCause(throwable);
 
                                 if (!(cause instanceof NodeStoppingException)) {
-                                    processCriticalFailure(
-                                            failureProcessor,
-                                            throwable,
+                                    String errorMessage = String.format(
                                             "Unknown error occurred while sending the metastorage compaction command: "
                                                     + "[newCompactionRevision=%s]",
                                             newCompactionRevision
                                     );
+                                    failureProcessor.process(new FailureContext(throwable, errorMessage));
 
                                     inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
                                 }
@@ -222,7 +221,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                         });
             }
         } catch (Throwable t) {
-            processCriticalFailure(failureProcessor, t, "Unknown error on new metastorage compaction revision scheduling");
+            failureProcessor.process(new FailureContext(t, "Unknown error on new metastorage compaction revision scheduling"));
 
             inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
         } finally {
@@ -313,12 +312,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                         Throwable cause = unwrapCause(throwable);
 
                         if (!(cause instanceof NodeStoppingException)) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    throwable,
+                            String errorMessage = String.format(
                                     "Unknown error on new metastorage compaction revision: %s",
                                     compactionRevision
                             );
+                            failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
                     }
 
@@ -379,12 +377,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                             Throwable cause = unwrapCause(throwable);
 
                             if (!(cause instanceof NodeStoppingException)) {
-                                processCriticalFailure(
-                                        failureProcessor,
-                                        throwable,
+                                String errorMessage = String.format(
                                         "Unknown error during metastore compaction launched on node recovery: [compactionRevision=%s]",
                                         recoveredCompactionRevision
                                 );
+                                failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
                         } else {
                             LOG.info(

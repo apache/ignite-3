@@ -23,7 +23,6 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.STOPPING;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.index.IndexManagementUtils.PARTITION_BUILD_INDEX_KEY_PREFIX;
 import static org.apache.ignite.internal.index.IndexManagementUtils.extractIndexIdFromPartitionBuildIndexKey;
 import static org.apache.ignite.internal.index.IndexManagementUtils.getPartitionCountFromCatalog;
@@ -60,6 +59,7 @@ import org.apache.ignite.internal.catalog.events.MakeIndexAvailableEventParamete
 import org.apache.ignite.internal.catalog.events.RemoveIndexEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -194,7 +194,7 @@ class IndexAvailabilityController implements ManuallyCloseable {
 
             allOf(futures.toArray(CompletableFuture[]::new)).whenComplete((unused, throwable) -> {
                 if (throwable != null && !(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                    processCriticalFailure(failureProcessor, throwable, "Error when trying to recover index availability");
+                    failureProcessor.process(new FailureContext(throwable, "Error when trying to recover index availability"));
                 } else if (!futures.isEmpty()) {
                     LOG.debug("Successful recovery of index availability");
                 }
@@ -328,13 +328,12 @@ class IndexAvailabilityController implements ManuallyCloseable {
                     .invoke(exists(partitionBuildIndexKey), remove(partitionBuildIndexKey), noop())
                     .whenComplete((operationResult, throwable) -> {
                         if (throwable != null && !(unwrapCause(throwable) instanceof NodeStoppingException)) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    throwable,
+                            String errorMessage = String.format(
                                     "Error processing the operation to delete the partition index building key: "
                                             + "[indexId=%s, partitionId=%s]",
                                     indexId, partitionId
                             );
+                            failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
                     });
         });

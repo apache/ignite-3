@@ -42,7 +42,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tablePendingAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
@@ -113,6 +112,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -1168,12 +1168,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             assignmentsTimestamp
                     ).whenComplete((res, ex) -> {
                         if (ex != null) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    ex,
+                            String errorMessage = String.format(
                                     "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
                                     tableId, partId
                             );
+                            failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
                     });
                 } else {
@@ -1307,12 +1306,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 forcedAssignments
         ).handle((res, ex) -> {
             if (ex != null) {
-                processCriticalFailure(
-                        failureProcessor,
-                        ex,
-                        "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
-                        tableId, partId
-                );
+                failureProcessor.process(new FailureContext(
+                        ex, String.format("Unable to update raft groups on the node [tableId=%s, partitionId=%s]", tableId, partId)));
             }
             return null;
         });
@@ -1611,13 +1606,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        processCriticalFailure(
-                                failureProcessor,
-                                ex,
-                                "Unable to stop table [name=%s, tableId=%s]",
-                                table.name(),
-                                table.tableId()
-                        );
+                        failureProcessor.process(new FailureContext(
+                                ex, String.format("Unable to stop table [name=%s, tableId=%s]", table.name(), table.tableId())));
                     }
                 });
     }
@@ -2930,7 +2920,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        processCriticalFailure(failureProcessor, throwable, "Error starting tables");
+                        failureProcessor.process(new FailureContext(throwable, String.format("Error starting tables")));
                     } else {
                         LOG.info("Tables started successfully [count={}]", startTableFutures.size());
                     }

@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.rocksdb.flush;
 
 import static java.util.concurrent.CompletableFuture.runAsync;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.ArrayList;
@@ -32,6 +31,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -230,7 +230,7 @@ public class RocksDbFlusher {
                         db.flush(flushOptions, columnFamilyHandles);
                     }
                 } catch (RocksDBException e) {
-                    processCriticalFailure(failureProcessor, e, "Error occurred during the explicit flush");
+                    failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush"));
                 } finally {
                     busyLock.leaveBusy();
                 }

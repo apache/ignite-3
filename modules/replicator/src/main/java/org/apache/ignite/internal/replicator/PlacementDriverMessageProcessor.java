@@ -20,7 +20,6 @@ package org.apache.ignite.internal.replicator;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
@@ -30,6 +29,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -143,7 +143,8 @@ public class PlacementDriverMessageProcessor {
                             Throwable ex = unwrapCause(e);
 
                             if (!(ex instanceof NodeStoppingException) && !(ex instanceof TrackerClosedException)) {
-                                processCriticalFailure(failureProcessor, ex, "Failed to process the lease granted message [msg=%s].", msg);
+                                String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
                             }
 
                             // Just restart the negotiation in case of exception.

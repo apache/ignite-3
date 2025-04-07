@@ -40,7 +40,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
@@ -96,6 +95,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftG
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -426,7 +426,7 @@ public class PartitionReplicaLifecycleManager extends
         return allOf(startZoneFutures.toArray(CompletableFuture[]::new))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        processCriticalFailure(failureProcessor, throwable, "Error starting zones");
+                        failureProcessor.process(new FailureContext(throwable, "Error starting zones"));
                     } else {
                         LOG.debug(
                                 "Zones started successfully [earliestCatalogVersion={}, latestCatalogVersion={}, startedZoneIds={}]",
@@ -484,7 +484,7 @@ public class PartitionReplicaLifecycleManager extends
             return allOf(futures)
                     .whenComplete((res, e) -> {
                         if (e != null) {
-                            processCriticalFailure(failureProcessor, e, "Error when performing assignments recovery", e);
+                            failureProcessor.process(new FailureContext(e, "Error when performing assignments recovery"));
                         }
                     });
         }
@@ -681,12 +681,11 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        processCriticalFailure(
-                                failureProcessor,
-                                ex,
+                        String errorMessage = String.format(
                                 "Unable to update raft groups on the node [zonePartitionId=%s]",
                                 zonePartitionId
                         );
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
     }
@@ -772,12 +771,11 @@ public class PartitionReplicaLifecycleManager extends
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        processCriticalFailure(
-                                failureProcessor,
-                                e,
+                        String errorMessage = String.format(
                                 "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                 assignmentListToString(newAssignments)
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 })
                 .thenCompose(invokeResult -> {
@@ -821,11 +819,11 @@ public class PartitionReplicaLifecycleManager extends
                                 })
                                 .whenComplete((realAssignments, e) -> {
                                     if (e != null) {
-                                        processCriticalFailure(
-                                                failureProcessor,
-                                                e,
-                                                "Couldn't get assignments from metastore for zone [zoneId=%s].", zoneId
+                                        String errorMessage = String.format(
+                                                "Couldn't get assignments from metastore for zone [zoneId=%s].",
+                                                zoneId
                                         );
+                                        failureProcessor.process(new FailureContext(e, errorMessage));
                                     }
                                 });
                     }

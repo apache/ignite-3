@@ -18,11 +18,11 @@
 package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -87,7 +87,7 @@ public class FinishedReadOnlyTransactionTracker {
                 allOf(messages).thenRun(() -> transactionInflights.removeTxContexts(txToSend));
             }
         } catch (Throwable err) {
-            processCriticalFailure(failureProcessor, err, "Error occurred during broadcasting closed transactions.");
+            failureProcessor.process(new FailureContext(err, "Error occurred during broadcasting closed transactions."));
 
             throw err;
         }

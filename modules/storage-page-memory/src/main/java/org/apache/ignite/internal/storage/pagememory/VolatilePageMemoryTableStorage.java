@@ -17,12 +17,12 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.pagememory.PageIdAllocator.FLAG_AUX;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.storage.StorageException;
@@ -180,12 +180,11 @@ public class VolatilePageMemoryTableStorage extends AbstractPageMemoryTableStora
 
         volatilePartitionStorage.destroyStructures().whenComplete((res, ex) -> {
             if (ex != null) {
-                processCriticalFailure(
-                        failureProcessor,
-                        ex,
-                        "Could not destroy structures: [tableId=%s, partitionId=%s]",
-                        getTableId(), volatilePartitionStorage.partitionId()
+                String errorMessage = String.format(
+                        "Could not destroy structures: [tableId=%s, partitionId=%s]", getTableId(),
+                        volatilePartitionStorage.partitionId()
                 );
+                failureProcessor.process(new FailureContext(ex, errorMessage));
             }
         });
 

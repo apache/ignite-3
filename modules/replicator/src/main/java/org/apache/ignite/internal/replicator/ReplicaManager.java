@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.delayedExecutor;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toSet;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.replicator.LocalReplicaEvent.AFTER_REPLICA_STARTED;
@@ -504,7 +503,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
                         } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
-                            processCriticalFailure(failureProcessor, ex, "Failed to process placement driver message [msg=%s].", msg);
+                            String errorMessage = String.format("Failed to process placement driver message [msg=%s].", msg);
+                            failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
                     });
         } finally {
@@ -855,7 +855,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
-                processCriticalFailure(failureProcessor, e, "Error when notifying about BEFORE_REPLICA_STOPPED event.");
+                failureProcessor.process(new FailureContext(e, "Error when notifying about BEFORE_REPLICA_STOPPED event."));
             }
 
             if (!enterBusy()) {
@@ -881,12 +881,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 .thenCompose(Replica::shutdown)
                                 .whenComplete((notUsed, throwable) -> {
                                     if (throwable != null) {
-                                        processCriticalFailure(
-                                                failureProcessor,
-                                                throwable,
-                                                "Failed to stop replica [replicaGrpId=%s].",
-                                                grpId
-                                        );
+                                        String errorMessage = String.format("Failed to stop replica [replicaGrpId=%s].", grpId);
+                                        failureProcessor.process(new FailureContext(throwable, errorMessage));
                                     }
 
                                     isRemovedFuture.complete(throwable == null);
@@ -1098,12 +1094,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
             try {
                 sendSafeTimeSyncIfReplicaReady(entry.getValue());
             } catch (Throwable e) {
-                processCriticalFailure(
-                        failureProcessor,
-                        e,
-                        "Error while trying to send a safe time sync request [groupId=%s]",
-                        entry.getKey()
-                );
+                String errorMessage = String.format("Error while trying to send a safe time sync request [groupId=%s]", entry.getKey());
+                failureProcessor.process(new FailureContext(e, errorMessage));
             }
         }
     }
@@ -1125,7 +1117,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     && !hasCauseOrSuppressed(ex, CancellationException.class)
                     && !hasCauseOrSuppressed(ex, RejectedExecutionException.class)
             ) {
-                processCriticalFailure(failureProcessor, ex, "Could not advance safe time for %s", replica.groupId());
+                failureProcessor.process(new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
             }
         });
     }

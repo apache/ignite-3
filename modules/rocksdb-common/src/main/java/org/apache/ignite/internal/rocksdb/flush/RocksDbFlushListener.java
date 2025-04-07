@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.rocksdb.flush;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.LoggingRocksDbFlushListener;
 import org.rocksdb.FlushJobInfo;
@@ -66,7 +66,7 @@ class RocksDbFlushListener extends LoggingRocksDbFlushListener {
         try {
             logSyncer.sync();
         } catch (Exception e) {
-            processCriticalFailure(failureProcessor, e, "Couldn't sync RocksDB WAL on flush begin");
+            failureProcessor.process(new FailureContext(e, "Couldn't sync RocksDB WAL on flush begin"));
         }
     }
 

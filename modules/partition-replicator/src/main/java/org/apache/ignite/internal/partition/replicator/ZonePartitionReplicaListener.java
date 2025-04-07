@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 
 import java.util.Map;
 import java.util.UUID;
@@ -26,6 +25,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -333,12 +333,11 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             try {
                 listener.onShutdown();
             } catch (Throwable th) {
-                processCriticalFailure(
-                        failureProcessor,
-                        th,
+                String errorMessage = String.format(
                         "Error during table partition listener stop for [tableId=%s, partitionId=%s].",
                         tableId, replicationGroupId.partitionId()
                 );
+                failureProcessor.process(new FailureContext(th, errorMessage));
             }
         });
     }

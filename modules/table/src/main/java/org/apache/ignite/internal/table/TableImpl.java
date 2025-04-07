@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.table;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -304,7 +303,7 @@ public class TableImpl implements TableViewInternal {
         tbl.storage().destroyIndex(indexId)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        processCriticalFailure(failureProcessor, e, "Unable to destroy index %s", indexId);
+                        failureProcessor.process(new FailureContext(e, String.format("Unable to destroy index %s", indexId)));
                     }
                 });
     }

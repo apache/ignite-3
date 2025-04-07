@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.cluster.management.network;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
-
 import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
@@ -26,6 +24,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.ClusterSta
 import org.apache.ignite.internal.cluster.management.network.messages.CmgInitMessage;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.cluster.management.network.messages.RefuseJoinMessage;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.network.ClusterService;
@@ -133,7 +132,7 @@ public class CmgMessageHandler implements NetworkMessageHandler {
                 cmgMessageCallback.onCmgInitMessageReceived((CmgInitMessage) message, sender, correlationId);
             }
         } catch (Exception e) {
-            processCriticalFailure(failureProcessor, e, "CMG message handling failed");
+            failureProcessor.process(new FailureContext(e, "CMG message handling failed"));
 
             if (correlationId != null) {
                 clusterService.messagingService().respond(sender, initFailed(e), correlationId);

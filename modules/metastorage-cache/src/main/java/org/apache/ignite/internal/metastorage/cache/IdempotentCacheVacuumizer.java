@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.cache;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
@@ -27,6 +26,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -124,12 +124,9 @@ public class IdempotentCacheVacuumizer implements IgniteComponent, ElectionListe
 
                             vacuumizationAction.accept(evictionTimestamp);
                         } catch (Exception e) {
-                            processCriticalFailure(
-                                    failureProcessor,
-                                    e,
-                                    "An exception occurred while executing idempotent cache vacuumization action."
-                                            + " Idempotent cache vacuumizer won't be stopped."
-                            );
+                            String errorMessage = "An exception occurred while executing idempotent cache vacuumization action."
+                                    + " Idempotent cache vacuumizer won't be stopped.";
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     }
                 },

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.index;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
@@ -33,6 +32,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -146,7 +146,8 @@ class IndexBuildTask {
                             if (ignorable(throwable)) {
                                 LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
                             } else {
-                                processCriticalFailure(failureProcessor, throwable, "Index build error: [%s]", createCommonIndexInfo());
+                                String errorMessage = String.format("Index build error: [%s]", createCommonIndexInfo());
+                                failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
 
                             taskFuture.completeExceptionally(throwable);

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.catalog.storage;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.or;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
@@ -42,6 +41,7 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogMarshallerException;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -202,7 +202,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
         } catch (CatalogMarshallerException ex) {
-            processCriticalFailure(failureProcessor, ex, "Failed to append update log.");
+            failureProcessor.process(new FailureContext(ex, "Failed to append update log."));
 
             return failedFuture(ex);
         } finally {
@@ -252,7 +252,7 @@ public class UpdateLogImpl implements UpdateLog {
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
         } catch (CatalogMarshallerException ex) {
-            processCriticalFailure(failureProcessor, ex, "Failed to append update log.");
+            failureProcessor.process(new FailureContext(ex, "Failed to append update log."));
 
             return failedFuture(ex);
         } finally {
@@ -345,7 +345,7 @@ public class UpdateLogImpl implements UpdateLog {
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
                 } catch (CatalogMarshallerException ex) {
-                    processCriticalFailure(failureProcessor, ex, "Failed to deserialize update.");
+                    failureProcessor.process(new FailureContext(ex, "Failed to deserialize update."));
 
                     return failedFuture(ex);
                 }

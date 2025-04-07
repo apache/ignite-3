@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.List;
@@ -29,6 +28,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -178,7 +178,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        processCriticalFailure(failureProcessor, e, "Unable to start Idle Safe Time scheduler");
+                        failureProcessor.process(new FailureContext(e, "Unable to start Idle Safe Time scheduler"));
                     }
                 });
     }

@@ -24,7 +24,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
@@ -64,6 +63,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -979,7 +979,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             expirationTime = clockService.current();
             transactionExpirationRegistry.expireUpTo(expirationTime.getPhysical());
         } catch (Throwable t) {
-            processCriticalFailure(failureProcessor, t, "Could not expire transactions up to %s", expirationTime);
+            failureProcessor.process(new FailureContext(t, String.format("Could not expire transactions up to %s", expirationTime)));
         }
     }
 

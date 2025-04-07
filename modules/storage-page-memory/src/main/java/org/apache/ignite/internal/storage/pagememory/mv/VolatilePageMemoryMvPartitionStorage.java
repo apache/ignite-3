@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.storage.pagememory.mv;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
-import static org.apache.ignite.internal.failure.FailureProcessorUtils.processCriticalFailure;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInCleanupOrRebalancedState;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInProgressOfRebalance;
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
@@ -31,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import java.util.function.Consumer;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -257,12 +257,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.versionChainTree(), chainKey -> destroyVersionChain((VersionChain) chainKey, renewableState))
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        processCriticalFailure(
-                                failureProcessor,
-                                e,
+                        String errorMessage = String.format(
                                 "Version chains destruction failed: [tableId=%s, partitionId=%s]",
                                 tableStorage.getTableId(), partitionId
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 });
     }
@@ -292,12 +291,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.indexMetaTree(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        processCriticalFailure(
-                                failureProcessor,
-                                e,
+                        String errorMessage = String.format(
                                 "Index meta tree destruction failed: [tableId=%s, partitionId=%s]",
                                 tableStorage.getTableId(), partitionId
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 });
     }
@@ -306,13 +304,11 @@ public class VolatilePageMemoryMvPartitionStorage extends AbstractPageMemoryMvPa
         return destroyTree(renewableState.gcQueue(), null)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        processCriticalFailure(
-                                failureProcessor,
-                                e,
+                        String errorMessage = String.format(
                                 "Garbage collection tree destruction failed: [tableId=%s, partitionId=%s]",
-                                tableStorage.getTableId(),
-                                partitionId
+                                tableStorage.getTableId(), partitionId
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 });
     }
