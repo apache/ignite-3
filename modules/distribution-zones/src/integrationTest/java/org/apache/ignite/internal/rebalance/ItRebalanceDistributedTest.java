@@ -662,7 +662,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        Assignment evictedAssignment = first(getEvictedAssignments(assignmentsBeforeChangeReplicas, getPartitionStableAssignments(node, 0)));
+        Assignment evictedAssignment = first(getEvictedAssignments(
+                assignmentsBeforeChangeReplicas,
+                getPartitionStableAssignments(node, 0)));
 
         Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
 

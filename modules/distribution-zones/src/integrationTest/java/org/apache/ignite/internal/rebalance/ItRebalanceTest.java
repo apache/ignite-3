@@ -41,6 +41,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -170,9 +171,11 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         Set<String>[] lastAssignmentsHolderForLog = new Set[1];
 
         assertTrue(waitForCondition(() -> {
+            IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
+
             CompletableFuture<Set<Assignment>> assignmentsFuture = enabledColocation()
-                    ? ZoneRebalanceUtil.stablePartitionAssignments(unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager(), table.zoneId(), 0)
-                    : stablePartitionAssignments(unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager(), table.tableId(), 0);
+                    ? ZoneRebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), table.zoneId(), 0)
+                    : stablePartitionAssignments(ignite.metaStorageManager(), table.tableId(), 0);
 
             Set<String> assignments = await(assignmentsFuture)
                     .stream()

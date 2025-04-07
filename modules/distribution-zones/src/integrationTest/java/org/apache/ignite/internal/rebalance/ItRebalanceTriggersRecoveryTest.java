@@ -108,7 +108,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE "+ ZONE_NAME +" WITH PARTITIONS=1, REPLICAS=2, DATA_NODES_FILTER='$[?(@.region == \"US\")]', "
+            session.execute(null, "CREATE ZONE " + ZONE_NAME + " WITH PARTITIONS=1, REPLICAS=2, "
+                    + "DATA_NODES_FILTER='$[?(@.region == \"US\")]', "
                     + "STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
             session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
             session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
