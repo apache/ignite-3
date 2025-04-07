@@ -87,7 +87,6 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
                 + "  transaction: {"
                 + "      readOnlyTimeoutMillis: 30000,"
                 + "      readWriteTimeoutMillis: 30000,"
-                + "      txnResourceTtl: 2"
                 + "  },"
                 + "  replication: {"
                 + "      rpcTimeoutMillis: 30000"
