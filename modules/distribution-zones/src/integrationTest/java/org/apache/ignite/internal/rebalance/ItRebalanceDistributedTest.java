@@ -1138,7 +1138,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             int tableId,
             int partitionNumber
     ) {
-        return partitionAssignments(metaStorageManager, partitionPendingAssignmentsKey(zoneId, tableId, partitionNumber));
+        return metaStorageManager
+                .get(partitionPendingAssignmentsKey(zoneId, tableId, partitionNumber))
+                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
     }
 
     private static ByteArray partitionPendingAssignmentsKey(int zoneId, int tableId, int partitionNumber) {
