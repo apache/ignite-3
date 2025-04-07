@@ -28,6 +28,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.storage.StorageException;
@@ -55,8 +56,14 @@ import org.rocksdb.RocksDBException;
  * Contains a boilerplate code for reading/creating the DB.
  */
 public class SharedRocksDbInstanceCreator {
+    private final FailureProcessor failureProcessor;
+
     /** List of resources that must be closed if DB creation failed in the process. */
     private final List<AutoCloseable> resources = new ArrayList<>();
+
+    public SharedRocksDbInstanceCreator(FailureProcessor failureProcessor) {
+        this.failureProcessor = failureProcessor;
+    }
 
     /**
      * Creates an instance of {@link SharedRocksDbInstance}.
@@ -78,6 +85,7 @@ public class SharedRocksDbInstanceCreator {
                     engine.threadPool(),
                     engine.configuration().flushDelayMillis()::value,
                     engine.logSyncer(),
+                    failureProcessor,
                     () -> {} // No-op.
             );
 

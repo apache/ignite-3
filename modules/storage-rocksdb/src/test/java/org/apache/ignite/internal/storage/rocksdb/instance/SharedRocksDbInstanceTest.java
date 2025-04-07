@@ -47,6 +47,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor.StorageSortedIndexColumnDescriptor;
@@ -85,7 +86,14 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor
     ) throws Exception {
-        engine = new RocksDbStorageEngine("test", storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
+        engine = new RocksDbStorageEngine(
+                "test",
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 
@@ -108,7 +116,7 @@ class SharedRocksDbInstanceTest extends IgniteAbstractTest {
     }
 
     private SharedRocksDbInstance createDb() throws Exception {
-        return new SharedRocksDbInstanceCreator().create(engine, storageProfile, workDir);
+        return new SharedRocksDbInstanceCreator(mock(FailureProcessor.class)).create(engine, storageProfile, workDir);
     }
 
     @Test

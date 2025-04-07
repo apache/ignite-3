@@ -54,6 +54,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -217,6 +218,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 new ConstantSchemaVersions(1),
                 marshallers,
                 mock(IgniteSql.class),
+                mock(FailureProcessor.class),
                 table.primaryKeyIndexId()
         ));
     }

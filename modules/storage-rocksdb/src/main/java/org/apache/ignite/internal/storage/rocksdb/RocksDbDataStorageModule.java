@@ -59,6 +59,6 @@ public class RocksDbDataStorageModule implements DataStorageModule {
     ) throws StorageException {
         StorageConfiguration storageConfig = configRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
-        return new RocksDbStorageEngine(igniteInstanceName, storageConfig, storagePath, logSyncer, commonScheduler);
+        return new RocksDbStorageEngine(igniteInstanceName, storageConfig, storagePath, logSyncer, commonScheduler, failureManager);
     }
 }

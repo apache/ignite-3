@@ -95,6 +95,8 @@ import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftG
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -177,6 +179,8 @@ public class PartitionReplicaLifecycleManager extends
     private final TopologyService topologyService;
 
     private final LowWatermark lowWatermark;
+
+    private final FailureProcessor failureProcessor;
 
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
@@ -271,6 +275,7 @@ public class PartitionReplicaLifecycleManager extends
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
             LowWatermark lowWatermark,
+            FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -291,6 +296,7 @@ public class PartitionReplicaLifecycleManager extends
                 metaStorageMgr,
                 topologyService,
                 lowWatermark,
+                failureProcessor,
                 ioExecutor,
                 rebalanceScheduler,
                 partitionOperationsExecutor,
@@ -307,6 +313,7 @@ public class PartitionReplicaLifecycleManager extends
                         outgoingSnapshotsManager,
                         topologyService,
                         catalogService,
+                        failureProcessor,
                         partitionOperationsExecutor
                 )
         );
@@ -320,6 +327,7 @@ public class PartitionReplicaLifecycleManager extends
             MetaStorageManager metaStorageMgr,
             TopologyService topologyService,
             LowWatermark lowWatermark,
+            FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
             Executor partitionOperationsExecutor,
@@ -338,6 +346,7 @@ public class PartitionReplicaLifecycleManager extends
         this.metaStorageMgr = metaStorageMgr;
         this.topologyService = topologyService;
         this.lowWatermark = lowWatermark;
+        this.failureProcessor = failureProcessor;
         this.ioExecutor = ioExecutor;
         this.rebalanceScheduler = rebalanceScheduler;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
@@ -417,7 +426,7 @@ public class PartitionReplicaLifecycleManager extends
         return allOf(startZoneFutures.toArray(CompletableFuture[]::new))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Error starting zones", throwable);
+                        failureProcessor.process(new FailureContext(throwable, "Error starting zones"));
                     } else {
                         LOG.debug(
                                 "Zones started successfully [earliestCatalogVersion={}, latestCatalogVersion={}, startedZoneIds={}]",
@@ -475,7 +484,7 @@ public class PartitionReplicaLifecycleManager extends
             return allOf(futures)
                     .whenComplete((res, e) -> {
                         if (e != null) {
-                            LOG.error("Error when performing assignments recovery", e);
+                            failureProcessor.process(new FailureContext(e, "Error when performing assignments recovery"));
                         }
                     });
         }
@@ -602,6 +611,7 @@ public class PartitionReplicaLifecycleManager extends
 
         ZoneRebalanceRaftGroupEventsListener raftGroupEventsListener = new ZoneRebalanceRaftGroupEventsListener(
                 metaStorageMgr,
+                failureProcessor,
                 zonePartitionId,
                 busyLock,
                 createPartitionMover(zonePartitionId),
@@ -640,6 +650,7 @@ public class PartitionReplicaLifecycleManager extends
                                                 executorInclinedPlacementDriver,
                                                 topologyService,
                                                 new ExecutorInclinedRaftCommandRunner(raftClient, partitionOperationsExecutor),
+                                                failureProcessor,
                                                 topologyService.localMember(),
                                                 zonePartitionId
                                         );
@@ -670,7 +681,11 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.warn("Unable to update raft groups on the node [zonePartitionId={}]", ex, zonePartitionId);
+                        String errorMessage = String.format(
+                                "Unable to update raft groups on the node [zonePartitionId=%s]",
+                                zonePartitionId
+                        );
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
     }
@@ -756,11 +771,11 @@ public class PartitionReplicaLifecycleManager extends
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        LOG.error(
-                                "Couldn't write assignments [assignmentsList={}] to metastore during invoke.",
-                                e,
+                        String errorMessage = String.format(
+                                "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                 assignmentListToString(newAssignments)
                         );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
                     }
                 })
                 .thenCompose(invokeResult -> {
@@ -804,7 +819,11 @@ public class PartitionReplicaLifecycleManager extends
                                 })
                                 .whenComplete((realAssignments, e) -> {
                                     if (e != null) {
-                                        LOG.error("Couldn't get assignments from metastore for zone [zoneId={}].", e, zoneId);
+                                        String errorMessage = String.format(
+                                                "Couldn't get assignments from metastore for zone [zoneId=%s].",
+                                                zoneId
+                                        );
+                                        failureProcessor.process(new FailureContext(e, errorMessage));
                                     }
                                 });
                     }

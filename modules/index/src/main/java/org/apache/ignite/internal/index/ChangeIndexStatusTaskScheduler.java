@@ -32,7 +32,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -57,7 +57,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final Executor executor;
 
@@ -74,7 +74,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
             ClockService clockService,
             PlacementDriver placementDriver,
             IndexMetaStorage indexMetaStorage,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             Executor executor
     ) {
         this.catalogManager = catalogManager;
@@ -83,7 +83,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.indexMetaStorage = indexMetaStorage;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.executor = executor;
     }
 
@@ -122,7 +122,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 logicalTopologyService,
                 clockService,
                 indexMetaStorage,
-                failureManager,
+                failureProcessor,
                 executor,
                 busyLock
         ) {
@@ -157,7 +157,7 @@ class ChangeIndexStatusTaskScheduler implements ManuallyCloseable {
                 logicalTopologyService,
                 clockService,
                 indexMetaStorage,
-                failureManager,
+                failureProcessor,
                 executor,
                 busyLock
         ) {

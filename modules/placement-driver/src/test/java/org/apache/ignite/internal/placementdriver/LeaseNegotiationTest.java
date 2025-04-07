@@ -53,6 +53,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -185,7 +186,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         leaseTracker.startTrack(0L);
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager);
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class));
 
         assignmentsTracker.startTrack();
 
@@ -193,6 +194,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
                 NODE_0_NAME,
                 pdClusterService,
                 metaStorageManager,
+                mock(FailureProcessor.class),
                 pdLogicalTopologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),

@@ -70,7 +70,7 @@ import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -155,7 +155,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private final NodeAttributes nodeAttributes;
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final ClusterIdStore clusterIdStore;
 
@@ -179,7 +179,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
             NodeAttributes nodeAttributes,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
@@ -192,7 +192,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.validationManager = validationManager;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.clusterIdStore = clusterIdStore;
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
 
@@ -232,7 +232,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             }
         };
 
-        return new CmgMessageHandler(busyLock, msgFactory, clusterService, messageCallback);
+        return new CmgMessageHandler(busyLock, msgFactory, clusterService, failureProcessor, messageCallback);
     }
 
     /** Constructor. */
@@ -246,7 +246,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             NodeAttributes nodeAttributes,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
@@ -260,7 +260,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 logicalTopology,
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
                 nodeAttributes,
-                failureManager,
+                failureProcessor,
                 clusterIdStore,
                 raftGroupOptionsConfigurer
         );
@@ -592,7 +592,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                                 if (unwrapCause(e) instanceof NodeStoppingException) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
-                                    LOG.error("Error when executing onLeaderElected callback", e);
+                                    failureProcessor.process(new FailureContext(
+                                            e,
+                                            "Error when executing onLeaderElected callback"
+                                    ));
                                 }
                             } else {
                                 LOG.info("onLeaderElected callback executed successfully");
@@ -651,7 +654,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         .thenRunAsync(this::destroyCmg, this.scheduledExecutor)
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                                failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
                             }
                         })
         );
@@ -807,7 +810,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             logicalTopology,
                             validationManager,
                             this::onLogicalTopologyChanged,
-                            clusterIdStore
+                            clusterIdStore,
+                            failureProcessor
                     ),
                     this::onElectedAsLeader,
                     null,

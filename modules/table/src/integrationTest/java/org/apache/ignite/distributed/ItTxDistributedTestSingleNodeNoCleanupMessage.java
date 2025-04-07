@@ -36,6 +36,7 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -203,7 +204,8 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                         resourcesRegistry,
                         schemaRegistry,
                         mock(IndexMetaStorage.class),
-                        lowWatermark
+                        lowWatermark,
+                        mock(FailureProcessor.class)
                 ) {
                     @Override
                     public CompletableFuture<ReplicaResult> invoke(ReplicaRequest request, UUID senderId) {
