@@ -26,6 +26,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
@@ -149,7 +150,11 @@ public class HybridClockImpl implements HybridClock {
                 listener.onUpdate(newTs);
             } catch (Throwable e) {
                 if (failureProcessor != null) {
-                    String errorMessage = String.format("ClockUpdateListener#onUpdate() failed for %s at %s", listener, newTs);
+                    String errorMessage = IgniteStringFormatter.format(
+                            "ClockUpdateListener#onUpdate() failed for {} at {}",
+                            listener,
+                            newTs
+                    );
                     failureProcessor.process(new FailureContext(e, errorMessage));
                 } else {
                     log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
