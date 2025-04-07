@@ -253,7 +253,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                         );
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeoutMillis());
 
         int port = configuration.port();
         Channel ch = null;

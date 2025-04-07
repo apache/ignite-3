@@ -65,7 +65,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({ConfigurationExtension.class})
 public class LogPushExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters = {log = {exporterName = logPush, period = 300}}")
+    @InjectConfiguration("mock.exporters = {log = {exporterName = logPush, periodMillis = 300}}")
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();
@@ -169,7 +169,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
-                                .changePeriod(1000L)
+                                .changePeriodMillis(1000L)
                 )
         );
 
@@ -205,7 +205,7 @@ public class LogPushExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("log", exporterChange ->
                         exporterChange.convert(LogPushExporterChange.class)
-                                .changePeriod(300L)
+                                .changePeriodMillis(300L)
                 )
         );
 

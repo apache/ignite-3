@@ -337,18 +337,18 @@ public class ScaleCubeClusterServiceFactory {
 
         return ClusterConfig.defaultLocalConfig()
                 .membership(opts ->
-                        opts.syncInterval(cfg.membershipSyncInterval())
+                        opts.syncInterval(cfg.membershipSyncIntervalMillis())
                                 .suspicionMult(scaleCube.membershipSuspicionMultiplier())
                 )
                 .failureDetector(opts ->
-                        opts.pingInterval(cfg.failurePingInterval())
+                        opts.pingInterval(cfg.failurePingIntervalMillis())
                                 .pingReqMembers(scaleCube.failurePingRequestMembers())
                 )
                 .gossip(opts ->
-                        opts.gossipInterval(scaleCube.gossipInterval())
+                        opts.gossipInterval(scaleCube.gossipIntervalMillis())
                                 .gossipRepeatMult(scaleCube.gossipRepeatMult())
                 )
-                .metadataTimeout(scaleCube.metadataTimeout());
+                .metadataTimeout(scaleCube.metadataTimeoutMillis());
     }
 
     /**

@@ -26,8 +26,8 @@ Each Ignite storage engine can have several storage profiles. Each profile has t
 |Property|Default|Description
 
 |engine|| The name of the storage engine.
-|size|`256 * 1024 * 1024`| Sets the space allocated to the storage profile, in bytes.
-|writeBufferSize|`64 * 1024 * 1024`| Size of rocksdb write buffer.
+|sizeBytes|`256 * 1024 * 1024`| Sets the space allocated to the storage profile, in bytes.
+|writeBufferSizeBytes|`64 * 1024 * 1024`| Size of rocksdb write buffer.
 |numShardBits|`-1`| The cache is sharded to 2^numShardBits shards, by hash of the key.
 |===
 

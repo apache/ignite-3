@@ -27,33 +27,33 @@ import org.apache.ignite.configuration.validation.Range;
  */
 @Config
 public class ReplicationConfigurationSchema {
-    /** Default value for {@link #idleSafeTimePropagationDuration}. */
+    /** Default value for {@link #idleSafeTimePropagationDurationMillis}. */
     public static final long DEFAULT_IDLE_SAFE_TIME_PROP_DURATION = TimeUnit.SECONDS.toMillis(1);
 
     /** Idle safe time propagation duration (ms) for partitions. */
     @Value(hasDefault = true)
     @Range(min = 0)
     // TODO: IGNITE-19792 - make @Immutable when it gets being handled property for distributed config.
-    public long idleSafeTimePropagationDuration = DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
+    public long idleSafeTimePropagationDurationMillis = DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 
     /** Replication request processing timeout.  */
     @Value(hasDefault = true)
     @Range(min = 1000)
-    public long rpcTimeout = TimeUnit.SECONDS.toMillis(60);
+    public long rpcTimeoutMillis = TimeUnit.SECONDS.toMillis(60);
 
     /** The interval in milliseconds that is used in the beginning of lease granting process. */
     @Value(hasDefault = true)
     @Range(min = 5000)
-    public long leaseAgreementAcceptanceTimeLimit = 120_000;
+    public long leaseAgreementAcceptanceTimeLimitMillis = 120_000;
 
     /** Lease holding interval. */
     @Value(hasDefault = true)
     @Range(min = 2000, max = 120000)
-    public long leaseExpirationInterval = 5_000;
+    public long leaseExpirationIntervalMillis = 5_000;
 
     @Value(hasDefault = true)
     @Range(max = 10_000)
-    public int replicaOperationRetryInterval = 10;
+    public int replicaOperationRetryIntervalMillis = 10;
 
     /**
      * Maximum allowed length (in bytes) of a batch to write into physical storage when replicating multi-writes.

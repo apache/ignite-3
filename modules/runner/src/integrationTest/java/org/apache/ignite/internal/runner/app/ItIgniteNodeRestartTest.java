@@ -563,7 +563,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         ClockService clockService = new ClockServiceImpl(
                 hybridClock,
                 clockWaiter,
-                () -> schemaSyncConfiguration.maxClockSkew().value()
+                () -> schemaSyncConfiguration.maxClockSkewMillis().value()
         );
 
         maxClockSkewFuture.complete(clockService::maxClockSkewMillis);

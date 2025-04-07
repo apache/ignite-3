@@ -110,7 +110,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSizeBytes(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @AfterAll
@@ -219,7 +219,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
-        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(128 * systemPageSize)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSizeBytes(128 * systemPageSize)).get(1, SECONDS);
 
         PersistentPageMemory pageMemory = createPageMemory(
                 new long[]{100 * systemPageSize},
