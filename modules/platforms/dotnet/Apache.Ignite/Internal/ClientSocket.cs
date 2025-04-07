@@ -570,11 +570,11 @@ namespace Apache.Ignite.Internal
                 w.Write(HandshakeExtensions.AuthenticationSecret);
                 w.Write((string?)configuration.Authenticator.Secret);
             }
-            else if (ComputeExecutorUtils.IgniteComputeExecutorId != null)
+            else if (ComputeJobExecutor.IgniteComputeExecutorId != null)
             {
                 // Mutually exclusive with authenticator.
                 w.Write(HandshakeExtensions.ComputeExecutorId);
-                w.Write(ComputeExecutorUtils.IgniteComputeExecutorId);
+                w.Write(ComputeJobExecutor.IgniteComputeExecutorId);
             }
             else
             {
@@ -855,6 +855,12 @@ namespace Apache.Ignite.Internal
                 return HandleNotification(requestId, exception, response);
             }
 
+            if ((flags & ResponseFlags.ComputeExecutorRequest) != 0)
+            {
+                Debug.Assert(exception == null, "Compute executor request should not have an exception.");
+                return HandleComputeExecutorRequest(requestId, response);
+            }
+
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
             {
                 var message = $"Unexpected response ID ({requestId}) received from the server " +
@@ -906,6 +912,22 @@ namespace Apache.Ignite.Internal
             }
 
             return notificationHandler.TrySetResult(response);
+        }
+
+        private bool HandleComputeExecutorRequest(long jobId, PooledBuffer request)
+        {
+            // Invoke compute handler in another thread to continue the receive loop.
+            // Response buffer should be disposed by the task handler.
+            ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long JobId)>(
+                callBack: static state =>
+                {
+                    // Ignore the returned task.
+                    _ = ComputeJobExecutor.ExecuteJobAsync(state.JobId, state.Buf, state.Socket);
+                },
+                state: (this, request, jobId),
+                preferLocal: true);
+
+            return true;
         }
 
         private void HandleObservableTimestamp(ref MsgPackReader reader)
