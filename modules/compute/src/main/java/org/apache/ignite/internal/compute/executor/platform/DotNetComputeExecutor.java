@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 
@@ -55,10 +56,11 @@ public class DotNetComputeExecutor {
 
         ensureProcessStarted();
 
-        // TODO: Connection wait timeout.
-        // TODO: Combine getConnectionAsync and executeJobAsync?
+        // TODO: Configurable timeout
+        // TODO: Handle disconnects and crashed processes.
         return transport
                 .getConnectionAsync(connectionId)
+                .orTimeout(3000, TimeUnit.MILLISECONDS)
                 .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
 
