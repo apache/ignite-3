@@ -103,7 +103,7 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
     private static final int AWAIT_TIMEOUT_SECONDS = 10;
 
-    @InjectConfiguration("mock.retryTimeout=3000")
+    @InjectConfiguration("mock.retryTimeoutMillis=3000")
     private static RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
