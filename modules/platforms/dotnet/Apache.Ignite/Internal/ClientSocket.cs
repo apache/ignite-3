@@ -857,6 +857,7 @@ namespace Apache.Ignite.Internal
                 return HandleNotification(requestId, exception, response);
             }
 
+            // TODO: Make it more generic with op codes and message format overall.
             if ((flags & ResponseFlags.ComputeExecutorRequest) != 0)
             {
                 Debug.Assert(exception == null, "Compute executor request should not have an exception.");
