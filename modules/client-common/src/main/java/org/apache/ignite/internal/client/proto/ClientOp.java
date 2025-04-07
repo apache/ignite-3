@@ -195,6 +195,9 @@ public class ClientOp {
     /** Get table by qualified names (returns Qualified names). */
     public static final int TABLE_GET_QUALIFIED = 72;
 
+    /** Return job result from compute executor. */
+    public static final int COMPUTE_EXECUTOR_RETURN_JOB_RESULT = 73;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

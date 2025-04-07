@@ -48,21 +48,34 @@ internal static class ComputeJobExecutor
             var jobReq = Read(request.GetReader());
 
             using var responseBuf = new PooledArrayBuffer();
-            Write(responseBuf.MessageWriter);
+            Write(responseBuf.MessageWriter, "Hello from .NET: " + jobReq.Arg);
 
             using var ignored = await socket.DoOutInOpAsync(ClientOp.ComputeExecutorReturnJobResult, responseBuf).ConfigureAwait(false);
         }
 
         JobExecuteRequest Read(MsgPackReader r)
         {
-            return new JobExecuteRequest();
+            int cnt = r.ReadInt32();
+            List<string> deploymentUnitPaths = new List<string>(cnt);
+            for (int i = 0; i < cnt; i++)
+            {
+                deploymentUnitPaths.Add(r.ReadString());
+            }
+
+            // TODO: Get marshaller from the job class.
+            // TODO: Load libraries into AssemblyLoadContext.
+            string jobClassName = r.ReadString();
+            object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
+
+            return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
         }
-        
-        void Write(MsgPackWriter w)
+
+        void Write(MsgPackWriter w, object res)
         {
             w.Write(jobId);
+            ComputePacker.PackArgOrResult(ref w, res, null);
         }
     }
 
-    private record JobExecuteRequest(List<string> DeploymentUnitPaths, string JobClassName, byte[] Arg);
+    private record JobExecuteRequest(IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
 }
