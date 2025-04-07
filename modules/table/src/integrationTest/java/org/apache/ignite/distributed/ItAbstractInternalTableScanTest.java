@@ -96,7 +96,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /** Mock partition storage. */

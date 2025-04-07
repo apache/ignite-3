@@ -94,7 +94,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
     private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /**

@@ -134,6 +134,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private static final long ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE = 5_000;
 
+    private static final String LOCK_RETRY_COUNT_PROP = "lockRetryCount";
+
+    private static final int LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE = 3;
+
     /** Expiration trigger frequency. */
     private static final long EXPIRE_FREQ_MILLIS = 1000;
 
@@ -234,6 +238,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private volatile @Nullable ScheduledFuture<?> transactionExpirationJobFuture;
 
     private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
+
+    private volatile int lockRetryCount = 0;
 
     /**
      * Test-only constructor.
@@ -468,7 +474,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
-        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeout().value());
+        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
 
         var transaction = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
 
@@ -518,7 +524,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeout().value());
+            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
                     this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
@@ -906,7 +912,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
 
         // Switch to default timeout if needed.
-        timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeout().value() : timeout;
+        timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
 
         // Adjust the timeout so local expiration happens after coordinator expiration.
         var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, topologyService.localMember(),
@@ -983,6 +989,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow,
                     EXPIRE_FREQ_MILLIS, EXPIRE_FREQ_MILLIS, MILLISECONDS);
+
+            lockRetryCount = (int) longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE);
 
             return nullCompletedFuture();
         });
@@ -1099,6 +1107,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
 
         return falseCompletedFuture();
+    }
+
+    @Override
+    public int lockRetryCount() {
+        return lockRetryCount;
     }
 
     @Override

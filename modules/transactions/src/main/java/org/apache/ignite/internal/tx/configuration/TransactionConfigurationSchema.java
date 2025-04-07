@@ -31,17 +31,12 @@ public class TransactionConfigurationSchema {
     /** Default timeout for read-only transactions. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long readOnlyTimeout = TimeUnit.MINUTES.toMillis(10);
+    public final long readOnlyTimeoutMillis = TimeUnit.MINUTES.toMillis(10);
 
     /** Default timeout for read-write transactions. */
     @Range(min = 1)
     @Value(hasDefault = true)
-    public final long readWriteTimeout = TimeUnit.SECONDS.toMillis(30);
-
-    /** A transaction tries to take lock several times until it throws an exception {@lonk org.apache.ignite.tx.TransactionException}. */
-    @Range(min = 0)
-    @Value(hasDefault = true)
-    public final int attemptsObtainLock = 3;
+    public final long readWriteTimeoutMillis = TimeUnit.SECONDS.toMillis(30);
 
     /** Transaction resource time to live (ms), the minimum lifetime of a transaction state. */
     @Value(hasDefault = true)

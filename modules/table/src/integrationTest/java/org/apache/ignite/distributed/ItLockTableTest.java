@@ -102,7 +102,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\" }")
     private static SystemLocalConfiguration systemLocalConfiguration;
 
-    @InjectConfiguration
+    @InjectConfiguration("mock.properties.lockRetryCount=\"0\"")
     private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectExecutorService

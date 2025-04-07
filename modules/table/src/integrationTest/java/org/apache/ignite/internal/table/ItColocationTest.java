@@ -367,7 +367,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode),
                 transactionInflights,
-                0,
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
