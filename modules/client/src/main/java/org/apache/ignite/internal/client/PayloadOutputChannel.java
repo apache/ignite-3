@@ -33,7 +33,8 @@ public class PayloadOutputChannel implements AutoCloseable {
     /** Client request ID. */
     private final long requestId;
 
-    private volatile @Nullable Runnable onSent;
+    /** Action to be executed when the payload is sent. */
+    private volatile @Nullable Runnable onSentAction;
 
     /**
      * Constructor.
@@ -82,15 +83,16 @@ public class PayloadOutputChannel implements AutoCloseable {
     }
 
     /**
-     * Sets the action to be executed when the payload is sent.
+     * Sets the action to be executed when the payload is sent successfully.
      *
-     * @param onSent Action to be executed.
+     * @param action Action to be executed.
      */
-    public void onSent(Runnable onSent) {
-        this.onSent = onSent;
+    public void onSent(Runnable action) {
+        this.onSentAction = action;
     }
 
-    public @Nullable Runnable onSent() {
-        return onSent;
+    /** Returns an action, if any, that should be executed when the payload is sent successfully. */
+    @Nullable Runnable onSentAction() {
+        return onSentAction;
     }
 }
