@@ -555,12 +555,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             super.validateLiteral(literal);
         }
 
-        if (typeName == SqlTypeName.TIMESTAMP) {
-            var tsString = literal.getValueAs(TimestampString.class);
-
-
-        }
-
         // SqlLiteral createSqlType can not be called on
         // SqlUnknownLiteral because SELECT TIMESTAMP 'valid-ts' is a SqlUnknownLiteral later converted to timestamp literal
         if (literal instanceof SqlUnknownLiteral) {
@@ -583,11 +577,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlTypeName typeName = resolved.getTypeName();
 
         if (typeName == SqlTypeName.TIMESTAMP) {
-            // Check bounds.
             long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
 
             if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
-                throw newValidationError(literal, IgniteResource.INSTANCE.temporalOutOfRange(typeName.getSpaceName()));
+                throw newValidationError(literal, IgniteResource.INSTANCE.timestampLiteralOutOfRange(literal.toString()));
             }
         }
 
