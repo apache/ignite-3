@@ -28,6 +28,8 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -293,13 +295,13 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(0);
 
         JobDescriptor<Object, Object> job = JobDescriptor
-                .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob")
+                .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor, Version=3.1.0.0, Culture=neutral, PublicKeyToken=null")
                 .options(JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build())
                 .build();
 
-        var result = entryNode.compute().execute(JobTarget.node(clusterNode(entryNode)), job, "testArg");
+        Object result = entryNode.compute().execute(JobTarget.node(clusterNode(entryNode)), job, "testArg");
 
-        assertEquals("Hello from .NET: testArg", result);
+        assertThat(result.toString(), containsString("JobArg=testArg"));
     }
 
     private Stream<Arguments> targetNodeIndexes() {

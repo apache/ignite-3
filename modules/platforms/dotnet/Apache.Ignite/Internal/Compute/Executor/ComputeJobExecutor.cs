@@ -114,15 +114,16 @@ internal static class ComputeJobExecutor
             throw new InvalidOperationException($"Failed to load job class: {req.JobClassName}");
         }
 
-        if (!typeof(IComputeJob<,>).IsAssignableFrom(type))
+        var jobInterface = type
+            .GetInterfaces()
+            .FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
+
+        if (jobInterface == null)
         {
-            throw new InvalidOperationException($"Job class does not implement IComputeJob: {req.JobClassName}");
+            throw new InvalidOperationException($"Failed to find job interface: {req.JobClassName}");
         }
 
         var job = Activator.CreateInstance(type)!;
-        var jobInterface = type
-            .GetInterfaces()
-            .First(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
 
         var method = ExecMethod.MakeGenericMethod(jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
 
