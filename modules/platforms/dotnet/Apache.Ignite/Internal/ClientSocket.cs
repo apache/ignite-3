@@ -278,7 +278,8 @@ namespace Apache.Ignite.Internal
 
         public async Task SendServerOpResponseAsync(
             long requestId,
-            PooledArrayBuffer? response)
+            PooledArrayBuffer? response,
+            Exception? error = null)
         {
         }
 
@@ -867,7 +868,8 @@ namespace Apache.Ignite.Internal
             if ((flags & ResponseFlags.ServerOp) != 0)
             {
                 Debug.Assert(exception == null, "Server op should not have an exception.");
-                return HandleComputeExecutorRequest(requestId, response);
+                var serverOp = (ServerOp)reader.ReadInt32();
+                return HandleServerOp(requestId, serverOp, response);
             }
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
@@ -923,8 +925,13 @@ namespace Apache.Ignite.Internal
             return notificationHandler.TrySetResult(response);
         }
 
-        private bool HandleComputeExecutorRequest(long requestId, PooledBuffer request)
+        private bool HandleServerOp(long requestId, ServerOp op, PooledBuffer request)
         {
+            if (op != ServerOp.PlatformComputeJobExec)
+            {
+                // TODO:
+            }
+
             // Invoke compute handler in another thread to continue the receive loop.
             // Response buffer should be disposed by the task handler.
             ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long JobId)>(
