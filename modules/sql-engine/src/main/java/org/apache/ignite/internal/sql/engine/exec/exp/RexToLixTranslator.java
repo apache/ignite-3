@@ -787,7 +787,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // so we prohibit the user from explicitly setting a timezone.
       return
               Expressions.call(
-                      IgniteMethod.TO_TIMESTAMP_WLTZ_EXACT.method(),
+                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
                       Expressions.call(
                               BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                               operand,
@@ -797,7 +797,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case DATE:
       return
               Expressions.call(
-                      IgniteMethod.TO_TIMESTAMP_WLTZ_EXACT.method(),
+                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
                       Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                               RexImpTable.optimize2(operand,
                                       Expressions.call(
@@ -836,7 +836,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case TIMESTAMP:
       return
               Expressions.call(
-                      IgniteMethod.TO_TIMESTAMP_WLTZ_EXACT.method(),
+                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
                       Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                           RexImpTable.optimize2(operand,
                               Expressions.call(

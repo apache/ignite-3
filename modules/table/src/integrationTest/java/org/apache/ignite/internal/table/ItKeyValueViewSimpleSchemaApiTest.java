@@ -564,13 +564,13 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
                     List<List<Object>> res = sql(query, 1);
 
                     assertEquals(SchemaUtils.DATE_MIN, res.get(0).get(0));
-                    assertEquals("0001-01-01", res.get(0).get(1));
+                    assertEquals(SchemaUtils.DATE_MIN.toString(), res.get(0).get(1));
                 }
                 {
                     List<List<Object>> res = sql(query, 2);
 
                     assertEquals(SchemaUtils.DATE_MAX, res.get(0).get(0));
-                    assertEquals("9999-12-31", res.get(0).get(1));
+                    assertEquals(SchemaUtils.DATE_MAX.toString(), res.get(0).get(1));
                 }
             }
 

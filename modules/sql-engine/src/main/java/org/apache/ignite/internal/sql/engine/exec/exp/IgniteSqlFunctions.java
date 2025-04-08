@@ -25,9 +25,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.TimeZone;
 import java.util.UUID;
@@ -50,14 +47,14 @@ import org.jetbrains.annotations.Nullable;
  * Ignite SQL functions.
  */
 public class IgniteSqlFunctions {
-    private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, LocalDate.class);
-    private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, LocalDate.class);
+    public static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, NativeTypeSpec.DATETIME);
+    public static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, NativeTypeSpec.DATETIME);
 
-    public static final long TIMESTAMP_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MIN, LocalDateTime.class);
-    public static final long TIMESTAMP_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.DATETIME_MAX, LocalDateTime.class);
+    private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, NativeTypeSpec.TIMESTAMP);
+    private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, NativeTypeSpec.TIMESTAMP);
 
-    private static final long TIMESTAMP_LTZ_MIN_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MIN, Instant.class);
-    private static final long TIMESTAMP_LTZ_MAX_INTERNAL = (long) TypeUtils.toInternal(SchemaUtils.TIMESTAMP_MAX, Instant.class);
+    private static final int DATE_MIN_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MIN, NativeTypeSpec.DATE);
+    private static final int DATE_MAX_INTERNAL = (int) TypeUtils.toInternal(SchemaUtils.DATE_MAX, NativeTypeSpec.DATE);
 
     /**
      * Default constructor.
