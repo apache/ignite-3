@@ -242,7 +242,7 @@ public class ClientInboundMessageHandler
 
     private final Consumer<ClientInboundMessageHandler> onDisconnect;
 
-    private final AtomicLong serverToClientRequestId = new AtomicLong(0);
+    private final AtomicLong serverToClientRequestId = new AtomicLong(-1);
 
     private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
 
@@ -1208,7 +1208,8 @@ public class ClientInboundMessageHandler
     }
 
     private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
-        var requestId = serverToClientRequestId.incrementAndGet();
+        // Server and client request ids do not clash, but we use negative to simplify the debugging.
+        var requestId = serverToClientRequestId.decrementAndGet();
         var packer = getPacker(channelHandlerContext.alloc());
 
         try {
