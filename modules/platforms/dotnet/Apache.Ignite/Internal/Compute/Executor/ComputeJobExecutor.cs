@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -40,6 +41,9 @@ internal static class ComputeJobExecutor
 
     private static readonly MethodInfo ExecMethod =
         typeof(ComputeJobExecutor).GetMethod(nameof(ExecuteGenericJobAsync), BindingFlags.NonPublic | BindingFlags.Static)!;
+
+    // TODO: Isolation.
+    private static readonly ConcurrentDictionary<string, Func<object?, ValueTask<object?>>> CachedJobs = new();
 
     /// <summary>
     /// Executes compute job.
@@ -105,13 +109,20 @@ internal static class ComputeJobExecutor
         }
     }
 
-    private static ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
+    private static async ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
+    {
+        var job = CachedJobs.GetOrAdd(req.JobClassName, GetJobDelegate);
+
+        return await job(req).ConfigureAwait(false);
+    }
+
+    private static Func<object?, ValueTask<object?>> GetJobDelegate(string jobClassName)
     {
         // TODO: AssemblyLoadContext and assembly resolution with additional paths.
-        var type = Type.GetType(req.JobClassName);
+        var type = Type.GetType(jobClassName);
         if (type == null)
         {
-            throw new InvalidOperationException($"Failed to load job class: {req.JobClassName}");
+            throw new InvalidOperationException($"Failed to load job class: {jobClassName}");
         }
 
         var jobInterface = type
@@ -120,14 +131,15 @@ internal static class ComputeJobExecutor
 
         if (jobInterface == null)
         {
-            throw new InvalidOperationException($"Failed to find job interface: {req.JobClassName}");
+            throw new InvalidOperationException($"Failed to find job interface: {jobClassName}");
         }
 
         var job = Activator.CreateInstance(type)!;
 
         var method = ExecMethod.MakeGenericMethod(jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
 
-        return (ValueTask<object?>)method.Invoke(null, [job, req.Arg])!;
+        // TODO: Compiled delegates.
+        return arg => (ValueTask<object?>)method.Invoke(null, [job, arg])!;
     }
 
     private static async ValueTask<object?> ExecuteGenericJobAsync<TArg, TResult>(IComputeJob<TArg, TResult> job, object? arg)
