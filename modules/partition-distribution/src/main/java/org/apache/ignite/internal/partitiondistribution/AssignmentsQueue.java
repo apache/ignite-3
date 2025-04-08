@@ -38,7 +38,6 @@ import org.jetbrains.annotations.Nullable;
  * </ul>
  */
 public class AssignmentsQueue implements Iterable<Assignments> {
-
     @IgniteToStringInclude
     private final Deque<Assignments> queue;
 
@@ -57,7 +56,7 @@ public class AssignmentsQueue implements Iterable<Assignments> {
      *
      * @return the head of this queue
      */
-    public @Nullable Assignments poll() {
+    public Assignments poll() {
         assert !queue.isEmpty() : "Assignments queue must contain at least one element.";
         return queue.poll();
     }
@@ -67,7 +66,7 @@ public class AssignmentsQueue implements Iterable<Assignments> {
      *
      * @return the tail of this queue
      */
-    public @Nullable Assignments peekLast() {
+    public Assignments peekLast() {
         assert !queue.isEmpty() : "Assignments queue must contain at least one element.";
         return queue.peekLast();
     }
