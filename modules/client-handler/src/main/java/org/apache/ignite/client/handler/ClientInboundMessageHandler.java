@@ -103,6 +103,8 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -112,6 +114,7 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.client.proto.ServerOp;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
@@ -1190,11 +1193,21 @@ public class ClientInboundMessageHandler
             List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder arg) {
-        //             // TODO: Pass marsh and class from the job.
-        //            Object jobResult = ClientComputeJobUnpacker.unpackJobResult(in, null, null);
+        return sendServerToClientRequest(ServerOp.PLATFORM_COMPUTE_JOB_EXEC,
+                packer -> {
+                    packer.packString(jobClassName);
+
+                    packer.packInt(deploymentUnitPaths.size());
+                    for (String path : deploymentUnitPaths) {
+                        packer.packString(path);
+                    }
+
+                    ClientComputeJobPacker.packJobArgument(arg, null, packer);
+                })
+                .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);
     }
 
-    private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(Consumer<ClientMessagePacker> writer) {
+    private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
         var requestId = serverToClientRequestId.incrementAndGet();
         var packer = getPacker(channelHandlerContext.alloc());
 
@@ -1202,6 +1215,8 @@ public class ClientInboundMessageHandler
             packer.packLong(requestId);
             int flags = ResponseFlags.getFlags(false, false, false, true);
             packer.packInt(flags);
+            packer.packInt(serverOp);
+
             writer.accept(packer);
 
             var fut = new CompletableFuture<ClientMessageUnpacker>();
