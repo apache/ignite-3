@@ -56,6 +56,8 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -65,8 +67,6 @@ import org.apache.ignite.internal.thread.ThreadOperation;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
-import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.tx.configuration.TransactionExtensionConfiguration;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl;
 import org.apache.ignite.internal.tx.message.TxCleanupMessage;
 import org.apache.ignite.internal.tx.message.TxFinishReplicaRequest;
@@ -140,12 +140,8 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
         super.customizeInitParameters(builder);
 
         builder.clusterConfiguration("ignite {"
-                + "  transaction: {"
-                + "      txnResourceTtl: 0"
-                + "  },"
-                + "  replication: {"
-                + "      rpcTimeoutMillis: 30000"
-                + "  },"
+                + "  system.properties.txnResourceTtl: \"0\","
+                + "  replication.rpcTimeoutMillis: 30000"
                 + "}");
     }
 
@@ -817,11 +813,13 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
     }
 
     private void setTxResourceTtl(long ttl) {
-        TransactionConfiguration transactionConfiguration = anyNode().clusterConfiguration()
-                .getConfiguration(TransactionExtensionConfiguration.KEY).transaction();
-        CompletableFuture<Void> changeFuture = transactionConfiguration.change(c -> c.changeTxnResourceTtl(ttl));
+        SystemDistributedConfiguration system = anyNode().clusterConfiguration()
+                .getConfiguration(SystemDistributedExtensionConfiguration.KEY).system();
 
-        assertThat(changeFuture, willCompleteSuccessfully());
+        CompletableFuture<Void> changeFut = system.change(
+                c -> c.changeProperties(c0 -> c0.update("txnResourceTtl", c1 -> c1.changePropertyValue(ttl + ""))));
+
+        assertThat(changeFut, willCompleteSuccessfully());
     }
 
     /**

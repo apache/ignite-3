@@ -407,8 +407,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
-    private int attemptsObtainLock;
-
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
@@ -547,8 +545,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,
                 replicaSvc,
-                clockService,
-                txCfg
+                clockService
         );
 
         transactionStateResolver = new TransactionStateResolver(
@@ -654,8 +651,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
             partitionReplicatorNodeRecovery.start();
-
-            attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
             if (!enabledColocation) {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
@@ -1655,11 +1650,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 transactionInflights,
-                attemptsObtainLock,
                 this::streamerFlushExecutor,
                 Objects.requireNonNull(streamerReceiverRunner),
-                () -> txCfg.value().readWriteTimeout(),
-                () -> txCfg.value().readOnlyTimeout()
+                () -> txCfg.value().readWriteTimeoutMillis(),
+                () -> txCfg.value().readOnlyTimeoutMillis()
         );
 
         return new TableImpl(

@@ -1419,6 +1419,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             txManager = new TxManagerImpl(
                     txConfiguration,
+                    systemDistributedConfiguration,
                     clusterService,
                     replicaSvc,
                     lockManager,

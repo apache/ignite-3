@@ -581,6 +581,7 @@ public class Node {
 
         txManager = new TxManagerImpl(
                 transactionConfiguration,
+                systemConfiguration,
                 clusterService,
                 replicaSvc,
                 lockManager,
