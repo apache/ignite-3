@@ -15,36 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.table.distributed.disaster;
+package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
- * Global partition state.
+ * Interface that provides a method to copy value (maybe raw) of the given column directly into a tuple builder.
  */
-public class GlobalPartitionState {
-    public final int zoneId;
-
-    public final String zoneName;
-
-    public final int partitionId;
-
-    public final GlobalPartitionStateEnum state;
-
-    GlobalPartitionState(
-            int zoneId,
-            String zoneName,
-            int partitionId,
-            GlobalPartitionStateEnum state
-    ) {
-        this.zoneId = zoneId;
-        this.zoneName = zoneName;
-        this.partitionId = partitionId;
-        this.state = state;
-    }
-
-    @Override
-    public String toString() {
-        return S.toString(GlobalPartitionState.class, this);
-    }
+public interface InternalTupleEx extends InternalTuple {
+    /**
+     * Copy value of the given column.
+     *
+     * @param builder Binary tuple builder to copy value to.
+     * @param columnIndex Column index.
+     */
+    void copyValue(BinaryTupleBuilder builder, int columnIndex);
 }

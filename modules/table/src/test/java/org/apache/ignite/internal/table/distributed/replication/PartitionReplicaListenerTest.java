@@ -127,6 +127,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -689,7 +690,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new RemotelyTriggeredResourceRegistry(),
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
                 indexMetaStorage,
-                lowWatermark
+                lowWatermark,
+                new NoOpFailureManager()
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);

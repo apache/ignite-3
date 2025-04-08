@@ -28,6 +28,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -50,6 +52,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     private final String nodeName;
 
     private final LogicalTopologyService logicalTopologyService;
+
+    private final FailureProcessor failureProcessor;
 
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
 
@@ -97,6 +101,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             IgniteSpinBusyLock busyLock,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
+            FailureProcessor failureProcessor,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             MetaStorageLearnerManager learnerManager,
             ClusterTimeImpl clusterTime,
@@ -107,6 +112,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
         this.logicalTopologyService = logicalTopologyService;
+        this.failureProcessor = failureProcessor;
         this.metaStorageSvcFut = metaStorageSvcFut;
         this.learnerManager = learnerManager;
         this.clusterTime = clusterTime;
@@ -172,7 +178,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        LOG.error("Unable to start Idle Safe Time scheduler", e);
+                        failureProcessor.process(new FailureContext(e, "Unable to start Idle Safe Time scheduler"));
                     }
                 });
     }

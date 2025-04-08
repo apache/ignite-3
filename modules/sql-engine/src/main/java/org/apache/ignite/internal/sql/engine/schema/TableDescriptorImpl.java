@@ -42,6 +42,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -130,9 +131,9 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 return rexBuilder.makeNullLiteral(fieldType);
             }
             case DEFAULT_CONSTANT: {
-                Class<?> storageType = Commons.nativeTypeToClass(descriptor.physicalType());
+                NativeType nativeType = descriptor.physicalType();
                 Object defaultVal = descriptor.defaultValue();
-                Object internalValue = TypeUtils.toInternal(defaultVal, storageType);
+                Object internalValue = defaultVal == null ? defaultVal : TypeUtils.toInternal(defaultVal, nativeType.spec());
                 RelDataType relDataType = deriveLogicalType(rexBuilder.getTypeFactory(), descriptor);
 
                 // UUID literals are not supported, so we replace it with CAST(uuid.toString() AS UUID)

@@ -68,6 +68,7 @@ public class VolatilePageMemoryDataStorageModule implements DataStorageModule {
                 igniteInstanceName,
                 storageConfig,
                 ioRegistry,
+                failureManager,
                 clock
         );
     }

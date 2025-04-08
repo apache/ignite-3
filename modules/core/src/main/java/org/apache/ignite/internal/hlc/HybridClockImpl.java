@@ -24,15 +24,22 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * A Hybrid Logical Clock implementation.
  */
 public class HybridClockImpl implements HybridClock {
     private final IgniteLogger log = Loggers.forClass(HybridClockImpl.class);
+
+    private final @Nullable FailureProcessor failureProcessor;
 
     /**
      * Var handle for {@link #latestTime}.
@@ -43,6 +50,15 @@ public class HybridClockImpl implements HybridClock {
     private volatile long latestTime;
 
     private final List<ClockUpdateListener> updateListeners = new CopyOnWriteArrayList<>();
+
+    @TestOnly
+    public HybridClockImpl() {
+        this.failureProcessor = null;
+    }
+
+    public HybridClockImpl(FailureProcessor failureProcessor) {
+        this.failureProcessor = failureProcessor;
+    }
 
     @Override
     public final long nowLong() {
@@ -133,7 +149,16 @@ public class HybridClockImpl implements HybridClock {
             try {
                 listener.onUpdate(newTs);
             } catch (Throwable e) {
-                log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+                if (failureProcessor != null) {
+                    String errorMessage = IgniteStringFormatter.format(
+                            "ClockUpdateListener#onUpdate() failed for {} at {}",
+                            listener,
+                            newTs
+                    );
+                    failureProcessor.process(new FailureContext(e, errorMessage));
+                } else {
+                    log.error("ClockUpdateListener#onUpdate() failed for {} at {}", e, listener, newTs);
+                }
 
                 if (e instanceof Error) {
                     throw e;

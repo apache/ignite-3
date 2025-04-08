@@ -17,34 +17,38 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
-import org.apache.ignite.internal.tostring.S;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 
-/**
- * Global partition state.
- */
-public class GlobalPartitionState {
-    public final int zoneId;
+/** Container for LocalTablePartitionState to node name map. */
+public class LocalTablePartitionStateByNode {
+    @IgniteToStringInclude
+    private final Map<String, LocalTablePartitionState> map;
 
-    public final String zoneName;
+    LocalTablePartitionStateByNode(Map<String, LocalTablePartitionState> map) {
+        this.map = Map.copyOf(map);
+    }
 
-    public final int partitionId;
+    /** Returns collection of local partition states. */
+    public Collection<LocalTablePartitionState> values() {
+        return map.values();
+    }
 
-    public final GlobalPartitionStateEnum state;
+    /** Returns set of map entries. */
+    public Set<Entry<String, LocalTablePartitionState>> entrySet() {
+        return map.entrySet();
+    }
 
-    GlobalPartitionState(
-            int zoneId,
-            String zoneName,
-            int partitionId,
-            GlobalPartitionStateEnum state
-    ) {
-        this.zoneId = zoneId;
-        this.zoneName = zoneName;
-        this.partitionId = partitionId;
-        this.state = state;
+    /** Returns set of node names. */
+    public Set<String> keySet() {
+        return map.keySet();
     }
 
     @Override
     public String toString() {
-        return S.toString(GlobalPartitionState.class, this);
+        return map.toString();
     }
 }
