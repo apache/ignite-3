@@ -1,4 +1,4 @@
-# name: test/sql/types/timestamp/test_timestamp.test
+# name: test/sql/types/timestamp/test_timestamp_ltz_timestamp.test
 # description: Test TIMESTAMP WITH LOCAL TIME ZONE TIMESTAMP compatibility
 # group: [timestamp]
 
