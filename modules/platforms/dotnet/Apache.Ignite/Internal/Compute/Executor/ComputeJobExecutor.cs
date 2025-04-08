@@ -113,7 +113,7 @@ internal static class ComputeJobExecutor
     {
         var job = CachedJobs.GetOrAdd(req.JobClassName, GetJobDelegate);
 
-        return await job(req).ConfigureAwait(false);
+        return await job(req.Arg).ConfigureAwait(false);
     }
 
     private static Func<object?, ValueTask<object?>> GetJobDelegate(string jobClassName)

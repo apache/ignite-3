@@ -54,6 +54,9 @@ dependencies {
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.awaitility
     integrationTestImplementation libs.hamcrest.core
+    integrationTestImplementation libs.jmh.core
+    integrationTestImplementation libs.netty.common
+
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation project(':ignite-code-deployment')
     integrationTestImplementation project(':ignite-network')
