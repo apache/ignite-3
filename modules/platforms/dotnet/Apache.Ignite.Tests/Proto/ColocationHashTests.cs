@@ -86,8 +86,11 @@ public class ColocationHashTests : IgniteTestsBase
         ((char)BinaryTupleCommon.VarlenEmptyByte).ToString(),
         Guid.Empty,
         Guid.NewGuid(),
-        new LocalDate(9876, 7, 30),
-        new LocalDate(2, 1, 1),
+
+        // Maximum allowed DATE value.
+        new LocalDate(9999, 12, 31),
+
+        // Minimum allowed DATE value.
         new LocalDate(1, 1, 1),
         default(LocalDate),
         new LocalTime(9, 8, 7, 6),
@@ -99,7 +102,9 @@ public class ColocationHashTests : IgniteTestsBase
 
         // Minimum allowed DATETIME value.
         new LocalDateTime(year: 1, month: 1, day: 1, hour: 18, minute: 0, second: 0, millisecond: 0),
-        new LocalDateTime(year: 2022, month: 10, day: 22, hour: 10, minute: 30, second: 55, millisecond: 123),
+
+        // Maximum allowed DATETIME value.
+        new LocalDateTime(year: 9999, month: 12, day: 31, hour: 05, minute: 59, second: 59, millisecond: 999),
         LocalDateTime.FromDateTime(DateTime.UtcNow),
         Instant.FromUnixTimeSeconds(0),
         default(Instant)
