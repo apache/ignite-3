@@ -39,10 +39,24 @@ import org.apache.ignite.internal.table.TableViewInternal;
  * Helper util class for rebalance tests.
  */
 public class TestRebalanceUtil {
+    /**
+     * Returns partition replication group identifier.
+     *
+     * @param table Table.
+     * @param partitionId Partition identifier.
+     * @return Partition replication group identifier..
+     */
     public static PartitionGroupId partitionReplicationGroupId(TableViewInternal table, int partitionId) {
         return partitionReplicationGroupId(table.internalTable(), partitionId);
     }
 
+    /**
+     * Returns partition replication group identifier.
+     *
+     * @param table Table.
+     * @param partitionId Partition identifier.
+     * @return Partition replication group identifier..
+     */
     public static PartitionGroupId partitionReplicationGroupId(InternalTable table, int partitionId) {
         if (enabledColocation()) {
             return new ZonePartitionId(table.zoneId(), partitionId);
@@ -51,6 +65,13 @@ public class TestRebalanceUtil {
         }
     }
 
+    /**
+     * Returns partition replication group identifier.
+     *
+     * @param tableDescriptor Table descriptor.
+     * @param partitionId Partition identifier.
+     * @return Partition replication group identifier..
+     */
     public static PartitionGroupId partitionReplicationGroupId(CatalogTableDescriptor tableDescriptor, int partitionId) {
         if (enabledColocation()) {
             return new ZonePartitionId(tableDescriptor.zoneId(), partitionId);
@@ -59,6 +80,12 @@ public class TestRebalanceUtil {
         }
     }
 
+    /**
+     * Returns stable partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Stable partition assignments key.
+     */
     public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
         if (enabledColocation()) {
             return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
@@ -67,6 +94,12 @@ public class TestRebalanceUtil {
         }
     }
 
+    /**
+     * Returns pending partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Pending partition assignments key.
+     */
     public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
         if (enabledColocation()) {
             return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
@@ -75,6 +108,12 @@ public class TestRebalanceUtil {
         }
     }
 
+    /**
+     * Returns planned partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Planned partition assignments key.
+     */
     public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
         if (enabledColocation()) {
             return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
@@ -83,6 +122,14 @@ public class TestRebalanceUtil {
         }
     }
 
+    /**
+     * Returns stable partition assignments.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param table Table.
+     * @param partitionId Partition identifier.
+     * @return Stable partition assignments.
+     */
     public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
             MetaStorageManager metaStorageManager,
             TableViewInternal table,
@@ -95,6 +142,14 @@ public class TestRebalanceUtil {
         }
     }
 
+    /**
+     * Returns pending partition assignments.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param table Table.
+     * @param partitionId Partition identifier.
+     * @return Pending partition assignments.
+     */
     public static CompletableFuture<Set<Assignment>> pendingPartitionAssignments(
             MetaStorageManager metaStorageManager,
             TableViewInternal table,
@@ -105,6 +160,14 @@ public class TestRebalanceUtil {
                 .thenApply(e -> e.value() == null ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
     }
 
+    /**
+     * Returns planned partition assignments.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param table Table.
+     * @param partitionId Partition identifier.
+     * @return Planned partition assignments.
+     */
     public static CompletableFuture<Set<Assignment>> plannedPartitionAssignments(
             MetaStorageManager metaStorageManager,
             TableViewInternal table,
