@@ -74,6 +74,10 @@ internal static class ComputeJobExecutor
 
         static JobExecuteRequest Read(MsgPackReader r)
         {
+            // TODO: Get marshaller from the job class.
+            // TODO: Load libraries into AssemblyLoadContext.
+            string jobClassName = r.ReadString();
+
             int cnt = r.ReadInt32();
             List<string> deploymentUnitPaths = new List<string>(cnt);
             for (int i = 0; i < cnt; i++)
@@ -81,9 +85,6 @@ internal static class ComputeJobExecutor
                 deploymentUnitPaths.Add(r.ReadString());
             }
 
-            // TODO: Get marshaller from the job class.
-            // TODO: Load libraries into AssemblyLoadContext.
-            string jobClassName = r.ReadString();
             object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
 
             return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
