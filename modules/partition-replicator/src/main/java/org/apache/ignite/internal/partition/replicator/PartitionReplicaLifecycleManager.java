@@ -1010,10 +1010,10 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> updatePartitionClients(
             ZonePartitionId zonePartitionId,
-            Set<Assignment> stableAssignments
+            Set<Assignment> unionOfStableAndPendingAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
-            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
+            boolean isLocalInStable = isLocalNodeInAssignments(unionOfStableAndPendingAssignments);
 
             if (!isLocalInStable && !isLeaseholder) {
                 return nullCompletedFuture();
@@ -1021,12 +1021,12 @@ public class PartitionReplicaLifecycleManager extends
 
             assert replicaMgr.isReplicaStarted(zonePartitionId)
                     : "The local node is outside of the replication group [groupId=" + zonePartitionId
-                    + ", stable=" + stableAssignments
+                    + ", assignmentsUnion=" + unionOfStableAndPendingAssignments
                     + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(zonePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(unionOfStableAndPendingAssignments)));
         }));
     }
 
@@ -1040,7 +1040,7 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(zonePartitionId, stableAssignments);
+                : updatePartitionClients(zonePartitionId, union(stableAssignments, pendingAssignments.nodes()));
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()
