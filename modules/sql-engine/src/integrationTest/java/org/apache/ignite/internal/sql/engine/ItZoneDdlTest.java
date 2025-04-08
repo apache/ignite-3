@@ -175,7 +175,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testAlterZoneWithPartition() {
-        sql(String.format("CREATE ZONE %s WITH STORAGE_PROFILES='%s', PARTITIONS = 11", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+        sql(String.format("CREATE ZONE %s (PARTITIONS 11) STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = 111", ZONE_NAME)),
@@ -186,7 +186,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testAlterZoneWithPartitionWhenPartitionIsNotSetWhenCreate() {
-        sql(String.format("CREATE ZONE %s WITH STORAGE_PROFILES='%s'", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+        sql(String.format("CREATE ZONE %s STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = %s", ZONE_NAME, DEFAULT_PARTITION_COUNT + 123)),
@@ -197,7 +197,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testAlterZoneWithTheSamePartition() {
-        sql(String.format("CREATE ZONE %s WITH STORAGE_PROFILES='%s', PARTITIONS = 11", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
+        sql(String.format("CREATE ZONE %s (PARTITIONS 11) STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
 
         IgniteTestUtils.assertThrowsWithCause(
                 () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = 11", ZONE_NAME)),
@@ -284,7 +284,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     private static void tryToCreateZone(String zoneName, boolean failIfExists) {
         sql(String.format(
-                "CREATE ZONE %s WITH STORAGE_PROFILES='%s'", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName, DEFAULT_STORAGE_PROFILE
+                "CREATE ZONE %s STORAGE PROFILES ['%s']", failIfExists ? zoneName : "IF NOT EXISTS " + zoneName, DEFAULT_STORAGE_PROFILE
         ));
     }
 

@@ -57,10 +57,10 @@ public abstract class ItAbstractPartitionManagerTest extends ClusterPerTestInteg
 
     @BeforeEach
     public void setup() {
-        String zoneSql = "create zone " + ZONE_NAME + " with"
-                + " partitions=" + PARTITIONS + ","
-                + " replicas=3,"
-                + " storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+        String zoneSql = "create zone " + ZONE_NAME
+                + " (partitions " + PARTITIONS + ","
+                + " replicas 3)"
+                + " storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
 
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone " + ZONE_NAME;
 

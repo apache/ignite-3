@@ -104,8 +104,8 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected void createDistributionZoneOnStartup() {
-        var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " WITH partitions=" + partitionCount()
-                + ", replicas=" + replicaCount() + ", storage_profiles ='" + DEFAULT_STORAGE_PROFILE + "'";
+        var createZoneStatement = "CREATE ZONE IF NOT EXISTS " + ZONE_NAME + " (partitions " + partitionCount()
+                + ", replicas " + replicaCount() + ") storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
 
         try (ResultSet<SqlRow> rs = publicIgnite.sql().execute(null, createZoneStatement)) {
             // No-op.

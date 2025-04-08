@@ -78,7 +78,7 @@ public class QueryCheckerTest extends BaseIgniteAbstractTest {
 
         //noinspection ConcatenationWithEmptyString
         CLUSTER.node("N1").initSchema(""
-                + "CREATE ZONE test_zone WITH partitions=1, storage_profiles='Default';"
+                + "CREATE ZONE test_zone (partitions 1) storage profiles ['Default'];"
                 + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT) ZONE test_zone");
 
         CLUSTER.setAssignmentsProvider("T1", (partitionCount, b) -> IntStream.range(0, partitionCount)
