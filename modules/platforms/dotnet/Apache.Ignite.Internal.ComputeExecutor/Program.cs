@@ -25,6 +25,7 @@ if (string.IsNullOrWhiteSpace(serverAddr))
     throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");
 }
 
+// TODO: Set up SSL as necessary.
 var clientCfg = new IgniteClientConfiguration(serverAddr)
 {
     RetryPolicy = RetryNonePolicy.Instance // No reconnect.

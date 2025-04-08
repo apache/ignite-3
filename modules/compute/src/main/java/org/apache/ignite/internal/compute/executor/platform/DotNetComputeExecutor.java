@@ -90,6 +90,7 @@ public class DotNetComputeExecutor {
 
         ProcessBuilder processBuilder = new ProcessBuilder("dotnet", executorPath);
 
+        // TODO: Pass SSL details if present.
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_ID", executorId);
 
