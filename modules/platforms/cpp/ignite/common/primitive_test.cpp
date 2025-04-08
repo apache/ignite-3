@@ -44,10 +44,8 @@ TEST(primitive, get_column_type) {
     check_primitive_type<ignite_period>(ignite_type::PERIOD);
     check_primitive_type<ignite_duration>(ignite_type::DURATION);
     check_primitive_type<uuid>(ignite_type::UUID);
-    check_primitive_type<bit_array>(ignite_type::BITMASK);
     check_primitive_type<std::string>(ignite_type::STRING);
     check_primitive_type<std::vector<std::byte>>(ignite_type::BYTE_ARRAY);
-    check_primitive_type<big_integer>(ignite_type::NUMBER);
 }
 
 TEST(primitive, null_value_by_nullptr) {

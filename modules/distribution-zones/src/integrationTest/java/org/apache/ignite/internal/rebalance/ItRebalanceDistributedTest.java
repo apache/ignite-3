@@ -1257,16 +1257,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new NoOpFailureManager()
             ));
 
+            failureManager = new NoOpFailureManager();
+
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
-
-            failureManager = new NoOpFailureManager();
 
             ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);
 
@@ -1460,8 +1460,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             LongSupplier delayDurationMsSupplier = () -> 10L;
 
             catalogManager = new CatalogManagerImpl(
-                    new UpdateLogImpl(metaStorageManager),
+                    new UpdateLogImpl(metaStorageManager, failureManager),
                     clockService,
+                    failureManager,
                     delayDurationMsSupplier
             );
 
@@ -1490,10 +1491,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storagePath.resolve("tx-state"),
                     threadPoolsManager.commonScheduler(),
                     threadPoolsManager.tableIoExecutor(),
-                    logStorageFactory
+                    logStorageFactory,
+                    failureManager
             );
 
-            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService(), failureManager);
 
             var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
@@ -1502,6 +1504,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     clusterService.topologyService(),
                     lowWatermark,
+                    failureManager,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler,
                     threadPoolsManager.partitionOperationsExecutor(),
@@ -1542,6 +1545,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
+                    failureManager,
                     HybridTimestampTracker.atomicTracker(null),
                     placementDriver,
                     () -> mock(IgniteSql.class),

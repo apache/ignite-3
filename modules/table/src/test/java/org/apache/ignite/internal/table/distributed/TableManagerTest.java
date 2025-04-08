@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -49,11 +50,11 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.Mockito.atMost;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.times;
@@ -90,6 +91,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -328,6 +331,8 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         tblManagerFut = new CompletableFuture<>();
 
+        when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(100L));
+
         mockMetastore();
     }
 
@@ -403,7 +408,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThat(tblManagerFut, willCompleteSuccessfully());
 
-        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager);
+        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager, new NoOpFailureManager());
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
@@ -434,8 +439,6 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-24397 - remove @WithSystemProperty.
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     public void testDropTable() throws Exception {
         mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
 
@@ -446,15 +449,20 @@ public class TableManagerTest extends IgniteAbstractTest {
         assertNull(tableManager.table(DYNAMIC_TABLE_FOR_DROP_NAME));
         assertEquals(0, tableManager.tables().size());
 
-        verify(mvTableStorage, atMost(0)).destroy();
-        verify(txStateStorage, atMost(0)).destroy();
-        verify(replicaMgr, atMost(0)).stopReplica(any());
+        verify(mvTableStorage, never()).destroy();
+        verify(txStateStorage, never()).destroy();
+        verify(replicaMgr, never()).stopReplica(any());
 
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
         verify(mvTableStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
         verify(txStateStorage, timeout(TimeUnit.SECONDS.toMillis(10))).destroy();
-        verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
+
+        if (enabledColocation()) {
+            verify(replicaMgr, never()).stopReplica(any());
+        } else {
+            verify(replicaMgr, timeout(TimeUnit.SECONDS.toMillis(10)).times(PARTITIONS)).stopReplica(any());
+        }
     }
 
     /**
@@ -752,6 +760,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(msm.invoke(any(), any(Operation.class), any(Operation.class))).thenReturn(trueCompletedFuture());
         when(msm.invoke(any(), anyList(), anyList())).thenReturn(trueCompletedFuture());
         when(msm.get(any())).thenReturn(nullCompletedFuture());
+        when(msm.removeAll(any())).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
@@ -841,9 +850,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,
-                logSyncer
+                logSyncer,
+                mock(FailureProcessor.class)
         );
 
+        var failureProcessor = new NoOpFailureManager();
         var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -866,10 +877,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 scheduledExecutor,
                 scheduledExecutor,
                 new TestClockService(clock),
-                new OutgoingSnapshotsManager(node.name(), clusterService.messagingService()),
+                new OutgoingSnapshotsManager(node.name(), clusterService.messagingService(), failureProcessor),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
+                failureProcessor,
                 HybridTimestampTracker.atomicTracker(null),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),

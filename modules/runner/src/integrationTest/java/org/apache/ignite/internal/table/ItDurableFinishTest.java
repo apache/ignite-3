@@ -267,7 +267,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 .getConfiguration(ReplicationExtensionConfiguration.KEY);
 
         replicationExtensionConfiguration.replication().change(replicationChange ->
-                replicationChange.changeRpcTimeout(3000));
+                replicationChange.changeRpcTimeoutMillis(3000));
 
         Context context = prepareTransactionData();
 

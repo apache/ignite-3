@@ -17,28 +17,46 @@
 
 package org.apache.ignite.internal.disaster;
 
+import static java.util.Collections.emptySet;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.is;
 
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.reflect.Method;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
 // TODO https://issues.apache.org/jira/browse/IGNITE-24335
@@ -50,16 +68,30 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
     private static final String ZONE_NAME = "ZONE_" + TABLE_NAME;
 
+    private static final int INITIAL_NODES = 1;
+
     @Override
     protected int initialNodes() {
-        return 1;
+        return INITIAL_NODES;
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp(TestInfo testInfo) {
+        Method testMethod = testInfo.getTestMethod().orElseThrow();
+
+        ZoneParams zoneParams = testMethod.getAnnotation(ZoneParams.class);
+
+        if (zoneParams != null) {
+            IntStream.range(INITIAL_NODES, zoneParams.nodes()).forEach(i -> cluster.startNode(i));
+        }
+
+        int replicas = zoneParams != null ? zoneParams.replicas() : initialNodes();
+
+        int partitions = zoneParams != null ? zoneParams.partitions() : initialNodes();
+
         executeSql(String.format(
                 "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s) STORAGE PROFILES ['%s']",
-                ZONE_NAME, initialNodes(), initialNodes(), DEFAULT_STORAGE_PROFILE
+                ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
 
         executeSql(String.format(
@@ -95,6 +127,142 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         assertThat(selectAll(), hasSize(4));
     }
 
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
+    void testLocalPartitionStateTable() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> localStateTableFuture =
+                node.disasterRecoveryManager().localTablePartitionStates(emptySet(), emptySet(), emptySet());
+
+        assertThat(localStateTableFuture, willCompleteSuccessfully());
+        Map<TablePartitionId, LocalTablePartitionStateByNode> localState = localStateTableFuture.get();
+
+        // 2 partitions.
+        assertThat(localState, aMapWithSize(2));
+
+        int tableId = tableId(node);
+
+        // Partitions size is 2.
+        for (int partitionId = 0; partitionId < 2; partitionId++) {
+            LocalTablePartitionStateByNode partitionStateByNode = localState.get(new TablePartitionId(tableId, partitionId));
+            // 2 nodes.
+            assertThat(partitionStateByNode.values(), hasSize(2));
+
+            for (LocalTablePartitionState state : partitionStateByNode.values()) {
+                assertThat(state.tableId, is(tableId));
+                assertThat(state.tableName, is(TABLE_NAME));
+                assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
+                assertThat(state.partitionId, is(partitionId));
+                assertThat(state.zoneName, is(ZONE_NAME));
+                assertThat(state.state, is(LocalPartitionStateEnum.HEALTHY));
+            }
+        }
+    }
+
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
+    void testLocalPartitionStateZone() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
+                node.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet());
+
+        assertThat(localStateTableFuture, willCompleteSuccessfully());
+        Map<ZonePartitionId, LocalPartitionStateByNode> localState = localStateTableFuture.get();
+
+        // A default zone and a custom zone, which was created in `BeforeEach`.
+        // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
+        assertThat(localState, aMapWithSize(27));
+
+        int zoneId = zoneId(node);
+
+        // Partitions size is 2.
+        for (int partitionId = 0; partitionId < 2; partitionId++) {
+            LocalPartitionStateByNode partitionStateByNode = localState.get(new ZonePartitionId(zoneId, partitionId));
+            // 2 nodes.
+            assertThat(partitionStateByNode.values(), hasSize(2));
+
+            for (LocalPartitionState state : partitionStateByNode.values()) {
+                assertThat(state.zoneId, is(zoneId));
+                assertThat(state.zoneName, is(ZONE_NAME));
+                assertThat(state.partitionId, is(partitionId));
+                assertThat(state.state, is(LocalPartitionStateEnum.HEALTHY));
+            }
+        }
+    }
+
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
+    void testGlobalPartitionStateTable() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> globalStatesFuture =
+                node.disasterRecoveryManager().globalTablePartitionStates(emptySet(), emptySet());
+
+        assertThat(globalStatesFuture, willCompleteSuccessfully());
+        Map<TablePartitionId, GlobalTablePartitionState> globalState = globalStatesFuture.get();
+
+        // 2 partitions.
+        assertThat(globalState, aMapWithSize(2));
+
+        int tableId = tableId(node);
+
+        // Partitions size is 2.
+        for (int partitionId = 0; partitionId < 2; partitionId++) {
+            GlobalTablePartitionState state = globalState.get(new TablePartitionId(tableId, partitionId));
+            assertThat(state.tableId, is(tableId));
+            assertThat(state.tableName, is(TABLE_NAME));
+            assertThat(state.schemaName, is(SqlCommon.DEFAULT_SCHEMA_NAME));
+            assertThat(state.partitionId, is(partitionId));
+            assertThat(state.zoneName, is(ZONE_NAME));
+            assertThat(state.state, is(GlobalPartitionStateEnum.AVAILABLE));
+        }
+    }
+
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
+    void testGlobalPartitionStateZone() throws Exception {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> globalStatesFuture =
+                node.disasterRecoveryManager().globalPartitionStates(emptySet(), emptySet());
+
+        assertThat(globalStatesFuture, willCompleteSuccessfully());
+        Map<ZonePartitionId, GlobalPartitionState> globalState = globalStatesFuture.get();
+
+        // A default zone and a custom zone, which was created in `BeforeEach`.
+        // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
+        assertThat(globalState, aMapWithSize(27));
+
+        int zoneId = zoneId(node);
+
+        // Partitions size is 2.
+        for (int partitionId = 0; partitionId < 2; partitionId++) {
+            GlobalPartitionState state = globalState.get(new ZonePartitionId(zoneId, partitionId));
+            assertThat(state.zoneId, is(zoneId));
+            assertThat(state.zoneName, is(ZONE_NAME));
+            assertThat(state.partitionId, is(partitionId));
+            assertThat(state.state, is(GlobalPartitionStateEnum.AVAILABLE));
+        }
+    }
+
     private void insert(int id, int val) {
         executeSql(String.format(
                 "INSERT INTO %s (id, val) VALUES (%s, %s)",
@@ -113,7 +281,20 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return ((Wrapper) node.tables().table(TABLE_NAME)).unwrap(TableImpl.class).tableId();
     }
 
+    private static int zoneId(IgniteImpl node) {
+        return node.catalogManager().catalog(node.catalogManager().latestCatalogVersion()).zone(ZONE_NAME).id();
+    }
+
     private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, TablePartitionId tablePartitionId) {
         return node.placementDriver().awaitPrimaryReplica(tablePartitionId, node.clock().now(), 60, SECONDS);
+    }
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @interface ZoneParams {
+        int replicas() default INITIAL_NODES;
+
+        int partitions() default INITIAL_NODES;
+
+        int nodes() default INITIAL_NODES;
     }
 }

@@ -75,8 +75,8 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     private static void aggressiveLowWatermarkIncrease(InitParametersBuilder builder) {
         builder.clusterConfiguration("{\n"
                 + "  ignite.gc.lowWatermark {\n"
-                + "    dataAvailabilityTime: 1000,\n"
-                + "    updateInterval: 100\n"
+                + "    dataAvailabilityTimeMillis: 1000,\n"
+                + "    updateIntervalMillis: 100\n"
                 + "  }\n"
                 + "}");
     }

@@ -32,6 +32,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -98,6 +99,8 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /** Write-ahead log synchronizer. */
     private final LogSyncer logSyncer;
 
+    private final FailureProcessor failureProcessor;
+
     private volatile ColumnFamily txStateColumnFamily;
 
     private volatile ColumnFamily txStateMetaColumnFamily;
@@ -110,15 +113,17 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
      *         blocking, long or IO operations.
      * @param threadPool Thread pool for internal operations.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param failureProcessor Failure processor.
      * @see RocksDbFlusher
      */
     public TxStateRocksDbSharedStorage(
             Path dbPath,
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
-            LogSyncer logSyncer
+            LogSyncer logSyncer,
+            FailureProcessor failureProcessor
     ) {
-        this(dbPath, scheduledExecutor, threadPool, logSyncer, TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER);
+        this(dbPath, scheduledExecutor, threadPool, logSyncer, failureProcessor, TX_STATE_STORAGE_FLUSH_DELAY_SUPPLIER);
     }
 
     /**
@@ -129,6 +134,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
      *         blocking, long or IO operations.
      * @param threadPool Thread pool for internal operations.
      * @param logSyncer Write-ahead log synchronizer.
+     * @param failureProcessor Failure processor.
      * @param flushDelaySupplier Flush delay supplier.
      * @see RocksDbFlusher
      */
@@ -137,6 +143,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
             ScheduledExecutorService scheduledExecutor,
             ExecutorService threadPool,
             LogSyncer logSyncer,
+            FailureProcessor failureProcessor,
             IntSupplier flushDelaySupplier
     ) {
         this.dbPath = dbPath;
@@ -144,6 +151,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
         this.threadPool = threadPool;
         this.flushDelaySupplier = flushDelaySupplier;
         this.logSyncer = logSyncer;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -183,6 +191,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
                     threadPool,
                     flushDelaySupplier,
                     logSyncer,
+                    failureProcessor,
                     () -> {} // No-op.
             );
 

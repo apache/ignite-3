@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
@@ -28,7 +29,6 @@ import org.apache.calcite.util.BitSets;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
-import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
@@ -89,10 +89,9 @@ public class ProjectedTableRowConverterSelfTest extends BaseIgniteAbstractTest {
 
         ProjectedTableRowConverterImpl converter = new ProjectedTableRowConverterImpl(
                 schemaRegistry,
-                BinaryTupleSchema.createRowSchema(schema),
                 schema,
                 BitSets.of(1, 3),
-                List.of()
+                Int2ObjectMaps.emptyMap()
         );
 
         RowWrapper row = converter.toRow(executionContext, binaryRow, rowFactory);

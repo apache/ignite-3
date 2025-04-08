@@ -41,8 +41,8 @@ public class ItBplusTreeReuseListVolatilePageMemoryTest extends AbstractBplusTre
             polymorphicExtensions = VolatilePageMemoryProfileConfigurationSchema.class,
             value = "mock = {"
                     + "engine=aimem, "
-                    + "initSize=" + MAX_MEMORY_SIZE
-                    + ", maxSize=" + MAX_MEMORY_SIZE
+                    + "initSizeBytes=" + MAX_MEMORY_SIZE
+                    + ", maxSizeBytes=" + MAX_MEMORY_SIZE
                     + "}"
     )
     private StorageProfileConfiguration storageProfileCfg;

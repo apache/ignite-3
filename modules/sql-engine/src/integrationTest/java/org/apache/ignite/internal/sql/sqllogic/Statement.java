@@ -118,6 +118,7 @@ final class Statement extends Command {
                 IgniteStringBuilder detailsBuilder = new IgniteStringBuilder("Not expected result at: ")
                         .app(posDesc).app('.').nl()
                         .app('\t').app("Statement: ").app(qry).app('.').nl()
+                        .app('\t').app("Loop variables: ").app(ctx.loopVars).nl()
                         .app('\t').app("Expected: ");
 
                 Throwable err = Assertions.assertThrows(

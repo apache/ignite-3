@@ -490,6 +490,7 @@ public interface InternalTable extends ManuallyCloseable {
      *
      * @return Transaction states' storage.
      */
+    // TODO: remove this method as a part of https://issues.apache.org/jira/browse/IGNITE-22522.
     TxStateStorage txStateStorage();
 
     // TODO: IGNITE-14488. Add invoke() methods.
@@ -524,10 +525,10 @@ public interface InternalTable extends ManuallyCloseable {
     /**
      * Returns {@link ClusterNode} where primary replica of replication group is located.
      *
-     * @param partitionId Replication group ID.
+     * @param partitionIndex Partition index.
      * @return Cluster node with primary replica.
      */
-    CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId partitionId);
+    CompletableFuture<ClusterNode> partitionLocation(int partitionIndex);
 
     /**
      * Returns the <em>estimated size</em> of this table.

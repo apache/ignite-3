@@ -101,7 +101,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
+        long livenessCheckIntervalMs = configuration.livenessCheckIntervalMillis().value();
 
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
                 this::probeLiveness,
@@ -124,7 +124,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     private void doProbeLiveness() {
-        long maxAllowedLag = configuration.maxAllowedLag().value();
+        long maxAllowedLag = configuration.maxAllowedLagMillis().value();
 
         Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);
 

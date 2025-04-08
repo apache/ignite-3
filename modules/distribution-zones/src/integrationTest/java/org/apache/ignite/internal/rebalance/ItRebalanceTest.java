@@ -68,7 +68,7 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
 
     @Override
     protected void customizeInitParameters(InitParametersBuilder builder) {
-        builder.clusterConfiguration("ignite.replication.rpcTimeout: 8000");
+        builder.clusterConfiguration("ignite.replication.rpcTimeoutMillis: 8000");
     }
 
     @Override

@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.Mockito.mock;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +35,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.TopologyService;
@@ -73,7 +75,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
             @InjectExecutorService ScheduledExecutorService scheduler,
             @InjectExecutorService ExecutorService executor
     ) {
-        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduler, executor, logSyncer, () -> 0);
+        sharedStorage = new TxStateRocksDbSharedStorage(workDir, scheduler, executor, logSyncer, mock(FailureProcessor.class), () -> 0);
 
         manager = new ZoneResourcesManager(
                 sharedStorage,
@@ -81,6 +83,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
                 outgoingSnapshotsManager,
                 topologyService,
                 catalogService,
+                mock(FailureProcessor.class),
                 executor
         );
 

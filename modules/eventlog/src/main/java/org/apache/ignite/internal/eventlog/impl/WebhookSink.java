@@ -102,8 +102,8 @@ class WebhookSink implements Sink<WebhookSinkView> {
 
         executorService.scheduleAtFixedRate(
                 this::tryToSendBatch,
-                cfg.batchSendFrequency(),
-                cfg.batchSendFrequency(),
+                cfg.batchSendFrequencyMillis(),
+                cfg.batchSendFrequencyMillis(),
                 MILLISECONDS
         );
     }
@@ -149,7 +149,8 @@ class WebhookSink implements Sink<WebhookSinkView> {
 
         do {
             if (retryCounter > 0) {
-                long backoff = Math.min((long) (rp.initBackoff() * Math.pow(rp.backoffMultiplier(), retryCounter)), rp.maxBackoff());
+                long currentBackoff = (long) (rp.initBackoffMillis() * Math.pow(rp.backoffMultiplier(), retryCounter));
+                long backoff = Math.min(currentBackoff, rp.maxBackoffMillis());
 
                 try {
                     Thread.sleep(backoff);
@@ -197,7 +198,7 @@ class WebhookSink implements Sink<WebhookSinkView> {
         Collection<Event> batch = new ArrayList<>(cfg.batchSize());
 
         while (!events.isEmpty() && (events.size() >= cfg.batchSize()
-                || System.currentTimeMillis() - lastSendMillis > cfg.batchSendFrequency())) {
+                || System.currentTimeMillis() - lastSendMillis > cfg.batchSendFrequencyMillis())) {
             events.drainTo(batch, cfg.batchSize());
 
             sendInternal(batch);

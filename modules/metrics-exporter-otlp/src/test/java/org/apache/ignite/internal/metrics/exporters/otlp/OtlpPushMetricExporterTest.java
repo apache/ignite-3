@@ -80,7 +80,7 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
-    @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, period = 300, endpoint = \"http://localhost:4317\"}}")
+    @InjectConfiguration("mock.exporters = {otlp = {exporterName = otlp, periodMillis = 300, endpoint = \"http://localhost:4317\"}}")
     private MetricConfiguration metricConfiguration;
 
     private static final UUID CLUSTER_ID = UUID.randomUUID();
@@ -157,7 +157,7 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
         mutateConfiguration(metricConfiguration, change ->
                 change.changeExporters().update("otlp", exporterChange ->
                         exporterChange.convert(OtlpExporterChange.class)
-                                .changePeriod(1000L)
+                                .changePeriodMillis(1000L)
                 )
         );
 

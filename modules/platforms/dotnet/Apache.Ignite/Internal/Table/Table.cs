@@ -88,16 +88,16 @@ namespace Apache.Ignite.Internal.Table
         /// <summary>
         /// Initializes a new instance of the <see cref="Table"/> class.
         /// </summary>
-        /// <param name="name">Table name.</param>
+        /// <param name="qualifiedName">Table name.</param>
         /// <param name="id">Table id.</param>
         /// <param name="socket">Socket.</param>
         /// <param name="sql">SQL.</param>
-        public Table(string name, int id, ClientFailoverSocket socket, Sql sql)
+        public Table(QualifiedName qualifiedName, int id, ClientFailoverSocket socket, Sql sql)
         {
             _socket = socket;
             _sql = sql;
 
-            Name = name;
+            QualifiedName = qualifiedName;
             Id = id;
 
             _logger = socket.Configuration.LoggerFactory.CreateLogger<Table>();
@@ -120,7 +120,10 @@ namespace Apache.Ignite.Internal.Table
         }
 
         /// <inheritdoc/>
-        public string Name { get; }
+        public string Name => QualifiedName.CanonicalName;
+
+        /// <inheritdoc/>
+        public QualifiedName QualifiedName { get; }
 
         /// <inheritdoc/>
         public IRecordView<IIgniteTuple> RecordBinaryView { get; }

@@ -30,6 +30,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -98,6 +100,8 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Meta Storage manager. */
     private final MetaStorageManager metastore;
 
+    private final FailureProcessor failureProcessor;
+
     private final AssignmentsTracker assignmentsTracker;
 
     private final PlacementDriver placementDriver;
@@ -114,6 +118,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
      * @param clockService Clock service.
+     * @param failureProcessor Failure processor.
      */
     public PlacementDriverManager(
             String nodeName,
@@ -125,6 +130,7 @@ public class PlacementDriverManager implements IgniteComponent {
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             ClockService clockService,
+            FailureProcessor failureProcessor,
             ReplicationConfiguration replicationConfiguration
     ) {
         this.replicationGroupId = replicationGroupId;
@@ -133,17 +139,19 @@ public class PlacementDriverManager implements IgniteComponent {
         this.raftManager = raftManager;
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metastore = metastore;
+        this.failureProcessor = failureProcessor;
 
         this.raftClientFuture = new CompletableFuture<>();
 
         this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore);
+        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
                 metastore,
+                failureProcessor,
                 logicalTopologyService,
                 leaseTracker,
                 clockService,
@@ -184,7 +192,7 @@ public class PlacementDriverManager implements IgniteComponent {
                         if (ex == null) {
                             raftClientFuture.complete(client);
                         } else {
-                            LOG.error("Placement driver initialization exception", ex);
+                            failureProcessor.process(new FailureContext(ex, "Placement driver initialization exception"));
 
                             raftClientFuture.completeExceptionally(ex);
                         }

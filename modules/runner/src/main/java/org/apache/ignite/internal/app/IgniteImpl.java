@@ -606,7 +606,7 @@ public class IgniteImpl implements Ignite {
                 new DefaultIgniteProductVersionSource()
         );
 
-        clock = new HybridClockImpl();
+        clock = new HybridClockImpl(failureManager);
 
         clockWaiter = new ClockWaiter(name, clock, threadPoolsManager.commonScheduler());
 
@@ -671,7 +671,7 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
         logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
@@ -791,6 +791,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 storage,
                 metaStorageMgr,
+                failureManager,
                 readOperationForCompactionTracker,
                 systemDistributedConfiguration
         );
@@ -798,14 +799,15 @@ public class IgniteImpl implements Ignite {
         SchemaSynchronizationConfiguration schemaSyncConfig = clusterConfigRegistry
                 .getConfiguration(SchemaSynchronizationExtensionConfiguration.KEY).schemaSync();
 
-        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkew().value());
+        clockService = new ClockServiceImpl(clock, clockWaiter, () -> schemaSyncConfig.maxClockSkewMillis().value());
 
         idempotentCacheVacuumizer = new IdempotentCacheVacuumizer(
                 name,
                 threadPoolsManager.commonScheduler(),
                 metaStorageMgr::evictIdempotentCommandsCache,
-                raftConfiguration.retryTimeout(),
+                raftConfiguration.retryTimeoutMillis(),
                 clockService,
+                failureManager,
                 1,
                 1,
                 MINUTES
@@ -828,6 +830,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
+                failureManager,
                 replicationConfig
         );
 
@@ -902,17 +905,18 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage()
         );
 
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService(), failureManager);
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
+                new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
+                failureManager,
                 delayDurationMsSupplier
         );
 
-        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
         systemViewManager.register(catalogManager);
@@ -942,6 +946,7 @@ public class IgniteImpl implements Ignite {
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
+                failureManager,
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService
@@ -1001,14 +1006,16 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                failureManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 storagePath.resolve(TX_STATE_DIR),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
+                partitionsLogStorageFactory,
+                failureManager
         );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -1018,6 +1025,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 clusterSvc.topologyService(),
                 lowWatermark,
+                failureManager,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -1042,7 +1050,8 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 transactionInflights,
                 txManager,
-                lowWatermark
+                lowWatermark,
+                failureManager
         );
 
         distributedTblMgr = new TableManager(
@@ -1071,6 +1080,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
+                failureManager,
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
                 this::bareSql,
@@ -1093,7 +1103,8 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 clusterSvc.topologyService(),
                 distributedTblMgr,
-                metricManager
+                metricManager,
+                failureManager
         );
 
         systemViewManager.register(disasterRecoveryManager);
@@ -1288,11 +1299,11 @@ public class IgniteImpl implements Ignite {
     }
 
     private static LongSupplier delayDurationMsSupplier(SchemaSynchronizationConfiguration schemaSyncConfig) {
-        return () -> schemaSyncConfig.delayDuration().value();
+        return () -> schemaSyncConfig.delayDurationMillis().value();
     }
 
     private static LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier(ReplicationConfiguration replicationConfig) {
-        return () -> replicationConfig.idleSafeTimePropagationDuration().value();
+        return () -> replicationConfig.idleSafeTimePropagationDurationMillis().value();
     }
 
     private AuthenticationManager createAuthenticationManager() {
@@ -2078,7 +2089,7 @@ public class IgniteImpl implements Ignite {
 
     /**
      * Converts the entire configuration from the registry to a HOCON string without spaces, comments and quotes. For example,
-     * "ignite{clientConnector{connectTimeout=5000,idleTimeout=0}}".
+     * "ignite{clientConnector{connectTimeoutMillis=5000,idleTimeoutMillis=0}}".
      */
     private static String convertToHoconString(ConfigurationRegistry configRegistry) {
         return HoconConverter.represent(configRegistry.superRoot(), List.of()).render(ConfigRenderOptions.concise().setJson(false));

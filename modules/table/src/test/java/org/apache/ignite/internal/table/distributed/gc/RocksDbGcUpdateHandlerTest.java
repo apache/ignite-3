@@ -26,6 +26,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
@@ -65,7 +66,8 @@ class RocksDbGcUpdateHandlerTest extends AbstractGcUpdateHandlerTest {
                 storageConfiguration,
                 workDir,
                 mock(LogSyncer.class),
-                scheduledExecutor
+                scheduledExecutor,
+                mock(FailureProcessor.class)
         );
 
         engine.start();

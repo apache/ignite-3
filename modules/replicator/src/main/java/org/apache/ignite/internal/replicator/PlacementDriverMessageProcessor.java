@@ -29,6 +29,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -87,6 +89,8 @@ public class PlacementDriverMessageProcessor {
 
     private final TopologyAwareRaftGroupService raftClient;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * The constructor of a replica server.
      *
@@ -99,8 +103,8 @@ public class PlacementDriverMessageProcessor {
      * @param executor External executor.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Raft client.
+     * @param failureProcessor Failure processor.
      */
-
     PlacementDriverMessageProcessor(
             ReplicationGroupId groupId,
             ClusterNode localNode,
@@ -109,7 +113,8 @@ public class PlacementDriverMessageProcessor {
             BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
             ExecutorService executor,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
-            TopologyAwareRaftGroupService raftClient
+            TopologyAwareRaftGroupService raftClient,
+            FailureProcessor failureProcessor
     ) {
         this.groupId = groupId;
         this.localNode = localNode;
@@ -119,6 +124,7 @@ public class PlacementDriverMessageProcessor {
         this.executor = executor;
         this.storageIndexTracker = storageIndexTracker;
         this.raftClient = raftClient;
+        this.failureProcessor = failureProcessor;
 
         raftClient.subscribeLeader(this::onLeaderElected);
     }
@@ -137,7 +143,8 @@ public class PlacementDriverMessageProcessor {
                             Throwable ex = unwrapCause(e);
 
                             if (!(ex instanceof NodeStoppingException) && !(ex instanceof TrackerClosedException)) {
-                                LOG.warn("Failed to process the lease granted message [msg={}].", ex, msg);
+                                String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
                             }
 
                             // Just restart the negotiation in case of exception.

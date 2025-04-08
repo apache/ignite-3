@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.AbstractMvPartitionStorageConcurrencyTest;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -51,12 +52,19 @@ public class RocksDbMvPartitionStorageConcurrencyTest extends AbstractMvPartitio
     void setUp(
             @WorkDirectory Path workDir,
             // Explicit size, small enough for fast allocation, and big enough to fit some data without flushing it to disk constantly.
-            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, size = 16777216, writeBufferSize = 67108864}")
+            @InjectConfiguration("mock.profiles.default = {engine = rocksdb, sizeBytes = 16777216, writeBufferSizeBytes = 67108864}")
             StorageConfiguration storageConfiguration,
             @InjectExecutorService
             ScheduledExecutorService scheduledExecutor
     ) {
-        engine = new RocksDbStorageEngine("test", storageConfiguration, workDir, mock(LogSyncer.class), scheduledExecutor);
+        engine = new RocksDbStorageEngine(
+                "test",
+                storageConfiguration,
+                workDir,
+                mock(LogSyncer.class),
+                scheduledExecutor,
+                mock(FailureProcessor.class)
+        );
 
         engine.start();
 

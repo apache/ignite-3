@@ -89,7 +89,7 @@ namespace Apache.Ignite.Internal.Table
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
             var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration);
-            var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.Name);
+            var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.QualifiedName);
 
             if (typeof(T).IsKeyValuePair())
             {

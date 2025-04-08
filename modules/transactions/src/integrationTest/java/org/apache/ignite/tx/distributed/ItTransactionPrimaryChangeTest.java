@@ -63,7 +63,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
-            + "  raft: { responseTimeout: 30000 },"
+            + "  raft: { responseTimeoutMillis: 30000 },"
             + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
@@ -90,7 +90,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
                 + "      txnResourceTtl: 2"
                 + "  },"
                 + "  replication: {"
-                + "      rpcTimeout: 30000"
+                + "      rpcTimeoutMillis: 30000"
                 + "  },"
                 + "}");
     }

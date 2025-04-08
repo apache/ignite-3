@@ -32,7 +32,7 @@ import org.jetbrains.annotations.Nullable;
  *
  * <p>Factory methods expects that given names (both: schema name and object name) respect SQL syntax rules for identifiers.
  * <ul>
- * <li>Identifier must starts from any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”.
+ * <li>Identifier must start from any character in the Unicode General Category classes “Lu”, “Ll”, “Lt”, “Lm”, “Lo”, or “Nl”.
  * <li>Identifier character (expect the first one) may be U+00B7 (middle dot), or any character in the Unicode General Category classes
  * “Mn”, “Mc”, “Nd”, “Pc”, or “Cf”.
  * <li>Identifier that contains any other characters must be quoted with double-quotes.

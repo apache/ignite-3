@@ -130,7 +130,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     /**
      * Nodes bootstrap configuration pattern.
      *
-     * <p>installSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
+     * <p>installSnapshotTimeoutMillis is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
     private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
@@ -138,7 +138,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
-            + "  raft.installSnapshotTimeout: 10000,\n"
+            + "  raft.installSnapshotTimeoutMillis: 10000,\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "

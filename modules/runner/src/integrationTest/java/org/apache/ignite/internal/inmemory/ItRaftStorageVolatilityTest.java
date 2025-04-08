@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -40,6 +41,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -77,7 +79,19 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
 
-        assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
+        if (enabledColocation()) {
+            int zoneId = testZoneId(ignite);
+
+            // Check that there are no meta files for partitions of the table.
+            assertThat(
+                    partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith(zoneId + "_part_")),
+                    everyItem(not(exists())));
+
+            // The default zone still exists and uses persistent profile.
+            assertThat(partitionRaftMetaPaths(ignite, p -> p.getFileName().toString().startsWith("0_part_")), everyItem(exists()));
+        } else {
+            assertThat(partitionRaftMetaPaths(ignite), everyItem(not(exists())));
+        }
     }
 
     private void createInMemoryTable() {
@@ -95,8 +109,19 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
      * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
      */
     private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite) {
+        return partitionRaftMetaPaths(ignite, p -> true);
+    }
+
+    /**
+     * Returns paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
+     *
+     * @param ignite Ignite instance.
+     * @param predicate Predicate to filter paths.
+     * @return Paths for 'meta' directories corresponding to Raft meta storages for partitions of the test table.
+     */
+    private static List<Path> partitionRaftMetaPaths(IgniteImpl ignite, Predicate<Path> predicate) {
         try (Stream<Path> paths = Files.list(ignite.partitionsWorkDir().metaPath())) {
-            return paths.collect(toList());
+            return paths.filter(predicate).collect(toList());
         } catch (NoSuchFileException e) {
             return List.of();
         } catch (IOException e) {
@@ -111,6 +136,15 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     private static int testTableId(IgniteImpl ignite) {
         TableManager tables = unwrapTableManager(ignite.tables());
         return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).tableId();
+    }
+
+    private static String testZonePartitionPrefix(IgniteImpl ignite) {
+        return testZoneId(ignite) + "_part_";
+    }
+
+    private static int testZoneId(IgniteImpl ignite) {
+        TableManager tables = unwrapTableManager(ignite.tables());
+        return tables.tableView(QualifiedName.fromSimple(TABLE_NAME)).zoneId();
     }
 
     @Test
@@ -177,7 +211,9 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         createPersistentTable();
 
         IgniteImpl ignite = unwrapIgniteImpl(node(0));
-        String tablePartitionPrefix = testTablePartitionPrefix(ignite);
+        String partitionPrefix = enabledColocation()
+                ? testZonePartitionPrefix(ignite)
+                : testTablePartitionPrefix(ignite);
 
         stopNode(0);
 
@@ -193,8 +229,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         List<ColumnFamilyHandle> cfHandles = new ArrayList<>();
 
         try (RocksDB db = RocksDB.open(logRocksDbDir.toString(), cfDescriptors, cfHandles)) {
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(0));
-            assertThatFamilyHasDataForPartition(db, tablePartitionPrefix, cfHandles.get(1));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(0));
+            assertThatFamilyHasDataForPartition(db, partitionPrefix, cfHandles.get(1));
         }
     }
 

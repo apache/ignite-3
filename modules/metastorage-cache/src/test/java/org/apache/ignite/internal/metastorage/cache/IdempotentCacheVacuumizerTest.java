@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.TestHybridClock;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -100,6 +101,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 evictionTimestamp::set,
                 idempotentCacheTtlConfigurationValue,
                 clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -137,6 +139,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 ignored -> touchCounter.incrementAndGet(),
                 idempotentCacheTtlConfigurationValue,
                 clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -192,6 +195,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 ignored -> touchCounter.incrementAndGet(),
                 idempotentCacheTtlConfigurationValue,
                 clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS
@@ -244,6 +248,7 @@ public class IdempotentCacheVacuumizerTest extends BaseIgniteAbstractTest {
                 vacuumizationActionStub,
                 idempotentCacheTtlConfigurationValue,
                 clockService,
+                mock(FailureProcessor.class),
                 0,
                 1,
                 TimeUnit.MILLISECONDS

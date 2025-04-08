@@ -109,7 +109,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
-            + "  raft: { responseTimeout: 30000 },"
+            + "  raft: { responseTimeoutMillis: 30000 },"
             + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
@@ -144,7 +144,7 @@ public class ItTxResourcesVacuumTest extends ClusterPerTestIntegrationTest {
                 + "      txnResourceTtl: 0"
                 + "  },"
                 + "  replication: {"
-                + "      rpcTimeout: 30000"
+                + "      rpcTimeoutMillis: 30000"
                 + "  },"
                 + "}");
     }

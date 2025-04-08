@@ -43,6 +43,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -237,7 +238,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 Throwable cause = e.getCause();
 
                 if (!(cause instanceof CancellationException)) {
-                    LOG.error("Error when completing the copier", cause);
+                    partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
 
                     if (isOk()) {
                         setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
@@ -493,7 +494,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         try {
             if (throwable != null) {
-                LOG.error("Partition rebalancing error [{}]", throwable, createPartitionInfo());
+                String errorMessage = String.format("Partition rebalancing error [%s]", createPartitionInfo());
+                partitionSnapshotStorage.failureProcessor().process(new FailureContext(throwable, errorMessage));
 
                 if (isOk()) {
                     setError(RaftError.UNKNOWN, throwable.getMessage());
