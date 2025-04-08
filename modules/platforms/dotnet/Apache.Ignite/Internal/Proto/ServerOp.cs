@@ -17,33 +17,14 @@
 
 namespace Apache.Ignite.Internal.Proto;
 
-using System;
-using System.Diagnostics.CodeAnalysis;
-
 /// <summary>
-/// Response flags.
+/// Server -> client operation codes.
 /// </summary>
-[Flags]
-[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-internal enum ResponseFlags
+internal enum ServerOp
 {
-    /// <summary>
-    /// Indicates partition assignment update.
-    /// </summary>
-    PartitionAssignmentChanged = 1,
+    /** None */
+    None = 0,
 
-    /// <summary>
-    /// Indicates a server-to-client notification.
-    /// </summary>
-    Notification = 2,
-
-    /// <summary>
-    /// Indicates error response.
-    /// </summary>
-    Error = 4,
-
-    /// <summary>
-    /// Indicates that a server-to-client operation (server sends request, client returns response).
-    /// </summary>
-    ServerOp = 8
+    /** Execute platform compute job. */
+    PlatformComputeJobExec = 1
 }

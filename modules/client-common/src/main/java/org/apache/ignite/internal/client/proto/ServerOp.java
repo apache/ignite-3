@@ -15,35 +15,12 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+package org.apache.ignite.internal.client.proto;
 
-using System;
-using System.Diagnostics.CodeAnalysis;
-
-/// <summary>
-/// Response flags.
-/// </summary>
-[Flags]
-[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-internal enum ResponseFlags
-{
-    /// <summary>
-    /// Indicates partition assignment update.
-    /// </summary>
-    PartitionAssignmentChanged = 1,
-
-    /// <summary>
-    /// Indicates a server-to-client notification.
-    /// </summary>
-    Notification = 2,
-
-    /// <summary>
-    /// Indicates error response.
-    /// </summary>
-    Error = 4,
-
-    /// <summary>
-    /// Indicates that a server-to-client operation (server sends request, client returns response).
-    /// </summary>
-    ServerOp = 8
+/**
+ * Server -> client operation codes.
+ */
+public class ServerOp {
+    /** Execute platform compute job. */
+    public static final int PLATFORM_COMPUTE_JOB_EXEC = 1;
 }

@@ -276,6 +276,12 @@ namespace Apache.Ignite.Internal
             DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
                 .WaitAsync(_operationTimeout);
 
+        public async Task SendServerOpResponseAsync(
+            long requestId,
+            PooledArrayBuffer? response)
+        {
+        }
+
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -858,9 +864,9 @@ namespace Apache.Ignite.Internal
             }
 
             // TODO: Make it more generic with op codes and message format overall.
-            if ((flags & ResponseFlags.ComputeExecutorRequest) != 0)
+            if ((flags & ResponseFlags.ServerOp) != 0)
             {
-                Debug.Assert(exception == null, "Compute executor request should not have an exception.");
+                Debug.Assert(exception == null, "Server op should not have an exception.");
                 return HandleComputeExecutorRequest(requestId, response);
             }
 

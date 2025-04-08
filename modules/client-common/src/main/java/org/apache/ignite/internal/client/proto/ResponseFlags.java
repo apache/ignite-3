@@ -30,8 +30,8 @@ public class ResponseFlags {
     /** Error flag. */
     private static final int ERROR_FLAG = 4;
 
-    /** Compute executor request flag. */
-    private static final int COMPUTE_EXECUTOR_REQUEST_FLAG = 8;
+    /** Server -> client operation. */
+    private static final int SERVER_OP_FLAG = 8;
 
     /**
      * Gets flags as int.
@@ -43,7 +43,7 @@ public class ResponseFlags {
             boolean partitionAssignmentChanged,
             boolean isNotification,
             boolean hasError,
-            boolean computeExecutorRequest) {
+            boolean serverOp) {
         var flags = 0;
 
         if (partitionAssignmentChanged) {
@@ -58,8 +58,8 @@ public class ResponseFlags {
             flags |= ERROR_FLAG;
         }
 
-        if (computeExecutorRequest) {
-            flags |= COMPUTE_EXECUTOR_REQUEST_FLAG;
+        if (serverOp) {
+            flags |= SERVER_OP_FLAG;
         }
 
         return flags;

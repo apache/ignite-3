@@ -146,9 +146,6 @@ namespace Apache.Ignite.Internal.Proto
         TablesGetQualified = 71,
 
         /** Get table by qualified name. */
-        TableGetQualified = 72,
-
-        /** Return job result from compute executor. */
-        ComputeExecutorReturnJobResult = 73
+        TableGetQualified = 72
     }
 }
