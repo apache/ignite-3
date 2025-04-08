@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -996,7 +997,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow,
                     EXPIRE_FREQ_MILLIS, EXPIRE_FREQ_MILLIS, MILLISECONDS);
 
-            lockRetryCount = (int) longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE);
+            lockRetryCount = toIntExact(longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE));
 
             return nullCompletedFuture();
         });
