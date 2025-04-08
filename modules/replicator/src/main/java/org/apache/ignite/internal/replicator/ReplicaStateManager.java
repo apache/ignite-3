@@ -350,7 +350,7 @@ class ReplicaStateManager {
                         : clockService.waitFor(leaseExpirationTime);
             } else {
                 // context.unreserve() has been called in parallel, no need to wait.
-                context.deferredStopReadyFuture = CompletableFuture.completedFuture(null);
+                context.deferredStopReadyFuture = nullCompletedFuture();
             }
 
             return context.deferredStopReadyFuture
