@@ -6,12 +6,19 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import io.netty.util.ResourceLeakDetector;
 import io.netty.util.ResourceLeakDetector.Level;
 import java.lang.reflect.Method;
-import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.Ignite;
+import org.apache.ignite.compute.ComputeJob;
+import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterConfiguration;
-import org.apache.ignite.internal.testframework.WorkDirectory;
+import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Scope;
@@ -46,12 +53,8 @@ public class ItComputeBenchmark {
     /** Cluster nodes. */
     private Cluster CLUSTER;
 
-    /** Work directory. */
-    @WorkDirectory
-    private Path WORK_DIR;
-
     @Setup
-    protected void startCluster() {
+    public void startCluster() {
         ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(new TestInfo() {
                     @Override
                     public String getDisplayName() {
@@ -72,7 +75,7 @@ public class ItComputeBenchmark {
                     public Optional<Method> getTestMethod() {
                         return Optional.empty();
                     }
-                }, WORK_DIR)
+                }, Paths.get(""))
                 .defaultNodeBootstrapConfigTemplate(NODE_BOOTSTRAP_CFG_TEMPLATE);
 
         CLUSTER = new Cluster(clusterConfiguration.build());
@@ -81,7 +84,7 @@ public class ItComputeBenchmark {
     }
 
     @TearDown
-    protected void stopCluster() {
+    public void stopCluster() {
         CLUSTER.shutdown();
     }
 
@@ -95,7 +98,19 @@ public class ItComputeBenchmark {
 
     @Benchmark
     public void get() {
-        CLUSTER.aliveNode().tables().tables();
+        Ignite sourceNode = CLUSTER.node(0);
+
+        Optional<ClusterNode> remoteNode = sourceNode.clusterNodes()
+                .stream()
+                .filter(x -> "n_n_3346".equals(x.name()))
+                .findFirst();
+
+        JobTarget target = JobTarget.node(remoteNode.get());
+
+        JobDescriptor<Object, Object> desc = JobDescriptor.builder(EchoJob.class).build();
+
+        var res = sourceNode.compute().execute(target, desc, "hello");
+        assert res.equals("hello");
     }
 
     /**
@@ -118,5 +133,12 @@ public class ItComputeBenchmark {
                 .build();
 
         new Runner(opt).run();
+    }
+
+    private static class EchoJob implements ComputeJob<Object, Object> {
+        @Override
+        public @Nullable CompletableFuture<Object> executeAsync(JobExecutionContext context, @Nullable Object arg) {
+            return CompletableFuture.completedFuture(arg);
+        }
     }
 }
