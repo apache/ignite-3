@@ -25,6 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -73,6 +75,8 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     /** Raft client. */
     private final RaftCommandRunner raftClient;
 
+    private final FailureProcessor failureProcessor;
+
     private final ZonePartitionId replicationGroupId;
 
     private final ReplicaPrimacyEngine replicaPrimacyEngine;
@@ -106,10 +110,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             LeasePlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
+            FailureProcessor failureProcessor,
             ClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
         this.raftClient = raftClient;
+        this.failureProcessor = failureProcessor;
 
         this.replicationGroupId = replicationGroupId;
 
@@ -168,7 +174,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
         txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
 
-        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(txStatePartitionStorage, txManager, replicationGroupId);
+        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(
+                txStatePartitionStorage,
+                txManager,
+                failureProcessor,
+                replicationGroupId
+        );
 
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
@@ -319,15 +330,16 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     @Override
     public void onShutdown() {
         replicaProcessors.forEach((tableId, listener) -> {
-                    try {
-                        listener.onShutdown();
-                    } catch (Throwable th) {
-                        LOG.error("Error during table partition listener stop for [tableId="
-                                        + tableId + ", partitionId=" + replicationGroupId.partitionId() + "].",
-                                th
-                        );
-                    }
-                }
-        );
+            try {
+                listener.onShutdown();
+            } catch (Throwable th) {
+                String errorMessage = String.format(
+                        "Error during table partition listener stop for [tableId=%s, partitionId=%s].",
+                        tableId,
+                        replicationGroupId.partitionId()
+                );
+                failureProcessor.process(new FailureContext(th, errorMessage));
+            }
+        });
     }
 }

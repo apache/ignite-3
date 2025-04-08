@@ -26,6 +26,7 @@ import static org.mockito.Mockito.mock;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.startup.StartupPartitionSnapshotReader;
@@ -67,6 +68,7 @@ class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
                 emptyMap(),
                 mock(PartitionTxStateAccess.class),
                 mock(CatalogService.class),
+                mock(FailureProcessor.class),
                 metaForCleanStorage,
                 mock(Executor.class)
         );

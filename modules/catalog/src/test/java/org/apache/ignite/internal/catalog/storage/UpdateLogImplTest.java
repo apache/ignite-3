@@ -53,6 +53,7 @@ import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSer
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -206,7 +207,7 @@ class UpdateLogImplTest extends BaseIgniteAbstractTest {
     }
 
     private UpdateLogImpl createUpdateLogImpl() {
-        return new UpdateLogImpl(metastore, new UpdateLogMarshallerImpl(new TestEntrySerializerProvider()));
+        return new UpdateLogImpl(metastore, new NoOpFailureManager(), new UpdateLogMarshallerImpl(new TestEntrySerializerProvider()));
     }
 
     private UpdateLogImpl createAndStartUpdateLogImpl(OnUpdateHandler onUpdateHandler) {

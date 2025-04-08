@@ -40,6 +40,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.InternalTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -79,7 +81,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -89,13 +90,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     private static final String LOCAL_NODE_NAME = "LOCAL_NODE_NAME";
 
-    private final CatalogManager catalog = Mockito.mock(CatalogManager.class);
+    private final CatalogManager catalog = mock(CatalogManager.class);
 
     private SystemViewManagerImpl viewMgr;
 
     @BeforeEach
     void setUp() {
-        viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog);
+        viewMgr = new SystemViewManagerImpl(LOCAL_NODE_NAME, catalog, mock(FailureProcessor.class));
     }
 
     @Test
