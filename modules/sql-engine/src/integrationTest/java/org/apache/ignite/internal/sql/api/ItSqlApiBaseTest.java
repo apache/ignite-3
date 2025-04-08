@@ -1304,6 +1304,8 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             await(cancelFut);
 
+            rs.close();
+
             startBarrier.reset();
         }
     }
