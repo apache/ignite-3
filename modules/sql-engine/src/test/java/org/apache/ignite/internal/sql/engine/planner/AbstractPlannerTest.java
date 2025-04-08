@@ -408,7 +408,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         try {
             return PlannerHelper.optimize(sqlNode, planner);
         } catch (Throwable ex) {
-            System.err.println(planner.dump());
+            // no need to trigger TC with inner NPE
+            System.err.println(planner.dump().replace("java.lang.NullPointerException", "RedefinedNullPointerException"));
 
             throw ex;
         }
