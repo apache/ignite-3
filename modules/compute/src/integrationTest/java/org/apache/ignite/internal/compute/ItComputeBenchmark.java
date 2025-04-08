@@ -15,6 +15,8 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterConfiguration;
@@ -119,8 +121,36 @@ public class ItComputeBenchmark {
         execJavaJob(sourceNode, target);
     }
 
+    @Benchmark
+    public void execDotNetLocal() {
+        Ignite sourceNode = CLUSTER.node(2);
+        JobTarget target = JobTarget.node(getClusterNode3(sourceNode).get());
+
+        execDotNetJob(sourceNode, target);
+    }
+
+    @Benchmark
+    public void execDotNetRemote() {
+        Ignite sourceNode = CLUSTER.node(0);
+        JobTarget target = JobTarget.node(getClusterNode3(sourceNode).get());
+
+        execDotNetJob(sourceNode, target);
+    }
+
     private static void execJavaJob(Ignite sourceNode, JobTarget target) {
         JobDescriptor<Object, Object> desc = JobDescriptor.builder(EchoJob.class).build();
+
+        var res = sourceNode.compute().execute(target, desc, "hello");
+        assert res.equals("hello");
+    }
+
+    private static void execDotNetJob(Ignite sourceNode, JobTarget target) {
+        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build();
+
+        JobDescriptor<Object, Object> desc = JobDescriptor
+                .builder("Apache.Ignite.Internal.ComputeExecutor.EchoJob, Apache.Ignite.Internal.ComputeExecutor")
+                .options(jobExecutionOptions)
+                .build();
 
         var res = sourceNode.compute().execute(target, desc, "hello");
         assert res.equals("hello");
