@@ -12,6 +12,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
+import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -69,6 +70,8 @@ public class ItComputeBenchmark {
     /** Cluster nodes. */
     private Cluster CLUSTER;
 
+    private IgniteClient CLIENT;
+
     @Setup
     public void startCluster() {
         ClusterConfiguration.Builder clusterConfiguration = ClusterConfiguration.builder(new TestInfo() {
@@ -97,6 +100,8 @@ public class ItComputeBenchmark {
         CLUSTER = new Cluster(clusterConfiguration.build());
 
         CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes());
+
+        CLIENT = IgniteClient.builder().addresses("localhost:10802").build();
     }
 
     @TearDown
@@ -115,6 +120,14 @@ public class ItComputeBenchmark {
     @Benchmark
     public void execJavaLocal() {
         Ignite sourceNode = CLUSTER.node(2);
+        JobTarget target = JobTarget.node(getClusterNode3(sourceNode).get());
+
+        execJavaJob(sourceNode, target);
+    }
+
+    @Benchmark
+    public void execJavaLocalClient() {
+        Ignite sourceNode = CLIENT;
         JobTarget target = JobTarget.node(getClusterNode3(sourceNode).get());
 
         execJavaJob(sourceNode, target);
