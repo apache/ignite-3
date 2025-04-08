@@ -38,6 +38,13 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
 
+/**
+ * Benchmark            Mode  Cnt      Score      Error   Units
+ * execJavaLocal        avgt    3     24.401 ±   11.221   us/op
+ * execDotNetLocal      avgt    3     67.523 ±   61.175   us/op
+ * execJavaRemote       avgt    3    100.285 ±   45.470   us/op
+ * execDotNetRemote     avgt    3    128.691 ±   73.251   us/op
+ */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -176,9 +183,9 @@ public class ItComputeBenchmark {
                 .include(ItComputeBenchmark.class.getSimpleName())
                 .addProfiler("gc")
                 .warmupIterations(3)
-                .warmupTime(TimeValue.seconds(5))
+                .warmupTime(TimeValue.seconds(7))
                 .measurementIterations(3)
-                .measurementTime(TimeValue.seconds(5))
+                .measurementTime(TimeValue.seconds(15))
                 .forks(1)
                 .build();
 
