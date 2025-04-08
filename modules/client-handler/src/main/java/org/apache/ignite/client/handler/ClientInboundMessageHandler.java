@@ -103,7 +103,6 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -114,7 +113,6 @@ import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
-import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
@@ -240,6 +238,10 @@ public class ClientInboundMessageHandler
     private final Consumer<ClientInboundMessageHandler> onHandshake;
 
     private final Consumer<ClientInboundMessageHandler> onDisconnect;
+
+    private final AtomicLong serverToClientRequestId = new AtomicLong(0);
+
+    private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
 
     /**
      * Constructor.
@@ -664,10 +666,8 @@ public class ClientInboundMessageHandler
             }
 
             if (opCode == ClientOp.SERVER_OP_RESPONSE) {
-                try (in) {
-                    processServerOpResponse(requestId, in);
-                    return;
-                }
+                processServerOpResponse(requestId, in);
+                return;
             }
 
             if (isPartitionOperation(opCode)) {
@@ -1190,14 +1190,56 @@ public class ClientInboundMessageHandler
             List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder arg) {
-        // TODO: use ServerOp flag and op code.
-        return CompletableFuture.failedFuture(new UnsupportedOperationException("IMPLEMENT ME"));
+        //             // TODO: Pass marsh and class from the job.
+        //            Object jobResult = ClientComputeJobUnpacker.unpackJobResult(in, null, null);
+    }
+
+    private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(Consumer<ClientMessagePacker> writer) {
+        var requestId = serverToClientRequestId.incrementAndGet();
+        var packer = getPacker(channelHandlerContext.alloc());
+
+        try {
+            packer.packLong(requestId);
+            int flags = ResponseFlags.getFlags(false, false, false, true);
+            packer.packInt(flags);
+            writer.accept(packer);
+
+            var fut = new CompletableFuture<ClientMessageUnpacker>();
+            serverToClientRequests.put(requestId, fut);
+
+            write(packer, channelHandlerContext);
+
+            return fut;
+        } catch (Throwable t) {
+            packer.close();
+            serverToClientRequests.remove(requestId);
+
+            return CompletableFuture.failedFuture(t);
+        }
     }
 
     private void processServerOpResponse(long requestId, ClientMessageUnpacker in) {
-        int flags = in.unpackInt();
+        try (in) {
+            var fut = serverToClientRequests.remove(requestId);
 
-        // TODO: Pass marsh and class from the job.
-        Object jobResult = ClientComputeJobUnpacker.unpackJobResult(in, null, null);
+            if (fut == null) {
+                // TODO: Log warning?
+                return;
+            }
+
+            int flags = in.unpackInt();
+
+            if (flags == 0) {
+                // No error.
+                fut.complete(in);
+            } else {
+                // Error.
+                // TODO: Deserialize.
+                fut.completeExceptionally(new IllegalStateException("TODO: Client returned error"));
+            }
+
+        } catch (Throwable t) {
+            LOG.warn("Unexpected error processing server response: " + t.getMessage(), t);
+        }
     }
 }
