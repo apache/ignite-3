@@ -573,7 +573,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
         }
 
         @Nullable HybridTimestamp opTs = tableAwareReplicaRequestPreProcessor.getOperationTimestamp(request);
-        @Nullable HybridTimestamp opTsIfDirectRo = opTs;
+        @Nullable HybridTimestamp opTsIfDirectRo = (request instanceof ReadOnlyDirectReplicaRequest) ? opTs : null;
         if (enabledColocation()) {
             return processOperationRequestWithTxOperationManagementLogic(senderId, request, replicaPrimacy, opTsIfDirectRo);
         } else {

@@ -79,7 +79,28 @@ class IndexBuilder implements ManuallyCloseable {
         this.executor = executor;
     }
 
-
+    /**
+     * Schedules building the index if it is not already built or is not yet in progress.
+     *
+     * <p>Notes:</p>
+     * <ul>
+     *     <li>Index is built in batches using {@link BuildIndexReplicaRequest}, which are then transformed into {@link BuildIndexCommand}
+     *     on the replica, batches are sent sequentially.</li>
+     *     <li>It is expected that the index building is triggered by the primary replica.</li>
+     *     <li>If the index has already been built or after the building is complete, {@link IndexBuildCompletionListener#onBuildCompletion}
+     *     will be notified.</li>
+     * </ul>
+     *
+     * @param zoneId Distribution zone ID.
+     * @param tableId Table ID.
+     * @param partitionId Partition ID.
+     * @param indexId Index ID.
+     * @param indexStorage Index storage to build.
+     * @param partitionStorage Multi-versioned partition storage.
+     * @param node Node to which requests to build the index will be sent.
+     * @param enlistmentConsistencyToken Enlistment consistency token is used to check that the lease is still actual while the message goes
+     *      to the replica.
+     */
     public void scheduleBuildIndex(
             int zoneId,
             int tableId,

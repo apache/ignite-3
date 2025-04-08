@@ -24,7 +24,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.BuildIndexReplicaRequestImpl;
 import org.apache.ignite.internal.partition.replicator.network.replication.GetEstimatedSizeRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
@@ -100,9 +99,7 @@ public class TableAwareReplicaRequestPreProcessor {
 
         int tableId = ((TableAware) request).tableId();
 
-        @Nullable HybridTimestamp finalTxTs = request instanceof BuildIndexReplicaRequest
-                ? ((BuildIndexReplicaRequest) request).timestamp()
-                : txTs;
+        @Nullable HybridTimestamp finalTxTs = txTs;
         Runnable validateClo = () -> {
             schemaCompatValidator.failIfTableDoesNotExistAt(opTs, tableId);
 
