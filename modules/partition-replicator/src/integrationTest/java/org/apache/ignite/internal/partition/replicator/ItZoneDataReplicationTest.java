@@ -19,30 +19,54 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.anEmptyMap;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
+import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.engine.MvTableStorage;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.raft.jraft.rpc.Message;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotRequest;
+import org.apache.ignite.raft.jraft.rpc.RpcRequests.InstallSnapshotResponse;
 import org.apache.ignite.table.KeyValueView;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Class containing tests related to Raft-based replication for the Colocation feature.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     /**
      * Tests that inserted data is replicated to all replica nodes.
@@ -199,6 +223,141 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         assertThat(kvView.get(null, 42), is(42));
     }
 
+    /**
+     * Tests the following scenario.
+     *
+     * <ol>
+     *     <li>Create a table and fill it with data;</li>
+     *     <li>Truncate Raft log to force snapshot installation on joining nodes;</li>
+     *     <li>Drop the table, but do not update the low watermark;</li>
+     *     <li>Add a new node to the cluster;</li>
+     *     <li>Existing node will start streaming the snapshot to the joining node. At the same time, update the Low Watermark value
+     *     to force deletion of table storages on the existing node;</li>
+     *     <li>Validate that concurrent snapshot streaming and storages removals do not interfere with each other.</li>
+     * </ol>
+     */
+    @Test
+    void testTableDropInTheMiddleOfRebalanceOnOutgoingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
+        startCluster(1);
+
+        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
+
+        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+
+        Node node = cluster.get(0);
+
+        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+
+        Map<Integer, Integer> data = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
+
+        kvView.putAll(null, data);
+
+        var partitionId = new ZonePartitionId(zoneId, 0);
+
+        truncateLogOnEveryNode(partitionId);
+
+        dropTable(node.catalogManager, DEFAULT_SCHEMA_NAME, TEST_TABLE_NAME1);
+
+        CompletableFuture<Void> outgoingSnapshotInstallationStartedFuture = startBlockOutgoingSnapshot(node, partitionId);
+
+        Node newNode = addNodeToCluster();
+
+        // After we detected that snapshot is going to be installed, update the low watermark to start table removal and allow the
+        // snapshot to proceed.
+        CompletableFuture<Void> runRaceFuture = outgoingSnapshotInstallationStartedFuture
+                .thenRunAsync(() -> {
+                    node.lowWatermark.updateLowWatermark(node.hybridClock.now());
+
+                    verify(tableStorage(node, tableId), never()).destroyPartition(anyInt());
+
+                    stopBlockingMessages(node, partitionId);
+                }, executorService);
+
+        assertThat(runRaceFuture, willCompleteSuccessfully());
+
+        MvPartitionStorage mvPartition = tableStorage(newNode, tableId).getMvPartition(0);
+
+        assertThat(mvPartition, is(notNullValue()));
+
+        assertTrue(waitForCondition(() -> mvPartition.estimatedSize() == data.size(), 10_000));
+    }
+
+    /**
+     * Similar to {@link #testTableDropInTheMiddleOfRebalanceOnOutgoingSide} but tests table storage removal during an incoming snapshot
+     * rather than outgoing.
+     */
+    @Test
+    void testTableDropInTheMiddleOfRebalanceOnIncomingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
+        startCluster(1);
+
+        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
+
+        int tableId = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
+
+        Node node = cluster.get(0);
+
+        KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
+
+        Map<Integer, Integer> data = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
+
+        kvView.putAll(null, data);
+
+        var partitionId = new ZonePartitionId(zoneId, 0);
+
+        truncateLogOnEveryNode(partitionId);
+
+        // Block outgoing snapshot so that we have time to register mocks on the receiving side.
+        startBlockOutgoingSnapshot(node, partitionId);
+
+        Node newNode = addNodeToCluster();
+
+        assertTrue(waitForCondition(() -> tableStorage(newNode, tableId) != null, 10_000));
+
+        MvTableStorage tableStorage = tableStorage(newNode, tableId);
+
+        var firstConditionReachedFuture = new CompletableFuture<Void>();
+        var secondConditionReachedFuture = new CompletableFuture<Void>();
+
+        doAnswer(invocationOnMock -> {
+            CompletableFuture<Void> result = secondConditionReachedFuture.thenCompose(v -> {
+                try {
+                    return (CompletableFuture<Void>) invocationOnMock.callRealMethod();
+                } catch (Throwable e) {
+                    throw new CompletionException(e);
+                }
+            });
+
+            firstConditionReachedFuture.complete(null);
+
+            return result;
+        }).when(tableStorage).startRebalancePartition(anyInt());
+
+        // Mocks have been registered, unblock snapshot on the sending side.
+        stopBlockingMessages(node, partitionId);
+
+        dropTable(node.catalogManager, DEFAULT_SCHEMA_NAME, TEST_TABLE_NAME1);
+
+        // This actually blocks confirmation on of the snapshot having been installed from the receiving side. This is needed to make it
+        // easier to call verification on mocks: we check that partition was only removed after the snapshot installation has been
+        // completed.
+        startBlockIncomingSnapshot(newNode, partitionId);
+
+        CompletableFuture<Void> runRaceFuture = firstConditionReachedFuture
+                .thenRunAsync(() -> {
+                    newNode.lowWatermark.updateLowWatermark(newNode.hybridClock.now());
+
+                    secondConditionReachedFuture.complete(null);
+
+                    verify(tableStorage, timeout(1_000).times(0)).destroyPartition(anyInt());
+
+                    stopBlockingMessages(newNode, partitionId);
+                }, executorService);
+
+        assertThat(runRaceFuture, willCompleteSuccessfully());
+
+        verify(tableStorage, timeout(10_000)).destroyPartition(anyInt());
+    }
+
     private void truncateLogOnEveryNode(ReplicationGroupId groupId) {
         CompletableFuture<?>[] truncateFutures = cluster.stream()
                 .map(node -> truncateLog(node, groupId))
@@ -212,5 +371,51 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         return node.replicaManager.replica(groupId)
                 .thenCompose(replica -> replica.createSnapshotOn(member, true));
+    }
+
+    private static @Nullable MvTableStorage tableStorage(Node node, int tableId) {
+        TableImpl table = node.tableManager.startedTables().get(tableId);
+
+        return table == null ? null : table.internalTable().storage();
+    }
+
+    private static CompletableFuture<Void> startBlockOutgoingSnapshot(Node node, ZonePartitionId partitionId) throws InterruptedException {
+        return startBlockingMessages(node, partitionId, InstallSnapshotRequest.class);
+    }
+
+    private static void stopBlockingMessages(Node node, ZonePartitionId partitionId) {
+        var raftNodeId = new RaftNodeId(partitionId, new Peer(node.name));
+
+        ((JraftServerImpl) node.raftManager.server()).stopBlockMessages(raftNodeId);
+    }
+
+    private static CompletableFuture<Void> startBlockIncomingSnapshot(Node node, ZonePartitionId partitionId) throws InterruptedException {
+        return startBlockingMessages(node, partitionId, InstallSnapshotResponse.class);
+    }
+
+    private static CompletableFuture<Void> startBlockingMessages(
+            Node node,
+            ZonePartitionId partitionId,
+            Class<? extends Message> messageType
+    ) throws InterruptedException {
+        var raftServer = (JraftServerImpl) node.raftManager.server();
+
+        var raftNodeId = new RaftNodeId(partitionId, new Peer(node.name));
+
+        // Wait for the Raft node to start.
+        assertTrue(waitForCondition(() -> raftServer.raftGroupService(raftNodeId) != null, 10_000));
+
+        var conditionReachedFuture = new CompletableFuture<Void>();
+
+        raftServer.blockMessages(raftNodeId, (msg, peerId) -> {
+            if (messageType.isInstance(msg)) {
+                conditionReachedFuture.complete(null);
+
+                return true;
+            }
+            return false;
+        });
+
+        return conditionReachedFuture;
     }
 }
