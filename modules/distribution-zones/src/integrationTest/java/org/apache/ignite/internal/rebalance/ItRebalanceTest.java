@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
@@ -43,7 +42,6 @@ import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
@@ -173,9 +171,7 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
         assertTrue(waitForCondition(() -> {
             IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
-            CompletableFuture<Set<Assignment>> assignmentsFuture = enabledColocation()
-                    ? ZoneRebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), table.zoneId(), 0)
-                    : stablePartitionAssignments(ignite.metaStorageManager(), table.tableId(), 0);
+            CompletableFuture<Set<Assignment>> assignmentsFuture = stablePartitionAssignments(ignite.metaStorageManager(), table, 0);
 
             Set<String> assignments = await(assignmentsFuture)
                     .stream()

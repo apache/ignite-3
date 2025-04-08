@@ -23,6 +23,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignments;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
+import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssignments;
+import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssignmentsKey;
+import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
@@ -33,8 +40,6 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -206,7 +211,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicaTestUtils;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationExtensionConfigurationSchema;
 import org.apache.ignite.internal.rest.configuration.RestExtensionConfigurationSchema;
@@ -549,7 +553,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(countDownLatch.await(10, SECONDS));
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-        int tableOrZoneId = enabledColocation() ? nonLeaderTable.internalTable().zoneId() : nonLeaderTable.tableId();
+        int tableOrZoneId = enabledColocation() ? nonLeaderTable.zoneId() : nonLeaderTable.tableId();
         assertThat(
                 ReplicaTestUtils.getRaftClient(nonLeaderNode.replicaManager, tableOrZoneId, 0)
                         .map(raftClient -> raftClient.transferLeadership(new Peer(nonLeaderNodeConsistentId)))
@@ -751,6 +755,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
+
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         electPrimaryReplica(node);
@@ -765,13 +771,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .consistentId();
 
         Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
-
-        int zoneId = getZoneIdByTableNameStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
-        int tableId = getTableIdStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, 0);
 
         // Write the new assignments to metastore as a pending assignments.
         {
-            ByteArray partAssignmentsPendingKey = partitionPendingAssignmentsKey(zoneId, tableId, 0);
+            ByteArray partAssignmentsPendingKey = pendingPartitionAssignmentsKey(partitionGroupId);
 
             int catalogVersion = node.catalogManager.latestCatalogVersion();
             long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -804,13 +808,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ));
 
         // Checks that there no any replicas outside replication group
-        PartitionGroupId partitionGroupId;
-        if (enabledColocation()) {
-            partitionGroupId = new ZonePartitionId(zoneId, 0);
-        } else {
-            partitionGroupId = new TablePartitionId(tableId, 0);
-        }
-
         Predicate<Node> isNodeOutsideReplicationGroup = n -> !isNodeInAssignments(n, newAssignment);
         assertTrue(waitForCondition(
                 () -> nodes.stream()
@@ -829,8 +826,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        int zoneId = getZoneIdByTableNameStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
-        int tableId = getTableIdStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
 
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
@@ -849,9 +845,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .name;
 
         Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         // Write the new assignments to metastore as a pending assignments.
-        ByteArray partAssignmentsPendingKey = partitionPendingAssignmentsKey(zoneId, tableId, 0);
+        ByteArray partAssignmentsPendingKey = pendingPartitionAssignmentsKey(partId);
 
         int catalogVersion = node.catalogManager.latestCatalogVersion();
         long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -879,10 +876,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         ));
 
         // Checks that there no any replicas outside replication group
-        PartitionGroupId partId = enabledColocation()
-                ? new ZonePartitionId(zoneId, 0)
-                : new TablePartitionId(tableId, 0);
-
         Predicate<Node> isNodeOutsideReplicationGroup = n -> !isNodeInAssignments(n, union);
 
         assertTrue(waitForCondition(
@@ -939,7 +932,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
         return ReplicaTestUtils.getRaftClient(node.replicaManager, getTableOrZoneId(node, TABLE_NAME), 0)
-                .map(raftClient -> raftClient.peers().stream().collect(toSet()).equals(desiredPeers))
+                .map(raftClient -> new HashSet<>(raftClient.peers()).equals(desiredPeers))
                 .orElse(false);
     }
 
@@ -972,18 +965,17 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3);
 
         Node node0 = getNode(0);
+        TableViewInternal table = unwrapTableViewInternal(node0.tableManager.table(TABLE_NAME));
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, 0);
 
         int catalogVersion = node0.catalogManager.latestCatalogVersion();
         long timestamp = node0.catalogManager.catalog(catalogVersion).time();
 
-        int zoneId = getZoneIdByTableNameStrict(node0.catalogManager, TABLE_NAME, node0.hybridClock.nowLong());
-        int tableId = getTableIdStrict(node0.catalogManager, TABLE_NAME, node0.hybridClock.nowLong());
-
         byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, timestamp));
         byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);
 
-        ByteArray partAssignmentsPendingKey = partitionPendingAssignmentsKey(zoneId, tableId, 0);
-        ByteArray partAssignmentsPlannedKey = partitionPlannedAssignmentsKey(zoneId, tableId, 0);
+        ByteArray partAssignmentsPendingKey = pendingPartitionAssignmentsKey(partitionGroupId);
+        ByteArray partAssignmentsPlannedKey = plannedPartitionAssignmentsKey(partitionGroupId);
 
         Map<ByteArray, byte[]> msEntries = new HashMap<>();
 
@@ -1055,12 +1047,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private void electPrimaryReplica(Node primaryReplicaNode) throws InterruptedException {
         Node leaseholderNode = getLeaseholderNodeForPartition(primaryReplicaNode, 0);
 
-        int zoneId = getZoneIdByTableNameStrict(primaryReplicaNode.catalogManager, TABLE_NAME, primaryReplicaNode.hybridClock.nowLong());
-        int tableId = getTableIdStrict(primaryReplicaNode.catalogManager, TABLE_NAME, primaryReplicaNode.hybridClock.nowLong());
+        TableViewInternal table = unwrapTableViewInternal(leaseholderNode.tableManager.table(TABLE_NAME));
 
-        PartitionGroupId groupId = enabledColocation()
-                ? new ZonePartitionId(zoneId, 0)
-                : new TablePartitionId(tableId, 0);
+        PartitionGroupId groupId = partitionReplicationGroupId(table, 0);
 
         assertTrue(waitForCondition(() -> isReplicationGroupStarted(leaseholderNode, groupId), AWAIT_TIMEOUT_MILLIS));
 
@@ -1091,92 +1080,27 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private static Set<Assignment> getPartitionStableAssignments(Node node, String tableName, int partNum) {
-        int zoneId = getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong());
-        int tableId = getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong());
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
         return Optional
-                .ofNullable(partitionStableAssignments(node.metaStorageManager, zoneId, tableId, partNum).join())
+                .ofNullable(stablePartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
     }
 
     private static Set<Assignment> getPartitionPendingAssignments(Node node, int partNum) {
-        int zoneId = getZoneIdByTableNameStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
-        int tableId = getTableIdStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
 
         return Optional
-                .ofNullable(partitionPendingAssignments(node.metaStorageManager, zoneId, tableId, partNum).join())
+                .ofNullable(pendingPartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
     }
 
     private static Set<Assignment> getPartitionPlannedAssignments(Node node, int partNum) {
-        int zoneId = getZoneIdByTableNameStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
-        int tableId = getTableIdStrict(node.catalogManager, TABLE_NAME, node.hybridClock.nowLong());
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
 
         return Optional
-                .ofNullable(partitionPlannedAssignments(node.metaStorageManager, zoneId, tableId, partNum).join())
+                .ofNullable(plannedPartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
-    }
-
-    private static CompletableFuture<Set<Assignment>> partitionStableAssignments(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int tableId,
-            int partitionNumber
-    ) {
-        return partitionAssignments(metaStorageManager, partitionStableAssignmentsKey(zoneId, tableId, partitionNumber));
-    }
-
-    private static ByteArray partitionStableAssignmentsKey(int zoneId, int tableId, int partitionNumber) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber));
-        } else {
-            return stablePartAssignmentsKey(new TablePartitionId(tableId, partitionNumber));
-        }
-    }
-
-    private static CompletableFuture<Set<Assignment>> partitionPendingAssignments(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int tableId,
-            int partitionNumber
-    ) {
-        return metaStorageManager
-                .get(partitionPendingAssignmentsKey(zoneId, tableId, partitionNumber))
-                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
-    }
-
-    private static ByteArray partitionPendingAssignmentsKey(int zoneId, int tableId, int partitionNumber) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, partitionNumber));
-        } else {
-            return pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partitionNumber));
-        }
-    }
-
-    private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int tableId,
-            int partitionNumber
-    ) {
-        return partitionAssignments(metaStorageManager, partitionPlannedAssignmentsKey(zoneId, tableId, partitionNumber));
-    }
-
-    private static ByteArray partitionPlannedAssignmentsKey(int zoneId, int tableId, int partitionNumber) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.plannedPartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber));
-        } else {
-            return plannedPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber));
-        }
-    }
-
-    private static CompletableFuture<Set<Assignment>> partitionAssignments(
-            MetaStorageManager metaStorageManager,
-            ByteArray assignmentsKey
-    ) {
-        return metaStorageManager
-                .get(assignmentsKey)
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     private class Node {
@@ -1795,9 +1719,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         PartitionGroupId getPartitionGroupId(String tableName, int partitionId) {
             InternalTable internalTable = getInternalTable(this, tableName);
 
-            return enabledColocation()
-                    ? new ZonePartitionId(internalTable.zoneId(), partitionId)
-                    : new TablePartitionId(internalTable.tableId(), partitionId);
+            return partitionReplicationGroupId(internalTable, partitionId);
         }
     }
 
@@ -1882,9 +1804,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {
         InternalTable table = getInternalTable(node, tableName);
 
-        PartitionGroupId partitionGroupId = enabledColocation()
-                ? new ZonePartitionId(table.zoneId(), partitionId)
-                : new TablePartitionId(table.tableId(), partitionId);
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, partitionId);
 
         node.finishHandleChangeStableAssignmentEventFutures.put(partitionGroupId, new CompletableFuture<>());
     }
@@ -1903,9 +1823,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             InternalTable table = getInternalTable(node, tableName);
 
-            PartitionGroupId partitionGroupId = enabledColocation()
-                    ? new ZonePartitionId(table.zoneId(), partitionId)
-                    : new TablePartitionId(table.tableId(), partitionId);
+            PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, partitionId);
 
             CompletableFuture<Void> future = node.finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId);
 

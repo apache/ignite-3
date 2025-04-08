@@ -181,7 +181,6 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     private Set<String> stableAssignmentNodes() {
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
-        // The prefix for stable assignments in the metastorage.
         var stableAssignmentsPrefix = enabledColocation()
                 ? new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
                 : new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
