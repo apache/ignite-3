@@ -32,6 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -71,6 +73,8 @@ class IndexBuildTask {
 
     private final ReplicaService replicaService;
 
+    private final FailureProcessor failureProcessor;
+
     private final Executor executor;
 
     private final IgniteSpinBusyLock busyLock;
@@ -98,6 +102,7 @@ class IndexBuildTask {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
+            FailureProcessor failureProcessor,
             Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
@@ -111,6 +116,7 @@ class IndexBuildTask {
         this.indexStorage = indexStorage;
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
+        this.failureProcessor = failureProcessor;
         this.executor = executor;
         this.busyLock = busyLock;
         this.batchSize = batchSize;
@@ -140,7 +146,8 @@ class IndexBuildTask {
                             if (ignorable(throwable)) {
                                 LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
                             } else {
-                                LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                                String errorMessage = String.format("Index build error: [%s]", createCommonIndexInfo());
+                                failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
 
                             taskFuture.completeExceptionally(throwable);

@@ -426,7 +426,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftGroupEventsClientListener
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureProcessor);
 
         var clusterInitializer = new ClusterInitializer(
                 clusterSvc,
@@ -578,6 +578,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
+                failureProcessor,
                 clusterConfigRegistry.getConfiguration(ReplicationExtensionConfiguration.KEY).replication()
         );
 
@@ -636,7 +637,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                failureProcessor
         );
 
         ResourceVacuumManager resourceVacuumManager = new ResourceVacuumManager(
@@ -646,7 +648,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 clusterSvc.messagingService(),
                 transactionInflights,
                 txManager,
-                lowWatermark
+                lowWatermark,
+                failureProcessor
         );
 
         var registry = new MetaStorageRevisionListenerRegistry(metaStorageMgr);
@@ -678,7 +681,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         LongSupplier delayDurationMsSupplier = () -> TestIgnitionManager.DEFAULT_DELAY_DURATION_MS;
 
         var catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
+                new UpdateLogImpl(metaStorageMgr, failureProcessor),
                 clockService,
                 failureProcessor,
                 delayDurationMsSupplier
@@ -722,10 +725,11 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
+                partitionsLogStorageFactory,
+                failureProcessor
         );
 
-        var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService(), failureProcessor);
 
         var partitionReplicaLifecycleListener = new PartitionReplicaLifecycleManager(
                 catalogManager,
@@ -734,6 +738,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 metaStorageMgr,
                 clusterSvc.topologyService(),
                 lowWatermark,
+                failureProcessor,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -774,6 +779,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
+                failureProcessor,
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriverManager.placementDriver(),
                 sqlRef::get,
@@ -819,7 +825,7 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 schemaSyncService,
                 catalogManager,
                 metricManager,
-                new SystemViewManagerImpl(name, catalogManager),
+                new SystemViewManagerImpl(name, catalogManager, failureProcessor),
                 failureProcessor,
                 placementDriverManager.placementDriver(),
                 clusterConfigRegistry.getConfiguration(SqlClusterExtensionConfiguration.KEY).sql(),

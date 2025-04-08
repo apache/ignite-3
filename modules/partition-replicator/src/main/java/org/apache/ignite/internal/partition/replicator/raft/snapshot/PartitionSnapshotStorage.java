@@ -21,6 +21,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.IncomingSnapshotCopier;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotReader;
@@ -71,6 +72,8 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
 
     private final CatalogService catalogService;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      *  Snapshot meta, constructed from the storage data and raft group configuration at startup.
      *  {@code null} if the storage is empty.
@@ -111,6 +114,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor
     ) {
@@ -123,6 +127,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
                 partitionsByTableId,
                 txState,
                 catalogService,
+                failureProcessor,
                 startupSnapshotMeta,
                 incomingSnapshotsExecutor,
                 DEFAULT_WAIT_FOR_METADATA_CATCHUP_MS
@@ -150,6 +155,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
             Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId,
             PartitionTxStateAccess txState,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             @Nullable SnapshotMeta startupSnapshotMeta,
             Executor incomingSnapshotsExecutor,
             long waitForMetadataCatchupMs
@@ -162,6 +168,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         this.partitionsByTableId = partitionsByTableId;
         this.txState = txState;
         this.catalogService = catalogService;
+        this.failureProcessor = failureProcessor;
         this.startupSnapshotMeta = startupSnapshotMeta;
         this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
@@ -218,6 +225,13 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
      */
     public CatalogService catalogService() {
         return catalogService;
+    }
+
+    /**
+     * Returns failure processor.
+     */
+    public FailureProcessor failureProcessor() {
+        return failureProcessor;
     }
 
     /**
