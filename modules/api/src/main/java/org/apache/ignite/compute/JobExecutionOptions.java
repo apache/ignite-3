@@ -36,7 +36,7 @@ public class JobExecutionOptions {
     private JobExecutionOptions(int priority, int maxRetries, JobExecutorType executorType) {
         this.priority = priority;
         this.maxRetries = maxRetries;
-        this.executorType = executorType;
+        this.executorType = executorType == null ? JobExecutorType.Java : executorType;
     }
 
     public static Builder builder() {
