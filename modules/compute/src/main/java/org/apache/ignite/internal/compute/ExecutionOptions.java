@@ -49,7 +49,7 @@ public class ExecutionOptions {
         this.priority = priority;
         this.maxRetries = maxRetries;
         this.partition = partition;
-        this.executorType = executorType;
+        this.executorType = executorType == null ? JobExecutorType.Java : executorType;
     }
 
     public static Builder builder() {

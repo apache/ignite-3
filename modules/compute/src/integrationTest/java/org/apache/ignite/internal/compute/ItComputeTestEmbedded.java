@@ -292,14 +292,15 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesDotNetJob() {
-        Ignite entryNode = node(0);
+        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build();
 
-        JobDescriptor<Object, Object> job = JobDescriptor
-                .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor, Version=3.1.0.0, Culture=neutral, PublicKeyToken=null")
-                .options(JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build())
+        JobDescriptor<Object, Object> jobDesc = JobDescriptor
+                .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor")
+                .options(jobExecutionOptions)
                 .build();
 
-        Object result = entryNode.compute().execute(JobTarget.node(clusterNode(entryNode)), job, "testArg");
+        Ignite node = node(0);
+        Object result = node.compute().execute(JobTarget.node(clusterNode(node)), jobDesc, "testArg");
 
         assertThat(result.toString(), containsString("JobArg=testArg"));
     }
