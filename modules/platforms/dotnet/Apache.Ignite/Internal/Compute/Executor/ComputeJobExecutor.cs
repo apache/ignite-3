@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Buffers;
+using Proto;
 using Proto.MsgPack;
 
 /// <summary>
@@ -50,7 +51,7 @@ internal static class ComputeJobExecutor
             {
                 var jobReq = Read(request.GetReader());
 
-                using var responseBuf = new PooledArrayBuffer();
+                using var responseBuf = ProtoCommon.GetMessageWriter();
                 Write(responseBuf.MessageWriter, "Hello from .NET: " + jobReq.Arg);
 
                 await socket.SendServerOpResponseAsync(requestId, responseBuf).ConfigureAwait(false);

@@ -299,7 +299,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
         var result = entryNode.compute().execute(JobTarget.node(clusterNode(entryNode)), job, "testArg");
 
-        assertEquals("x", result);
+        assertEquals("Hello from .NET: testArg", result);
     }
 
     private Stream<Arguments> targetNodeIndexes() {
