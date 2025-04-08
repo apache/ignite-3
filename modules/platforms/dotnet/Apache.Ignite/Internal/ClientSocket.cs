@@ -276,11 +276,18 @@ namespace Apache.Ignite.Internal
             DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
                 .WaitAsync(_operationTimeout);
 
+        /// <summary>
+        /// Sends a response to a server->client request.
+        /// </summary>
+        /// <param name="requestId">Request id.</param>
+        /// <param name="response">Response.</param>
+        /// <returns>Task.</returns>
         public async Task SendServerOpResponseAsync(
             long requestId,
-            PooledArrayBuffer? response,
-            Exception? error = null)
+            PooledArrayBuffer? response)
         {
+            // TODO: What about errors? We need another flags enum?
+            await SendRequestAsync(response, ClientOp.ServerOpResponse, requestId).ConfigureAwait(false);
         }
 
         /// <inheritdoc/>

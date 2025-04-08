@@ -662,6 +662,13 @@ public class ClientInboundMessageHandler
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
             }
 
+            if (opCode == ClientOp.SERVER_OP_RESPONSE) {
+                try (in) {
+                    processServerOpResponse(requestId, in);
+                    return;
+                }
+            }
+
             if (isPartitionOperation(opCode)) {
                 long requestId0 = requestId;
                 int opCode0 = opCode;
@@ -1182,7 +1189,11 @@ public class ClientInboundMessageHandler
             List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder arg) {
-        // TODO: use COMPUTE_EXECUTOR_REQUEST_FLAG with a generated id.
+        // TODO: use ServerOp flag and op code.
         return CompletableFuture.failedFuture(new UnsupportedOperationException("IMPLEMENT ME"));
+    }
+
+    private void processServerOpResponse(long requestId, ClientMessageUnpacker in) {
+
     }
 }

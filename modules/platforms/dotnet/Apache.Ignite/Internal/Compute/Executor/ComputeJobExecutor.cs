@@ -22,7 +22,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Buffers;
-using Proto;
 using Proto.MsgPack;
 
 /// <summary>
@@ -52,10 +51,9 @@ internal static class ComputeJobExecutor
                 var jobReq = Read(request.GetReader());
 
                 using var responseBuf = new PooledArrayBuffer();
-                Write(responseBuf.MessageWriter, jobReq.JobId, "Hello from .NET: " + jobReq.Arg);
+                Write(responseBuf.MessageWriter, "Hello from .NET: " + jobReq.Arg);
 
-                using var ignored = await socket.DoOutInOpAsync(ClientOp.ComputeExecutorReturnJobResult, responseBuf)
-                    .ConfigureAwait(false);
+                await socket.SendServerOpResponseAsync(requestId, responseBuf).ConfigureAwait(false);
             }
             catch (Exception jobEx)
             {
@@ -76,7 +74,6 @@ internal static class ComputeJobExecutor
 
         static JobExecuteRequest Read(MsgPackReader r)
         {
-            long jobId = r.ReadInt64();
             int cnt = r.ReadInt32();
             List<string> deploymentUnitPaths = new List<string>(cnt);
             for (int i = 0; i < cnt; i++)
@@ -89,16 +86,15 @@ internal static class ComputeJobExecutor
             string jobClassName = r.ReadString();
             object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
 
-            return new JobExecuteRequest(jobId, deploymentUnitPaths, jobClassName, arg);
+            return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
         }
 
-        void Write(MsgPackWriter w, long jobId, object res)
+        void Write(MsgPackWriter w, object res)
         {
-            w.Write(requestId);
-            w.Write(jobId);
+            w.Write(0); // Flags: success.
             ComputePacker.PackArgOrResult(ref w, res, null);
         }
     }
 
-    private record JobExecuteRequest(long JobId, IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
+    private record JobExecuteRequest(IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
 }
