@@ -1010,23 +1010,28 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> updatePartitionClients(
             ZonePartitionId zonePartitionId,
-            Set<Assignment> unionOfStableAndPendingAssignments
+            Set<Assignment> stableAssignments,
+            Set<Assignment> pendingAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
-            boolean isLocalInStable = isLocalNodeInAssignments(unionOfStableAndPendingAssignments);
+            Set<Assignment> stablePendingUnion = union(stableAssignments, pendingAssignments);
 
+            boolean isLocalInStable = isLocalNodeInAssignments(stablePendingUnion);
+
+            // TODO sanpwc explain why it's not needed to update raft client peer set if it's not in (!isLocalInStable && !isLeaseholder)
+            // TODO sanpwc do same for tables.
             if (!isLocalInStable && !isLeaseholder) {
                 return nullCompletedFuture();
             }
 
             assert replicaMgr.isReplicaStarted(zonePartitionId)
                     : "The local node is outside of the replication group [groupId=" + zonePartitionId
-                    + ", assignmentsUnion=" + unionOfStableAndPendingAssignments
+                    + ", stable=" + stableAssignments
                     + ", isLeaseholder=" + isLeaseholder + "].";
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(zonePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(unionOfStableAndPendingAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stablePendingUnion)));
         }));
     }
 
@@ -1040,7 +1045,7 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(zonePartitionId, union(stableAssignments, pendingAssignments.nodes()));
+                : updatePartitionClients(zonePartitionId, stableAssignments, pendingAssignments.nodes());
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()
