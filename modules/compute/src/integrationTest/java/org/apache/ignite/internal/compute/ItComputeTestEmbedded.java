@@ -293,7 +293,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         Ignite entryNode = node(0);
 
         JobDescriptor<Object, Object> job = JobDescriptor
-                .builder("DotNetJob")
+                .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob")
                 .options(JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build())
                 .build();
 

@@ -20,8 +20,11 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using Buffers;
+using Ignite.Compute;
 using Proto;
 using Proto.MsgPack;
 
@@ -34,6 +37,9 @@ internal static class ComputeJobExecutor
     /// Compute executor id.
     /// </summary>
     internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
+
+    private static readonly MethodInfo ExecMethod =
+        typeof(ComputeJobExecutor).GetMethod(nameof(ExecuteGenericJobAsync), BindingFlags.NonPublic | BindingFlags.Static)!;
 
     /// <summary>
     /// Executes compute job.
@@ -50,9 +56,10 @@ internal static class ComputeJobExecutor
             try
             {
                 var jobReq = Read(request.GetReader());
+                var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
 
                 using var responseBuf = ProtoCommon.GetMessageWriter();
-                Write(responseBuf.MessageWriter, "Hello from .NET: " + jobReq.Arg);
+                Write(responseBuf.MessageWriter, jobRes);
 
                 await socket.SendServerOpResponseAsync(requestId, responseBuf).ConfigureAwait(false);
             }
@@ -91,11 +98,43 @@ internal static class ComputeJobExecutor
             return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
         }
 
-        void Write(MsgPackWriter w, object res)
+        void Write(MsgPackWriter w, object? res)
         {
             w.Write(0); // Flags: success.
             ComputePacker.PackArgOrResult(ref w, res, null);
         }
+    }
+
+    private static ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
+    {
+        // TODO: AssemblyLoadContext and assembly resolution with additional paths.
+        var type = Type.GetType(req.JobClassName);
+        if (type == null)
+        {
+            throw new InvalidOperationException($"Failed to load job class: {req.JobClassName}");
+        }
+
+        if (!typeof(IComputeJob<,>).IsAssignableFrom(type))
+        {
+            throw new InvalidOperationException($"Job class does not implement IComputeJob: {req.JobClassName}");
+        }
+
+        var job = Activator.CreateInstance(type)!;
+        var jobInterface = type
+            .GetInterfaces()
+            .First(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
+
+        var method = ExecMethod.MakeGenericMethod(jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
+
+        return (ValueTask<object?>)method.Invoke(null, [job, req.Arg])!;
+    }
+
+    private static async ValueTask<object?> ExecuteGenericJobAsync<TArg, TResult>(IComputeJob<TArg, TResult> job, object? arg)
+    {
+        // TODO: Use marshallers.
+        TResult res = await job.ExecuteAsync(null!, (TArg)arg!).ConfigureAwait(false);
+
+        return res;
     }
 
     private record JobExecuteRequest(IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
