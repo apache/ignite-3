@@ -155,7 +155,6 @@ class IndexBuildController implements ManuallyCloseable {
     }
 
     private void onIndexBuilding(StartBuildingIndexEventParameters parameters) {
-        System.out.println("MMM");
         inBusyLockAsync(busyLock, () -> {
             Catalog catalog = catalogService.catalog(parameters.catalogVersion());
 
@@ -217,8 +216,7 @@ class IndexBuildController implements ManuallyCloseable {
                                             primaryReplicationGroupId,
                                             indexDescriptor,
                                             mvTableStorage,
-                                            replicaMeta,
-                                            catalog.table(indexDescriptor.tableId()).tableVersion()
+                                            replicaMeta
                                     ))
                             );
 
@@ -226,9 +224,7 @@ class IndexBuildController implements ManuallyCloseable {
                 }
             }
 
-            return CompletableFutures.allOf(startBuildIndexFutures).thenCompose(ignored -> {
-                System.out.println("startBuildIndexFutures were completed.");
-                return nullCompletedFuture();});
+            return CompletableFutures.allOf(startBuildIndexFutures);
         }).whenComplete((res, ex) -> {
             if (ex != null) {
                 failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
@@ -333,12 +329,8 @@ class IndexBuildController implements ManuallyCloseable {
             MvTableStorage mvTableStorage,
             ReplicaMeta replicaMeta
     ) {
-        System.out.println("<><><> tryScheduleBuildIndexesForNewPrimaryReplica" + primaryReplicaId);
         inBusyLock(busyLock, () -> {
             if (isLeaseExpired(replicaMeta)) {
-                System.out.println("<><><> stopBuildingIndexesIfPrimaryExpired = " + primaryReplicaId + ", localNodeId = " + localNode().id() + ", localNodeName = " + localNode().name()
-                        + ", leaseholderId() = " + replicaMeta.getLeaseholderId() + ", expirationTime() = " + replicaMeta.getExpirationTime() + ", currentTime = " + clockService.now() + ", startTime = " + replicaMeta.getStartTime());
-
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
@@ -376,10 +368,8 @@ class IndexBuildController implements ManuallyCloseable {
             ReplicationGroupId primaryReplicaId,
             CatalogIndexDescriptor indexDescriptor,
             MvTableStorage mvTableStorage,
-            ReplicaMeta replicaMeta,
-            int schemaVersion
+            ReplicaMeta replicaMeta
     ) {
-        System.out.println("<><><> tryScheduleBuildIndex " + partitionId);
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522
         // Remove TablePartitionId check.
         assert primaryReplicaId instanceof ZonePartitionId

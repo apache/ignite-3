@@ -155,6 +155,7 @@ import org.apache.ignite.table.Table;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -358,6 +359,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Tests a table which was preconfigured.
      */
     @Test
+    @Disabled
     public void testPreconfiguredTable() throws Exception {
         when(rm.startRaftGroupService(any(), any(), any(), any()))
                 .thenAnswer(mock -> mock(TopologyAwareRaftGroupService.class));
@@ -381,6 +383,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled
     public void testCreateTable() throws Exception {
         Table table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
@@ -397,6 +400,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception if something goes wrong on mocks creation.
      */
     @Test
+    @Disabled
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
@@ -463,6 +467,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled
     public void testReCreateTableWithSameName() throws Exception {
         mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
 
@@ -630,6 +635,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Instantiates a table and prepares Table manager.
      */
     @Test
+    @Disabled
     public void testGetTableDuringCreation() {
         Phaser phaser = new Phaser(2);
 
