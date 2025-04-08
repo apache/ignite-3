@@ -19,6 +19,7 @@ import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.Cluster;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -103,20 +104,33 @@ public class ItComputeBenchmark {
     }
 
     @Benchmark
-    public void get() {
+    public void execJavaLocal() {
+        Ignite sourceNode = CLUSTER.node(2);
+        JobTarget target = JobTarget.node(getClusterNode3(sourceNode).get());
+
+        execJavaJob(sourceNode, target);
+    }
+
+    @Benchmark
+    public void execJavaRemote() {
         Ignite sourceNode = CLUSTER.node(0);
+        JobTarget target = JobTarget.node(getClusterNode3(sourceNode).get());
 
-        Optional<ClusterNode> remoteNode = sourceNode.clusterNodes()
-                .stream()
-                .filter(x -> "n_n_3346".equals(x.name()))
-                .findFirst();
+        execJavaJob(sourceNode, target);
+    }
 
-        JobTarget target = JobTarget.node(remoteNode.get());
-
+    private static void execJavaJob(Ignite sourceNode, JobTarget target) {
         JobDescriptor<Object, Object> desc = JobDescriptor.builder(EchoJob.class).build();
 
         var res = sourceNode.compute().execute(target, desc, "hello");
         assert res.equals("hello");
+    }
+
+    private static @NotNull Optional<ClusterNode> getClusterNode3(Ignite sourceNode) {
+        return sourceNode.clusterNodes()
+                .stream()
+                .filter(x -> "n_n_3346".equals(x.name()))
+                .findFirst();
     }
 
     /**
