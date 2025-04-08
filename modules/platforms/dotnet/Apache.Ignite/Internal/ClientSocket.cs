@@ -863,20 +863,21 @@ namespace Apache.Ignite.Internal
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
+            if ((flags & ResponseFlags.ServerOp) != 0)
+            {
+                Debug.Assert((flags & ResponseFlags.Error) == 0, "Server op should not have an exception.");
+                var serverOp = (ServerOp)reader.ReadInt32();
+                response.Position += reader.Consumed;
+
+                return HandleServerOp(requestId, serverOp, response);
+            }
+
             var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
             response.Position += reader.Consumed;
 
             if ((flags & ResponseFlags.Notification) != 0)
             {
                 return HandleNotification(requestId, exception, response);
-            }
-
-            // TODO: Make it more generic with op codes and message format overall.
-            if ((flags & ResponseFlags.ServerOp) != 0)
-            {
-                Debug.Assert(exception == null, "Server op should not have an exception.");
-                var serverOp = (ServerOp)reader.ReadInt32();
-                return HandleServerOp(requestId, serverOp, response);
             }
 
             if (!_requests.TryRemove(requestId, out var taskCompletionSource))
