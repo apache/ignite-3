@@ -77,6 +77,32 @@ public class ZoneRebalanceUtil {
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ZoneRebalanceUtil.class);
 
+    /** Key prefix for pending assignments. */
+    public static final String PENDING_ASSIGNMENTS_QUEUE_PREFIX = "zone.assignments.pending.";
+
+    public static final byte[] PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES = PENDING_ASSIGNMENTS_QUEUE_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for stable assignments. */
+    public static final String STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
+
+    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for planned assignments. */
+    public static final String PLANNED_ASSIGNMENTS_PREFIX = "zone.assignments.planned.";
+
+    /** Key prefix for switch reduce assignments. */
+    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "zone.assignments.switch.reduce.";
+
+    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for switch append assignments. */
+    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
+
+    /** Key prefix for change trigger keys. */
+    private static final String ZONE_PENDING_CHANGE_TRIGGER_PREFIX = "zone.pending.change.trigger.";
+
+    static final byte[] ZONE_PENDING_CHANGE_TRIGGER_PREFIX_BYTES = ZONE_PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
+
     /**
      * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
@@ -419,32 +445,6 @@ public class ZoneRebalanceUtil {
         return zoneDescriptor.id() + "/" + zoneDescriptor.name();
     }
 
-    /** Key prefix for pending assignments. */
-    public static final String PENDING_ASSIGNMENTS_QUEUE_PREFIX = "zone.assignments.pending.";
-
-    public static final byte[] PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES = PENDING_ASSIGNMENTS_QUEUE_PREFIX.getBytes(UTF_8);
-
-    /** Key prefix for stable assignments. */
-    public static final String STABLE_ASSIGNMENTS_PREFIX = "zone.assignments.stable.";
-
-    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
-
-    /** Key prefix for planned assignments. */
-    public static final String PLANNED_ASSIGNMENTS_PREFIX = "zone.assignments.planned.";
-
-    /** Key prefix for switch reduce assignments. */
-    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "zone.assignments.switch.reduce.";
-
-    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
-
-    /** Key prefix for switch append assignments. */
-    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "zone.assignments.switch.append.";
-
-    /** Key prefix for change trigger keys. */
-    private static final String ZONE_PENDING_CHANGE_TRIGGER_PREFIX = "zone.pending.change.trigger.";
-
-    static final byte[] ZONE_PENDING_CHANGE_TRIGGER_PREFIX_BYTES = ZONE_PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
-
     /**
      * Key that is needed for skipping stale events of pending key change.
      *
@@ -562,7 +562,7 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Returns partition assignments from meta storage locally.
+     * Returns stable partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
      * @param zoneId Zone id.
@@ -583,7 +583,7 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Returns zone assignments for all zone partitions from meta storage locally. Assignments must be present.
+     * Returns zone stable assignments for all zone partitions from meta storage locally. Assignments must be present.
      *
      * @param metaStorageManager Meta storage manager.
      * @param zoneId Zone id.
@@ -606,6 +606,24 @@ public class ZoneRebalanceUtil {
                     return Assignments.fromBytes(e.value());
                 })
                 .collect(toList());
+    }
+
+    /**
+     * Returns stable partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Table ID.
+     * @param partitionId Partition ID.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> zonePartitionAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int partitionId
+    ) {
+        return metaStorageManager
+                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     /**
