@@ -292,7 +292,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
 
     @Test
     void executesDotNetJob() {
-        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build();
+        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNetSidecar).build();
 
         JobDescriptor<Object, Object> jobDesc = JobDescriptor
                 .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor")

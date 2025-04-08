@@ -49,7 +49,7 @@ public class ExecutionOptions {
         this.priority = priority;
         this.maxRetries = maxRetries;
         this.partition = partition;
-        this.executorType = executorType == null ? JobExecutorType.Java : executorType;
+        this.executorType = executorType == null ? JobExecutorType.JavaEmbedded : executorType;
     }
 
     public static Builder builder() {
@@ -106,7 +106,7 @@ public class ExecutionOptions {
 
         private @Nullable Partition partition;
 
-        private JobExecutorType executorType = JobExecutorType.Java;
+        private JobExecutorType executorType = JobExecutorType.JavaEmbedded;
 
         public Builder priority(int priority) {
             this.priority = priority;

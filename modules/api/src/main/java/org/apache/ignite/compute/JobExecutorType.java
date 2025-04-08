@@ -21,6 +21,6 @@ package org.apache.ignite.compute;
  * Job executor type.
  */
 public enum JobExecutorType {
-    Java,
-    DotNet
+    JavaEmbedded,
+    DotNetSidecar
 }

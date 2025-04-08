@@ -73,7 +73,7 @@ public class ClientComputeExecuteRequest {
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
         // TODO: Feature flag, handle more types.
-        JobExecutorType jobExecutorType = in.unpackInt() == 0 ? JobExecutorType.Java : JobExecutorType.DotNet;
+        JobExecutorType jobExecutorType = in.unpackInt() == 0 ? JobExecutorType.JavaEmbedded : JobExecutorType.DotNetSidecar;
         options.executorType(jobExecutorType);
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(

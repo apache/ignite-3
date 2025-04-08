@@ -25,11 +25,9 @@ import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -132,10 +130,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         switch (executorType) {
-            case Java:
+            case JavaEmbedded:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
-            case DotNet:
+            case DotNetSidecar:
                 ArrayList<String> unitPaths = getDeploymentUnitPaths(classLoader);
 
                 return dotNetComputeExecutor.getJobCallable(unitPaths, jobClassName, input, context);

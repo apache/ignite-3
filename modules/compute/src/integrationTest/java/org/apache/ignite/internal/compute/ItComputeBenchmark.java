@@ -165,7 +165,7 @@ public class ItComputeBenchmark {
     }
 
     private static void execDotNetJob(Ignite sourceNode, JobTarget target) {
-        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNet).build();
+        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNetSidecar).build();
 
         JobDescriptor<Object, Object> desc = JobDescriptor
                 .builder("Apache.Ignite.Internal.ComputeExecutor.EchoJob, Apache.Ignite.Internal.ComputeExecutor")
