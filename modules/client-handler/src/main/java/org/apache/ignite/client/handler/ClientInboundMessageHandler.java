@@ -103,6 +103,7 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -1194,6 +1195,9 @@ public class ClientInboundMessageHandler
     }
 
     private void processServerOpResponse(long requestId, ClientMessageUnpacker in) {
+        int flags = in.unpackInt();
 
+        // TODO: Pass marsh and class from the job.
+        Object jobResult = ClientComputeJobUnpacker.unpackJobResult(in, null, null);
     }
 }
