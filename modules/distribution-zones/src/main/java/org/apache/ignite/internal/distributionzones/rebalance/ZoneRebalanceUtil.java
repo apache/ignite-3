@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.metastoreAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.metastoreAssignmentsQueueLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -563,22 +564,6 @@ public class ZoneRebalanceUtil {
     }
 
     /**
-     * Returns partition assignments from meta storage.
-     *
-     * @param metaStorageManager Meta storage manager.
-     * @param zoneId Zone id.
-     * @param partitionId Partition ID.
-     * @return Future with partition assignments as a value.
-     */
-    public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
-            MetaStorageManager metaStorageManager,
-            int zoneId,
-            int partitionId
-    ) {
-        return metastoreAssignments(metaStorageManager, () -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)));
-    }
-
-    /**
      * Returns stable partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
@@ -594,9 +579,13 @@ public class ZoneRebalanceUtil {
             int partitionNumber,
             long revision
     ) {
-        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)), revision);
+        Assignments assignments = metastoreAssignmentsQueueLocally(
+                metaStorageManager,
+                () -> pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, partitionNumber)),
+                revision
+        );
 
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+        return assignments != null ? assignments.nodes() : null;
     }
 
     /**
@@ -633,14 +622,12 @@ public class ZoneRebalanceUtil {
      * @param partitionId Partition ID.
      * @return Future with partition assignments as a value.
      */
-    public static CompletableFuture<Set<Assignment>> zonePartitionAssignments(
+    public static CompletableFuture<Set<Assignment>> zoneStablePartitionAssignments(
             MetaStorageManager metaStorageManager,
             int zoneId,
             int partitionId
     ) {
-        return metaStorageManager
-                .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+        return metastoreAssignments(metaStorageManager, () -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)));
     }
 
     /**
@@ -748,8 +735,10 @@ public class ZoneRebalanceUtil {
             int partitionId,
             long revision
     ) {
-        Entry entry = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, partitionId)), revision);
-
-        return entry != null ? AssignmentsQueue.fromBytes(entry.value()).poll() : null;
+        return metastoreAssignmentsQueueLocally(
+                metaStorageManager,
+                () -> pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, partitionId)),
+                revision
+        );
     }
 }

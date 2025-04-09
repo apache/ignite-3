@@ -31,7 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStablePartitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
@@ -285,7 +285,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String zoneName, int partNum) {
         return Optional.ofNullable(getZoneId(node.catalogManager(), zoneName, clock.nowLong()))
-                .map(zoneId -> stablePartitionAssignments(node.metaStorageManager(), zoneId, partNum).join())
+                .map(zoneId -> zoneStablePartitionAssignments(node.metaStorageManager(), zoneId, partNum).join())
                 .orElse(Set.of());
     }
 

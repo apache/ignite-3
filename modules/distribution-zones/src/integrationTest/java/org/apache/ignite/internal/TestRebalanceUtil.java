@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.metastoreAssignmentsQueue;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import java.util.Set;
@@ -27,7 +28,6 @@ import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
@@ -136,9 +136,9 @@ public class TestRebalanceUtil {
             int partitionId
     ) {
         if (enabledColocation()) {
-            return ZoneRebalanceUtil.zonePartitionAssignments(metaStorageManager, table.zoneId(), partitionId);
+            return ZoneRebalanceUtil.zoneStablePartitionAssignments(metaStorageManager, table.zoneId(), partitionId);
         } else {
-            return RebalanceUtil.stablePartitionAssignments(metaStorageManager, table.tableId(), partitionId);
+            return RebalanceUtil.tableStablePartitionAssignments(metaStorageManager, table.tableId(), partitionId);
         }
     }
 
@@ -155,9 +155,10 @@ public class TestRebalanceUtil {
             TableViewInternal table,
             int partitionId
     ) {
-        return metaStorageManager
-                .get(pendingPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId)))
-                .thenApply(e -> e.value() == null ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
+        return metastoreAssignmentsQueue(
+                metaStorageManager,
+                () -> pendingPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId))
+        );
     }
 
     /**
@@ -173,8 +174,9 @@ public class TestRebalanceUtil {
             TableViewInternal table,
             int partitionId
     ) {
-        return metaStorageManager
-                .get(plannedPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId)))
-                .thenApply(e -> e.value() == null ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
+        return metastoreAssignmentsQueue(
+                metaStorageManager,
+                () -> plannedPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId))
+        );
     }
 }
