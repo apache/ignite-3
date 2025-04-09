@@ -221,7 +221,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                         replicaMeta,
                                                         buildAttemptTimestamp
                                                 ));
-                                    }
+                                        }
                             );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
@@ -291,7 +291,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                                     replicaMeta,
                                                                     buildAttemptTimestamp
                                                             ));
-                                                }
+                                                    }
                                         );
 
                         indexFutures.add(future);
@@ -319,7 +319,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                         replicaMeta,
                                                         buildAttemptTimestamp
                                                 ));
-                                    }
+                                        }
                             );
                 }
             } else {
