@@ -141,6 +141,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
@@ -441,6 +442,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<ChangeLowWatermarkEventParameters> onLowWatermarkChangedListener = this::onLwmChanged;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onTablePrimaryReplicaExpired;
     private final TableAssignmentsService assignmentsService;
+    private final ReliableCatalogVersions reliableCatalogVersions;
 
     /**
      * Creates a new table manager.
@@ -542,6 +544,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
+        this.reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
 
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,
@@ -2494,10 +2497,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         long assignmentsTimestamp = assignments.timestamp();
 
-                        return waitForMetadataCompleteness(assignmentsTimestamp)
-                                .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                                    int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
-
+                        return reliableCatalogVersions.safeReliableCatalogVersionFor(HybridTimestamp.hybridTimestamp(assignmentsTimestamp))
+                                .thenCompose(catalogVersion -> inBusyLockAsync(busyLock, () -> {
                                     CatalogTableDescriptor tableDescriptor =
                                             getTableDescriptor(replicaGrpId.tableId(), catalogVersion);
 

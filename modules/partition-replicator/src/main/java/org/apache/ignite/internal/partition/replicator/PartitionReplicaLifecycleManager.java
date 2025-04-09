@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -239,6 +240,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private final ZoneResourcesManager zoneResourcesManager;
 
+    private final ReliableCatalogVersions reliableCatalogVersions;
+
     private final EventListener<CreateZoneEventParameters> onCreateZoneListener = this::onCreateZone;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onPrimaryReplicaExpired;
 
@@ -370,6 +373,8 @@ public class PartitionReplicaLifecycleManager extends
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
         stableAssignmentsRebalanceListener = createStableAssignmentsRebalanceListener();
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
+
+        reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
     }
 
     @Override
@@ -695,21 +700,23 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Long assignmentsTimestamp
     ) {
-        CompletableFuture<Set<Assignment>> assignmentsFuture = waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
-            Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
+        CompletableFuture<Set<Assignment>> assignmentsFuture =
+                reliableCatalogVersions.safeReliableCatalogVersionFor(hybridTimestamp(assignmentsTimestamp))
+                        .thenCompose(catalogVersion -> {
+                            Catalog catalog = catalogService.catalog(catalogVersion);
 
-            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
+                            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
-            int zoneId = zonePartitionId.zoneId();
+                            int zoneId = zonePartitionId.zoneId();
 
-            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneId)
-                    .thenApply(dataNodes -> calculateAssignmentForPartition(
-                            dataNodes,
-                            zonePartitionId.partitionId(),
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    ));
-        });
+                            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneId)
+                                    .thenApply(dataNodes -> calculateAssignmentForPartition(
+                                            dataNodes,
+                                            zonePartitionId.partitionId(),
+                                            zoneDescriptor.partitions(),
+                                            zoneDescriptor.replicas()
+                                    ));
+                        });
 
         return CompletableFuture.anyOf(stopReplicaLifecycleFuture, assignmentsFuture).thenApply(a -> (Set<Assignment>) a);
     }
@@ -939,22 +946,23 @@ public class PartitionReplicaLifecycleManager extends
 
             long assignmentsTimestamp = assignments.timestamp();
 
-            return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                Catalog catalog = catalogService.activeCatalog(assignmentsTimestamp);
+            return reliableCatalogVersions.safeReliableCatalogVersionFor(hybridTimestamp(assignmentsTimestamp))
+                    .thenCompose(catalogVersion -> inBusyLockAsync(busyLock, () -> {
+                        Catalog catalog = catalogService.catalog(catalogVersion);
 
-                CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
+                        CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
-                return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
-                        .thenCompose(dataNodes -> handleReduceChanged(
-                                metaStorageMgr,
-                                dataNodes,
-                                zoneDescriptor.partitions(),
-                                zoneDescriptor.replicas(),
-                                replicaGrpId,
-                                evt,
-                                assignmentsTimestamp
-                        ));
-            }));
+                        return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
+                                .thenCompose(dataNodes -> handleReduceChanged(
+                                        metaStorageMgr,
+                                        dataNodes,
+                                        zoneDescriptor.partitions(),
+                                        zoneDescriptor.replicas(),
+                                        replicaGrpId,
+                                        evt,
+                                        assignmentsTimestamp
+                                ));
+                    }));
         });
     }
 
@@ -1299,10 +1307,6 @@ public class PartitionReplicaLifecycleManager extends
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
         return assignments.stream().anyMatch(isLocalNodeAssignment);
-    }
-
-    private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
-        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
     }
 
     /**
