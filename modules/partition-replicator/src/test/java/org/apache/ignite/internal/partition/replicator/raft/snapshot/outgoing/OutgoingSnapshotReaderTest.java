@@ -31,6 +31,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
@@ -96,6 +97,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
                 partitionsByTableId,
                 txStateAccess,
                 catalogService,
+                mock(FailureProcessor.class),
                 mock(SnapshotMeta.class),
                 mock(Executor.class)
         );

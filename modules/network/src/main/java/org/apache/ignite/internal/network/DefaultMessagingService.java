@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.network;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED;
 import static org.apache.ignite.internal.network.NettyBootstrapFactory.isInNetworkThread;
 import static org.apache.ignite.internal.network.serialization.PerSessionSerializationService.createClassDescriptorsMessages;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
@@ -46,9 +47,11 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiPredicate;
 import java.util.function.Function;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.future.timeout.TimeoutObject;
 import org.apache.ignite.internal.future.timeout.TimeoutWorker;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -92,6 +95,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
     private final CriticalWorkerRegistry criticalWorkerRegistry;
 
+    private final FailureProcessor failureProcessor;
+
     /** Connection manager that provides access to {@link NettySender}. */
     private volatile ConnectionManager connectionManager;
 
@@ -132,7 +137,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param classDescriptorRegistry Descriptor registry.
      * @param marshaller Marshaller.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
-     * @param failureManager Failure processor.
+     * @param failureProcessor Failure processor.
      * @param channelTypeRegistry {@link ChannelType} registry.
      */
     public DefaultMessagingService(
@@ -143,7 +148,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
             ClassDescriptorRegistry classDescriptorRegistry,
             UserObjectMarshaller marshaller,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ChannelTypeRegistry channelTypeRegistry
     ) {
         this.factory = factory;
@@ -152,6 +157,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         this.classDescriptorRegistry = classDescriptorRegistry;
         this.marshaller = marshaller;
         this.criticalWorkerRegistry = criticalWorkerRegistry;
+        this.failureProcessor = failureProcessor;
 
         outboundExecutor = new CriticalSingleThreadExecutor(
                 IgniteMessageServiceThreadFactory.create(nodeName, "MessagingService-outbound", LOG, NOTHING_ALLOWED)
@@ -170,7 +176,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 nodeName,
                 "MessagingService-timeout-worker",
                 requestsMap,
-                failureManager
+                failureProcessor
         );
     }
 
@@ -435,11 +441,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
             try {
                 handleStartingWithFirstHandler(payload, finalCorrelationId, inNetworkObject, firstHandlerContext, handlerContexts);
             } catch (Throwable e) {
-                logAndRethrowIfError(inNetworkObject, e);
+                handleAndRethrowIfError(inNetworkObject, e);
             } finally {
                 long tookMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedNanos);
 
-                if (tookMillis > 100) {
+                if (tookMillis > 100 && IgniteSystemProperties.getBoolean(LONG_HANDLING_LOGGING_ENABLED, false)) {
                     LOG.warn(
                             "Processing of {} from {} took {} ms",
                             LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
@@ -546,23 +552,21 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
     }
 
-    private static void logAndRethrowIfError(InNetworkObject obj, Throwable e) {
+    private void handleAndRethrowIfError(InNetworkObject obj, Throwable e) {
         NetworkMessage message = obj.message();
 
+        Object messageDetails = LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging();
         if (e instanceof UnresolvableConsistentIdException && message instanceof InvokeRequest) {
             if (LOG.isInfoEnabled()) {
                 LOG.info(
                         "onMessage() failed while processing {} from {} as the sender has left the topology",
-                        LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(),
+                        messageDetails,
                         obj.sender()
                 );
             }
         } else {
-            LOG.error(
-                    "onMessage() failed while processing {} from {}",
-                    e,
-                    LOG.isDebugEnabled() && includeSensitive() ? message : message.toStringForLightLogging(), obj.sender()
-            );
+            String errorMessage = String.format("onMessage() failed while processing %s from %s", messageDetails, obj.sender());
+            failureProcessor.process(new FailureContext(e, errorMessage));
         }
 
         if (e instanceof Error) {

@@ -250,6 +250,13 @@ public interface TxManager extends IgniteComponent {
     CompletableFuture<Boolean> kill(UUID txId);
 
     /**
+     * Returns lock retry count.
+     *
+     * @return The count.
+     */
+    int lockRetryCount();
+
+    /**
      * Returns a number of finished transactions.
      *
      * @return A number of finished transactions.

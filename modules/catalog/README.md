@@ -32,7 +32,7 @@ For modify operation (invocation of `CatalogManager.execute()`), a resulting fut
 as soon as version in which results of the command take place becomes available on every node of the
 cluster. This "availability" is determined as "version activation time plus some duration to make
 sure changes are propagated and applied within the cluster", where `some duration` defined by 
-`schemaSync.delayDuration` configuration property. This implies, that consequent read access to 
+`schemaSync.delayDurationMillis` configuration property. This implies, that consequent read access to 
 catalog service with latest timestamp (`HybridClock.now()`) from any node will return the catalog of
 version that incorporates results of the command (assuming there were no concurrent updates overwriting
 modifications made by initial command). This also implies, that concurrent access to the catalog service

@@ -451,7 +451,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         ProtocolVersion.LATEST_VER.pack(packer);
         packer.packNil(); // No error.
 
-        packer.packLong(configuration.idleTimeout());
+        packer.packLong(configuration.idleTimeoutMillis());
 
         ClusterNode localMember = clusterService.topologyService().localMember();
         packer.packUuid(localMember.id());

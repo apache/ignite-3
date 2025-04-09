@@ -99,7 +99,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     private RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock: { maxClockSkew: 500 }")
+    @InjectConfiguration("mock: { maxClockSkewMillis: 500 }")
     private SchemaSynchronizationConfiguration schemaSynchronizationConfiguration;
 
     private static final int BASE_PORT = 1234;
@@ -302,7 +302,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
         l1.await();
 
         // Block enough to trigger retry.
-        Thread.sleep(raftConfiguration.responseTimeout().value() + 1000);
+        Thread.sleep(raftConfiguration.responseTimeoutMillis().value() + 1000);
 
         LOG.info("Unblocking FSM thread");
 
@@ -404,7 +404,7 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                     },
                     RaftGroupEventsListener.noopLsnr,
                     RaftGroupOptions.defaults()
-                            .maxClockSkew(schemaSynchronizationConfiguration.maxClockSkew().value().intValue())
+                            .maxClockSkew(schemaSynchronizationConfiguration.maxClockSkewMillis().value().intValue())
                             .commandsMarshaller(new ThreadLocalPartitionCommandsMarshaller(clusterService.serializationRegistry()))
                             .serverDataPath(workingDir.metaPath())
                             .setLogStorageFactory(partitionsLogStorageFactory)

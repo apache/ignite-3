@@ -46,7 +46,7 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long shutdownQuietPeriod = 0;
+    public final long shutdownQuietPeriodMillis = 0;
 
     /**
      * The maximum amount of time to wait until each Netty's EventExecutorGroup is shutdown regardless if a new network message was
@@ -54,7 +54,7 @@ public class NetworkConfigurationSchema {
      */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public final long shutdownTimeout = 15_000;
+    public final long shutdownTimeoutMillis = 15_000;
 
     /** Server configuration. */
     @ConfigValue

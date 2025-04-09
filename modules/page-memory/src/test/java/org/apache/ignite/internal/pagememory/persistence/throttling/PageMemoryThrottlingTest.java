@@ -99,7 +99,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static PageIoRegistry ioRegistry;
 
     // We use very small readLock timeout here on purpose.
-    @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeout = 50}")
+    @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeoutMillis = 50}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @InjectConfiguration("mock.engine = aipersist")

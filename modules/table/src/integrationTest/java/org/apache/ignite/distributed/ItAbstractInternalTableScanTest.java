@@ -43,6 +43,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -95,6 +96,9 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     /** Mock partition storage. */
     @Mock
     private MvPartitionStorage mockStorage;
@@ -140,6 +144,7 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
                 mockStorage,
                 ROW_SCHEMA,
                 txConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration
         );
     }

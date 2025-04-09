@@ -84,7 +84,7 @@ class CatalogStorageIndexDescriptorSupplierTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration("mock.dataAvailabilityTime = " + MIN_DATA_AVAILABILITY_TIME)
+            @InjectConfiguration("mock.dataAvailabilityTimeMillis = " + MIN_DATA_AVAILABILITY_TIME)
             LowWatermarkConfiguration lowWatermarkConfiguration,
             @Mock VaultManager vaultManager,
             @Mock FailureManager failureManager

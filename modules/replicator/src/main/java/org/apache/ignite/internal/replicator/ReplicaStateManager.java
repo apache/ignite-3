@@ -27,10 +27,11 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -60,6 +61,8 @@ class ReplicaStateManager {
 
     private final ReplicaManager replicaManager;
 
+    private final FailureProcessor failureProcessor;
+
     private volatile UUID localNodeId;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -68,12 +71,14 @@ class ReplicaStateManager {
             Executor replicaStartStopExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
-            ReplicaManager replicaManager
+            ReplicaManager replicaManager,
+            FailureProcessor failureProcessor
     ) {
         this.replicaStartStopExecutor = replicaStartStopExecutor;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
         this.replicaManager = replicaManager;
+        this.failureProcessor = failureProcessor;
     }
 
     void start(UUID localNodeId) {
@@ -111,7 +116,7 @@ class ReplicaStateManager {
                         context.unreserve();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
-                            executeDeferredReplicaStop(replicationGroupId, context);
+                            executeDeferredReplicaStop(context);
                         }
                     }
                 }
@@ -143,7 +148,7 @@ class ReplicaStateManager {
                             context.unreserve();
 
                             if (context.replicaState == ReplicaState.RESTART_PLANNED) {
-                                executeDeferredReplicaStop(parameters.groupId(), context);
+                                executeDeferredReplicaStop(context);
                             }
                         }
                     }
@@ -232,10 +237,10 @@ class ReplicaStateManager {
 
                     return partitionStarted;
                 }))
-                .exceptionally(e -> {
-                    LOG.error("Replica start failed [groupId={}]", e, groupId);
-
-                    throw new CompletionException(e);
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        failureProcessor.process(new FailureContext(ex, String.format("Replica start failed [groupId=%s]", groupId)));
+                    }
                 });
 
         return context.previousOperationFuture;
@@ -324,10 +329,10 @@ class ReplicaStateManager {
 
                     return true;
                 }))
-                .exceptionally(e -> {
-                    LOG.error("Replica stop failed [groupId={}]", e, groupId);
-
-                    throw new CompletionException(e);
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        failureProcessor.process(new FailureContext(ex, String.format("Replica stop failed [groupId=%s]", groupId)));
+                    }
                 });
 
         return context.previousOperationFuture.thenApply(v -> null);
@@ -342,20 +347,27 @@ class ReplicaStateManager {
         synchronized (context) {
             // TODO IGNITE-23702: proper sync with waiting of expiration event, and proper deferred stop after cancellation of
             //     reservation made by a lease that was not negotiated.
-            context.deferredStopReadyFuture = leaseExpirationTime == null
-                    ? new CompletableFuture<>()
-                    : clockService.waitFor(leaseExpirationTime);
+
+            // No parallel actions affected this, continue.
+            if (context.reservedForPrimary) {
+                context.deferredStopReadyFuture = leaseExpirationTime == null
+                        ? new CompletableFuture<>()
+                        : clockService.waitFor(leaseExpirationTime);
+            } else {
+                // context.unreserve() has been called in parallel, no need to wait.
+                context.deferredStopReadyFuture = nullCompletedFuture();
+            }
 
             return context.deferredStopReadyFuture
                     .thenCompose(unused -> stopReplica(groupId, context, deferredStopOperation));
         }
     }
 
-    private static void executeDeferredReplicaStop(ReplicationGroupId groupId, ReplicaStateContext context) {
-        assert context.deferredStopReadyFuture != null : "Stop operation future is not set [groupId=" + groupId + "].";
-
-        context.deferredStopReadyFuture.complete(null);
-        context.deferredStopReadyFuture = null;
+    private static void executeDeferredReplicaStop(ReplicaStateContext context) {
+        if (context.deferredStopReadyFuture != null) {
+            context.deferredStopReadyFuture.complete(null);
+            context.deferredStopReadyFuture = null;
+        }
     }
 
     /**

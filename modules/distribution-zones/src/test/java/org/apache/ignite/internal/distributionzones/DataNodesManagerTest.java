@@ -53,6 +53,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimerSchedule;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -139,6 +140,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 catalogManager,
                 clockService,
+                new NoOpFailureManager(),
                 partitionResetClosure,
                 () -> 1
         );

@@ -39,6 +39,6 @@ public class IgniteProxyTests : IgniteTestsBase
 
         Assert.Greater(tables.Count, 1);
         Assert.IsNotNull(table);
-        Assert.AreEqual(new[] { ClientOp.TablesGet, ClientOp.TableGet }, proxy.ClientOps);
+        Assert.AreEqual(new[] { ClientOp.TablesGetQualified, ClientOp.TableGetQualified }, proxy.ClientOps);
     }
 }

@@ -27,7 +27,6 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
@@ -113,6 +112,8 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -347,6 +348,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final CatalogService catalogService;
 
+    private final FailureProcessor failureProcessor;
+
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
 
@@ -403,8 +406,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final String nodeName;
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
-
-    private int attemptsObtainLock;
 
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
@@ -497,6 +498,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
@@ -524,6 +526,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.distributionZoneManager = distributionZoneManager;
         this.catalogService = catalogService;
+        this.failureProcessor = failureProcessor;
         this.observableTimestampTracker = observableTimestampTracker;
         this.sql = sql;
         this.replicationConfiguration = replicationConfiguration;
@@ -542,8 +545,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,
                 replicaSvc,
-                clockService,
-                txCfg
+                clockService
         );
 
         transactionStateResolver = new TransactionStateResolver(
@@ -583,7 +585,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
-        mvGc = new MvGc(nodeName, gcConfig, lowWatermark);
+        mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
@@ -605,7 +607,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Integer::parseInt
         );
 
-        assignmentsService = new TableAssignmentsService(metaStorageMgr, catalogService, distributionZoneManager);
+        assignmentsService = new TableAssignmentsService(metaStorageMgr, catalogService, distributionZoneManager, failureProcessor);
     }
 
     @Override
@@ -649,8 +651,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
             partitionReplicatorNodeRecovery.start();
-
-            attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
             if (!enabledColocation) {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
@@ -718,7 +718,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
 
         CompletableFuture<?>[] futures = zoneTables.stream()
-                .map(table -> supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity()))
+                .map(this::tableStopFuture)
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures).thenApply(v -> false);
@@ -1060,11 +1060,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         try {
             int newEarliestCatalogVersion = catalogService.activeCatalogVersion(parameters.newLowWatermark().longValue());
 
-            List<CompletableFuture<Void>> futures = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion).stream()
-                    .map(event -> destroyTableLocally(event.tableId()))
-                    .collect(toList());
+            // Run table destruction fully asynchronously.
+            destructionEventsQueue.drainUpTo(newEarliestCatalogVersion)
+                    .forEach(event -> destroyTableLocally(event.tableId()));
 
-            return allOf(futures.toArray(CompletableFuture[]::new)).thenApply(unused -> false);
+            return falseCompletedFuture();
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -1163,7 +1163,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             assignmentsTimestamp
                     ).whenComplete((res, ex) -> {
                         if (ex != null) {
-                            LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
+                            String errorMessage = String.format(
+                                    "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
+                                    tableId,
+                                    partId
+                            );
+                            failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
                     });
                 } else {
@@ -1297,7 +1302,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 forcedAssignments
         ).handle((res, ex) -> {
             if (ex != null) {
-                LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
+                String errorMessage = String.format(
+                        "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
+                        tableId,
+                        partId
+                );
+                failureProcessor.process(new FailureContext(ex, errorMessage));
             }
             return null;
         });
@@ -1326,6 +1336,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return new RebalanceRaftGroupEventsListener(
                 metaStorageMgr,
+                failureProcessor,
                 replicaGrpId,
                 busyLock,
                 partitionMover,
@@ -1372,7 +1383,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 remotelyTriggeredResourceRegistry,
                 schemaManager.schemaRegistry(table.tableId()),
                 indexMetaStorage,
-                lowWatermark
+                lowWatermark,
+                failureProcessor
         );
     }
 
@@ -1555,9 +1567,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
 
         for (TableImpl table : tables.values()) {
-            futures.add(
-                    supplyAsync(() -> tableStopFuture(table), ioExecutor).thenCompose(identity())
-            );
+            futures.add(tableStopFuture(table));
         }
 
         try {
@@ -1570,16 +1580,20 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> tableStopFuture(TableImpl table) {
         InternalTable internalTable = table.internalTable();
 
-        var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
+        CompletableFuture<Void> replicasStopFuture = supplyAsync(() -> {
+            var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
 
-        for (int p = 0; p < internalTable.partitions(); p++) {
-            TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
+            for (int p = 0; p < internalTable.partitions(); p++) {
+                TablePartitionId replicationGroupId = new TablePartitionId(table.tableId(), p);
 
-            stopReplicaFutures[p] = stopTablePartition(replicationGroupId, table);
-        }
+                stopReplicaFutures[p] = stopTablePartition(replicationGroupId, table);
+            }
 
-        return allOf(stopReplicaFutures)
-                .thenRunAsync(() -> {
+            return allOf(stopReplicaFutures);
+        }, ioExecutor).thenCompose(identity());
+
+        return replicasStopFuture
+                .thenRun(() -> {
                     try {
                         closeAllManually(
                                 internalTable.storage(),
@@ -1589,10 +1603,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     } catch (Exception e) {
                         throw new CompletionException(e);
                     }
-                }, ioExecutor)
+                })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
+                        String errorMessage = String.format("Unable to stop table [name=%s, tableId=%s]", table.name(), table.tableId());
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
     }
@@ -1635,11 +1650,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 transactionInflights,
-                attemptsObtainLock,
                 this::streamerFlushExecutor,
                 Objects.requireNonNull(streamerReceiverRunner),
-                () -> txCfg.value().readWriteTimeout(),
-                () -> txCfg.value().readOnlyTimeout()
+                () -> txCfg.value().readWriteTimeoutMillis(),
+                () -> txCfg.value().readOnlyTimeoutMillis()
         );
 
         return new TableImpl(
@@ -1648,6 +1662,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 schemaVersions,
                 marshallers,
                 sql.get(),
+                failureProcessor,
                 tableDescriptor.primaryKeyIndexId()
         );
     }
@@ -1836,42 +1851,42 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      */
     private CompletableFuture<Void> destroyTableLocally(int tableId) {
         TableImpl table = startedTables.remove(tableId);
+
         localPartsByTableId.remove(tableId);
 
         assert table != null : tableId;
 
         InternalTable internalTable = table.internalTable();
-        int partitions = internalTable.partitions();
 
-        Set<ByteArray> assignmentKeys = IntStream.range(0, partitions)
+        Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
                 .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
                 .collect(toSet());
-        metaStorageMgr.removeAll(assignmentKeys);
 
-        CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
+        metaStorageMgr.removeAll(assignmentKeys)
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Failed to remove assignments from metastorage [tableId={}]", e, tableId);
+                    }
+                });
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
-        //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
-        for (int partitionId = 0; partitionId < partitions; partitionId++) {
-            if (enabledColocation) {
-                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
-                        new ZonePartitionId(internalTable.zoneId(), partitionId),
-                        tableId
-                );
-            }
+        return stopAndDestroyTablePartitions(table)
+                .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
+                    CompletableFuture<Void> tableStorageDestroyFuture = internalTable.storage().destroy();
 
-            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyTablePartition(new TablePartitionId(tableId, partitionId), table);
-        }
+                    // TX state storage destruction is synchronous.
+                    internalTable.txStateStorage().destroy();
 
-        return allOf(stopReplicaAndDestroyFutures)
-                .thenComposeAsync(
-                        unused -> inBusyLockAsync(busyLock, () -> allOf(
-                                internalTable.storage().destroy(),
-                                runAsync(() -> inBusyLock(busyLock, () -> internalTable.txStateStorage().destroy()), ioExecutor)
-                        )),
-                        ioExecutor)
-                .thenAccept(ignore0 -> tables.remove(tableId))
-                .thenAcceptAsync(ignore0 -> schemaManager.dropRegistryAsync(tableId), ioExecutor);
+                    return tableStorageDestroyFuture;
+                }), ioExecutor)
+                .thenAccept(unused -> inBusyLock(busyLock, () -> {
+                    tables.remove(tableId);
+                    schemaManager.dropRegistry(tableId);
+                }))
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Unable to destroy table [name={}, tableId={}]", e, table.name(), tableId);
+                    }
+                });
     }
 
     @Override
@@ -1897,6 +1912,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         return emptyListCompletedFuture();
                     }
 
+                    @SuppressWarnings("unchecked")
                     CompletableFuture<Table>[] tableImplFutures = tableDescriptors.stream()
                             .map(tableDescriptor -> tableAsyncInternalBusy(tableDescriptor.id()))
                             .toArray(CompletableFuture[]::new);
@@ -2436,6 +2452,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 outgoingSnapshotsManager,
                 txStateAccess,
                 catalogService,
+                failureProcessor,
                 incomingSnapshotsExecutor
         );
 
@@ -2680,6 +2697,31 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
     }
 
+    private CompletableFuture<Void> stopAndDestroyTablePartitions(TableImpl table) {
+        InternalTable internalTable = table.internalTable();
+
+        int partitions = internalTable.partitions();
+
+        CompletableFuture<?>[] stopReplicaAndDestroyFutures = new CompletableFuture<?>[partitions];
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
+        //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
+        for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            if (enabledColocation) {
+                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                        new ZonePartitionId(internalTable.zoneId(), partitionId),
+                        internalTable.tableId()
+                );
+            }
+
+            var tablePartitionId = new TablePartitionId(internalTable.tableId(), partitionId);
+
+            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyTablePartition(tablePartitionId, table);
+        }
+
+        return allOf(stopReplicaAndDestroyFutures);
+    }
+
     private CompletableFuture<Void> stopAndDestroyTablePartition(TablePartitionId tablePartitionId, long causalityToken) {
         return tablesVv
                 .get(causalityToken)
@@ -2742,10 +2784,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> destroyPartitionStorages(TablePartitionId tablePartitionId, TableImpl table) {
-        if (table == null) {
-            return nullCompletedFuture();
-        }
-
         InternalTable internalTable = table.internalTable();
 
         int partitionId = tablePartitionId.partitionId();
@@ -2907,7 +2945,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Error starting tables", throwable);
+                        failureProcessor.process(new FailureContext(throwable, "Error starting tables"));
                     } else {
                         LOG.info("Tables started successfully [count={}]", startTableFutures.size());
                     }
@@ -3029,7 +3067,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.streamerReceiverRunner = runner;
     }
 
-    private Set<TableImpl> zoneTables(int zoneId) {
+    public Set<TableImpl> zoneTables(int zoneId) {
         return tablesPerZone.computeIfAbsent(zoneId, id -> new HashSet<>());
     }
 

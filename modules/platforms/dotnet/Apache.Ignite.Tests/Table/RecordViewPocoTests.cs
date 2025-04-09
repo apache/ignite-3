@@ -572,7 +572,6 @@ namespace Apache.Ignite.Tests.Table
             using var deferDropTable = new DisposeAction(
                 () => Client.Sql.ExecuteAsync(null, "DROP TABLE TestBigPoco").GetAwaiter().GetResult());
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24258: Remove uppercase.
             var table = await Client.Tables.GetTableAsync("TestBigPoco".ToUpperInvariant());
             var pocoView = table!.GetRecordView<Poco2>();
 
@@ -869,7 +868,7 @@ namespace Apache.Ignite.Tests.Table
         [Test]
         public void TestToString()
         {
-            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = TBL1, Id =", PocoView.ToString());
+            StringAssert.StartsWith("RecordView`1[Poco] { Table = Table { Name = PUBLIC.TBL1, Id =", PocoView.ToString());
         }
 
         // ReSharper disable NotAccessedPositionalProperty.Local

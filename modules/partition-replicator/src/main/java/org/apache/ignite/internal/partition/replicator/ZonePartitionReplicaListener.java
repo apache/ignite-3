@@ -25,6 +25,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -68,10 +70,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
     private static final IgniteLogger LOG = Loggers.forClass(ZonePartitionReplicaListener.class);
 
     // tableId -> tableProcessor.
-    private final Map<Integer, ReplicaTableProcessor> replicas = new ConcurrentHashMap<>();
+    private final Map<Integer, ReplicaTableProcessor> replicaProcessors = new ConcurrentHashMap<>();
 
     /** Raft client. */
     private final RaftCommandRunner raftClient;
+
+    private final FailureProcessor failureProcessor;
 
     private final ZonePartitionId replicationGroupId;
 
@@ -106,10 +110,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             LeasePlacementDriver placementDriver,
             ClusterNodeResolver clusterNodeResolver,
             RaftCommandRunner raftClient,
+            FailureProcessor failureProcessor,
             ClusterNode localNode,
             ZonePartitionId replicationGroupId
     ) {
         this.raftClient = raftClient;
+        this.failureProcessor = failureProcessor;
 
         this.replicationGroupId = replicationGroupId;
 
@@ -148,7 +154,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                 replicationGroupId);
 
         writeIntentSwitchRequestHandler = new WriteIntentSwitchRequestHandler(
-                replicas::get,
+                replicaProcessors::get,
                 clockService,
                 schemaSyncService,
                 catalogService,
@@ -168,7 +174,12 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
         txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
 
-        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(txStatePartitionStorage, txManager, replicationGroupId);
+        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(
+                txStatePartitionStorage,
+                txManager,
+                failureProcessor,
+                replicationGroupId
+        );
 
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,
@@ -239,10 +250,27 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
             ReplicaPrimacy replicaPrimacy,
             UUID senderId
     ) {
-        int tableId = ((TableAware) request).tableId();
-
         return tableAwareReplicaRequestPreProcessor.preProcessTableAwareRequest(request, replicaPrimacy, senderId)
-                .thenCompose(ignored -> replicas.get(tableId).process(request, replicaPrimacy, senderId));
+                .thenCompose(ignored -> {
+                    int tableId = ((TableAware) request).tableId();
+
+                    ReplicaTableProcessor replicaProcessor = replicaProcessors.get(tableId);
+
+                    // TODO: this code is commented out for debugging purposes, uncomment after
+                    //  https://issues.apache.org/jira/browse/IGNITE-24991
+                    // if (replicaProcessor == null) {
+                    //     // Most of the times this condition should be false. This logging message is added in case a request got stuck
+                    //     // somewhere while being replicated and arrived on this node after the target table had been removed.
+                    //     // In this case we ignore the command, which should be safe to do, because the underlying storage was destroyed
+                    //     // anyway.
+                    //     LOG.warn("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
+                    //             request.toStringForLightLogging());
+
+                    //     return completedFuture(new ReplicaResult(null, null));
+                    // }
+
+                    return replicaProcessor.process(request, replicaPrimacy, senderId);
+                });
     }
 
     /**
@@ -277,7 +305,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param replicaListener Table replica listener.
      */
     public void addTableReplicaProcessor(int tableId, Function<RaftCommandRunner, ReplicaTableProcessor> replicaListener) {
-        replicas.put(tableId, replicaListener.apply(raftClient));
+        replicaProcessors.put(tableId, replicaListener.apply(raftClient));
     }
 
     /**
@@ -286,7 +314,7 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      * @param tableId Table's identifier.
      */
     public void removeTableReplicaProcessor(int tableId) {
-        replicas.remove(tableId);
+        replicaProcessors.remove(tableId);
     }
 
     /**
@@ -296,21 +324,22 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
      */
     @VisibleForTesting
     public Map<Integer, ReplicaTableProcessor> tableReplicaProcessors() {
-        return replicas;
+        return replicaProcessors;
     }
 
     @Override
     public void onShutdown() {
-        replicas.forEach((tableId, listener) -> {
-                    try {
-                        listener.onShutdown();
-                    } catch (Throwable th) {
-                        LOG.error("Error during table partition listener stop for [tableId="
-                                        + tableId + ", partitionId=" + replicationGroupId.partitionId() + "].",
-                                th
-                        );
-                    }
-                }
-        );
+        replicaProcessors.forEach((tableId, listener) -> {
+            try {
+                listener.onShutdown();
+            } catch (Throwable th) {
+                String errorMessage = String.format(
+                        "Error during table partition listener stop for [tableId=%s, partitionId=%s].",
+                        tableId,
+                        replicationGroupId.partitionId()
+                );
+                failureProcessor.process(new FailureContext(th, errorMessage));
+            }
+        });
     }
 }

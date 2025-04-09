@@ -395,4 +395,19 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
     public void seek(int index) {
         fetch(index, this);
     }
+
+    /**
+     * Copies raw value of the specified element to the builder.
+     *
+     * @param builder Builder to copy value to.
+     * @param index Index of the element.
+     */
+    protected void copyRawValue(BinaryTupleBuilder builder, int index) {
+        seek(index);
+        if (begin == end) {
+            builder.appendNull();
+        } else {
+            builder.appendElementBytes(buffer, begin, end - begin);
+        }
+    }
 }

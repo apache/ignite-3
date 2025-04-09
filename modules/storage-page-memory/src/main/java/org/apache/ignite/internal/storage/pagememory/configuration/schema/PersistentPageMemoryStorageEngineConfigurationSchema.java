@@ -35,7 +35,7 @@ public class PersistentPageMemoryStorageEngineConfigurationSchema {
     @PowerOfTwo
     @Range(min = 1024, max = 16 * 1024)
     @Value(hasDefault = true)
-    public int pageSize = 16 * 1024;
+    public int pageSizeBytes = 16 * 1024;
 
     /* Checkpoint configuration for persistent data regions. */
     @ConfigValue

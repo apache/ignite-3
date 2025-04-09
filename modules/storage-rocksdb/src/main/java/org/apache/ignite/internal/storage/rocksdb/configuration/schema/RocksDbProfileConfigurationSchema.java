@@ -30,10 +30,10 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 public class RocksDbProfileConfigurationSchema extends StorageProfileConfigurationSchema {
     /** Size of the rocksdb offheap cache. */
     @Value(hasDefault = true)
-    public long size = 256 * 1024 * 1024;
+    public long sizeBytes = 256 * 1024 * 1024;
 
     /** Size of rocksdb write buffer. */
     @Value(hasDefault = true)
     @Range(min = 1)
-    public long writeBufferSize = 64 * 1024 * 1024;
+    public long writeBufferSizeBytes = 64 * 1024 * 1024;
 }
