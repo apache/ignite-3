@@ -158,7 +158,7 @@ class IndexBuildController implements ManuallyCloseable {
         inBusyLockAsync(busyLock, () -> {
             Catalog catalog = catalogService.catalog(parameters.catalogVersion());
 
-            assert catalog != null : "Failed to find a catalog for the specified version [version=" +  parameters.catalogVersion()
+            assert catalog != null : "Failed to find a catalog for the specified version [version=" + parameters.catalogVersion()
                     + ", earliestVersion=" + catalogService.earliestCatalogVersion()
                     + ", latestVersion=" + catalogService.latestCatalogVersion()
                     + "].";
@@ -221,7 +221,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                         replicaMeta,
                                                         buildAttemptTimestamp
                                                 ));
-                                        }
+                                    }
                             );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
@@ -291,7 +291,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                                     replicaMeta,
                                                                     buildAttemptTimestamp
                                                             ));
-                                                    }
+                                                }
                                         );
 
                         indexFutures.add(future);
@@ -319,7 +319,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                         replicaMeta,
                                                         buildAttemptTimestamp
                                                 ));
-                                        }
+                                    }
                             );
                 }
             } else {
@@ -388,12 +388,12 @@ class IndexBuildController implements ManuallyCloseable {
         // Remove TablePartitionId check.
         assert primaryReplicaId instanceof ZonePartitionId
                 ? ((ZonePartitionId) primaryReplicaId).zoneId() == zoneId
-                        && ((ZonePartitionId) primaryReplicaId).partitionId() == partitionId
+                && ((ZonePartitionId) primaryReplicaId).partitionId() == partitionId
                 : ((TablePartitionId) primaryReplicaId).tableId() == tableId
                         && ((TablePartitionId) primaryReplicaId).partitionId() == partitionId
                 : "Primary replica identifier mismatched [zoneId=" + zoneId + ", tableId=" + tableId
-                        + ", partitionId=" + partitionId + ", primaryReplicaId=" + primaryReplicaId
-                        + ", primaryReplicaCls=" + primaryReplicaId.getClass().getSimpleName() + "].";
+                + ", partitionId=" + partitionId + ", primaryReplicaId=" + primaryReplicaId
+                + ", primaryReplicaCls=" + primaryReplicaId.getClass().getSimpleName() + "].";
 
         inBusyLock(busyLock, () -> {
             if (isLeaseExpired(replicaMeta, buildAttemptTimestamp)) {
