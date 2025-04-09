@@ -33,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -123,7 +124,6 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     @Test
     void delegatesWhenHavingEnoughMetadata() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
         when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
@@ -148,7 +148,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     @Test
     void returnsErrorCodeBusyWhenNotHavingEnoughMetadata() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(new CompletableFuture<>());
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
