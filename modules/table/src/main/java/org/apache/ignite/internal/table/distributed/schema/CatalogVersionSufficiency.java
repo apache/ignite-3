@@ -35,7 +35,6 @@ public class CatalogVersionSufficiency {
      * @return {@code true} iff the local Catalog version is sufficient.
      */
     public static boolean isMetadataAvailableFor(int requiredCatalogVersion, CatalogService catalogService) {
-        return requiredCatalogVersion <= catalogService.latestCatalogVersion() && catalogService.catalogReadyFuture(requiredCatalogVersion)
-                .isDone();
+        return catalogService.catalogReadyFuture(requiredCatalogVersion).isDone();
     }
 }
