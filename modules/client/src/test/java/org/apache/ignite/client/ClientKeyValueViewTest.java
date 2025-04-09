@@ -109,6 +109,24 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
         assertEquals(11, res.zbyte);
         assertEquals("x", res.zstring);
         assertArrayEquals(new byte[]{1, 2}, res.zbytes);
+
+        pojoView.put(null, key, res);
+        Tuple val = kvView.get(null, allColumnsTableKey(1));
+
+        assertEquals(
+                Tuple.create().set("zbyte", (byte) 11).set("zstring", "x").set("zbytes", new byte[]{1, 2})
+                        .set("zboolean", null)
+                        .set("zshort", null)
+                        .set("zint", null)
+                        .set("zlong", null)
+                        .set("zfloat", null)
+                        .set("zdouble", null)
+                        .set("zdate", null)
+                        .set("ztime", null)
+                        .set("ztimestamp", null)
+                        .set("zdecimal", null)
+                        .set("zuuid", null),
+                val);
     }
 
     @Test
@@ -206,11 +224,23 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
                 "No mapped object field found for column 'ID'"
         );
         assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
+    }
 
-        KeyValueView<IncompletePojo, IncompletePojo> pojoView = fullTable().keyValueView(IncompletePojo.class, IncompletePojo.class);
+    @Test
+    public void testExtraKeyColumnThrowsException() {
+        KeyValueView<IncompletePojo, AllColumnsValPojoNullable> pojoView = fullTable()
+                .keyValueView(IncompletePojo.class, AllColumnsValPojoNullable.class);
+
+        Throwable e = assertThrowsWithCause(
+                () -> pojoView.get(null, new IncompletePojo()),
+                IgniteException.class,
+                "Fields [zbyte, zbytes, zstring] of type org.apache.ignite.client.AbstractClientTableTest$IncompletePojo are not mapped"
+                        + " to columns"
+        );
+        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
 
         e = assertThrowsWithCause(
-                () -> pojoView.get(null, new IncompletePojo()),
+                () -> pojoView.put(null, new IncompletePojo(), new AllColumnsValPojoNullable()),
                 IgniteException.class,
                 "Fields [zbyte, zbytes, zstring] of type org.apache.ignite.client.AbstractClientTableTest$IncompletePojo are not mapped"
                         + " to columns"
