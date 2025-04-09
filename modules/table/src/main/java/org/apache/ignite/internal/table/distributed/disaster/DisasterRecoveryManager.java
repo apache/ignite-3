@@ -323,20 +323,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
     public CompletableFuture<Void> resetAllPartitions(
             String zoneName,
-            String schemaName,
-            String tableName,
             boolean manualUpdate,
             long triggerRevision
     ) {
-        return resetPartitions(zoneName, schemaName, tableName, emptySet(), manualUpdate, triggerRevision);
+        return resetPartitions(zoneName, emptySet(), manualUpdate, triggerRevision);
     }
 
     /**
@@ -347,14 +343,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
-        int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
+    public CompletableFuture<Void> resetPartitions(String zoneName, String schemaName, Set<Integer> partitionIds) {
+        int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
-        return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1);
+        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1);
     }
 
     /**
@@ -364,8 +359,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
@@ -373,15 +366,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      */
     private CompletableFuture<Void> resetPartitions(
             String zoneName,
-            String schemaName,
-            String tableName,
             Set<Integer> partitionIds,
             boolean manualUpdate,
             long triggerRevision
     ) {
-        int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
+        int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
-        return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision);
+        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision);
     }
 
     /**
@@ -391,7 +382,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param partitionIds Map of per table partitions' sets to reset. If empty, reset all zone's partitions.
+     * @param partitionIds Map of per zone partitions' sets to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
@@ -518,7 +509,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private static Function<LocalPartitionStateMessage, ZonePartitionId> zoneState() {
+    static Function<LocalPartitionStateMessage, ZonePartitionId> zoneState() {
         return state -> state.zonePartitionId().asZonePartitionId();
     }
 
@@ -640,7 +631,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    static Function<LocalPartitionStateMessage, TablePartitionId> tableState() {
+    private static Function<LocalPartitionStateMessage, TablePartitionId> tableState() {
         return state -> state.partitionId().asTablePartitionId();
     }
 

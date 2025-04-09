@@ -22,11 +22,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Util class for methods to work with the assignments.
@@ -91,5 +95,54 @@ public class AssignmentUtil {
 
                     return result.isEmpty() ? Map.of() : result;
                 });
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param keySupplier Key supplier.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> metastoreAssignments(
+            MetaStorageManager metaStorageManager,
+            Supplier<ByteArray> keySupplier
+    ) {
+        return metaStorageManager
+                .get(keySupplier.get())
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param keySupplier Key supplier.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> metastoreAssignmentsQueue(
+            MetaStorageManager metaStorageManager,
+            Supplier<ByteArray> keySupplier
+    ) {
+        return metaStorageManager
+                .get(keySupplier.get())
+                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param keySupplier Key supplier.
+     * @return Future with partition assignments as a value.
+     */
+    public static @Nullable Assignments metastoreAssignmentsQueueLocally(
+            MetaStorageManager metaStorageManager,
+            Supplier<ByteArray> keySupplier,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(keySupplier.get(), revision);
+
+        return entry != null && !entry.empty() && !entry.tombstone() ? AssignmentsQueue.fromBytes(entry.value()).poll() : null;
     }
 }

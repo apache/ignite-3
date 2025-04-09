@@ -89,7 +89,6 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return disasterRecoveryManager.resetPartitions(
                 command.zoneName(),
                 tableName.schemaName(),
-                tableName.objectName(),
                 command.partitionIds()
         );
     }

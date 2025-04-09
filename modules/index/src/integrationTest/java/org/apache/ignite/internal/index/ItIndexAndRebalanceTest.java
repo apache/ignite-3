@@ -19,7 +19,7 @@ package org.apache.ignite.internal.index;
 
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableStablePartitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
@@ -102,7 +102,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
         Set<Assignment>[] actualAssignmentsHolder = new Set[]{Set.of()};
 
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Set<Assignment>> partitionAssignmentsFuture = stablePartitionAssignments(
+            CompletableFuture<Set<Assignment>> partitionAssignmentsFuture = tableStablePartitionAssignments(
                     node.metaStorageManager(),
                     tableId,
                     partitionId

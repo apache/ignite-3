@@ -77,7 +77,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         assertRecoveryRequestForHaZoneTable(node);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, Set.of(node.name()));
     }
 
     @Test
@@ -98,9 +98,8 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(1, 2);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table1, PARTITION_IDS, Set.of(node.name()));
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table21, PARTITION_IDS, Set.of(node.name()));
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, table22, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, zone1, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, zone2, PARTITION_IDS, Set.of(node.name()));
     }
 
     @Test
@@ -139,7 +138,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertRecoveryRequestForHaZoneTable(node);
         assertRecoveryRequestWasOnlyOne(node);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, Set.of(node.name()));
     }
 
     @Test
@@ -163,7 +162,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertRecoveryRequestForHaZoneTable(node);
         assertRecoveryRequestWasOnlyOne(node);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, Set.of(node.name()));
     }
 
     @Test
@@ -180,7 +179,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertRecoveryKeyIsNotEmpty(node, 30_000);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, Set.of(node.name()));
 
         log.info("Test: restarting nodes.");
 
@@ -189,7 +188,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         Set<String> expectedAssignmentsAfterScaleUp = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, expectedAssignmentsAfterScaleUp);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, expectedAssignmentsAfterScaleUp);
     }
 
     @Test
@@ -274,7 +273,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         assertRecoveryRequestForHaZoneTable(node);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, Set.of(node.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, Set.of(node.name()));
 
         log.info("Test: restarting nodes.");
 
@@ -282,7 +281,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(
                 node,
-                HA_TABLE_NAME,
+                HA_ZONE_NAME,
                 PARTITION_IDS,
                 Set.of(node.name(), node1.name())
         );
@@ -291,7 +290,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         waitAndAssertStableAssignmentsOfPartitionEqualTo(
                 node,
-                HA_TABLE_NAME,
+                HA_ZONE_NAME,
                 PARTITION_IDS,
                 Set.of(node.name(), node1.name(), node2.name())
         );
@@ -315,7 +314,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         startNode(3);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, allNodes);
     }
 
     @Test
@@ -334,7 +333,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         executeSql(format("ALTER ZONE %s SET REPLICAS=%d", HA_ZONE_NAME, 4));
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, fourNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, fourNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3);
 
@@ -344,7 +343,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", HA_ZONE_NAME, 1));
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, threeNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2);
     }
@@ -371,7 +370,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         node = igniteImpl(0);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, allNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), node.tables().table(HA_TABLE_NAME), 0, 1, 2, 3, 4);
     }
@@ -410,7 +409,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, allNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), table, 0, 1, 2, 3, 4, 5, 6);
 
@@ -420,7 +419,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         Set<String> threeNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_ZONE_NAME, PARTITION_IDS, threeNodes);
 
         // This entry comes from the manual reset.
         Entry manualResetTrigger = getRecoveryTriggerKey(node);
@@ -441,7 +440,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
         assertRecoveryRequestForHaZoneTable(node);
         assertRecoveryRequestCount(node, 2);
 
-        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, threeNodes);
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_ZONE_NAME, PARTITION_IDS, threeNodes);
     }
 
     @Test
@@ -514,7 +513,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         stopNodes(3, 4, 5, 6);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0, 1, 2));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(0, 1, 2));
 
         startNode(6);
 
