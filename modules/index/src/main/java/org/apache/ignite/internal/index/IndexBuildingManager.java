@@ -95,8 +95,8 @@ public class IndexBuildingManager implements IgniteComponent {
         int threadCount = Runtime.getRuntime().availableProcessors();
 
         executor = new ThreadPoolExecutor(
-                threadCount * 10,
-                threadCount * 10,
+                threadCount,
+                threadCount,
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
