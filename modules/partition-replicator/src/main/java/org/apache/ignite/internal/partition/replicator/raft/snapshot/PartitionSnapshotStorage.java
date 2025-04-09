@@ -39,10 +39,13 @@ import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Snapshot storage for {@link MvPartitionStorage}. Utilizes the fact that every partition already stores its latest applied index
- * and thus can itself be used as its own snapshot.
+ * Snapshot storage for a partition.
  *
- * <p>Uses {@link MvPartitionStorage#lastAppliedIndex()} and configuration, passed into constructor, to create a {@link SnapshotMeta} object
+ * <p>In case of zone partitions manages all table storages of a zone partition.
+ *
+ * <p>Utilizes the fact that every partition already stores its latest applied index and thus can itself be used as its own snapshot.
+ *
+ * <p>Uses {@link MvPartitionStorage#lastAppliedIndex()} and configuration to create a {@link SnapshotMeta} object
  * in {@link SnapshotReader#load()}.
  *
  * <p>Snapshot writer doesn't allow explicit save of any actual file. {@link SnapshotWriter#saveMeta(SnapshotMeta)} simply returns
