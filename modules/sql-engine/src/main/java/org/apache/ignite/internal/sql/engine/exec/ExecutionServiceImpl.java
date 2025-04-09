@@ -770,7 +770,9 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         buf.nl().nl().app("Dumping threads:").nl().nl();
 
         for (ThreadInfo info : infos) {
-            buf.app(info.toString()).nl();
+            if (info != null) {
+                buf.app(info.toString()).nl();
+            }
         }
 
         return buf.toString();
