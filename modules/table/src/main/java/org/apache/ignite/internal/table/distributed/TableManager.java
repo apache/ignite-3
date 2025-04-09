@@ -2642,7 +2642,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private CompletableFuture<Void> updatePartitionClients(
             TablePartitionId tablePartitionId,
-            Set<Assignment> stableAssignments
+            Set<Assignment> stableAssignments,
+            Set<Assignment> pendingAssignments
     ) {
         return isLocalNodeIsPrimary(tablePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -2657,7 +2658,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(tablePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(union(stableAssignments, pendingAssignments))));
         }));
     }
 
@@ -2671,7 +2672,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(tablePartitionId, stableAssignments);
+                : updatePartitionClients(tablePartitionId, stableAssignments, pendingAssignments.nodes());
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                         ? pendingAssignments.nodes().stream()

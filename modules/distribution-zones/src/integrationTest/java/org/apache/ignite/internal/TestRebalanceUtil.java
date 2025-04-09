@@ -27,6 +27,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
+import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -175,6 +176,6 @@ public class TestRebalanceUtil {
     ) {
         return metaStorageManager
                 .get(plannedPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId)))
-                .thenApply(e -> e.value() == null ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
+                .thenApply(e -> e.value() == null ? null : Assignments.fromBytes(e.value()).nodes());
     }
 }

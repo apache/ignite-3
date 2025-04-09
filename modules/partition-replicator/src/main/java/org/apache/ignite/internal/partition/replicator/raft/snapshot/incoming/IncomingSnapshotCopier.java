@@ -323,9 +323,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private boolean metadataIsSufficientlyComplete(PartitionSnapshotMeta snapshotMeta) {
-        int latestCatalogVersion = partitionSnapshotStorage.catalogService().latestCatalogVersion();
-
-        return snapshotMeta.requiredCatalogVersion() <= latestCatalogVersion;
+        return partitionSnapshotStorage.catalogService().catalogReadyFuture(snapshotMeta.requiredCatalogVersion()).isDone();
     }
 
     private void logMetadataInsufficiencyAndSetError(PartitionSnapshotMeta snapshotMeta) {

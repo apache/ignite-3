@@ -1030,7 +1030,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> updatePartitionClients(
             ZonePartitionId zonePartitionId,
-            Set<Assignment> stableAssignments
+            Set<Assignment> stableAssignments,
+            Set<Assignment> pendingAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -1046,7 +1047,7 @@ public class PartitionReplicaLifecycleManager extends
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(zonePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(union(stableAssignments, pendingAssignments))));
         }));
     }
 
@@ -1060,7 +1061,7 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(zonePartitionId, stableAssignments);
+                : updatePartitionClients(zonePartitionId, stableAssignments, pendingAssignments.nodes());
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()
