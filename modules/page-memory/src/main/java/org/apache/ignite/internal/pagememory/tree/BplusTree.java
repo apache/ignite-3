@@ -631,8 +631,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 }
 
                 // Retry must reset these fields when we release the whole branch without remove.
-                assert !r.needReplaceInner : "needReplaceInner";
-                assert r.needMergeEmptyBranch == FALSE : "needMergeEmptyBranch";
+                assert !r.needReplaceInner && r.needMergeEmptyBranch == FALSE
+                        : "needReplaceInner=" + r.needReplaceInner + ", needMergeEmptyBranch=" + r.needMergeEmptyBranch;
 
                 if (cnt == 1) {
                     // It was the last element on the leaf.
@@ -4901,17 +4901,17 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             // Here we wanted to do a regular merge after all the important operations,
             // so we can leave this invalid tail as is. We have no other choice here
             // because our tail is not long enough for retry. Exiting.
-            assert isRemoved();
-            assert !needReplaceInner && needMergeEmptyBranch != TRUE;
+            assert isRemoved() && !needReplaceInner && needMergeEmptyBranch != TRUE
+                    : "isRemoved=" + isRemoved() + ", needReplaceInner=" + needReplaceInner
+                    + ", needMergeEmptyBranch=" + needMergeEmptyBranch;
 
             return false;
         }
 
         @Override
         protected Result finishTail() throws IgniteInternalCheckedException {
-            assert !isFinished();
-            assert tail.type == Tail.EXACT && tail.lvl >= 0 : tail;
-            assert needMergeEmptyBranch != READY : needMergeEmptyBranch;
+            assert !isFinished() && tail.type == Tail.EXACT && tail.lvl >= 0 && needMergeEmptyBranch != READY
+                    : "isFinished=" + isFinished() + ", tail=" + tail + ", needMergeEmptyBranch=" + needMergeEmptyBranch;
 
             if (tail.lvl == 0) {
                 // At the bottom level we can't have a tail without a sibling, it means we have higher levels.
@@ -5188,8 +5188,8 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
 
             if (t.down == null) {
                 // It is just a regular merge in progress.
-                assert needMergeEmptyBranch != TRUE;
-                assert !needReplaceInner;
+                assert needMergeEmptyBranch != TRUE && !needReplaceInner
+                        : "needMergeEmptyBranch=" + needMergeEmptyBranch + ", needReplaceInner" + needReplaceInner;
 
                 return true;
             }
