@@ -65,7 +65,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         assert !nullOrEmpty(sources()) && sources().size() == 1;
         assert rowsCnt > 0;
 
-        if (fetchNone()) {
+        if (!hasMoreData()) {
             end();
 
             return;
@@ -94,23 +94,23 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
             return;
         }
 
-        ++rowsProcessed;
-
         --waiting;
 
-        if (rowsProcessed > offset) {
-            if (fetchUndefined || rowsProcessed <= fetch + offset) {
+        if (rowsProcessed + 1 > offset) {
+            if (hasMoreData()) {
                 // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
                 --requested;
                 downstream().push(row);
             }
         }
 
+        ++rowsProcessed;
+
         // There several cases are possible:
         //  1) requested = 512, limit = 1, offset = not defined: need to pass 1 row and call end()
         //  2) requested = 512, limit = 512, offset = not defined: just need to pass all rows without end() call
         //  3) requested = 512, limit = 512, offset = 1: need to request initially 512 and further 1 row
-        if (fetch > 0 && rowsProcessed == fetch + offset && requested > 0) {
+        if (!hasMoreData() && requested > 0) {
             end();
         }
 
@@ -151,8 +151,8 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         return this;
     }
 
-    /** {@code True} if requested 0 results, or all already processed. */
-    private boolean fetchNone() {
-        return (!fetchUndefined && fetch == 0) || (fetch > 0 && rowsProcessed == fetch + offset);
+    /** {@code True} if fetch is undefined, or current rows processed is less than required. */
+    private boolean hasMoreData() {
+        return fetchUndefined || rowsProcessed < fetch + offset;
     }
 }
