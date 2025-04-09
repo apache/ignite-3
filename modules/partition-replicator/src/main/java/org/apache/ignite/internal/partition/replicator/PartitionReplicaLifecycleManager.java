@@ -1016,7 +1016,7 @@ public class PartitionReplicaLifecycleManager extends
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             Set<Assignment> stablePendingUnion = union(stableAssignments, pendingAssignments);
 
-            boolean isLocalInStable = isLocalNodeInAssignments(stablePendingUnion);
+            boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
 
             // TODO sanpwc explain why it's not needed to update raft client peer set if it's not in (!isLocalInStable && !isLeaseholder)
             // TODO sanpwc do same for tables.
