@@ -4913,6 +4913,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
         protected Result finishTail() throws IgniteInternalCheckedException {
             assert !isFinished();
             assert tail.type == Tail.EXACT && tail.lvl >= 0 : tail;
+            assert needMergeEmptyBranch != READY : needMergeEmptyBranch;
 
             if (tail.lvl == 0) {
                 // At the bottom level we can't have a tail without a sibling, it means we have higher levels.
@@ -4929,15 +4930,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // It was a regular merge, leave as is and exit.
                 } else {
                     // Try to find inner key on inner level.
-                    if (needReplaceInner == TRUE) {
+                    if (needReplaceInner == TRUE && !isInnerKeyInTail()) {
                         // Since we setup needReplaceInner in leaf page write lock and do not release it,
                         // we should not be able to miss the inner key. Even if concurrent merge
                         // happened the inner key must still exist.
-                        if (!isInnerKeyInTail()) {
-                            return NOT_FOUND; // Lock the whole branch up to the inner key.
-                        }
-
-                        needReplaceInner = READY;
+                        return NOT_FOUND; // Lock the whole branch up to the inner key.
                     }
 
                     // Try to merge an empty branch.
@@ -4965,13 +4962,11 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // The actual row remove may happen here as well.
                     mergeBottomUp(tail);
 
-                    if (needReplaceInner == READY) {
+                    if (needReplaceInner == TRUE) {
                         replaceInner(); // Replace inner key with new max key for the left subtree.
 
                         needReplaceInner = DONE;
                     }
-
-                    assert needReplaceInner != TRUE;
 
                     // Loop is needed to prevent the rare case when, after parallel remove of keys, empty root remains.
                     // B+tree after removes key: [empty_root] - [empty_inner_node] - [5] ==>
@@ -5381,7 +5376,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @throws IgniteInternalCheckedException If failed.
          */
         private void replaceInner() throws IgniteInternalCheckedException {
-            assert needReplaceInner == READY : needReplaceInner;
+            assert needReplaceInner == TRUE : needReplaceInner;
 
             int innerIdx;
 
