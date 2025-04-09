@@ -114,7 +114,7 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 requested--;
                 downstream().push(inst.next());
 
-                if (++processed == inBufSize) {
+                if (++processed == inBufSize && requested > 0) {
                     // allow others to do their job
                     this.execute(this::push);
 
