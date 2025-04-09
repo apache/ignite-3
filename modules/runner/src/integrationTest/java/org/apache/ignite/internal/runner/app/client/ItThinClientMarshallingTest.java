@@ -148,7 +148,8 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
         var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
 
         Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
-        assertEquals("No mapped object field found for column 'VAL'", ex.getMessage());
+        assertEquals("Fields [unknown] of type org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$MissingFieldPojo "
+                + "are not mapped to columns", ex.getMessage());
     }
 
     @Test
