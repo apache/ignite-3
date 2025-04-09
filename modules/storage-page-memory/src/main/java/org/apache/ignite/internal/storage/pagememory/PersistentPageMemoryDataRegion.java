@@ -142,8 +142,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                 cfg,
                 metricSource,
                 ioRegistry,
-                calculateSegmentSizes(dataRegionConfigView.size(), Runtime.getRuntime().availableProcessors()),
-                calculateCheckpointBufferSize(dataRegionConfigView.size()),
+                calculateSegmentSizes(dataRegionConfigView.sizeBytes(), Runtime.getRuntime().availableProcessors()),
+                calculateCheckpointBufferSize(dataRegionConfigView.sizeBytes()),
                 filePageStoreManager,
                 this::flushDirtyPageOnReplacement,
                 checkpointManager.checkpointTimeoutLock(),
@@ -207,11 +207,11 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
         if (throttlingTypeCfg != null) {
             try {
-                throttlingType = ThrottlingType.valueOf(throttlingTypeCfg.name().toUpperCase());
+                throttlingType = ThrottlingType.valueOf(throttlingTypeCfg.propertyValue().toUpperCase());
             } catch (IllegalArgumentException e) {
                 LOG.warn(
                         "Invalid throttling configuration {}={}, using default value {}",
-                        THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY,
+                        THROTTLING_TYPE_SYSTEM_PROPERTY,
                         throttlingTypeCfg.propertyValue(),
                         throttlingType
                 );
@@ -228,7 +228,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
         long logThresholdNanos = PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD;
         try {
             if (logThresholdCfg != null) {
-                long logThresholdMillis = Long.parseLong(logThresholdCfg.name());
+                long logThresholdMillis = Long.parseLong(logThresholdCfg.propertyValue());
 
                 if (logThresholdMillis <= 0) {
                     throw new IllegalArgumentException();

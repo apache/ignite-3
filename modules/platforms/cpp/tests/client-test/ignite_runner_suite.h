@@ -125,7 +125,7 @@ public:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, {"DELETE FROM " + std::string(TABLE_1)}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DELETE FROM " + std::string(TABLE_1)}, {});
     }
 
     /**

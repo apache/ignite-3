@@ -37,7 +37,7 @@ import org.apache.ignite.internal.network.configuration.SslConfigurationValidato
 public class OtlpExporterConfigurationSchema extends ExporterConfigurationSchema {
     /** Export period, in milliseconds. */
     @Value(hasDefault = true)
-    public long period = 30_000;
+    public long periodMillis = 30_000;
 
     /** String in "host:port" format. */
     @Value

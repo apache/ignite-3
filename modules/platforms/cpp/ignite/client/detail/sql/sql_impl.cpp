@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+#include "ignite/client/detail/cancellation_token_impl.h"
 #include "ignite/client/detail/sql/sql_impl.h"
 #include "ignite/client/detail/sql/result_set_impl.h"
 #include "ignite/client/detail/utils.h"
@@ -88,8 +89,28 @@ void write_args(protocol::writer &writer, const std::vector<primitive> &args) {
     writer.write_binary(args_data);
 }
 
-void sql_impl::execute_async(transaction *tx, const sql_statement &statement, std::vector<primitive> &&args,
-    ignite_callback<result_set> &&callback) {
+void add_action(cancellation_token &token, const std::shared_ptr<node_connection> &connection, std::int64_t req_id) {
+    auto writer_func = [req_id](protocol::writer &writer) {
+        writer.write(req_id);
+    };
+
+    cancellation_token_impl &token_impl = static_cast<cancellation_token_impl&>(token);
+    token_impl.add_action(connection->get_logger(), [req_id, connection, writer_func] (ignite_callback<void> callback) {
+        connection->perform_request<void>(protocol::client_operation::SQL_CANCEL_EXEC,
+            writer_func, [] (protocol::reader&){}, std::move(callback));
+    });
+}
+
+void sql_impl::execute_async(transaction *tx, cancellation_token *token, const sql_statement &statement,
+    std::vector<primitive> &&args, ignite_callback<result_set> &&callback) {
+    if (token) {
+        auto &token_impl = static_cast<cancellation_token_impl&>(*token);
+        if (token_impl.is_cancelled()) {
+            callback(ignite_error{error::code::EXECUTION_CANCELLED, "The query was cancelled while executing."});
+            return;
+        }
+    }
+
     auto tx0 = tx ? tx->m_impl : nullptr;
 
     auto writer_func = [this, &statement, &args, &tx0](protocol::writer &writer) {
@@ -108,12 +129,17 @@ void sql_impl::execute_async(transaction *tx, const sql_statement &statement, st
         return result_set{std::make_shared<result_set_impl>(std::move(channel), msg)};
     };
 
-    m_connection->perform_request_bytes<result_set>(
-        protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func), std::move(callback));
+    auto res = m_connection->perform_request_bytes<result_set>(
+        protocol::client_operation::SQL_EXEC, tx0.get(), writer_func, std::move(reader_func),
+        std::move(callback));
+
+    if (token) {
+        add_action(*token, res.first, res.second);
+    }
 }
 
-void sql_impl::execute_script_async(
-    const sql_statement &statement, std::vector<primitive> &&args, ignite_callback<void> &&callback) {
+void sql_impl::execute_script_async(cancellation_token *token, const sql_statement &statement,
+    std::vector<primitive> &&args, ignite_callback<void> &&callback) {
 
     auto writer_func = [this, &statement, args = std::move(args)](protocol::writer &writer) {
         write_statement(writer, statement);
@@ -121,8 +147,12 @@ void sql_impl::execute_script_async(
         writer.write(m_connection->get_observable_timestamp());
     };
 
-    m_connection->perform_request_wr<void>(
+    auto res = m_connection->perform_request_wr<void>(
         protocol::client_operation::SQL_EXEC_SCRIPT, nullptr, writer_func, std::move(callback));
+
+    if (token) {
+        add_action(*token, res.first, res.second);
+    }
 }
 
 } // namespace ignite::detail

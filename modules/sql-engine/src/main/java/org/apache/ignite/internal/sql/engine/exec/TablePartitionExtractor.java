@@ -51,8 +51,7 @@ public class TablePartitionExtractor<RowT> implements RowPartitionExtractor<RowT
             Object value = rowHandler.get(fields[i], row);
 
             NativeTypeSpec nativeTypeSpec = tableDescriptor.columnDescriptor(colocationColumns[i]).physicalType().spec();
-            Class<?> storageType = NativeTypeSpec.toClass(nativeTypeSpec, true);
-            value = TypeUtils.fromInternal(value, storageType);
+            value = value == null ? null : TypeUtils.fromInternal(value, nativeTypeSpec);
             partitionCalculator.append(value);
         }
 

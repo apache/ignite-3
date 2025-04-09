@@ -51,6 +51,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
      * @param id The id.
      * @param txCoordinatorId Transaction coordinator inconsistent ID.
      * @param implicit True for an implicit transaction, false for an ordinary one.
+     * @param timeout The timeout.
      * @param readTimestamp The read timestamp.
      */
     ReadOnlyTransactionImpl(
@@ -80,7 +81,7 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
+    public HybridTimestamp schemaTimestamp() {
         return readTimestamp;
     }
 
@@ -156,11 +157,6 @@ public class ReadOnlyTransactionImpl extends IgniteAbstractTransactionImpl {
     @Override
     public boolean isFinishingOrFinished() {
         return finishGuard.get();
-    }
-
-    @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
-        return timeout == 0 ? defaultTimeout : timeout;
     }
 
     @Override

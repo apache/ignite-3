@@ -139,7 +139,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     /** Test group id. */
     private static final TestReplicationGroupId TEST_GRP = new TestReplicationGroupId("test");
 
-    @InjectConfiguration("mock.retryTimeout=" + TIMEOUT)
+    @InjectConfiguration("mock.retryTimeoutMillis=" + TIMEOUT)
     private RaftConfiguration raftConfiguration;
 
     /** Mock cluster. */
@@ -315,7 +315,7 @@ public class RaftGroupServiceTest extends BaseIgniteAbstractTest {
     public void testUserRequestLeaderElectedAfterDelayWithFailedNode() {
         mockUserInput(false, NODES.get(0));
 
-        CompletableFuture<Void> confUpdateFuture = raftConfiguration.retryTimeout().update(TIMEOUT * 3);
+        CompletableFuture<Void> confUpdateFuture = raftConfiguration.retryTimeoutMillis().update(TIMEOUT * 3);
 
         assertThat(confUpdateFuture, willCompleteSuccessfully());
 

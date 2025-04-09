@@ -42,7 +42,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
@@ -80,6 +79,7 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -303,7 +303,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
         when(topologyService.localMember()).thenReturn(node);
-        when(distributionZoneManager.dataNodes(anyLong(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
+        when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt())).thenReturn(completedFuture(Set.of(NODE_NAME)));
 
         doReturn(nullCompletedFuture())
                 .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
@@ -355,14 +355,21 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         sm = new SchemaManager(revisionUpdater, catalogManager);
 
+        FailureProcessor failureProcessor = mock(FailureProcessor.class);
+
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,
-                logSyncer
+                logSyncer,
+                failureProcessor
         );
 
-        var outgoingSnapshotManager = new OutgoingSnapshotsManager(node.name(), clusterService.messagingService());
+        var outgoingSnapshotManager = new OutgoingSnapshotsManager(
+                node.name(),
+                clusterService.messagingService(),
+                failureProcessor
+        );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
@@ -371,6 +378,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 metaStorageManager,
                 topologyService,
                 lowWatermark,
+                failureProcessor,
                 ForkJoinPool.commonPool(),
                 mock(ScheduledExecutorService.class),
                 partitionOperationsExecutor,
@@ -411,6 +419,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
+                new NoOpFailureManager(),
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 () -> mock(IgniteSql.class),

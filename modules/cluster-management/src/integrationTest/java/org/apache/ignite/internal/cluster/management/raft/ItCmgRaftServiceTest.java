@@ -55,6 +55,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -120,7 +121,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
         }
 
         void start() {
@@ -149,7 +150,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
-                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReady(
+                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
@@ -157,9 +158,11 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     logicalTopology,
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {},
-                                    new ClusterIdHolder()
+                                    new ClusterIdHolder(),
+                                    new NoOpFailureManager()
                             ),
                             RaftGroupEventsListener.noopLsnr,
+                            null,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
                     );
                 }

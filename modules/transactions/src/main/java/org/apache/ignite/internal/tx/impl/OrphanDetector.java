@@ -32,8 +32,7 @@ import java.util.ArrayList;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
-import org.apache.ignite.configuration.ConfigurationValue;
-import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -88,19 +87,7 @@ public class OrphanDetector {
     /** The executor is used to send a transaction resolution message to the commit partition for an orphan transaction. */
     private final Executor partitionOperationsExecutor;
 
-    /**
-     * The time interval in milliseconds in which the orphan resolution sends the recovery message again, in case the transaction is still
-     * not finalized.
-     */
-    private long checkTxStateInterval;
-
-    private final ConfigurationListener<Long> checkTxStateIntervalListener = ctx -> {
-        this.checkTxStateInterval = ctx.newValue();
-
-        return nullCompletedFuture();
-    };
-
-    private volatile @Nullable ConfigurationValue<Long> checkTxStateIntervalProvider;
+    private volatile Supplier<Long> checkTxStateIntervalProvider;
 
     /** Local transaction state storage. */
     private VolatileTxStateMetaStorage txLocalStateStorage;
@@ -134,12 +121,9 @@ public class OrphanDetector {
      * @param txLocalStateStorage Local transaction state storage.
      * @param checkTxStateIntervalProvider Global provider of configuration check state interval.
      */
-    public void start(VolatileTxStateMetaStorage txLocalStateStorage, ConfigurationValue<Long> checkTxStateIntervalProvider) {
+    public void start(VolatileTxStateMetaStorage txLocalStateStorage, Supplier<Long> checkTxStateIntervalProvider) {
         this.txLocalStateStorage = txLocalStateStorage;
         this.checkTxStateIntervalProvider = checkTxStateIntervalProvider;
-        this.checkTxStateInterval = checkTxStateIntervalProvider.value();
-
-        checkTxStateIntervalProvider.listen(checkTxStateIntervalListener);
 
         lockManager.listen(LockEvent.LOCK_CONFLICT, lockConflictListener);
     }
@@ -151,11 +135,6 @@ public class OrphanDetector {
         busyLock.block();
 
         lockManager.removeListener(LockEvent.LOCK_CONFLICT, lockConflictListener);
-
-        ConfigurationValue<Long> localCheckTxStateIntervalProvider = checkTxStateIntervalProvider;
-        if (localCheckTxStateIntervalProvider != null) {
-            localCheckTxStateIntervalProvider.stopListen(checkTxStateIntervalListener);
-        }
     }
 
     /**
@@ -295,7 +274,7 @@ public class OrphanDetector {
     }
 
     /**
-     * Checks whether the transaction state is marked as abandoned recently (less than {@link #checkTxStateInterval} millis ago).
+     * Checks whether the transaction state is marked as abandoned recently (less than {@link #checkTxStateIntervalProvider} millis ago).
      *
      * @param txState Transaction state metadata.
      * @return True if the state recently updated to {@link org.apache.ignite.internal.tx.TxState#ABANDONED}.
@@ -309,6 +288,6 @@ public class OrphanDetector {
 
         var txStateAbandoned = (TxStateMetaAbandoned) txState;
 
-        return txStateAbandoned.lastAbandonedMarkerTs() + checkTxStateInterval >= coarseCurrentTimeMillis();
+        return txStateAbandoned.lastAbandonedMarkerTs() + checkTxStateIntervalProvider.get() >= coarseCurrentTimeMillis();
     }
 }

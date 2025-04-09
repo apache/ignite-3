@@ -17,13 +17,16 @@
 
 package org.apache.ignite.internal.index;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.storage.impl.schema.TestProfileConfigurationSchema.TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
+import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -52,6 +55,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -171,7 +175,7 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     }
 
     @Test
-    void testOnePhaseCommitViaKeyValue() {
+    void testOnePhaseCommitViaKeyValue() throws Exception {
         int oldLatestCatalogVersion = latestCatalogVersion();
 
         TableImpl tableImpl = tableImpl();
@@ -280,14 +284,11 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
     private static CompletableFuture<Void> awaitAddWriteCommittedForAnyMvPartitionStorage(
             MvTableStorage mvTableStorage,
             CompletableFuture<Void> continueUpdateFuture
-    ) {
+    ) throws InterruptedException {
         var awaitStartUpdateAnyMvPartitionStorageFuture = new CompletableFuture<Void>();
 
         for (int partitionId = 0; partitionId < mvTableStorage.getTableDescriptor().getPartitions(); partitionId++) {
-            MvPartitionStorage mvPartitionStorage = Wrappers.unwrapNullable(
-                    mvTableStorage.getMvPartition(partitionId),
-                    TestMvPartitionStorage.class
-            );
+            MvPartitionStorage mvPartitionStorage = waitForMvPartitionStorage(mvTableStorage, partitionId);
 
             // Since the update will be one-phase, it will be enough for us to wait for any addWriteCommitted.
             // Waiting for any runConsistently can lead to flaky fail.
@@ -301,5 +302,22 @@ public class ItIndexNodeFinishedRwTransactionsCheckerTest extends ClusterPerClas
         }
 
         return awaitStartUpdateAnyMvPartitionStorageFuture;
+    }
+
+    private static MvPartitionStorage waitForMvPartitionStorage(MvTableStorage mvTableStorage, int partitionId)
+            throws InterruptedException {
+        waitForCondition(() -> getMvPartitionStorage(mvTableStorage, partitionId) != null, SECONDS.toMillis(10));
+
+        MvPartitionStorage storage = getMvPartitionStorage(mvTableStorage, partitionId);
+        assertThat(storage, is(notNullValue()));
+
+        return storage;
+    }
+
+    private static @Nullable MvPartitionStorage getMvPartitionStorage(MvTableStorage mvTableStorage, int partitionId) {
+        return Wrappers.unwrapNullable(
+                mvTableStorage.getMvPartition(partitionId),
+                TestMvPartitionStorage.class
+        );
     }
 }

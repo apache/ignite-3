@@ -41,9 +41,9 @@ public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfile
 
     /** Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated. */
     @Value(hasDefault = true)
-    public long initSize = DFLT_DATA_REGION_INITIAL_SIZE;
+    public long initSizeBytes = DFLT_DATA_REGION_INITIAL_SIZE;
 
     /** Maximum memory region size in bytes. */
     @Value(hasDefault = true)
-    public long maxSize = DFLT_DATA_REGION_MAX_SIZE;
+    public long maxSizeBytes = DFLT_DATA_REGION_MAX_SIZE;
 }

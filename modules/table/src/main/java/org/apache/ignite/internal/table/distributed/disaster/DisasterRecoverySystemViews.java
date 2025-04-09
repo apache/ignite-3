@@ -35,8 +35,8 @@ import org.apache.ignite.internal.systemview.api.SystemViews;
 
 /** Helper class for disaster recovery system views. */
 class DisasterRecoverySystemViews {
-    private static final Comparator<GlobalPartitionState> GLOBAL_PARTITION_STATE_COMPARATOR =
-            comparing((GlobalPartitionState state) -> state.tableName).thenComparingInt(state -> state.partitionId);
+    private static final Comparator<GlobalTablePartitionState> GLOBAL_PARTITION_STATE_COMPARATOR =
+            comparing((GlobalTablePartitionState state) -> state.tableName).thenComparingInt(state -> state.partitionId);
 
     private static final Comparator<SystemViewLocalPartitionState> SYSTEM_VIEW_LOCAL_PARTITION_STATE_COMPARATOR =
             comparing((SystemViewLocalPartitionState state) -> state.state.tableName)
@@ -44,7 +44,7 @@ class DisasterRecoverySystemViews {
                     .thenComparing(state -> state.nodeName);
 
     static SystemView<?> createGlobalPartitionStatesSystemView(DisasterRecoveryManager manager) {
-        return SystemViews.<GlobalPartitionState>clusterViewBuilder()
+        return SystemViews.<GlobalTablePartitionState>clusterViewBuilder()
                 .name("GLOBAL_PARTITION_STATES")
                 .addColumn("ZONE_NAME", STRING, state -> state.zoneName)
                 .addColumn("TABLE_ID", INT32, state -> state.tableId)
@@ -91,15 +91,15 @@ class DisasterRecoverySystemViews {
         };
     }
 
-    private static CompletableFuture<Iterator<GlobalPartitionState>> globalPartitionStatesAsync(DisasterRecoveryManager manager) {
-        return manager.globalPartitionStates(Set.of(), Set.of()).thenApply(states -> states.values().stream()
+    private static CompletableFuture<Iterator<GlobalTablePartitionState>> globalPartitionStatesAsync(DisasterRecoveryManager manager) {
+        return manager.globalTablePartitionStates(Set.of(), Set.of()).thenApply(states -> states.values().stream()
                 .sorted(GLOBAL_PARTITION_STATE_COMPARATOR)
                 .iterator()
         );
     }
 
     private static CompletableFuture<Iterator<SystemViewLocalPartitionState>> localPartitionStatesAsync(DisasterRecoveryManager manager) {
-        return manager.localPartitionStates(Set.of(), Set.of(), Set.of()).thenApply(states -> states.values().stream()
+        return manager.localTablePartitionStates(Set.of(), Set.of(), Set.of()).thenApply(states -> states.values().stream()
                 .flatMap(statesByNodeName -> statesByNodeName.entrySet().stream())
                 .map(nodeStates -> new SystemViewLocalPartitionState(nodeStates.getKey(), nodeStates.getValue()))
                 .sorted(SYSTEM_VIEW_LOCAL_PARTITION_STATE_COMPARATOR)
@@ -110,9 +110,9 @@ class DisasterRecoverySystemViews {
     private static class SystemViewLocalPartitionState {
         private final String nodeName;
 
-        private final LocalPartitionState state;
+        private final LocalTablePartitionState state;
 
-        private SystemViewLocalPartitionState(String nodeName, LocalPartitionState state) {
+        private SystemViewLocalPartitionState(String nodeName, LocalTablePartitionState state) {
             this.nodeName = nodeName;
             this.state = state;
         }

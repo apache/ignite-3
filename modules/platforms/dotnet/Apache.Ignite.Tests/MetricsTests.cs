@@ -176,7 +176,7 @@ public class MetricsTests
         AssertMetric(MetricNames.RequestsFailed, 0);
         AssertMetric(MetricNames.RequestsCompleted, 1);
 
-        Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad-table"));
+        Assert.ThrowsAsync<IgniteException>(async () => await client.Tables.GetTableAsync("bad_table"));
 
         AssertMetric(MetricNames.RequestsSent, 2);
         AssertMetric(MetricNames.RequestsFailed, 1);

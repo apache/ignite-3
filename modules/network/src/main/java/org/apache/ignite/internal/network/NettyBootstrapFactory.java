@@ -189,8 +189,8 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
         NetworkView configurationView = networkConfiguration.value();
-        long quietPeriod = configurationView.shutdownQuietPeriod();
-        long shutdownTimeout = configurationView.shutdownTimeout();
+        long quietPeriod = configurationView.shutdownQuietPeriodMillis();
+        long shutdownTimeout = configurationView.shutdownTimeoutMillis();
 
         try {
             clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();

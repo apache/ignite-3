@@ -20,6 +20,7 @@ project(ignite3-client)
 set(TARGET ${PROJECT_NAME})
 
 set(SOURCES
+    cancel_handle.cpp
     ignite_client.cpp
     compute/broadcast_job_target.cpp
     compute/compute.cpp
@@ -33,6 +34,7 @@ set(SOURCES
     table/tables.cpp
     transaction/transaction.cpp
     transaction/transactions.cpp
+    detail/cancellation_token_impl.cpp
     detail/cluster_connection.cpp
     detail/ignite_client_impl.cpp
     detail/utils.cpp
@@ -46,10 +48,13 @@ set(SOURCES
 
 set(PUBLIC_HEADERS
     basic_authenticator.h
+    cancel_handle.h
+    cancellation_token.h
     ignite_client.h
     ignite_client_authenticator.h
     ignite_client_configuration.h
     ignite_logger.h
+    ssl_mode.h
     type_mapping.h
     compute/broadcast_execution.h
     compute/broadcast_job_target.h
@@ -61,6 +66,7 @@ set(PUBLIC_HEADERS
     compute/job_state.h
     compute/job_status.h
     compute/job_target.h
+    detail/compute/job_target_type.h
     detail/type_mapping_utils.h
     network/cluster_node.h
     sql/column_metadata.h

@@ -17,13 +17,18 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.client.PartitionMapping;
 import org.apache.ignite.internal.client.PayloadInputChannel;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.tx.IgniteTransactions;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionOptions;
@@ -62,9 +67,10 @@ public class ClientTransactions implements IgniteTransactions {
 
     static CompletableFuture<ClientTransaction> beginAsync(
             ReliableChannel ch,
-            @Nullable String preferredNodeName,
+            @Nullable PartitionMapping pm,
             @Nullable TransactionOptions options,
-            long observableTimestamp) {
+            HybridTimestampTracker observableTimestamp
+    ) {
         boolean readOnly = options != null && options.readOnly();
         long timeout = options == null ? USE_CONFIGURED_TIMEOUT_DEFAULT : options.timeoutMillis();
 
@@ -73,19 +79,35 @@ public class ClientTransactions implements IgniteTransactions {
                 w -> {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(timeout);
-                    w.out().packLong(observableTimestamp);
+                    w.out().packLong(observableTimestamp.get().longValue());
+                    if (!readOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+                        w.out().packInt(pm == null ? -1 : pm.tableId());
+                        w.out().packInt(pm == null ? -1 : pm.partition());
+                    }
                 },
-                r -> readTx(r, readOnly),
-                preferredNodeName,
+                r -> readTx(r, readOnly, pm, observableTimestamp, timeout),
+                pm == null ? null : pm.nodeConsistentId(),
+                null,
                 null,
                 false);
     }
 
-    private static ClientTransaction readTx(PayloadInputChannel r, boolean isReadOnly) {
+    private static ClientTransaction readTx(
+            PayloadInputChannel r,
+            boolean isReadOnly,
+            @Nullable PartitionMapping pm,
+            HybridTimestampTracker tracker,
+            long timeout
+    ) {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
-
-        return new ClientTransaction(r.clientChannel(), id, isReadOnly);
+        if (isReadOnly || !r.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+            return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
+        } else {
+            UUID txId = in.unpackUuid();
+            UUID coordId = in.unpackUuid();
+            return new ClientTransaction(r.clientChannel(), id, isReadOnly, txId, pm, coordId, tracker, timeout);
+        }
     }
 }

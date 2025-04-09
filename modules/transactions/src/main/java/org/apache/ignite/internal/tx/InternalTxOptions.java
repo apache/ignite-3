@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.tx;
 
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.jetbrains.annotations.Nullable;
+
 /**
  * Transaction options for internal use.
  */
@@ -32,9 +35,17 @@ public class InternalTxOptions {
     /** Transaction timeout. 0 means 'use default timeout'. */
     private final long timeoutMillis;
 
-    private InternalTxOptions(TxPriority priority, long timeoutMillis) {
+    /**
+     * Read timestamp of the transaction. If {@code null} - the most recent available timestamp will be calculated based on the current
+     * node's clock.
+     */
+    @Nullable
+    private final HybridTimestamp readTimestamp;
+
+    private InternalTxOptions(TxPriority priority, long timeoutMillis, @Nullable HybridTimestamp readTimestamp) {
         this.priority = priority;
         this.timeoutMillis = timeoutMillis;
+        this.readTimestamp = readTimestamp;
     }
 
     public static Builder builder() {
@@ -57,10 +68,18 @@ public class InternalTxOptions {
         return timeoutMillis;
     }
 
+    public @Nullable HybridTimestamp readTimestamp() {
+        return readTimestamp;
+    }
+
     /** Builder for InternalTxOptions. */
     public static class Builder {
         private TxPriority priority = TxPriority.NORMAL;
+
         private long timeoutMillis = 0;
+
+        @Nullable
+        private HybridTimestamp readTimestamp = null;
 
         public Builder priority(TxPriority priority) {
             this.priority = priority;
@@ -72,8 +91,13 @@ public class InternalTxOptions {
             return this;
         }
 
+        public Builder readTimestamp(HybridTimestamp readTimestamp) {
+            this.readTimestamp = readTimestamp;
+            return this;
+        }
+
         public InternalTxOptions build() {
-            return new InternalTxOptions(priority, timeoutMillis);
+            return new InternalTxOptions(priority, timeoutMillis, readTimestamp);
         }
     }
 }

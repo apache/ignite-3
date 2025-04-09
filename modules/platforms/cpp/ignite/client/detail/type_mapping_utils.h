@@ -25,7 +25,7 @@
 namespace ignite {
 /**
  * Convert values to tuples.
- * @param vals Values.
+ * @param values Values.
  * @return Tuples.
  */
 template<typename T>

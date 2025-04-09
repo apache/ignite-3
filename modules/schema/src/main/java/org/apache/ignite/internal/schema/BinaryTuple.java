@@ -18,14 +18,14 @@
 package org.apache.ignite.internal.schema;
 
 import java.nio.ByteBuffer;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
  * Utility for access to binary tuple elements as typed values and with schema knowledge that allows to read
  * elements as objects.
  */
-public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
+public class BinaryTuple extends BinaryTupleReader implements InternalTupleEx {
     /**
      * Constructor.
      *
@@ -44,5 +44,10 @@ public class BinaryTuple extends BinaryTupleReader implements InternalTuple {
      */
     public BinaryTuple(int elementCount, ByteBuffer buffer) {
         super(elementCount, buffer);
+    }
+
+    @Override
+    public void copyValue(BinaryTupleBuilder builder, int columnIndex) {
+        copyRawValue(builder, columnIndex);
     }
 }

@@ -81,7 +81,8 @@ public class ClientHandlerModule implements IgniteComponent {
 
     /** Supported server features. */
     private static final BitSet SUPPORTED_FEATURES = ProtocolBitmaskFeature.featuresAsBitSet(EnumSet.of(
-            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME
+            ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
+            ProtocolBitmaskFeature.TX_DIRECT_MAPPING
     ));
 
     /** Connection id generator.
@@ -323,12 +324,12 @@ public class ClientHandlerModule implements IgniteComponent {
                                         + ", remoteAddress=" + ch.remoteAddress() + ']');
                             }
 
-                            if (configuration.idleTimeout() > 0) {
+                            if (configuration.idleTimeoutMillis() > 0) {
                                 IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                        configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+                                        configuration.idleTimeoutMillis(), 0, 0, TimeUnit.MILLISECONDS);
 
                                 ch.pipeline().addLast(idleStateHandler);
-                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeoutMillis(), metrics, connectionId));
                             }
 
                             if (sslContext != null) {
@@ -356,7 +357,7 @@ public class ClientHandlerModule implements IgniteComponent {
                         }
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout())
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeoutMillis())
                 .option(ChannelOption.AUTO_READ, false);
 
         int port = configuration.port();

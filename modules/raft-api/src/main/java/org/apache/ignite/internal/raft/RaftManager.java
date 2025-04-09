@@ -59,50 +59,6 @@ public interface RaftManager extends IgniteComponent {
     ) throws NodeStoppingException;
 
     /**
-     * Starts a Raft group and a Raft service on the current node.
-     *
-     * <p>Synchronously waits for the Raft log to be applied.
-     *
-     * @param nodeId Raft node ID.
-     * @param configuration Peers and Learners of the Raft group.
-     * @param lsnr Raft group listener.
-     * @param eventsLsnr Raft group events listener.
-     * @param groupOptionsConfigurer Configures raft log and snapshot storages.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    RaftGroupService startRaftGroupNodeAndWaitNodeReady(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr,
-            RaftGroupOptionsConfigurer groupOptionsConfigurer
-    ) throws NodeStoppingException;
-
-    /**
-     * Starts a Raft group and a Raft service on the current node.
-     *
-     * <p>Synchronously waits for the Raft log to be applied.
-     *
-     * @param nodeId Raft node ID.
-     * @param configuration Peers and Learners of the Raft group.
-     * @param lsnr Raft group listener.
-     * @param eventsLsnr Raft group events listener.
-     * @param disruptorConfiguration Configuration own (not shared) striped disruptor for FSMCaller service of raft node.
-     * @param groupOptionsConfigurer Configures raft log and snapshot storages.
-     * @throws NodeStoppingException If node stopping intention was detected.
-     */
-    // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    RaftGroupService startRaftGroupNodeAndWaitNodeReady(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration disruptorConfiguration,
-            RaftGroupOptionsConfigurer groupOptionsConfigurer
-    ) throws NodeStoppingException;
-
-    /**
      * Starts a Raft group and a Raft service on the current node, using the given service factory.
      *
      * <p>Synchronously waits for the Raft log to be applied.
@@ -116,13 +72,12 @@ public interface RaftManager extends IgniteComponent {
      * @throws NodeStoppingException If node stopping intention was detected.
      */
     // FIXME: IGNITE-19047 Meta storage and cmg raft log re-application in async manner
-    <T extends RaftGroupService> T startRaftGroupNodeAndWaitNodeReady(
+    <T extends RaftGroupService> T startSystemRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration disruptorConfiguration,
-            RaftServiceFactory<T> factory,
+            @Nullable RaftServiceFactory<T> factory,
             RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException;
 

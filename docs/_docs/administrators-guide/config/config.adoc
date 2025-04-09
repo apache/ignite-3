@@ -33,7 +33,7 @@ You can update the configuration by using the `cluster config update` and `node 
 Updating a single parameter is done by specifying the parameter and assigning it a new value:
 
 ----
-node config update ignite.network.shutdownTimeout=20000
+node config update ignite.network.shutdownTimeoutMillis=20000
 ----
 
 ==== Updating Multiple Parameters

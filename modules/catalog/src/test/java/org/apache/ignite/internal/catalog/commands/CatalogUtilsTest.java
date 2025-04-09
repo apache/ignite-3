@@ -112,7 +112,7 @@ public class CatalogUtilsTest extends BaseIgniteAbstractTest {
                 "baz",
                 fooTable.tableVersion(),
                 fooTable.columns(),
-                fooTable.updateToken(),
+                fooTable.updateTimestamp(),
                 fooTable.storageProfile()
         );
 

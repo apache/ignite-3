@@ -265,20 +265,10 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         TopologyAwareRaftGroupService raftGroupService = mock(TopologyAwareRaftGroupService.class, LENIENT_SETTINGS);
 
         try {
-            when(raftManager.startRaftGroupNodeAndWaitNodeReady(
+            when(raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                     any(),
                     any(),
                     listenerCaptor.capture(),
-                    any(),
-                    any(),
-                    any()
-            )).thenReturn(raftGroupService);
-
-            when(raftManager.startRaftGroupNodeAndWaitNodeReady(
-                    any(),
-                    any(),
-                    listenerCaptor.capture(),
-                    any(),
                     any(),
                     any(),
                     any()
@@ -321,7 +311,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         SystemDistributedConfiguration configuration = mock(SystemDistributedConfiguration.class, LENIENT_SETTINGS);
         ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
-        when(configuration.idleSafeTimeSyncInterval()).thenReturn(value);
+        when(configuration.idleSafeTimeSyncIntervalMillis()).thenReturn(value);
         when(value.value()).thenReturn(50L);
 
         return configuration;

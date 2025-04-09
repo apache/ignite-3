@@ -405,7 +405,7 @@ public class DeploymentManagerImpl implements IgniteDeployment {
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        deployer.initUnitsFolder(workDir.resolve(configuration.deploymentLocation().value()));
+        deployer.initUnitsFolder(workDir.resolve(configuration.location().value()));
         deploymentUnitStore.registerNodeStatusListener(nodeStatusWatchListener);
         deploymentUnitStore.registerClusterStatusListener(clusterStatusWatchListener);
         messaging.subscribe();

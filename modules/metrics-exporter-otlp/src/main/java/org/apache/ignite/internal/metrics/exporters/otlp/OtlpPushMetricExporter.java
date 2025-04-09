@@ -76,7 +76,7 @@ public class OtlpPushMetricExporter extends PushMetricExporter<OtlpExporterView>
 
     @Override
     protected long period() {
-        return configuration().period();
+        return configuration().periodMillis();
     }
 
     @Override

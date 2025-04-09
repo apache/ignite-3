@@ -91,7 +91,7 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
     protected void customizeInitParameters(InitParametersBuilder builder) {
         builder.clusterConfiguration("ignite.gc.lowWatermark: {\n"
                 // Update frequently.
-                + "  updateInterval: 100\n"
+                + "  updateIntervalMillis: 100\n"
                 + "}");
     }
 
@@ -139,7 +139,7 @@ class ItReadOnlyTxAndLowWatermarkTest extends ClusterPerTestIntegrationTest {
                 .gc()
                 .lowWatermark();
 
-        assertThat(lwmConfig.dataAvailabilityTime().update(SHORT_DATA_AVAILABILITY_TIME_MS), willCompleteSuccessfully());
+        assertThat(lwmConfig.dataAvailabilityTimeMillis().update(SHORT_DATA_AVAILABILITY_TIME_MS), willCompleteSuccessfully());
     }
 
     private static KeyValueView<Integer, String> kvView(Ignite coordinator) {

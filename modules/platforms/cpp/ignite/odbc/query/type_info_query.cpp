@@ -152,10 +152,9 @@ type_info_query::type_info_query(diagnosable_adapter &diag, std::int16_t sql_typ
         m_types.push_back(ignite_type::DATETIME);
         m_types.push_back(ignite_type::TIMESTAMP);
         m_types.push_back(ignite_type::UUID);
-        m_types.push_back(ignite_type::BITMASK);
         m_types.push_back(ignite_type::STRING);
         m_types.push_back(ignite_type::BYTE_ARRAY);
-        // TODO: IGNITE-19969 implement support for period, duration and big_integer
+        // TODO: IGNITE-19969 implement support for period and duration
     } else
         m_types.push_back(sql_type_to_ignite_type(sql_type));
 }
@@ -243,7 +242,7 @@ sql_result type_info_query::get_column(std::uint16_t column_idx, application_dat
         }
 
         case result_column::CREATE_PARAMS: {
-            if (current_type == ignite_type::DECIMAL || current_type == ignite_type::NUMBER)
+            if (current_type == ignite_type::DECIMAL)
                 buffer.put_string("precision,scale");
             else
                 buffer.put_null();

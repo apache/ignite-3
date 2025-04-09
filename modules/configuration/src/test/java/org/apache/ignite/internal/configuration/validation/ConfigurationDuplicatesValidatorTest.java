@@ -36,7 +36,7 @@ class ConfigurationDuplicatesValidatorTest extends BaseIgniteAbstractTest {
             + "  storage.profiles: {\n"
             + "        test.engine: test, \n"
             + "        default_aipersist.engine: aipersist, \n"
-            + "        default_aipersist.size: 123, \n"
+            + "        default_aipersist.sizeBytes: 123, \n"
             + "        test.engine: aimem \n"
             + "  },\n"
             + "  storage {\n"

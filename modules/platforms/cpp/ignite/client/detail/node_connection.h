@@ -97,9 +97,9 @@ public:
      * @param op Operation code.
      * @param wr Writer function.
      * @param handler response handler.
-     * @return @c true on success and @c false otherwise.
+     * @return A request ID on success and @c std::nullopt otherwise.
      */
-    bool perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
+    std::optional<std::int64_t> perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
         std::shared_ptr<response_handler> handler) {
         auto req_id = generate_request_id();
         std::vector<std::byte> message;
@@ -128,9 +128,9 @@ public:
         bool sent = m_pool->send(m_id, std::move(message));
         if (!sent) {
             get_and_remove_handler(req_id);
-            return false;
+            return {};
         }
-        return true;
+        return {req_id};
     }
 
     /**
@@ -144,8 +144,9 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    bool perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
-        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
+    std::optional<std::int64_t> perform_request(protocol::client_operation op,
+        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
+        ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
     }
@@ -194,6 +195,10 @@ public:
      */
     const protocol::protocol_context &get_protocol_context() const { return m_protocol_context; }
 
+    /**
+     * @return Logger associated with the connection.
+     */
+    std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
 private:
     /**
      * Constructor.

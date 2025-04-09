@@ -113,6 +113,8 @@ public class IgniteNameUtilsTest {
                 Arguments.of("F16", "F16"),
                 Arguments.of("Ff16", "\"Ff16\""),
                 Arguments.of("FF16", "FF16"),
+                Arguments.of("_FF16", "_FF16"),
+                Arguments.of("FF_16", "FF_16"),
                 Arguments.of(" ", "\" \""),
                 Arguments.of(" F", "\" F\""),
                 Arguments.of(" ,", "\" ,\""),

@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.Proxy;
 import java.util.ArrayList;
@@ -77,6 +78,7 @@ import org.apache.ignite.internal.catalog.events.CreateIndexEventParameters;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -794,7 +796,7 @@ public class TestBuilders {
             DefaultDataProvider defaultDataProvider = this.defaultDataProvider;
             Map<String, TestNode> nodes = nodeNames.stream()
                     .map(name -> {
-                        var systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+                        var systemViewManager = new SystemViewManagerImpl(name, catalogManager, mock(FailureProcessor.class));
                         var executionProvider = new TestExecutionDistributionProvider(
                                 systemViewManager::owningNodes,
                                 tableName -> resolveProvider(

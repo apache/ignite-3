@@ -55,6 +55,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -177,6 +178,9 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private static SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
+
     @InjectExecutorService
     private static ScheduledExecutorService commonExecutor;
 
@@ -209,6 +213,7 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
 
         txManager = new TxManagerImpl(
                 txConfiguration,
+                systemDistributedConfiguration,
                 clusterService,
                 replicaService,
                 new HeapLockManager(systemLocalConfiguration),
@@ -362,7 +367,6 @@ public class ItColocationTest extends BaseIgniteAbstractTest {
                 observableTimestampTracker,
                 new TestPlacementDriver(clusterNode),
                 transactionInflights,
-                0,
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
