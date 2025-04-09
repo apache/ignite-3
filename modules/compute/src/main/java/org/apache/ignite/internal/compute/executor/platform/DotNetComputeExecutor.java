@@ -29,7 +29,9 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 public class DotNetComputeExecutor {
     private final PlatformComputeTransport transport;
 
-    private final String computeExecutorId = UUID.randomUUID().toString(); // TODO: Secure random.
+    // TODO: Secure random.
+    // TODO: Single-use secret to prevent replay attacks.
+    private final String computeExecutorId = UUID.randomUUID().toString();
 
     private Process process;
 
