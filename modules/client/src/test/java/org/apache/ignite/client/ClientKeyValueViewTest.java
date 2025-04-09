@@ -93,35 +93,34 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
     }
 
     @Test
-    public void testMissingValueColumnsThrowException() {
+    public void testMissingValueColumns() {
         Table table = fullTable();
         KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
-        KeyValueView<IncompletePojo, IncompletePojo> pojoView = table.keyValueView(IncompletePojo.class, IncompletePojo.class);
+        KeyValueView<CompositeKeyPojo, IncompleteValPojo> pojoView = table.keyValueView(CompositeKeyPojo.class, IncompleteValPojo.class);
 
         kvView.put(null, allColumnsTableKey(1), allColumnsTableVal("x", true));
 
-        var key = new IncompletePojo();
+        var key = new CompositeKeyPojo();
         key.id = "1";
         key.gid = 1;
 
-        Throwable e = assertThrowsWithCause(
-                () -> pojoView.get(null, key),
-                IgniteException.class,
-                "Failed to deserialize server response: No mapped object field found for column 'ZBOOLEAN'"
-        );
-        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
+        IncompleteValPojo res = pojoView.get(null, key);
+
+        assertEquals(11, res.zbyte);
+        assertEquals("x", res.zstring);
+        assertArrayEquals(new byte[]{1, 2}, res.zbytes);
     }
 
     @Test
     public void testAllColumnsBinaryPutPojoGet() {
         Table table = fullTable();
-        KeyValueView<IncompletePojo, AllColumnsValPojo> pojoView = table.keyValueView(
-                Mapper.of(IncompletePojo.class),
+        KeyValueView<CompositeKeyPojo, AllColumnsValPojo> pojoView = table.keyValueView(
+                Mapper.of(CompositeKeyPojo.class),
                 Mapper.of(AllColumnsValPojo.class));
 
         table.recordView().upsert(null, allColumnsTableVal("foo", false));
 
-        var key = new IncompletePojo();
+        var key = new CompositeKeyPojo();
         key.gid = (int) (long) DEFAULT_ID;
         key.id = String.valueOf(DEFAULT_ID);
 
@@ -205,6 +204,16 @@ public class ClientKeyValueViewTest extends AbstractClientTableTest {
                 () -> kvView.get(null, new NamePojo()),
                 IgniteException.class,
                 "No mapped object field found for column 'ID'"
+        );
+        assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
+
+        KeyValueView<IncompletePojo, IncompletePojo> pojoView = fullTable().keyValueView(IncompletePojo.class, IncompletePojo.class);
+
+        e = assertThrowsWithCause(
+                () -> pojoView.get(null, new IncompletePojo()),
+                IgniteException.class,
+                "Fields [zbyte, zbytes, zstring] of type org.apache.ignite.client.AbstractClientTableTest$IncompletePojo are not mapped"
+                        + " to columns"
         );
         assertThat(Arrays.asList(e.getStackTrace()), anyOf(hasToString(containsString("ClientKeyValueView"))));
     }
