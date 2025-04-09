@@ -79,6 +79,7 @@ import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlUuidLiteral;
 import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -576,7 +577,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlLiteral resolved = super.resolveLiteral(literal);
         SqlTypeName typeName = resolved.getTypeName();
 
-        if (typeName == SqlTypeName.TIMESTAMP) {
+        if (resolved instanceof SqlUuidLiteral) {
+            throw newValidationError(resolved, IgniteResource.INSTANCE.unsupportedExpression("UUID literal"));
+        } else if (typeName == SqlTypeName.TIMESTAMP) {
             long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
 
             if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
