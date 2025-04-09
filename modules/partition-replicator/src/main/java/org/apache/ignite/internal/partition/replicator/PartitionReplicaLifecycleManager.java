@@ -700,10 +700,8 @@ public class PartitionReplicaLifecycleManager extends
             Long assignmentsTimestamp
     ) {
         CompletableFuture<Set<Assignment>> assignmentsFuture =
-                reliableCatalogVersions.safeReliableCatalogVersionFor(hybridTimestamp(assignmentsTimestamp))
-                        .thenCompose(catalogVersion -> {
-                            Catalog catalog = catalogService.catalog(catalogVersion);
-
+                reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
+                        .thenCompose(catalog -> {
                             CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
 
                             int zoneId = zonePartitionId.zoneId();
@@ -945,10 +943,8 @@ public class PartitionReplicaLifecycleManager extends
 
             long assignmentsTimestamp = assignments.timestamp();
 
-            return reliableCatalogVersions.safeReliableCatalogVersionFor(hybridTimestamp(assignmentsTimestamp))
-                    .thenCompose(catalogVersion -> inBusyLockAsync(busyLock, () -> {
-                        Catalog catalog = catalogService.catalog(catalogVersion);
-
+            return reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
+                    .thenCompose(catalog -> inBusyLockAsync(busyLock, () -> {
                         CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
 
                         return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())

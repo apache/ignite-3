@@ -111,6 +111,13 @@ public interface CatalogService extends EventProducer<CatalogEvent, CatalogEvent
     int earliestCatalogVersion();
 
     /**
+     * Returns the earliest available catalog.
+     *
+     * @return The earliest registered catalog.
+     */
+    Catalog earliestCatalog();
+
+    /**
      * Returns the latest registered version of the catalog.
      *
      * <p>Note: This version can be used to retrieve a latest Catalog snapshot, but gives no guarantees that all components have seen and
