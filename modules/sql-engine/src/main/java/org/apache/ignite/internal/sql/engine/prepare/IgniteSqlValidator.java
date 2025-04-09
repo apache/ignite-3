@@ -1003,7 +1003,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Negative values are rejected by the parser so we need to check only max values.
 
         SqlTypeName typeName = type.getSqlTypeName();
-        ColumnType columnType = TypeUtils.columnType(type);
+        ColumnType columnType;
+        // Report a standard validation error when the given SQL type is not supported.
+        try {
+            columnType = TypeUtils.columnType(type);
+        } catch (Exception ignore) {
+            throw newValidationError(typeNode, IgniteResource.INSTANCE.dataTypeIsNotSupported(typeName.getName()));
+        }
         boolean allowsLength = columnType.lengthAllowed();
         boolean allowsScale = columnType.scaleAllowed();
         boolean allowsPrecision = columnType.precisionAllowed();
