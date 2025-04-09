@@ -185,8 +185,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     assert snapshotSender != null : createPartitionInfo();
 
                     return startRebalance(snapshotContext)
-                            .thenCompose(v -> loadSnapshotMvData(snapshotContext, snapshotSender, executor))
-                            .thenCompose(v -> loadSnapshotTxData(snapshotSender, executor))
+                            .thenCompose(v -> loadSnapshotMvData(snapshotContext, snapshotSender))
+                            .thenCompose(v -> loadSnapshotTxData(snapshotSender))
                             .thenRunAsync(() -> setNextRowIdToBuildIndexes(snapshotContext), executor);
                 }, executor);
 
@@ -203,7 +203,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     return rebalanceFuture
                             .handleAsync((v, throwable) -> completeRebalance(snapshotContext, throwable), executor)
                             .thenCompose(Function.identity())
-                            .thenCompose(v -> tryUpdateLowWatermark(snapshotContext, snapshotSender, executor));
+                            .thenCompose(v -> tryUpdateLowWatermark(snapshotContext, snapshotSender));
                 });
     }
 
@@ -353,7 +353,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link MvPartitionStorage}.
      */
-    private CompletableFuture<?> loadSnapshotMvData(SnapshotContext snapshotContext, ClusterNode snapshotSender, Executor executor) {
+    private CompletableFuture<?> loadSnapshotMvData(SnapshotContext snapshotContext, ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
@@ -400,7 +400,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     );
 
                     // Let's upload the rest.
-                    return loadSnapshotMvData(snapshotContext, snapshotSender, executor);
+                    return loadSnapshotMvData(snapshotContext, snapshotSender);
                 }
             }, executor);
         } finally {
@@ -411,7 +411,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link TxStatePartitionStorage}.
      */
-    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
+    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
@@ -460,7 +460,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     );
 
                     // Let's upload the rest.
-                    return loadSnapshotTxData(snapshotSender, executor);
+                    return loadSnapshotTxData(snapshotSender);
                 }
             }, executor);
         } finally {
@@ -634,7 +634,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
     }
 
-    private CompletableFuture<Void> tryUpdateLowWatermark(SnapshotContext snapshotContext, ClusterNode snapshotSender, Executor executor) {
+    private CompletableFuture<Void> tryUpdateLowWatermark(SnapshotContext snapshotContext, ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
