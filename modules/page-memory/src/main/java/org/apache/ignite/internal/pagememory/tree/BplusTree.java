@@ -631,7 +631,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 }
 
                 // Retry must reset these fields when we release the whole branch without remove.
-                assert r.needReplaceInner == FALSE : "needReplaceInner";
+                assert !r.needReplaceInner : "needReplaceInner";
                 assert r.needMergeEmptyBranch == FALSE : "needMergeEmptyBranch";
 
                 if (cnt == 1) {
@@ -639,9 +639,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     r.needMergeEmptyBranch = TRUE;
                 }
 
-                if (needReplaceInner) {
-                    r.needReplaceInner = TRUE;
-                }
+                r.needReplaceInner = needReplaceInner;
 
                 Tail<L> t = r.addTail(leafId, leafPage, leafAddr, io, 0, Tail.EXACT);
 
@@ -4669,7 +4667,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
      * Remove operation.
      */
     public final class Remove extends Update implements ReuseBag {
-        Bool needReplaceInner = FALSE;
+        boolean needReplaceInner;
 
         Bool needMergeEmptyBranch = FALSE;
 
@@ -4877,7 +4875,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                 assert !isRemoved() : "removed";
 
                 // These fields will be setup again on remove from leaf.
-                needReplaceInner = FALSE;
+                needReplaceInner = false;
                 needMergeEmptyBranch = FALSE;
 
                 releaseTail();
@@ -4904,7 +4902,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             // so we can leave this invalid tail as is. We have no other choice here
             // because our tail is not long enough for retry. Exiting.
             assert isRemoved();
-            assert needReplaceInner != TRUE && needMergeEmptyBranch != TRUE;
+            assert !needReplaceInner && needMergeEmptyBranch != TRUE;
 
             return false;
         }
@@ -4930,7 +4928,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // It was a regular merge, leave as is and exit.
                 } else {
                     // Try to find inner key on inner level.
-                    if (needReplaceInner == TRUE && !isInnerKeyInTail()) {
+                    if (needReplaceInner && !isInnerKeyInTail()) {
                         // Since we setup needReplaceInner in leaf page write lock and do not release it,
                         // we should not be able to miss the inner key. Even if concurrent merge
                         // happened the inner key must still exist.
@@ -4962,10 +4960,10 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
                     // The actual row remove may happen here as well.
                     mergeBottomUp(tail);
 
-                    if (needReplaceInner == TRUE) {
+                    if (needReplaceInner) {
                         replaceInner(); // Replace inner key with new max key for the left subtree.
 
-                        needReplaceInner = DONE;
+                        needReplaceInner = false;
                     }
 
                     // Loop is needed to prevent the rare case when, after parallel remove of keys, empty root remains.
@@ -5191,7 +5189,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
             if (t.down == null) {
                 // It is just a regular merge in progress.
                 assert needMergeEmptyBranch != TRUE;
-                assert needReplaceInner != TRUE;
+                assert !needReplaceInner;
 
                 return true;
             }
@@ -5376,7 +5374,7 @@ public abstract class BplusTree<L, T extends L> extends DataStructure implements
          * @throws IgniteInternalCheckedException If failed.
          */
         private void replaceInner() throws IgniteInternalCheckedException {
-            assert needReplaceInner == TRUE : needReplaceInner;
+            assert needReplaceInner;
 
             int innerIdx;
 
