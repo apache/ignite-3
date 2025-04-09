@@ -388,7 +388,7 @@ class IndexBuildController implements ManuallyCloseable {
         // Remove TablePartitionId check.
         assert primaryReplicaId instanceof ZonePartitionId
                 ? ((ZonePartitionId) primaryReplicaId).zoneId() == zoneId
-                && ((ZonePartitionId) primaryReplicaId).partitionId() == partitionId
+                        && ((ZonePartitionId) primaryReplicaId).partitionId() == partitionId
                 : ((TablePartitionId) primaryReplicaId).tableId() == tableId
                         && ((TablePartitionId) primaryReplicaId).partitionId() == partitionId
                 : "Primary replica identifier mismatched [zoneId=" + zoneId + ", tableId=" + tableId
