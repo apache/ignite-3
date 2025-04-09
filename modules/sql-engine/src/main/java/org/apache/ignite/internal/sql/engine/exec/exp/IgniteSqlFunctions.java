@@ -37,6 +37,7 @@ import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -451,7 +452,7 @@ public class IgniteSqlFunctions {
     }
 
     public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal(LocalTime.now(), LocalTime.class);
+        return (int) TypeUtils.toInternal(LocalTime.now(), NativeTypeSpec.TIME);
     }
 
     /** LEAST2. */

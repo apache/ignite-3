@@ -84,6 +84,8 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHi
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DataNodesHistoryContext;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -132,6 +134,8 @@ public class DataNodesManager {
 
     private final ClockService clockService;
 
+    private final FailureProcessor failureProcessor;
+
     /** External busy lock. */
     private final IgniteSpinBusyLock busyLock;
 
@@ -165,6 +169,7 @@ public class DataNodesManager {
      * @param metaStorageManager Meta storage manager.
      * @param catalogManager Catalog manager.
      * @param clockService Clock service.
+     * @param failureProcessor Failure processor.
      * @param partitionResetClosure Closure to reset partitions.
      * @param partitionDistributionResetTimeoutSupplier Supplier for partition distribution reset timeout.
      */
@@ -174,12 +179,14 @@ public class DataNodesManager {
             MetaStorageManager metaStorageManager,
             CatalogManager catalogManager,
             ClockService clockService,
+            FailureProcessor failureProcessor,
             BiConsumer<Long, Integer> partitionResetClosure,
             IntSupplier partitionDistributionResetTimeoutSupplier
     ) {
         this.metaStorageManager = metaStorageManager;
         this.catalogManager = catalogManager;
         this.clockService = clockService;
+        this.failureProcessor = failureProcessor;
         this.localNodeName = nodeName;
         this.partitionResetClosure = partitionResetClosure;
         this.partitionDistributionResetTimeoutSupplier = partitionDistributionResetTimeoutSupplier;
@@ -1083,7 +1090,7 @@ public class DataNodesManager {
                                 })
                                 .whenComplete((v, e) -> {
                                     if (e != null) {
-                                        LOG.error(metaStorageOperation.failureLogMessage(), e);
+                                        failureProcessor.process(new FailureContext(e, metaStorageOperation.failureLogMessage()));
                                     }
                                 });
                     }
@@ -1129,13 +1136,13 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error(
-                                    "Failed to initialize zone's dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
-                                    e,
+                            String errorMessage = String.format(
+                                    "Failed to initialize zone's dataNodes history [zoneId = %s, timestamp = %s, dataNodes = %s]",
                                     zoneId,
                                     timestamp,
                                     nodeNames(dataNodes)
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         } else if (invokeResult) {
                             LOG.info("Initialized zone's dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
                                     zoneId,
@@ -1193,12 +1200,12 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error(
-                                    "Failed to delete zone's dataNodes keys [zoneId = {}, timestamp = {}]",
-                                    e,
+                            String errorMessage = String.format(
+                                    "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
                                     zoneId,
                                     timestamp
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         } else if (invokeResult) {
                             LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
                         } else {

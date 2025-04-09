@@ -38,6 +38,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.nio.ByteOrder;
@@ -58,6 +59,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -179,13 +181,14 @@ public class LeaseUpdaterTest extends BaseIgniteAbstractTest {
                     return trueCompletedFuture();
                 });
 
-        assignmentsTracker = new AssignmentsTracker(metaStorageManager);
+        assignmentsTracker = new AssignmentsTracker(metaStorageManager, mock(FailureProcessor.class));
         assignmentsTracker.startTrack();
 
         leaseUpdater = new LeaseUpdater(
                 stableNode.name(),
                 clusterService,
                 metaStorageManager,
+                mock(FailureProcessor.class),
                 topologyService,
                 leaseTracker,
                 new TestClockService(new HybridClockImpl()),

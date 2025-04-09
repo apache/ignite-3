@@ -764,13 +764,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
     private static String dumpThreads() {
         ThreadMXBean bean = ManagementFactory.getThreadMXBean();
-        ThreadInfo[] infos = bean.dumpAllThreads(true, true);
+        ThreadInfo[] infos = bean.dumpAllThreads(bean.isObjectMonitorUsageSupported(), bean.isSynchronizerUsageSupported());
         IgniteStringBuilder buf = new IgniteStringBuilder();
 
         buf.nl().nl().app("Dumping threads:").nl().nl();
 
         for (ThreadInfo info : infos) {
-            buf.app(info.toString()).nl();
+            if (info != null) {
+                buf.app(info.toString()).nl();
+            }
         }
 
         return buf.toString();

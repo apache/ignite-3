@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -112,6 +113,7 @@ class ZonePartitionReplicaListenerTest extends BaseIgniteAbstractTest {
                 placementDriver,
                 clusterNodeResolver,
                 raftClient,
+                mock(FailureProcessor.class),
                 localNode,
                 groupId
         );

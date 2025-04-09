@@ -30,6 +30,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.storage.StorageException;
@@ -85,6 +86,8 @@ public class RocksDbStorageEngine implements StorageEngine {
 
     private final ScheduledExecutorService scheduledPool;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Mapping from the storage profile name to the shared RocksDB instance.
      */
@@ -107,13 +110,15 @@ public class RocksDbStorageEngine implements StorageEngine {
             StorageConfiguration storageConfiguration,
             Path storagePath,
             LogSyncer logSyncer,
-            ScheduledExecutorService scheduledPool
+            ScheduledExecutorService scheduledPool,
+            FailureProcessor failureProcessor
     ) {
         this.storageConfiguration = storageConfiguration;
         this.engineConfig = ((RocksDbStorageEngineExtensionConfiguration) storageConfiguration.engines()).rocksdb();
         this.storagePath = storagePath;
         this.logSyncer = logSyncer;
         this.scheduledPool = scheduledPool;
+        this.failureProcessor = failureProcessor;
 
         threadPool = Executors.newFixedThreadPool(
                 Runtime.getRuntime().availableProcessors(),
@@ -180,7 +185,7 @@ public class RocksDbStorageEngine implements StorageEngine {
         Path dbPath = storagePath.resolve("rocksdb-" + profileName);
 
         try {
-            return new SharedRocksDbInstanceCreator().create(this, profile, dbPath);
+            return new SharedRocksDbInstanceCreator(failureProcessor).create(this, profile, dbPath);
         } catch (Exception e) {
             throw new StorageException("Failed to create new RocksDB instance", e);
         }

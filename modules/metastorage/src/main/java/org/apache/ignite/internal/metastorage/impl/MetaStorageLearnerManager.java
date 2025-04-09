@@ -27,6 +27,8 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.Peer;
@@ -46,6 +48,8 @@ class MetaStorageLearnerManager {
 
     private final LogicalTopologyService logicalTopologyService;
 
+    private final FailureProcessor failureProcessor;
+
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
 
     private volatile boolean learnersAdditionEnabled = true;
@@ -53,10 +57,12 @@ class MetaStorageLearnerManager {
     MetaStorageLearnerManager(
             IgniteSpinBusyLock busyLock,
             LogicalTopologyService logicalTopologyService,
+            FailureProcessor failureProcessor,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut
     ) {
         this.busyLock = busyLock;
         this.logicalTopologyService = logicalTopologyService;
+        this.failureProcessor = failureProcessor;
         this.metaStorageSvcFut = metaStorageSvcFut;
     }
 
@@ -123,7 +129,7 @@ class MetaStorageLearnerManager {
             return action.get()
                     .whenComplete((v, e) -> {
                         if (e != null && !(unwrapCause(e) instanceof CancellationException)) {
-                            LOG.error("Unable to change peers on topology update", e);
+                            failureProcessor.process(new FailureContext(e, "Unable to change peers on topology update"));
                         }
                     });
         } finally {

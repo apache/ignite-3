@@ -241,7 +241,6 @@ public class InternalTableImplTest extends BaseIgniteAbstractTest {
                 HybridTimestampTracker.atomicTracker(null),
                 placementDriver,
                 new TransactionInflights(placementDriver, clockService),
-                0,
                 () -> mock(ScheduledExecutorService.class),
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,

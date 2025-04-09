@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.storage.rocksdb.engine;
 
+import static org.mockito.Mockito.mock;
+
 import java.nio.file.Path;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -52,7 +55,8 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
                 storageConfiguration,
                 workDir,
                 logSyncer,
-                scheduledExecutor
+                scheduledExecutor,
+                mock(FailureProcessor.class)
         );
     }
 }

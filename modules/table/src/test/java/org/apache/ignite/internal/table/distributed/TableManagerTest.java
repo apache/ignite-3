@@ -91,6 +91,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -406,7 +408,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThat(tblManagerFut, willCompleteSuccessfully());
 
-        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager);
+        var assignmentsService = new TableAssignmentsService(msm, catalogManager, distributionZoneManager, new NoOpFailureManager());
         long assignmentsTimestamp = catalogManager.catalog(catalogManager.latestCatalogVersion()).time();
         List<Assignments> assignmentsList = List.of(Assignments.of(assignmentsTimestamp, Assignment.forPeer(node.name())));
 
@@ -848,9 +850,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 workDir.resolve("tx-state"),
                 scheduledExecutor,
                 partitionOperationsExecutor,
-                logSyncer
+                logSyncer,
+                mock(FailureProcessor.class)
         );
 
+        var failureProcessor = new NoOpFailureManager();
         var tableManager = new TableManager(
                 NODE_NAME,
                 revisionUpdater,
@@ -873,10 +877,11 @@ public class TableManagerTest extends IgniteAbstractTest {
                 scheduledExecutor,
                 scheduledExecutor,
                 new TestClockService(clock),
-                new OutgoingSnapshotsManager(node.name(), clusterService.messagingService()),
+                new OutgoingSnapshotsManager(node.name(), clusterService.messagingService(), failureProcessor),
                 distributionZoneManager,
                 new AlwaysSyncedSchemaSyncService(),
                 catalogManager,
+                failureProcessor,
                 HybridTimestampTracker.atomicTracker(null),
                 new TestPlacementDriver(node),
                 () -> mock(IgniteSql.class),

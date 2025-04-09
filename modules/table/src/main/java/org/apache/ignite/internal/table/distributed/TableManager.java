@@ -112,6 +112,8 @@ import org.apache.ignite.internal.distributionzones.rebalance.PartitionMover;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -346,6 +348,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final CatalogService catalogService;
 
+    private final FailureProcessor failureProcessor;
+
     /** Incoming RAFT snapshots executor. */
     private final ExecutorService incomingSnapshotsExecutor;
 
@@ -402,8 +406,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final String nodeName;
 
     private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
-
-    private int attemptsObtainLock;
 
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
@@ -496,6 +498,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             DistributionZoneManager distributionZoneManager,
             SchemaSyncService schemaSyncService,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             Supplier<IgniteSql> sql,
@@ -523,6 +526,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.distributionZoneManager = distributionZoneManager;
         this.catalogService = catalogService;
+        this.failureProcessor = failureProcessor;
         this.observableTimestampTracker = observableTimestampTracker;
         this.sql = sql;
         this.replicationConfiguration = replicationConfiguration;
@@ -541,8 +545,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,
                 replicaSvc,
-                clockService,
-                txCfg
+                clockService
         );
 
         transactionStateResolver = new TransactionStateResolver(
@@ -582,7 +585,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         assignmentsSwitchRebalanceListener = createAssignmentsSwitchRebalanceListener();
 
-        mvGc = new MvGc(nodeName, gcConfig, lowWatermark);
+        mvGc = new MvGc(nodeName, gcConfig, lowWatermark, failureProcessor);
 
         partitionReplicatorNodeRecovery = new PartitionReplicatorNodeRecovery(
                 metaStorageMgr,
@@ -604,7 +607,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 Integer::parseInt
         );
 
-        assignmentsService = new TableAssignmentsService(metaStorageMgr, catalogService, distributionZoneManager);
+        assignmentsService = new TableAssignmentsService(metaStorageMgr, catalogService, distributionZoneManager, failureProcessor);
     }
 
     @Override
@@ -648,8 +651,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED, onLowWatermarkChangedListener);
 
             partitionReplicatorNodeRecovery.start();
-
-            attemptsObtainLock = txCfg.attemptsObtainLock().value();
 
             if (!enabledColocation) {
                 executorInclinedPlacementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_EXPIRED, onPrimaryReplicaExpiredListener);
@@ -1162,7 +1163,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             assignmentsTimestamp
                     ).whenComplete((res, ex) -> {
                         if (ex != null) {
-                            LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
+                            String errorMessage = String.format(
+                                    "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
+                                    tableId,
+                                    partId
+                            );
+                            failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
                     });
                 } else {
@@ -1296,7 +1302,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 forcedAssignments
         ).handle((res, ex) -> {
             if (ex != null) {
-                LOG.warn("Unable to update raft groups on the node [tableId={}, partitionId={}]", ex, tableId, partId);
+                String errorMessage = String.format(
+                        "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
+                        tableId,
+                        partId
+                );
+                failureProcessor.process(new FailureContext(ex, errorMessage));
             }
             return null;
         });
@@ -1325,6 +1336,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         return new RebalanceRaftGroupEventsListener(
                 metaStorageMgr,
+                failureProcessor,
                 replicaGrpId,
                 busyLock,
                 partitionMover,
@@ -1371,7 +1383,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 remotelyTriggeredResourceRegistry,
                 schemaManager.schemaRegistry(table.tableId()),
                 indexMetaStorage,
-                lowWatermark
+                lowWatermark,
+                failureProcessor
         );
     }
 
@@ -1593,7 +1606,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
-                        LOG.error("Unable to stop table [name={}, tableId={}]", ex, table.name(), table.tableId());
+                        String errorMessage = String.format("Unable to stop table [name=%s, tableId=%s]", table.name(), table.tableId());
+                        failureProcessor.process(new FailureContext(ex, errorMessage));
                     }
                 });
     }
@@ -1636,11 +1650,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 observableTimestampTracker,
                 executorInclinedPlacementDriver,
                 transactionInflights,
-                attemptsObtainLock,
                 this::streamerFlushExecutor,
                 Objects.requireNonNull(streamerReceiverRunner),
-                () -> txCfg.value().readWriteTimeout(),
-                () -> txCfg.value().readOnlyTimeout()
+                () -> txCfg.value().readWriteTimeoutMillis(),
+                () -> txCfg.value().readOnlyTimeoutMillis()
         );
 
         return new TableImpl(
@@ -1649,6 +1662,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 schemaVersions,
                 marshallers,
                 sql.get(),
+                failureProcessor,
                 tableDescriptor.primaryKeyIndexId()
         );
     }
@@ -2438,6 +2452,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 outgoingSnapshotsManager,
                 txStateAccess,
                 catalogService,
+                failureProcessor,
                 incomingSnapshotsExecutor
         );
 
@@ -2929,7 +2944,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        LOG.error("Error starting tables", throwable);
+                        failureProcessor.process(new FailureContext(throwable, "Error starting tables"));
                     } else {
                         LOG.info("Tables started successfully [count={}]", startTableFutures.size());
                     }

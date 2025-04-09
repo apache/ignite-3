@@ -257,7 +257,14 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion, destructionExecutor);
+        return new PersistentPageMemoryTableStorage(
+                tableDescriptor,
+                indexDescriptorSupplier,
+                this,
+                dataRegion,
+                destructionExecutor,
+                failureManager
+        );
     }
 
     @Override

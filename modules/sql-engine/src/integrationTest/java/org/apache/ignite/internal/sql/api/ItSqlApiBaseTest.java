@@ -1286,21 +1286,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             startBarrier.await();
 
-            ResultSet<SqlRow> rs;
-
-            try {
-                rs = executeLazy(sql, token, query);
+            try (ResultSet<SqlRow> rs = executeLazy(sql, token, query)) {
+                expectQueryCancelled(() -> {
+                    while (rs.hasNext()) {
+                        rs.next();
+                    }
+                });
             } catch (SqlException e) {
                 assertEquals(Sql.EXECUTION_CANCELLED_ERR, e.code());
 
                 continue;
             }
-
-            expectQueryCancelled(() -> {
-                while (rs.hasNext()) {
-                    rs.next();
-                }
-            });
 
             await(cancelFut);
 

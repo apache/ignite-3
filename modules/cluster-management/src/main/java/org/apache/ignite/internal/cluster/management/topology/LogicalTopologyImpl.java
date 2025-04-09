@@ -37,6 +37,8 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -53,6 +55,8 @@ public class LogicalTopologyImpl implements LogicalTopology {
 
     private final ClusterStateStorage storage;
 
+    private final FailureProcessor failureProcessor;
+
     private final ClusterStateStorageManager clusterStateStorageManager;
 
     private final List<LogicalTopologyEventListener> listeners = new CopyOnWriteArrayList<>();
@@ -60,8 +64,9 @@ public class LogicalTopologyImpl implements LogicalTopology {
     private volatile @Nullable UUID clusterId;
 
     /** Constructor. */
-    public LogicalTopologyImpl(ClusterStateStorage storage) {
+    public LogicalTopologyImpl(ClusterStateStorage storage, FailureProcessor failureProcessor) {
         this.storage = storage;
+        this.failureProcessor = failureProcessor;
 
         clusterStateStorageManager = new ClusterStateStorageManager(storage);
     }
@@ -218,13 +223,13 @@ public class LogicalTopologyImpl implements LogicalTopology {
             try {
                 action.accept(listener);
             } catch (Throwable e) {
-                logAndRethrowIfError(e, "Failure while notifying {}() listener {}", methodName, listener);
+                notifyFailureHandlerAndRethrowIfError(e, String.format("Failure while notifying %s() listener %s", methodName, listener));
             }
         }
     }
 
-    private static void logAndRethrowIfError(Throwable e, String logMessagePattern, Object... params) {
-        LOG.error(logMessagePattern, e, params);
+    private void notifyFailureHandlerAndRethrowIfError(Throwable e, String logMessage) {
+        failureProcessor.process(new FailureContext(e, logMessage));
 
         if (e instanceof Error) {
             throw (Error) e;

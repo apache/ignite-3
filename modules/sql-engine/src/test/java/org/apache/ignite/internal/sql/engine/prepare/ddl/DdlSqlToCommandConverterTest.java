@@ -618,7 +618,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
+        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, new byte[]{(byte) 1, (byte) 2});
         fillTestCase("VARBINARY", "'0102'", testItems, false, ctx);
         fillTestCase("VARBINARY", "1", testItems, false, ctx);
 

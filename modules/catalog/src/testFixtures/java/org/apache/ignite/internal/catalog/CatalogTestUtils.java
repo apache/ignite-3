@@ -57,6 +57,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -105,7 +106,9 @@ public class CatalogTestUtils {
 
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService, new NoOpFailureManager(), delayDurationMsSupplier) {
+        FailureProcessor failureProcessor = new NoOpFailureManager();
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor);
+        return new CatalogManagerImpl(updateLog, clockService, failureProcessor, delayDurationMsSupplier) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
@@ -149,10 +152,11 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
+        var failureProcessor = new NoOpFailureManager();
         return new CatalogManagerImpl(
-                new UpdateLogImpl(metastore),
+                new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
-                new NoOpFailureManager(),
+                failureProcessor,
                 () -> TEST_DELAY_DURATION
         ) {
             @Override
@@ -192,10 +196,11 @@ public class CatalogTestUtils {
             ClockWaiter clockWaiter,
             HybridClock clock
     ) {
+        var failureProcessor = new NoOpFailureManager();
         return new CatalogManagerImpl(
-                new UpdateLogImpl(metastore),
+                new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
-                new NoOpFailureManager(),
+                failureProcessor,
                 () -> TEST_DELAY_DURATION
         );
     }
@@ -226,10 +231,11 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
+        var failureProcessor = new NoOpFailureManager();
         return new CatalogManagerImpl(
-                new UpdateLogImpl(metastore),
+                new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
-                new NoOpFailureManager(),
+                failureProcessor,
                 delayDurationMsSupplier
         ) {
             @Override
@@ -274,7 +280,9 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore) {
+        var failureProcessor = new NoOpFailureManager();
+
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor) {
             @Override
             public void registerUpdateHandler(OnUpdateHandler handler) {
                 interceptor.registerUpdateHandler(handler);
@@ -286,7 +294,7 @@ public class CatalogTestUtils {
         return new CatalogManagerImpl(
                 updateLog,
                 new TestClockService(clock, clockWaiter),
-                new NoOpFailureManager(),
+                failureProcessor,
                 () -> TEST_DELAY_DURATION
         ) {
             @Override

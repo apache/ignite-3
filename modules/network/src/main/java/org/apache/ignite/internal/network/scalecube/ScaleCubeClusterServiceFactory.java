@@ -39,7 +39,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -93,7 +93,7 @@ public class ScaleCubeClusterServiceFactory {
      * @param staleIds Used to update/detect whether a node has left the physical topology.
      * @param clusterIdSupplier Supplier for cluster ID.
      * @param criticalWorkerRegistry Used to register critical threads managed by the new service and its components.
-     * @param failureManager Failure processor that is used to handle critical errors.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param channelTypeRegistry {@link ChannelTypeRegistry} registry.
      * @param productVersionSource Source of product version.
      * @return New cluster service.
@@ -106,7 +106,7 @@ public class ScaleCubeClusterServiceFactory {
             StaleIds staleIds,
             ClusterIdSupplier clusterIdSupplier,
             CriticalWorkerRegistry criticalWorkerRegistry,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ChannelTypeRegistry channelTypeRegistry,
             IgniteProductVersionSource productVersionSource
     ) {
@@ -133,7 +133,7 @@ public class ScaleCubeClusterServiceFactory {
                 userObjectSerialization.descriptorRegistry(),
                 userObjectSerialization.marshaller(),
                 criticalWorkerRegistry,
-                failureManager,
+                failureProcessor,
                 channelTypeRegistry
         );
 

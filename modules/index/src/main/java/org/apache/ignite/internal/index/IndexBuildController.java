@@ -50,7 +50,7 @@ import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParamete
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -101,7 +101,7 @@ class IndexBuildController implements ManuallyCloseable {
 
     private final ClockService clockService;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -119,7 +119,7 @@ class IndexBuildController implements ManuallyCloseable {
             ClusterService clusterService,
             PlacementDriver placementDriver,
             ClockService clockService,
-            FailureManager failureManager
+            FailureProcessor failureProcessor
     ) {
         this.indexBuilder = indexBuilder;
         this.indexManager = indexManager;
@@ -127,7 +127,7 @@ class IndexBuildController implements ManuallyCloseable {
         this.clusterService = clusterService;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
     }
 
     /** Starts component. */
@@ -227,7 +227,7 @@ class IndexBuildController implements ManuallyCloseable {
             return CompletableFutures.allOf(startBuildIndexFutures);
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
             }
         });
     }
@@ -239,7 +239,7 @@ class IndexBuildController implements ManuallyCloseable {
             return nullCompletedFuture();
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
             }
         });
     }
@@ -317,7 +317,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
             }
         });
     }

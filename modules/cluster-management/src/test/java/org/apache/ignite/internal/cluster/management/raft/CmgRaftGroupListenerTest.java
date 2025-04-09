@@ -48,6 +48,7 @@ import org.apache.ignite.internal.cluster.management.raft.commands.JoinRequestCo
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.cluster.management.topology.LogicalTopologyImpl;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.apache.ignite.internal.raft.Command;
@@ -73,7 +74,7 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
     private LongConsumer onLogicalTopologyChanged;
 
     @Spy
-    private final LogicalTopology logicalTopology = new LogicalTopologyImpl(storage);
+    private final LogicalTopology logicalTopology = new LogicalTopologyImpl(storage, new NoOpFailureManager());
 
     private CmgRaftGroupListener listener;
 
@@ -111,7 +112,8 @@ public class CmgRaftGroupListenerTest extends BaseIgniteAbstractTest {
                 logicalTopology,
                 validationManager,
                 onLogicalTopologyChanged,
-                clusterIdHolder
+                clusterIdHolder,
+                new NoOpFailureManager()
         );
     }
 

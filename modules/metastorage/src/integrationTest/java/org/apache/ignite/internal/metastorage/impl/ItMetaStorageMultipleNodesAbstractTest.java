@@ -164,15 +164,15 @@ abstract class ItMetaStorageMultipleNodesAbstractTest extends IgniteAbstractTest
                     raftGroupEventsClientListener
             );
 
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            this.failureManager = new NoOpFailureManager();
+
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
-
-            this.failureManager = new NoOpFailureManager();
 
             ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(basePath.resolve("cmg"));
 

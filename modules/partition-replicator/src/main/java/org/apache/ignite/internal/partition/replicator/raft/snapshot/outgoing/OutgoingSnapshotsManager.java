@@ -33,6 +33,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -66,6 +68,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      */
     private final MessagingService messagingService;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Map with outgoing snapshots.
      */
@@ -79,9 +83,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      *
      * @param messagingService Messaging service.
      */
-    public OutgoingSnapshotsManager(String nodeName, MessagingService messagingService) {
+    public OutgoingSnapshotsManager(String nodeName, MessagingService messagingService, FailureProcessor failureProcessor) {
         this.nodeName = nodeName;
         this.messagingService = messagingService;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -202,14 +207,15 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
     private void respond(NetworkMessage response, Throwable throwable, ClusterNode sender, Long correlationId) {
         if (throwable != null) {
-            LOG.warn("Something went wrong while handling a request", throwable);
+            failureProcessor.process(new FailureContext(throwable, "Something went wrong while handling a request"));
             return;
         }
 
         try {
             messagingService.respond(sender, response, correlationId);
         } catch (RuntimeException e) {
-            LOG.warn("Could not send a response with correlationId=" + correlationId, e);
+            String errorMessage = String.format("Could not send a response with correlationId=%s", correlationId);
+            failureProcessor.process(new FailureContext(e, errorMessage));
         }
     }
 

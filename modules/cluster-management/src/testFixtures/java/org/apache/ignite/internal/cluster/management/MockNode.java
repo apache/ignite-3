@@ -132,7 +132,7 @@ public class MockNode {
                 new ClusterInitializer(clusterService, hocon -> hocon, new TestConfigurationValidator()),
                 raftManager,
                 clusterStateStorage,
-                new LogicalTopologyImpl(clusterStateStorage),
+                new LogicalTopologyImpl(clusterStateStorage, failureManager),
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureManager,
                 clusterIdHolder,

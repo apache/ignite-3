@@ -31,8 +31,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LogSyncer;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.AbstractEventListener;
@@ -47,8 +47,7 @@ import org.rocksdb.RocksDBException;
  * Requires enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
  */
 public class RocksDbFlusher {
-    /** Logger. */
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlusher.class);
+    private final FailureProcessor failureProcessor;
 
     /** Rocks DB instance. */
     private volatile RocksDB db;
@@ -121,6 +120,7 @@ public class RocksDbFlusher {
             ExecutorService threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
+            FailureProcessor failureProcessor,
             Runnable onFlushCompleted
     ) {
         this.busyLock = busyLock;
@@ -128,7 +128,8 @@ public class RocksDbFlusher {
         this.threadPool = threadPool;
         this.delaySupplier = delaySupplier;
         this.onFlushCompleted = onFlushCompleted;
-        this.flushListener = new RocksDbFlushListener(name, this, logSyncer);
+        this.failureProcessor = failureProcessor;
+        this.flushListener = new RocksDbFlushListener(name, this, logSyncer, failureProcessor);
     }
 
     /**
@@ -183,9 +184,7 @@ public class RocksDbFlusher {
      * have up-to-data state as well, because flusher expects its users to also have {@link Options#setAtomicFlush(boolean)} option
      * enabled.
      *
-     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future. Please refer
-     *      to {@link RocksDbFlusher#RocksDbFlusher(String, IgniteSpinBusyLock, ScheduledExecutorService, ExecutorService, IntSupplier,
-     *      LogSyncer, Runnable)} parameters description to see what's really happening in this case.
+     * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggerred in the near future.
      *
      * @see #scheduleFlush()
      */
@@ -231,7 +230,7 @@ public class RocksDbFlusher {
                         db.flush(flushOptions, columnFamilyHandles);
                     }
                 } catch (RocksDBException e) {
-                    LOG.error("Error occurred during the explicit flush", e);
+                    failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush"));
                 } finally {
                     busyLock.leaveBusy();
                 }

@@ -25,6 +25,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
@@ -60,6 +61,8 @@ class ZoneResourcesManager implements ManuallyCloseable {
 
     private final CatalogService catalogService;
 
+    private final FailureProcessor failureProcessor;
+
     private final Executor partitionOperationsExecutor;
 
     /** Map from zone IDs to their resource holders. */
@@ -73,6 +76,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyService topologyService,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             Executor partitionOperationsExecutor
     ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
@@ -80,6 +84,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.topologyService = topologyService;
         this.catalogService = catalogService;
+        this.failureProcessor = failureProcessor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
@@ -114,6 +119,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStatePartitionStorage),
                 catalogService,
+                failureProcessor,
                 partitionOperationsExecutor
         );
 

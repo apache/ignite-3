@@ -28,6 +28,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -73,6 +75,8 @@ public class ResourceVacuumManager implements IgniteComponent {
 
     private final TxManager txManager;
 
+    private final FailureProcessor failureProcessor;
+
     private volatile ScheduledFuture<?> vacuumOperationFuture;
     private volatile ScheduledFuture<?> broadcastClosedTransactionsFuture;
 
@@ -86,6 +90,7 @@ public class ResourceVacuumManager implements IgniteComponent {
      * @param transactionInflights Transaction inflights.
      * @param txManager Transactional manager.
      * @param lowWatermark Low watermark.
+     * @param failureProcessor Failure processor.
      */
     public ResourceVacuumManager(
             String nodeName,
@@ -94,7 +99,8 @@ public class ResourceVacuumManager implements IgniteComponent {
             MessagingService messagingService,
             TransactionInflights transactionInflights,
             TxManager txManager,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            FailureProcessor failureProcessor
     ) {
         this.resourceRegistry = resourceRegistry;
         this.clusterNodeResolver = topologyService;
@@ -105,7 +111,8 @@ public class ResourceVacuumManager implements IgniteComponent {
         this.finishedReadOnlyTransactionTracker = new FinishedReadOnlyTransactionTracker(
                 topologyService,
                 messagingService,
-                transactionInflights
+                transactionInflights,
+                failureProcessor
         );
         this.finishedTransactionBatchRequestHandler = new FinishedTransactionBatchRequestHandler(
                 messagingService,
@@ -115,6 +122,7 @@ public class ResourceVacuumManager implements IgniteComponent {
         );
 
         this.txManager = txManager;
+        this.failureProcessor = failureProcessor;
     }
 
     @Override
@@ -172,8 +180,7 @@ public class ResourceVacuumManager implements IgniteComponent {
                 }
             }
         } catch (Throwable err) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21829 Use failure handler instead.
-            LOG.error("Error occurred during the orphan resources closing.", err);
+            failureProcessor.process(new FailureContext(err, "Error occurred during the orphan resources closing."));
 
             throw err;
         }
@@ -183,8 +190,7 @@ public class ResourceVacuumManager implements IgniteComponent {
         try {
             txManager.vacuum();
         } catch (Throwable err) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-21829 Use failure handler instead.
-            LOG.error("Error occurred during txn resources vacuum.", err);
+            failureProcessor.process(new FailureContext(err, "Error occurred during txn resources vacuum."));
 
             throw err;
         }

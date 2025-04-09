@@ -55,6 +55,7 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.sql.ColumnType;
@@ -262,10 +263,19 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("valueAndType")
     public void testToFromInternalMatch(Object value, Class<?> type) {
+        var nativeTypeSpec = NativeTypeSpec.fromClass(type);
+
         Object internal = TypeUtils.toInternal(value, type);
         assertNotNull(internal, "Conversion to internal has produced null");
 
+        internal = TypeUtils.toInternal(value, nativeTypeSpec);
+        assertNotNull(internal, "Conversion to internal has produced null");
+
         Object original = TypeUtils.fromInternal(internal, type);
+        assertEquals(value, original, "toInternal -> fromInternal");
+        assertNotNull(original, "Conversion from internal has produced null");
+
+        original = TypeUtils.fromInternal(internal, nativeTypeSpec);
         assertEquals(value, original, "toInternal -> fromInternal");
         assertNotNull(original, "Conversion from internal has produced null");
     }

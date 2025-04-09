@@ -260,7 +260,12 @@ public class IndexAvailabilityControllerRestorerTest extends BaseIgniteAbstractT
             controller.close();
         }
 
-        controller = new IndexAvailabilityController(catalogManager, metaStorageManager, mock(IndexBuilder.class));
+        controller = new IndexAvailabilityController(
+                catalogManager,
+                metaStorageManager,
+                new NoOpFailureManager(),
+                mock(IndexBuilder.class)
+        );
 
         CompletableFuture<Revisions> metastoreRecoveryFuture = metaStorageManager.recoveryFinishedFuture();
 

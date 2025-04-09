@@ -83,6 +83,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -403,7 +404,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             RemotelyTriggeredResourceRegistry remotelyTriggeredResourceRegistry,
             SchemaRegistry schemaRegistry,
             IndexMetaStorage indexMetaStorage,
-            LowWatermark lowWatermark
+            LowWatermark lowWatermark,
+            FailureProcessor failureProcessor
     ) {
         this.mvDataStorage = mvDataStorage;
         this.raftCommandRunner = raftCommandRunner;
@@ -469,7 +471,12 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
 
         txRecoveryMessageHandler = new TxRecoveryMessageHandler(txStatePartitionStorage, replicationGroupId, txRecoveryEngine);
 
-        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(txStatePartitionStorage, txManager, replicationGroupId);
+        txCleanupRecoveryRequestHandler = new TxCleanupRecoveryRequestHandler(
+                txStatePartitionStorage,
+                txManager,
+                failureProcessor,
+                replicationGroupId
+        );
 
         minimumActiveTxTimeReplicaRequestHandler = new MinimumActiveTxTimeReplicaRequestHandler(
                 clockService,

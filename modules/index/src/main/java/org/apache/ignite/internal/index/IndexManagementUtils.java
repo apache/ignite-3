@@ -42,10 +42,11 @@ import org.apache.ignite.internal.catalog.commands.MakeIndexAvailableCommand;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -58,7 +59,7 @@ import org.apache.ignite.network.ClusterNode;
 /** Helper class for index management. */
 class IndexManagementUtils {
     /** Metastore key prefix for the "index in the process of building" in the format: {@code "indexBuild.inProgress.<indexId>"}. */
-    static final String IN_PROGRESS_BUILD_INDEX_KEY_PREFIX = "indexBuild.inProgress.";
+    private static final String IN_PROGRESS_BUILD_INDEX_KEY_PREFIX = "indexBuild.inProgress.";
 
     /**
      * Metastore key prefix for the "index in the process of building for partition" in the format:
@@ -228,19 +229,20 @@ class IndexManagementUtils {
      *
      * @param catalogManager Catalog manger.
      * @param indexId Index ID.
-     * @param log Logger.
+     * @param failureProcessor Failure processor.
      */
-    static void makeIndexAvailableInCatalogWithoutFuture(CatalogManager catalogManager, int indexId, IgniteLogger log) {
+    static void makeIndexAvailableInCatalogWithoutFuture(CatalogManager catalogManager, int indexId, FailureProcessor failureProcessor) {
         catalogManager
                 .execute(MakeIndexAvailableCommand.builder().indexId(indexId).build())
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
-                        Throwable unwrapCause = unwrapCause(throwable);
+                        Throwable unwrappedCause = unwrapCause(throwable);
 
-                        if (!(unwrapCause instanceof IndexNotFoundValidationException)
-                                && !(unwrapCause instanceof ChangeIndexStatusValidationException)
-                                && !(unwrapCause instanceof NodeStoppingException)) {
-                            log.error("Error processing the command to make the index available: {}", unwrapCause, indexId);
+                        if (!(unwrappedCause instanceof IndexNotFoundValidationException)
+                                && !(unwrappedCause instanceof ChangeIndexStatusValidationException)
+                                && !(unwrappedCause instanceof NodeStoppingException)) {
+                            String errorMessage = "Error processing the command to make the index available: " + indexId;
+                            failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
                     }
                 });

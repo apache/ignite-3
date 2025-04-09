@@ -34,7 +34,7 @@ import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -87,7 +87,7 @@ public class IndexBuildingManager implements IgniteComponent {
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             LowWatermark lowWatermark
     ) {
         this.metaStorageManager = metaStorageManager;
@@ -105,9 +105,9 @@ public class IndexBuildingManager implements IgniteComponent {
 
         executor.allowCoreThreadTimeOut(true);
 
-        indexBuilder = new IndexBuilder(executor, replicaService);
+        indexBuilder = new IndexBuilder(executor, replicaService, failureProcessor);
 
-        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, indexBuilder);
+        indexAvailabilityController = new IndexAvailabilityController(catalogManager, metaStorageManager, failureProcessor, indexBuilder);
 
         indexBuildController = new IndexBuildController(
                 indexBuilder,
@@ -116,7 +116,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clusterService,
                 placementDriver,
                 clockService,
-                failureManager
+                failureProcessor
         );
 
         var indexTaskScheduler = new ChangeIndexStatusTaskScheduler(
@@ -126,7 +126,7 @@ public class IndexBuildingManager implements IgniteComponent {
                 clockService,
                 placementDriver,
                 indexMetaStorage,
-                failureManager,
+                failureProcessor,
                 executor
         );
 

@@ -19,16 +19,15 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -59,8 +58,9 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testTransactionsVacuum() throws Exception {
-        updateTxnResourceTtl(50L);
+    public void testTransactionsVacuum(
+            @InjectConfiguration("mock.properties.txnResourceTtl=\"50\"") SystemDistributedConfiguration systemCfg) throws Exception {
+        this.systemDistributedConfiguration = systemCfg;
 
         startCluster(1);
         Node node = cluster.get(0);
@@ -92,17 +92,6 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
 
         // Check that persistent tx state is removed.
         assertTrue(waitForCondition(() -> persistentTxState(node, zoneId, 0, txId) == null, 10_000));
-    }
-
-    /**
-     * Updates txn resource time-to-live value..
-     *
-     * @param ttl Time-to-live value.
-     */
-    private void updateTxnResourceTtl(long ttl) {
-        CompletableFuture<?> updateFuture = txConfiguration.change(change -> change.changeTxnResourceTtl(ttl));
-
-        assertThat(updateFuture, willSucceedFast());
     }
 
     /**

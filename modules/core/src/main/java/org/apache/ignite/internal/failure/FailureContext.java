@@ -30,15 +30,49 @@ public class FailureContext {
     /** Error. */
     private final Throwable err;
 
+    /** Message describing the failure. */
+    private final String message;
+
     /**
-     * Creates instance of {@link FailureContext}.
+     * Creates instance of {@link FailureContext} of {@link FailureType#CRITICAL_ERROR} type.
+     *
+     * @param err Exception.
+     */
+    public FailureContext(Throwable err) {
+        this(FailureType.CRITICAL_ERROR, err);
+    }
+
+    /**
+     * Creates instance of {@link FailureContext} corresponding to an unknown failure.
      *
      * @param type Failure type.
      * @param err Exception.
      */
     public FailureContext(FailureType type, Throwable err) {
+        this(type, err, "Unknown error");
+    }
+
+    /**
+     * Creates instance of {@link FailureContext} of {@link FailureType#CRITICAL_ERROR} type.
+     *
+     * @param err Exception.
+     * @param message Message describing the failure.
+     */
+    public FailureContext(Throwable err, String message) {
+        this(FailureType.CRITICAL_ERROR, err, message);
+    }
+
+    /**
+     * Creates instance of {@link FailureContext}.
+     *
+     * @param type Failure type.
+     * @param err Exception.
+     * @param message Message describing the failure.
+     */
+    public FailureContext(FailureType type, Throwable err, String message) {
         this.type = type;
         this.err = err;
+        this.message = message;
     }
 
     /**
@@ -57,6 +91,15 @@ public class FailureContext {
      */
     public Throwable error() {
         return err;
+    }
+
+    /**
+     * Returns the message.
+     *
+     * @return Message describing the failure.
+     */
+    public String message() {
+        return message;
     }
 
     @Override public String toString() {

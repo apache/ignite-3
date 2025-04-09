@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -106,6 +107,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     final GradualTaskExecutor destructionExecutor;
 
+    final FailureProcessor failureProcessor;
+
     volatile RenewablePartitionStorageState renewableState;
 
     private final DataPageReader rowVersionDataPageReader;
@@ -127,13 +130,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
             RenewablePartitionStorageState renewableState,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
         this.renewableState = renewableState;
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
-        this.indexes = new PageMemoryIndexes(this.destructionExecutor, this::runConsistently);
+        this.failureProcessor = failureProcessor;
+        this.indexes = new PageMemoryIndexes(this.destructionExecutor, failureProcessor, this::runConsistently);
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 

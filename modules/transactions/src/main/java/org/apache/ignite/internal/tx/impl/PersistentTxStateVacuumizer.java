@@ -32,6 +32,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -64,6 +66,8 @@ public class PersistentTxStateVacuumizer {
 
     private final PlacementDriver placementDriver;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Constructor.
      *
@@ -71,17 +75,20 @@ public class PersistentTxStateVacuumizer {
      * @param localNode Local node.
      * @param clockService Clock service.
      * @param placementDriver Placement driver.
+     * @param failureProcessor Failure processor.
      */
     public PersistentTxStateVacuumizer(
             ReplicaService replicaService,
             ClusterNode localNode,
             ClockService clockService,
-            PlacementDriver placementDriver
+            PlacementDriver placementDriver,
+            FailureProcessor failureProcessor
     ) {
         this.replicaService = replicaService;
         this.localNode = localNode;
         this.clockService = clockService;
         this.placementDriver = placementDriver;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -144,7 +151,10 @@ public class PersistentTxStateVacuumizer {
                                 } else if (unwrapCause(e) instanceof PrimaryReplicaMissException) {
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
-                                    LOG.warn("Failed to vacuum tx states from the persistent storage.", e);
+                                    failureProcessor.process(new FailureContext(
+                                            e,
+                                            "Failed to vacuum tx states from the persistent storage."
+                                    ));
                                 }
                             });
                         } else {

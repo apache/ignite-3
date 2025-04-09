@@ -77,6 +77,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -211,6 +212,8 @@ public class ItTxTestCluster {
 
     private final TransactionConfiguration txConfiguration;
 
+    private final SystemDistributedConfiguration systemCfg;
+
     private final Path workDir;
 
     private final int nodes;
@@ -337,6 +340,7 @@ public class ItTxTestCluster {
             TestInfo testInfo,
             RaftConfiguration raftConfig,
             TransactionConfiguration txConfiguration,
+            SystemDistributedConfiguration systemCfg,
             Path workDir,
             int nodes,
             int replicas,
@@ -346,6 +350,7 @@ public class ItTxTestCluster {
     ) {
         this.raftConfig = raftConfig;
         this.txConfiguration = txConfiguration;
+        this.systemCfg = systemCfg;
         this.workDir = workDir;
         this.nodes = nodes;
         this.replicas = replicas;
@@ -537,7 +542,8 @@ public class ItTxTestCluster {
                     clusterService.messagingService(),
                     transactionInflights,
                     txMgr,
-                    lowWatermark
+                    lowWatermark,
+                    new NoOpFailureManager()
             );
 
             assertThat(txMgr.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -591,6 +597,7 @@ public class ItTxTestCluster {
         return new TxManagerImpl(
                 node.name(),
                 txConfiguration,
+                systemCfg,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaSvc,
@@ -604,7 +611,8 @@ public class ItTxTestCluster {
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                executor
+                executor,
+                new NoOpFailureManager()
         );
     }
 
@@ -666,7 +674,6 @@ public class ItTxTestCluster {
                 timestampTracker,
                 placementDriver,
                 clientTransactionInflights,
-                0,
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
@@ -700,8 +707,7 @@ public class ItTxTestCluster {
                         new TxMessageSender(
                                 clusterServices.get(assignment).messagingService(),
                                 replicaServices.get(assignment),
-                                clockServices.get(assignment),
-                                txConfiguration
+                                clockServices.get(assignment)
                         );
 
                 var transactionStateResolver = new TransactionStateResolver(
@@ -957,6 +963,7 @@ public class ItTxTestCluster {
                             placementDriver,
                             clusterNodeResolver,
                             raftClient,
+                            new NoOpFailureManager(),
                             localNode,
                             partitionId
                     )
@@ -1096,7 +1103,8 @@ public class ItTxTestCluster {
                 resourcesRegistry,
                 schemaRegistry,
                 mock(IndexMetaStorage.class),
-                lowWatermark
+                lowWatermark,
+                new NoOpFailureManager()
         );
     }
 
@@ -1290,6 +1298,7 @@ public class ItTxTestCluster {
         clientTxManager = new TxManagerImpl(
                 "client",
                 txConfiguration,
+                systemCfg,
                 client.messagingService(),
                 client.topologyService(),
                 clientReplicaSvc,
@@ -1303,7 +1312,8 @@ public class ItTxTestCluster {
                 resourceRegistry,
                 clientTransactionInflights,
                 lowWatermark,
-                executor
+                executor,
+                new NoOpFailureManager()
         );
 
         clientResourceVacuumManager = new ResourceVacuumManager(
@@ -1313,7 +1323,8 @@ public class ItTxTestCluster {
                 client.messagingService(),
                 clientTransactionInflights,
                 clientTxManager,
-                lowWatermark
+                lowWatermark,
+                new NoOpFailureManager()
         );
 
         clientTxStateResolver = new TransactionStateResolver(
@@ -1325,8 +1336,7 @@ public class ItTxTestCluster {
                 new TxMessageSender(
                         client.messagingService(),
                         clientReplicaSvc,
-                        clientClockService,
-                        txConfiguration
+                        clientClockService
                 )
         );
 

@@ -108,7 +108,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     private StorageConfiguration storageConfiguration;
 
     @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
-    private SystemDistributedConfiguration systemDistributedConfiguration;
+    protected SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;

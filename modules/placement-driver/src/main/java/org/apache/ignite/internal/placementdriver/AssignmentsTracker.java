@@ -35,6 +35,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -69,6 +71,8 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
 
+    private final FailureProcessor failureProcessor;
+
     /** Map replication group id to stable assignment nodes. */
     private final Map<ReplicationGroupId, TokenizedAssignments> groupStableAssignments;
 
@@ -85,9 +89,11 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
      * The constructor.
      *
      * @param msManager Meta storage manager.
+     * @param failureProcessor Failure processor.
      */
-    public AssignmentsTracker(MetaStorageManager msManager) {
+    public AssignmentsTracker(MetaStorageManager msManager, FailureProcessor failureProcessor) {
         this.msManager = msManager;
+        this.failureProcessor = failureProcessor;
 
         this.groupStableAssignments = new ConcurrentHashMap<>();
         this.stableAssignmentsListener = createStableAssignmentsListener();
@@ -112,7 +118,7 @@ public class AssignmentsTracker implements AssignmentsPlacementDriver {
             );
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                LOG.error("Failed to start assignment tracker due to recovery error", ex);
+                failureProcessor.process(new FailureContext(ex, "Failed to start assignment tracker due to recovery error"));
             } else if (LOG.isInfoEnabled()) {
                 LOG.info(
                         "Assignment cache initialized for placement driver [stableAssignments=[{}], pendingAssignments=[{}]]",

@@ -51,8 +51,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.FailureType;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.message.IndexMessagesFactory;
@@ -128,7 +127,7 @@ abstract class ChangeIndexStatusTask {
 
     private final IndexMetaStorage indexMetaStorage;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final Executor executor;
 
@@ -146,7 +145,7 @@ abstract class ChangeIndexStatusTask {
             LogicalTopologyService logicalTopologyService,
             ClockService clockService,
             IndexMetaStorage indexMetaStorage,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             Executor executor,
             IgniteSpinBusyLock busyLock
     ) {
@@ -157,7 +156,7 @@ abstract class ChangeIndexStatusTask {
         this.logicalTopologyService = logicalTopologyService;
         this.clockService = clockService;
         this.indexMetaStorage = indexMetaStorage;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.executor = executor;
         this.busyLock = busyLock;
     }
@@ -189,9 +188,10 @@ abstract class ChangeIndexStatusTask {
                                     // The index's table might have been dropped while we were waiting for the ability
                                     // to switch the index status to a new state, so IndexNotFound is not a problem.
                                     && !(cause instanceof IndexNotFoundValidationException)) {
-                                LOG.error("Error starting index task: {}", throwable, indexDescriptor.id());
-
-                                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, throwable));
+                                failureProcessor.process(new FailureContext(
+                                        throwable,
+                                        String.format("Error starting index task: %s", indexDescriptor.id())
+                                ));
                             }
                         }
                     })

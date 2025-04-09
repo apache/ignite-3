@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -70,7 +70,7 @@ public class ReplicaImpl implements Replica {
 
     private LeaderElectionListener onLeaderElectedFailoverCallback;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
 
@@ -86,7 +86,7 @@ public class ReplicaImpl implements Replica {
      * @param localNode Instance of the local node.
      * @param placementDriver Placement driver.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
-     * @param failureManager Failure manager in case if we couldn't subscribe failover callback on raft client.
+     * @param failureProcessor Failure processor in case if we couldn't subscribe failover callback on raft client.
      *
      */
     public ReplicaImpl(
@@ -95,7 +95,7 @@ public class ReplicaImpl implements Replica {
             ClusterNode localNode,
             PlacementDriver placementDriver,
             Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             PlacementDriverMessageProcessor placementDriverMessageProcessor
     ) {
         this.replicaGrpId = replicaGrpId;
@@ -104,7 +104,7 @@ public class ReplicaImpl implements Replica {
         this.localNode = localNode;
         this.placementDriver = placementDriver;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
@@ -190,7 +190,7 @@ public class ReplicaImpl implements Replica {
                 .exceptionally(e -> {
                     LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicaGrpId + "].", e);
 
-                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                    failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
 
                     return null;
                 })

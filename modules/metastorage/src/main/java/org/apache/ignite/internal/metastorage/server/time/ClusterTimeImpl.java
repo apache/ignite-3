@@ -29,6 +29,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -56,7 +57,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
 
     private final HybridClock clock;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
             new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
@@ -108,13 +109,13 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      * @param nodeName Node name.
      * @param busyLock Busy lock.
      * @param clock Node's hybrid clock.
-     * @param failureManager Failure manager to use when reporting failures.
+     * @param failureProcessor Failure processor to use when reporting failures.
      */
-    public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock, FailureManager failureManager) {
+    public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock, FailureProcessor failureProcessor) {
         this.nodeName = nodeName;
         this.busyLock = busyLock;
         this.clock = clock;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -236,7 +237,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                 try {
                     tryToSyncTimeAndReschedule();
                 } catch (Throwable t) {
-                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, t));
+                    failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, t));
 
                     if (t instanceof Error) {
                         throw t;
@@ -257,9 +258,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                                 Throwable cause = unwrapCause(e);
 
                                 if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
-                                    LOG.error("Unable to perform idle time sync", e);
-
-                                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+                                    failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
                                 }
                             }
                         });

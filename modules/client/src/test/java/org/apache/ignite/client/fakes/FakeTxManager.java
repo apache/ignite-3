@@ -264,6 +264,11 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
+    public int lockRetryCount() {
+        return 0;
+    }
+
+    @Override
     public int finished() {
         return 0;
     }

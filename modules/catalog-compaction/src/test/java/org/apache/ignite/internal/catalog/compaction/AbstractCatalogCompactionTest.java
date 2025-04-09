@@ -27,6 +27,7 @@ import static org.mockito.Mockito.spy;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
@@ -67,10 +68,11 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
     /** Creates catalog manager. */
     private CatalogManagerImpl createCatalogManager(String nodeName) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
+        FailureProcessor failureProcessor = new NoOpFailureManager();
         CatalogManagerImpl manager = new CatalogManagerImpl(
-                new UpdateLogImpl(metastore),
+                new UpdateLogImpl(metastore, failureProcessor),
                 clockService,
-                new NoOpFailureManager(),
+                failureProcessor,
                 () -> TEST_DELAY_DURATION
         );
 

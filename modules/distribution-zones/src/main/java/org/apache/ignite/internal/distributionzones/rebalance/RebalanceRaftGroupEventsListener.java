@@ -45,6 +45,8 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -107,6 +109,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /** Meta storage manager. */
     private final MetaStorageManager metaStorageMgr;
 
+    private final FailureProcessor failureProcessor;
+
     /** Unique table partition id. */
     private final TablePartitionId tablePartitionId;
 
@@ -132,6 +136,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      * Constructs new listener.
      *
      * @param metaStorageMgr Meta storage manager.
+     * @param failureProcessor Failure processor.
      * @param tablePartitionId Partition id.
      * @param busyLock Busy lock.
      * @param partitionMover Class that moves partition between nodes.
@@ -141,6 +146,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
      */
     public RebalanceRaftGroupEventsListener(
             MetaStorageManager metaStorageMgr,
+            FailureProcessor failureProcessor,
             TablePartitionId tablePartitionId,
             IgniteSpinBusyLock busyLock,
             PartitionMover partitionMover,
@@ -149,6 +155,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             SystemDistributedConfigurationPropertyHolder<Integer> retryDelayConfiguration
     ) {
         this.metaStorageMgr = metaStorageMgr;
+        this.failureProcessor = failureProcessor;
         this.tablePartitionId = tablePartitionId;
         this.busyLock = busyLock;
         this.partitionMover = partitionMover;
@@ -263,7 +270,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /**
      * Updates stable value with the new applied assignment.
      */
-    private static void doStableKeySwitch(
+    private void doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
             MetaStorageManager metaStorageMgr,
@@ -494,7 +501,8 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            LOG.warn("Unable to commit partition configuration to metastore: " + tablePartitionId, e);
+            String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", tablePartitionId);
+            failureProcessor.process(new FailureContext(e, errorMessage));
         }
     }
 

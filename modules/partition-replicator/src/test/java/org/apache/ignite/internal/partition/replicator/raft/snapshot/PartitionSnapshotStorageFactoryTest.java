@@ -28,6 +28,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
@@ -68,6 +69,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(OutgoingSnapshotsManager.class),
                 txStateAccess,
                 mock(CatalogService.class),
+                mock(FailureProcessor.class),
                 mock(Executor.class)
         );
 
@@ -99,6 +101,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(OutgoingSnapshotsManager.class),
                 txStateAccess,
                 mock(CatalogService.class),
+                mock(FailureProcessor.class),
                 mock(Executor.class)
         );
 
@@ -124,6 +127,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(OutgoingSnapshotsManager.class),
                 txStateAccess,
                 mock(CatalogService.class),
+                mock(FailureProcessor.class),
                 mock(Executor.class)
         );
 
@@ -148,6 +152,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(OutgoingSnapshotsManager.class),
                 txStateAccess,
                 mock(CatalogService.class),
+                mock(FailureProcessor.class),
                 mock(Executor.class)
         );
 
@@ -166,6 +171,7 @@ public class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest 
                 mock(OutgoingSnapshotsManager.class),
                 mock(PartitionTxStateAccess.class),
                 mock(CatalogService.class),
+                mock(FailureProcessor.class),
                 mock(Executor.class)
         );
 
