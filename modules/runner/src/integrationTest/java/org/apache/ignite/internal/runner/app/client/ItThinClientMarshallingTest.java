@@ -144,12 +144,16 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     @Test
     public void testKvMissingValPojoFields() {
-        Table table = ignite().tables().table(TABLE_NAME);
-        var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo.class);
+        String tableName = "tableWithExtraField";
+        ignite().sql().execute(null, "CREATE TABLE " + tableName + " (KEY INT PRIMARY KEY, VAL VARCHAR, EXTRA VARCHAR)");
+        Table table = ignite().tables().table(tableName);
 
-        Throwable ex = assertThrowsWithCause(() -> kvPojoView.put(null, 1, new MissingFieldPojo()), IllegalArgumentException.class);
-        assertEquals("Fields [unknown] of type org.apache.ignite.internal.runner.app.client.ItThinClientMarshallingTest$MissingFieldPojo "
-                + "are not mapped to columns", ex.getMessage());
+        var kvPojoView = table.keyValueView(Integer.class, MissingFieldPojo2.class);
+
+        kvPojoView.put(null, 1, new MissingFieldPojo2("x"));
+        MissingFieldPojo2 val = kvPojoView.get(null, 1);
+
+        assertEquals("x", val.val);
     }
 
     @Test
@@ -391,6 +395,18 @@ public class ItThinClientMarshallingTest extends ItAbstractThinClientTest {
 
     private static class MissingFieldPojo {
         public int unknown;
+    }
+
+    private static class MissingFieldPojo2 {
+        public String val;
+
+        MissingFieldPojo2() {
+            // No-op.
+        }
+
+        public MissingFieldPojo2(String val) {
+            this.val = val;
+        }
     }
 
     private static class IncompatibleFieldPojo {
