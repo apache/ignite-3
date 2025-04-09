@@ -3507,15 +3507,9 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
     private Predicate<IgniteTableScan> checkPlan(Matcher<RexNode> call1op1, Matcher<RexNode> call1op2) {
         return isInstanceOf(IgniteTableScan.class).and(t -> {
-            RexCall condition = (RexCall) t.condition();
+            RexNode condition = t.condition();
 
-                RexNode op1 = condition.getOperands().get(0);
-                RexNode op2 = condition.getOperands().get(1);
-
-                log.info("Call op1: {} {}", op1, op1.getType().getFullTypeString());
-                log.info("Call op2: {} {}", op2, op2.getType().getFullTypeString());
-
-            return matchCall(condition, call1op1, call1op2);
+            return matchCall((RexCall) condition, call1op1, call1op2);
         });
     }
 

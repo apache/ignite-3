@@ -64,7 +64,7 @@ public class IgniteSqlColumnDeclaration extends SqlCall {
     private final @Nullable SqlNode expression;
     private final ColumnStrategy strategy;
 
-    /** Constructor */
+    /** Constructor. */
     public IgniteSqlColumnDeclaration(SqlParserPos pos, SqlIdentifier name,
             SqlDataTypeSpec dataType, @Nullable SqlNode expression,
             ColumnStrategy strategy) {
