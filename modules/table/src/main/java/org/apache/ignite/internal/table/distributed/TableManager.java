@@ -146,6 +146,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKey;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
@@ -2446,7 +2447,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var txStateAccess = new PartitionTxStateAccessImpl(internalTable.txStateStorage().getPartitionStorage(partitionId));
 
-        var factory = new PartitionSnapshotStorageFactory(
+        var snapshotStorage = new PartitionSnapshotStorage(
                 new TablePartitionKey(replicaGrpId.tableId(), replicaGrpId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,
@@ -2456,9 +2457,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 incomingSnapshotsExecutor
         );
 
-        factory.addMvPartition(internalTable.tableId(), partitionAccess);
+        snapshotStorage.addMvPartition(internalTable.tableId(), partitionAccess);
 
-        return factory;
+        return new PartitionSnapshotStorageFactory(snapshotStorage);
     }
 
     /**

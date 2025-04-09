@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.startup;
 
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.storage.snapshot.startup.StartupSnapshotReader;
 
@@ -25,27 +24,25 @@ import org.apache.ignite.raft.jraft.storage.snapshot.startup.StartupSnapshotRead
  * Snapshot reader used for raft group bootstrap. Reads initial state of the storage.
  */
 public class StartupPartitionSnapshotReader extends StartupSnapshotReader {
-    /** Instance of snapshot storage for shared fields access. */
-    private final PartitionSnapshotStorage snapshotStorage;
+    private final SnapshotMeta snapshotMeta;
+
+    private final String snapshotUri;
 
     /**
      * Constructor.
-     *
-     * @param snapshotStorage Snapshot storage.
      */
-    public StartupPartitionSnapshotReader(PartitionSnapshotStorage snapshotStorage) {
-        this.snapshotStorage = snapshotStorage;
+    public StartupPartitionSnapshotReader(SnapshotMeta snapshotMeta, String snapshotUri) {
+        this.snapshotMeta = snapshotMeta;
+        this.snapshotUri = snapshotUri;
     }
 
-    /** {@inheritDoc} */
     @Override
     public SnapshotMeta load() {
-        return snapshotStorage.startupSnapshotMeta();
+        return snapshotMeta;
     }
 
-    /** {@inheritDoc} */
     @Override
     public String getPath() {
-        return snapshotStorage.snapshotUri();
+        return snapshotUri;
     }
 }
