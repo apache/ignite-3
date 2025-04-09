@@ -105,7 +105,7 @@ class ZoneResourcesManagerTest extends IgniteAbstractTest {
 
         assertThat(resources.txStatePartitionStorage(), is(notNullValue()));
         assertThat(resources.raftListener(), is(notNullValue()));
-        assertThat(resources.snapshotStorageFactory(), is(notNullValue()));
+        assertThat(resources.snapshotStorage(), is(notNullValue()));
         assertThat(resources.replicaListenerFuture().isDone(), is(false));
     }
 

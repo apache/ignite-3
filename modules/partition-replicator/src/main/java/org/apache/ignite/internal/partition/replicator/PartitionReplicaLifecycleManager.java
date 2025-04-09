@@ -119,6 +119,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
@@ -659,7 +660,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                         return replicaListener;
                                     },
-                                    zoneResources.snapshotStorageFactory(),
+                                    new PartitionSnapshotStorageFactory(zoneResources.snapshotStorage()),
                                     stablePeersAndLearners,
                                     zoneResources.raftListener(),
                                     raftGroupEventsListener,
@@ -1527,7 +1528,7 @@ public class PartitionReplicaLifecycleManager extends
             resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
         }
 
-        resources.snapshotStorageFactory().addMvPartition(tableId, partitionMvStorageAccess);
+        resources.snapshotStorage().addMvPartition(tableId, partitionMvStorageAccess);
     }
 
     /**

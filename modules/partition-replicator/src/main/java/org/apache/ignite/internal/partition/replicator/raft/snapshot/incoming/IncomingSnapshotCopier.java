@@ -164,11 +164,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                                     return null;
                                 } else {
-                                    return new SnapshotContext(
-                                            snapshotMeta,
-                                            // Create a defensive copy, because this map is modified externally.
-                                            new Int2ObjectOpenHashMap<>(partitionSnapshotStorage.partitionsByTableId())
-                                    );
+                                    return new SnapshotContext(snapshotMeta, partitionSnapshotStorage.partitionsByTableId());
                                 }
                             })
                     );
@@ -310,7 +306,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
                     NETWORK_TIMEOUT
@@ -359,7 +355,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotMvDataRequest()
                             .id(snapshotUri.snapshotId)
@@ -417,7 +413,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotTxDataRequest()
                             .id(snapshotUri.snapshotId)
@@ -640,7 +636,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     LWM_MSG_FACTORY.getLowWatermarkRequest().build(),
                     NETWORK_TIMEOUT
