@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
@@ -1396,26 +1397,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId,
             Long assignmentsTimestamp
     ) {
-        return orStopManagerFuture(waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
-            int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
+        CompletableFuture<Set<Assignment>> assignmentsFuture =
+                reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
+                        .thenCompose(catalog -> {
+                            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
+                            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
+                            return distributionZoneManager.dataNodes(
+                                    zoneDescriptor.updateTimestamp(),
+                                    catalog.version(),
+                                    tableDescriptor.zoneId()
+                            ).thenApply(dataNodes ->
+                                    calculateAssignmentForPartition(
+                                            dataNodes,
+                                            tablePartitionId.partitionId(),
+                                            zoneDescriptor.partitions(),
+                                            zoneDescriptor.replicas()
+                                    )
+                            );
+                        });
 
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
-
-            return distributionZoneManager.dataNodes(
-                    zoneDescriptor.updateTimestamp(),
-                    catalogVersion,
-                    tableDescriptor.zoneId()
-            ).thenApply(dataNodes ->
-                    calculateAssignmentForPartition(
-                            dataNodes,
-                            tablePartitionId.partitionId(),
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    )
-            );
-        }));
+        return orStopManagerFuture(assignmentsFuture);
     }
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
@@ -2497,14 +2499,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         long assignmentsTimestamp = assignments.timestamp();
 
-                        return reliableCatalogVersions.safeReliableCatalogVersionFor(HybridTimestamp.hybridTimestamp(assignmentsTimestamp))
-                                .thenCompose(catalogVersion -> inBusyLockAsync(busyLock, () -> {
-                                    CatalogTableDescriptor tableDescriptor =
-                                            getTableDescriptor(replicaGrpId.tableId(), catalogVersion);
+                        return reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
+                                .thenCompose(catalog -> inBusyLockAsync(busyLock, () -> {
+                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(replicaGrpId.tableId(), catalog);
 
-                                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+                                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-                                    return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion,
+                                    return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(),
                                                     tableDescriptor.zoneId())
                                             .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
                                                     metaStorageMgr,
@@ -2877,19 +2878,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return findTableImplByName(tables.values(), name);
     }
 
-    private CatalogTableDescriptor getTableDescriptor(int tableId, int catalogVersion) {
-        CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tableId);
+    private static CatalogTableDescriptor getTableDescriptor(int tableId, Catalog catalog) {
+        CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
 
-        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
+        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalog.version();
 
         return tableDescriptor;
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
-        CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersion).zone(tableDescriptor.zoneId());
+        return getZoneDescriptor(tableDescriptor, catalogService.catalog(catalogVersion));
+    }
+
+    private static CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, Catalog catalog) {
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
 
         assert zoneDescriptor != null :
-                "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+                "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalog.version();
 
         return zoneDescriptor;
     }
