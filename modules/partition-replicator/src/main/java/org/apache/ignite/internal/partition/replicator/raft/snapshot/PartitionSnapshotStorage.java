@@ -252,13 +252,6 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
         return snapshotThrottle;
     }
 
-    /**
-     * Returns the incoming snapshots executor.
-     */
-    public Executor getIncomingSnapshotsExecutor() {
-        return incomingSnapshotsExecutor;
-    }
-
     @Override
     public boolean init(Void opts) {
         // No-op.
@@ -306,7 +299,7 @@ public class PartitionSnapshotStorage implements SnapshotStorage {
     public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
-        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(this, snapshotUri, waitForMetadataCatchupMs);
+        IncomingSnapshotCopier copier = new IncomingSnapshotCopier(this, snapshotUri, incomingSnapshotsExecutor, waitForMetadataCatchupMs);
 
         copier.start();
 
