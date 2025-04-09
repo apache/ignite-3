@@ -115,7 +115,7 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
         assertRecoveryRequestForHaZoneTable(node1);
         assertRecoveryRequestWasOnlyOne(node1);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_TABLE_NAME, PARTITION_IDS, Set.of(node1.name()));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node1, HA_ZONE_NAME, PARTITION_IDS, Set.of(node1.name()));
     }
 
     private void expectEarliestCatalogVersionGreaterThanZero() {

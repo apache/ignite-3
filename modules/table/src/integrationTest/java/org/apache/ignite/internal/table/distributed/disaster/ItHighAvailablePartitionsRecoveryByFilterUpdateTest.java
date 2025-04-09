@@ -78,13 +78,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         IgniteImpl node = igniteImpl(0);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, euNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, euNodes);
 
         assertRecoveryKeyIsEmpty(node);
 
         stopNodes(1, 2);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, nodeNames(0));
 
         String globalFilter = "$[?(@.zone == \"global\")]";
 
@@ -92,7 +92,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> globalNodes = nodeNames(0, 3, 4);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, globalNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, globalNodes);
     }
 
     @Test
@@ -108,14 +108,14 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         IgniteImpl node = igniteImpl(0);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, euNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, euNodes);
 
         assertRecoveryKeyIsEmpty(node);
 
         stopNodes(1);
 
         // Due to the fact that only one [0] node is suitable according to filter:
-        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_ZONE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
@@ -130,14 +130,14 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         IgniteImpl node = igniteImpl(0);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodesWithAiProfile);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, nodesWithAiProfile);
 
         assertRecoveryKeyIsEmpty(node);
 
         stopNodes(1);
 
         // Due to the fact that only one [0] node is suitable according to storage profiles:
-        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
+        waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_ZONE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
     /**
@@ -179,13 +179,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         stopNodes(4, 5, 6, 7);
 
         // Wait for the partition to become available on the remaining nodes (E, F, G)
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
 
         // Stop 2 more nodes (E, F)
         stopNodes(2, 3);
 
         // Wait for the partition to become available on the last node (G)
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1));
 
         // Stop the last node (G)
         stopNode(1);
@@ -199,7 +199,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         //  Start one node from phase 2 (E)
         startNode(2);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 4));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1, 2, 4));
 
         // Verify that no data is lost and reads from partition on nodes A and E are consistent with node G
         assertValuesPresentOnNodes(node0.clock().now(), table, 1, 2, 4);
@@ -243,13 +243,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         stopNodes(4, 5, 6, 7);
 
         // Wait for the partition to become available on the remaining nodes (E, F, G)
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
 
         // Stop 2 more nodes (E, F)
         stopNodes(2, 3);
 
         // Wait for the partition to become available on the last node (G)
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1));
 
         errors = insertValues(table, 1000);
         assertThat(errors, is(empty()));
@@ -304,13 +304,13 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         stopNodes(4, 5, 6, 7);
 
         // Wait for the partition to become available on the remaining nodes (E, F, G)
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1, 2, 3));
 
         // Stop 2 more nodes (E, F)
         stopNodes(2, 3);
 
         // Wait for the partition to become available on the last node (G)
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_TABLE_NAME, PARTITION_IDS, nodeNames(1));
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node0, HA_ZONE_NAME, PARTITION_IDS, nodeNames(1));
 
         // Stop the last node (G)
         stopNode(1);
@@ -360,7 +360,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, euNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, euNodes);
 
         assertRecoveryKeyIsEmpty(node);
 
@@ -381,7 +381,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> usNodes = nodeNames(3, 4, 5);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, usNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, usNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), table, 3, 4, 5);
     }
@@ -416,7 +416,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         changePartitionDistributionTimeout(node, (int) TimeUnit.MINUTES.toSeconds(5));
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, nodesWithAiProfile);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, nodesWithAiProfile);
 
         assertRecoveryKeyIsEmpty(node);
 
@@ -435,7 +435,7 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
 
         Set<String> usNodes = nodeNames(3, 4, 5);
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_TABLE_NAME, PARTITION_IDS, usNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(node, HA_ZONE_NAME, PARTITION_IDS, usNodes);
 
         assertValuesPresentOnNodes(node.clock().now(), table, 3, 4, 5);
     }

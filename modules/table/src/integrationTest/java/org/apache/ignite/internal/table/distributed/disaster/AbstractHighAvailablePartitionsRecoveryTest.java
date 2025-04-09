@@ -24,13 +24,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
@@ -56,7 +57,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -77,12 +77,11 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -107,7 +106,7 @@ import org.apache.ignite.tx.TransactionException;
 
 /** Parent for tests of HA zones feature. */
 // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
     static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -164,30 +163,29 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     final void waitAndAssertStableAssignmentsOfPartitionEqualTo(
-            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+            IgniteImpl gatewayNode, String zoneName, Set<Integer> partitionIds, Set<String> nodes) {
         partitionIds.forEach(p -> {
             try {
-                waitAndAssertStableAssignmentsOfPartitionEqualTo(gatewayNode, tableName, p, nodes);
+                waitAndAssertStableAssignmentsOfPartitionEqualTo(gatewayNode, zoneName, p, nodes);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
         });
-
     }
 
     private void waitAndAssertStableAssignmentsOfPartitionEqualTo(
-            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes) throws InterruptedException {
+            IgniteImpl gatewayNode, String zoneName, int partNum, Set<String> nodes) throws InterruptedException {
 
         assertTrue(waitForCondition(() ->
                         nodes.equals(
-                                getPartitionClusterNodes(gatewayNode, tableName, partNum)
+                                getPartitionClusterNodes(gatewayNode, zoneName, partNum)
                                         .stream()
                                         .map(Assignment::consistentId)
                                         .collect(Collectors.toUnmodifiableSet())
                         ),
                 500,
                 30_000
-        ), "Expected set of nodes: " + nodes + " actual: " + getPartitionClusterNodes(gatewayNode, tableName, partNum)
+        ), "Expected set of nodes: " + nodes + " actual: " + getPartitionClusterNodes(gatewayNode, zoneName, partNum)
                 .stream()
                 .map(Assignment::consistentId)
                 .collect(Collectors.toUnmodifiableSet()));
@@ -202,15 +200,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
      * </ul>
      *
      * @param gatewayNode Node for communication with cluster and components.
-     * @param tableName Table name.
+     * @param zoneName Zone name.
      * @param partitionIds Set of target partition ids to check.
      * @param nodes Expected set of nodes in stable assignments.
      */
     final void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(
-            IgniteImpl gatewayNode, String tableName, Set<Integer> partitionIds, Set<String> nodes) {
+            IgniteImpl gatewayNode, String zoneName, Set<Integer> partitionIds, Set<String> nodes) {
         partitionIds.forEach(p -> {
             try {
-                waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(gatewayNode, tableName, p, nodes);
+                waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(gatewayNode, zoneName, p, nodes);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -223,7 +221,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
      * @see AbstractHighAvailablePartitionsRecoveryTest#waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected
      */
     private void waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpectedForPartition(
-            IgniteImpl gatewayNode, String tableName, int partNum, Set<String> nodes
+            IgniteImpl gatewayNode, String zoneName, int partNum, Set<String> nodes
     ) throws InterruptedException {
         AtomicReference<Set<String>> stableNodes = new AtomicReference<>();
         AtomicReference<Set<String>> pendingNodes = new AtomicReference<>();
@@ -231,15 +229,15 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         assertTrue(
                 waitForCondition(() -> {
-                            Integer tableId = getTableId(gatewayNode.catalogManager(), tableName, clock.nowLong());
+                            Integer zoneId = getZoneId(gatewayNode.catalogManager(), zoneName, clock.nowLong());
 
-                            assert tableId != null;
+                            assert zoneId != null;
 
-                            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
+                            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, partNum);
 
-                            ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
-                            ByteArray pendingKey = pendingPartAssignmentsQueueKey(tablePartitionId);
-                            ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
+                            ByteArray stableKey = stablePartAssignmentsKey(zonePartitionId);
+                            ByteArray pendingKey = pendingPartAssignmentsQueueKey(zonePartitionId);
+                            ByteArray plannedKey = plannedPartAssignmentsKey(zonePartitionId);
 
                             Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()
                                     .getAll(Set.of(stableKey, pendingKey, plannedKey)), 1, TimeUnit.SECONDS);
@@ -285,9 +283,9 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
                 : emptySet();
     }
 
-    private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
-        return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
-                .map(tableId -> stablePartitionAssignments(node.metaStorageManager(), tableId, partNum).join())
+    private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String zoneName, int partNum) {
+        return Optional.ofNullable(getZoneId(node.catalogManager(), zoneName, clock.nowLong()))
+                .map(zoneId -> stablePartitionAssignments(node.metaStorageManager(), zoneId, partNum).join())
                 .orElse(Set.of());
     }
 
@@ -320,11 +318,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             tableIds.add(getTableId(igniteImpl(0).catalogManager(), tableName, clock.nowLong()));
         }
 
-        awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
-
-        tableNames.forEach(t ->
-                waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, PARTITION_IDS, targetNodes)
-        );
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), zoneName, PARTITION_IDS, targetNodes);
     }
 
     final void createHaZoneWithTables(String zoneName, List<String> tableNames) throws InterruptedException {
@@ -371,7 +365,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         Set<String> allNodes = runningNodes().map(Ignite::name).collect(Collectors.toUnmodifiableSet());
 
-        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_TABLE_NAME, PARTITION_IDS, allNodes);
+        waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), SC_ZONE_NAME, PARTITION_IDS, allNodes);
     }
 
     static void assertRecoveryKeyIsEmpty(IgniteImpl gatewayNode) {
@@ -443,32 +437,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         }, 10_000));
 
         return gatewayNode.metaStorageManager().appliedRevision();
-    }
-
-    private void awaitForAllNodesTableGroupInitialization(Set<Integer> tableIds, int replicas) throws InterruptedException {
-        assertTrue(waitForCondition(() -> {
-            AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
-
-            runningNodes().forEach(ignite -> {
-                IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
-                igniteImpl.raftManager().localNodes().forEach((raftNodeId) -> {
-
-                    if (raftNodeId.groupId() instanceof TablePartitionId
-                            && tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
-                        try {
-                            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
-                                numberOfInitializedReplicas.incrementAndGet();
-                            }
-                        } catch (NodeStoppingException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-                });
-
-            });
-
-            return PARTITIONS_NUMBER * replicas * tableIds.size() == numberOfInitializedReplicas.get();
-        }, 10_000));
     }
 
     final Set<String> nodeNames(Integer... indexes) {

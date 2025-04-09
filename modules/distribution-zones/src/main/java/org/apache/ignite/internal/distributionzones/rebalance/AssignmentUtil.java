@@ -22,10 +22,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 
 /**
@@ -91,5 +93,21 @@ public class AssignmentUtil {
 
                     return result.isEmpty() ? Map.of() : result;
                 });
+    }
+
+    /**
+     * Returns partition assignments from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param keySupplier Key supplier.
+     * @return Future with partition assignments as a value.
+     */
+    public static CompletableFuture<Set<Assignment>> metastoreAssignments(
+            MetaStorageManager metaStorageManager,
+            Supplier<ByteArray> keySupplier
+    ) {
+        return metaStorageManager
+                .get(keySupplier.get())
+                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 }

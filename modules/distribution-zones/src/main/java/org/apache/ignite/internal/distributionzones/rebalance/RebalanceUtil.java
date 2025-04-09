@@ -635,9 +635,7 @@ public class RebalanceUtil {
             int tableId,
             int partitionId
     ) {
-        return metaStorageManager
-                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partitionId)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+        return metastoreAssignments(metaStorageManager, () -> stablePartAssignmentsKey(new TablePartitionId(tableId, partitionId)));
     }
 
     /**
