@@ -221,7 +221,7 @@ class IndexBuildController implements ManuallyCloseable {
                                                         replicaMeta,
                                                         buildAttemptTimestamp
                                                 ));
-                                    }
+                                        }
                             );
 
                     startBuildIndexFutures.add(startBuildIndexFuture);
