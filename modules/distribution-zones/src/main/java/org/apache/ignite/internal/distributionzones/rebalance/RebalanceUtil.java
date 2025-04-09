@@ -77,9 +77,38 @@ import org.jetbrains.annotations.Nullable;
  *  after switching to zone-based replication.
  */
 public class RebalanceUtil {
-
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RebalanceUtil.class);
+
+    /** Key prefix for planned assignments. */
+    public static final String PLANNED_ASSIGNMENTS_PREFIX = "assignments.planned.";
+
+    /** Key prefix for pending assignments. */
+    public static final String PENDING_ASSIGNMENTS_QUEUE_PREFIX = "assignments.pending.";
+
+    public static final byte[] PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES = "assignments.pending.".getBytes(UTF_8);
+
+    /** Key prefix for stable assignments. */
+    public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
+
+    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for switch reduce assignments. */
+    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "assignments.switch.reduce.";
+
+    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
+
+    /** Key prefix for switch append assignments. */
+    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
+
+    /** Key prefix for change trigger keys. */
+    public static final String PENDING_CHANGE_TRIGGER_PREFIX = "pending.change.trigger.";
+
+    static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
+
+    private static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
+
+    public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
 
     /**
      * Status values for methods like {@link #updatePendingAssignmentsKeys}.
@@ -442,36 +471,6 @@ public class RebalanceUtil {
 
         return allOf(futures);
     }
-
-    /** Key prefix for planned assignments. */
-    public static final String PLANNED_ASSIGNMENTS_PREFIX = "assignments.planned.";
-
-    /** Key prefix for pending assignments. */
-    public static final String PENDING_ASSIGNMENTS_QUEUE_PREFIX = "assignments.pending.";
-
-    public static final byte[] PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES = "assignments.pending.".getBytes(UTF_8);
-
-    /** Key prefix for stable assignments. */
-    public static final String STABLE_ASSIGNMENTS_PREFIX = "assignments.stable.";
-
-    public static final byte[] STABLE_ASSIGNMENTS_PREFIX_BYTES = STABLE_ASSIGNMENTS_PREFIX.getBytes(UTF_8);
-
-    /** Key prefix for switch reduce assignments. */
-    public static final String ASSIGNMENTS_SWITCH_REDUCE_PREFIX = "assignments.switch.reduce.";
-
-    public static final byte[] ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES = ASSIGNMENTS_SWITCH_REDUCE_PREFIX.getBytes(UTF_8);
-
-    /** Key prefix for switch append assignments. */
-    public static final String ASSIGNMENTS_SWITCH_APPEND_PREFIX = "assignments.switch.append.";
-
-    /** Key prefix for change trigger keys. */
-    public static final String PENDING_CHANGE_TRIGGER_PREFIX = "pending.change.trigger.";
-
-    static final byte[] PENDING_CHANGE_TRIGGER_PREFIX_BYTES = PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
-
-    private static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
-
-    public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
 
     /**
      * Key that is needed for skipping stale events of pending key change.
