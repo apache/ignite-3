@@ -17,13 +17,6 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
-
-import org.apache.ignite.internal.testframework.WithSystemProperty;
-
-/** Test class for {@link ResetPartitionsCommand}. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItResetPartitionsCommandTest extends ItResetPartitionsTest {
     @Override
     protected Class<?> getCommandClass() {
