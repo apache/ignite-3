@@ -122,32 +122,26 @@ Maximum length: `65536`
 == Date and Time Types
 
 === TIME
-Possible values: The time data type. The format is `hh:mm[:ss]`.
+Possible values: [`00-00-00`, `23-59-59.999`].
+
+The format is `HH:mm:ss[.SSS]`.
 
 Default precision: `0`
 
 Maximum precision: `3`
 
 === DATE
-Possible values: The date data type.
+Possible values: [`0001-01-01`, `9999-12-31`].
 
 The format is `yyyy-MM-dd`.
-
-Minimum allowed value: `0001-01-01`.
-
-Maximum allowed value: `9999-12-31`.
 
 === TIMESTAMP
 
 WARNING: The timestamp data type only supports precision up to milliseconds (3 symbols). Any values past the 3rd symbol will be ignored.
 
-Possible values: The timestamp data type.
+Possible values: [`0001-01-01 18:00:00`, `9999-12-31 05:59:59.999`].
 
-The format is `yyyy-MM-dd hh:mm:ss[.mmm]`.
-
-Minimum allowed value is `0001-01-01 18:00:00`.
-
-Maximum allowed value is `9999-12-31 05:59:59.999`.
+The format is `yyyy-MM-dd HH:mm:ss[.SSS]`.
 
 Default precision: `6`
 
@@ -157,16 +151,12 @@ Maximum precision: `9`
 
 WARNING: The timestamp with local time zone data type only supports precision up to milliseconds (3 symbols). Any values past the 3rd symbol will be ignored.
 
-Unlike `TIMESTAMP`, the value is always stored as a UTC timestamp.
+Unlike `TIMESTAMP`, the value is always stored in UTC time zone.
 The value passed to/from the user is converted from/to UTC using the user's session time zone.
 
-Possible values: The timestamp with local time zone data type.
+Possible values (in UTC time zone): [`0001-01-01 18:00:00`, `9999-12-31 05:59:59.999`].
 
-The format is `yyyy-MM-dd hh:mm:ss[.mmm]`.
-
-Minimum allowed value is `0001-01-01 18:00:00`.
-
-Maximum allowed value is `9999-12-31 05:59:59.999`.
+The format is `yyyy-MM-dd HH:mm:ss[.SSS]`.
 
 Default precision: `6`
 
