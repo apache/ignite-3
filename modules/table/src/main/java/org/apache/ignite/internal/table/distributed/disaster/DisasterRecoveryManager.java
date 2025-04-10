@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptyList;
-import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.groupingBy;
@@ -325,29 +324,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
      * @param schemaName Schema name. Case-sensitive, without quotes.
      * @param tableName Table name. Case-sensitive, without quotes.
-     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
-     * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
-     * @return Future that completes when partitions are reset.
-     */
-    public CompletableFuture<Void> resetAllPartitions(
-            String zoneName,
-            String schemaName,
-            String tableName,
-            boolean manualUpdate,
-            long triggerRevision
-    ) {
-        return resetPartitions(zoneName, schemaName, tableName, emptySet(), manualUpdate, triggerRevision);
-    }
-
-    /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
-     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
-     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
-     * so that a new leader could be elected.
-     *
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param schemaName Schema name. Case-sensitive, without quotes.
-     * @param tableName Table name. Case-sensitive, without quotes.
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Future that completes when partitions are reset.
      */
@@ -371,7 +347,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
-    private CompletableFuture<Void> resetPartitions(
+    public CompletableFuture<Void> resetPartitions(
             String zoneName,
             String schemaName,
             String tableName,

@@ -570,10 +570,12 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     void triggerManualReset(IgniteImpl node) {
-        CompletableFuture<?> updateFuture = node.disasterRecoveryManager().resetAllPartitions(
+        DisasterRecoveryManager disasterRecoveryManager = node.disasterRecoveryManager();
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetPartitions(
                 HA_ZONE_NAME,
                 SCHEMA_NAME,
                 HA_TABLE_NAME,
+                emptySet(),
                 true,
                 -1
         );
