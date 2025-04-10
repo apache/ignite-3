@@ -364,7 +364,8 @@ public class ClientCompute implements IgniteCompute {
     ) {
         return executeColocatedInternal(
                 t,
-                (outputChannel, schema) -> ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY),
+                (outputChannel, schema) ->
+                        ClientRecordSerializer.writeRecRaw(key, keyMapper, schema, outputChannel.out(), TuplePart.KEY, true),
                 ClientTupleSerializer.getPartitionAwarenessProvider(keyMapper, key),
                 descriptor,
                 arg
