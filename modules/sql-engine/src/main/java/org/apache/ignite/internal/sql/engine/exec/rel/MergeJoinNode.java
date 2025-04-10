@@ -146,7 +146,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
         leftInBuf.add(row);
 
-        join();
+        if (waitingLeft == 0 && waitingRight <= 0) {
+            join();
+        }
     }
 
     private void pushRight(RowT row) throws Exception {
@@ -157,7 +159,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
         rightInBuf.add(row);
 
-        join();
+        if (waitingRight == 0 && waitingLeft <= 0) {
+            join();
+        }
     }
 
     private void endLeft() throws Exception {
@@ -166,7 +170,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
         waitingLeft = NOT_WAITING;
 
-        join();
+        if (waitingRight <= 0) {
+            join();
+        }
     }
 
     private void endRight() throws Exception {
@@ -175,7 +181,9 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
 
         waitingRight = NOT_WAITING;
 
-        join();
+        if (waitingLeft <= 0) {
+            join();
+        }
     }
 
     protected Node<RowT> leftSource() {
@@ -400,19 +408,21 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 inLoop = false;
             }
 
+            if (requested > 0 && ((waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty())
+                    || (waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty() && rightMaterialization == null))
+            ) {
+                requested = 0;
+                downstream().end();
+
+                return;
+            }
+
             if (waitingRight == 0) {
                 rightSource().request(waitingRight = inBufSize);
             }
 
             if (waitingLeft == 0) {
                 leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && ((waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty())
-                    || (waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty() && rightMaterialization == null))
-            ) {
-                requested = 0;
-                downstream().end();
             }
         }
     }
@@ -597,17 +607,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 inLoop = false;
             }
 
+            if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
+                requested = 0;
+                downstream().end();
+
+                return;
+            }
+
             if (waitingRight == 0) {
                 rightSource().request(waitingRight = inBufSize);
             }
 
             if (waitingLeft == 0) {
                 leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
-                requested = 0;
-                downstream().end();
             }
         }
     }
@@ -804,17 +816,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 inLoop = false;
             }
 
+            if (requested > 0 && waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty() && rightMaterialization == null) {
+                requested = 0;
+                downstream().end();
+
+                return;
+            }
+
             if (waitingRight == 0) {
                 rightSource().request(waitingRight = inBufSize);
             }
 
             if (waitingLeft == 0) {
                 leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty() && rightMaterialization == null) {
-                requested = 0;
-                downstream().end();
             }
         }
     }
@@ -1049,19 +1063,21 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 inLoop = false;
             }
 
+            if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()
+                    && waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty() && rightMaterialization == null
+            ) {
+                requested = 0;
+                downstream().end();
+
+                return;
+            }
+
             if (waitingRight == 0) {
                 rightSource().request(waitingRight = inBufSize);
             }
 
             if (waitingLeft == 0) {
                 leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()
-                    && waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty() && rightMaterialization == null
-            ) {
-                requested = 0;
-                downstream().end();
             }
         }
     }
@@ -1133,19 +1149,21 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 inLoop = false;
             }
 
+            if (requested > 0 && ((waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()
+                    || (waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty())))
+            ) {
+                requested = 0;
+                downstream().end();
+
+                return;
+            }
+
             if (waitingRight == 0) {
                 rightSource().request(waitingRight = inBufSize);
             }
 
             if (waitingLeft == 0) {
                 leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && ((waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()
-                    || (waitingRight == NOT_WAITING && right == null && rightInBuf.isEmpty())))
-            ) {
-                requested = 0;
-                downstream().end();
             }
         }
     }
@@ -1220,17 +1238,19 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                 inLoop = false;
             }
 
+            if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
+                requested = 0;
+                downstream().end();
+
+                return;
+            }
+
             if (waitingRight == 0) {
                 rightSource().request(waitingRight = inBufSize);
             }
 
             if (waitingLeft == 0) {
                 leftSource().request(waitingLeft = inBufSize);
-            }
-
-            if (requested > 0 && waitingLeft == NOT_WAITING && left == null && leftInBuf.isEmpty()) {
-                requested = 0;
-                downstream().end();
             }
         }
     }
