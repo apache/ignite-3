@@ -6,10 +6,10 @@ statement ok
 PRAGMA enable_verification
 
 statement ok
-CREATE TABLE IF NOT EXISTS timestamp_t (t TIMESTAMP);
+CREATE TABLE IF NOT EXISTS timestamp_t (t TIMESTAMP, t2 TIMESTAMP(1) WITHOUT TIME ZONE);
 
 statement ok
-INSERT INTO timestamp_t VALUES (timestamp '2008-01-01 00:00:01'), (NULL), (timestamp '2007-01-01 00:00:01'), (timestamp '2008-02-01 00:00:01'), (timestamp '2008-01-02 00:00:01'), (timestamp '2008-01-01 10:00:00'), (timestamp '2008-01-01 00:10:00'), (timestamp '2008-01-01 00:00:10')
+INSERT INTO timestamp_t VALUES (timestamp '2008-01-01 00:00:01', timestamp '2008-01-01 00:00:01'), (NULL, NULL), (timestamp '2007-01-01 00:00:01.999', timestamp '2007-01-01 00:00:01.999'), (timestamp '2008-02-01 00:00:01', timestamp '2008-02-01 00:00:01'), (timestamp '2008-01-02 00:00:01', timestamp '2008-01-02 00:00:01'), (timestamp '2008-01-01 10:00:00', timestamp '2008-01-01 10:00:00'), (timestamp '2008-01-01 00:10:00', timestamp '2008-01-01 00:10:00'), (timestamp '2008-01-01 00:00:10', timestamp '2008-01-01 00:00:10')
 
 query T
 SELECT timestamp '2017-07-23 13:10:11';
@@ -43,22 +43,22 @@ SELECT timestamp 'AA2017-07-23 13:10:11';
 statement error: Illegal TIMESTAMP literal
 SELECT timestamp '2017-07-23A13:10:11';
 
-query T
-SELECT t FROM timestamp_t ORDER BY t;
+query TTT
+SELECT t, t2, t=t2 FROM timestamp_t ORDER BY t;
 ----
-2007-01-01 00:00:01
-2008-01-01 00:00:01
-2008-01-01 00:00:10
-2008-01-01 00:10:00
-2008-01-01 10:00:00
-2008-01-02 00:00:01
-2008-02-01 00:00:01
-NULL
+2007-01-01 00:00:01.999	2007-01-01 00:00:01.9	false
+2008-01-01 00:00:01	2008-01-01 00:00:01	true
+2008-01-01 00:00:10	2008-01-01 00:00:10	true
+2008-01-01 00:10:00	2008-01-01 00:10:00	true
+2008-01-01 10:00:00	2008-01-01 10:00:00	true
+2008-01-02 00:00:01	2008-01-02 00:00:01	true
+2008-02-01 00:00:01	2008-02-01 00:00:01	true
+NULL	NULL	NULL
 
 query T
 SELECT MIN(t) FROM timestamp_t;
 ----
-2007-01-01 00:00:01
+2007-01-01 00:00:01.999
 
 query T
 SELECT MAX(t) FROM timestamp_t;
@@ -125,7 +125,7 @@ SELECT t::DATE FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
 query T
 SELECT t::TIME FROM timestamp_t WHERE EXTRACT(YEAR from t)=2007 ORDER BY 1
 ----
-00:00:01
+00:00:01.999
 
 query T
 SELECT (DATE '1992-01-01')::TIMESTAMP;

@@ -55,6 +55,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -120,7 +121,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                     workingDir.raftLogPath()
             );
             this.raftManager = TestLozaFactory.create(clusterService, raftConfiguration, new HybridClockImpl());
-            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            this.logicalTopology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
         }
 
         void start() {
@@ -149,7 +150,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
-                    raftService = raftManager.startRaftGroupNodeAndWaitNodeReady(
+                    raftService = raftManager.startSystemRaftGroupNodeAndWaitNodeReady(
                             new RaftNodeId(CmgGroupId.INSTANCE, serverPeer),
                             configuration,
                             new CmgRaftGroupListener(
@@ -157,9 +158,11 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                                     logicalTopology,
                                     new ValidationManager(clusterStateStorageMgr, logicalTopology),
                                     term -> {},
-                                    new ClusterIdHolder()
+                                    new ClusterIdHolder(),
+                                    new NoOpFailureManager()
                             ),
                             RaftGroupEventsListener.noopLsnr,
+                            null,
                             RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, workingDir.metaPath())
                     );
                 }
@@ -408,34 +411,6 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 String.format(
                         "Join request denied, reason: Cluster tags do not match. Cluster tag: %s, cluster tag stored in CMG: %s",
                         incorrectTag, state.clusterTag()
-                )
-        );
-    }
-
-    /**
-     * Test validation of Ignite Product Version upon join.
-     */
-    @Test
-    void testIgniteVersionValidation() {
-        CmgRaftService raftService = cluster.get(0).raftService;
-
-        IgniteProductVersion igniteVersion = IgniteProductVersion.fromString("1.2.3");
-        ClusterTag clusterTag = ClusterTag.randomClusterTag(msgFactory, "cluster");
-        ClusterState state = msgFactory.clusterState()
-                .cmgNodes(Set.copyOf(List.of("foo")))
-                .metaStorageNodes(Set.copyOf(List.of("bar")))
-                .version(igniteVersion.toString())
-                .clusterTag(clusterTag)
-                .build();
-
-        assertThat(raftService.initClusterState(state), willCompleteSuccessfully());
-
-        assertThrowsWithCause(
-                () -> raftService.startJoinCluster(state.clusterTag(), null).get(10, TimeUnit.SECONDS),
-                IgniteInternalException.class,
-                String.format(
-                        "Join request denied, reason: Ignite versions do not match. Version: %s, version stored in CMG: %s",
-                        IgniteProductVersion.CURRENT_VERSION, state.igniteVersion()
                 )
         );
     }

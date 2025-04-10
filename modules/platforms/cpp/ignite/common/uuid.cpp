@@ -15,17 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.worker.configuration;
+#include "uuid.h"
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.NodeConfigurationSchema;
+#include <random>
+#include <mutex>
 
-/**
- * Extension for critical workers configuration schema.
- */
-@ConfigurationExtension
-public class CriticalWorkersExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+namespace ignite {
+
+uuid uuid::random() {
+    static std::mutex random_mutex;
+    static std::random_device rd;
+    static std::mt19937 gen(rd());
+
+    std::uniform_int_distribution<int64_t> distrib;
+
+    std::lock_guard<std::mutex> lock(random_mutex);
+
+    return {distrib(gen), distrib(gen)};
 }
+
+} // namespace ignite

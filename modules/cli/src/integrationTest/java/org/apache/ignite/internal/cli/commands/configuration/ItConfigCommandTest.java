@@ -46,7 +46,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with hocon format when valid cluster-endpoint-url is given")
     void addConfigKeyValue() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--url", NODE_URL, "{ignite{metaStorage: {idleSyncTimeInterval: 1000}}}");
+        execute("cluster", "config", "update", "--url", NODE_URL, "{ignite{system: {idleSafeTimeSyncIntervalMillis: 1000}}}");
 
         // Then
         assertAll(
@@ -62,7 +62,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("idleSyncTimeInterval=1000")
+                () -> assertOutputContains("idleSafeTimeSyncIntervalMillis=1000")
         );
     }
 
@@ -97,7 +97,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
     @DisplayName("Should update config with key-value format when valid cluster-endpoint-url is given")
     void updateConfigWithSpecifiedPath() {
         // When update default data storage to rocksdb
-        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.metaStorage.idleSyncTimeInterval=2000");
+        execute("cluster", "config", "update", "--url", NODE_URL, "ignite.system.idleSafeTimeSyncIntervalMillis=2000");
 
         // Then
         assertAll(
@@ -113,7 +113,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         assertAll(
                 this::assertExitCodeIsZero,
                 this::assertErrOutputIsEmpty,
-                () -> assertOutputContains("idleSyncTimeInterval=2000")
+                () -> assertOutputContains("idleSafeTimeSyncIntervalMillis=2000")
         );
     }
 
@@ -208,12 +208,12 @@ class ItConfigCommandTest extends CliIntegrationTest {
                 this::assertOutputIsEmpty
         );
 
-        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriod=asd");
+        execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriodMillis=asd");
 
         assertAll(
                 () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("'long' is expected as a type for the "
-                        + "'ignite.network.shutdownQuietPeriod' configuration value"),
+                        + "'ignite.network.shutdownQuietPeriodMillis' configuration value"),
                 this::assertOutputIsEmpty
         );
     }

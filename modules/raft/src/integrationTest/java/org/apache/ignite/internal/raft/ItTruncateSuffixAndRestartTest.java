@@ -57,6 +57,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderChange;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.scalecube.TestScaleCubeClusterServiceFactory;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
@@ -73,6 +74,7 @@ import org.apache.ignite.internal.replicator.TestReplicationGroupId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.raft.TestWriteCommand;
 import org.apache.ignite.raft.jraft.conf.Configuration;
@@ -126,7 +128,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         CompletableFuture<Void> changeFuture = networkConfiguration.change(cfg -> cfg
-                .changeNodeFinder().changeNetClusterNodes(
+                .changeNodeFinder().convert(StaticNodeFinderChange.class)
+                .changeNetClusterNodes(
                         range(port(0), port(NODES)).mapToObj(port -> "localhost:" + port).toArray(String[]::new)
                 )
         );
@@ -188,7 +191,8 @@ public class ItTruncateSuffixAndRestartTest extends BaseIgniteAbstractTest {
                     withoutClusterId(),
                     new NoOpCriticalWorkerRegistry(),
                     mock(FailureManager.class),
-                    defaultChannelTypeRegistry()
+                    defaultChannelTypeRegistry(),
+                    new DefaultIgniteProductVersionSource()
             );
 
             assertThat(clusterSvc.startAsync(new ComponentContext()), willCompleteSuccessfully());

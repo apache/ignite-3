@@ -33,6 +33,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -57,9 +58,7 @@ import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.AbstractPageMemoryTableStorage;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.CommitWriteInvokeClosure.UpdateTimestampHandler;
 import org.apache.ignite.internal.storage.pagememory.mv.FindRowVersion.RowVersionFilter;
 import org.apache.ignite.internal.storage.pagememory.mv.RemoveWriteOnGcInvokeClosure.UpdateNextLinkHandler;
@@ -108,6 +107,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     final GradualTaskExecutor destructionExecutor;
 
+    final FailureProcessor failureProcessor;
+
     volatile RenewablePartitionStorageState renewableState;
 
     private final DataPageReader rowVersionDataPageReader;
@@ -129,13 +130,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             int partitionId,
             AbstractPageMemoryTableStorage tableStorage,
             RenewablePartitionStorageState renewableState,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         this.partitionId = partitionId;
         this.tableStorage = tableStorage;
         this.renewableState = renewableState;
         this.destructionExecutor = createGradualTaskExecutor(destructionExecutor);
-        this.indexes = new PageMemoryIndexes(this.destructionExecutor, this::runConsistently);
+        this.failureProcessor = failureProcessor;
+        this.indexes = new PageMemoryIndexes(this.destructionExecutor, failureProcessor, this::runConsistently);
 
         PageMemory pageMemory = tableStorage.dataRegion().pageMemory();
 
@@ -177,21 +180,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     /**
-     * Returns a hash index instance, creating index it if necessary.
+     * Creates a hash index.
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
+    public void createHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        busy(() -> indexes.createHashIndex(indexDescriptor, renewableState.indexStorageFactory()));
     }
 
     /**
-     * Returns a sorted index instance, creating index it if necessary.
+     * Creates a sorted index.
      *
      * @param indexDescriptor Index descriptor.
      */
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return busy(() -> indexes.getOrCreateSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
+    public void createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        busy(() -> indexes.createSortedIndex(indexDescriptor, renewableState.indexStorageFactory()));
     }
 
     void updateRenewableState(
@@ -651,6 +654,24 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
         try {
             return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    /**
+     * Executes a Runnable using a {@link #busyLock}.
+     *
+     * @param action Action.
+     * @throws StorageClosedException If the storage is closed.
+     */
+    void busy(Runnable action) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            action.run();
         } finally {
             busyLock.leaveBusy();
         }

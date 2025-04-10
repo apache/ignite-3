@@ -32,6 +32,7 @@ dependencies {
     testImplementation libs.archunit.core
     testImplementation libs.archunit.junit5
 
+    testFixturesImplementation libs.junit5.params
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.jetbrains.annotations
 }

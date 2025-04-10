@@ -33,16 +33,16 @@ public class LowWatermarkConfigurationSchema {
      * <p>It is also used for read-only transactions that can read data in the past.
      *
      * <p>Value is used when calculating the new low watermark candidate, which at the time of the update is calculated as
-     * {@code now() - dataAvailabilityTime()}.
+     * {@code now() - dataAvailabilityTimeMillis()}.
      */
     // TODO https://issues.apache.org/jira/browse/IGNITE-18977 Create dynamic validator making sure this value is more than safe time
     // propagation period plus max clock skew.
     @Range(min = DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS)
     @Value(hasDefault = true)
-    public long dataAvailabilityTime = TimeUnit.MINUTES.toMillis(10);
+    public long dataAvailabilityTimeMillis = TimeUnit.MINUTES.toMillis(10);
 
     /** Low watermark update interval (in milliseconds). */
     @Range(min = 0)
     @Value(hasDefault = true)
-    public long updateInterval = TimeUnit.MINUTES.toMillis(5);
+    public long updateIntervalMillis = TimeUnit.MINUTES.toMillis(5);
 }

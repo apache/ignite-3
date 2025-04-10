@@ -49,12 +49,12 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
             + "      netClusterNodes: [ {} ]\n"
             + "    },\n"
             + "    membership: {\n"
-            + "      membershipSyncInterval: 1000,\n"
-            + "      failurePingInterval: 500,\n"
+            + "      membershipSyncIntervalMillis: 1000,\n"
+            + "      failurePingIntervalMillis: 500,\n"
             + "      scaleCube: {\n"
             + "        membershipSuspicionMultiplier: 1,\n"
             + "        failurePingRequestMembers: 1,\n"
-            + "        gossipInterval: 10\n"
+            + "        gossipIntervalMillis: 10\n"
             + "      },\n"
             + "    }\n"
             + "  },\n"
@@ -62,7 +62,7 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
             + "    engines: {\n"
             + "      aipersist: {\n"
             + "        checkpoint: {\n"
-            + "          interval: " + AIPERSIST_CHECKPOINT_INTERVAL_MS + "\n"
+            + "          intervalMillis: " + AIPERSIST_CHECKPOINT_INTERVAL_MS + "\n"
             + "        }\n"
             + "      }\n"
             + "    }\n"
@@ -86,9 +86,7 @@ class ItHighAvailablePartitionsRecoveryWithNodeRestartTest extends AbstractHighA
     protected void customizeInitParameters(InitParametersBuilder builder) {
         // Configurations to short the catalog compaction time.
         String clusterConfiguration = format(
-                "ignite {\n"
-                        + "gc: {lowWatermark: {dataAvailabilityTime: {}, updateInterval: {}}},\n"
-                        + "}",
+                "ignite.gc.lowWatermark: {dataAvailabilityTimeMillis: {}, updateIntervalMillis: {}}",
                 LW_UPDATE_TIME_MS * 2, LW_UPDATE_TIME_MS
         );
 

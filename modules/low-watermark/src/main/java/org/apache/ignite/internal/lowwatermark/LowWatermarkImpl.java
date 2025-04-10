@@ -73,7 +73,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>Low watermark updating occurs in the following cases (will only be updated if the new value is greater than the existing one):</p>
  * <ul>
  *     <li>By calling {@link #updateAndNotify(HybridTimestamp)}.</li>
- *     <li>In the background every {@link LowWatermarkConfigurationSchema#updateInterval} milliseconds, a new value will be created in
+ *     <li>In the background every {@link LowWatermarkConfigurationSchema#updateIntervalMillis} milliseconds, a new value will be created in
  *     {@link #createNewLowWatermarkCandidate()}.</li>
  * </ul>
  *
@@ -217,7 +217,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
 
         ScheduledFuture<?> newScheduledFuture = scheduledThreadPool.schedule(
                 () -> updateLowWatermark(createNewLowWatermarkCandidate()),
-                lowWatermarkConfig.updateInterval().value(),
+                lowWatermarkConfig.updateIntervalMillis().value(),
                 TimeUnit.MILLISECONDS
         );
 
@@ -229,7 +229,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     HybridTimestamp createNewLowWatermarkCandidate() {
         HybridTimestamp now = clockService.now();
 
-        return now.subtractPhysicalTime(lowWatermarkConfig.dataAvailabilityTime().value() + clockService.maxClockSkewMillis());
+        return now.subtractPhysicalTime(lowWatermarkConfig.dataAvailabilityTimeMillis().value() + clockService.maxClockSkewMillis());
     }
 
     private void setLowWatermark(HybridTimestamp newLowWatermark) {

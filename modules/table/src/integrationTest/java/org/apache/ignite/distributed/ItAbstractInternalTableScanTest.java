@@ -43,6 +43,7 @@ import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -52,10 +53,10 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -93,7 +94,10 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     /** Mock partition storage. */
     @Mock
@@ -140,7 +144,8 @@ public abstract class ItAbstractInternalTableScanTest extends IgniteAbstractTest
                 mockStorage,
                 ROW_SCHEMA,
                 txConfiguration,
-                storageUpdateConfiguration
+                systemDistributedConfiguration,
+                replicationConfiguration
         );
     }
 

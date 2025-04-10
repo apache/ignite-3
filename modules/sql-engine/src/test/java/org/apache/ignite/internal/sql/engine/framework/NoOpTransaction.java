@@ -135,7 +135,7 @@ public final class NoOpTransaction implements InternalTransaction {
     }
 
     @Override
-    public HybridTimestamp startTimestamp() {
+    public HybridTimestamp schemaTimestamp() {
         return hybridTimestamp;
     }
 
@@ -190,11 +190,6 @@ public final class NoOpTransaction implements InternalTransaction {
 
     @Override
     public long getTimeout() {
-        return 10_000;
-    }
-
-    @Override
-    public long getTimeoutOrDefault(long defaultTimeout) {
         return 10_000;
     }
 

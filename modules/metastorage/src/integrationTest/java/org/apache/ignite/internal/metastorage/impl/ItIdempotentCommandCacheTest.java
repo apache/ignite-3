@@ -56,6 +56,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
@@ -75,7 +76,6 @@ import org.apache.ignite.internal.metastorage.command.IdempotentCommand;
 import org.apache.ignite.internal.metastorage.command.InvokeCommand;
 import org.apache.ignite.internal.metastorage.command.MetaStorageCommandsFactory;
 import org.apache.ignite.internal.metastorage.command.SyncTimeCommand;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -133,11 +133,11 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
     private static final int YIELD_RESULT = 10;
     private static final int ANOTHER_YIELD_RESULT = 20;
 
-    @InjectConfiguration("mock.retryTimeout = 10000")
+    @InjectConfiguration("mock.retryTimeoutMillis = 10000")
     private RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = 100")
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100")
+    private SystemDistributedConfiguration systemConfiguration;
 
     @InjectExecutorService
     private ScheduledExecutorService scheduledExecutorService;
@@ -166,7 +166,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         Node(
                 TestInfo testInfo,
                 RaftConfiguration raftConfiguration,
-                MetaStorageConfiguration metaStorageConfiguration,
+                SystemDistributedConfiguration systemConfiguration,
                 Path workDir,
                 int index,
                 ScheduledExecutorService scheduledExecutorService
@@ -235,7 +235,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
                     clock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
+                    systemConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -452,7 +452,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         for (Node node : nodes) {
             assertThat(node.clockService.waitFor(
                     new HybridTimestamp(
-                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeout().value()
+                            timestampAfterRestartPhysicalLong + raftConfiguration.retryTimeoutMillis().value()
                                     + node.clockService.maxClockSkewMillis(),
                             0
                     )
@@ -460,7 +460,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         }
 
         HybridTimestamp evictionTimestamp = node0ClockService.now().subtractPhysicalTime(
-                raftConfiguration.retryTimeout().value() + node0ClockService.maxClockSkewMillis()
+                raftConfiguration.retryTimeoutMillis().value() + node0ClockService.maxClockSkewMillis()
         );
 
         assertThat(nodes.get(0).metaStorageManager.evictIdempotentCommandsCache(evictionTimestamp), willCompleteSuccessfully());
@@ -554,7 +554,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         nodes = new ArrayList<>();
 
         for (int i = 0; i < NODES_COUNT; i++) {
-            Node node = new Node(testInfo, raftConfiguration, metaStorageConfiguration, workDir, i, scheduledExecutorService);
+            Node node = new Node(testInfo, raftConfiguration, systemConfiguration, workDir, i, scheduledExecutorService);
             nodes.add(node);
         }
 

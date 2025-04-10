@@ -103,7 +103,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
             polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
             value = "mock = {"
                     + "engine=aipersist, "
-                    + "size=" + MAX_MEMORY_SIZE
+                    + "sizeBytes=" + MAX_MEMORY_SIZE
                     + "}"
     )
     private StorageProfileConfiguration storageProfileCfg;

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.runner.app;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -39,6 +40,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -50,9 +52,13 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.storage.InternalTableImpl;
@@ -177,10 +183,13 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         createTableWithData(ignite, TABLE_NAME, 3, 1);
 
         TableViewInternal table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME));
+        PartitionGroupId replicationGroupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), 0)
+                : new TablePartitionId(table.tableId(), 0);
 
         // Find the leader of the table's partition group.
         String leaderId = ignite.replicaManager()
-                .replica(new TablePartitionId(table.tableId(), 0))
+                .replica(replicationGroupId)
                 .thenApply(replica -> replica.raftClient().leader().consistentId())
                 .get(15, TimeUnit.SECONDS);
 
@@ -208,10 +217,10 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
         InternalTableImpl restartingInternalTable = (InternalTableImpl) restartingTable.internalTable();
 
         // Check that it restarts.
-        waitForCondition(
+        assertTrue(waitForCondition(
                 () -> isRaftNodeStarted(table, loza) && solePartitionAssignmentsContain(restartingNode, restartingInternalTable, 0),
                 TimeUnit.SECONDS.toMillis(10)
-        );
+        ));
 
         assertTrue(isRaftNodeStarted(table, loza), "Raft node of the partition is not started on " + restartingNodeConsistentId);
         assertTrue(
@@ -226,9 +235,11 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     private static boolean solePartitionAssignmentsContain(IgniteImpl restartingNode, InternalTableImpl table, int partId) {
         String restartingNodeConsistentId = restartingNode.name();
 
-        TablePartitionId tablePartitionId = new TablePartitionId(table.tableId(), partId);
+        PartitionGroupId replicationGroupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), partId)
+                : new TablePartitionId(table.tableId(), partId);
 
-        CompletableFuture<Replica> replicaFut = restartingNode.replicaManager().replica(tablePartitionId);
+        CompletableFuture<Replica> replicaFut = restartingNode.replicaManager().replica(replicationGroupId);
 
         if (replicaFut == null) {
             return false;
@@ -249,8 +260,23 @@ public class ItIgniteInMemoryNodeRestartTest extends BaseIgniteRestartTest {
     }
 
     private static boolean isRaftNodeStarted(TableViewInternal table, Loza loza) {
-        return loza.localNodes().stream().anyMatch(nodeId ->
-                nodeId.groupId() instanceof TablePartitionId && ((TablePartitionId) nodeId.groupId()).tableId() == table.tableId());
+        Predicate<RaftNodeId> predicate;
+
+        if (enabledColocation()) {
+            predicate = nodeId -> {
+                ReplicationGroupId groupId = nodeId.groupId();
+
+                return groupId instanceof ZonePartitionId && ((ZonePartitionId) groupId).zoneId() == table.zoneId();
+            };
+        } else {
+            predicate = nodeId -> {
+                ReplicationGroupId groupId = nodeId.groupId();
+
+                return groupId instanceof TablePartitionId && ((TablePartitionId) groupId).tableId() == table.tableId();
+            };
+        }
+
+        return loza.localNodes().stream().anyMatch(predicate);
     }
 
     /**

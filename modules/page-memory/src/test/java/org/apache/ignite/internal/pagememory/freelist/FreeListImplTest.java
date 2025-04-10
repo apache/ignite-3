@@ -162,8 +162,8 @@ public class FreeListImplTest extends BaseIgniteAbstractTest {
     private PageMemory createPageMemory(int pageSize) throws Exception {
         storageProfileCfg
                 .change(c -> ((VolatilePageMemoryProfileChange) c)
-                        .changeInitSize(MAX_SIZE)
-                        .changeMaxSize(MAX_SIZE))
+                        .changeInitSizeBytes(MAX_SIZE)
+                        .changeMaxSizeBytes(MAX_SIZE))
                 .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();

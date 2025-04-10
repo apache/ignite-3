@@ -39,8 +39,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -107,7 +108,7 @@ public class WatchProcessor implements ManuallyCloseable {
     private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     /**
      * Whether a failure in notification chain was passed to the FailureHandler. Used to make sure that we only pass first such a failure
@@ -121,7 +122,7 @@ public class WatchProcessor implements ManuallyCloseable {
      *
      * @param entryReader Function for reading an entry from the storage using a given key and revision.
      */
-    public WatchProcessor(String nodeName, EntryReader entryReader, FailureManager failureManager) {
+    public WatchProcessor(String nodeName, EntryReader entryReader, FailureProcessor failureProcessor) {
         this.entryReader = entryReader;
 
         this.watchExecutor = Executors.newFixedThreadPool(
@@ -129,7 +130,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED)
         );
 
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
     }
 
     /** Adds a watch. */
@@ -239,6 +240,10 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private static void maybeLogLongProcessing(List<Entry> updatedEntries, long startTimeNanos) {
+        if (!IgniteSystemProperties.getBoolean(IgniteSystemProperties.LONG_HANDLING_LOGGING_ENABLED, false)) {
+            return;
+        }
+
         long durationMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startTimeNanos);
 
         if (durationMillis > WATCH_EVENT_PROCESSING_LOG_THRESHOLD_MILLIS) {
@@ -324,7 +329,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
                         + "until a restart. Notifying the FailureManager");
 
-                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
             } else {
                 LOG.info("Notification chain encountered a NodeStoppingException, so no notifications will be ever fired for "
                         + "subsequent revisions until a restart.");

@@ -187,17 +187,19 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         detectCpPagesWriteStart(cpWrittenPages, dirtyPagesRatio);
 
         if (dirtyPagesRatio >= MAX_DIRTY_PAGES) {
-            return 0; // too late to throttle, will wait on safe to update instead.
+            return 0; // Too late to throttle, will wait on safe to update instead.
         } else {
             return getParkTime(dirtyPagesRatio,
                     donePages,
-                    notEvictedPagesTotal(cpTotalPages),
+                    // TODO IGNITE-24937 Should be a "notEvictedPagesTotal(cpTotalPages)" call.
+                    cpTotalPages,
                     threadIds.size(),
                     instantaneousMarkDirtySpeed,
                     avgCpWriteSpeed);
         }
     }
 
+    // TODO IGNITE-24937 Leads to negative estimations in some cases. Should be fixed.
     private int notEvictedPagesTotal(int cpTotalPages) {
         return Math.max(cpTotalPages - cpEvictedPages(), 0);
     }
@@ -375,7 +377,13 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Returns counter for fsynced checkpoint pages.
      */
     int cpSyncedPages() {
-        AtomicInteger syncedPagesCounter = cpProgress.get().syncedPagesCounter();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        AtomicInteger syncedPagesCounter = progress.syncedPagesCounter();
 
         // Null-check simplifies testing, we don't have to mock this counter.
         return syncedPagesCounter == null ? 0 : syncedPagesCounter.get();
@@ -385,14 +393,26 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Return a number of pages in current checkpoint.
      */
     int cpTotalPages() {
-        return cpProgress.get().currentCheckpointPagesCount();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        return progress.currentCheckpointPagesCount();
     }
 
     /**
      * Returns a number of evicted pages.
      */
     int cpEvictedPages() {
-        AtomicInteger evictedPagesCounter = cpProgress.get().evictedPagesCounter();
+        CheckpointProgress progress = cpProgress.get();
+
+        if (progress == null) {
+            return 0;
+        }
+
+        AtomicInteger evictedPagesCounter = progress.evictedPagesCounter();
 
         // Null-check simplifies testing, we don't have to mock this counter.
         return evictedPagesCounter == null ? 0 : evictedPagesCounter.get();

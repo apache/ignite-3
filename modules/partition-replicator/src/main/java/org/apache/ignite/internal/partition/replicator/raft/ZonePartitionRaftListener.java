@@ -61,6 +61,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.util.TrackerClosedException;
+import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -296,7 +297,20 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             long commandTerm,
             @Nullable HybridTimestamp safeTimestamp
     ) {
-        return tableProcessors.get(tableId).processCommand(command, commandIndex, commandTerm, safeTimestamp);
+        RaftTableProcessor tableProcessor = tableProcessors.get(tableId);
+
+        // TODO: this code is commented out for debugging purposes, uncomment after https://issues.apache.org/jira/browse/IGNITE-24991
+        // if (tableProcessor == null) {
+        //     // Most of the times this condition should be false. This logging message is added in case a Raft command got stuck somewhere
+        //     // while being replicated and arrived on this node after the target table had been removed. In this case we ignore the
+        //     // command, which should be safe to do, because the underlying storage was destroyed anyway.
+        //     LOG.warn("Table processor for table ID {} not found. Command will be ignored: {}",
+        //     tableId, command.toStringForLightLogging());
+
+        //     return EMPTY_APPLIED_RESULT;
+        // }
+
+        return tableProcessor.processCommand(command, commandIndex, commandTerm, safeTimestamp);
     }
 
     private boolean updateLeaseInfoInTxStorage(PrimaryReplicaChangeCommand command, long commandIndex, long commandTerm) {
@@ -380,7 +394,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
     }
 
     /**
-     * Adds a given Table Partition-level Raft processor to the set of managed processor.
+     * Adds a given Table Partition-level Raft processor to the set of managed processors.
      *
      * <p>Callers of this method must ensure that no commands are issued to this processor before this method returns.
      *
@@ -402,9 +416,53 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
         }
     }
 
+    /**
+     * Adds a given Table Partition-level Raft processor to the set of managed processors during node recovery on startup.
+     */
+    public void addTableProcessorOnRecovery(int tableId, RaftTableProcessor processor) {
+        synchronized (tableProcessorsStateLock) {
+            PartitionSnapshotInfo snapshotInfo = snapshotInfo();
+
+            // This method is called on node recovery in order to add existing table processors to a zone being started. During recovery
+            // we may encounter "empty" storages, i.e. storages that were created when the node was running but didn't have the chance
+            // to durably flush their data on disk. In this case we use the last saved Raft snapshot information to determine if a given
+            // storage has ever participated in a Raft snapshot.
+            // - If it has, then it is expected to have a persistent state and, since this storage is currently empty, it must have
+            // experienced a disaster. In this case, we do not initialize the given processor and the node recovery code will try to
+            // replay the Raft log from the beginning of time, if it's available, or will throw an error.
+            // - If it has not, then it is guaranteed that this storage has never had any updates before the last snapshot and we can use
+            // its state to initialize the storage. Any missed updates that may have come after the snapshot will be re-applied as a part
+            // of Raft log replay.
+            if (snapshotInfo != null && !snapshotInfo.tableIds().contains(tableId)) {
+                RaftGroupConfiguration configuration = raftGroupConfigurationConverter.fromBytes(snapshotInfo.configurationBytes());
+
+                processor.initialize(
+                        configuration,
+                        snapshotInfo.leaseInfo(),
+                        snapshotInfo.lastAppliedIndex(),
+                        snapshotInfo.lastAppliedTerm()
+                );
+            }
+
+            RaftTableProcessor prev = tableProcessors.put(tableId, processor);
+
+            assert prev == null : "Listener for table " + tableId + " already exists";
+        }
+    }
+
+    private @Nullable PartitionSnapshotInfo snapshotInfo() {
+        byte[] snapshotInfoBytes = txStateStorage.snapshotInfo();
+
+        if (snapshotInfoBytes == null) {
+            return null;
+        }
+
+        return VersionedSerialization.fromBytes(snapshotInfoBytes, PartitionSnapshotInfoSerializer.INSTANCE);
+    }
+
     /** Returns the table processor associated with the given table ID. */
     @TestOnly
-    public RaftTableProcessor tableProcessor(int tableId) {
+    public @Nullable RaftTableProcessor tableProcessor(int tableId) {
         synchronized (tableProcessorsStateLock) {
             return tableProcessors.get(tableId);
         }

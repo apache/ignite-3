@@ -19,7 +19,6 @@
 
 #include "big_decimal.h"
 #include "big_integer.h"
-#include "bit_array.h"
 #include "ignite_date.h"
 #include "ignite_date_time.h"
 #include "ignite_duration.h"
@@ -170,14 +169,6 @@ public:
         : m_value(std::move(value)) {}
 
     /**
-     * Constructor for big integer value.
-     *
-     * @param value Value.
-     */
-    primitive(big_integer value) // NOLINT(google-explicit-constructor)
-        : m_value(std::move(value)) {}
-
-    /**
      * Constructor for date value.
      *
      * @param value Value.
@@ -226,14 +217,6 @@ public:
         : m_value(value) {}
 
     /**
-     * Constructor for bitmask value.
-     *
-     * @param value Value.
-     */
-    primitive(bit_array value) // NOLINT(google-explicit-constructor)
-        : m_value(value) {}
-
-    /**
      * Get underlying value.
      *
      * @tparam T Type of value to try and get.
@@ -253,14 +236,12 @@ public:
             || std::is_same_v<T, std::string> // String
             || std::is_same_v<T, std::vector<std::byte>> // Bytes
             || std::is_same_v<T, big_decimal> // Decimal
-            || std::is_same_v<T, big_integer> // Number
             || std::is_same_v<T, ignite_date> // Date
             || std::is_same_v<T, ignite_date_time> // DateTime
             || std::is_same_v<T, ignite_time> // Time
             || std::is_same_v<T, ignite_timestamp> // Timestamp
             || std::is_same_v<T, ignite_period> // Period
             || std::is_same_v<T, ignite_duration> // Duration
-            || std::is_same_v<T, bit_array> // Bit Array
         ) {
             return std::get<T>(m_value);
         } else {
@@ -280,7 +261,11 @@ public:
      *
      * @return Primitive type.
      */
-    [[nodiscard]] ignite_type get_type() const noexcept { return static_cast<ignite_type>(m_value.index()); }
+    [[nodiscard]] ignite_type get_type() const noexcept {
+        auto type_idx = m_value.index();
+        type_idx = type_idx <= 13 ? type_idx : type_idx + 1;
+        return static_cast<ignite_type>(type_idx);
+    }
 
     /**
      * @brief Comparison operator.
@@ -320,12 +305,10 @@ private:
         ignite_date_time, // Datetime = 11
         ignite_timestamp, // Timestamp = 12
         uuid, // UUID = 13
-        bit_array, // Bitmask = 14
         std::string, // String = 15
         std::vector<std::byte>, // Bytes = 16
         ignite_period, // Period = 17
-        ignite_duration, // Duration = 18
-        big_integer // Big Integer = 19
+        ignite_duration // Duration = 18
         >
         value_type;
 

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.catalog.storage;
 
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 
 /**
  * Interface describing a particular change within the {@link VersionedUpdate group}.
@@ -28,8 +29,8 @@ public interface UpdateEntry extends MarshallableEntry {
      * Applies own change to the catalog.
      *
      * @param catalog Current catalog.
-     * @param causalityToken Token that is associated with the corresponding update being applied.
+     * @param timestamp Timestamp that is associated with the corresponding update being applied.
      * @return New catalog.
      */
-    Catalog applyUpdate(Catalog catalog, long causalityToken);
+    Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp);
 }

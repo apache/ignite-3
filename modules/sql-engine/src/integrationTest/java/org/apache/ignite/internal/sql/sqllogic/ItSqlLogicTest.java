@@ -361,13 +361,13 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .metaStorageNodes(nodes.get(0))
                 .clusterName("cluster")
                 .clusterConfiguration("ignite {"
-                        + "transaction.readWriteTimeout: " + TX_RW_TIMEOUT + ",\n"
-                        + "metaStorage.idleSyncTimeInterval: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
-                        // TODO: Set dataAvailabilityTime to 5000 after IGNITE-24002 is fixed.
-                        + "gc.lowWatermark.dataAvailabilityTime: 30000,\n"
-                        + "gc.lowWatermark.updateInterval: 1000,\n"
+                        + "transaction.readWriteTimeoutMillis: " + TX_RW_TIMEOUT + ",\n"
+                        + "system.idleSafeTimeSyncIntervalMillis: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
+                        // TODO: Set dataAvailabilityTimeMillis to 5000 after IGNITE-24002 is fixed.
+                        + "gc.lowWatermark.dataAvailabilityTimeMillis: 30000,\n"
+                        + "gc.lowWatermark.updateIntervalMillis: 1000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
-                        + "metrics.exporters.logPush.period: 5000\n"
+                        + "metrics.exporters.logPush.periodMillis: 5000\n"
                         + "}")
                 .build();
         TestIgnitionManager.init(nodes.get(0), initParameters);

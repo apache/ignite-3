@@ -206,7 +206,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, HA_ZONE_NAME, Set.of(stopNode));
 
-        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
+        assertTrue(waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000));
 
         assertTrue(
                 node
@@ -236,7 +236,7 @@ public class ItHighAvailablePartitionsRecoveryTest extends AbstractHighAvailable
 
         long revision = waitForSpecificZoneTopologyReductionAndReturnUpdateRevision(node, SC_ZONE_NAME, Set.of(lastStopNode));
 
-        waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000);
+        assertTrue(waitForCondition(() -> node.metaStorageManager().appliedRevision() >= revision, 10_000));
 
         assertFalse(
                 node

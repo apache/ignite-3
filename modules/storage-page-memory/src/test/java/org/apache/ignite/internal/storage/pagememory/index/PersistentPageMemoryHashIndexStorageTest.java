@@ -61,6 +61,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,
@@ -76,7 +77,7 @@ class PersistentPageMemoryHashIndexStorageTest extends AbstractPageMemoryHashInd
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engine.configuration().pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSizeBytes().value());
     }
 
     @AfterEach

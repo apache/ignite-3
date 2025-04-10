@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.configuration;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+package org.apache.ignite.internal.client.proto.tx;
 
 /**
- * Configuration schema for the Meta Storage module.
+ * Utility class for client transactions.
  */
-@Config
-public class MetaStorageConfigurationSchema {
-    /**
-     * Duration (in milliseconds) used to determine how often to issue time sync commands when the Meta Storage is idle
-     * (no writes are being issued).
-     *
-     * <p>Making this value too small increases the network load, while making this value too large can lead to increased latency of
-     * Meta Storage reads.
-     */
-    @Value(hasDefault = true)
-    @Range(min = 1)
-    public long idleSyncTimeInterval = 250;
+public class ClientTxUtils {
+    /** Tx resource id for direct mapping. */
+    public static long TX_ID_DIRECT = 0L;
 }

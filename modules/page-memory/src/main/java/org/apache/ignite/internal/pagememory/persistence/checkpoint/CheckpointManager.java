@@ -113,7 +113,7 @@ public class CheckpointManager {
 
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeout();
+        long logReadLockThresholdTimeout = checkpointConfigView.logReadLockThresholdTimeoutMillis();
 
         ReentrantReadWriteLockWithTracking reentrantReadWriteLockWithTracking = logReadLockThresholdTimeout > 0
                 ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
@@ -159,7 +159,7 @@ public class CheckpointManager {
 
         checkpointTimeoutLock = new CheckpointTimeoutLock(
                 checkpointReadWriteLock,
-                checkpointConfigView.readLockTimeout(),
+                checkpointConfigView.readLockTimeoutMillis(),
                 () -> checkpointUrgency(dataRegions),
                 checkpointer,
                 failureManager
@@ -240,6 +240,10 @@ public class CheckpointManager {
 
     public @Nullable CheckpointProgress currentCheckpointProgress() {
         return checkpointer.currentCheckpointProgress();
+    }
+
+    public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
+        return checkpointer.currentCheckpointProgressForThrottling();
     }
 
     /**

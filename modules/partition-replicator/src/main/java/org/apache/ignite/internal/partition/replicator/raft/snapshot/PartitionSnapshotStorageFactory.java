@@ -17,169 +17,101 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
-import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
-
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
-import java.util.concurrent.Executor;
-import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.raft.RaftGroupConfiguration;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.startup.StartupPartitionSnapshotReader;
 import org.apache.ignite.internal.raft.storage.SnapshotStorageFactory;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
+import org.apache.ignite.raft.jraft.option.SnapshotCopierOptions;
+import org.apache.ignite.raft.jraft.storage.SnapshotStorage;
+import org.apache.ignite.raft.jraft.storage.SnapshotThrottle;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Snapshot storage factory for {@link MvPartitionStorage}. Utilizes the fact that every partition already stores its latest applied index
- * and thus can itself be used as its own snapshot.
- *
- * <p>Uses {@link MvPartitionStorage#lastAppliedIndex()} and configuration, passed into constructor, to create a {@link SnapshotMeta} object
- * in {@link SnapshotReader#load()}.
- *
- * <p>Snapshot writer doesn't allow explicit save of any actual file. {@link SnapshotWriter#saveMeta(SnapshotMeta)} simply returns
- * {@code true}, and {@link SnapshotWriter#addFile(String)} throws an exception.
+ * {@link SnapshotStorageFactory} implementation wrapping a {@link PartitionSnapshotStorage}.
  */
 public class PartitionSnapshotStorageFactory implements SnapshotStorageFactory {
-    private final PartitionKey partitionKey;
-
-    /** Topology service. */
-    private final TopologyService topologyService;
-
-    /** Snapshot manager. */
-    private final OutgoingSnapshotsManager outgoingSnapshotsManager;
-
-    /**
-     * Partition storages grouped by table ID.
-     */
-    private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId = synchronize(new Int2ObjectOpenHashMap<>());
-
-    private final PartitionTxStateAccess txStateStorage;
-
-    private final CatalogService catalogService;
-
-    /** Incoming snapshots executor. */
-    private final Executor incomingSnapshotsExecutor;
+    private final PartitionSnapshotStorage snapshotStorage;
 
     /** Constructor. */
-    public PartitionSnapshotStorageFactory(
-            PartitionKey partitionKey,
-            TopologyService topologyService,
-            OutgoingSnapshotsManager outgoingSnapshotsManager,
-            PartitionTxStateAccess txStateStorage,
-            CatalogService catalogService,
-            Executor incomingSnapshotsExecutor
-    ) {
-        this.partitionKey = partitionKey;
-        this.topologyService = topologyService;
-        this.outgoingSnapshotsManager = outgoingSnapshotsManager;
-        this.txStateStorage = txStateStorage;
-        this.catalogService = catalogService;
-        this.incomingSnapshotsExecutor = incomingSnapshotsExecutor;
-    }
-
-    /**
-     * Adds a given table partition storage to the snapshot storage, managed by this factory.
-     */
-    public void addMvPartition(int tableId, PartitionMvStorageAccess partition) {
-        PartitionMvStorageAccess prev = partitionsByTableId.put(tableId, partition);
-
-        assert prev == null : "Partition storage for table ID " + tableId + " already exists.";
-    }
-
-    public void removeMvPartition(int tableId) {
-        partitionsByTableId.remove(tableId);
+    public PartitionSnapshotStorageFactory(PartitionSnapshotStorage snapshotStorage) {
+        this.snapshotStorage = snapshotStorage;
     }
 
     @Override
-    public PartitionSnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
-        return new PartitionSnapshotStorage(
-                partitionKey,
-                topologyService,
-                outgoingSnapshotsManager,
-                uri,
-                raftOptions,
-                partitionsByTableId,
-                txStateStorage,
-                catalogService,
-                createStartupSnapshotMeta(),
-                incomingSnapshotsExecutor
-        );
+    public SnapshotStorage createSnapshotStorage(String uri, RaftOptions raftOptions) {
+        return new PartitionSnapshotStorageAdapter(snapshotStorage, uri);
     }
 
-    private @Nullable SnapshotMeta createStartupSnapshotMeta() {
-        // We must choose the minimum applied index for local recovery so that we don't skip the raft commands for the storage with the
-        // lowest applied index and thus no data loss occurs.
-        PartitionMvStorageAccess storageWithMinLastAppliedIndex = null;
+    private static class PartitionSnapshotStorageAdapter implements SnapshotStorage {
+        private final PartitionSnapshotStorage snapshotStorage;
 
-        long minLastAppliedIndex = Long.MAX_VALUE;
+        /** Flag indicating that startup snapshot has been opened. */
+        private final AtomicBoolean startupSnapshotOpened = new AtomicBoolean();
 
-        for (PartitionMvStorageAccess partitionStorage : partitionsByTableId.values()) {
-            long lastAppliedIndex = partitionStorage.lastAppliedIndex();
+        private final String snapshotUri;
 
-            assert lastAppliedIndex >= 0 :
-                    String.format("Partition storage [tableId=%d, partitionId=%d] contains an unexpected applied index value: %d.",
-                            partitionStorage.tableId(),
-                            partitionStorage.partitionId(),
-                            lastAppliedIndex
-                    );
+        PartitionSnapshotStorageAdapter(PartitionSnapshotStorage snapshotStorage, String snapshotUri) {
+            this.snapshotStorage = snapshotStorage;
+            this.snapshotUri = snapshotUri;
+        }
 
-            if (lastAppliedIndex == 0) {
-                return null;
+        @Override
+        public boolean init(Void opts) {
+            // No-op.
+            return true;
+        }
+
+        @Override
+        public void shutdown() {
+            // No-op.
+        }
+
+        @Override
+        @Nullable
+        public SnapshotReader open() {
+            if (startupSnapshotOpened.compareAndSet(false, true)) {
+                SnapshotMeta startupSnapshotMeta = snapshotStorage.readStartupSnapshotMeta();
+
+                if (startupSnapshotMeta == null) {
+                    // The storage is empty, let's behave how JRaft does: return null, avoiding an attempt to load a snapshot
+                    // when it's not there.
+                    return null;
+                }
+
+                return new StartupPartitionSnapshotReader(startupSnapshotMeta, snapshotUri);
             }
 
-            if (lastAppliedIndex < minLastAppliedIndex) {
-                minLastAppliedIndex = lastAppliedIndex;
-                storageWithMinLastAppliedIndex = partitionStorage;
-            }
+            return snapshotStorage.startOutgoingSnapshot();
         }
 
-        if (txStateStorage.lastAppliedIndex() < minLastAppliedIndex) {
-            return startupSnapshotMetaFromTxStorage();
-        } else {
-            assert storageWithMinLastAppliedIndex != null;
-
-            return startupSnapshotMetaFromPartitionStorage(storageWithMinLastAppliedIndex);
-        }
-    }
-
-    private @Nullable SnapshotMeta startupSnapshotMetaFromTxStorage() {
-        long lastAppliedIndex = txStateStorage.lastAppliedIndex();
-
-        if (lastAppliedIndex == 0) {
-            return null;
+        @Override
+        public SnapshotCopier startToCopyFrom(String uri, SnapshotCopierOptions opts) {
+            return snapshotStorage.startIncomingSnapshot(uri);
         }
 
-        RaftGroupConfiguration configuration = txStateStorage.committedGroupConfiguration();
+        @Override
+        public SnapshotWriter create() {
+            return new PartitionSnapshotWriter(snapshotUri);
+        }
 
-        assert configuration != null : "Empty configuration in startup snapshot.";
+        @Override
+        public void setSnapshotThrottle(SnapshotThrottle snapshotThrottle) {
+            // No-op.
+        }
 
-        return startupSnapshotMeta(lastAppliedIndex, txStateStorage.lastAppliedTerm(), configuration);
-    }
+        @Override
+        public SnapshotReader copyFrom(String uri, SnapshotCopierOptions opts) {
+            throw new UnsupportedOperationException("Synchronous snapshot copy is not supported.");
+        }
 
-    private static SnapshotMeta startupSnapshotMetaFromPartitionStorage(PartitionMvStorageAccess partitionStorage) {
-        RaftGroupConfiguration configuration = partitionStorage.committedGroupConfiguration();
-
-        assert configuration != null : "Empty configuration in startup snapshot.";
-
-        return startupSnapshotMeta(partitionStorage.lastAppliedIndex(), partitionStorage.lastAppliedTerm(), configuration);
-    }
-
-    private static SnapshotMeta startupSnapshotMeta(long lastAppliedIndex, long lastAppliedTerm, RaftGroupConfiguration configuration) {
-        return new RaftMessagesFactory().snapshotMeta()
-                .lastIncludedIndex(lastAppliedIndex)
-                .lastIncludedTerm(lastAppliedTerm)
-                .cfgIndex(configuration.index())
-                .cfgTerm(configuration.term())
-                .peersList(configuration.peers())
-                .oldPeersList(configuration.oldPeers())
-                .learnersList(configuration.learners())
-                .oldLearnersList(configuration.oldLearners())
-                .build();
+        @Override
+        public boolean setFilterBeforeCopyRemote() {
+            // Option is not supported.
+            return false;
+        }
     }
 }

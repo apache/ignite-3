@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy.DEFAULT_LOGGING_THRESHOLD;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -98,7 +99,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static PageIoRegistry ioRegistry;
 
     // We use very small readLock timeout here on purpose.
-    @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeout = 50}")
+    @InjectConfiguration("mock {checkpointThreads = 1, readLockTimeoutMillis = 50}")
     private PageMemoryCheckpointConfiguration checkpointConfig;
 
     @InjectConfiguration("mock.engine = aipersist")
@@ -372,6 +373,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         PagesWriteThrottlePolicy writeThrottle;
         if (speedBasedThrottling) {
             writeThrottle = new PagesWriteSpeedBasedThrottle(
+                    DEFAULT_LOGGING_THRESHOLD,
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
                     checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,
@@ -379,6 +381,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
             );
         } else {
             writeThrottle = new TargetRatioPagesWriteThrottle(
+                    DEFAULT_LOGGING_THRESHOLD,
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
                     checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,

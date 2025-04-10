@@ -105,11 +105,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public void ddl() {
-        if (enabledColocation()) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24885 Test hangs in case of enabledColocation
-            return;
-        }
-
         IgniteSql sql = igniteSql();
 
         // CREATE TABLE
@@ -350,11 +345,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     /** Check correctness of rw and ro transactions for index scan. */
     @Test
     public void checkMixedTransactionsForIndex() throws Exception {
-        if (enabledColocation()) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24885 Test hangs in case of enabledColocation
-            return;
-        }
-
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
         sql("CREATE INDEX TEST_IDX ON TEST(VAL0)");
 
@@ -1296,21 +1286,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             startBarrier.await();
 
-            ResultSet<SqlRow> rs;
-
-            try {
-                rs = executeLazy(sql, token, query);
+            try (ResultSet<SqlRow> rs = executeLazy(sql, token, query)) {
+                expectQueryCancelled(() -> {
+                    while (rs.hasNext()) {
+                        rs.next();
+                    }
+                });
             } catch (SqlException e) {
                 assertEquals(Sql.EXECUTION_CANCELLED_ERR, e.code());
 
                 continue;
             }
-
-            expectQueryCancelled(() -> {
-                while (rs.hasNext()) {
-                    rs.next();
-                }
-            });
 
             await(cancelFut);
 

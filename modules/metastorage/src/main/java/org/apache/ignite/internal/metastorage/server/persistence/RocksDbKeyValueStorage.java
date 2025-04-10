@@ -76,7 +76,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -278,7 +278,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
-     * @param failureManager Failure processor that is used to handle critical errors.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
      *      long or IO operations.
@@ -286,13 +286,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     public RocksDbKeyValueStorage(
             String nodeName,
             Path dbPath,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
             ScheduledExecutorService scheduledExecutor
     ) {
         super(
                 nodeName,
-                failureManager,
+                failureProcessor,
                 readOperationForCompactionTracker
         );
 
@@ -400,6 +400,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 () -> KV_STORAGE_FLUSH_DELAY,
                 // It is expected that the metastorage command raft log works with fsync=true.
                 new NoOpLogSyncer(),
+                failureProcessor,
                 () -> {}
         );
 
@@ -565,23 +566,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void setIndexAndTerm(long index, long term) {
-        rwLock.writeLock().lock();
-
-        try (WriteBatch batch = new WriteBatch()) {
-            data.put(batch, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
-
-            db.write(writeOptions, batch);
+        try {
+            db.put(data.handle(), writeOptions, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.writeLock().unlock();
         }
     }
 
     @Override
     public @Nullable IndexWithTerm getIndexWithTerm() {
-        rwLock.readLock().lock();
-
         try {
             byte[] bytes = data.get(INDEX_AND_TERM_KEY);
 
@@ -592,8 +585,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return new IndexWithTerm(bytesToLong(bytes, 0), bytesToLong(bytes, Long.BYTES));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
@@ -1281,8 +1272,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public HybridTimestamp timestampByRevision(long revision) {
-        rwLock.readLock().lock();
-
         try {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
@@ -1295,15 +1284,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return hybridTimestamp(bytesToLong(tsBytes));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, "Error reading revision timestamp: " + revision, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
     @Override
     public long revisionByTimestamp(HybridTimestamp timestamp) {
-        rwLock.readLock().lock();
-
         // Find a revision with timestamp lesser or equal to the timestamp.
         try (RocksIterator rocksIterator = tsToRevision.newIterator()) {
             rocksIterator.seekForPrev(hybridTsToArray(timestamp));
@@ -1319,8 +1304,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return bytesToLong(tsValue);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 
@@ -1395,16 +1378,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public long checksum(long revision) {
-        rwLock.readLock().lock();
-
         try {
             assertRequestedRevisionLessThanOrEqualToCurrent(revision, rev);
 
             return checksumByRevision(revision);
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
-        } finally {
-            rwLock.readLock().unlock();
         }
     }
 

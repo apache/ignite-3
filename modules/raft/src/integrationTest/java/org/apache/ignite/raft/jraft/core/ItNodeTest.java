@@ -105,6 +105,7 @@ import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.Iterator;
@@ -318,6 +319,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         nodeOptions.setfSMCallerExecutorDisruptor(new StripedDisruptor<>(
                 "unit-test",
                 "JRaft-FSMCaller-Disruptor",
+                (stripeName, logger) -> NamedThreadFactory.create("unit-test", stripeName, true, logger),
                 1,
                 () -> new ApplyTask(),
                 1,
@@ -533,7 +535,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             applyLatch.countDown();
 
             // The state machine is in error state, the node should step down.
-            waitForCondition(() -> !node.isLeader(), 5_000);
+            assertTrue(waitForCondition(() -> !node.isLeader(), 5_000));
 
             latch.await();
             applyCompleteLatch.await();
@@ -620,7 +622,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         cluster.ensureLeader(cluster.waitAndGetLeader());
 
         for (Node follower : cluster.getFollowers())
-            waitForCondition(() -> follower.getLeaderId() != null, 5_000);
+            assertTrue(waitForCondition(() -> follower.getLeaderId() != null, 5_000));
 
         assertEquals(4, startedCounter.get());
         assertEquals(2, cluster.getLeader().getReplicatorStateListeners().size());
@@ -878,8 +880,8 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         Node leader = cluster.waitAndGetLeader();
         cluster.ensureLeader(leader);
 
-        waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000);
-        waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000);
+        assertTrue(waitForCondition(() -> leader.listAlivePeers().size() == 3, 5_000));
+        assertTrue(waitForCondition(() -> leader.listAliveLearners().size() == 3, 5_000));
 
         sendTestTaskAndWait(leader);
         List<MockStateMachine> fsms = cluster.getFsms();

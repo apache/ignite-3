@@ -118,8 +118,8 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
         waitThatAllRebalancesHaveFinishedAndStableAssignmentsEqualsToExpected(node, HA_TABLE_NAME, PARTITION_IDS, nodeNames(0));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
     void testThatPartitionResetZoneStorageProfileFilterAware() throws InterruptedException {
         startNode(1, AIPERSIST_NODES_CONFIG);
         startNode(2, ROCKS_NODES_CONFIG);
@@ -461,12 +461,12 @@ public class ItHighAvailablePartitionsRecoveryByFilterUpdateTest extends Abstrac
                 + "      netClusterNodes: [ {} ]\n"
                 + "    },\n"
                 + "    membership: {\n"
-                + "      membershipSyncInterval: 1000,\n"
-                + "      failurePingInterval: 500,\n"
+                + "      membershipSyncIntervalMillis: 1000,\n"
+                + "      failurePingIntervalMillis: 500,\n"
                 + "      scaleCube: {\n"
                 + "        membershipSuspicionMultiplier: 1,\n"
                 + "        failurePingRequestMembers: 1,\n"
-                + "        gossipInterval: 10\n"
+                + "        gossipIntervalMillis: 10\n"
                 + "      },\n"
                 + "    }\n"
                 + "  },\n"

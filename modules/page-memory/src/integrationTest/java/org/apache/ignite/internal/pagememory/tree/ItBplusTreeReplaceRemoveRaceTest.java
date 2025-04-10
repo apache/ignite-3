@@ -92,8 +92,8 @@ public class ItBplusTreeReplaceRemoveRaceTest extends BaseIgniteAbstractTest {
     protected PageMemory createPageMemory() throws Exception {
         dataRegionCfg
                 .change(c -> ((VolatilePageMemoryProfileChange) c)
-                        .changeInitSize(1024 * MiB)
-                        .changeMaxSize(1024 * MiB))
+                        .changeInitSizeBytes(1024 * MiB)
+                        .changeMaxSizeBytes(1024 * MiB))
                 .get(1, TimeUnit.SECONDS);
 
         TestPageIoRegistry ioRegistry = new TestPageIoRegistry();

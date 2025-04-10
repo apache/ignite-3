@@ -54,12 +54,12 @@ public class ItClusterConfigurationTest extends BaseIgniteAbstractTest {
         var parameters = InitParameters.builder()
                 .metaStorageNodes(node)
                 .clusterName("cluster")
-                .clusterConfiguration("ignite { metaStorage { idleSyncTimeInterval: 50, idleSyncTimeInterval: 100 }}")
+                .clusterConfiguration("ignite { system { idleSafeTimeSyncIntervalMillis: 50, idleSafeTimeSyncIntervalMillis: 100 }}")
                 .build();
 
         assertThrowsWithCause(
                 () -> TestIgnitionManager.init(node, parameters),
                 ConfigurationValidationException.class,
-                "Validation did not pass for keys: [ignite.metaStorage.idleSyncTimeInterval, Duplicated key]");
+                "Validation did not pass for keys: [ignite.system.idleSafeTimeSyncIntervalMillis, Duplicated key]");
     }
 }

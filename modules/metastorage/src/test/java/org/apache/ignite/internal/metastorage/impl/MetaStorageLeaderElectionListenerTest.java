@@ -31,10 +31,11 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
@@ -50,7 +51,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
     private static final String NODE_NAME = "foo";
 
     @InjectConfiguration
-    private MetaStorageConfiguration metaStorageConfiguration;
+    private SystemDistributedConfiguration systemConfiguration;
 
     /**
      * If node lost leadership before Ignite is fully initialized, it could try to stop the safe time scheduler
@@ -69,13 +70,13 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
         ClusterTimeImpl clusterTime = spy(new ClusterTimeImpl(NODE_NAME, busyLock, new HybridClockImpl()));
 
         CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
-        CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture = completedFuture(metaStorageConfiguration);
+        CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture = completedFuture(systemConfiguration);
 
         MetaStorageLeaderElectionListener listener = createMetaStorageLeaderElectionListener(
                 clusterTime,
                 busyLock,
                 metaStorageSvcFut,
-                metaStorageConfigurationFuture
+                systemConfigurationFuture
         );
 
         long initialTerm = 0;
@@ -94,7 +95,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
         verify(clusterTime, times(1)).stopSafeTimeScheduler(eq(lostLeadershipTerm));
 
         metaStorageSvcFut.complete(mock(MetaStorageServiceImpl.class));
-        metaStorageConfigurationFuture.complete(metaStorageConfiguration);
+        systemConfigurationFuture.complete(systemConfiguration);
 
         verifyWithTimeout(clusterTime, 1).startSafeTimeScheduler(any(), any(), eq(initialTerm));
 
@@ -112,7 +113,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
             ClusterTimeImpl clusterTime,
             IgniteSpinBusyLock busyLock,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
-            CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture
+            CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture
     ) {
         ClusterService clusterService = mock(ClusterService.class);
         when(clusterService.nodeName()).thenReturn(NODE_NAME);
@@ -121,10 +122,11 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
                 busyLock,
                 clusterService,
                 mock(LogicalTopologyService.class),
+                new NoOpFailureManager(),
                 metaStorageSvcFut,
                 mock(MetaStorageLearnerManager.class),
                 clusterTime,
-                metaStorageConfigurationFuture,
+                systemConfigurationFuture,
                 List.of(mock(ElectionListener.class)),
                 () -> true);
     }

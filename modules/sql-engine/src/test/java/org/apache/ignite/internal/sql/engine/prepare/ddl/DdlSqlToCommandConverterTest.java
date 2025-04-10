@@ -42,6 +42,7 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 
@@ -64,7 +65,9 @@ import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.parser.SqlParseException;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.commands.AlterTableAlterColumnCommand;
 import org.apache.ignite.internal.catalog.commands.CreateTableCommand;
 import org.apache.ignite.internal.catalog.commands.DefaultValue;
 import org.apache.ignite.internal.catalog.commands.DefaultValue.ConstantValue;
@@ -615,7 +618,7 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         List<DynamicTest> testItems = new ArrayList<>();
         PlanningContext ctx = createContext();
 
-        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, fromInternal(new byte[]{(byte) 1, (byte) 2}, byte[].class));
+        fillTestCase("VARBINARY", "x'0102'", testItems, true, ctx, new byte[]{(byte) 1, (byte) 2});
         fillTestCase("VARBINARY", "'0102'", testItems, false, ctx);
         fillTestCase("VARBINARY", "1", testItems, false, ctx);
 
@@ -659,9 +662,10 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
         return testItems.stream();
     }
 
-    @Test
-    public void tableWithAutogenPkColumn() throws SqlParseException {
-        SqlNode node = parse("CREATE TABLE t (id uuid default rand_uuid primary key, val int) STORAGE PROFILE '"
+    @ParameterizedTest
+    @ValueSource(strings = {"rand_uuid", "rand_uuid()"})
+    public void tableWithAutogenPkColumn(String func) throws SqlParseException {
+        SqlNode node = parse("CREATE TABLE t (id uuid default " + func  + " primary key, val int) STORAGE PROFILE '"
                 + DEFAULT_STORAGE_PROFILE + "'");
 
         assertThat(node, instanceOf(SqlDdl.class));
@@ -761,6 +765,92 @@ public class DdlSqlToCommandConverterTest extends AbstractDdlSqlToCommandConvert
             assertThrowsSqlException(STMT_VALIDATION_ERR, error,
                     () -> converter.convert((SqlDdl) node, createContext()));
         }
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rand_uuid", "random_uuid()"})
+    public void testAlterTableAddColumnFunctionDefaultIsRejected(String func) throws SqlParseException {
+        SqlNode node = parse("ALTER TABLE t ADD COLUMN a UUID DEFAULT " + func);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrows(CatalogValidationException.class,
+                () -> converter.convert((SqlDdl) node, createContext()),
+                "Functional defaults are not supported for non-primary key columns [col=A]"
+        );
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"rand_uuid", "random_uuid()"})
+    public void testAlterSetFunctionDefault(String func) throws SqlParseException {
+        SqlNode node = parse("ALTER TABLE t ALTER COLUMN a SET DEFAULT " + func);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        CatalogCommand command = converter.convert((SqlDdl) node, createContext());
+        assertInstanceOf(AlterTableAlterColumnCommand.class, command);
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testCreateTableRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("create table t(id int default {}, val varchar, primary key (id))", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAddColumnRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t add column val int default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAlterColumnSetDataTypeRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t alter column val set data type int default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
+    }
+
+    @ParameterizedTest
+    @CsvSource(delimiter = ';', value = {
+            "a.b.c; Unsupported default expression: A.B.C",
+            "length('abcd'); Unsupported default expression: `LENGTH`('abcd')",
+            "1+2; Unsupported default expression: 1 + 2",
+            "(1+2); Unsupported default expression: 1 + 2"
+    })
+    public void testAlterColumnSetDefaultRejectUnsupportedDefault(String defaultExpr, String error) throws SqlParseException {
+        String sql = format("alter table t alter column val set default {}", defaultExpr);
+        SqlNode node = parse(sql);
+        assertThat(node, instanceOf(SqlDdl.class));
+
+        assertThrowsSqlException(STMT_VALIDATION_ERR, error,
+                () -> converter.convert((SqlDdl) node, createContext()));
     }
 
     private static Set<SqlTypeName> intervalTypeNames() {

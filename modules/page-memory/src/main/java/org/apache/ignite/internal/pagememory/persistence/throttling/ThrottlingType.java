@@ -15,12 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.pagememory.persistence.throttling;
 
-/** NodeFinder type. */
-public enum NodeFinderType {
-    /** Node finder with a preconfigured list of ip addresses. */
-    STATIC,
-    /** Uses multicast to find nodes. */
-    MULTICAST
+/**
+ * Available throttling types.
+ */
+public enum ThrottlingType {
+    /** Corresponds to no throttling. */
+    DISABLED,
+
+    /** Corresponds to {@link TargetRatioPagesWriteThrottle}. */
+    TARGET_RATIO,
+
+    /** Corresponds to {@link PagesWriteSpeedBasedThrottle}. */
+    SPEED_BASED
 }

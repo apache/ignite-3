@@ -47,6 +47,13 @@ public:
         , least(least) {}
 
     /**
+     * Make random UUID.
+     *
+     * @return Randomly generated UUID instance.
+     */
+    [[nodiscard]] static uuid random();
+
+    /**
      * Returns the most significant 64 bits of this instance.
      *
      * @return The most significant 64 bits of this instance.

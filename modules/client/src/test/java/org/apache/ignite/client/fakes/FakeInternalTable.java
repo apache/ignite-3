@@ -18,7 +18,6 @@
 package org.apache.ignite.client.fakes;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.booleanCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -47,8 +46,6 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowEx;
 import org.apache.ignite.internal.schema.BinaryTuple;
@@ -524,9 +521,9 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<ClusterNode> partitionLocation(ReplicationGroupId replicationGroupId) {
+    public CompletableFuture<ClusterNode> partitionLocation(int partitionIndex) {
         List<ReplicaMeta> replicaMetas = placementDriver.primaryReplicas();
-        ReplicaMeta replica = replicaMetas.get(partitionIndexFromReplicationGroupId(replicationGroupId));
+        ReplicaMeta replica = replicaMetas.get(partitionIndex);
 
         //noinspection DataFlowIssue
         return completedFuture(
@@ -547,6 +544,11 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
+    public ReplicationGroupId targetReplicationGroupId(int partId) {
+        return null; // Not supported yet.
+    }
+
+    @Override
     public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(ReceiverDescriptor<A> receiver, @Nullable A receiverArg,
             Collection<I> items, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
         throw new UnsupportedOperationException("Not implemented");
@@ -558,13 +560,5 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
                 JobTarget.node(node),
                 JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
                 payload);
-    }
-
-    private int partitionIndexFromReplicationGroupId(ReplicationGroupId replicationGroupId) {
-        if (enabledColocation()) {
-            return ((ZonePartitionId) replicationGroupId).partitionId();
-        } else {
-            return ((TablePartitionId) replicationGroupId).partitionId();
-        }
     }
 }

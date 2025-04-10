@@ -17,58 +17,81 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
-import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.emptyMap;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.startup.StartupPartitionSnapshotReader;
-import org.apache.ignite.internal.table.distributed.raft.snapshot.TablePartitionKey;
+import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
+/**
+ * For testing {@link PartitionSnapshotStorageFactory}.
+ */
+@ExtendWith(MockitoExtension.class)
+public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
+    private static final int TABLE_ID_1 = 1;
+    private static final int TABLE_ID_2 = 2;
+
+    private final PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
+            new ZonePartitionKey(1, 1),
+            mock(TopologyService.class),
+            mock(OutgoingSnapshotsManager.class),
+            mock(PartitionTxStateAccess.class),
+            mock(CatalogService.class),
+            mock(FailureProcessor.class),
+            mock(Executor.class)
+    );
+
     @Test
-    void returnsNullWhenOpeningOnCleanStorage() {
-        var storage = storageForStartupMeta(null);
+    void choosesMinimalIndexFromPartitionStorage(
+            @Mock PartitionMvStorageAccess partitionAccess1,
+            @Mock PartitionMvStorageAccess partitionAccess2
+    ) {
+        when(partitionAccess1.lastAppliedIndex()).thenReturn(5L);
+        when(partitionAccess2.lastAppliedIndex()).thenReturn(3L);
+        when(snapshotStorage.txState().lastAppliedIndex()).thenReturn(10L);
 
-        assertThat(storage.open(), is(nullValue()));
+        lenient().when(partitionAccess1.lastAppliedTerm()).thenReturn(5L);
+        when(partitionAccess2.lastAppliedTerm()).thenReturn(1L);
+        lenient().when(snapshotStorage.txState().lastAppliedTerm()).thenReturn(10L);
+
+        when(partitionAccess2.committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
+
+        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess1);
+        snapshotStorage.addMvPartition(TABLE_ID_2, partitionAccess2);
+
+        SnapshotMeta startupSnapshotMeta = snapshotStorage.readStartupSnapshotMeta();
+
+        assertEquals(3L, startupSnapshotMeta.lastIncludedIndex());
+        assertEquals(1L, startupSnapshotMeta.lastIncludedTerm());
     }
 
     @Test
-    void returnsStartupReaderWhenOpeningOnStorageHavingSomething() {
-        SnapshotMeta metaForCleanStorage = new RaftMessagesFactory().snapshotMeta()
-                .lastIncludedIndex(1)
-                .lastIncludedTerm(1)
-                .build();
+    void choosesMinimalIndexFromTxStorage(@Mock PartitionMvStorageAccess partitionAccess) {
+        when(partitionAccess.lastAppliedIndex()).thenReturn(5L);
+        when(snapshotStorage.txState().lastAppliedIndex()).thenReturn(3L);
 
-        var storage = storageForStartupMeta(metaForCleanStorage);
+        lenient().when(partitionAccess.lastAppliedTerm()).thenReturn(5L);
+        when(snapshotStorage.txState().lastAppliedTerm()).thenReturn(2L);
 
-        assertThat(storage.open(), is(instanceOf(StartupPartitionSnapshotReader.class)));
-    }
+        when(snapshotStorage.txState().committedGroupConfiguration()).thenReturn(mock(RaftGroupConfiguration.class));
 
-    private static PartitionSnapshotStorage storageForStartupMeta(@Nullable SnapshotMeta metaForCleanStorage) {
-        return new PartitionSnapshotStorage(
-                new TablePartitionKey(1, 1),
-                mock(TopologyService.class),
-                mock(OutgoingSnapshotsManager.class),
-                "",
-                mock(RaftOptions.class),
-                emptyMap(),
-                mock(PartitionTxStateAccess.class),
-                mock(CatalogService.class),
-                metaForCleanStorage,
-                mock(Executor.class)
-        );
+        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        SnapshotMeta startupSnapshotMeta = snapshotStorage.readStartupSnapshotMeta();
+
+        assertEquals(3L, startupSnapshotMeta.lastIncludedIndex());
+        assertEquals(2L, startupSnapshotMeta.lastIncludedTerm());
     }
 }

@@ -37,7 +37,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
-    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", size = 1048576}")
+    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", sizeBytes = 1048576}")
     private StorageConfiguration storageConfig;
 
     @WorkDirectory
@@ -53,6 +53,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,

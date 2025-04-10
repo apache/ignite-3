@@ -15,22 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
+package org.apache.ignite.internal.schema;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.Range;
+import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
+import org.apache.ignite.internal.lang.InternalTuple;
 
 /**
- * Configuration schema for StorageUpdateHandler.
+ * Interface that provides a method to copy value (maybe raw) of the given column directly into a tuple builder.
  */
-@Config
-public class StorageUpdateConfigurationSchema {
-
+public interface InternalTupleEx extends InternalTuple {
     /**
-     * Maximum allowed length (in bytes) of a batch to write into physical storage.
-     **/
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public int batchByteLength = 8192;
+     * Copy value of the given column.
+     *
+     * @param builder Binary tuple builder to copy value to.
+     * @param columnIndex Column index.
+     */
+    void copyValue(BinaryTupleBuilder builder, int columnIndex);
 }

@@ -44,7 +44,7 @@ public class ScaleCubeConfigurationSchema {
      * @see <a href="https://en.wikipedia.org/wiki/Gossip_protocol">Gossip Protocol</a>
      */
     @Value(hasDefault = true)
-    public final int gossipInterval = 200;
+    public final int gossipIntervalMillis = 200;
 
     /**
      * Gossip repeat multiplier.
@@ -59,5 +59,5 @@ public class ScaleCubeConfigurationSchema {
      * another node).
      */
     @Value(hasDefault = true)
-    public final int metadataTimeout = 3_000;
+    public final int metadataTimeoutMillis = 3_000;
 }

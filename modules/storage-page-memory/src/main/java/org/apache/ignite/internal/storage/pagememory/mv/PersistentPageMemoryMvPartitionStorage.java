@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
@@ -48,9 +49,7 @@ import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryTableStorage;
 import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
-import org.apache.ignite.internal.storage.pagememory.index.hash.PageMemoryHashIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
-import org.apache.ignite.internal.storage.pagememory.index.sorted.PageMemorySortedIndexStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -97,6 +96,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
      * @param versionChainTree Table tree for {@link VersionChain}.
      * @param indexMetaTree Tree that contains SQL indexes' metadata.
      * @param gcQueue Garbage collection queue.
+     * @param failureProcessor Failure processor.
      */
     public PersistentPageMemoryMvPartitionStorage(
             PersistentPageMemoryTableStorage tableStorage,
@@ -106,7 +106,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             VersionChainTree versionChainTree,
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
-            ExecutorService destructionExecutor
+            ExecutorService destructionExecutor,
+            FailureProcessor failureProcessor
     ) {
         super(
                 partitionId,
@@ -119,7 +120,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                         indexMetaTree,
                         gcQueue
                 ),
-                destructionExecutor
+                destructionExecutor,
+                failureProcessor
         );
 
         checkpointManager = tableStorage.engine().checkpointManager();
@@ -416,13 +418,19 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     }
 
     @Override
-    public PageMemoryHashIndexStorage getOrCreateHashIndex(StorageHashIndexDescriptor indexDescriptor) {
-        return runConsistently(locker -> super.getOrCreateHashIndex(indexDescriptor));
+    public void createHashIndex(StorageHashIndexDescriptor indexDescriptor) {
+        runConsistently(locker -> {
+            super.createHashIndex(indexDescriptor);
+            return null;
+        });
     }
 
     @Override
-    public PageMemorySortedIndexStorage getOrCreateSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
-        return runConsistently(locker -> super.getOrCreateSortedIndex(indexDescriptor));
+    public void createSortedIndex(StorageSortedIndexDescriptor indexDescriptor) {
+        runConsistently(locker -> {
+            super.createSortedIndex(indexDescriptor);
+            return null;
+        });
     }
 
     @Override

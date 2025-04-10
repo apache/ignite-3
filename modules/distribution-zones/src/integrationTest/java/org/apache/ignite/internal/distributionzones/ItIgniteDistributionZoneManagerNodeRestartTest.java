@@ -130,6 +130,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.vault.VaultManager;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.internal.worker.fixtures.NoOpCriticalWorkerRegistry;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -236,10 +237,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
                 mock(FailureManager.class),
-                defaultChannelTypeRegistry()
+                defaultChannelTypeRegistry(),
+                new DefaultIgniteProductVersionSource()
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var failureProcessor = new NoOpFailureManager();
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureProcessor);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -253,7 +256,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var storage = new RocksDbKeyValueStorage(
                 name,
                 workDir.resolve("metastorage"),
-                new NoOpFailureManager(),
+                failureProcessor,
                 readOperationForCompactionTracker,
                 commonScheduledExecutorService
         );
@@ -294,7 +297,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
-        var catalogManager = new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService, () -> TEST_DELAY_DURATION);
+        var catalogManager = new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                clockService,
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        );
 
         DistributionZoneManager distributionZoneManager = new DistributionZoneManager(
                 name,

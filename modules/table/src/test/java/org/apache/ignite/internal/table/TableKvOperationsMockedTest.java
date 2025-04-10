@@ -43,6 +43,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
@@ -52,10 +53,10 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.KvMarshallerImpl;
 import org.apache.ignite.internal.schema.marshaller.reflection.RecordMarshallerImpl;
@@ -92,7 +93,10 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
     private TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    private ReplicationConfiguration replicationConfiguration;
+
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @Mock(answer = RETURNS_DEEP_STUBS)
     private ReplicaService replicaService;
@@ -302,6 +306,7 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
     }
 
     private DummyInternalTableImpl createInternalTable(SchemaDescriptor schema) {
-        return new DummyInternalTableImpl(replicaService, schema, txConfiguration, storageUpdateConfiguration);
+        return new DummyInternalTableImpl(replicaService, schema, txConfiguration, systemDistributedConfiguration,
+                replicationConfiguration);
     }
 }

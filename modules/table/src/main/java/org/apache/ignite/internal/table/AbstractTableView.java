@@ -138,7 +138,7 @@ abstract class AbstractTableView<R> implements CriteriaQuerySource<R> {
             KvAction<T> action) {
         CompletableFuture<Integer> schemaVersionFuture = isDirectFlowApplicableTx(tx)
                 ? schemaVersions.schemaVersionAtCurrentTime(tbl.tableId())
-                : schemaVersions.schemaVersionAt(tx.startTimestamp(), tbl.tableId());
+                : schemaVersions.schemaVersionAt(tx.schemaTimestamp(), tbl.tableId());
 
         return schemaVersionFuture
                 .thenCompose(schemaVersion -> action.act(schemaVersion)

@@ -152,6 +152,13 @@ public class Checkpointer extends IgniteWorker {
     /** Current checkpoint progress. This field is updated only by checkpoint thread. */
     private volatile @Nullable CheckpointProgressImpl currentCheckpointProgress;
 
+    /**
+     * Checkpoint progress instance with a more limited range of visibility. It is initialized when checkpoint write lick is acquired, and
+     * nullified when checkpoint finishes (unlike {@link #currentCheckpointProgress} that is updated before we started notifying checkpoint
+     * listeners and is never nullified).
+     */
+    private volatile @Nullable CheckpointProgressImpl currentCheckpointProgressForThrottling;
+
     /** Checkpoint progress after releasing write lock. */
     private volatile @Nullable CheckpointProgressImpl afterReleaseWriteLockCheckpointProgress;
 
@@ -418,6 +425,8 @@ public class Checkpointer extends IgniteWorker {
             failureManager.process(new FailureContext(CRITICAL_ERROR, e));
 
             throw e;
+        } finally {
+            currentCheckpointProgressForThrottling = null;
         }
     }
 
@@ -684,6 +693,10 @@ public class Checkpointer extends IgniteWorker {
             scheduledCheckpointProgress = new CheckpointProgressImpl(MILLISECONDS.toNanos(nextCheckpointInterval()));
 
             currentCheckpointProgress = curr;
+
+            curr.futureFor(LOCK_TAKEN).thenRun(() -> {
+                currentCheckpointProgressForThrottling = curr;
+            });
         }
     }
 
@@ -779,6 +792,10 @@ public class Checkpointer extends IgniteWorker {
         return currentCheckpointProgress;
     }
 
+    public @Nullable CheckpointProgress currentCheckpointProgressForThrottling() {
+        return currentCheckpointProgressForThrottling;
+    }
+
     /**
      * Returns the progress of the last checkpoint, or the current checkpoint if in progress, {@code null} if no checkpoint has occurred.
      */
@@ -809,8 +826,8 @@ public class Checkpointer extends IgniteWorker {
     long nextCheckpointInterval() {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        long interval = checkpointConfigView.interval();
-        int deviation = checkpointConfigView.intervalDeviation();
+        long interval = checkpointConfigView.intervalMillis();
+        int deviation = checkpointConfigView.intervalDeviationPercent();
 
         if (deviation == 0) {
             return interval;

@@ -297,8 +297,7 @@ public class PersistentPageMemory implements PageMemory {
      *
      * @param writeThrottle Page write throttling instance.
      */
-    // TODO IGNITE-24548 Make a proper implementation.
-    @TestOnly
+    // TODO IGNITE-24933 Remove this method.
     public void initThrottling(PagesWriteThrottlePolicy writeThrottle) {
         this.writeThrottle = writeThrottle;
     }
@@ -599,7 +598,7 @@ public class PersistentPageMemory implements PageMemory {
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
                     + "name=" + storageProfileView.name()
-                    + ", size=" + readableSize(storageProfileView.size(), false)
+                    + ", size=" + readableSize(storageProfileView.sizeBytes(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)"
                     + lineSeparator()
@@ -1671,7 +1670,7 @@ public class PersistentPageMemory implements PageMemory {
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
                     + "name=" + storageProfileView.name()
-                    + ", size=" + readableSize(storageProfileView.size(), false)
+                    + ", size=" + readableSize(storageProfileView.sizeBytes(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)" + lineSeparator()
             );

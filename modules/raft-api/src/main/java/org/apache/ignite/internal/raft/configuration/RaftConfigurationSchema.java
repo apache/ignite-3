@@ -33,7 +33,7 @@ public class RaftConfigurationSchema {
      */
     @Value(hasDefault = true)
     // TODO: IGNITE-18480 - is 5 minutes a good default?
-    public int installSnapshotTimeout = 5 * 60 * 1000;
+    public int installSnapshotTimeoutMillis = 5 * 60 * 1000;
 
     /** Configuration for Raft groups corresponding to table partitions. */
     // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere
@@ -44,19 +44,19 @@ public class RaftConfigurationSchema {
      * Timeout value (in milliseconds) for which the Raft client will try to receive a successful response from a remote peer.
      */
     @Value(hasDefault = true)
-    public long retryTimeout = 10_000;
+    public long retryTimeoutMillis = 10_000;
 
     /**
      * Delay (in milliseconds) used by the Raft client between re-sending a failed request.
      */
     @Value(hasDefault = true)
-    public long retryDelay = 200;
+    public long retryDelayMillis = 200;
 
     /**
      * Timeout value (in milliseconds) for which the Raft client will try to receive a response from a remote peer.
      */
     @Value(hasDefault = true)
-    public long responseTimeout = 3_000;
+    public long responseTimeoutMillis = 3_000;
 
     /**
      * Whether Raft log entries should be fsynced on table partition groups before reporting that the entries are replicated.

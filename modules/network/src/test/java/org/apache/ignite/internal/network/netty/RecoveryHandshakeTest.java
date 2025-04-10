@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
-import static org.mockito.Mockito.mock;
 
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.Channel;
@@ -36,7 +35,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ConstantClusterIdSupplier;
@@ -61,6 +59,7 @@ import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.network.serialization.marshal.DefaultUserObjectMarshaller;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -722,7 +721,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                mock(FailureManager.class)
+                new DefaultIgniteProductVersionSource()
         );
     }
 
@@ -758,7 +757,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
                 clusterIdSupplier,
                 channel -> {},
                 () -> false,
-                mock(FailureManager.class)
+                new DefaultIgniteProductVersionSource()
         );
     }
 

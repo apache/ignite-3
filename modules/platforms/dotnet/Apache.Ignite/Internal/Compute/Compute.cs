@@ -49,7 +49,7 @@ namespace Apache.Ignite.Internal.Compute
         private readonly Tables _tables;
 
         /** Cached tables. */
-        private readonly ConcurrentDictionary<string, Table> _tableCache = new();
+        private readonly ConcurrentDictionary<QualifiedName, Table> _tableCache = new();
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Compute"/> class.
@@ -414,7 +414,7 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
-        private async Task<Table> GetTableAsync(string tableName)
+        private async Task<Table> GetTableAsync(QualifiedName tableName)
         {
             if (_tableCache.TryGetValue(tableName, out var cachedTable))
             {
@@ -431,12 +431,12 @@ namespace Apache.Ignite.Internal.Compute
 
             _tableCache.TryRemove(tableName, out _);
 
-            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName}' does not exist.");
+            throw new IgniteClientException(ErrorGroups.Client.TableIdNotFound, $"Table '{tableName.CanonicalName}' does not exist.");
         }
 
         [SuppressMessage("Maintainability", "CA1508:Avoid dead conditional code", Justification = "False positive")]
         private async Task<IJobExecution<TResult>> ExecuteColocatedAsync<TArg, TResult, TKey>(
-            string tableName,
+            QualifiedName tableName,
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             JobDescriptor<TArg, TResult> descriptor,

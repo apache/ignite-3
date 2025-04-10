@@ -29,6 +29,7 @@ import java.util.UUID;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.stream.IntStream;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -37,7 +38,6 @@ import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.tx.TxStateMeta;
@@ -69,8 +69,8 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
     @InjectConfiguration
     private TransactionConfiguration txConfiguration;
 
-    @InjectConfiguration
-    private StorageUpdateConfiguration storageUpdateConfiguration;
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -102,7 +102,7 @@ public class ItTxStateLocalMapTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfig,
                 txConfiguration,
-                storageUpdateConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 NODES,
                 NODES,

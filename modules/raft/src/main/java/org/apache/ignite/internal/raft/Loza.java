@@ -209,7 +209,7 @@ public class Loza implements RaftManager {
         metricManager.enable(stripeSource);
 
         opts.setRaftMetrics(stripeSource);
-        opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeout());
+        opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeoutMillis());
         opts.setStripes(raftConfig.stripes());
         opts.setLogStripesCount(raftConfig.logStripesCount());
         opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
@@ -299,75 +299,12 @@ public class Loza implements RaftManager {
         }
     }
 
-    /**
-     * Starts a Raft group on the current node without starting raft service.
-     *
-     * @param nodeId Raft node ID.
-     * @param configuration Peers and Learners of the Raft group.
-     * @param lsnr Raft group listener.
-     * @param eventsLsnr Raft group events listener.
-     * @param groupOptions Options to apply to the group.
-     */
-    public void startRaftGroupNodeWithoutService(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr,
-            RaftGroupOptions groupOptions
-    ) throws NodeStoppingException {
-        if (!busyLock.enterBusy()) {
-            throw new NodeStoppingException();
-        }
-
-        try {
-            startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, eventsLsnr, groupOptions);
-        } finally {
-            busyLock.leaveBusy();
-        }
-    }
-
     @Override
-    public RaftGroupService startRaftGroupNodeAndWaitNodeReady(
+    public <T extends RaftGroupService> T startSystemRaftGroupNodeAndWaitNodeReady(
             RaftNodeId nodeId,
             PeersAndLearners configuration,
             RaftGroupListener lsnr,
             RaftGroupEventsListener eventsLsnr,
-            RaftGroupOptionsConfigurer groupOptionsConfigurer
-    ) throws NodeStoppingException {
-        RaftGroupOptions raftOptions = RaftGroupOptions.defaults();
-
-        groupOptionsConfigurer.configure(raftOptions);
-
-        return startRaftGroupNode(nodeId, configuration, lsnr, eventsLsnr, raftOptions);
-    }
-
-    @Override
-    public RaftGroupService startRaftGroupNodeAndWaitNodeReady(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration disruptorConfiguration,
-            RaftGroupOptionsConfigurer groupOptionsConfigurer
-    ) throws NodeStoppingException {
-        return startRaftGroupNodeAndWaitNodeReady(
-                nodeId,
-                configuration,
-                lsnr,
-                eventsLsnr,
-                disruptorConfiguration,
-                null,
-                groupOptionsConfigurer
-        );
-    }
-
-    @Override
-    public <T extends RaftGroupService> T startRaftGroupNodeAndWaitNodeReady(
-            RaftNodeId nodeId,
-            PeersAndLearners configuration,
-            RaftGroupListener lsnr,
-            RaftGroupEventsListener eventsLsnr,
-            RaftNodeDisruptorConfiguration disruptorConfiguration,
             @Nullable RaftServiceFactory<T> factory,
             RaftGroupOptionsConfigurer groupOptionsConfigurer
     ) throws NodeStoppingException {
@@ -376,12 +313,10 @@ public class Loza implements RaftManager {
         }
 
         try {
-            RaftGroupOptions raftGroupOptions = RaftGroupOptions.defaults();
+            RaftGroupOptions raftGroupOptions = RaftGroupOptions.defaults()
+                    .setSystemGroup(true);
 
             groupOptionsConfigurer.configure(raftGroupOptions);
-
-            // TODO: Move to option configurer, see https://issues.apache.org/jira/browse/IGNITE-18273
-            raftGroupOptions.ownFsmCallerExecutorDisruptorConfig(disruptorConfiguration);
 
             return startRaftGroupNodeInternal(
                     nodeId,

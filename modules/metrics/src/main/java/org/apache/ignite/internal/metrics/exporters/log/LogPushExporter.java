@@ -40,7 +40,7 @@ public class LogPushExporter extends PushMetricExporter<LogPushExporterView> {
 
     @Override
     protected long period() {
-        return configuration().period();
+        return configuration().periodMillis();
     }
 
     @Override

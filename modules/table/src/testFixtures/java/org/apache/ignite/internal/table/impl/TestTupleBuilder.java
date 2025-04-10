@@ -190,6 +190,18 @@ public class TestTupleBuilder implements Tuple {
 
     /** {@inheritDoc} */
     @Override
+    public byte[] bytesValue(String columnName) {
+        return value(columnName);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public byte[] bytesValue(int columnIndex) {
+        return null;
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public UUID uuidValue(String columnName) {
         return value(columnName);
     }

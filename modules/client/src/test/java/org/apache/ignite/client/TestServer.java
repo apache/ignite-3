@@ -70,8 +70,10 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
+import org.apache.ignite.internal.network.configuration.MulticastNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfigurationSchema;
+import org.apache.ignite.internal.network.configuration.StaticNodeFinderConfigurationSchema;
 import org.apache.ignite.internal.schema.AlwaysSyncedSchemaSyncService;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationManagerImpl;
@@ -176,7 +178,7 @@ public class TestServer implements AutoCloseable {
         generator = new ConfigurationTreeGenerator(
                 List.of(NodeConfiguration.KEY),
                 List.of(ClientConnectorExtensionConfigurationSchema.class, NetworkExtensionConfigurationSchema.class),
-                List.of()
+                List.of(StaticNodeFinderConfigurationSchema.class, MulticastNodeFinderConfigurationSchema.class)
         );
         cfg = new ConfigurationRegistry(
                 List.of(NodeConfiguration.KEY),
@@ -195,7 +197,7 @@ public class TestServer implements AutoCloseable {
         clientConnectorConfiguration.change(
                 local -> local
                         .changePort(port != null ? port : getFreePort())
-                        .changeIdleTimeout(idleTimeout)
+                        .changeIdleTimeoutMillis(idleTimeout)
                         .changeSendServerExceptionStackTraceToClient(true)
         ).join();
 

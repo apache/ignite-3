@@ -37,7 +37,7 @@ import org.jetbrains.annotations.Nullable;
  * <p>If a leader has been changed while the operation in progress, the operation will be transparently retried until timeout is reached.
  * The current leader will be refreshed automatically (maybe several times) in the process.
  *
- * <p>Each asynchronous method (returning a future) uses a default timeout to finish, see {@link RaftConfiguration#retryTimeout()}.
+ * <p>Each asynchronous method (returning a future) uses a default timeout to finish, see {@link RaftConfiguration#retryTimeoutMillis()}.
  * If a result is not available within the timeout, the future will be completed with a {@link TimeoutException}
  *
  * <p>If an error is occurred during operation execution, the future will be completed with the corresponding IgniteException having an

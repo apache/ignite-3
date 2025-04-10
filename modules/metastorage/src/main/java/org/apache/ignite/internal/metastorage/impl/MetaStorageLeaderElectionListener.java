@@ -27,10 +27,12 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyEventListener;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -50,6 +52,8 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
     private final String nodeName;
 
     private final LogicalTopologyService logicalTopologyService;
+
+    private final FailureProcessor failureProcessor;
 
     private final CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut;
 
@@ -72,7 +76,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private final LogicalTopologyEventListener logicalTopologyEventListener = new MetaStorageLogicalTopologyEventListener();
 
-    private final CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture;
+    private final CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture;
 
     private final List<ElectionListener> electionListeners;
 
@@ -97,20 +101,22 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             IgniteSpinBusyLock busyLock,
             ClusterService clusterService,
             LogicalTopologyService logicalTopologyService,
+            FailureProcessor failureProcessor,
             CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut,
             MetaStorageLearnerManager learnerManager,
             ClusterTimeImpl clusterTime,
-            CompletableFuture<MetaStorageConfiguration> metaStorageConfigurationFuture,
+            CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture,
             List<ElectionListener> electionListeners,
             BooleanSupplier leaderSecondaryDutiesPaused
     ) {
         this.busyLock = busyLock;
         this.nodeName = clusterService.nodeName();
         this.logicalTopologyService = logicalTopologyService;
+        this.failureProcessor = failureProcessor;
         this.metaStorageSvcFut = metaStorageSvcFut;
         this.learnerManager = learnerManager;
         this.clusterTime = clusterTime;
-        this.metaStorageConfigurationFuture = metaStorageConfigurationFuture;
+        this.systemConfigurationFuture = systemConfigurationFuture;
         this.electionListeners = electionListeners;
         this.leaderSecondaryDutiesPaused = leaderSecondaryDutiesPaused;
     }
@@ -163,7 +169,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
 
     private void startSafeTimeScheduler(long term) {
         metaStorageSvcFut
-                .thenAcceptBoth(metaStorageConfigurationFuture, (service, metaStorageConfiguration) -> {
+                .thenAcceptBoth(systemConfigurationFuture, (service, metaStorageConfiguration) -> {
                     clusterTime.startSafeTimeScheduler(
                             safeTime -> syncTimeIfSecondaryDutiesAreNotPaused(safeTime, service),
                             metaStorageConfiguration,
@@ -172,7 +178,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        LOG.error("Unable to start Idle Safe Time scheduler", e);
+                        failureProcessor.process(new FailureContext(e, "Unable to start Idle Safe Time scheduler"));
                     }
                 });
     }

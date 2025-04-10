@@ -32,6 +32,7 @@ import java.nio.file.Path;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
@@ -50,7 +51,7 @@ public class TestIgnitionManager {
     /** Default DelayDuration in ms used for tests that is set on node init. */
     public static final int DEFAULT_DELAY_DURATION_MS = 100;
 
-    private static final int DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 50;
+    private static final int DEFAULT_METASTORAGE_IDLE_SAFE_TIME_SYNC_INTERVAL_MS = 50;
 
     /** Default partition idle SafeTime interval in ms used for tests that is set on node init. */
     public static final int DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS = 100;
@@ -59,22 +60,23 @@ public class TestIgnitionManager {
 
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
-            "ignite.network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
+            "ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
             "ignite.storage.profiles.default_aipersist.engine", "aipersist",
-            "ignite.storage.profiles.default_aipersist.size", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default_aipersist.sizeBytes", Integer.toString(256 * MiB),
             "ignite.storage.profiles.default_aimem.engine", "aimem",
-            "ignite.storage.profiles.default_aimem.initSize", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default_aimem.maxSize", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default_aimem.initSizeBytes", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default_aimem.maxSizeBytes", Integer.toString(256 * MiB),
             "ignite.storage.profiles.default.engine", "aipersist",
-            "ignite.storage.profiles.default.size", Integer.toString(256 * MiB)
+            "ignite.storage.profiles.default.sizeBytes", Integer.toString(256 * MiB),
+            "ignite.system.properties.aipersistThrottling", "disabled"
     );
 
     /** Map with default cluster configuration values. */
     private static final Map<String, String> DEFAULT_CLUSTER_CONFIG = Map.of(
-            "ignite.schemaSync.delayDuration", Integer.toString(DEFAULT_DELAY_DURATION_MS),
-            "ignite.schemaSync.maxClockSkew", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
-            "ignite.metaStorage.idleSyncTimeInterval", Integer.toString(DEFAULT_METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS),
-            "ignite.replication.idleSafeTimePropagationDuration", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
+            "ignite.schemaSync.delayDurationMillis", Integer.toString(DEFAULT_DELAY_DURATION_MS),
+            "ignite.schemaSync.maxClockSkewMillis", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
+            "ignite.system.idleSafeTimeSyncIntervalMillis", Integer.toString(DEFAULT_METASTORAGE_IDLE_SAFE_TIME_SYNC_INTERVAL_MS),
+            "ignite.replication.idleSafeTimePropagationDurationMillis", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
     );
 
     /**
@@ -127,11 +129,10 @@ public class TestIgnitionManager {
      *                  default configuration will be used.
      * @param workDir The path to the working directory for the node. This directory must exist and the application must 
      *                have sufficient permissions to read from and write to it.
-     * @return A {@link CompletableFuture} that resolves to the fully initialized Ignite node with all components started and 
+     * @return A {@link CompletableFuture} that resolves to the fully initialized Ignite node with all components started and
      *         the cluster ready for further interactions.
      * @throws IgniteException If an error occurs while reading or parsing the node configuration.
      * @throws IllegalArgumentException If {@code nodeName} is {@code null} or invalid.
-     * @throws IOException If there are issues accessing or writing to the specified {@code workDir}.
      */
     public static IgniteServer startWithProductionDefaults(String nodeName, @Nullable String configStr, Path workDir) {
         return doStart(nodeName, configStr, workDir, false);

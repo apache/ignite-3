@@ -45,8 +45,10 @@ import org.apache.ignite.internal.cluster.management.ClusterManagementGroupManag
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -55,7 +57,6 @@ import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageServiceImpl;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
@@ -106,7 +107,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
     private RaftConfiguration raftConfiguration;
 
     @InjectConfiguration
-    private MetaStorageConfiguration metaStorageConfiguration;
+    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -302,7 +303,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     nodeClock,
                     topologyAwareRaftGroupServiceFactory,
                     new NoOpMetricManager(),
-                    metaStorageConfiguration,
+                    systemDistributedConfiguration,
                     msRaftConfigurer,
                     readOperationForCompactionTracker
             );
@@ -321,6 +322,7 @@ public class MultiActorPlacementDriverTest extends BasePlacementDriverTest {
                     raftManager,
                     topologyAwareRaftGroupServiceFactory,
                     clockService,
+                    mock(FailureProcessor.class),
                     replicationConfiguration
             );
 

@@ -129,7 +129,7 @@ public class ReplicaUnavailableTest extends IgniteAbstractTest {
             new Column[]{new Column("value", NativeTypes.INT64, false)}
     );
 
-    @InjectConfiguration("mock.rpcTimeout= 3000")
+    @InjectConfiguration("mock.rpcTimeoutMillis = 3000")
     private ReplicationConfiguration replicationConfiguration;
 
     private final PartitionReplicationMessagesFactory tableMessagesFactory = new PartitionReplicationMessagesFactory();

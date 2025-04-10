@@ -57,7 +57,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -77,6 +76,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.network.serialization.SerializationService;
 import org.apache.ignite.internal.network.serialization.UserObjectSerializationContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.version.DefaultIgniteProductVersionSource;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -203,7 +203,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
         NettySender sender1 = manager1.openChannelTo(manager2).get(3, TimeUnit.SECONDS);
 
         // Wait for the channel to appear on the recipient side.
-        waitForCondition(() -> !manager2.channels().isEmpty(), 10_000);
+        assertTrue(waitForCondition(() -> !manager2.channels().isEmpty(), 10_000));
 
         NettySender sender2 = manager2.openChannelTo(manager1).get(3, TimeUnit.SECONDS);
 
@@ -313,7 +313,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testStartOnSamePort() throws Exception {
+    public void testStartOnSamePort() {
         startManager(4000);
 
         IgniteInternalException exception = (IgniteInternalException) assertThrows(
@@ -540,8 +540,8 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
                     bootstrapFactory,
                     new AllIdsAreFresh(),
                     withoutClusterId(),
-                    mock(FailureManager.class),
-                    defaultChannelTypeRegistry()
+                    defaultChannelTypeRegistry(),
+                    new DefaultIgniteProductVersionSource()
             );
 
             manager.start();

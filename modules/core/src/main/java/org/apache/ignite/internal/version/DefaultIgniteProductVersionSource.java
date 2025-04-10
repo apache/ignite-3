@@ -15,38 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.raft;
+package org.apache.ignite.internal.version;
+
+import org.apache.ignite.internal.properties.IgniteProductVersion;
 
 /**
- * Raft node disruptor configuration.
+ * {@link IgniteProductVersionSource} that takes product name and version from the properties.
  */
-public class RaftNodeDisruptorConfiguration {
-    private final String threadPostfix;
-
-    private final int stripes;
-
-    /**
-     * Constructor.
-     *
-     * @param threadPostfix Disruptor threads' name postfix.
-     * @param stripes Number of disruptor stripes.
-     */
-    public RaftNodeDisruptorConfiguration(String threadPostfix, int stripes) {
-        this.threadPostfix = threadPostfix;
-        this.stripes = stripes;
+public class DefaultIgniteProductVersionSource implements IgniteProductVersionSource {
+    @Override
+    public String productName() {
+        return IgniteProductVersion.CURRENT_PRODUCT;
     }
 
-    /**
-     * Return disruptor threads' name postfix.
-     */
-    public String getThreadPostfix() {
-        return threadPostfix;
-    }
-
-    /**
-     * Return number of disruptor stripes.
-     */
-    public int getStripes() {
-        return stripes;
+    @Override
+    public IgniteProductVersion productVersion() {
+        return IgniteProductVersion.CURRENT_VERSION;
     }
 }

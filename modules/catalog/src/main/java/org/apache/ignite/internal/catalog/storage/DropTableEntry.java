@@ -30,6 +30,7 @@ import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.DropTableEventParameters;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -68,7 +69,7 @@ public class DropTableEntry implements UpdateEntry, Fireable {
     }
 
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
         CatalogTableDescriptor table = tableOrThrow(catalog, tableId);
         CatalogSchemaDescriptor schema = schemaOrThrow(catalog, table.schemaId());
 
@@ -83,7 +84,7 @@ public class DropTableEntry implements UpdateEntry, Fireable {
                         Arrays.stream(schema.tables()).filter(t -> t.id() != tableId).toArray(CatalogTableDescriptor[]::new),
                         schema.indexes(),
                         schema.systemViews(),
-                        causalityToken
+                        timestamp
                 ), catalog.schemas()),
                 defaultZoneIdOpt(catalog)
         );

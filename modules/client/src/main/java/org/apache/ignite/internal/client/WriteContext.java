@@ -15,17 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.schema.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.configuration.ClusterConfigurationSchema;
+package org.apache.ignite.internal.client;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Extension for StorageUpdateHandler configuration schema.
+ * Write context.
  */
-@ConfigurationExtension
-public class StorageUpdateExtensionConfigurationSchema extends ClusterConfigurationSchema {
-    @ConfigValue
-    public StorageUpdateConfigurationSchema storageUpdate;
+public class WriteContext {
+    public @Nullable PartitionMapping pm;
+    public @Nullable Long enlistmentToken;
 }

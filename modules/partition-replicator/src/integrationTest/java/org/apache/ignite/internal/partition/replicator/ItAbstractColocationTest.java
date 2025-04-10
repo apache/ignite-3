@@ -17,15 +17,15 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIMEM_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneId;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getZoneIdStrict;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -43,11 +43,11 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
 import org.apache.ignite.internal.cluster.management.configuration.NodeAttributesConfiguration;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
@@ -107,8 +107,8 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
             + "}")
     private StorageConfiguration storageConfiguration;
 
-    @InjectConfiguration("mock.idleSyncTimeInterval = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
-    private MetaStorageConfiguration metaStorageConfiguration;
+    @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = " + Node.METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS)
+    protected SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
@@ -242,7 +242,7 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 raftConfiguration,
                 nodeAttributesConfiguration,
                 storageConfiguration,
-                metaStorageConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration,
                 txConfiguration,
                 scheduledExecutorService,
@@ -278,15 +278,14 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 String.join(",", profiles)
         );
 
-        Integer zoneId = getZoneId(node.catalogManager, zoneName, node.hybridClock.nowLong());
-        return requireNonNull(zoneId, "No zone found with name " + zoneName);
+        return getZoneIdStrict(node.catalogManager, zoneName, node.hybridClock.nowLong());
     }
 
-    static void createTable(Node node, String zoneName, String tableName) {
-        createTable(node, zoneName, tableName, null);
+    static int createTable(Node node, String zoneName, String tableName) {
+        return createTable(node, zoneName, tableName, null);
     }
 
-    static void createTable(Node node, String zoneName, String tableName, String storageProfile) {
+    static int createTable(Node node, String zoneName, String tableName, String storageProfile) {
         node.waitForMetadataCompletenessAtNow();
 
         TableTestUtils.createTable(
@@ -301,6 +300,8 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 List.of("KEY"),
                 storageProfile
         );
+
+        return getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
     Node getNode(int nodeIndex) {

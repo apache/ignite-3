@@ -37,7 +37,8 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public class IgniteNameUtilsTest {
     @ParameterizedTest
-    @MethodSource("validIdentifiers")
+    @MethodSource("validUnqoutedIdentifiers")
+    @MethodSource("validQoutedIdentifiers")
     public void validIdentifiers(String source, String expected) {
         String parsed = IgniteNameUtils.parseIdentifier(source);
 
@@ -46,14 +47,28 @@ public class IgniteNameUtilsTest {
         assertThat(IgniteNameUtils.parseIdentifier(IgniteNameUtils.quoteIfNeeded(parsed)), equalTo(parsed));
     }
 
-    private static Arguments[] validIdentifiers() {
+    @ParameterizedTest
+    @MethodSource("validUnqoutedIdentifiers")
+    public void validNormalizedIdentifiers(String source, String expected) {
+        assertThat(IgniteNameUtils.isValidNormalizedIdentifier(source), is(true));
+    }
+
+    private static Arguments[] validUnqoutedIdentifiers() {
         return new Arguments[] {
                 Arguments.of("foo", "FOO"),
                 Arguments.of("fOo", "FOO"),
                 Arguments.of("FOO", "FOO"),
+                Arguments.of("fo_o", "FO_O"),
+                Arguments.of("_foo", "_FOO"),
+        };
+    }
+
+    private static Arguments[] validQoutedIdentifiers() {
+        return new Arguments[] {
                 Arguments.of("\"FOO\"", "FOO"),
                 Arguments.of("\"foo\"", "foo"),
                 Arguments.of("\"fOo\"", "fOo"),
+                Arguments.of("\"$fOo\"", "$fOo"),
                 Arguments.of("\"f.f\"", "f.f"),
                 Arguments.of("\"f\"\"f\"", "f\"f"),
                 Arguments.of("\" \"", " "),
@@ -66,7 +81,7 @@ public class IgniteNameUtilsTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
-            " ", "foo-1", "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\"", "1o0", "@#$", "😅", "f😅"
+            " ", "foo-1", "f.f", "f f", "f\"f", "f\"\"f", "\"foo", "\"fo\"o\"", "1o0", "@#$", "😅", "f😅", "$foo", "foo$"
     })
     public void malformedIdentifiers(String source) {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class, () -> IgniteNameUtils.parseIdentifier(source));
@@ -74,6 +89,8 @@ public class IgniteNameUtilsTest {
         assertThat(ex.getMessage(), is(anyOf(
                 equalTo("Fully qualified name is not expected [name=" + source + "]"),
                 containsString("Malformed identifier [identifier=" + source))));
+
+        assertThat(IgniteNameUtils.isValidNormalizedIdentifier(source), is(false));
     }
 
     @ParameterizedTest
@@ -96,6 +113,8 @@ public class IgniteNameUtilsTest {
                 Arguments.of("F16", "F16"),
                 Arguments.of("Ff16", "\"Ff16\""),
                 Arguments.of("FF16", "FF16"),
+                Arguments.of("_FF16", "_FF16"),
+                Arguments.of("FF_16", "FF_16"),
                 Arguments.of(" ", "\" \""),
                 Arguments.of(" F", "\" F\""),
                 Arguments.of(" ,", "\" ,\""),

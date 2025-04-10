@@ -37,16 +37,17 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.replicator.ReplicaService;
+import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.distributed.schema.ConstantSchemaVersions;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
@@ -102,7 +103,10 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
     private static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
-    private static StorageUpdateConfiguration storageUpdateConfiguration;
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
+
+    @InjectConfiguration
+    private static ReplicationConfiguration replicationConfiguration;
 
     @BeforeAll
     static void beforeAll() {
@@ -134,7 +138,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         when(clusterService.topologyService().localMember().address()).thenReturn(DummyInternalTableImpl.ADDR);
 
         intTable = new DummyInternalTableImpl(mock(ReplicaService.class, RETURNS_DEEP_STUBS), schema, txConfiguration,
-                storageUpdateConfiguration);
+                systemDistributedConfiguration,
+                replicationConfiguration);
 
         SchemaRegistry schemaRegistry = new DummySchemaManagerImpl(schema);
 

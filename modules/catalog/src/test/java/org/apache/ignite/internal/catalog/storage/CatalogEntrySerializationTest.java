@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.storage;
 
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -86,6 +87,9 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
     private static final Random RND = new Random(SEED);
 
+    /** This field should be ignored for version 1. */
+    private static final String UPDATE_TIMESTAMP_FIELD_NAME_REGEX = ".*updateTimestamp";
+
     private UpdateLogMarshallerImpl marshaller;
 
     @BeforeEach
@@ -106,67 +110,67 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         switch (type) {
             case ALTER_COLUMN:
-                checkAlterColumnEntry();
+                checkAlterColumnEntry(version);
                 break;
 
             case ALTER_ZONE:
-                checkAlterZoneEntry();
+                checkAlterZoneEntry(version);
                 break;
 
             case NEW_ZONE:
-                checkNewZoneEntry();
+                checkNewZoneEntry(version);
                 break;
 
             case DROP_COLUMN:
-                checkSerialization(new DropColumnsEntry(1, Set.of("C1", "C2")));
+                checkSerialization(version, new DropColumnsEntry(1, Set.of("C1", "C2")));
                 break;
 
             case DROP_INDEX:
-                checkSerialization(new DropIndexEntry(231), new DropIndexEntry(231));
+                checkSerialization(version, new DropIndexEntry(231), new DropIndexEntry(231));
                 break;
 
             case DROP_TABLE:
-                checkSerialization(new DropTableEntry(23), new DropTableEntry(3));
+                checkSerialization(version, new DropTableEntry(23), new DropTableEntry(3));
                 break;
 
             case DROP_ZONE:
-                checkSerialization(new DropZoneEntry(123));
+                checkSerialization(version, new DropZoneEntry(123));
                 break;
 
             case MAKE_INDEX_AVAILABLE:
-                checkSerialization(new MakeIndexAvailableEntry(321));
+                checkSerialization(version, new MakeIndexAvailableEntry(321));
                 break;
 
             case REMOVE_INDEX:
-                checkSerialization(new RemoveIndexEntry(231));
+                checkSerialization(version, new RemoveIndexEntry(231));
                 break;
 
             case START_BUILDING_INDEX:
-                checkSerialization(new StartBuildingIndexEntry(321));
+                checkSerialization(version, new StartBuildingIndexEntry(321));
                 break;
 
             case NEW_COLUMN:
-                checkNewColumnsEntry();
+                checkNewColumnsEntry(version);
                 break;
 
             case NEW_INDEX:
-                checkNewIndexEntry();
+                checkNewIndexEntry(version);
                 break;
 
             case NEW_SYS_VIEW:
-                checkNewSystemViewEntry();
+                checkNewSystemViewEntry(version);
                 break;
 
             case NEW_TABLE:
-                checkNewTableEntry();
+                checkNewTableEntry(version);
                 break;
 
             case RENAME_TABLE:
-                checkSerialization(new RenameTableEntry(1, "newName"));
+                checkSerialization(version, new RenameTableEntry(1, "newName"));
                 break;
 
             case ID_GENERATOR:
-                checkSerialization(new ObjectIdGenUpdateEntry(Integer.MAX_VALUE));
+                checkSerialization(version, new ObjectIdGenUpdateEntry(Integer.MAX_VALUE));
                 break;
 
             case SNAPSHOT:
@@ -174,19 +178,19 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 break;
 
             case RENAME_INDEX:
-                checkSerialization(new RenameIndexEntry(1, "newName"));
+                checkSerialization(version, new RenameIndexEntry(1, "newName"));
                 break;
 
             case SET_DEFAULT_ZONE:
-                checkSerialization(new SetDefaultZoneEntry(1), new SetDefaultZoneEntry(Integer.MAX_VALUE));
+                checkSerialization(version, new SetDefaultZoneEntry(1), new SetDefaultZoneEntry(Integer.MAX_VALUE));
                 break;
 
             case NEW_SCHEMA:
-                checkSerialization(new NewSchemaEntry(newSchemaDescriptor("PUBLIC")));
+                checkSerialization(version, new NewSchemaEntry(newSchemaDescriptor("PUBLIC")));
                 break;
 
             case DROP_SCHEMA:
-                checkSerialization(new DropSchemaEntry(1));
+                checkSerialization(version, new DropSchemaEntry(1));
                 break;
 
             case DESCRIPTOR_HASH_INDEX:
@@ -325,24 +329,24 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         }
     }
 
-    private void checkAlterZoneEntry() {
+    private void checkAlterZoneEntry(int version) {
         CatalogStorageProfilesDescriptor profiles =
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
         UpdateEntry entry1 = new AlterZoneEntry(newCatalogZoneDescriptor("zone1", profiles));
 
-        checkSerialization(entry1, entry1);
+        checkSerialization(version, entry1, entry1);
     }
 
-    private void checkNewZoneEntry() {
+    private void checkNewZoneEntry(int version) {
         CatalogStorageProfilesDescriptor profiles =
                 new CatalogStorageProfilesDescriptor(List.of(new CatalogStorageProfileDescriptor("default")));
 
         UpdateEntry entry1 = new NewZoneEntry(newCatalogZoneDescriptor("zone1", profiles));
         UpdateEntry entry2 = new NewZoneEntry(newCatalogZoneDescriptor("zone2", profiles));
-        checkSerialization(entry1, entry2);
+        checkSerialization(version, entry1, entry2);
     }
 
-    private void checkAlterColumnEntry() {
+    private void checkAlterColumnEntry(int version) {
         CatalogTableColumnDescriptor desc1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor desc2 =
                 newCatalogTableColumnDescriptor("c1", DefaultValue.constant(UUID.randomUUID()));
@@ -355,27 +359,27 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         UpdateEntry entry3 = new AlterColumnEntry(1, desc3);
         UpdateEntry entry4 = new AlterColumnEntry(1, desc4);
 
-        checkSerialization(entry1, entry2, entry3, entry4);
+        checkSerialization(version, entry1, entry2, entry3, entry4);
     }
 
-    private void checkNewColumnsEntry() {
+    private void checkNewColumnsEntry(int version) {
         CatalogTableColumnDescriptor columnDescriptor1 = newCatalogTableColumnDescriptor("c1", DefaultValue.constant(null));
         CatalogTableColumnDescriptor columnDescriptor2 = newCatalogTableColumnDescriptor("c2", DefaultValue.functionCall("func"));
 
-        checkSerialization(new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2)));
+        checkSerialization(version, new NewColumnsEntry(11, List.of(columnDescriptor1, columnDescriptor2)));
     }
 
-    private void checkNewIndexEntry() {
+    private void checkNewIndexEntry(int version) {
         CatalogSortedIndexDescriptor sortedIndexDescriptor = newSortedIndexDescriptor("idx1");
         CatalogHashIndexDescriptor hashIndexDescriptor = newHashIndexDescriptor("idx2");
 
         NewIndexEntry sortedIdxEntry = new NewIndexEntry(sortedIndexDescriptor);
         NewIndexEntry hashIdxEntry = new NewIndexEntry(hashIndexDescriptor);
 
-        checkSerialization(sortedIdxEntry, hashIdxEntry);
+        checkSerialization(version, sortedIdxEntry, hashIdxEntry);
     }
 
-    private void checkNewTableEntry() {
+    private void checkNewTableEntry(int version) {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c0", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col3 = newCatalogTableColumnDescriptor("c3", null);
@@ -388,10 +392,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         NewTableEntry entry3 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c2")));
         NewTableEntry entry4 = new NewTableEntry(newTableDescriptor("Table1", columns, List.of("c1", "c2"), List.of("c1")));
 
-        checkSerialization(entry1, entry2, entry3, entry4);
+        checkSerialization(version, entry1, entry2, entry3, entry4);
     }
 
-    private void checkNewSystemViewEntry() {
+    private void checkNewSystemViewEntry(int version) {
         CatalogTableColumnDescriptor col1 = newCatalogTableColumnDescriptor("c1", null);
         CatalogTableColumnDescriptor col2 = newCatalogTableColumnDescriptor("c2", null);
 
@@ -403,7 +407,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
         NewSystemViewEntry nodeEntry = new NewSystemViewEntry(nodeDesc);
         NewSystemViewEntry clusterEntry = new NewSystemViewEntry(clusterDesc);
 
-        checkSerialization(nodeEntry, clusterEntry);
+        checkSerialization(version, nodeEntry, clusterEntry);
     }
 
     private void checkSnapshotEntry() {
@@ -434,7 +438,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         SnapshotEntry entry = new SnapshotEntry(new Catalog(2, 0L, 1,
                 List.of(zone1),
-                List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, 1)), zone1.id()));
+                List.of(new CatalogSchemaDescriptor(1, "desc", tables, indexes, views, hybridTimestamp(1))), zone1.id()));
 
         SnapshotEntry deserialized = (SnapshotEntry) marshaller.unmarshall(marshaller.marshall(entry));
 
@@ -445,9 +449,10 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
      * Creates a {@link VersionedUpdate} from the provided entries and validates that it is serialized and deserialized
      * correctly using the {@link UpdateLogMarshaller}.
      *
+     * @param version Version.
      * @param entry Update entry to serialize.
      */
-    private void checkSerialization(UpdateEntry ... entry) {
+    private void checkSerialization(int version, UpdateEntry ... entry) {
         VersionedUpdate expected = newVersionedUpdate(entry);
 
         byte[] bytes = marshaller.marshall(expected);
@@ -465,7 +470,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
             UpdateEntry expectedEntry = expected.entries().get(i);
             UpdateEntry actualEntry = deserialized.entries().get(i);
 
-            BDDAssertions.assertThat(actualEntry).usingRecursiveComparison().isEqualTo(expectedEntry);
+            assertEqualsRecursive(version, expectedEntry, actualEntry);
         }
     }
 
@@ -491,10 +496,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 try (CatalogObjectDataInput input = new CatalogObjectDataInput(serializers, bytes)) {
                     MarshallableEntry deserialized = serializers.get(v, entry.typeId()).readFrom(input);
 
-                    BDDAssertions.assertThat(entry)
-                            .withFailMessage("version=" + v)
-                            .usingRecursiveComparison()
-                            .isEqualTo(deserialized);
+                    assertEqualsRecursive(v, entry, deserialized);
                 }
             }
         } catch (IOException e) {
@@ -591,6 +593,18 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 new CatalogSystemViewDescriptor(1, 2, "view2", columns, SystemViewType.CLUSTER)
         };
 
-        return new CatalogSchemaDescriptor(1, name, tables, indexes, views, 3);
+        return new CatalogSchemaDescriptor(1, name, tables, indexes, views, hybridTimestamp(3));
+    }
+
+    private static <T> void assertEqualsRecursive(int version, T expected, T actual) {
+        var assertion = BDDAssertions.assertThat(actual)
+                .usingRecursiveComparison()
+                .withFailMessage("version=" + version);
+
+        if (version == 1) {
+            assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_NAME_REGEX);
+        }
+
+        assertion.isEqualTo(expected);
     }
 }

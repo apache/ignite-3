@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -39,7 +40,6 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.schema.configuration.StorageUpdateConfiguration;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -93,17 +93,17 @@ public class ItLockTableTest extends IgniteAbstractTest {
     @InjectConfiguration("mock: { fsync: false }")
     protected static RaftConfiguration raftConfiguration;
 
-    @InjectConfiguration("mock: { deadlockPreventionPolicy: { waitTimeout: -1, txIdComparator: NONE } }")
+    @InjectConfiguration()
     protected static TransactionConfiguration txConfiguration;
 
     @InjectConfiguration
     protected static ReplicationConfiguration replicationConfiguration;
 
-    @InjectConfiguration
-    protected static StorageUpdateConfiguration storageUpdateConfiguration;
-
     @InjectConfiguration("mock.properties: { lockMapSize: \"" + CACHE_SIZE + "\" }")
     private static SystemLocalConfiguration systemLocalConfiguration;
+
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private static SystemDistributedConfiguration systemDistributedConfiguration;
 
     @InjectExecutorService
     protected ScheduledExecutorService commonExecutor;
@@ -127,7 +127,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
-                storageUpdateConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 1,
                 1,
@@ -149,6 +149,7 @@ public class ItLockTableTest extends IgniteAbstractTest {
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
+                        systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(systemLocalConfiguration),

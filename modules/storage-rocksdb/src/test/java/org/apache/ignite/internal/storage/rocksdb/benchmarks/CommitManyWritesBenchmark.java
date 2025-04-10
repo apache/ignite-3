@@ -39,6 +39,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.configuration.NamedConfigurationTree;
 import org.apache.ignite.configuration.NamedListView;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -100,7 +101,8 @@ public class CommitManyWritesBenchmark {
                 storageConfiguration(),
                 workDir,
                 () -> {},
-                scheduledExecutor
+                scheduledExecutor,
+                mock(FailureProcessor.class)
         );
 
         storageEngine.start();
@@ -192,8 +194,8 @@ public class CommitManyWritesBenchmark {
         RocksDbProfileView rocksDbProfileView = mock(RocksDbProfileView.class);
 
         when(rocksDbProfileView.name()).thenReturn(STORAGE_PROFILE_NAME);
-        when(rocksDbProfileView.size()).thenReturn(16777216L);
-        when(rocksDbProfileView.writeBufferSize()).thenReturn(16777216L);
+        when(rocksDbProfileView.sizeBytes()).thenReturn(16777216L);
+        when(rocksDbProfileView.writeBufferSizeBytes()).thenReturn(16777216L);
 
         when(config.profiles()).thenReturn(profilesTree);
         when(profilesTree.value()).thenReturn(profilesView);

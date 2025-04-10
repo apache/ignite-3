@@ -22,6 +22,7 @@ import static java.util.Collections.emptySet;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 import static org.apache.ignite.internal.catalog.descriptors.ConsistencyMode.HIGH_AVAILABILITY;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
@@ -40,6 +41,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLogicalTopologyVersionKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesNodesAttributes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
@@ -68,7 +70,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.events.AlterZoneEventParameters;
-import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.catalog.events.DropZoneEventParameters;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
@@ -84,6 +85,10 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -126,6 +131,8 @@ public class DistributionZoneManager extends
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
 
+    private final FailureProcessor failureProcessor;
+
     private final DataNodesManager dataNodesManager;
 
     /** Listener for a topology events. */
@@ -140,7 +147,7 @@ public class DistributionZoneManager extends
     /**
      * Local mapping of {@code nodeId} -> node's attributes, where {@code nodeId} is a node id, that changes between restarts.
      * This map is updated every time we receive a topology event in a {@code topologyWatchListener}.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-19491 properly clean up this map
+     * TODO: https://issues.apache.org/jira/browse/IGNITE-24608 properly clean up this map
      *
      * @see <a href="https://github.com/apache/ignite-3/blob/main/modules/distribution-zones/tech-notes/filters.md">Filter documentation</a>
      */
@@ -159,16 +166,9 @@ public class DistributionZoneManager extends
     private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
     /**
-     * Creates a new distribution zone manager.
-     *
-     * @param nodeName Node name.
-     * @param registry Registry for versioned values.
-     * @param metaStorageManager Meta Storage manager.
-     * @param logicalTopologyService Logical topology service.
-     * @param catalogManager Catalog manager.
-     * @param systemDistributedConfiguration System distributed configuration.
-     * @param clockService Clock service.
+     * Constructor.
      */
+    @TestOnly
     public DistributionZoneManager(
             String nodeName,
             RevisionListenerRegistry registry,
@@ -178,8 +178,43 @@ public class DistributionZoneManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService
     ) {
+        this(
+                nodeName,
+                registry,
+                metaStorageManager,
+                logicalTopologyService,
+                new FailureManager(new NoOpFailureHandler()),
+                catalogManager,
+                systemDistributedConfiguration,
+                clockService
+        );
+    }
+
+    /**
+     * Creates a new distribution zone manager.
+     *
+     * @param nodeName Node name.
+     * @param registry Registry for versioned values.
+     * @param metaStorageManager Meta Storage manager.
+     * @param logicalTopologyService Logical topology service.
+     * @param failureProcessor Failure processor.
+     * @param catalogManager Catalog manager.
+     * @param systemDistributedConfiguration System distributed configuration.
+     * @param clockService Clock service.
+     */
+    public DistributionZoneManager(
+            String nodeName,
+            RevisionListenerRegistry registry,
+            MetaStorageManager metaStorageManager,
+            LogicalTopologyService logicalTopologyService,
+            FailureProcessor failureProcessor,
+            CatalogManager catalogManager,
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            ClockService clockService
+    ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
+        this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
@@ -208,6 +243,7 @@ public class DistributionZoneManager extends
                 metaStorageManager,
                 catalogManager,
                 clockService,
+                failureProcessor,
                 this::fireTopologyReduceLocalEvent,
                 partitionDistributionResetTimeoutConfiguration::currentValue
         );
@@ -268,28 +304,22 @@ public class DistributionZoneManager extends
     }
 
     /**
-     * Gets data nodes of the zone using causality token and catalog version. {@code causalityToken} must be agreed
-     * with the {@code catalogVersion}, meaning that for the provided {@code causalityToken} actual {@code catalogVersion} must be provided.
-     * For example, if you are in the meta storage watch thread and {@code causalityToken} is the revision of the watch event, it is
+     * Gets data nodes of the zone using causality token and catalog version. {@code timestamp} must be agreed
+     * with the {@code catalogVersion}, meaning that for the provided {@code timestamp} actual {@code catalogVersion} must be provided.
+     * For example, if you are in the meta storage watch thread and {@code timestamp} is the timestamp of the watch event, it is
      * safe to take {@link CatalogManager#latestCatalogVersion()} as a {@code catalogVersion},
      * because {@link CatalogManager#latestCatalogVersion()} won't be updated in a watch thread.
-     * The same is applied for {@link CatalogEventParameters}, it is safe to take {@link CatalogEventParameters#causalityToken()}
-     * as a {@code causalityToken} and {@link CatalogEventParameters#catalogVersion()} as a {@code catalogVersion}.
      *
      * <p>Return data nodes or throw the exception:
-     * {@link IllegalArgumentException} if causalityToken or zoneId is not valid.
+     * {@link IllegalArgumentException} if zoneId is not valid.
      * {@link DistributionZoneNotFoundException} if the zone with the provided zoneId does not exist.
      *
-     * @param causalityToken Causality token.
+     * @param timestamp Timestamp.
      * @param catalogVersion Catalog version.
      * @param zoneId Zone id.
      * @return The future with data nodes for the zoneId.
      */
-    public CompletableFuture<Set<String>> dataNodes(long causalityToken, int catalogVersion, int zoneId) {
-        if (causalityToken < 1) {
-            throw new IllegalArgumentException("causalityToken must be greater then zero [causalityToken=" + causalityToken + '"');
-        }
-
+    public CompletableFuture<Set<String>> dataNodes(HybridTimestamp timestamp, int catalogVersion, int zoneId) {
         if (catalogVersion < 0) {
             throw new IllegalArgumentException("catalogVersion must be greater or equal to zero [catalogVersion=" + catalogVersion + '"');
         }
@@ -298,7 +328,9 @@ public class DistributionZoneManager extends
             throw new IllegalArgumentException("zoneId cannot be a negative number [zoneId=" + zoneId + '"');
         }
 
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(causalityToken);
+        if (timestamp.equals(INITIAL_TIMESTAMP)) {
+            timestamp = hybridTimestamp(catalogManager.catalog(catalogVersion).time());
+        }
 
         return dataNodesManager.dataNodes(zoneId, timestamp, catalogVersion);
     }
@@ -402,12 +434,12 @@ public class DistributionZoneManager extends
 
             metaStorageManager.invoke(iff).whenComplete((res, e) -> {
                 if (e != null) {
-                    LOG.error(
-                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
-                            e,
+                    String errorMessage = String.format(
+                            "Failed to update distribution zones' logical topology and version keys [topology = %s, version = %s]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
+                    failureProcessor.process(new FailureContext(e, errorMessage));
                 } else if (res.getAsBoolean()) {
                     LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
@@ -415,8 +447,9 @@ public class DistributionZoneManager extends
                             newTopology.version()
                     );
                 } else {
-                    LOG.info(
-                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
+                    LOG.debug(
+                            "Failed to update distribution zones' logical topology and version keys due to concurrent update ["
+                                    + "topology = {}, version = {}]",
                             Arrays.toString(logicalTopology.toArray()),
                             newTopology.version()
                     );
@@ -598,7 +631,11 @@ public class DistributionZoneManager extends
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
                         if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
-                            LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                            String errorMessage = String.format(
+                                    "Failed to update recoverable state for distribution zone manager [revision = %s]",
+                                    revision
+                            );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);

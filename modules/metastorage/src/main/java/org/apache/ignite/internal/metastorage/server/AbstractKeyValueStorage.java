@@ -35,7 +35,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
@@ -56,7 +56,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     protected final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    protected final FailureManager failureManager;
+    protected final FailureProcessor failureProcessor;
 
     protected final WatchProcessor watchProcessor;
 
@@ -70,10 +70,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
-     *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    protected long rev;
+    protected volatile long rev;
 
     /**
      * Last compaction revision that was set or restored from a snapshot.
@@ -118,18 +116,18 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param failureManager Failure processor that is used to handle critical errors.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
     protected AbstractKeyValueStorage(
             String nodeName,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
 
-        watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
+        watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
 
         watchProcessor.registerCompactionRevisionUpdateListener(this::setCompactionRevision);
     }

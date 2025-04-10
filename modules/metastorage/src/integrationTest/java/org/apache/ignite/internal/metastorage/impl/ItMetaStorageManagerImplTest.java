@@ -60,6 +60,7 @@ import org.apache.ignite.internal.cluster.management.network.messages.CmgMessage
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.disaster.system.repair.MetastorageRepair;
@@ -74,7 +75,6 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
-import org.apache.ignite.internal.metastorage.configuration.MetaStorageConfiguration;
 import org.apache.ignite.internal.metastorage.dsl.Conditions;
 import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
@@ -143,7 +143,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
     @BeforeEach
     void setUp(
             TestInfo testInfo,
-            @InjectConfiguration("mock.idleSyncTimeInterval = 100") MetaStorageConfiguration metaStorageConfiguration
+            @InjectConfiguration("mock.idleSafeTimeSyncIntervalMillis = 100") SystemDistributedConfiguration systemConfiguration
     ) {
         var addr = new NetworkAddress("localhost", 10_000);
 
@@ -203,7 +203,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 clock,
                 topologyAwareRaftGroupServiceFactory,
                 new NoOpMetricManager(),
-                metaStorageConfiguration,
+                systemConfiguration,
                 msRaftConfigurer,
                 readOperationForCompactionTracker
         );

@@ -158,7 +158,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         val.ztime = localTime;
         val.ztimestamp = instant;
         val.zstring = "119";
-        val.zbytes = new byte[]{120};
+        val.zbytes = new byte[]{120, 121};
         val.zdecimal = BigDecimal.valueOf(122);
         val.zuuid = uuid;
 
@@ -179,7 +179,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
         assertEquals(localTime.truncatedTo(ChronoUnit.SECONDS), res.timeValue("ztime"));
         assertEquals(instant.with(NANO_OF_SECOND, truncateNanosToMicros(instant.getNano())), res.timestampValue("ztimestamp"));
         assertEquals("119", res.stringValue("zstring"));
-        assertEquals(120, ((byte[]) res.value("zbytes"))[0]);
+        assertArrayEquals(new byte[]{120, 121}, res.bytesValue("zbytes"));
         assertDecimalEqual(BigDecimal.valueOf(122), res.decimalValue("zdecimal"));
         assertEquals(uuid, res.uuidValue("zuuid"));
     }
@@ -321,7 +321,7 @@ public class ClientRecordViewTest extends AbstractClientTableTest {
                 new PersonPojo(secondKey, " "),
                 new PersonPojo(zeroKey, " ")
         )));
-    }    
+    }
 
     @Test
     public void testUpsertAll() {

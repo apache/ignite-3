@@ -709,7 +709,7 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Returns distributed zone ID form catalog, {@code null} if zone is absent.
+     * Returns distributed zone ID from catalog, {@code null} if zone is absent.
      *
      * @param catalogService Catalog service.
      * @param zoneName Distributed zone name.
@@ -731,7 +731,7 @@ public class DistributionZonesTestUtil {
     }
 
     /**
-     * Returns distributed zone ID form catalog.
+     * Returns distributed zone ID from catalog.
      *
      * @param catalogService Catalog service.
      * @param zoneName Distributed zone name.

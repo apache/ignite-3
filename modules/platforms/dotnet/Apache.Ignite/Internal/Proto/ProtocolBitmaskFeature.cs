@@ -15,21 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.configuration;
+namespace Apache.Ignite.Internal.Proto;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
+using System;
 
-/**
- * Configuration schema for deadlock prevention policy.
- */
-@Config
-public class DeadlockPreventionPolicyConfigurationSchema {
-    @OneOf({"NATURAL", "REVERSED", "NONE"})
-    @Value(hasDefault = true)
-    public String txIdComparator = "NATURAL";
+/// <summary>
+/// Protocol bitmask features.
+/// </summary>
+[Flags]
+internal enum ProtocolBitmaskFeature
+{
+    /// <summary>
+    /// User attributes in handshake.
+    /// </summary>
+    UserAttributes = 1,
 
-    @Value(hasDefault = true)
-    public long waitTimeout = 0;
+    /// <summary>
+    /// Qualified name table requests.
+    /// </summary>
+    TableReqsUseQualifiedName = 2,
+
+    /// <summary>
+    /// Transaction direct mapping.
+    /// </summary>
+    TxDirectMapping = 4
 }

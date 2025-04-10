@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.util.ByteUtils.intToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Objects;
@@ -40,11 +41,11 @@ import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogMarshallerException;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
@@ -68,13 +69,15 @@ import org.jetbrains.annotations.TestOnly;
  * Metastore-based implementation of UpdateLog.
  */
 public class UpdateLogImpl implements UpdateLog {
-    private static final IgniteLogger LOG = Loggers.forClass(UpdateLogImpl.class);
+    private static final byte[] MAGIC_BYTES = "IGNITE".getBytes(StandardCharsets.UTF_8);
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private final AtomicBoolean stopGuard = new AtomicBoolean();
 
     private final MetaStorageManager metastore;
+
+    private final FailureProcessor failureProcessor;
 
     private final UpdateLogMarshaller marshaller;
 
@@ -86,15 +89,24 @@ public class UpdateLogImpl implements UpdateLog {
      * Creates the object.
      *
      * @param metastore A metastore is used to store and distribute updates across the cluster.
+     * @param failureProcessor Failure processor.
      */
-    public UpdateLogImpl(MetaStorageManager metastore) {
+    public UpdateLogImpl(MetaStorageManager metastore, FailureProcessor failureProcessor) {
         this.metastore = metastore;
+        this.failureProcessor = failureProcessor;
         this.marshaller = new UpdateLogMarshallerImpl(2);
     }
 
+    /**
+     * Creates the object.
+     *
+     * @param metastore A metastore is used to store and distribute updates across the cluster.
+     * @param failureProcessor Failure processor.
+     */
     @TestOnly
-    public UpdateLogImpl(MetaStorageManager metastore, UpdateLogMarshaller marshaller) {
+    public UpdateLogImpl(MetaStorageManager metastore, FailureProcessor failureProcessor, UpdateLogMarshaller marshaller) {
         this.metastore = metastore;
+        this.failureProcessor = failureProcessor;
         this.marshaller = marshaller;
     }
 
@@ -120,11 +132,24 @@ public class UpdateLogImpl implements UpdateLog {
             this.listener = listener;
 
             metastore.registerPrefixWatch(CatalogKey.updatePrefix(), listener);
+
+            Entry existingKey = metastore.getLocally(CatalogKey.catalogProduct());
+            if (existingKey.empty()) {
+                Update putProductKey = ops(
+                        put(CatalogKey.catalogProduct(), MAGIC_BYTES)
+                ).yield(false);
+
+                Iif writeProductKeyIfNotExist = iif(
+                        notExists(CatalogKey.catalogProduct()),
+                        putProductKey, ops().yield(false)
+                );
+                return metastore.invoke(writeProductKeyIfNotExist).thenApply(ignore -> null);
+            } else {
+                return nullCompletedFuture();
+            }
         } finally {
             busyLock.leaveBusy();
         }
-
-        return nullCompletedFuture();
     }
 
     @Override
@@ -177,9 +202,8 @@ public class UpdateLogImpl implements UpdateLog {
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
         } catch (CatalogMarshallerException ex) {
-            LOG.warn("Failed to append update log.", ex);
+            failureProcessor.process(new FailureContext(ex, "Failed to append update log."));
 
-            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
             return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
@@ -228,9 +252,8 @@ public class UpdateLogImpl implements UpdateLog {
 
             return metastore.invoke(iif).thenApply(StatementResult::getAsBoolean);
         } catch (CatalogMarshallerException ex) {
-            LOG.warn("Failed to append update log.", ex);
+            failureProcessor.process(new FailureContext(ex, "Failed to append update log."));
 
-            // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
             return failedFuture(ex);
         } finally {
             busyLock.leaveBusy();
@@ -287,9 +310,13 @@ public class UpdateLogImpl implements UpdateLog {
         static ByteArray snapshotVersion() {
             return ByteArray.fromString("catalog.snapshot.version");
         }
+
+        static ByteArray catalogProduct() {
+            return ByteArray.fromString("catalog.product");
+        }
     }
 
-    private static class UpdateListener implements WatchListener {
+    private class UpdateListener implements WatchListener {
         private final OnUpdateHandler onUpdateHandler;
         private final UpdateLogMarshaller marshaller;
 
@@ -318,9 +345,8 @@ public class UpdateLogImpl implements UpdateLog {
 
                     handleFutures.add(onUpdateHandler.handle(update, event.timestamp(), event.revision()));
                 } catch (CatalogMarshallerException ex) {
-                    LOG.warn("Failed to deserialize update.", ex);
+                    failureProcessor.process(new FailureContext(ex, "Failed to deserialize update."));
 
-                    // TODO: IGNITE-14611 Pass exception to an error handler because catalog got into inconsistent state.
                     return failedFuture(ex);
                 }
             }

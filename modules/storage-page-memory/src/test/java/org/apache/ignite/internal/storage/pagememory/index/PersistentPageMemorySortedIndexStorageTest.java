@@ -60,6 +60,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 "test",
                 mock(MetricManager.class),
                 storageConfig,
+                null,
                 ioRegistry,
                 workDir,
                 null,
@@ -75,7 +76,7 @@ class PersistentPageMemorySortedIndexStorageTest extends AbstractPageMemorySorte
                 mock(StorageIndexDescriptorSupplier.class)
         );
 
-        initialize(tableStorage, engine.configuration().pageSize().value());
+        initialize(tableStorage, engine.configuration().pageSizeBytes().value());
     }
 
     @AfterEach

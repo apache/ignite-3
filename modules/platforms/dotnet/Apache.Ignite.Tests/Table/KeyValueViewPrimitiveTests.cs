@@ -385,7 +385,7 @@ public class KeyValueViewPrimitiveTests : IgniteTestsBase
     [Test]
     public void TestToString()
     {
-        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = TBL1, Id =", KvView.ToString());
+        StringAssert.StartsWith("KeyValueView`2[Int64, String] { Table = Table { Name = PUBLIC.TBL1, Id =", KvView.ToString());
     }
 
     private static async Task TestKey<TK, TV>(TK key, TV val, IKeyValueView<TK, TV> kvView)

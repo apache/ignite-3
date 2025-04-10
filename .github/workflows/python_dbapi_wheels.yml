@@ -12,8 +12,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
 
       - name: Install setuptools
         run: python -m pip install setuptools
@@ -42,8 +40,6 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-python@v5
-        with:
-          python-version: '3.13'
 
       - name: Install cibuildwheel
         run: python -m pip install cibuildwheel==2.23.1
@@ -57,14 +53,18 @@ jobs:
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS: arm64
           MACOSX_DEPLOYMENT_TARGET: 14.0
+          CIBW_BUILD_VERBOSITY: 1
 
       - name: Build wheels macOS 13
         if: matrix.os == 'macos-13'
         run: python -m cibuildwheel --output-dir modules/platforms/python/wheels modules/platforms/python
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
+          CIBW_ARCHS: x86_64
           MACOSX_DEPLOYMENT_TARGET: 13.0
+          CIBW_BUILD_VERBOSITY: 1
 
       - name: Build wheels Linux
         if: runner.os == 'Linux'
@@ -73,6 +73,7 @@ jobs:
           CIBW_BUILD: cp39-manylinux* cp31{0,1,2,3}-manylinux*
           CIBW_ARCHS: auto64
           CIBW_BEFORE_ALL: yum -y install unixODBC-devel openssl-devel
+          CIBW_BUILD_VERBOSITY: 1
 
       - name: Install Winget
         if: runner.os == 'Windows'
@@ -88,6 +89,7 @@ jobs:
         env:
           CIBW_BUILD: cp39-* cp310-* cp311-* cp312-* cp313-*
           CIBW_ARCHS: AMD64
+          CIBW_BUILD_VERBOSITY: 1
 
       - uses: actions/upload-artifact@v4
         with:
