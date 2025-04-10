@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.recovery.partitions.reset;
 
+/** Test class for {@link ResetPartitionsCommand}. */
 public class ItResetPartitionsCommandTest extends ItResetPartitionsTest {
     @Override
     protected Class<?> getCommandClass() {
