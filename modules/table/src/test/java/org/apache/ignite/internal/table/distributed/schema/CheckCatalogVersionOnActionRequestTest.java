@@ -19,11 +19,13 @@ package org.apache.ignite.internal.table.distributed.schema;
 
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
 import static org.apache.ignite.internal.raft.util.OptimizedMarshaller.NO_POOL;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.lenient;
@@ -31,6 +33,7 @@ import static org.mockito.Mockito.when;
 
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -121,7 +124,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     @Test
     void delegatesWhenHavingEnoughMetadata() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")
@@ -145,7 +148,7 @@ class CheckCatalogVersionOnActionRequestTest extends BaseIgniteAbstractTest {
 
     @Test
     void returnsErrorCodeBusyWhenNotHavingEnoughMetadata() {
-        when(catalogService.latestCatalogVersion()).thenReturn(5);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(new CompletableFuture<>());
 
         ActionRequest request = raftMessagesFactory.writeActionRequest()
                 .groupId("test")

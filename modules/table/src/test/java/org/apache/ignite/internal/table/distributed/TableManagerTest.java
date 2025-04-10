@@ -334,6 +334,9 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(100L));
 
         mockMetastore();
+
+        when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt()))
+                .thenReturn(completedFuture(1L));
     }
 
     @AfterEach
