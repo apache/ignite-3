@@ -127,7 +127,7 @@ import org.jetbrains.annotations.TestOnly;
  * Manager, responsible for "disaster recovery" operations.
  * Internally it triggers meta-storage updates, in order to acquire unique causality token.
  * As a reaction to these updates, manager performs actual recovery operations,
- * such as {@link #resetPartitions(String, String, String, Set, boolean, long)}.
+ * such as {@link #resetTablePartitions(String, String, String, Set, boolean, long)}.
  * More details are in the <a href="https://issues.apache.org/jira/browse/IGNITE-21140">epic</a>.
  */
 public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvider {
@@ -327,10 +327,26 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
+    public CompletableFuture<Void> resetTablePartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
         int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
         return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1);
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @return Future that completes when partitions are reset.
+     */
+    public CompletableFuture<Void> resetPartitions(String zoneName, Set<Integer> partitionIds) {
+        int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
+
+        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1);
     }
 
     /**
@@ -347,7 +363,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
-    public CompletableFuture<Void> resetPartitions(
+    public CompletableFuture<Void> resetTablePartitions(
             String zoneName,
             String schemaName,
             String tableName,
@@ -358,6 +374,29 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
         return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision);
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
+     * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
+     * @return Future that completes when partitions are reset.
+     */
+    private CompletableFuture<Void> resetPartitions(
+            String zoneName,
+            Set<Integer> partitionIds,
+            boolean manualUpdate,
+            long triggerRevision
+    ) {
+        int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
+
+        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision);
     }
 
     /**
