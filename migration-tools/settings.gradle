@@ -1,0 +1,120 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+rootProject.name = 'Migration Tools'
+include(":ignite2-repack")
+include(":ignite3-repack")
+include(":ignite3-slim-repack")
+include(":migration-tools-commons-tests")
+include(":migration-tools-commons")
+include(":migration-tools-config-converter")
+include(":migration-tools-persistence")
+include(":migration-tools-cli")
+include(":packaging-cli")
+// End 2 End test stuff
+include(":migration-tools-e2e-core")
+include(":migration-tools-e2e-implementations")
+include(":migration-tools-e2e-ai2-runner")
+include(":migration-tools-e2e-ai3-tests")
+
+project(":ignite2-repack").projectDir = file('modules/ignite2-repack')
+project(":ignite3-repack").projectDir = file('modules/ignite3-repack')
+project(":ignite3-slim-repack").projectDir = file('modules/ignite3-slim-repack')
+project(":migration-tools-commons-tests").projectDir = file('modules/migration-tools-commons-tests')
+project(":migration-tools-commons").projectDir = file('modules/migration-tools-commons')
+project(":migration-tools-config-converter").projectDir = file('modules/migration-tools-config-converter')
+project(":migration-tools-persistence").projectDir = file('modules/migration-tools-persistence')
+project(":migration-tools-cli").projectDir = file('modules/migration-tools-cli')
+project(":packaging-cli").projectDir = file('packaging/cli')
+project(":migration-tools-e2e-core").projectDir = file('tools/e2e-tests-framework/framework-core')
+project(":migration-tools-e2e-implementations").projectDir = file('tools/e2e-tests-framework/implementations')
+project(":migration-tools-e2e-ai2-runner").projectDir = file('tools/e2e-tests-framework/ai2-runner')
+project(":migration-tools-e2e-ai3-tests").projectDir = file('modules/e2e-ai3-tests')
+
+ext.isCiServer = System.getenv().containsKey("IGNITE_CI")
+
+buildCache {
+    local {
+        enabled = !isCiServer
+        push = !isCiServer
+    }
+    remote(HttpBuildCache) {
+        enabled = isCiServer
+        push = isCiServer
+        url = System.getenv()["GRADLE_BUILD_CACHE_URI"] + "/cache/"
+        allowInsecureProtocol = true
+        credentials {
+            username = System.getenv()["GRADLE_BUILD_CACHE_USERNAME"]
+            password = System.getenv()["GRADLE_BUILD_CACHE_PASSWORD"]
+        }
+    }
+}
+
+def ignite2Version = properties["ignite2.version"].toString()
+def ignite3Version = properties["ignite3.version"].toString()
+def ignite2Vendor = properties["ignite2.vendor"].toString()
+def ignite3Vendor = properties["ignite3.vendor"].toString()
+
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            version('ignite2', ignite2Version)
+            version('ignite3', ignite3Version)
+
+            library("ignite2-core", ignite2Vendor, "ignite-core").versionRef('ignite2')
+            library("ignite2-spring", ignite2Vendor, "ignite-spring").versionRef('ignite2')
+            library("ignite2-calcite", "org.apache.ignite", "ignite-calcite").version("2.15.0")
+
+            library("ignite3-client", ignite3Vendor, "ignite-client").versionRef('ignite3')
+            library("ignite3-cli", ignite3Vendor, "ignite-cli").versionRef('ignite3')
+            library("ignite3-api", ignite3Vendor, "ignite-api").versionRef('ignite3')
+            library("ignite3-core", ignite3Vendor, "ignite-core").versionRef('ignite3')
+            library("ignite3-jdbc", ignite3Vendor, "ignite-jdbc").versionRef('ignite3')
+            library("ignite3-configuration", ignite3Vendor, "ignite-configuration").versionRef('ignite3')
+            library("ignite3-configuration-api", ignite3Vendor, "ignite-configuration-api").versionRef('ignite3')
+            library("ignite3-page-memory", ignite3Vendor, "ignite-page-memory").versionRef('ignite3')
+            library("ignite3-client-handler", ignite3Vendor, "ignite-client-handler").versionRef('ignite3')
+            library("ignite3-runner", ignite3Vendor, "ignite-runner").versionRef('ignite3')
+            library("ignite3-catalog", ignite3Vendor, "ignite-catalog").versionRef('ignite3')
+            library("ignite3-catalog-dsl", ignite3Vendor, "ignite-catalog-dsl").versionRef('ignite3')
+            library("ignite3-network", ignite3Vendor, "ignite-network").versionRef('ignite3')
+            library("ignite3-placement-driver-api", ignite3Vendor, "ignite-placement-driver-api").versionRef('ignite3')
+            library("ignite3-schema", ignite3Vendor, "ignite-schema").versionRef('ignite3')
+            library("ignite3-security", ignite3Vendor, "ignite-security").versionRef('ignite3')
+            library("ignite3-sql-engine", ignite3Vendor, "ignite-sql-engine").versionRef('ignite3')
+            library("ignite3-table", ignite3Vendor, "ignite-table").versionRef('ignite3')
+            library("ignite3-transactions", ignite3Vendor, "ignite-transactions").versionRef('ignite3')
+            library("ignite3-metastorage-api", ignite3Vendor, "ignite-metastorage-api").versionRef('ignite3')
+            library("ignite3-client-common", ignite3Vendor, "ignite-client-common").versionRef('ignite3')
+            library("ignite3-metrics", ignite3Vendor, "ignite-metrics").versionRef('ignite3')
+            library("ignite3-binary-tuple", ignite3Vendor, "ignite-binary-tuple").versionRef('ignite3')
+            library("ignite3-marshaller-common", ignite3Vendor, "ignite-marshaller-common").versionRef('ignite3')
+            library("ignite3-bytecode", ignite3Vendor, "ignite-bytecode").versionRef('ignite3')
+            library("ignite3-network-api", ignite3Vendor, "ignite-network-api").versionRef('ignite3')
+            library("ignite3-vault", ignite3Vendor, "ignite-vault").versionRef('ignite3')
+            library("ignite3-rocksdb-common", ignite3Vendor, "ignite-rocksdb-common").versionRef('ignite3')
+            library("ignite3-replicator", ignite3Vendor, "ignite-replicator").versionRef('ignite3')
+            library("ignite3-raft-api", ignite3Vendor, "ignite-raft-api").versionRef('ignite3')
+            library("ignite3-distribution-zones", ignite3Vendor, "ignite-distribution-zones").versionRef('ignite3')
+            library("ignite3-raft", ignite3Vendor, "ignite-raft").versionRef('ignite3')
+            library("ignite3-partition-distribution", ignite3Vendor, "ignite-partition-distribution").versionRef('ignite3')
+            library("ignite3-cluster-management", ignite3Vendor, "ignite-cluster-management").versionRef('ignite3')
+            library("ignite3-index", ignite3Vendor, "ignite-index").versionRef('ignite3')
+            library("ignite3-storage-api", ignite3Vendor, "ignite-storage-api").versionRef('ignite3')
+            library("ignite3-system-view", ignite3Vendor, "ignite-system-view").versionRef('ignite3')
+
+            library("ignite2-examples", "org.apache.ignite", "ignite-examples").version("2.15.0")
+        }
+        "runtimeApacheIgnite2" {
+            version('ignite2', "2.15.0")
+            library('ignite2-core', "org.apache.ignite", "ignite-core").versionRef('ignite2')
+            library('ignite2-spring', "org.apache.ignite", "ignite-spring").versionRef('ignite2')
+        }
+    }
+}

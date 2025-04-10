@@ -1,0 +1,232 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+
+//This need for resolving plugins in buildscripts
+plugins {
+    id('idea')
+    alias(libs.plugins.ideaext)
+    alias(libs.plugins.javacc) apply false
+    alias(libs.plugins.aggregateJavadoc)
+    alias(libs.plugins.spotbugs) apply false
+    alias(libs.plugins.nexusPublishing) apply true
+    alias(libs.plugins.dependencyCheck) apply true
+    id 'org.barfuin.gradle.taskinfo' version '2.2.0'
+    id "de.undercouch.download" version "5.6.0"
+}
+
+// TODO: Remove or change the files to Gridgain.
+apply from: "$rootDir/buildscripts/javadoc.gradle"
+
+repositories {
+    mavenLocal()
+    maven {
+        url = uri('https://repository.apache.org/snapshots')
+    }
+
+    maven {
+        url = uri('https://repo.maven.apache.org/maven2/')
+    }
+
+    maven {
+        url = uri('https://gridgainsystems.com/nexus/content/repositories/external/')
+        mavenContent {
+            releasesOnly()
+        }
+    }
+}
+
+ext {
+    repos = [
+            'apache-release'   : "https://repo.maven.apache.org/maven2/",
+            'apache-snapshot'  : "https://repository.apache.org/snapshots",
+            'apache-staging'   : 'https://repository.apache.org/service/local/staging/deploy/maven2',
+            'gridgain-snapshot': 'https://gridgainsystems.com/nexus/content/repositories/gridgain-snapshots/',
+            'gridgain-staging' : 'https://gridgainsystems.com/nexus/service/local/'
+    ]
+
+    addOpens = [
+            "--add-opens=java.base/java.lang=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+            "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+            "--add-opens=java.base/java.io=ALL-UNNAMED",
+            "--add-opens=java.base/java.nio=ALL-UNNAMED",
+            "--add-opens=java.base/java.math=ALL-UNNAMED",
+            "--add-opens=java.base/java.util=ALL-UNNAMED",
+            "--add-opens=java.base/java.time=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.misc=ALL-UNNAMED",
+            "--add-opens=java.base/jdk.internal.access=ALL-UNNAMED",
+            "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+            "--add-opens=java.base/sun.security.x509=ALL-UNNAMED",
+    ]
+
+    defaultJvmArgs = addOpens + [
+            "-Dio.netty.tryReflectionSetAccessible=true",
+            "-XX:+HeapDumpOnOutOfMemoryError",
+            "-ea"
+    ]
+}
+
+def compilerArgs = [
+        "--add-exports=java.base/sun.nio.ch=ALL-UNNAMED"
+]
+
+allprojects {
+    group 'org.gridgain.ignite'
+    version = "1.0-SNAPSHOT"
+
+    tasks.withType(Jar) {
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    }
+
+    tasks.withType(Test).configureEach {
+        defaultCharacterEncoding = 'UTF-8'
+
+        jvmArgs += defaultJvmArgs
+
+        if (project.hasProperty('excludeTest')) {
+            exclude project.property('excludeTest')
+        }
+
+        systemProperty "ignite3.docker.version", project.getProperty("ignite3.docker.version")
+        systemProperty "migration-tools.docker.version",
+            java.util.Optional.ofNullable(findProperty("migration-tools.docker.version")).orElse(project.version)
+
+        [
+            "tests.containers.support",
+            "e2e.testLimiter",
+            "ai2.sampleCluster.Xmx",
+            "ai2.sampleCluster.checkpointChecker.maxwaitseconds",
+            "ai2.sampleCluster.checkpointChecker.pollingseconds",
+            "ai2.sampleCluster.recreate.seeding.maxwaitseconds",
+            "ai2.sampleCluster.recreate.seeding.pollingseconds",
+            "seeddata.nCachesPerStint",
+        ].forEach {
+            def v = findProperty(it)
+            if (v != null) {
+                systemProperty it, v
+            }
+        }
+    }
+
+    tasks.withType(Sign) {
+        enabled = project.hasProperty('signing.keyId')
+                && project.hasProperty('signing.password')
+                && project.hasProperty('signing.secretKeyRingFile')
+    }
+
+    tasks.withType(Javadoc) {
+        options.tags = ["apiNote"]
+        options.addStringOption('bottom', javadocFooter())
+    }
+
+    tasks.withType(JavaCompile) {
+        options.encoding = 'UTF-8'
+        options.compilerArgs += compilerArgs
+    }
+
+    //Temporary hack to disable caching of Test tasks.
+    //https://github.com/gradle/gradle/issues/9210
+    tasks.withType(Test).configureEach {
+        outputs.upToDateWhen { false }
+    }
+}
+
+subprojects {
+    apply plugin: 'base'
+
+    repositories {
+        mavenLocal()
+        maven {
+            url = uri('https://repository.apache.org/snapshots')
+            mavenContent {
+                snapshotsOnly()
+            }
+        }
+
+        maven {
+            url = uri('https://repo.maven.apache.org/maven2/')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+
+        maven {
+            url = uri(' https://repository.apache.org/service/local/staging/deploy/maven2')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+
+        maven {
+            url = uri('https://gridgainsystems.com/nexus/content/repositories/external/')
+            mavenContent {
+                releasesOnly()
+            }
+        }
+    }
+
+    // TODO: This is probably not needed
+    sourceSets {
+        main {
+            java {
+                srcDir "${buildDir.absolutePath}/generated/sources/annotationProcessor/main"
+            }
+        }
+    }
+
+    tasks.register('printSubDependencies', DependencyReportTask)
+}
+
+nexusPublishing  {
+    repositories {
+        sonatype {
+            nexusUrl = uri(repos['gridgain-staging'])
+            snapshotRepositoryUrl = uri(repos['gridgain-snapshot'])
+            stagingProfileId = 'b4719b1e52448d'
+            username = project.properties["staging_user"]
+            password = project.properties["staging_password"]
+        }
+    }
+}
+
+// TODO: This should be updated
+javadoc {
+    exclude 'org/apache/calcite/**'
+    exclude 'org/apache/ignite/client/handler/**'
+    exclude 'org/apache/ignite/configuration/**'
+    exclude 'org/apache/ignite/error/code/annotations/**'
+    exclude 'org/apache/ignite/example/**'
+    exclude 'org/apache/ignite/plugin/extensions/communication/**'
+    exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'org/gridgain/**'
+    exclude 'com/facebook/presto/**'
+    exclude 'org/grigain/ignite/migrationtools/cli/**'
+}
+
+dependencies {
+    rootProject.subprojects { Project subproject ->
+        subproject.plugins.withId("java") {
+            javadoc(subproject)
+        }
+    }
+}
+
+idea.project.settings {
+    compiler.javac {
+        // Workaround on https://youtrack.jetbrains.com/issue/IDEA-154038.
+        javacAdditionalOptions = compilerArgs.join(' ')
+    }
+    runConfigurations {
+        defaults(org.jetbrains.gradle.ext.JUnit) {
+            vmParameters = defaultJvmArgs.join(' ')
+        }
+    }
+}

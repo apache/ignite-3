@@ -1,0 +1,26 @@
+work
+.DS_Store
+.flattened-pom.xml
+
+.classpath
+.project
+.settings
+
+.gradle
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+### IntelliJ IDEA ###
+.idea
+!.idea/codeStyles/codeStyleConfig.xml
+!.idea/codeStyles/Project.xml
+!.idea/checkstyle-idea.xml
+!.idea/inspectionProfiles/Project_Default.xml
+*.iws
+*.iml
+*.ipr
+out/
+
+/resources/sample-clusters/*
+!/resources/sample-clusters/docker-compose.yml
+!/resources/sample-clusters/example-persistent-store.xml

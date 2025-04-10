@@ -1,0 +1,75 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+apply plugin: 'java'
+apply plugin: 'signing'
+apply from: "$rootDir/buildscripts/publishing-repos.gradle"
+
+description = 'ignite3-slim-repack'
+
+dependencies {
+    runtimeClasspath libs.ignite3.api
+    runtimeClasspath libs.ignite3.core
+    runtimeClasspath libs.ignite3.configuration
+    runtimeClasspath libs.ignite3.configuration.api
+    runtimeClasspath libs.ignite3.runner
+}
+
+jar {
+    dependsOn(tasks.shadowJar)
+    enabled = false
+}
+
+shadowJar {
+    archiveClassifier.set("")
+    mergeServiceFiles()
+    append 'META-INF/transferable.messages'
+    dependencies {
+        include(dependency(project.getProperty("ignite3.vendor") + '::'))
+    }
+    exclude "ignite.properties"
+    include(
+        "*.jar",
+        "org/apache/ignite/Ignite.class",
+        "org/apache/ignite/table/IgniteTables.class",
+        "org/apache/ignite/table/Table.class",
+        "org/apache/ignite/table/Tuple.class",
+        "org/apache/ignite/table/KeyValueView.class",
+        "org/apache/ignite/table/DataStreamerTarget.class",
+        "org/apache/ignite/table/manager/IgniteTables.class",
+        "org/apache/ignite/table/mapper/Mapper.class",
+        "org/apache/ignite/table/criteria/CriteriaQuerySource.class",
+        "org/apache/ignite/table/ContinuousQuerySource.class",
+        "org/apache/ignite/table/QualifiedName.class",
+        "org/apache/ignite/compute/ComputeJob.class",
+        "org/apache/ignite/compute/JobExecutionContext.class",
+        "org/apache/ignite/tx/Transaction.class",
+        "org/apache/ignite/marshalling/Marshaller.class",
+        "org/apache/ignite/marshalling/UnsupportedObjectTypeMarshallingException.class",
+        "org/apache/ignite/lang/ErrorGroup.class",
+        "org/apache/ignite/lang/ErrorGroups.class",
+        "org/apache/ignite/lang/IgniteException.class",
+    )
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) {
+            from components.shadow
+        }
+    }
+}
+
+signing {
+    sign publishing.publications
+}

@@ -1,0 +1,184 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+apply plugin: 'java'
+apply plugin: 'jacoco'
+apply plugin: 'checkstyle'
+apply plugin: 'pmd'
+apply plugin: 'java-library'
+apply plugin: libs.plugins.spotbugs.get().pluginId
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+    withSourcesJar()
+    withJavadocJar()
+}
+
+test {
+    finalizedBy(jacocoTestReport)
+}
+
+pmd {
+    ignoreFailures = false
+    consoleOutput = true
+    incrementalAnalysis = true
+
+    toolVersion = libs.versions.pmdTool.get()
+    ruleSets = ["$rootDir/check-rules/pmd-rules.xml"]
+}
+
+processResources {
+    filesMatching('**/*.properties') {
+        filter { String line ->
+            line.replace("\${project.version}", project.version)
+        }
+    }
+}
+
+pmdMain {
+    enabled = true
+}
+
+pmdTest {
+    enabled = true
+}
+
+checkstyle {
+    toolVersion = libs.versions.checkstyleTool.get()
+    ignoreFailures = false
+    showViolations = true
+    maxWarnings = 0
+    configFile = file("$rootDir/check-rules/checkstyle-rules.xml")
+    configProperties = [
+            "checkstyle.header.file" : file("$rootDir/check-rules/LICENSE.txt"),
+            "org.checkstyle.google.suppressionfilter.config" : file("$rootDir/check-rules/checkstyle-suppressions.xml")
+    ]
+}
+
+dependencyCheck {
+    if (project.hasProperty("dependency_check_autoupdate")) {
+        autoUpdate = project.properties["dependency_check_autoupdate"]
+    }
+    format = 'ALL'
+    scanConfigurations = ['runtimeClasspath']
+    skipProjects = [":gridgain-dcr-testing",
+                    ":ignite-dev-utilities",
+                    ":ignite-examples",
+                    ":ignite-jacoco-report"]
+    if (project.hasProperty("nvd_api_key")) {
+        nvd {
+            apiKey = project.properties["nvd_api_key"]
+            maxRetryCount = 5
+        }
+    }
+}
+
+tasks.withType(Checkstyle) {
+    excludes = ["**/generated-source/**",
+                "**/generated/**",
+                "com/facebook/presto/bytecode/**/*",
+                "org/apache/ignite/raft/jraft/**/*"]
+    reports {
+        xml.required = false
+        html {
+            required = true
+            outputLocation = file("$rootDir/build/reports/checkstyle/${project.name}.html")
+        }
+
+    }
+}
+
+javadoc {
+    exclude 'org/apache/ignite/internal/**'
+    exclude 'org/apache/ignite/raft/jraft/**'
+    exclude 'org/apache/calcite/plan/volcano/**'
+    exclude 'com/facebook/presto/**'
+}
+
+javadoc.dependsOn compileJava
+
+jacoco {
+    toolVersion = libs.versions.jacocoTool.get()
+}
+
+
+jacocoTestReport {
+    dependsOn test
+
+    reports {
+        xml.required = false
+        html.required = true
+    }
+    afterEvaluate {
+        classDirectories.setFrom(files(classDirectories.files.collect {
+            fileTree(dir: it,
+                    exclude: ['org/apache/calcite/**/*'])
+        }))
+    }
+}
+
+
+spotbugs {
+    ignoreFailures = false
+    showStackTraces = true
+    showProgress = false
+    omitVisitors = ["ConstructorThrow", "FindNullDeref", "SwitchFallthrough", "SerializableIdiom", ""]
+    reportsDir = file("$buildDir/reports/spotbugs")
+    excludeFilter = file("${rootDir}/check-rules/spotbugs-excludes.xml")
+    maxHeapSize = "1g"
+    extraArgs = ["-longBugCodes"]
+    toolVersion = libs.versions.spotbugsTool.get()
+}
+
+spotbugsMain {
+    reports {
+        text {
+            enabled = true
+        }
+        html {
+            enabled = true
+            stylesheet = 'fancy-hist.xsl'
+        }
+        xml {
+            enabled = true
+        }
+    }
+}
+
+def reportSpotbugsViolations = tasks.register("reportSpotbugsViolations") {
+    onlyIf { spotbugsMain.state.failure != null }
+    def spotbugsTextReportFile = file("$buildDir/reports/spotbugs/main.txt")
+
+    inputs.file spotbugsTextReportFile
+
+    doLast {
+        try {
+            if (!spotbugsTextReportFile.isFile()) return
+            println()
+            def spotbugsReport = spotbugsTextReportFile.readLines()
+            spotbugsReport.forEach {
+                System.err.println(it)
+            }
+        } catch (Exception ex) {
+            throw new GradleException("Failed to open spotbugs text report", ex);
+        }
+        def failure = spotbugsMain.state.failure
+        if (failure != null) {
+            throw new GradleException(failure.getCause().getMessage(), failure.getCause());
+        }
+    }
+}
+
+spotbugsMain.finalizedBy(reportSpotbugsViolations)
+
+
+spotbugsTest {
+    enabled(false)
+}
