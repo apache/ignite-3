@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCode;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -71,6 +72,7 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.message.ErrorTimestampAwareReplicaResponse;
 import org.apache.ignite.internal.replicator.message.TimestampAwareReplicaResponse;
 import org.apache.ignite.internal.schema.BinaryRow;
@@ -151,7 +153,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testMultipleAbandonedTxsAreAborted() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -207,7 +211,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testMultipleRecoveryRequestsIssued() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -253,7 +259,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxIsAborted() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -296,7 +304,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testAbandonedTxWithCoarseLockIsAborted() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -331,7 +341,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentRecoverNoCoordinator() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -377,7 +389,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentNoRecovery() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -422,7 +436,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testWriteIntentRecoveryAndLockConflict() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -486,7 +502,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testSendCommitAndDie() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -555,7 +573,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCommitAndDieRecoveryFirst() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -630,7 +650,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testRecoveryIsTriggeredOnce() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -707,7 +729,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testFinishAlreadyFinishedTx() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -746,7 +770,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureRightAfterCommitMsg() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -806,7 +832,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgress() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -848,7 +876,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testPrimaryFailureWhileInflightInProgressAfterFirstResponse() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -903,7 +933,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         preloadData(tbl, 10);
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -956,7 +988,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCursorCleanup(boolean readOnly) throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetLeaseholder(node(0), tblReplicationGrp);
 
@@ -1038,7 +1072,12 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
 
         Publisher<BinaryRow> publisher;
         if (tx.isReadOnly()) {
-            String primary = waitAndGetLeaseholder(node(0), new TablePartitionId(tbl.tableId(), PART_ID));
+            String primary = waitAndGetLeaseholder(
+                    node(0),
+                    enabledColocation()
+                            ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                            : new TablePartitionId(tbl.tableId(), PART_ID)
+            );
 
             ClusterNode primaryNode = node(0).clusterNodes().stream().filter(node -> node.name().equals(primary)).findAny().get();
 
@@ -1067,7 +1106,9 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     public void testCursorsClosedAfterTxClose() throws Exception {
         TableImpl tbl = unwrapTableImpl(node(0).tables().table(TABLE_NAME));
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), PART_ID);
+        var tblReplicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), PART_ID)
+                : new TablePartitionId(tbl.tableId(), PART_ID);
 
         String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), tblReplicationGrp).getLeaseholder();
 
@@ -1143,7 +1184,10 @@ public class ItTransactionRecoveryTest extends ClusterPerTestIntegrationTest {
     private static @Nullable TxMeta txStoredMeta(IgniteImpl node, UUID txId) {
         InternalTable internalTable = unwrapTableImpl(node.tables().table(TABLE_NAME)).internalTable();
 
-        return bypassingThreadAssertions(() -> internalTable.txStateStorage().getPartitionStorage(0).get(txId));
+        return enabledColocation()
+                ? bypassingThreadAssertions(
+                    () -> node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), 0).get(txId))
+                : bypassingThreadAssertions(() -> internalTable.txStateStorage().getPartitionStorage(0).get(txId));
     }
 
     /**
