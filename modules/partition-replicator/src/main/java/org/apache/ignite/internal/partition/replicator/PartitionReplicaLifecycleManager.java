@@ -1647,7 +1647,7 @@ public class PartitionReplicaLifecycleManager extends
         return stopPartitionInternal(
                 zonePartitionId,
                 replicaWasStopped -> {},
-                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED_FOR_RESTART,
                 revision
         ).thenApply(replicaWasStopped -> null);
     }
