@@ -119,6 +119,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.RaftTableProcessor;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
@@ -659,7 +660,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                         return replicaListener;
                                     },
-                                    zoneResources.snapshotStorageFactory(),
+                                    new PartitionSnapshotStorageFactory(zoneResources.snapshotStorage()),
                                     stablePeersAndLearners,
                                     zoneResources.raftListener(),
                                     raftGroupEventsListener,
@@ -1029,7 +1030,8 @@ public class PartitionReplicaLifecycleManager extends
 
     private CompletableFuture<Void> updatePartitionClients(
             ZonePartitionId zonePartitionId,
-            Set<Assignment> stableAssignments
+            Set<Assignment> stableAssignments,
+            Set<Assignment> pendingAssignments
     ) {
         return isLocalNodeIsPrimary(zonePartitionId).thenCompose(isLeaseholder -> inBusyLock(busyLock, () -> {
             boolean isLocalInStable = isLocalNodeInAssignments(stableAssignments);
@@ -1045,7 +1047,7 @@ public class PartitionReplicaLifecycleManager extends
 
             // Update raft client peers and learners according to the actual assignments.
             return replicaMgr.replica(zonePartitionId)
-                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(stableAssignments)));
+                    .thenAccept(replica -> replica.updatePeersAndLearners(fromAssignments(union(stableAssignments, pendingAssignments))));
         }));
     }
 
@@ -1059,7 +1061,7 @@ public class PartitionReplicaLifecycleManager extends
         CompletableFuture<Void> clientUpdateFuture = isRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
-                : updatePartitionClients(zonePartitionId, stableAssignments);
+                : updatePartitionClients(zonePartitionId, stableAssignments, pendingAssignments.nodes());
 
         boolean shouldStopLocalServices = (pendingAssignments.force()
                 ? pendingAssignments.nodes().stream()
@@ -1527,7 +1529,7 @@ public class PartitionReplicaLifecycleManager extends
             resources.raftListener().addTableProcessor(tableId, raftTableProcessor);
         }
 
-        resources.snapshotStorageFactory().addMvPartition(tableId, partitionMvStorageAccess);
+        resources.snapshotStorage().addMvPartition(tableId, partitionMvStorageAccess);
     }
 
     /**

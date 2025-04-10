@@ -651,8 +651,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
-                        clockService,
-                        transactionConfiguration
+                        clockService
                 )
         );
 
@@ -2553,6 +2552,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2603,6 +2604,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2620,6 +2623,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void replaceRequestFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
@@ -2635,6 +2640,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void rwScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
         testRwOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, key) -> {
             return doRwScanRetrieveBatchRequest(targetTxId);
@@ -2654,6 +2661,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRoGetFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
@@ -2687,6 +2696,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRoGetFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
@@ -2701,6 +2712,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void roScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
         testRoOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, readTimestamp, key) -> {
             return doRoScanRetrieveBatchRequest(targetTxId, readTimestamp);
@@ -2772,6 +2785,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRwOperationsFailIfSchemaVersionMismatchesTx(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2812,6 +2827,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRwOperationsFailIfSchemaVersionMismatchesTx(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2829,6 +2846,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void replaceRequestFailsIfSchemaVersionMismatchesTx(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
@@ -2844,6 +2863,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRoGetFailsIfSchemaVersionMismatchesTx(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
@@ -2875,6 +2896,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRoGetFailsIfSchemaVersionMismatchesTx(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow

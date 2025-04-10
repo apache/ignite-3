@@ -18,13 +18,9 @@
 package org.apache.ignite.internal.pagememory.tree.persistence;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
-import static org.apache.ignite.internal.pagememory.datastructure.DataStructure.rnd;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTestUtils.mockCheckpointTimeoutLock;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.runMultiThreaded;
 import static org.apache.ignite.internal.util.Constants.MiB;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.util.concurrent.atomic.AtomicLongArray;
 import java.util.stream.LongStream;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -41,12 +37,9 @@ import org.apache.ignite.internal.pagememory.tree.AbstractBplusTreePageMemoryTes
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.SequencedOffheapReadWriteLock;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -97,112 +90,6 @@ public class ItBplusTreePersistentPageMemoryTest extends AbstractBplusTreePageMe
                 PAGE_SIZE,
                 wrapLock(offheapReadWriteLock)
         );
-    }
-
-    /**
-     * Test is based on {@link AbstractBplusTreePageMemoryTest#testMassiveRemove2_true()}, but uses a deterministic execution order in order
-     * to achieve a 100% reliable fail rate.
-     *
-     * @throws Exception If failed.
-     */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-23588")
-    @Test
-    @WithSystemProperty(key = USE_SEQUENCED_RW_LOCK, value = "true")
-    @WithSystemProperty(key = BPLUS_TREE_TEST_SEED, value = "1161542256747481")
-    public void testMassiveRemoveCorruption() throws Exception {
-        SequencedOffheapReadWriteLock offheapReadWriteLock = (SequencedOffheapReadWriteLock) this.offheapReadWriteLock;
-
-        //noinspection AssignmentToStaticFieldFromInstanceMethod
-        MAX_PER_PAGE = 2;
-        int threads = 16;
-        int batch = 500;
-        boolean canGetRow = true;
-
-        println("[maxPerPage=" + MAX_PER_PAGE
-                + ", threads=" + threads
-                + ", batch=" + batch
-                + ", canGetRow=" + canGetRow
-                + "]"
-        );
-
-        int keys = threads * batch;
-
-        TestTree tree = createTestTree(canGetRow);
-
-        // Inverted insertion order, like in original test.
-        for (long k = keys - 1; k >= 0; k--) {
-            tree.put(k);
-        }
-
-        assertEquals(keys, tree.size());
-        tree.validateTree();
-
-        AtomicLongArray rmvd = new AtomicLongArray(keys);
-
-        // All the random bits are pre-calculated in advance.
-        // It doesn't have to be this way, because there's a critical section in the loop later anyway. But, this is the version of the code
-        // with a known seed, so let's leave it as it is right now.
-        int[][] rndEx = new int[threads][keys];
-        for (int i = 0; i < rndEx.length; i++) {
-            for (int j = 0; j < rndEx[i].length; j++) {
-                rndEx[i][j] = rnd.nextInt(keys);
-            }
-        }
-
-        offheapReadWriteLock.startSequencing(() -> rnd.nextInt(threads), threads);
-
-        String threadNamePrefix = "remove";
-        runMultiThreaded(() -> {
-            // Here we rely on a thread naming convention in "runMultiThreaded" to get thread's ID.
-            int threadId = Integer.parseInt(Thread.currentThread().getName().substring(threadNamePrefix.length()));
-
-            offheapReadWriteLock.setCurrentThreadId(threadId);
-
-            try {
-                int rndIdx = 0;
-                while (true) {
-                    int idx = 0;
-                    boolean found = false;
-
-                    offheapReadWriteLock.await();
-                    try {
-                        int shift = rndEx[threadId][rndIdx++];
-                        // Since this loop modifies a shared resource ("rmvd"), we must have a critical section here as well.
-                        for (int i = 0; i < keys; i++) {
-                            idx = (i + shift) % keys;
-
-                            if (rmvd.get(idx) == 0 && rmvd.compareAndSet(idx, 0, 1)) {
-                                found = true;
-
-                                break;
-                            }
-                        }
-                    } finally {
-                        offheapReadWriteLock.release();
-                    }
-
-                    if (!found) {
-                        break;
-                    }
-
-                    Long key = (long) idx;
-                    assertEquals(key, tree.remove(key));
-
-                    if (canGetRow) {
-                        rmvdIds.add(key);
-                    }
-                }
-            } finally {
-                offheapReadWriteLock.complete();
-            }
-
-            return null;
-        }, threads, threadNamePrefix);
-
-        offheapReadWriteLock.stopSequencing();
-
-        assertEquals(0, tree.size());
-        tree.validateTree();
     }
 
     /** {@inheritDoc} */

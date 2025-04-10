@@ -89,6 +89,10 @@ public class ThreadUtils {
                 .append(NL);
 
         for (ThreadInfo info : threadInfos) {
+            if (info == null) {
+                continue;
+            }
+
             printThreadInfo(info, sb, deadlockedThreadsIds);
 
             sb.append(NL);

@@ -70,6 +70,7 @@ import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Util class for methods needed for the rebalance process.
@@ -629,6 +630,7 @@ public class RebalanceUtil {
      * @param partitionId Partition ID.
      * @return Future with partition assignments as a value.
      */
+    @TestOnly
     public static CompletableFuture<Set<Assignment>> stablePartitionAssignments(
             MetaStorageManager metaStorageManager,
             int tableId,
