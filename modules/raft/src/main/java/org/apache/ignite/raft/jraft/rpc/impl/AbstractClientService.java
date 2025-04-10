@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.net.ConnectException;
@@ -140,7 +141,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     public CompletableFuture<Boolean> connectAsync(PeerId peerId) {
         final RpcClient rc = this.rpcClient;
         if (rc == null) {
-            throw new IllegalStateException("Client service is uninitialized.");
+            return falseCompletedFuture();
         }
 
         // Remote node is alive and pinged, safe to continue.
