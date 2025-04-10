@@ -22,7 +22,7 @@ apply from: "$rootDir/buildscripts/java-junit5.gradle"
 description = 'migration-tools-config-converter'
 
 dependencies {
-    implementation project(path: ":ignite3-repack", configuration: "shadow")
+    implementation project(path: ":migration-tools-ignite3-repack", configuration: "shadow")
     implementation project(":migration-tools-commons")
     implementation libs.ignite2.core
     implementation libs.ignite2.spring
@@ -31,7 +31,7 @@ dependencies {
     implementation libs.mockito.core
     implementation libs.slf4j.api
 
-    testImplementation project(path: ":ignite3-repack", configuration: "shadow")
+    testImplementation project(path: ":migration-tools-ignite3-repack", configuration: "shadow")
     testImplementation project(":migration-tools-commons-tests")
     testImplementation libs.assertj.core
     testImplementation libs.junit5.api
@@ -40,3 +40,11 @@ dependencies {
     testImplementation libs.testcontainers.junit
     testImplementation libs.typesafe.config
 }
+
+// TODO: GG-41790 Remove checks are disabled in these modules.
+checkstyleMain.enabled = false
+checkstyleTest.enabled = false
+pmdMain.enabled = false
+pmdTest.enabled = false
+spotbugsMain.enabled = false
+reportSpotbugsViolations.enabled = false

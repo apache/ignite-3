@@ -26,8 +26,8 @@ dependencies {
     testImplementation project(":migration-tools-e2e-core")
     testImplementation project(":migration-tools-e2e-implementations")
 
-    testImplementation libs.ignite3.client
-    testImplementation libs.ignite3.jdbc
+    testImplementation project(":ignite-client")
+    testImplementation project(":ignite-jdbc")
     testImplementation libs.assertj.core
     testImplementation libs.junit5.api
     testImplementation libs.testcontainers.core
@@ -36,4 +36,12 @@ dependencies {
     testImplementation libs.log4j.core
 }
 
-tasks.test.dependsOn += ":packaging-cli:docker"
+tasks.test.dependsOn += ":migration-tools-packaging-cli:docker"
+
+// TODO: GG-41790 Remove checks are disabled in these modules.
+checkstyleMain.enabled = false
+checkstyleTest.enabled = false
+pmdMain.enabled = false
+pmdTest.enabled = false
+spotbugsMain.enabled = false
+reportSpotbugsViolations.enabled = false

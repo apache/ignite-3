@@ -15,14 +15,14 @@ apply plugin: 'java'
 apply plugin: 'signing'
 apply from: "$rootDir/buildscripts/publishing-repos.gradle"
 
-description = 'ignite3-slim-repack'
+description = 'migration-tools-ignite3-slim-repack'
 
 dependencies {
-    runtimeClasspath libs.ignite3.api
-    runtimeClasspath libs.ignite3.core
-    runtimeClasspath libs.ignite3.configuration
-    runtimeClasspath libs.ignite3.configuration.api
-    runtimeClasspath libs.ignite3.runner
+    runtimeOnly project(":ignite-api")
+    runtimeOnly project(":ignite-core")
+    runtimeOnly project(":ignite-configuration")
+    runtimeOnly project(":ignite-configuration-api")
+    runtimeOnly project(":ignite-runner")
 }
 
 jar {
@@ -35,7 +35,7 @@ shadowJar {
     mergeServiceFiles()
     append 'META-INF/transferable.messages'
     dependencies {
-        include(dependency(project.getProperty("ignite3.vendor") + '::'))
+        include(dependency(project.group + '::'))
     }
     exclude "ignite.properties"
     include(

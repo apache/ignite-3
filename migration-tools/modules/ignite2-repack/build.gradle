@@ -15,7 +15,7 @@ apply plugin: 'java'
 apply plugin: 'signing'
 apply from: "$rootDir/buildscripts/publishing-repos.gradle"
 
-description = 'ignite2-repack'
+description = 'migration-tools-ignite2-repack'
 
 dependencies {
     runtimeClasspath libs.ignite2.core

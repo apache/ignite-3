@@ -11,49 +11,50 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
-apply plugin: 'java'
-apply plugin: 'signing'
-apply from: "$rootDir/buildscripts/publishing-repos.gradle"
+apply from: "$rootDir/buildscripts/java-core.gradle"
+apply from: "$rootDir/buildscripts/publishing.gradle"
+apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-description = 'ignite3-repack'
+description = 'migration-tools-ignite3-repack'
 
 dependencies {
-    runtimeClasspath libs.ignite3.client
-    runtimeClasspath libs.ignite3.api
-    runtimeClasspath libs.ignite3.core
-    runtimeClasspath libs.ignite3.configuration
-    runtimeClasspath libs.ignite3.configuration.api
-    runtimeClasspath libs.ignite3.page.memory
-    runtimeClasspath libs.ignite3.client.handler
-    runtimeClasspath libs.ignite3.runner
-    runtimeClasspath libs.ignite3.catalog
-    runtimeClasspath libs.ignite3.catalog.dsl
-    runtimeClasspath libs.ignite3.network
-    runtimeClasspath libs.ignite3.placement.driver.api
-    runtimeClasspath libs.ignite3.schema
-    runtimeClasspath libs.ignite3.security
-    runtimeClasspath libs.ignite3.sql.engine
-    runtimeClasspath libs.ignite3.table
-    runtimeClasspath libs.ignite3.transactions
-    runtimeClasspath libs.ignite3.metastorage.api
-    runtimeClasspath libs.ignite3.client.common
-    runtimeClasspath libs.ignite3.metrics
-    runtimeClasspath libs.ignite3.binary.tuple
-    runtimeClasspath libs.ignite3.marshaller.common
-    runtimeClasspath libs.ignite3.bytecode
-    runtimeClasspath libs.ignite3.network.api
-    runtimeClasspath libs.ignite3.vault
-    runtimeClasspath libs.ignite3.rocksdb.common
-    runtimeClasspath libs.ignite3.replicator
-    runtimeClasspath libs.ignite3.raft.api
-    runtimeClasspath libs.ignite3.distribution.zones
-    runtimeClasspath libs.ignite3.raft
-    runtimeClasspath libs.ignite3.partition.distribution
-    runtimeClasspath libs.ignite3.cluster.management
-    runtimeClasspath libs.ignite3.index
-    runtimeClasspath libs.ignite3.storage.api
-    runtimeClasspath libs.ignite3.system.view
-    runtimeClasspath libs.ignite3.cli
+    runtimeOnly project(":ignite-client")
+    runtimeOnly project(":ignite-api")
+    runtimeOnly project(":ignite-core")
+    runtimeOnly project(":ignite-configuration")
+    runtimeOnly project(":ignite-configuration-api")
+    runtimeOnly project(":ignite-page-memory")
+    runtimeOnly project(":ignite-client-handler")
+    runtimeOnly project(":ignite-runner")
+    runtimeOnly project(":ignite-catalog")
+    runtimeOnly project(":ignite-catalog-dsl")
+    runtimeOnly project(":ignite-network")
+    runtimeOnly project(":ignite-placement-driver-api")
+    runtimeOnly project(":ignite-schema")
+    runtimeOnly project(":ignite-security")
+    runtimeOnly project(":ignite-sql-engine")
+    runtimeOnly project(":ignite-table")
+    runtimeOnly project(":ignite-transactions")
+    runtimeOnly project(":ignite-metastorage-api")
+    runtimeOnly project(":ignite-client-common")
+    runtimeOnly project(":ignite-metrics")
+    runtimeOnly project(":ignite-binary-tuple")
+    runtimeOnly project(":ignite-marshaller-common")
+    runtimeOnly project(":ignite-bytecode")
+    runtimeOnly project(":ignite-network-api")
+    runtimeOnly project(":ignite-vault")
+    runtimeOnly project(":ignite-rocksdb-common")
+    runtimeOnly project(":ignite-replicator")
+    runtimeOnly project(":ignite-raft-api")
+    runtimeOnly project(":ignite-distribution-zones")
+    runtimeOnly project(":ignite-raft")
+    runtimeOnly project(":ignite-partition-distribution")
+    runtimeOnly project(":ignite-cluster-management")
+    runtimeOnly project(":ignite-index")
+    runtimeOnly project(":ignite-storage-api")
+    runtimeOnly project(":ignite-system-view")
+    runtimeOnly project(":ignite-cli")
 
     // TODO: All the transitive deps should be made into shadow
     shadow libs.asm.core
@@ -82,7 +83,7 @@ shadowJar {
     mergeServiceFiles()
     append 'META-INF/transferable.messages'
     dependencies {
-        include(dependency(project.getProperty("ignite3.vendor") + '::'))
+        include(dependency(project.group + '::'))
     }
     exclude "ignite.properties"
     relocate('org.apache.ignite', 'org.apache.ignite3')

@@ -23,9 +23,17 @@ description = 'migration-tools-e2e-core'
 
 dependencies {
     compileOnly libs.ignite2.core
-    compileOnly libs.ignite3.api
+    compileOnly project(":ignite-api")
 
     implementation libs.auto.service.annotations
     implementation libs.junit5.api
     implementation libs.junit5.params
 }
+
+// TODO: GG-41790 Remove checks are disabled in these modules.
+checkstyleMain.enabled = false
+checkstyleTest.enabled = false
+pmdMain.enabled = false
+pmdTest.enabled = false
+spotbugsMain.enabled = false
+reportSpotbugsViolations.enabled = false
