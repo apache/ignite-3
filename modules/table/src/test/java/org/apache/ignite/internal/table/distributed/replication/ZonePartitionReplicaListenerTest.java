@@ -172,7 +172,6 @@ import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
-import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicaRequest;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
 import org.apache.ignite.internal.tx.test.TestTransactionIds;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -1273,24 +1272,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         HybridTimestamp commitTsOrNull = commit ? commitTs : null;
 
         txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTsOrNull, null, null));
-
-        if (enabledColocation()) {
-            lockManager.releaseAll(txId);
-            partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
-        } else {
-            // Our mocks are tricky: when a WriteIntentSwitchCommand is handled by the raft client mock, it additionally releases all locks
-            // of the corresponding transaction.
-
-            WriteIntentSwitchReplicaRequest message = TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
-                    .groupId(tablePartitionIdMessage(grpId))
-                    .tableIds(Set.of(grpId.tableId()))
-                    .txId(txId)
-                    .commit(commit)
-                    .commitTimestamp(commitTs)
-                    .build();
-
-            assertThat(partitionReplicaListener.invoke(message, localNode.id()), willCompleteSuccessfully());
-        }
+        lockManager.releaseAll(txId);
+        partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
     }
 
     private static TestKey nextKey() {
