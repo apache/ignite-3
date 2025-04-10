@@ -99,6 +99,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -567,6 +569,22 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         RelDataType dataType = literal.createSqlType(typeFactory);
         validatePrecisionScale(literal, dataType, dataType.getPrecision(), dataType.getScale());
+    }
+
+    @Override
+    public SqlLiteral resolveLiteral(SqlLiteral literal) {
+        SqlLiteral resolved = super.resolveLiteral(literal);
+        SqlTypeName typeName = resolved.getTypeName();
+
+        if (typeName == SqlTypeName.TIMESTAMP) {
+            long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
+
+            if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                throw newValidationError(literal, IgniteResource.INSTANCE.timestampLiteralOutOfRange(literal.toString()));
+            }
+        }
+
+        return resolved;
     }
 
     @Override
