@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.sql;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -36,49 +38,54 @@ public class ClientSqlExecuteScriptRequest {
     /**
      * Processes the request.
      *
+     * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
+     * @param out Packer.
      * @param sql SQL API.
-     * @param executor Executor used by SQL script handler.
+     * @param requestId Id of the request.
+     * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another thread.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
+            Executor operationExecutor,
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             QueryProcessor sql,
-            Executor executor,
             long requestId,
             Map<Long, CancelHandle> cancelHandleMap
     ) {
-        ClientSqlProperties props = new ClientSqlProperties(in);
-        String script = in.unpackString();
-        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
-
-        if (arguments == null) {
-            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        }
-
-        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
-
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandleMap.put(requestId, cancelHandle);
 
-        return IgniteSqlImpl.executeScriptCore(
-                sql,
-                tsUpdater,
-                () -> true,
-                () -> {},
-                script,
-                cancelHandle.token(),
-                arguments,
-                props.toSqlProps(),
-                executor
-        ).whenComplete((none, error) -> {
-            cancelHandleMap.remove(requestId);
+        return nullCompletedFuture().thenComposeAsync(none -> {
+            ClientSqlProperties props = new ClientSqlProperties(in);
+            String script = in.unpackString();
+            Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
-            // Unconditionally update observable time because script may be applied partially.
-            out.meta(tsUpdater.get());
-        });
+            if (arguments == null) {
+                // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+                arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
+            }
+
+            HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+            HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
+
+            return IgniteSqlImpl.executeScriptCore(
+                    sql,
+                    tsUpdater,
+                    () -> true,
+                    () -> {},
+                    script,
+                    cancelHandle.token(),
+                    arguments,
+                    props.toSqlProps(),
+                    operationExecutor
+            ).whenComplete((none2, error) -> {
+                cancelHandleMap.remove(requestId);
+
+                // Unconditionally update observable time because script may be applied partially.
+                out.meta(tsUpdater.get());
+            });
+        }, operationExecutor);
     }
 }
