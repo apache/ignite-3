@@ -153,6 +153,25 @@ Default precision: `6`
 
 Maximum precision: `9`
 
+=== TIMESTAMP WITH LOCAL TIME ZONE
+
+WARNING: The timestamp with local time zone data type only supports precision up to milliseconds (3 symbols). Any values past the 3rd symbol will be ignored.
+
+Unlike `TIMESTAMP`, the value is always stored as a UTC timestamp.
+The value passed to/from the user is converted from/to UTC using the user's session time zone.
+
+Possible values: The timestamp with local time zone data type.
+
+The format is `yyyy-MM-dd hh:mm:ss[.mmm]`.
+
+Minimum allowed value is `0001-01-01 18:00:00`.
+
+Maximum allowed value is `9999-12-31 05:59:59.999`.
+
+Default precision: `6`
+
+Maximum precision: `9`
+
 == Other Types
 
 === UUID
