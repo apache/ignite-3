@@ -96,7 +96,7 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
 
         --waiting;
 
-        if (rowsProcessed + 1 > offset) {
+        if (rowsProcessed >= offset) {
             if (hasMoreData()) {
                 // this two rows can`t be swapped, cause if all requested rows have been pushed it will trigger further request call.
                 --requested;
