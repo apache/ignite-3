@@ -40,6 +40,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneStableAssignmentsGetLocally;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
@@ -1080,6 +1081,21 @@ public class PartitionReplicaLifecycleManager extends
         ));
     }
 
+    /**
+     * Stops all resources associated with a given partition, like replicas and partition trackers. Calls
+     * {@link ReplicaManager#weakStopReplica} in order to change the replica state.
+     *
+     * @param zonePartitionId Partition ID.
+     * @return Future that will be completed after all resources have been closed.
+     */
+    private CompletableFuture<Void> stopPartitionForRestart(ZonePartitionId zonePartitionId, long revision) {
+        return replicaMgr.weakStopReplica(
+                zonePartitionId,
+                WeakReplicaStopReason.RESTART,
+                () -> stopPartition(zonePartitionId, revision)
+        );
+    }
+
     private CompletableFuture<Void> handleChangePendingAssignmentEvent(Entry pendingAssignmentsEntry, long revision) {
         if (pendingAssignmentsEntry.value() == null || pendingAssignmentsEntry.empty()) {
             return nullCompletedFuture();
@@ -1542,6 +1558,42 @@ public class PartitionReplicaLifecycleManager extends
         zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
     }
 
+    /**
+     * Restarts the zone's partition including the replica and raft node.
+     *
+     * @param zonePartitionId Zone's partition that needs to be restarted.
+     * @param revision Metastore revision.
+     * @return Operation future.
+     */
+    public CompletableFuture<?> restartPartition(ZonePartitionId zonePartitionId, long revision, long assignmentsTimestamp) {
+        return inBusyLockAsync(busyLock, () -> stopPartitionForRestart(zonePartitionId, revision).thenComposeAsync(unused -> {
+            Assignments stableAssignments = zoneStableAssignmentsGetLocally(metaStorageMgr, zonePartitionId, revision);
+
+            assert stableAssignments != null : "zonePartitionId=" + zonePartitionId + ", revision=" + revision;
+
+            return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
+                Assignment localMemberAssignment = localMemberAssignment(stableAssignments);
+
+                if (localMemberAssignment == null) {
+                    // (0) in case if node not in the assignments
+                    return nullCompletedFuture();
+                }
+
+                CatalogZoneDescriptor zoneDescriptor = zoneDescriptorAt(zonePartitionId.zoneId(), assignmentsTimestamp);
+
+                return createZonePartitionReplicationNode(
+                        zonePartitionId,
+                        localMemberAssignment,
+                        stableAssignments,
+                        revision,
+                        zoneDescriptor.partitions(),
+                        isVolatileZone(zoneDescriptor)
+
+                );
+            }));
+        }, ioExecutor));
+    }
+
     private <T> CompletableFuture<T> executeUnderZoneWriteLock(int zoneId, Supplier<CompletableFuture<T>> action) {
         NaiveAsyncReadWriteLock lock = zonePartitionsLocks.computeIfAbsent(zoneId, id -> newZoneLock());
 
@@ -1587,6 +1639,15 @@ public class PartitionReplicaLifecycleManager extends
                     }
                 },
                 LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                revision
+        ).thenApply(replicaWasStopped -> null);
+    }
+
+    private CompletableFuture<Void> stopPartition(ZonePartitionId zonePartitionId, long revision) {
+        return stopPartitionInternal(
+                zonePartitionId,
+                replicaWasStopped -> {},
+                LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
                 revision
         ).thenApply(replicaWasStopped -> null);
     }
