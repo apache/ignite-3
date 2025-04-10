@@ -133,11 +133,21 @@ Possible values: The date data type.
 
 The format is `yyyy-MM-dd`.
 
+Minimum allowed value: `0001-01-01`.
+
+Maximum allowed value: `9999-12-31`.
+
 === TIMESTAMP
 
 WARNING: The timestamp data type only supports precision up to milliseconds (3 symbols). Any values past the 3rd symbol will be ignored.
 
-Possible values: The timestamp data type. The format is `yyyy-MM-dd hh:mm:ss[.mmm]`.
+Possible values: The timestamp data type.
+
+The format is `yyyy-MM-dd hh:mm:ss[.mmm]`.
+
+Minimum allowed value is `0001-01-01 18:00:00`.
+
+Maximum allowed value is `9999-12-31 05:59:59.999`.
 
 Default precision: `6`
 
