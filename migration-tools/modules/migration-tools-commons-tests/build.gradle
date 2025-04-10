@@ -61,11 +61,3 @@ compileJava {
         compileClasspath  layout.buildDirectory.dir("classes/java/main")
     }
 }*/
-
-// TODO: GG-41790 Remove checks are disabled in these modules.
-checkstyleMain.enabled = false
-checkstyleTest.enabled = false
-pmdMain.enabled = false
-pmdTest.enabled = false
-spotbugsMain.enabled = false
-reportSpotbugsViolations.enabled = false

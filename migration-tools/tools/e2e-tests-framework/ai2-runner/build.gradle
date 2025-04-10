@@ -47,11 +47,3 @@ docker {
     files configurations.runtimeClasspath, tasks.jar.outputs
     copySpec.into("libs")
 }
-
-// TODO: GG-41790 Remove checks are disabled in these modules.
-checkstyleMain.enabled = false
-checkstyleTest.enabled = false
-pmdMain.enabled = false
-pmdTest.enabled = false
-spotbugsMain.enabled = false
-reportSpotbugsViolations.enabled = false

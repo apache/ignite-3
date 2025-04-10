@@ -43,11 +43,3 @@ javadoc {
     exclude 'org/grigain/ignite/migrationtools/cli/**'
     exclude 'org/apache/ignite/configuration/**'
 }
-
-// TODO: GG-41790 Remove checks are disabled in these modules.
-checkstyleMain.enabled = false
-checkstyleTest.enabled = false
-pmdMain.enabled = false
-pmdTest.enabled = false
-spotbugsMain.enabled = false
-reportSpotbugsViolations.enabled = false
