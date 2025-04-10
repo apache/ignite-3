@@ -1,0 +1,36 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+test {
+    useJUnitPlatform()
+    testLogging {
+        events "passed", "skipped", "failed", "standard_error"
+    }
+    maxHeapSize = '2g'
+
+    // Define default test timeouts to avoid everhanging tests.
+    systemProperty 'junit.jupiter.execution.timeout.testable.method.default', '10m'
+    systemProperty 'junit.jupiter.execution.timeout.lifecycle.method.default', '120s'
+
+    // Enable auto-detection of JUnit 5 extensions to automatically apply DumpThreadsOnTimeout extension.
+    systemProperty 'junit.jupiter.extensions.autodetection.enabled', true
+}
+
+dependencies {
+    testImplementation libs.junit5.impl
+    testImplementation libs.junit5.api
+    testImplementation libs.junit5.params
+    testImplementation libs.junit.pioneer
+
+    testImplementation libs.jansi.core
+    testImplementation libs.log4j.api
+    testImplementation libs.log4j.core
+    testImplementation libs.log4j.bridge
+    testImplementation libs.slf4j.log4j
+}

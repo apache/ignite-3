@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+        http://www.springframework.org/schema/beans/spring-beans.xsd">
+
+    <!-- Ignore: Just String stuff to support loading the comm port from ENV -->
+    <bean id="placeholderConfig" class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer"/>
+
+    <bean class="org.apache.ignite.configuration.IgniteConfiguration">
+        <!-- Set to true to enable distributed class loading for examples, default is false. -->
+        <property name="peerClassLoadingEnabled" value="true"/>
+
+        <!-- Region Configurations -->
+        <property name="dataStorageConfiguration">
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <property name="defaultDataRegionConfiguration">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <!-- Initial RAM size -->
+                        <property name="initialSize" value="#{50 * 1024 * 1024}"/>
+                        <!-- max RAM size -->
+                        <property name="maxSize" value="#{150 * 1024 * 1024}"/>
+                        <!-- Enabling persistence. -->
+                        <property name="persistenceEnabled" value="false"/>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+
+        <!-- Explicitly configure TCP discovery SPI to provide list of initial nodes. -->
+        <property name="discoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                <!-- Initial local port to listen to. -->
+                <property name="localPort" value="${IGNITE_LOCAL_PORT:49501}"/>
+                <!-- Setting up IP finder for this cluster -->
+                <property name="ipFinder">
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
+                        <property name="addresses">
+                            <list>
+                                <!--
+                         Ignite provides several options for automatic discovery that can be used
+                         instead os static IP based discovery. For information on all options refer
+                         to our documentation: http://apacheignite.readme.io/docs/cluster-config
+                     -->
+                                <value>node1:49500</value>
+                                <value>node2:49500</value>
+                                <value>node3:49500</value>
+                            </list>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+    </bean>
+</beans>

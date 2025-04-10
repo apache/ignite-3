@@ -1,0 +1,46 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+apply plugin: 'java'
+apply plugin: 'signing'
+apply from: "$rootDir/buildscripts/publishing-repos.gradle"
+
+description = 'ignite2-repack'
+
+dependencies {
+    runtimeClasspath libs.ignite2.core
+}
+
+jar {
+    dependsOn(tasks.shadowJar)
+    enabled = false
+}
+
+shadowJar {
+    archiveClassifier.set("")
+    mergeServiceFiles()
+    exclude("ignite.properties")
+    include("*.jar", "org/apache/ignite/IgniteException.class", "org/apache/ignite/binary/**")
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) {
+            from components.shadow
+        }
+    }
+}
+
+signing {
+    sign publishing.publications
+}
