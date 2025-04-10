@@ -701,7 +701,7 @@ public class ZoneRebalanceUtil {
      * Returns partition assignments from meta storage locally.
      *
      * @param metaStorageManager Meta storage manager.
-     * @param zonePartitionId Table partition id.
+     * @param zonePartitionId Zone partition id.
      * @param revision Revision.
      * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
      */
