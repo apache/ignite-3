@@ -48,7 +48,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 
 /**
  * Abstract RPC client service based.
@@ -65,7 +64,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     /**
      * The set of pinged consistent IDs.
      */
-    private final Set<String> readyConsistentIds = new ConcurrentHashSet<>();
+    private final Set<String> readyConsistentIds = ConcurrentHashMap.newKeySet();
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
