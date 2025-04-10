@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright (C) GridGain Systems. All Rights Reserved.
+  ~ _________        _____ __________________        _____
+  ~ __  ____/___________(_)______  /__  ____/______ ____(_)_______
+  ~ _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+  ~ / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+  ~ \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+  -->
+
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Root level="info">
+            <AppenderRef ref="Console"/>
+        </Root>
+    </Loggers>
+</Configuration>

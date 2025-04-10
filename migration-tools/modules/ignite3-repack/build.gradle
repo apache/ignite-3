@@ -1,0 +1,101 @@
+/*
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ */
+
+plugins {
+    alias(libs.plugins.shadow)
+}
+
+apply plugin: 'java'
+apply plugin: 'signing'
+apply from: "$rootDir/buildscripts/publishing-repos.gradle"
+
+description = 'ignite3-repack'
+
+dependencies {
+    runtimeClasspath libs.ignite3.client
+    runtimeClasspath libs.ignite3.api
+    runtimeClasspath libs.ignite3.core
+    runtimeClasspath libs.ignite3.configuration
+    runtimeClasspath libs.ignite3.configuration.api
+    runtimeClasspath libs.ignite3.page.memory
+    runtimeClasspath libs.ignite3.client.handler
+    runtimeClasspath libs.ignite3.runner
+    runtimeClasspath libs.ignite3.catalog
+    runtimeClasspath libs.ignite3.catalog.dsl
+    runtimeClasspath libs.ignite3.network
+    runtimeClasspath libs.ignite3.placement.driver.api
+    runtimeClasspath libs.ignite3.schema
+    runtimeClasspath libs.ignite3.security
+    runtimeClasspath libs.ignite3.sql.engine
+    runtimeClasspath libs.ignite3.table
+    runtimeClasspath libs.ignite3.transactions
+    runtimeClasspath libs.ignite3.metastorage.api
+    runtimeClasspath libs.ignite3.client.common
+    runtimeClasspath libs.ignite3.metrics
+    runtimeClasspath libs.ignite3.binary.tuple
+    runtimeClasspath libs.ignite3.marshaller.common
+    runtimeClasspath libs.ignite3.bytecode
+    runtimeClasspath libs.ignite3.network.api
+    runtimeClasspath libs.ignite3.vault
+    runtimeClasspath libs.ignite3.rocksdb.common
+    runtimeClasspath libs.ignite3.replicator
+    runtimeClasspath libs.ignite3.raft.api
+    runtimeClasspath libs.ignite3.distribution.zones
+    runtimeClasspath libs.ignite3.raft
+    runtimeClasspath libs.ignite3.partition.distribution
+    runtimeClasspath libs.ignite3.cluster.management
+    runtimeClasspath libs.ignite3.index
+    runtimeClasspath libs.ignite3.storage.api
+    runtimeClasspath libs.ignite3.system.view
+    runtimeClasspath libs.ignite3.cli
+
+    // TODO: All the transitive deps should be made into shadow
+    shadow libs.asm.core
+    shadow libs.asm.tree
+    shadow libs.asm.util
+    shadow libs.fastutil.core
+    shadow libs.caffeine
+    shadow libs.netty.common
+    shadow libs.netty.buffer
+    shadow libs.netty.codec
+    shadow libs.netty.handler
+    shadow libs.msgpack.core
+    shadow "org.msgpack:jackson-dataformat-msgpack:0.8.24"
+    shadow libs.auto.service.annotations
+    shadow libs.typesafe.config
+}
+
+jar {
+    dependsOn(tasks.shadowJar)
+    enabled = false
+}
+
+shadowJar {
+    archiveClassifier.set("")
+    //configurations = [project.configurations.implementation]
+    mergeServiceFiles()
+    append 'META-INF/transferable.messages'
+    dependencies {
+        include(dependency(project.getProperty("ignite3.vendor") + '::'))
+    }
+    exclude "ignite.properties"
+    relocate('org.apache.ignite', 'org.apache.ignite3')
+}
+
+publishing {
+    publications {
+        shadow(MavenPublication) {
+            from components.shadow
+        }
+    }
+}
+
+signing {
+    sign publishing.publications
+}
