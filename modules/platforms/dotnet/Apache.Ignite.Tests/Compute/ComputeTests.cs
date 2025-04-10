@@ -191,7 +191,7 @@ namespace Apache.Ignite.Tests.Compute
                 "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$CustomException",
                 ex.InnerException!.Message);
 
-            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
+            Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
             Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
             Assert.AreEqual(3, ex.ErrorCode);
             Assert.AreEqual("TBL", ex.GroupName);
@@ -782,7 +782,7 @@ namespace Apache.Ignite.Tests.Compute
             // Result - exception.
             Assert.AreEqual("Custom job error", ex.Message);
             StringAssert.Contains("ItThinClientComputeTest$CustomException", ex.InnerException!.Message);
-            Assert.AreEqual(ErrorGroups.Table.ColumnAlreadyExists, ex.Code);
+            Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
 
             // Failed task state.
             Assert.IsNotNull(taskState);
