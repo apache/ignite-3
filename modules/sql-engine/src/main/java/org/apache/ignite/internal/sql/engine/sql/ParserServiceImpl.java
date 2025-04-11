@@ -22,9 +22,11 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlWriterConfig;
 import org.apache.calcite.sql.dialect.AnsiSqlDialect;
+import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.pretty.SqlPrettyWriter;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -67,9 +69,11 @@ public class ParserServiceImpl implements ParserService {
 
         List<ParsedResult> results = new ArrayList<>(parsedStatement.results().size());
 
+        List<String> scriptLines = query.lines().collect(Collectors.toList());
         for (StatementParseResult result : parsedStatement.results()) {
             SqlNode parsedTree = result.statement();
             SqlQueryType queryType = Commons.getQueryType(parsedTree);
+            String originalQuery = resembleOriginalQuery(scriptLines, parsedTree.getParserPosition());
             String normalizedQuery = parsedTree.toString();
 
             assert queryType != null : normalizedQuery;
@@ -78,7 +82,7 @@ public class ParserServiceImpl implements ParserService {
 
             results.add(new ParsedResultImpl(
                     queryType,
-                    normalizedQuery,
+                    originalQuery,
                     normalizedQuery,
                     result.dynamicParamsCount(),
                     () -> {
@@ -92,6 +96,33 @@ public class ParserServiceImpl implements ParserService {
         }
 
         return results;
+    }
+
+    private static String resembleOriginalQuery(
+            List<String> scriptLines, SqlParserPos parserPos
+    ) {
+        StringBuilder sb = new StringBuilder();
+
+        // Positions in ParserPos are 1-based.
+        int startLine = parserPos.getLineNum() - 1;
+        int startColumn = parserPos.getColumnNum() - 1;
+        int endLine = parserPos.getEndLineNum() - 1;
+        int endColumn = parserPos.getEndColumnNum(); // do not substruct 1 to preserve semicolon
+        for (int line = startLine; line <= endLine; line++) {
+            String lineString = scriptLines.get(line);
+
+            sb.append(
+                    lineString,
+                    line == startLine ? startColumn : 0,
+                    line == endLine ? Math.min(endColumn + 1, lineString.length()) : lineString.length()
+            );
+
+            if (line < endLine) {
+                sb.append(System.lineSeparator());
+            }
+        }
+
+        return sb.toString().trim();
     }
 
     private static ParsedResult prepareSingleResult(String originalQuery, SqlNode parsedTree, int dynamicParamsCount) {

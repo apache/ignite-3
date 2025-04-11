@@ -126,8 +126,8 @@ public class ItSqlQueryEventLogTest extends BaseSqlIntegrationTest {
 
         UUID scriptId = verifyQueryStartedFields(events.get(0), scriptText, null);
 
-        String insertStatementText = "INSERT INTO `TEST`\\nVALUES ROW(0)";
-        String selectStatementText = "SELECT 1";
+        String insertStatementText = "INSERT INTO test VALUES (0);";
+        String selectStatementText = "SELECT 1;";
 
         UUID insertQueryId = verifyQueryStartedFields(events.get(1), insertStatementText, null, scriptId, 0);
 

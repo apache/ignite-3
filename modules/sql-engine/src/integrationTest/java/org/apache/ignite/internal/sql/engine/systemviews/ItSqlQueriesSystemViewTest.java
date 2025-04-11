@@ -190,9 +190,9 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
 
             Set<String> transactionIds = new HashSet<>();
             List<String> expectedQueries = List.of(
-                    "SELECT `X`\nFROM TABLE(`SYSTEM_RANGE`(0, 2))",
-                    "INSERT INTO `TEST`\nVALUES ROW(0),\nROW(1)",
-                    "SELECT `X`\nFROM TABLE(`SYSTEM_RANGE`(3, 5))"
+                    "SELECT x FROM TABLE(SYSTEM_RANGE(0, 2));",
+                    "INSERT INTO test VALUES (0), (1);",
+                    "SELECT x FROM TABLE(SYSTEM_RANGE(3, 5));"
             );
 
             for (int i = 0; i < res.size(); i++) {
@@ -249,13 +249,13 @@ public class ItSqlQueriesSystemViewTest extends AbstractSystemViewTest {
         List<Object> row = res.get(0);
 
         // Expecting 3 queries with same transaction.
-        verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO `TEST`\nVALUES ROW(0),\nROW(1)",
+        verifyQueryInfo(row, initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO test VALUES (0), (1);",
                 timeBefore, timeAfter, hasLength(36), SqlQueryType.DML.name(), 1);
 
-        verifyQueryInfo(res.get(1), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "SELECT *\nFROM `TEST`",
+        verifyQueryInfo(res.get(1), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "SELECT * FROM test;",
                 timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.QUERY.name(), 3);
 
-        verifyQueryInfo(res.get(2), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO `TEST`\nVALUES ROW(2),\nROW(3)",
+        verifyQueryInfo(res.get(2), initiator.name(), SqlCommon.DEFAULT_SCHEMA_NAME, "INSERT INTO test VALUES (2), (3);",
                 timeBefore, timeAfter, equalTo((String) row.get(7)), SqlQueryType.DML.name(), 4);
 
         for (AsyncSqlCursor<InternalSqlRow> cursor : cursors) {
