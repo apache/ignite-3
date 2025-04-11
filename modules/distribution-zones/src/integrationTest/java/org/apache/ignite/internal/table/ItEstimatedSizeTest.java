@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
@@ -116,9 +117,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         cluster.startNode(initialNodes());
 
         for (String profile : ALL_STORAGE_PROFILES) {
-            int zoneId = unwrapTableImpl(unwrapIgniteImpl(cluster.aliveNode()).tables().table(tableName(profile))).zoneId();
-
-            waitForRebalance(initialNodes() + 1, zoneId);
+            waitForRebalance(initialNodes() + 1, zoneId(profile));
 
             assertThat(tableSize(tableName(profile)), willBe(NUM_ROWS));
         }
@@ -135,9 +134,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         cluster.stopNode(initialNodes() - 1);
 
         for (String profile : ALL_STORAGE_PROFILES) {
-            int zoneId = unwrapTableImpl(unwrapIgniteImpl(cluster.aliveNode()).tables().table(tableName(profile))).zoneId();
-
-            waitForRebalance(initialNodes() - 1, zoneId);
+            waitForRebalance(initialNodes() - 1, zoneId(profile));
 
             assertThat(tableSize(tableName(profile)), willBe(NUM_ROWS));
         }
@@ -190,15 +187,13 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
                 ? new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
                 : new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
-
         CompletableFuture<List<Entry>> entriesFuture = subscribeToList(metaStorageManager.prefix(stableAssignmentsPrefix));
 
         assertThat(entriesFuture, willCompleteSuccessfully());
 
         if (enabledColocation()) {
             return entriesFuture.join().stream()
-                    .filter(entry ->
-                            ZoneRebalanceUtil.extractZonePartitionId(entry.key(), ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
+                    .filter(entry -> extractZonePartitionId(entry.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES)
                                     .zoneId() == zoneId)
                     .map(entry -> Assignments.fromBytes(entry.value()))
                     .filter(Objects::nonNull)
@@ -217,5 +212,9 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
 
     private TableViewInternal tableViewInternal(String tableName) {
         return unwrapTableViewInternal(cluster.aliveNode().tables().table(tableName));
+    }
+
+    private int zoneId(String profile) {
+        return unwrapTableImpl(unwrapIgniteImpl(cluster.aliveNode()).tables().table(tableName(profile))).zoneId();
     }
 }

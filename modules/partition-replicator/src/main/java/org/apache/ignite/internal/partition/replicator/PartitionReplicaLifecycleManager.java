@@ -881,7 +881,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param zonePartitionId Zone partition id.
      * @return true if local replica exists, false otherwise.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-22624 replace this method by the replicas await process.
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25107 replace this method by the replicas await process.
     public boolean hasLocalPartition(ZonePartitionId zonePartitionId) {
         assert zonePartitionsLocks.get(zonePartitionId.zoneId()).isReadLocked() : zonePartitionId;
 
