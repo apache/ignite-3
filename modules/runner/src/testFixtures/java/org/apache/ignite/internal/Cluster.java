@@ -39,6 +39,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,7 +68,6 @@ import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -98,7 +98,7 @@ public class Cluster {
     private volatile int seedCountOverride = -1;
 
     /** Indices of nodes that have been knocked out. */
-    private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
+    private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates a new cluster.

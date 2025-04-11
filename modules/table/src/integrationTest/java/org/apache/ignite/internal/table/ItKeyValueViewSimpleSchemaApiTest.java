@@ -24,6 +24,8 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -37,6 +39,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
+import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -538,6 +541,167 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
     }
 
     @ParameterizedTest
+    @MethodSource("dateBoundaryTestCases")
+    @SuppressWarnings("ThrowableNotThrown")
+    public void putDateBoundaryValues(AllTypesTestCase testCase) {
+        try {
+            KeyValueView<Long, Object> view = testCase.view();
+
+            // Put min and max allowed values.
+            view.put(null, 1L, SchemaUtils.DATE_MIN);
+            view.put(null, 2L, SchemaUtils.DATE_MAX);
+
+            // Verify them using KV API.
+            {
+                assertEquals(SchemaUtils.DATE_MIN, view.get(null, 1L));
+                assertEquals(SchemaUtils.DATE_MAX, view.get(null, 2L));
+            }
+
+            // Verify them using SQL API.
+            {
+                String query = "SELECT VAL, VAL::VARCHAR FROM " + testCase.tableName + " WHERE id = ?";
+                {
+                    List<List<Object>> res = sql(query, 1);
+
+                    assertEquals(SchemaUtils.DATE_MIN, res.get(0).get(0));
+                    assertEquals(SchemaUtils.DATE_MIN.toString(), res.get(0).get(1));
+                }
+                {
+                    List<List<Object>> res = sql(query, 2);
+
+                    assertEquals(SchemaUtils.DATE_MAX, res.get(0).get(0));
+                    assertEquals(SchemaUtils.DATE_MAX.toString(), res.get(0).get(1));
+                }
+            }
+
+            // Make sure (min + 1) and (min - 1) cannot be inserted due to range overflow.
+            {
+                IgniteTestUtils.assertThrows(
+                        MarshallerException.class,
+                        () -> view.put(null, 3L, SchemaUtils.DATE_MIN.minusDays(1)),
+                        "Value is out of allowed range"
+                );
+
+                IgniteTestUtils.assertThrows(
+                        MarshallerException.class,
+                        () -> view.put(null, 4L, SchemaUtils.DATE_MAX.plusDays(1)),
+                        "Value is out of allowed range"
+                );
+            }
+        } finally {
+            sql("DELETE FROM " + testCase.tableName);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("timestampBoundaryTestCases")
+    @SuppressWarnings("ThrowableNotThrown")
+    public void putTimestampBoundaryValues(AllTypesTestCase testCase) {
+        try {
+            KeyValueView<Long, Object> view = testCase.view();
+
+            // Put min and max allowed values.
+            view.put(null, 1L, SchemaUtils.TIMESTAMP_MIN);
+            view.put(null, 2L, SchemaUtils.TIMESTAMP_MAX);
+
+            // Verify them using KV API.
+            {
+                assertEquals(SchemaUtils.TIMESTAMP_MIN, view.get(null, 1L));
+                // DATETIME column has precision 6.
+                assertEquals(SchemaUtils.TIMESTAMP_MAX.truncatedTo(ChronoUnit.MICROS), view.get(null, 2L));
+            }
+
+            // Verify them using SQL API.
+            {
+                String query = "SELECT VAL, VAL::VARCHAR FROM " + testCase.tableName + " WHERE id = ?";
+                {
+                    List<List<Object>> res = sql(0, null, ZoneOffset.UTC, query, new Object[]{1});
+
+                    assertEquals(SchemaUtils.TIMESTAMP_MIN, res.get(0).get(0));
+                    assertEquals("0001-01-01 18:00:00 UTC", res.get(0).get(1));
+                }
+                {
+                    List<List<Object>> res = sql(0, null, ZoneOffset.UTC, query, new Object[]{2});
+
+                    assertEquals(SchemaUtils.TIMESTAMP_MAX.truncatedTo(ChronoUnit.MILLIS), res.get(0).get(0));
+                    assertEquals("9999-12-31 05:59:59.999 UTC", res.get(0).get(1));
+                }
+            }
+
+            // Make sure (min + 1) and (min - 1) cannot be inserted due to range overflow.
+            {
+                IgniteTestUtils.assertThrows(
+                        MarshallerException.class,
+                        () -> view.put(null, 1L, SchemaUtils.TIMESTAMP_MIN.minusNanos(1)),
+                        "Value is out of allowed range"
+                );
+
+                IgniteTestUtils.assertThrows(
+                        MarshallerException.class,
+                        () -> view.put(null, 2L, SchemaUtils.TIMESTAMP_MAX.plusNanos(1)),
+                        "Value is out of allowed range"
+                );
+            }
+        } finally {
+            sql("DELETE FROM " + testCase.tableName);
+        }
+    }
+
+    @ParameterizedTest
+    @MethodSource("datetimeBoundaryTestCases")
+    @SuppressWarnings("ThrowableNotThrown")
+    public void putDatetimeBoundaryValues(AllTypesTestCase testCase) {
+        try {
+            KeyValueView<Long, Object> view = testCase.view();
+
+            // Put min and max allowed values.
+            view.put(null, 1L, SchemaUtils.DATETIME_MIN);
+            view.put(null, 2L, SchemaUtils.DATETIME_MAX);
+
+            // Verify them using KV API.
+            {
+                assertEquals(SchemaUtils.DATETIME_MIN, view.get(null, 1L));
+                // DATETIME column has precision 6.
+                assertEquals(SchemaUtils.DATETIME_MAX.truncatedTo(ChronoUnit.MICROS), view.get(null, 2L));
+            }
+
+            // Verify them using SQL API.
+            {
+                String query = "SELECT VAL, VAL::VARCHAR FROM " + testCase.tableName + " WHERE id = ?";
+                {
+                    List<List<Object>> res = sql(query, 1);
+
+                    assertEquals(SchemaUtils.DATETIME_MIN, res.get(0).get(0));
+                    assertEquals("0001-01-01 18:00:00", res.get(0).get(1));
+                }
+                {
+                    List<List<Object>> res = sql(query, 2);
+
+                    assertEquals(SchemaUtils.DATETIME_MAX.truncatedTo(ChronoUnit.MILLIS), res.get(0).get(0));
+                    assertEquals("9999-12-31 05:59:59.999", res.get(0).get(1));
+                }
+            }
+
+            // Make sure (min + 1) and (min - 1) cannot be inserted due to range overflow.
+            {
+                IgniteTestUtils.assertThrows(
+                        MarshallerException.class,
+                        () -> view.put(null, 3L, SchemaUtils.DATETIME_MIN.minusNanos(1)),
+                        "Value is out of allowed range"
+                );
+
+                IgniteTestUtils.assertThrows(
+                        MarshallerException.class,
+                        () -> view.put(null, 4L, SchemaUtils.DATETIME_MAX.plusNanos(1)),
+                        "Value is out of allowed range"
+                );
+            }
+        } finally {
+            sql("DELETE FROM " + testCase.tableName);
+        }
+    }
+
+    @ParameterizedTest
     @MethodSource("testCases")
     public void getAll(TestCase<Long, Long> testCase) {
         KeyValueView<Long, Long> tbl = testCase.view();
@@ -708,21 +872,39 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         List<Arguments> arguments = new ArrayList<>();
 
         for (NativeType nativeType : SchemaTestUtils.ALL_TYPES) {
-            String tableName = "T_" + nativeType.spec().name();
-
-            Class<?> valueClass = NativeTypeSpec.toClass(nativeType.spec(), true);
-
-            TestCaseFactory factory = getFactory(tableName);
-
-            for (TestCaseType testType : TestCaseType.values()) {
-                arguments.add(Arguments.of(Named.of(
-                        nativeType.spec().name() + " " + testType.description(),
-                        new AllTypesTestCase(factory.create(testType, Long.class, valueClass), tableName, nativeType)
-                )));
-            }
+            generateTestCasesForType(nativeType, arguments);
         }
 
         return arguments;
+    }
+
+    private List<Arguments> generateTestCasesForType(NativeType nativeType, List<Arguments> arguments) {
+        String tableName = "T_" + nativeType.spec().name();
+
+        Class<?> valueClass = NativeTypeSpec.toClass(nativeType.spec(), true);
+
+        TestCaseFactory factory = getFactory(tableName);
+
+        for (TestCaseType testType : TestCaseType.values()) {
+            arguments.add(Arguments.of(Named.of(
+                    nativeType.spec().name() + " " + testType.description(),
+                    new AllTypesTestCase(factory.create(testType, Long.class, valueClass), tableName, nativeType)
+            )));
+        }
+
+        return arguments;
+    }
+
+    private List<Arguments> timestampBoundaryTestCases() {
+        return generateTestCasesForType(NativeTypes.timestamp(9), new ArrayList<>());
+    }
+
+    private List<Arguments> datetimeBoundaryTestCases() {
+        return generateTestCasesForType(NativeTypes.datetime(9), new ArrayList<>());
+    }
+
+    private List<Arguments> dateBoundaryTestCases() {
+        return generateTestCasesForType(NativeTypes.DATE, new ArrayList<>());
     }
 
     @Override
