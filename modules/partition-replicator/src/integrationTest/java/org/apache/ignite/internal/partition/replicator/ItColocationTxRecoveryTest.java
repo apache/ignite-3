@@ -58,8 +58,6 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
 
         createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
 
-        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
-
         putInitialValue(node0);
 
         ReplicaMeta primaryReplica = node0.getPrimaryReplica(zoneId);

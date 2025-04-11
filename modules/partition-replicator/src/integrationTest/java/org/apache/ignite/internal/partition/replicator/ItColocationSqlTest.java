@@ -52,8 +52,6 @@ class ItColocationSqlTest extends ItAbstractColocationTest {
         createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME1);
         createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
-        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
-
         KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
         KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
@@ -124,8 +122,6 @@ class ItColocationSqlTest extends ItAbstractColocationTest {
 
         createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME1);
         createTable(node, TEST_ZONE_NAME, TEST_TABLE_NAME2);
-
-        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
         KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
