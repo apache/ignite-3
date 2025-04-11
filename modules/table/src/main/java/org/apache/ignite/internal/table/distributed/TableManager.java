@@ -65,7 +65,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -3069,13 +3068,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     public Set<TableImpl> zoneTables(int zoneId) {
-        return tablesPerZone.computeIfAbsent(zoneId, id -> new HashSet<>());
+        // Using a concurrent set as a value as it can be read (and iterated over) without any synchronization by external callers.
+        return tablesPerZone.computeIfAbsent(zoneId, id -> ConcurrentHashMap.newKeySet());
     }
 
     private void addTableToZone(int zoneId, TableImpl table) {
         tablesPerZone.compute(zoneId, (id, tbls) -> {
             if (tbls == null) {
-                tbls = new HashSet<>();
+                // Using a concurrent set as a value as it can be read (and iterated over) without any synchronization by external callers.
+                tbls = ConcurrentHashMap.newKeySet();
             }
 
             tbls.add(table);
