@@ -23,13 +23,12 @@ import java.util.List;
 import java.util.NavigableMap;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TransactionIds;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 
 class TransactionExpirationRegistry {
     private static final IgniteLogger LOG = Loggers.forClass(TransactionExpirationRegistry.class);
@@ -40,7 +39,7 @@ class TransactionExpirationRegistry {
      */
     private final NavigableMap<Long, Object> txsByExpirationTime = new ConcurrentSkipListMap<>();
 
-    private final ReadWriteLock watermarkLock = new ReentrantReadWriteLock();
+    private final IgniteStripedReadWriteLock watermarkLock = new IgniteStripedReadWriteLock();
 
     /** Watermark at which expiration has already happened (millis since Unix epoch). */
     private volatile long watermark = Long.MIN_VALUE;

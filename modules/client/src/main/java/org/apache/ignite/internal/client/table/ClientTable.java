@@ -485,22 +485,22 @@ public class ClientTable implements Table {
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
 
-                    PartitionMapping forCrd = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true);
-
-                    return ClientLazyTransaction.ensureStarted(tx, ch, forCrd).thenCompose(tx0 -> {
+                    return ClientLazyTransaction.ensureStarted(tx, ch,
+                            () -> getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true)).thenCompose(tx0 -> {
                         @Nullable PartitionMapping forOp = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema,
                                 tx0 == null); // Force coordinator mode for implicit transactions.
 
                         WriteContext ctx = new WriteContext();
-                        ctx.pm = forOp;
+                        // Force proxy mode for requests collocated with coordinator to reduce passed enlistment info on commit.
+                        ctx.pm = tx0 != null && forOp != null && forOp.nodeConsistentId().equals(tx0.nodeName()) ? null : forOp;
 
                         return ch.serviceAsync(opCode,
-                                        (opCh) -> tx0 == null || tx0.isReadOnly() || forOp == null
+                                        (opCh) -> tx0 == null || tx0.isReadOnly() || ctx.pm == null
                                                 || !opCh.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
-                                                : tx0.enlistFuture(opCh, ctx),
+                                                : tx0.enlistFuture(ch, opCh, ctx),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
-                                        resolvePreferredNode(tx0, forOp),
+                                        resolvePreferredNode(tx0, ctx.pm),
                                         tx0 == null ? null : tx0.nodeName(),
                                         retryPolicyOverride,
                                         expectNotifications)

@@ -49,6 +49,9 @@ public class ProtocolContext {
     /** Cluster name. */
     private final String clusterName;
 
+    /* Inflights. */
+    private final ClientTransactionInflights inflights;
+
     /**
      * Constructor.
      *
@@ -58,6 +61,7 @@ public class ProtocolContext {
      * @param clusterNode Cluster node.
      * @param clusterIds Cluster ids.
      * @param clusterName Cluster name.
+     * @param inflights Inflights.
      */
     ProtocolContext(
             ProtocolVersion ver,
@@ -65,14 +69,15 @@ public class ProtocolContext {
             long serverIdleTimeout,
             ClusterNode clusterNode,
             List<UUID> clusterIds,
-            String clusterName
-    ) {
+            String clusterName,
+            ClientTransactionInflights inflights) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;
         this.clusterNode = clusterNode;
         this.clusterIds = clusterIds;
         this.clusterName = clusterName;
+        this.inflights = inflights;
     }
 
     /**
@@ -82,7 +87,8 @@ public class ProtocolContext {
      * @return {@code true} if bitmask protocol feature supported.
      */
     public boolean isFeatureSupported(ProtocolBitmaskFeature feature) {
-        return features.contains(feature);
+        return true;
+        //return features.contains(feature);
     }
 
     /**
@@ -158,5 +164,14 @@ public class ProtocolContext {
      */
     public String clusterName() {
         return clusterName;
+    }
+
+    /**
+     * Returns transaction inflights.
+     *
+     * @return Inflights.
+     */
+    public ClientTransactionInflights inflights() {
+        return inflights;
     }
 }

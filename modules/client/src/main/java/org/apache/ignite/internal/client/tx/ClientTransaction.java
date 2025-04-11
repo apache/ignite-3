@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.PartitionMapping;
+import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.WriteContext;
 import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -219,7 +220,9 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
+        CompletableFuture<Void> finishFut = ch.protocolContext().inflights().finishFuture(txId());
+
+        CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
             if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
                 w.out().packLong(tracker.get().longValue());
@@ -231,12 +234,12 @@ public class ClientTransaction implements Transaction {
                     w.out().packLong(entry.getValue().getNow(null).get2());
                 }
             }
-        }, r -> null);
+        }, r -> null));
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_COMMITTED);
 
-            finishFut.get().complete(null);
+            this.finishFut.get().complete(null);
 
             return null;
         });
@@ -253,11 +256,19 @@ public class ClientTransaction implements Transaction {
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> rollbackAsync() {
-        if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
-            return finishFut.get();
+        enlistPartitionLock.writeLock().lock();
+
+        try {
+            if (!finishFut.compareAndSet(null, new CompletableFuture<>())) {
+                return finishFut.get();
+            }
+        } finally {
+            enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
+        CompletableFuture<Void> finishFut = ch.protocolContext().inflights().finishFuture(txId());
+
+        CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
             if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
                 w.out().packInt(enlisted.size());
@@ -268,12 +279,12 @@ public class ClientTransaction implements Transaction {
                     w.out().packLong(entry.getValue().getNow(null).get2());
                 }
             }
-        }, r -> null);
+        }, r -> null));
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_ROLLED_BACK);
 
-            finishFut.get().complete(null);
+            this.finishFut.get().complete(null);
 
             return null;
         });
@@ -331,12 +342,12 @@ public class ClientTransaction implements Transaction {
     /**
      * Enlists a write operation in direct mapping.
      *
-     * @param opChannel Operation channge.
+     * @param ch Channel facade.
+     * @param opChannel Operation channel.
      * @param ctx The context.
-     *
      * @return The future.
      */
-    public CompletableFuture<Void> enlistFuture(ClientChannel opChannel, WriteContext ctx) {
+    public CompletableFuture<Void> enlistFuture(ReliableChannel ch, ClientChannel opChannel, WriteContext ctx) {
         // Check if direct mapping is applicable.
         if (ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
             if (!enlistPartitionLock.readLock().tryLock()) {
@@ -347,6 +358,7 @@ public class ClientTransaction implements Transaction {
 
             boolean[] first = {false};
 
+            // TODO FIXME remove new object.
             TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
 
             CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
@@ -362,6 +374,8 @@ public class ClientTransaction implements Transaction {
 
             // Re-check after unlock.
             checkEnlistPossible();
+
+            ch.inflights().addInflight(txId);
 
             if (first[0]) {
                 ctx.enlistmentToken = 0L;

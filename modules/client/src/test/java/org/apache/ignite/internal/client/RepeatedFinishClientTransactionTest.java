@@ -200,6 +200,8 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testEnlistFailAfterCommit() {
+        ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
+
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
@@ -218,7 +220,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(clientChannel, wc);
+            tx.enlistFuture(ch, clientChannel, wc);
 
             fail();
         } catch (TransactionException e) {
@@ -228,6 +230,8 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     @Test
     public void testEnlistFailAfterRollback() {
+        ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
+
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
@@ -246,7 +250,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(clientChannel, wc);
+            tx.enlistFuture(ch, clientChannel, wc);
 
             fail();
         } catch (TransactionException e) {

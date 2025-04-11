@@ -17,9 +17,12 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
+import java.util.function.Consumer;
 import org.apache.ignite.internal.network.annotations.Transferable;
+import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.TableAware;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write single-row replica request.
@@ -32,4 +35,7 @@ public interface ReadWriteSingleRowReplicaRequest extends SingleRowReplicaReques
      * @return {@code True} to disable the delayed ack optimization.
      */
     boolean skipDelayedAck();
+
+    @Transient
+    @Nullable Consumer<Throwable> delayedAckProcessor();
 }

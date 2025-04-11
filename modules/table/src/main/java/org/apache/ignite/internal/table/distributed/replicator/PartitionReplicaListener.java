@@ -76,6 +76,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Consumer;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -2731,7 +2732,17 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                                 // Release short term locks.
                                 tuple.get2().get2().forEach(lock -> lockManager.release(lock.txId(), lock.lockKey(), lock.lockMode()));
 
-                                return new ReplicaResult(null, tuple.get1());
+                                Consumer<Throwable> proc = request.delayedAckProcessor();
+
+                                if (proc == null) {
+                                    return new ReplicaResult(null, tuple.get1());
+                                } else {
+                                    tuple.get1().replicationFuture().whenComplete((ignored, e) -> {
+                                        proc.accept(e);
+                                    });
+
+                                    return new ReplicaResult(null, tuple.get1(), false);
+                                }
                             });
                 });
             }

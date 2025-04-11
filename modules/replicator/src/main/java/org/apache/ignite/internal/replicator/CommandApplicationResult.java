@@ -27,10 +27,16 @@ import org.jetbrains.annotations.Nullable;
 public final class CommandApplicationResult {
     private final @Nullable HybridTimestamp commitTs;
     private final @Nullable CompletableFuture<?> repFut;
+    private final boolean remote;
 
     public CommandApplicationResult(@Nullable HybridTimestamp commitTs, @Nullable CompletableFuture<?> repFut) {
+        this(commitTs, repFut, false);
+    }
+
+    public CommandApplicationResult(@Nullable HybridTimestamp commitTs, @Nullable CompletableFuture<?> repFut, boolean remote) {
         this.commitTs = commitTs;
         this.repFut = repFut;
+        this.remote = remote;
     }
 
     public @Nullable HybridTimestamp commitTimestamp() {
@@ -39,5 +45,9 @@ public final class CommandApplicationResult {
 
     public @Nullable CompletableFuture<?> replicationFuture() {
         return repFut;
+    }
+
+    public boolean remote() {
+        return remote;
     }
 }

@@ -21,6 +21,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -113,7 +114,7 @@ public interface TxManager extends IgniteComponent {
      * @param timeout The timeout.
      * @return Remote transaction.
      */
-    InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout);
+    InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);
 
     /**
      * Returns a transaction state meta.

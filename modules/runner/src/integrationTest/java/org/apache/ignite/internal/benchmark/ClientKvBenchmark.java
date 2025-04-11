@@ -48,8 +48,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark for a single upsert operation via KV API with a possibility to disable updates via RAFT and to storage using a remote client.
  */
 @State(Scope.Benchmark)
-@Fork(1)
-@Threads(4)
+@Fork(0)
+@Threads(1)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -70,7 +70,7 @@ public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"16"})
+    @Param({"32"})
     private int partitionCount;
 
     private final AtomicInteger counter = new AtomicInteger();
@@ -133,7 +133,7 @@ public class ClientKvBenchmark extends AbstractMultiNodeBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(".*" + ClientKvBenchmark.class.getSimpleName() + ".*")
-                // .jvmArgsAppend("-Djmh.executor=VIRTUAL")
+                .jvmArgsAppend("-Djmh.executor=VIRTUAL")
                 // .addProfiler(JavaFlightRecorderProfiler.class, "configName=profile.jfc")
                 .build();
 

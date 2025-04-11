@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -416,13 +417,15 @@ public class ClientTableCommon {
      * @param out Packer.
      * @param resources Resource registry.
      * @param txManager Tx manager.
+     * @param notificationSender Notification sender.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             ClientResourceRegistry resources,
-            @Nullable TxManager txManager
+            @Nullable TxManager txManager,
+            @Nullable NotificationSender notificationSender
     ) {
         if (in.tryUnpackNil()) {
             return null;
@@ -439,7 +442,9 @@ public class ClientTableCommon {
                 long timeout = in.unpackLong();
 
                 InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
-                        coord, token, timeout);
+                        coord, token, timeout, err -> {
+                            notificationSender.sendNotification(w -> w.packUuid(txId), err);
+                        });
 
                 // Remote transaction will be synchronously rolled back if the timeout has exceeded.
                 if (remote.isRolledBackWithTimeoutExceeded()) {
@@ -479,9 +484,36 @@ public class ClientTableCommon {
             ClientMessagePacker out,
             ClientResourceRegistry resources,
             TxManager txManager,
-            boolean readOnly
-    ) {
-        InternalTransaction tx = readTx(in, out, resources, txManager);
+            boolean readOnly) {
+        InternalTransaction tx = readTx(in, out, resources, txManager, null);
+
+        if (tx == null) {
+            // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
+            // The direct transaction uses a current timestamp on the primary replica by definition.
+            tx = startImplicitTx(out, txManager, null, readOnly);
+        }
+
+        return tx;
+    }
+
+    /**
+     * Reads transaction or start implicit one.
+     *
+     * @param in Unpacker.
+     * @param out Packer.
+     * @param resources Resource registry.
+     * @param txManager Ignite transactions.
+     * @param readOnly Read only flag.
+     * @return Transaction.
+     */
+    public static InternalTransaction readOrStartImplicitTx(
+            ClientMessageUnpacker in,
+            ClientMessagePacker out,
+            ClientResourceRegistry resources,
+            TxManager txManager,
+            boolean readOnly,
+            NotificationSender notificationSender) {
+        InternalTransaction tx = readTx(in, out, resources, txManager, notificationSender);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

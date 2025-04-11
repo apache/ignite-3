@@ -1169,7 +1169,8 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .skipDelayedAck(false)
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
         );

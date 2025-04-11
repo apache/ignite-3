@@ -32,6 +32,8 @@ public class ReplicaResult {
     /** The replication future. */
     private final CommandApplicationResult commandApplicationResult;
 
+    private final boolean remote;
+
     /**
      * Construct a replica result.
      *
@@ -39,8 +41,13 @@ public class ReplicaResult {
      * @param commandApplicationResult The replication result.
      */
     public ReplicaResult(@Nullable Object res, @Nullable CommandApplicationResult commandApplicationResult) {
+        this(res, commandApplicationResult, false);
+    }
+
+    public ReplicaResult(@Nullable Object res, @Nullable CommandApplicationResult commandApplicationResult, boolean remote) {
         this.res = res;
         this.commandApplicationResult = commandApplicationResult == null ? DEFAULT_RESULT : commandApplicationResult;
+        this.remote = remote;
     }
 
     /**
@@ -59,5 +66,9 @@ public class ReplicaResult {
      */
     public CommandApplicationResult applyResult() {
         return commandApplicationResult;
+    }
+
+    public boolean remote() {
+        return remote;
     }
 }

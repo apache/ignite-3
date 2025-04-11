@@ -918,7 +918,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout) {
+    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
+            Consumer<Throwable> cb) {
         assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
 
         // Switch to default timeout if needed.
@@ -951,6 +952,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Override
             public boolean isRolledBackWithTimeoutExceeded() {
                 return isTimeout;
+            }
+
+            @Override
+            public void processDelayedAck(@Nullable Throwable err) {
+                cb.accept(err == null ? null : err);
             }
         };
 
