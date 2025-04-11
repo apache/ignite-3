@@ -130,11 +130,7 @@ public final class IgniteSqlParser  {
                 ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
                 SqlNode newNode = node.accept(visitor);
 
-                if (newNode != node) {
-                    list.set(i, newNode);
-                } else {
-                    list.set(i, node);
-                }
+                list.set(i, newNode);
             }
 
             return mode.createResult(list, dynamicParamsCount);
@@ -238,17 +234,11 @@ public final class IgniteSqlParser  {
                 messageFromCause = messageFromCause.substring(0, messageFromCause.length() - 1);
             }
 
-            // Improve error reporting in case of error caused by fatal errors during initialization.
-            SqlParserPos pos = ex.getPos();
-            if (pos == null) {
-                pos = SqlParserPos.ZERO;
-            }
-
             message = format(
                     "{}. At line {}, column {}",
                     messageFromCause,
-                    pos.getLineNum(),
-                    pos.getColumnNum()
+                    ex.getPos().getLineNum(),
+                    ex.getPos().getColumnNum()
             );
         }
 
