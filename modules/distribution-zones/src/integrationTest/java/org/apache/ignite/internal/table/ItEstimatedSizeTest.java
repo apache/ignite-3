@@ -131,6 +131,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
 
             assertThat(tableSize(tableName), willBe(NUM_ROWS));
         }
+
         cluster.stopNode(initialNodes() - 1);
 
         for (String profile : ALL_STORAGE_PROFILES) {
