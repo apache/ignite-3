@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
@@ -115,7 +116,7 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
      * @return Transaction meta.
      */
     private static TransactionMeta persistentTxState(Node node, int zoneId, int partId, UUID txId) {
-        return IgniteTestUtils.bypassingThreadAssertions(() -> node.txStatePartitionStorage(zoneId, partId).get(txId));
+        return IgniteTestUtils.bypassingThreadAssertions(() -> requireNonNull(node.txStatePartitionStorage(zoneId, partId)).get(txId));
     }
 
     /**

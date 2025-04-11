@@ -92,8 +92,6 @@ public class ItBuildIndexTest extends ItAbstractColocationTest {
     }
 
     private static void createCustomTable(Node node, String zoneName, String tableName) {
-        node.waitForMetadataCompletenessAtNow();
-
         TableTestUtils.createTable(
                 node.catalogManager,
                 DEFAULT_SCHEMA_NAME,

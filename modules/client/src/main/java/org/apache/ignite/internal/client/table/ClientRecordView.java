@@ -83,7 +83,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET,
-                (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY, true),
                 (s, r) -> ser.readValRec(keyRec, s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRec),
@@ -105,7 +105,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_ALL,
-                (s, w, n) -> ser.writeRecs(tx, keyRecs, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRecs(tx, keyRecs, s, w, n, TuplePart.KEY, true),
                 (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRecs),
@@ -126,7 +126,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_KEY,
-                (s, w, n) -> ser.writeRec(tx, key, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRec(tx, key, s, w, n, TuplePart.KEY, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), key),
                 tx);
@@ -149,7 +149,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                (s, w, n) -> ser.writeRecs(tx, keys, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRecs(tx, keys, s, w, n, TuplePart.KEY, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keys),
                 tx);
@@ -332,7 +332,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutOpAsync(
                 ClientOp.TUPLE_DELETE,
-                (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY, true),
                 r -> r.in().unpackBoolean(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRec),
                 tx);
@@ -370,7 +370,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_GET_AND_DELETE,
-                (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY, true),
                 (s, r) -> ser.readValRec(keyRec, s, r.in()),
                 null,
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRec),
@@ -394,7 +394,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
 
         return tbl.doSchemaOutInOpAsync(
                 ClientOp.TUPLE_DELETE_ALL,
-                (s, w, n) -> ser.writeRecs(tx, keyRecs, s, w, n, TuplePart.KEY),
+                (s, w, n) -> ser.writeRecs(tx, keyRecs, s, w, n, TuplePart.KEY, true),
                 (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRecs),
