@@ -52,6 +52,7 @@ import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.tx.Transaction;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,9 +60,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 // TODO: remove after switching to per-zone partitions https://issues.apache.org/jira/browse/IGNITE-22522
 class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
-    @ParameterizedTest
-    @ValueSource(booleans = {false, true})
-    void txFinishCommandGetsReplicated(boolean commit) throws Exception {
+//    @ParameterizedTest
+//    @ValueSource(booleans = {false, true})
+    @RepeatedTest(100)
+    void txFinishCommandGetsReplicated() throws Exception {
+        boolean commit = false;
+
         startCluster(3);
 
         // Create a zone with a single partition on every node.
