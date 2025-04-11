@@ -834,6 +834,10 @@ public class Node {
         return new PublicApiThreadingIgniteSql(igniteSql, ForkJoinPool.commonPool());
     }
 
+    public void waitForMetadataCompletenessAtNow() {
+        assertThat(schemaSyncService.waitForMetadataCompleteness(hybridClock.now()), willCompleteSuccessfully());
+    }
+
     /**
      * Starts the created components.
      */
