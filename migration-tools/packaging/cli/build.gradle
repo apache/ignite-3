@@ -1,0 +1,163 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+plugins {
+    id 'java'
+    id 'distribution'
+    id 'signing'
+    alias(libs.plugins.nebula)
+    alias(libs.plugins.checksum)
+    alias(libs.plugins.docker)
+}
+
+java {
+    sourceCompatibility = JavaVersion.VERSION_11
+    targetCompatibility = JavaVersion.VERSION_11
+}
+
+import org.apache.tools.ant.filters.ReplaceTokens
+import org.gradle.crypto.checksum.Checksum
+
+configurations {
+    cliArtifacts
+}
+
+dependencies {
+    cliArtifacts project(':migration-tools-cli')
+}
+
+// Common for ZIP and RPM/DEB
+
+def tokens = [
+        PRODUCT_NAME        : 'migration-tools-cli',
+        PRODUCT_DISPLAY_NAME: 'Migration Tools CLI',
+        LOG_DIR             : '${HOME}/.ai3-migration-tools',
+        APP_JAR             : "${project(':migration-tools-cli').name}-${project(':migration-tools-cli').version}.jar".toString(),
+        SETUP_JAVA_FILE_NAME: 'setup-java.sh',
+        JVM_DEFAULTS_FILE_NAME: 'jvmdefaults.sh',
+        MAIN_CLASS          : 'org.apache.ignite.migrationtools.cli.Main',
+        ARGS                : '$@'
+]
+
+def winTokens = tokens + [
+    LIB_DIR: "%DIRNAME%..\\lib",
+    LOG_DIR: "%USERPROFILE%\\.ai3-migration-tools",
+    ARGS: "%*",
+]
+
+task createChecksums(type: Checksum) {
+    dependsOn distZip
+
+    inputFiles.from distZip.outputs.files
+    checksumAlgorithm = Checksum.Algorithm.SHA512
+}
+
+
+// ZIP packaging
+
+def zipTokens = tokens + [
+        LIB_DIR             : '$(dirname "$0")/../lib',
+]
+
+task replaceScriptVarsZip(type: Copy) {
+    from 'start.sh'
+    filter(ReplaceTokens, tokens: zipTokens)
+    into "$buildDir/zip"
+    rename {
+        'migration-tools'
+    }
+}
+
+task windowsCliStartScript(type: Copy) {
+    //from cliStartScript
+    from "start.bat"
+    filter(ReplaceTokens, tokens: winTokens)
+    into "$buildDir/windows"
+    rename {
+        'migration-tools.bat'
+    }
+}
+
+distributions {
+    main {
+        distributionBaseName = 'migration-tools-cli'
+        contents {
+            into('') {
+                from "$rootDir/LICENSE"
+                from "$rootDir/NOTICE"
+            }
+            into('bin') {
+                duplicatesStrategy= DuplicatesStrategy.EXCLUDE
+                from replaceScriptVarsZip
+                from windowsCliStartScript
+                fileMode 0755
+            }
+            into('lib') {
+                from configurations.cliArtifacts
+                from "$projectDir/../common/linux"
+                from "$projectDir/../common/windows"
+            }
+        }
+    }
+}
+
+// Expose zip artifacts to be consumed by others
+configurations {
+    cliZip {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+artifacts {
+    cliZip(distZip)
+}
+
+// Explicitly create task so that the resulting artifact is not added to the configuration
+tasks.register('signCliZip', Sign) {
+    sign configurations.cliZip
+}
+
+configurations {
+    cliRelease {
+        canBeConsumed = true
+        canBeResolved = false
+    }
+}
+
+if (project.hasProperty('prepareRelease')) {
+    artifacts {
+        cliRelease(file("$buildDir/distributions")) {
+            builtBy signCliZip
+        }
+        cliRelease(file("$buildDir/checksums")) {
+            builtBy createChecksums
+        }
+    }
+}
+
+docker {
+    name 'ai3-migration-tools:' + project.version
+    dockerfile file('docker/Dockerfile')
+    files tasks.distTar.outputs
+    buildArgs(
+        [
+            PACKAGE_NAME: tasks.distTar.archiveFileName.get().dropRight(tasks.distTar.archiveExtension.get().length() + 1),
+            PACKAGE_EXTENSION: tasks.distTar.archiveExtension.get()
+        ]
+    )
+}
