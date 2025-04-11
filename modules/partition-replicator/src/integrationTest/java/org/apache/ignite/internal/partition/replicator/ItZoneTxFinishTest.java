@@ -71,8 +71,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
-
         Node node = cluster.get(0);
 
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
@@ -167,8 +165,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
 
-        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
-
         Node node = cluster.get(0);
 
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
@@ -244,8 +240,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
-        cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
