@@ -54,6 +54,8 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
@@ -89,6 +91,8 @@ import org.apache.ignite.network.ClusterNode;
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
 class IndexBuildController implements ManuallyCloseable {
+    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildController.class);
+
     private final IndexBuilder indexBuilder;
 
     private final IndexManager indexManager;
@@ -344,6 +348,7 @@ class IndexBuildController implements ManuallyCloseable {
     ) {
         inBusyLock(busyLock, () -> {
             if (isLeaseExpired(replicaMeta, buildAttemptTimestamp)) {
+                LOG.warn("Lease expired, stop building index groupId = [" + primaryReplicaId + "]");
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
@@ -397,6 +402,7 @@ class IndexBuildController implements ManuallyCloseable {
 
         inBusyLock(busyLock, () -> {
             if (isLeaseExpired(replicaMeta, buildAttemptTimestamp)) {
+                LOG.warn("Lease expired 2, stop building index groupId = [" + primaryReplicaId + "]");
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
                 return;
