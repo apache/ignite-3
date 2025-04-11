@@ -714,7 +714,7 @@ public class ItDataTypesTest extends BaseSqlIntegrationTest {
     public void testCalciteUnionCharLiteralsBug() {
         // See https://issues.apache.org/jira/browse/CALCITE-6350 the report states the issue was fixed by removing a cast in
         // AbstractTypeCoercion::needToCast but that `fix` causes silent data truncation by introducing extra casts.
-        // The query works AI in w/o that `fix`.
+        // The query works in AI w/o that `fix`.
         assertQuery("SELECT * FROM (SELECT 'word' i UNION ALL SELECT 'w' i) t1 WHERE i='w'")
                 .returns("w")
                 .check();
