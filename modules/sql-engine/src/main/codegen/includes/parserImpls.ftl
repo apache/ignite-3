@@ -59,18 +59,6 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
-SqlTypeNameSpec UuidType(Span s) :
-{
-    final SqlIdentifier typeName;
-}
-{
-    <UUID> { s = span(); typeName = new SqlIdentifier(UuidType.NAME, s.pos()); }
-    {
-        return new IgniteSqlTypeNameSpec(typeName, s.end(this));
-    }
-}
-
-
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
@@ -109,7 +97,7 @@ void TableElement(List<SqlNode> list) :
     ]
     {
         list.add(
-            SqlDdlNodes.column(s.add(id).end(this), id,
+            new IgniteSqlColumnDeclaration(s.add(id).end(this), id,
                 type.withNullable(nullable), dflt, strategy));
     }
 |
@@ -423,7 +411,7 @@ SqlNode ColumnWithType() :
         }
     )
     {
-        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
+        return new IgniteSqlColumnDeclaration(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
 }
 

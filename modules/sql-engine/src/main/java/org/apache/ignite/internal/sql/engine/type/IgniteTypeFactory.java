@@ -124,6 +124,16 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
 
     /** {@inheritDoc} */
     @Override
+    public RelDataType createSqlType(SqlTypeName typeName) {
+        if (typeName == SqlTypeName.UUID) {
+            return createCustomType(UuidType.NAME);
+        } else {
+            return super.createSqlType(typeName);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public RelDataType createSqlType(SqlTypeName typeName, int precision) {
         // Default implementation converts precision > maxPrecision to maxPrecision
         assertBasicType(typeName);
@@ -548,6 +558,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     public RelDataType createTypeWithNullability(RelDataType type, boolean nullable) {
         if (type instanceof IgniteCustomType) {
             return canonize(((IgniteCustomType) type).createWithNullability(nullable));
+        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+            return canonize(createCustomType(UuidType.NAME).createWithNullability(nullable));
         } else {
             return super.createTypeWithNullability(type, nullable);
         }

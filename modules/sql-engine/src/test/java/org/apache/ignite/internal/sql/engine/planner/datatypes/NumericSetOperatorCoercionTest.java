@@ -29,6 +29,7 @@ import org.apache.calcite.rel.core.SetOp;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
@@ -644,16 +645,20 @@ public class NumericSetOperatorCoercionTest extends BaseTypeCoercionTest {
 
             @Nullable
             private Object getOperand(RelNode relNode) {
-                Object result = null;
                 if (relNode instanceof IgniteProject) {
-                    result = ((IgniteProject) relNode).getProjects().get(0);
+                    RexNode result = ((IgniteProject) relNode).getProjects().get(0);
                     assertThat(result, instanceOf(RexCall.class));
+                    return result;
                 } else if (relNode instanceof IgniteTableScan) {
-                    result = relNode.getRowType().getFieldList().get(0);
-                    assertThat(result, instanceOf(RelDataTypeField.class));
+                    IgniteTableScan tableScan = (IgniteTableScan) relNode;
+                    if (tableScan.projects() != null) {
+                        return tableScan.projects().get(0);
+                    } else {
+                        return relNode.getRowType().getFieldList().get(0);
+                    }
+                } else {
+                    throw new IllegalArgumentException("Unexpected node: " + relNode);
                 }
-
-                return result;
             }
 
             @Override

@@ -44,7 +44,6 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNumericLiteral;
 import org.apache.calcite.sql.SqlUnknownLiteral;
-import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.hamcrest.CustomMatcher;
@@ -100,10 +99,10 @@ public class SqlDdlParserTest extends AbstractParserTest {
         assertThat(createTable.name().names, is(List.of("MY_TABLE")));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
                 "Column with function's identifier as default",
-                SqlColumnDeclaration.class,
-                col -> "ID".equals(col.name.getSimple())
-                        && col.expression instanceof SqlIdentifier
-                        && "RAND_UUID".equals(((SqlIdentifier) col.expression).getSimple())
+                IgniteSqlColumnDeclaration.class,
+                col -> "ID".equals(col.name().getSimple())
+                        && col.expression() instanceof SqlIdentifier
+                        && "RAND_UUID".equals(((SqlIdentifier) col.expression()).getSimple())
         )));
         assertThat(createTable.columnList(), hasItem(ofTypeMatching(
                 "PK constraint with name \"ID\"", IgniteSqlPrimaryKeyConstraint.class,
@@ -252,7 +251,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
                 () -> parse(stmt));
     }
 
-    private <T extends SqlLiteral>  Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefault(
+    private <T extends SqlLiteral>  Matcher<Iterable<? super IgniteSqlColumnDeclaration>> hasColumnWithDefault(
             String columnName,
             Class<T> nodeType,
             String literalValue
@@ -265,7 +264,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
         );
     }
 
-    private static <T extends SqlNode> Matcher<Iterable<? super SqlColumnDeclaration>> hasColumnWithDefaultExpr(
+    private static <T extends SqlNode> Matcher<Iterable<? super IgniteSqlColumnDeclaration>> hasColumnWithDefaultExpr(
             String columnName,
             Class<T> nodeType,
             String message,
@@ -273,10 +272,10 @@ public class SqlDdlParserTest extends AbstractParserTest {
     ) {
         return hasItem(ofTypeMatching(
                 message,
-                SqlColumnDeclaration.class,
-                col -> columnName.equals(col.name.getSimple())
-                        && nodeType.isInstance(col.expression)
-                        && valCheck.test(nodeType.cast(col.expression))
+                IgniteSqlColumnDeclaration.class,
+                col -> columnName.equals(col.name().getSimple())
+                        && nodeType.isInstance(col.expression())
+                        && valCheck.test(nodeType.cast(col.expression()))
         ));
     }
 
@@ -910,12 +909,12 @@ public class SqlDdlParserTest extends AbstractParserTest {
         SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN c INT");
 
         IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
-        SqlColumnDeclaration declaration = (SqlColumnDeclaration) addColumn.columns().get(0);
+        IgniteSqlColumnDeclaration declaration = (IgniteSqlColumnDeclaration) addColumn.columns().get(0);
 
         assertThat(addColumn.name.names, is(List.of("T")));
 
         expectColumnBasic(declaration, "C", ColumnStrategy.NULLABLE, "INTEGER", true);
-        assertThat(declaration.expression, is(nullValue()));
+        assertThat(declaration.expression(), is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER");
     }
@@ -925,12 +924,12 @@ public class SqlDdlParserTest extends AbstractParserTest {
         SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN c INT NULL");
 
         IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
-        SqlColumnDeclaration column = (SqlColumnDeclaration) addColumn.columns().get(0);
+        IgniteSqlColumnDeclaration column = (IgniteSqlColumnDeclaration) addColumn.columns().get(0);
 
         assertThat(addColumn.name.names, is(List.of("T")));
 
         expectColumnBasic(column, "C", ColumnStrategy.NULLABLE, "INTEGER", true);
-        assertThat(column.expression, is(nullValue()));
+        assertThat(column.expression(), is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER");
     }
@@ -940,12 +939,12 @@ public class SqlDdlParserTest extends AbstractParserTest {
         SqlNode sqlNode = parse("ALTER TABLE t ADD COLUMN c INT NOT NULL");
 
         IgniteSqlAlterTableAddColumn addColumn = assertInstanceOf(IgniteSqlAlterTableAddColumn.class, sqlNode);
-        SqlColumnDeclaration column = (SqlColumnDeclaration) addColumn.columns().get(0);
+        IgniteSqlColumnDeclaration column = (IgniteSqlColumnDeclaration) addColumn.columns().get(0);
 
         assertThat(addColumn.name.names, is(List.of("T")));
 
         expectColumnBasic(column, "C", ColumnStrategy.NOT_NULLABLE, "INTEGER", false);
-        assertThat(column.expression, is(nullValue()));
+        assertThat(column.expression(), is(nullValue()));
 
         expectUnparsed(addColumn, "ALTER TABLE \"T\" ADD COLUMN \"C\" INTEGER NOT NULL");
     }
@@ -1038,25 +1037,25 @@ public class SqlDdlParserTest extends AbstractParserTest {
      * @param name Expected name.
      * @return {@code true} in case name in the column declaration equals to the expected one.
      */
-    private static <T extends SqlColumnDeclaration> Matcher<T> columnWithName(String name) {
+    private static <T extends IgniteSqlColumnDeclaration> Matcher<T> columnWithName(String name) {
         return new CustomMatcher<T>("column with name=" + name) {
             /** {@inheritDoc} */
             @Override
             public boolean matches(Object item) {
-                return item instanceof SqlColumnDeclaration
-                        && ((SqlColumnDeclaration) item).name.names.get(0).equals(name);
+                return item instanceof IgniteSqlColumnDeclaration
+                        && ((IgniteSqlColumnDeclaration) item).name().names.get(0).equals(name);
             }
         };
     }
 
     /** Checks basic column properties such as name, type name and type's nullability. */
-    private static void expectColumnBasic(SqlColumnDeclaration declaration,
+    private static void expectColumnBasic(IgniteSqlColumnDeclaration declaration,
             String columnName, ColumnStrategy columnStrategy,
             String typeName, Boolean nullable) {
 
-        assertThat(List.of(columnName), is(declaration.name.names));
-        assertThat(columnStrategy, is(declaration.strategy));
-        assertThat(List.of(typeName), is(declaration.dataType.getTypeName().names));
-        assertThat(nullable, is(declaration.dataType.getNullable()));
+        assertThat(List.of(columnName), is(declaration.name().names));
+        assertThat(columnStrategy, is(declaration.strategy()));
+        assertThat(List.of(typeName), is(declaration.dataType().getTypeName().names));
+        assertThat(nullable, is(declaration.dataType().getNullable()));
     }
 }

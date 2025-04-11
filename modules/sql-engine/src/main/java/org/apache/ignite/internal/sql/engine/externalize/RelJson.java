@@ -388,6 +388,7 @@ class RelJson {
                 // In case of a custom data type we must store its name to correctly
                 // deserialize it because we want to distinguish a custom type from ANY.
                 IgniteCustomType customType = (IgniteCustomType) node;
+                map.put("type", toJson(SqlTypeName.ANY));
                 map.put("customType", customType.getCustomTypeName());
             }
             return map;

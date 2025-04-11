@@ -79,6 +79,7 @@ import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlUuidLiteral;
 import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -576,7 +577,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlLiteral resolved = super.resolveLiteral(literal);
         SqlTypeName typeName = resolved.getTypeName();
 
-        if (typeName == SqlTypeName.TIMESTAMP) {
+        if (resolved instanceof SqlUuidLiteral) {
+            throw newValidationError(resolved, IgniteResource.INSTANCE.unsupportedExpression("UUID literal"));
+        } else if (typeName == SqlTypeName.TIMESTAMP) {
             long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
 
             if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
@@ -1000,7 +1003,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Negative values are rejected by the parser so we need to check only max values.
 
         SqlTypeName typeName = type.getSqlTypeName();
-        ColumnType columnType = TypeUtils.columnType(type);
+        ColumnType columnType;
+        // Report a standard validation error when the given SQL type is not supported.
+        try {
+            columnType = TypeUtils.columnType(type);
+        } catch (Exception ignore) {
+            throw newValidationError(typeNode, IgniteResource.INSTANCE.dataTypeIsNotSupported(typeName.getName()));
+        }
         boolean allowsLength = columnType.lengthAllowed();
         boolean allowsScale = columnType.scaleAllowed();
         boolean allowsPrecision = columnType.precisionAllowed();
