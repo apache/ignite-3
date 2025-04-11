@@ -1592,8 +1592,8 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     @TestOnly
-    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
-        return requireNonNull(zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId));
+    public @Nullable TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+        return zoneResourcesManager.txStatePartitionStorage(zoneId, partitionId);
     }
 
     @TestOnly
