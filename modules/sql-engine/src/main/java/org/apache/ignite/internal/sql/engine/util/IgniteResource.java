@@ -49,8 +49,8 @@ public interface IgniteResource {
     @BaseMessage("Illegal aggregate function. {0} is unsupported at the moment")
     ExInst<SqlValidatorException> unsupportedAggregationFunction(String a0);
 
-    @BaseMessage("Illegal value of {0}. The value must be positive and less than Integer.MAX_VALUE (" + Integer.MAX_VALUE + ")")
-    ExInst<SqlValidatorException> correctIntegerLimit(String a0);
+    @BaseMessage("Illegal value of {0}. The value must be positive and less than " + Long.MAX_VALUE)
+    ExInst<SqlValidatorException> illegalFetchLimit(String a0);
 
     @BaseMessage("Invalid decimal literal")
     ExInst<SqlValidatorException> decimalLiteralInvalid();

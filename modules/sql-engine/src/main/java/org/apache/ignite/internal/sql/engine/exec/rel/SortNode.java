@@ -23,10 +23,9 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
-import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Sort node.
@@ -44,7 +43,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
     private final PriorityQueue<RowT> rows;
 
     /** SQL select limit. Negative if disabled. */
-    private final int limit;
+    private final long limit;
 
     /** Reverse-ordered rows in case of limited sort. */
     private List<RowT> reversed;
@@ -59,18 +58,19 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      */
     public SortNode(ExecutionContext<RowT> ctx,
             Comparator<RowT> comp,
-            @Nullable Supplier<Integer> offset,
-            @Nullable Supplier<Integer> fetch) {
+            long offset,
+            long fetch) {
         super(ctx);
-        assert fetch == null || fetch.get() >= 0;
-        assert offset == null || offset.get() >= 0;
 
-        limit = fetch == null ? -1 : fetch.get() + (offset == null ? 0 : offset.get());
+        assert fetch == -1 || fetch >= 0;
+        assert offset >= 0;
 
-        if (limit < 1) {
+        limit = fetch == -1 ? -1 : IgniteMath.addExact(fetch, offset);
+
+        if (limit < 1 || limit > Integer.MAX_VALUE) {
             rows = new PriorityQueue<>(comp);
         } else {
-            rows = new BoundedPriorityQueue<>(limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
+            rows = new BoundedPriorityQueue<>((int) limit, comp == null ? (Comparator<RowT>) Comparator.reverseOrder() : comp.reversed());
         }
     }
 
@@ -81,7 +81,7 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
      * @param comp Rows comparator.
      */
     public SortNode(ExecutionContext<RowT> ctx, Comparator<RowT> comp) {
-        this(ctx, comp, null, null);
+        this(ctx, comp, 0, -1);
     }
 
     /** {@inheritDoc} */
