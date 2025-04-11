@@ -106,6 +106,7 @@ import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -307,7 +308,7 @@ public class ItIdempotentCommandCacheTest extends IgniteAbstractTest {
         closeAll(nodes.stream());
     }
 
-    @Test
+    @RepeatedTest(100)
     public void testIdempotentInvoke() throws InterruptedException {
         AtomicInteger writeActionReqCount = new AtomicInteger();
         CompletableFuture<Void> retryBlockingFuture = new CompletableFuture<>();

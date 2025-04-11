@@ -348,6 +348,7 @@ class IndexBuildController implements ManuallyCloseable {
     ) {
         inBusyLock(busyLock, () -> {
             if (isLeaseExpired(replicaMeta, buildAttemptTimestamp)) {
+                System.out.println("Lease expired, stop building index groupId = [\" + primaryReplicaId + \"]\");");
                 LOG.warn("Lease expired, stop building index groupId = [" + primaryReplicaId + "]");
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
@@ -402,6 +403,7 @@ class IndexBuildController implements ManuallyCloseable {
 
         inBusyLock(busyLock, () -> {
             if (isLeaseExpired(replicaMeta, buildAttemptTimestamp)) {
+                System.out.println("Lease expired, stop building index groupId = [\" + primaryReplicaId + \"]\");");
                 LOG.warn("Lease expired 2, stop building index groupId = [" + primaryReplicaId + "]");
                 stopBuildingIndexesIfPrimaryExpired(primaryReplicaId);
 
