@@ -79,7 +79,7 @@ namespace Apache.Ignite.Sql
         Float = 6,
 
         /// <summary>
-        /// 64-bit single-precision floating-point number.
+        /// 64-bit double-precision floating-point number.
         /// <para />
         /// SQL type: <c>DOUBLE</c>, .NET type: <see cref="double"/>.
         /// </summary>
