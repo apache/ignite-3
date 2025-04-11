@@ -22,6 +22,7 @@ import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client connection context.
@@ -38,6 +39,8 @@ class ClientContext {
 
     private final UserDetails userDetails;
 
+    private final @Nullable String computeExecutorId;
+
     /**
      * Constructor.
      *
@@ -46,11 +49,12 @@ class ClientContext {
      * @param features Feature set.
      * @param userDetails User details.
      */
-    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails) {
+    ClientContext(ProtocolVersion version, int clientCode, BitSet features, UserDetails userDetails, @Nullable String computeExecutorId) {
         this.version = version;
         this.clientCode = clientCode;
         this.features = features;
         this.userDetails = userDetails;
+        this.computeExecutorId = computeExecutorId;
     }
 
     /**
@@ -82,6 +86,15 @@ class ClientContext {
 
     public UserDetails userDetails() {
         return userDetails;
+    }
+
+    /**
+     * Gets the compute executor ID.
+     *
+     * @return Compute executor ID.
+     */
+    @Nullable public String computeExecutorId() {
+        return computeExecutorId;
     }
 
     /** {@inheritDoc} */

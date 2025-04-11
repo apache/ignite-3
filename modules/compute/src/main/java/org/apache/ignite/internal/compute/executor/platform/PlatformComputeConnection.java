@@ -15,35 +15,14 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+package org.apache.ignite.internal.compute.executor.platform;
 
-using System;
-using System.Diagnostics.CodeAnalysis;
+import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 
-/// <summary>
-/// Response flags.
-/// </summary>
-[Flags]
-[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-internal enum ResponseFlags
-{
-    /// <summary>
-    /// Indicates partition assignment update.
-    /// </summary>
-    PartitionAssignmentChanged = 1,
-
-    /// <summary>
-    /// Indicates a server-to-client notification.
-    /// </summary>
-    Notification = 2,
-
-    /// <summary>
-    /// Indicates error response.
-    /// </summary>
-    Error = 4,
-
-    /// <summary>
-    /// Indicates that a server-to-client operation (server sends request, client returns response).
-    /// </summary>
-    ServerOp = 8
+@SuppressWarnings("InterfaceMayBeAnnotatedFunctional")
+public interface PlatformComputeConnection {
+    CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+            List<String> deploymentUnitPaths, String jobClassName, ComputeJobDataHolder arg);
 }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.handler;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -39,6 +40,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,6 +52,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,7 +79,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
  */
-public class ClientHandlerModule implements IgniteComponent {
+public class ClientHandlerModule implements IgniteComponent, PlatformComputeTransport {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
@@ -139,6 +143,8 @@ public class ClientHandlerModule implements IgniteComponent {
     private final Executor partitionOperationsExecutor;
 
     private final Executor commonExecutor;
+
+    private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
 
     @TestOnly
     @SuppressWarnings("unused")
@@ -431,12 +437,52 @@ public class ClientHandlerModule implements IgniteComponent {
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
                 Map.of(),
-                commonExecutor
+                commonExecutor,
+                this::onHandshake,
+                this::onDisconnect
         );
+    }
+
+    private void onHandshake(ClientInboundMessageHandler messageHandler) {
+        String execId = messageHandler.computeExecutorId();
+
+        if (execId != null) {
+            computeExecutors.compute(execId, (key, fut) -> {
+                if (fut == null) {
+                    return completedFuture(messageHandler);
+                }
+
+                if (fut.isDone()) {
+                    // TODO: Duplicate executor with same id - log error?
+                }
+
+                fut.complete(messageHandler);
+                return fut;
+            });
+        }
+    }
+
+    private void onDisconnect(ClientInboundMessageHandler messageHandler) {
+        String execId = messageHandler.computeExecutorId();
+
+        if (execId != null) {
+            // TODO: ???
+            computeExecutors.remove(execId);
+        }
     }
 
     @TestOnly
     public ClientInboundMessageHandler handler() {
         return handler;
+    }
+
+    @Override
+    public String serverAddress() {
+        return "127.0.0.1:" + localAddress().getPort();
+    }
+
+    @Override
+    public CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id) {
+        return computeExecutors.computeIfAbsent(id, k -> new CompletableFuture<>());
     }
 }

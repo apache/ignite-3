@@ -15,24 +15,23 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Compute;
+namespace Apache.Ignite.Internal.ComputeExecutor;
 
-using System.Collections.Generic;
-using Marshalling;
+using Apache.Ignite.Compute;
 
 /// <summary>
-/// Compute job descriptor.
+/// Diagnostic job.
 /// </summary>
-/// <param name="JobClassName">Java class name of the job to execute.</param>
-/// <param name="DeploymentUnits">Deployment units.</param>
-/// <param name="Options">Options.</param>
-/// <param name="ArgMarshaller">Argument marshaller (serializer).</param>
-/// <param name="ResultMarshaller">Result marshaller (deserializer).</param>
-/// <typeparam name="TArg">Argument type.</typeparam>
-/// <typeparam name="TResult">Result type.</typeparam>
-public sealed record JobDescriptor<TArg, TResult>(
-    string JobClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    JobExecutionOptions? Options = null,
-    IMarshaller<TArg>? ArgMarshaller = null,
-    IMarshaller<TResult>? ResultMarshaller = null);
+public sealed class SystemInfoJob : IComputeJob<object?, string>
+{
+    /// <inheritdoc/>
+    public ValueTask<string> ExecuteAsync(IJobExecutionContext context, object? arg)
+    {
+        var response = $"{nameof(SystemInfoJob)} [CLR version={Environment.Version}, " +
+                       $"MemoryUsed={Environment.WorkingSet / 1024 / 1024}MB, " +
+                       $"OS={Environment.OSVersion}, " +
+                       $"JobArg={arg}]";
+
+        return ValueTask.FromResult(response);
+    }
+}

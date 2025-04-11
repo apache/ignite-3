@@ -89,7 +89,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     void threadInterruption() {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
-                InterruptingJob.class,
+                InterruptingJob.class.getName(),
                 null,
                 null
         );
@@ -119,7 +119,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     void cooperativeCancellation() {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
-                CancellingJob.class,
+                CancellingJob.class.getName(),
                 null,
                 null
         );
@@ -154,7 +154,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
-                RetryJobFail.class,
+                RetryJobFail.class.getName(),
                 null,
                 null
         );
@@ -182,7 +182,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
-                RetryJobSuccess.class,
+                RetryJobSuccess.class.getName(),
                 null,
                 SharedComputeUtils.marshalArgOrResult(maxRetries, null)
         );
@@ -215,7 +215,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
-                JobSuccess.class,
+                JobSuccess.class.getName(),
                 null,
                 null
         );
@@ -262,7 +262,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
     void cancelCompletedJob() {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
-                SimpleJob.class,
+                SimpleJob.class.getName(),
                 null,
                 null
         );

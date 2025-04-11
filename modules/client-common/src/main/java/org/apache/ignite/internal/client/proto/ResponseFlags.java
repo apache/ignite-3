@@ -30,13 +30,20 @@ public class ResponseFlags {
     /** Error flag. */
     private static final int ERROR_FLAG = 4;
 
+    /** Server -> client operation. */
+    private static final int SERVER_OP_FLAG = 8;
+
     /**
      * Gets flags as int.
      *
      * @param partitionAssignmentChanged Assignment changed flag.
      * @return Flags as int.
      */
-    public static int getFlags(boolean partitionAssignmentChanged, boolean isNotification, boolean hasError) {
+    public static int getFlags(
+            boolean partitionAssignmentChanged,
+            boolean isNotification,
+            boolean hasError,
+            boolean serverOp) {
         var flags = 0;
 
         if (partitionAssignmentChanged) {
@@ -49,6 +56,10 @@ public class ResponseFlags {
 
         if (hasError) {
             flags |= ERROR_FLAG;
+        }
+
+        if (serverOp) {
+            flags |= SERVER_OP_FLAG;
         }
 
         return flags;

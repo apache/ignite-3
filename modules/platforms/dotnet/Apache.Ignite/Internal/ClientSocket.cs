@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using System.Buffers.Binary;
-    using System.Collections;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -30,6 +29,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Compute.Executor;
     using Ignite.Network;
     using Microsoft.Extensions.Logging;
     using Network;
@@ -275,6 +275,20 @@ namespace Apache.Ignite.Internal
             bool expectNotifications = false) =>
             DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
                 .WaitAsync(_operationTimeout);
+
+        /// <summary>
+        /// Sends a response to a server->client request.
+        /// </summary>
+        /// <param name="requestId">Request id.</param>
+        /// <param name="response">Response.</param>
+        /// <returns>Task.</returns>
+        public async Task SendServerOpResponseAsync(
+            long requestId,
+            PooledArrayBuffer? response)
+        {
+            // TODO: What about errors? We need another flags enum?
+            await SendRequestAsync(response, ClientOp.ServerOpResponse, requestId).ConfigureAwait(false);
+        }
 
         /// <inheritdoc/>
         public void Dispose()
@@ -559,7 +573,7 @@ namespace Apache.Ignite.Internal
 
             if (configuration.Authenticator != null)
             {
-                w.Write(3); // Extensions.
+                w.Write(3); // Extensions map size.
 
                 w.Write(HandshakeExtensions.AuthenticationType);
                 w.Write(configuration.Authenticator.Type);
@@ -569,6 +583,14 @@ namespace Apache.Ignite.Internal
 
                 w.Write(HandshakeExtensions.AuthenticationSecret);
                 w.Write((string?)configuration.Authenticator.Secret);
+            }
+            else if (ComputeJobExecutor.IgniteComputeExecutorId != null)
+            {
+                // Mutually exclusive with authenticator.
+                w.Write(1); // Extensions map size.
+
+                w.Write(HandshakeExtensions.ComputeExecutorId);
+                w.Write(ComputeJobExecutor.IgniteComputeExecutorId);
             }
             else
             {
@@ -841,6 +863,15 @@ namespace Apache.Ignite.Internal
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
+            if ((flags & ResponseFlags.ServerOp) != 0)
+            {
+                Debug.Assert((flags & ResponseFlags.Error) == 0, "Server op should not have an exception.");
+                var serverOp = (ServerOp)reader.ReadInt32();
+                response.Position += reader.Consumed;
+
+                return HandleServerOp(requestId, serverOp, response);
+            }
+
             var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
             response.Position += reader.Consumed;
 
@@ -900,6 +931,27 @@ namespace Apache.Ignite.Internal
             }
 
             return notificationHandler.TrySetResult(response);
+        }
+
+        private bool HandleServerOp(long requestId, ServerOp op, PooledBuffer request)
+        {
+            if (op != ServerOp.PlatformComputeJobExec)
+            {
+                // TODO:
+            }
+
+            // Invoke compute handler in another thread to continue the receive loop.
+            // Response buffer should be disposed by the task handler.
+            ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long JobId)>(
+                callBack: static state =>
+                {
+                    // Ignore the returned task.
+                    _ = ComputeJobExecutor.ExecuteJobAsync(state.JobId, state.Buf, state.Socket);
+                },
+                state: (this, request, requestId),
+                preferLocal: true);
+
+            return true;
         }
 
         private void HandleObservableTimestamp(ref MsgPackReader reader)

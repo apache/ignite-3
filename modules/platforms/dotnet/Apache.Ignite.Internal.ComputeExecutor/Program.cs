@@ -1,4 +1,4 @@
-/*
+﻿/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,35 +15,23 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+using Apache.Ignite;
 
-using System;
-using System.Diagnostics.CodeAnalysis;
+const string envServerAddr = "IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS";
+string? serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
 
-/// <summary>
-/// Response flags.
-/// </summary>
-[Flags]
-[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-internal enum ResponseFlags
+if (string.IsNullOrWhiteSpace(serverAddr))
 {
-    /// <summary>
-    /// Indicates partition assignment update.
-    /// </summary>
-    PartitionAssignmentChanged = 1,
-
-    /// <summary>
-    /// Indicates a server-to-client notification.
-    /// </summary>
-    Notification = 2,
-
-    /// <summary>
-    /// Indicates error response.
-    /// </summary>
-    Error = 4,
-
-    /// <summary>
-    /// Indicates that a server-to-client operation (server sends request, client returns response).
-    /// </summary>
-    ServerOp = 8
+    throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");
 }
+
+// TODO: Set up SSL as necessary.
+var clientCfg = new IgniteClientConfiguration(serverAddr)
+{
+    RetryPolicy = RetryNonePolicy.Instance // No reconnect.
+};
+
+using var client = await IgniteClient.StartAsync(clientCfg).ConfigureAwait(false);
+
+// Sleep forever. Host process will terminate us when the executor is stopped.
+await Task.Delay(Timeout.Infinite).ConfigureAwait(false);

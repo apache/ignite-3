@@ -50,7 +50,7 @@ internal static class ComputePacker
     /// <param name="obj">Arg.</param>
     /// <param name="marshaller">Marshaller.</param>
     /// <typeparam name="T">Arg type.</typeparam>
-    internal static void PackArg<T>(ref MsgPackWriter w, T obj, IMarshaller<T>? marshaller)
+    internal static void PackArgOrResult<T>(ref MsgPackWriter w, T obj, IMarshaller<T>? marshaller)
     {
         if (obj == null)
         {
@@ -86,7 +86,7 @@ internal static class ComputePacker
     /// <param name="marshaller">Optional marshaller.</param>
     /// <typeparam name="T">Result type.</typeparam>
     /// <returns>Result.</returns>
-    internal static T UnpackResult<T>(ref MsgPackReader r, IMarshaller<T>? marshaller)
+    internal static T UnpackArgOrResult<T>(ref MsgPackReader r, IMarshaller<T>? marshaller)
     {
         if (r.TryReadNil())
         {
