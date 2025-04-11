@@ -697,6 +697,24 @@ public class ZoneRebalanceUtil {
                 .collect(toList());
     }
 
+    /**
+     * Returns partition assignments from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @param revision Revision.
+     * @return Returns partition assignments from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable Assignments zoneStableAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId,
+            long revision
+    ) {
+        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(zonePartitionId), revision);
+
+        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value());
+    }
+
     private static @Nullable Assignments getLocalAssignments(
             MetaStorageManager metaStorageManager,
             int zoneId,

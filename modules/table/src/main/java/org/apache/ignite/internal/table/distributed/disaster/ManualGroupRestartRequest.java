@@ -26,7 +26,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.tostring.S;
 
 class ManualGroupRestartRequest implements DisasterRecoveryRequest {
@@ -98,11 +100,27 @@ class ManualGroupRestartRequest implements DisasterRecoveryRequest {
         var restartFutures = new ArrayList<CompletableFuture<?>>();
 
         disasterRecoveryManager.raftManager.forEach((raftNodeId, raftGroupService) -> {
-            if (raftNodeId.groupId() instanceof TablePartitionId) {
-                TablePartitionId groupId = (TablePartitionId) raftNodeId.groupId();
+            ReplicationGroupId replicationGroupId = raftNodeId.groupId();
+
+            if (replicationGroupId instanceof TablePartitionId) {
+                TablePartitionId groupId = (TablePartitionId) replicationGroupId;
 
                 if (groupId.tableId() == tableId && partitionIds.contains(groupId.partitionId())) {
                     restartFutures.add(disasterRecoveryManager.tableManager.restartPartition(groupId, revision, assignmentsTimestamp));
+                }
+            } else {
+                if (replicationGroupId instanceof ZonePartitionId) {
+                    ZonePartitionId groupId = (ZonePartitionId) replicationGroupId;
+
+                    if (groupId.zoneId() == zoneId && partitionIds.contains(groupId.partitionId())) {
+                        restartFutures.add(
+                                disasterRecoveryManager.partitionReplicaLifecycleManager.restartPartition(
+                                        groupId,
+                                        revision,
+                                        assignmentsTimestamp
+                                )
+                        );
+                    }
                 }
             }
         });

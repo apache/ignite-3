@@ -49,8 +49,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery system views. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+// TODO https://issues.apache.org/jira/browse/IGNITE-25105
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     /** Table name. */

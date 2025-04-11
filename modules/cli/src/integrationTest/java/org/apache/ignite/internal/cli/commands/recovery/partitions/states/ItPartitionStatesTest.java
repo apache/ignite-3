@@ -43,8 +43,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Base test class for Cluster Recovery partition states commands. */
 // TODO IGNITE-23617 refactor to use more flexible output matching.
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+// TODO https://issues.apache.org/jira/browse/IGNITE-25104
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;

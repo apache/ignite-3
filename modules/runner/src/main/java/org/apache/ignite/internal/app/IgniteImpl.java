@@ -1105,7 +1105,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 distributedTblMgr,
                 metricManager,
-                failureManager
+                failureManager,
+                partitionReplicaLifecycleManager
         );
 
         systemViewManager.register(disasterRecoveryManager);
