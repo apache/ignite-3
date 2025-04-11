@@ -408,7 +408,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         try {
             return PlannerHelper.optimize(sqlNode, planner);
         } catch (Throwable ex) {
-            System.err.println(planner.dump());
+            // no need to trigger TC with inner NPE
+            System.err.println(planner.dump().replace("java.lang.NullPointerException", "RedefinedNullPointerException"));
 
             throw ex;
         }
@@ -762,6 +763,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
 
                     if (!idxName.equalsIgnoreCase(n.indexName())) {
                         lastErrorMsg = "Unexpected index name [exp=" + idxName + ", act=" + n.indexName() + ']';
+
+                        return false;
+                    }
+
+                    return true;
+                });
+    }
+
+    /**
+     * Predicate builder for any "Index scan" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteIndexScan> isAnyIndexScan(String tableName) {
+        return isInstanceOf(IgniteIndexScan.class).and(
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
+
+                    if (!tableName.equalsIgnoreCase(scanTableName)) {
+                        lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
 
                         return false;
                     }
