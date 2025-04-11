@@ -680,7 +680,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenCompose(v -> {
                     ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-                    Set<TableImpl> zoneTables = zoneTables(zonePartitionId.zoneId());
+                    Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
 
                     int partitionIndex = zonePartitionId.partitionId();
                     PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
@@ -715,7 +715,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return falseCompletedFuture();
         }
 
-        Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+        Set<TableImpl> zoneTables = zoneTablesRawSet(parameters.zonePartitionId().zoneId());
 
         CompletableFuture<?>[] futures = zoneTables.stream()
                 .map(this::tableStopFuture)
@@ -732,7 +732,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
         return inBusyLockAsync(busyLock, () -> {
-            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+            CompletableFuture<?>[] futures = zoneTablesRawSet(zonePartitionId.zoneId()).stream()
                     .map(table -> supplyAsync(
                             () -> inBusyLockAsync(
                                     busyLock,
@@ -3068,8 +3068,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     public Set<TableImpl> zoneTables(int zoneId) {
-        // Using a concurrent set as a value as it can be read (and iterated over) without any synchronization by external callers.
-        return tablesPerZone.computeIfAbsent(zoneId, id -> ConcurrentHashMap.newKeySet());
+        return Set.copyOf(zoneTablesRawSet(zoneId));
+    }
+
+    private Set<TableImpl> zoneTablesRawSet(int zoneId) {
+        return tablesPerZone.getOrDefault(zoneId, Set.of());
     }
 
     private void addTableToZone(int zoneId, TableImpl table) {
