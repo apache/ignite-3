@@ -127,16 +127,32 @@ namespace Apache.Ignite.Sql
         /// </summary>
         Uuid = 13,
 
-        /** String. */
+        /// <summary>
+        /// String.
+        /// <para />
+        /// SQL type: <c>VARCHAR</c>, .NET type: <see cref="string"/>.
+        /// </summary>
         String = 15,
 
-        /** Binary data. */
+        /// <summary>
+        /// Byte array.
+        /// <para />
+        /// SQL type: <c>VARBINARY</c>, .NET type: <c>byte[]</c>.
+        /// </summary>
         ByteArray = 16,
 
-        /** Date interval. */
+        /// <summary>
+        /// Date interval.
+        /// <para />
+        /// SQL type: none, .NET type: <see cref="Period"/>.
+        /// </summary>
         Period = 17,
 
-        /** Time interval. */
+        /// <summary>
+        /// Time interval.
+        /// <para />
+        /// SQL type: none, .NET type: <see cref="Duration"/>.
+        /// </summary>
         Duration = 18
     }
 }
