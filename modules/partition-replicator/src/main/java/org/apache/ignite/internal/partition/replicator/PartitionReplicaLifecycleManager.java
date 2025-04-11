@@ -1092,7 +1092,7 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartition(zonePartitionId, revision)
+                () -> stopPartitionForRestartInternal(zonePartitionId, revision)
         );
     }
 
@@ -1563,6 +1563,7 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param zonePartitionId Zone's partition that needs to be restarted.
      * @param revision Metastore revision.
+     * @param assignmentsTimestamp Timestamp of the assignments.
      * @return Operation future.
      */
     public CompletableFuture<?> restartPartition(ZonePartitionId zonePartitionId, long revision, long assignmentsTimestamp) {
@@ -1643,7 +1644,7 @@ public class PartitionReplicaLifecycleManager extends
         ).thenApply(replicaWasStopped -> null);
     }
 
-    private CompletableFuture<Void> stopPartition(ZonePartitionId zonePartitionId, long revision) {
+    private CompletableFuture<Void> stopPartitionForRestartInternal(ZonePartitionId zonePartitionId, long revision) {
         return stopPartitionInternal(
                 zonePartitionId,
                 replicaWasStopped -> {},
