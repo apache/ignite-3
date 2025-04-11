@@ -228,7 +228,7 @@ public class ItTransactionTestUtils {
         CompletableFuture<ReplicaMeta> primaryReplicaFut = node.placementDriver().awaitPrimaryReplica(
                 replicationGrpId,
                 node.clock().now(),
-                20,
+                10,
                 SECONDS
         );
 
