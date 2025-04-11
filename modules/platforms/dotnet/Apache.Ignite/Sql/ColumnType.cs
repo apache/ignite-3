@@ -29,31 +29,65 @@ namespace Apache.Ignite.Sql
     [SuppressMessage("Design", "CA1027:Mark enums with FlagsAttribute", Justification = "Not a flags enum.")]
     public enum ColumnType
     {
-        /** Null. */
+        /// <summary>
+        /// Null.
+        /// </summary>
         Null = 0,
 
-        /** Boolean. */
+        /// <summary>
+        /// Boolean.
+        /// <para />
+        /// SQL type: <c>BOOLEAN</c>, .NET type: <see cref="bool"/>.
+        /// </summary>
         Boolean = 1,
 
-        /** 8-bit signed integer. */
+        /// <summary>
+        /// 8-bit signed integer.
+        /// <para />
+        /// SQL type: <c>TINYINT</c>, .NET type: <see cref="sbyte"/>.
+        /// </summary>
         Int8 = 2,
 
-        /** 16-bit signed integer. */
+        /// <summary>
+        /// 16-bit signed integer.
+        /// <para />
+        /// SQL type: <c>SMALLINT</c>, .NET type: <see cref="short"/>.
+        /// </summary>
         Int16 = 3,
 
-        /** 32-bit signed integer. */
+        /// <summary>
+        /// 32-bit signed integer.
+        /// <para />
+        /// SQL type: <c>INTEGER</c>, .NET type: <see cref="int"/>.
+        /// </summary>
         Int32 = 4,
 
-        /** 64-bit signed integer. */
+        /// <summary>
+        /// 64-bit signed integer.
+        /// <para />
+        /// SQL type: <c>BIGINT</c>, .NET type: <see cref="long"/>.
+        /// </summary>
         Int64 = 5,
 
-        /** 32-bit single-precision floating-point number. */
+        /// <summary>
+        /// 32-bit single-precision floating-point number.
+        /// <para />
+        /// SQL type: <c>REAL</c>, .NET type: <see cref="float"/>.
+        /// </summary>
         Float = 6,
 
-        /** 64-bit double-precision floating-point number. */
+        /// <summary>
+        /// 64-bit single-precision floating-point number.
+        /// <para />
+        /// SQL type: <c>DOUBLE</c>, .NET type: <see cref="double"/>.
+        /// </summary>
         Double = 7,
 
-        /** A decimal floating-point number. */
+        /// <summary>
+        /// Arbitrary-precision signed decimal number.
+        /// <para />
+        /// SQL type: <c>DECIMAL</c>, .NET type: <see cref="BigDecimal"/>.
+        /// </summary>
         Decimal = 8,
 
         /** Timezone-free date. */
