@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Sql
 {
+    using System;
     using System.Diagnostics.CodeAnalysis;
+    using NodaTime;
 
     /// <summary>
     /// SQL column type.
@@ -90,19 +92,39 @@ namespace Apache.Ignite.Sql
         /// </summary>
         Decimal = 8,
 
-        /** Timezone-free date. */
+        /// <summary>
+        /// Timezone-free date (year, month, day).
+        /// <para />
+        /// SQL type: <c>DATE</c>, .NET type: <see cref="LocalDate"/>.
+        /// </summary>
         Date = 9,
 
-        /** Timezone-free time with precision. */
+        /// <summary>
+        /// Timezone-free time (hour, minute, second, nanosecond).
+        /// <para />
+        /// SQL type: <c>TIME</c>, .NET type: <see cref="LocalTime"/>.
+        /// </summary>
         Time = 10,
 
-        /** Timezone-free datetime. */
+        /// <summary>
+        /// Timezone-free datetime (<see cref="Date"/> + <see cref="Time"/>).
+        /// <para />
+        /// SQL type: <c>TIMESTAMP</c>, .NET type: <see cref="LocalDateTime"/>.
+        /// </summary>
         Datetime = 11,
 
-        /** Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone). Tick unit depends on precision. */
+        /// <summary>
+        /// Number of ticks since Jan 1, 1970 00:00:00.000 (with no timezone).
+        /// <para />
+        /// SQL type: <c>TIMESTAMP WITH LOCAL TIME ZONE</c>, .NET type: <see cref="Instant"/>.
+        /// </summary>
         Timestamp = 12,
 
-        /** 128-bit UUID. */
+        /// <summary>
+        /// 128-bit UUID.
+        /// <para />
+        /// SQL type: <c>UUID</c>, .NET type: <see cref="Guid"/>.
+        /// </summary>
         Uuid = 13,
 
         /** String. */
