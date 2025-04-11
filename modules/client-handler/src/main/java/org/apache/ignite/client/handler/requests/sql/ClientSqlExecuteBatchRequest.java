@@ -18,8 +18,10 @@
 package org.apache.ignite.client.handler.requests.sql;
 
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -38,6 +40,7 @@ public class ClientSqlExecuteBatchRequest {
     /**
      * Processes the request.
      *
+     * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
      * @param out Packer.
      * @param sql SQL API.
@@ -45,47 +48,50 @@ public class ClientSqlExecuteBatchRequest {
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
+            Executor operationExecutor,
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             QueryProcessor sql,
             ClientResourceRegistry resources
     ) {
-        InternalTransaction tx = readTx(in, out, resources, null);
-        ClientSqlProperties props = new ClientSqlProperties(in);
-        String statement = in.unpackString();
-        BatchedArguments arguments = in.unpackBatchedArgumentsFromBinaryTupleArray();
+        return nullCompletedFuture().thenComposeAsync(none -> {
+            InternalTransaction tx = readTx(in, out, resources, null);
+            ClientSqlProperties props = new ClientSqlProperties(in);
+            String statement = in.unpackString();
+            BatchedArguments arguments = in.unpackBatchedArgumentsFromBinaryTupleArray();
 
-        if (arguments == null) {
-            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-            arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
-        }
+            if (arguments == null) {
+                // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+                arguments = BatchedArguments.of(ArrayUtils.OBJECT_EMPTY_ARRAY);
+            }
 
-        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
+            HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+            HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
 
-        return IgniteSqlImpl.executeBatchCore(
-                sql,
-                        tsUpdater,
-                        tx,
-                        statement,
-                        arguments,
-                        props.toSqlProps(),
-                        () -> true,
-                        () -> {},
-                        cursor -> 0,
-                        cursorId -> {})
-                .thenApply((affectedRows) -> {
-                    out.meta(tsUpdater.get());
+            return IgniteSqlImpl.executeBatchCore(
+                            sql,
+                            tsUpdater,
+                            tx,
+                            statement,
+                            arguments,
+                            props.toSqlProps(),
+                            () -> true,
+                            () -> {},
+                            cursor -> 0,
+                            cursorId -> {})
+                    .thenApply((affectedRows) -> {
+                        out.meta(tsUpdater.get());
 
-                    out.packNil(); // resourceId
+                        out.packNil(); // resourceId
 
-                    out.packBoolean(false); // has row set
-                    out.packBoolean(false); // has more pages
-                    out.packBoolean(false); // was applied
+                        out.packBoolean(false); // has row set
+                        out.packBoolean(false); // has more pages
+                        out.packBoolean(false); // was applied
 
-                    out.packLongArray(affectedRows); // affected rows
+                        out.packLongArray(affectedRows); // affected rows
 
-                    return null;
-                });
+                        return null;
+                    });
+        });
     }
 }

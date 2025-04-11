@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CompletionStage;
+import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -60,14 +61,18 @@ public class ClientSqlExecuteRequest {
     /**
      * Processes the request.
      *
+     * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
      * @param out Packer.
+     * @param requestId Id of the request.
+     * @param cancelHandles Registry of handlers. Request must register itself in this registry before switching to another thread.
      * @param sql SQL API.
      * @param resources Resources.
      * @param metrics Metrics.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
+            Executor operationExecutor,
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             long requestId,
@@ -76,38 +81,40 @@ public class ClientSqlExecuteRequest {
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics
     ) {
-        InternalTransaction tx = readTx(in, out, resources, null);
-        ClientSqlProperties props = new ClientSqlProperties(in);
-        String statement = in.unpackString();
-        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
-
-        if (arguments == null) {
-            // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-            arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-        }
-
-        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
-        HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
-
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        return executeAsync(
-                tx,
-                sql,
-                tsUpdater,
-                statement,
-                cancelHandle.token(),
-                props.pageSize(),
-                props.toSqlProps(),
-                () -> cancelHandles.remove(requestId),
-                arguments
-        ).thenCompose(asyncResultSet -> {
-            out.meta(tsUpdater.get());
+        return nullCompletedFuture().thenComposeAsync(none -> {
+            InternalTransaction tx = readTx(in, out, resources, null);
+            ClientSqlProperties props = new ClientSqlProperties(in);
+            String statement = in.unpackString();
+            Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
-            return writeResultSetAsync(out, resources, asyncResultSet, metrics);
-        });
+            if (arguments == null) {
+                // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+                arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
+            }
+
+            HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+
+            HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
+
+            return executeAsync(
+                    tx,
+                    sql,
+                    tsUpdater,
+                    statement,
+                    cancelHandle.token(),
+                    props.pageSize(),
+                    props.toSqlProps(),
+                    () -> cancelHandles.remove(requestId),
+                    arguments
+            ).thenCompose(asyncResultSet -> {
+                out.meta(tsUpdater.get());
+
+                return writeResultSetAsync(out, resources, asyncResultSet, metrics);
+            });
+        }, operationExecutor);
     }
 
     private static CompletionStage<Void> writeResultSetAsync(
