@@ -18,9 +18,12 @@
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
 import static it.unimi.dsi.fastutil.ints.Int2ObjectMaps.synchronize;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
+import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -66,6 +69,17 @@ public class PartitionSnapshotStorage {
      * Partition storages grouped by table ID.
      */
     private final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId = synchronize(new Int2ObjectOpenHashMap<>());
+
+    /**
+     * Future that represents an ongoing snapshot operation (either incoming or outgoing). Is {@code null} when there are no operations
+     * in progress.
+     *
+     * <p>Concurrent access is guarded by {@link #snapshotOperationLock}.
+     */
+    @Nullable
+    private CompletableFuture<Void> ongoingSnapshotOperation;
+
+    private final Object snapshotOperationLock = new Object();
 
     private final PartitionTxStateAccess txState;
 
@@ -157,9 +171,19 @@ public class PartitionSnapshotStorage {
 
     /**
      * Removes a given table storage from the set of managed storages.
+     *
+     * <p>If there exists an ongoing incoming or outgoing snapshot, the deletion will be deferred until the snapshot is completed.
      */
-    public void removeMvPartition(int tableId) {
-        partitionsByTableId.remove(tableId);
+    public CompletableFuture<Void> removeMvPartition(int tableId) {
+        synchronized (snapshotOperationLock) {
+            if (ongoingSnapshotOperation == null) {
+                partitionsByTableId.remove(tableId);
+
+                return nullCompletedFuture();
+            } else {
+                return ongoingSnapshotOperation.thenCompose(v -> removeMvPartition(tableId));
+            }
+        }
     }
 
     /**
@@ -187,9 +211,20 @@ public class PartitionSnapshotStorage {
      * Starts an incoming snapshot.
      */
     public SnapshotCopier startIncomingSnapshot(String uri) {
+        startSnapshotOperation();
+
         SnapshotUri snapshotUri = SnapshotUri.fromStringUri(uri);
 
-        var copier = new IncomingSnapshotCopier(this, snapshotUri, incomingSnapshotsExecutor, waitForMetadataCatchupMs);
+        var copier = new IncomingSnapshotCopier(this, snapshotUri, incomingSnapshotsExecutor, waitForMetadataCatchupMs) {
+            @Override
+            public void close() {
+                try {
+                    super.close();
+                } finally {
+                    completeSnapshotOperation();
+                }
+            }
+        };
 
         copier.start();
 
@@ -200,7 +235,38 @@ public class PartitionSnapshotStorage {
      * Starts an outgoing snapshot.
      */
     public SnapshotReader startOutgoingSnapshot() {
-        return new OutgoingSnapshotReader(this);
+        startSnapshotOperation();
+
+        return new OutgoingSnapshotReader(this) {
+            @Override
+            public void close() throws IOException {
+                try {
+                    super.close();
+                } finally {
+                    completeSnapshotOperation();
+                }
+            }
+        };
+    }
+
+    private void startSnapshotOperation() {
+        synchronized (snapshotOperationLock) {
+            assert ongoingSnapshotOperation == null : "A snapshot is in progress";
+
+            ongoingSnapshotOperation = new CompletableFuture<>();
+        }
+    }
+
+    private void completeSnapshotOperation() {
+        synchronized (snapshotOperationLock) {
+            assert this.ongoingSnapshotOperation != null;
+
+            CompletableFuture<Void> ongoingSnapshotOperation = this.ongoingSnapshotOperation;
+
+            this.ongoingSnapshotOperation = null;
+
+            ongoingSnapshotOperation.complete(null);
+        }
     }
 
     /**

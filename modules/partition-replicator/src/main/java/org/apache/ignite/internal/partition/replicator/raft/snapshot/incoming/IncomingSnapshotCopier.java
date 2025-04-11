@@ -569,6 +569,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     private void writeVersion(SnapshotContext snapshotContext, ResponseEntry entry, int entryIndex) {
         PartitionMvStorageAccess partition = snapshotContext.partitionsByTableId.get(entry.tableId());
 
+        if (partition == null) {
+            // Table might have been removed locally which is a normal situation, we log it just in case.
+            LOG.warn("No partition storage found locally for tableId={} while installing a snapshot", entry.tableId());
+
+            return;
+        }
+
         RowId rowId = new RowId(partId(), entry.rowId());
 
         BinaryRowMessage rowVersion = entry.rowVersions().get(entryIndex);
@@ -621,7 +628,16 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
             });
 
             for (Int2ObjectMap.Entry<Map<Integer, RowId>> e : nextRowIdToBuildByIndexIdAndTableId.int2ObjectEntrySet()) {
-                snapshotContext.partitionsByTableId.get(e.getIntKey()).setNextRowIdToBuildIndex(e.getValue());
+                int tableId = e.getIntKey();
+
+                PartitionMvStorageAccess partitionAccess = snapshotContext.partitionsByTableId.get(tableId);
+
+                if (partitionAccess == null) {
+                    // Table might have been removed locally which is a normal situation, we log it just in case.
+                    LOG.warn("No partition storage found locally for tableId={} while installing a snapshot", tableId);
+                } else {
+                    partitionAccess.setNextRowIdToBuildIndex(e.getValue());
+                }
             }
         } finally {
             busyLock.leaveBusy();

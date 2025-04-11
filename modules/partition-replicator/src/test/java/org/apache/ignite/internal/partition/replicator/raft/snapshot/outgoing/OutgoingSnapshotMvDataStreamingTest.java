@@ -41,7 +41,6 @@ import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
@@ -108,7 +107,6 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void createTestInstance(
             @Mock Catalog catalog,
-            @Mock CatalogTableDescriptor tableDescriptor,
             @Mock RaftGroupConfiguration raftGroupConfiguration
     ) {
         when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
@@ -120,8 +118,6 @@ class OutgoingSnapshotMvDataStreamingTest extends BaseIgniteAbstractTest {
         lenient().when(partitionAccess2.committedGroupConfiguration()).thenReturn(raftGroupConfiguration);
 
         when(catalogService.catalog(anyInt())).thenReturn(catalog);
-        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
-        when(tableDescriptor.zoneId()).thenReturn(ZONE_ID);
 
         partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
         partitionsByTableId.put(TABLE_ID_2, partitionAccess2);

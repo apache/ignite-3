@@ -123,10 +123,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     /**
-     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken',
-     * that is, the immutable scope of the snapshot (what MV data and what TX data belongs to it) is established.
+     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken', that is, the immutable
+     * scope of the snapshot (what MV data and what TX data belongs to it) is established.
      *
-     * @param snapshotId       Snapshot id.
+     * @param snapshotId Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
     void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
@@ -180,13 +180,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
             return;
         }
 
-        CompletableFuture
-                .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
-                .whenCompleteAsync((response, throwable) -> {
-                    if (response != null) {
-                        respond(response, throwable, sender, correlationId);
-                    }
-                }, executor);
+        CompletableFuture.supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
+                .whenCompleteAsync((response, throwable) -> respond(response, throwable, sender, correlationId), executor);
     }
 
     private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
@@ -205,7 +200,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void respond(NetworkMessage response, Throwable throwable, ClusterNode sender, Long correlationId) {
+    private void respond(NetworkMessage response, @Nullable Throwable throwable, ClusterNode sender, long correlationId) {
         if (throwable != null) {
             failureProcessor.process(new FailureContext(throwable, "Something went wrong while handling a request"));
             return;
@@ -214,7 +209,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         try {
             messagingService.respond(sender, response, correlationId);
         } catch (RuntimeException e) {
-            String errorMessage = String.format("Could not send a response with correlationId=%s", correlationId);
+            String errorMessage = String.format("Could not send a response with correlationId=%d", correlationId);
             failureProcessor.process(new FailureContext(e, errorMessage));
         }
     }
