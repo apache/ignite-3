@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
@@ -69,8 +70,6 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
         int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
-
         Node node = cluster.get(0);
 
         KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
@@ -86,10 +85,11 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
         }
 
         for (Node currentNode : cluster) {
-            assertTrue(waitForCondition(
-                    () -> !txStatesInPartitionStorage(currentNode.txStatePartitionStorage(zoneId, 0)).isEmpty(),
-                    SECONDS.toMillis(10)
-            ));
+            assertTrue(waitForCondition(() -> {
+                TxStatePartitionStorage txStorage = currentNode.txStatePartitionStorage(zoneId, 0);
+
+                return txStorage != null && !txStatesInPartitionStorage(txStorage).isEmpty();
+            }, SECONDS.toMillis(10)));
         }
 
         List<Executable> assertions = new ArrayList<>();
@@ -99,7 +99,7 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
 
             assertions.add(() -> assertTxStateStorageAsExpected(
                     "Node " + finalI + " zone",
-                    currentNode.txStatePartitionStorage(zoneId, 0),
+                    requireNonNull(currentNode.txStatePartitionStorage(zoneId, 0)),
                     1,
                     commit
             ));

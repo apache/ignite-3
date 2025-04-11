@@ -947,7 +947,7 @@ public class Node {
         }
     }
 
-    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+    public @Nullable TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
     }
 
