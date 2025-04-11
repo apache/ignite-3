@@ -59,9 +59,9 @@ class ErrorGroupHelperTest {
     private static Stream<Arguments> someErrorsCodes() {
         return Stream.of(
                 Common.INTERNAL_ERR, Common.ILLEGAL_ARGUMENT_ERR, Common.NULLABLE_VALUE_ERR,
-                Table.COLUMN_ALREADY_EXISTS_ERR, Table.SCHEMA_VERSION_MISMATCH_ERR, Table.UNSUPPORTED_PARTITION_TYPE_ERR,
+                Table.SCHEMA_VERSION_MISMATCH_ERR, Table.UNSUPPORTED_PARTITION_TYPE_ERR,
                 Client.CONNECTION_ERR, Client.CLUSTER_ID_MISMATCH_ERR, Client.PROTOCOL_ERR,
-                Sql.MAPPING_ERR, Sql.RUNTIME_ERR, Sql.SCHEMA_NOT_FOUND_ERR,
+                Sql.MAPPING_ERR, Sql.RUNTIME_ERR,
                 MetaStorage.COMPACTED_ERR, MetaStorage.DIVERGED_ERR, MetaStorage.OP_EXECUTION_TIMEOUT_ERR).map(Arguments::of);
     }
 }
