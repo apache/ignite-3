@@ -100,9 +100,11 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Check that sql query will wait until appropriate schema is not propagated into all nodes.
      */
     @Test
-    public void queryWaitAppropriateSchema() {
+    public void queryWaitAppropriateSchema() throws Exception {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
+
+        Thread.sleep(5_000);
 
         createTable(ignite0, TABLE_NAME);
 

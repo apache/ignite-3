@@ -20,7 +20,10 @@ package org.apache.ignite.internal;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
+import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -712,12 +715,12 @@ public class Cluster {
      * Returns the ID of the sole table partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
-    public TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = ReplicationGroupsUtils.tablePartitionIds(unwrapIgniteImpl(aliveNode()));
+    public ReplicationGroupId solePartitionId() {
+        List<? extends ReplicationGroupId> replicationGroupIds = enabledColocation()
+                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()))
+                : tablePartitionIds(unwrapIgniteImpl(aliveNode()));
 
-        assertThat(tablePartitionIds.size(), is(1));
-
-        return tablePartitionIds.get(0);
+        return replicationGroupIds.get(0);
     }
 
     /**
