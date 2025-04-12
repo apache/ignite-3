@@ -136,8 +136,10 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    public void checkSchemasCorrectlyRestore() {
+    public void checkSchemasCorrectlyRestore() throws Exception {
         Ignite ignite1 = cluster.node(1);
+
+        Thread.sleep(5_000);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
 
