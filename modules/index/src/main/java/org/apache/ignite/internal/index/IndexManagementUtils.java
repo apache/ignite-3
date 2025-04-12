@@ -284,7 +284,8 @@ class IndexManagementUtils {
      * @param timestamp Timestamp of interest.
      */
     static boolean isPrimaryReplica(ReplicaMeta primaryReplicaMeta, ClusterNode localNode, HybridTimestamp timestamp) {
-        return localNode.id().equals(primaryReplicaMeta.getLeaseholderId());
+        return localNode.id().equals(primaryReplicaMeta.getLeaseholderId())
+                && timestamp.compareTo(primaryReplicaMeta.getExpirationTime()) < 0;
     }
 
     /**

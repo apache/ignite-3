@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.toPartitionB
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.LOCAL_NODE;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.NODE_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.newPrimaryReplicaMeta;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -52,7 +53,9 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
@@ -113,8 +116,10 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void testIsPrimaryReplicaFalse() {
-        TablePartitionId replicaGroupId = new TablePartitionId(1, 0);
+    void testIsPrimaryReplicaFalse() throws Exception {
+        PartitionGroupId groupId = enabledColocation()
+                ? new ZonePartitionId(0, 0)
+                : new TablePartitionId(1, 0);
 
         ClusterNode otherNode = new ClusterNodeImpl(randomUUID(), NODE_NAME + "-other", mock(NetworkAddress.class));
 
@@ -125,9 +130,9 @@ public class IndexManagementUtilsTest extends BaseIgniteAbstractTest {
         HybridTimestamp startTime0 = now;
         HybridTimestamp startTime1 = now.addPhysicalTime(-dayInMillis);
 
-        ReplicaMeta replicaMeta0 = newPrimaryReplicaMeta(otherNode, replicaGroupId, startTime0, startTime0.addPhysicalTime(dayInMillis));
-        ReplicaMeta replicaMeta1 = newPrimaryReplicaMeta(LOCAL_NODE, replicaGroupId, startTime1, startTime1.addPhysicalTime(hourInMillis));
-        ReplicaMeta replicaMeta2 = newPrimaryReplicaMeta(LOCAL_NODE, replicaGroupId, now, now);
+        ReplicaMeta replicaMeta0 = newPrimaryReplicaMeta(otherNode, groupId, startTime0, startTime0.addPhysicalTime(dayInMillis));
+        ReplicaMeta replicaMeta1 = newPrimaryReplicaMeta(LOCAL_NODE, groupId, startTime1, startTime1.addPhysicalTime(hourInMillis));
+        ReplicaMeta replicaMeta2 = newPrimaryReplicaMeta(LOCAL_NODE, groupId, now, now);
 
         assertFalse(isPrimaryReplica(replicaMeta0, LOCAL_NODE, clock.now()));
         assertFalse(isPrimaryReplica(replicaMeta1, LOCAL_NODE, clock.now()));
