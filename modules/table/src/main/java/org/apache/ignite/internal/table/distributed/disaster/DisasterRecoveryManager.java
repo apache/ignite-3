@@ -298,7 +298,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
 
         if (!tablePartitionsToReset.isEmpty()) {
-            return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision).thenApply(r -> false);
+            return resetPartitions(zoneDescriptor.name(), tablePartitionsToReset, false, revision, false).thenApply(r -> false);
         } else {
             return falseCompletedFuture();
         }
@@ -330,23 +330,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     public CompletableFuture<Void> resetTablePartitions(String zoneName, String schemaName, String tableName, Set<Integer> partitionIds) {
         int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
-        return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1);
-    }
-
-    /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
-     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
-     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
-     * so that a new leader could be elected.
-     *
-     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
-     * @return Future that completes when partitions are reset.
-     */
-    public CompletableFuture<Void> resetPartitions(String zoneName, Set<Integer> partitionIds) {
-        int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
-
-        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1);
+        return resetPartitions(zoneName, Map.of(tableId, partitionIds), true, -1, false);
     }
 
     /**
@@ -373,7 +357,23 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     ) {
         int tableId = tableDescriptor(catalogLatestVersion(), schemaName, tableName).id();
 
-        return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision);
+        return resetPartitions(zoneName, Map.of(tableId, partitionIds), manualUpdate, triggerRevision, false);
+    }
+
+    /**
+     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
+     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
+     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
+     * so that a new leader could be elected.
+     *
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to reset. If empty, reset all zone's partitions.
+     * @return Future that completes when partitions are reset.
+     */
+    public CompletableFuture<Void> resetPartitions(String zoneName, Set<Integer> partitionIds) {
+        int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
+
+        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), true, -1, true);
     }
 
     /**
@@ -388,7 +388,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @return Future that completes when partitions are reset.
      */
-    private CompletableFuture<Void> resetPartitions(
+    public CompletableFuture<Void> resetPartitions(
             String zoneName,
             Set<Integer> partitionIds,
             boolean manualUpdate,
@@ -396,7 +396,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     ) {
         int zoneId = zoneDescriptor(catalogLatestVersion(), zoneName).id();
 
-        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision);
+        return resetPartitions(zoneName, Map.of(zoneId, partitionIds), manualUpdate, triggerRevision, true);
     }
 
     /**
@@ -415,7 +415,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             String zoneName,
             Map<Integer, Set<Integer>> partitionIds,
             boolean manualUpdate,
-            long triggerRevision
+            long triggerRevision,
+            boolean colocationEnabled
     ) {
         try {
             Catalog catalog = catalogLatestVersion();
@@ -424,8 +425,10 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             partitionIds.values().forEach(ids -> checkPartitionsRange(ids, Set.of(zone)));
 
+            // Negative zone id for disabled colocation - avoiding serialization change.
+            int zoneId = colocationEnabled ? zone.id() : -zone.id();
             return processNewRequest(
-                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zone.id(), partitionIds, manualUpdate),
+                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zoneId, partitionIds, manualUpdate),
                     triggerRevision
             );
         } catch (Throwable t) {
@@ -533,7 +536,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private static Function<LocalPartitionStateMessage, ZonePartitionId> zoneState() {
+    static Function<LocalPartitionStateMessage, ZonePartitionId> zoneState() {
         return state -> state.zonePartitionId().asZonePartitionId();
     }
 

@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.distributionzones.rebalance.AssignmentUtil.metastoreAssignments;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.ASSIGNMENT_NOT_UPDATED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.OUTDATED_UPDATE_RECEIVED;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.UpdateStatus.PENDING_KEY_UPDATED;
@@ -624,6 +625,34 @@ public class ZoneRebalanceUtil {
         return metaStorageManager
                 .get(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId)))
                 .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
+    }
+
+    /**
+     * Returns zone assignments for zone partitions from meta storage.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param partitionIds IDs of partitions to get assignments for.
+     * @return Future with zone assignments as a value.
+     */
+    public static CompletableFuture<Map<Integer, Assignments>> zoneStableAssignments(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int[] partitionIds
+    ) {
+        return metastoreAssignments(
+                metaStorageManager,
+                partitionIds,
+                partitionId -> stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionId))
+        ).whenComplete((assignmentsMap, throwable) -> {
+            if (throwable == null) {
+                int numberOfMsPartitions = assignmentsMap.size();
+
+                assert numberOfMsPartitions == 0 || numberOfMsPartitions == partitionIds.length
+                        : "Invalid number of partition entries received from meta storage [received="
+                        + numberOfMsPartitions + ", numberOfPartitions=" + partitionIds.length + ", zoneId=" + zoneId + "].";
+            }
+        });
     }
 
     /**

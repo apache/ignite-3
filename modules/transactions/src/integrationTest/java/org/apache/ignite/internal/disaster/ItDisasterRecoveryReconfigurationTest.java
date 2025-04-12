@@ -814,8 +814,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         waitForScale(node0, 3);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false,
-                1);
+        CompletableFuture<?> updateFuture =
+                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
 

@@ -44,6 +44,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.table.distributed.disaster.GroupUpdateRequestHandler.TableGroupUpdateRequestHandler;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -107,7 +108,7 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
 
         assertThat(
                 metaStorageManager.invoke(
-                        GroupUpdateRequest.prepareMsInvokeClosure(
+                        TableGroupUpdateRequestHandler.prepareMsInvokeClosure(
                                 tablePartitionId,
                                 longToBytesKeepingOrder(expectedPendingChangeTimestampKey.longValue()),
                                 AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp)),
