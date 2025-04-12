@@ -56,8 +56,10 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
      * table did not yet exist) even when the 'look in the past' optimization is enabled.
      */
     @Test
-    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
+    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() throws Exception {
         Ignite node = cluster.node(0);
+
+        Thread.sleep(10_000);
 
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {

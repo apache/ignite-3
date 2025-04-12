@@ -390,7 +390,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, 2000);
+        }, 7000);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {

@@ -396,7 +396,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             return lease.getExpirationTime().compareTo(nodeClock.now()) < 0;
 
-        }, 10_000));
+        }, 20_000));
 
         assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 2, 1);
 

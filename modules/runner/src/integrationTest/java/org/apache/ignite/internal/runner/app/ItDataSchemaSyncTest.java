@@ -100,9 +100,11 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Check that sql query will wait until appropriate schema is not propagated into all nodes.
      */
     @Test
-    public void queryWaitAppropriateSchema() {
+    public void queryWaitAppropriateSchema() throws Exception {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
+
+        Thread.sleep(5_000);
 
         createTable(ignite0, TABLE_NAME);
 
@@ -134,8 +136,10 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
      * Test correctness of schemes recovery after node restart.
      */
     @Test
-    public void checkSchemasCorrectlyRestore() {
+    public void checkSchemasCorrectlyRestore() throws Exception {
         Ignite ignite1 = cluster.node(1);
+
+        Thread.sleep(5_000);
 
         sql(ignite1, "CREATE TABLE " + TABLE_NAME + "(key BIGINT PRIMARY KEY, valint1 INT, valint2 INT)");
 

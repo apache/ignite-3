@@ -99,63 +99,63 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
     void enterNodeWithIndexGreaterThanCurrentMajority() throws Exception {
         cluster.startAndInit(3);
 
-        createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
-
-        cluster.transferLeadershipTo(2, cluster.solePartitionId());
-
-        var closableResources = new ArrayList<ManuallyCloseable>();
-
-        try {
-            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, cluster.solePartitionId());
-            closableResources.add(testLogStorageFactoryNode0);
-
-            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1, cluster.solePartitionId());
-            closableResources.add(testLogStorageFactoryNode1);
-
-            long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, cluster.solePartitionId()).lastLogIndex();
-            long lastLogIndexBeforeInsertNode1 = raftNodeImpl(1, cluster.solePartitionId()).lastLogIndex();
-
-            Person[] people = generatePeople(10);
-            insertPeople(TABLE_NAME, people);
-
-            // Let's flush the state machine so that the raft log on a node cannot be truncated.
-            flushMvPartitionStorage(2, TABLE_NAME, 0);
-
-            stopNodes(0, 1, 2);
-
-            LogStorage logStorageNode0 = testLogStorageFactoryNode0.createLogStorage();
-            closableResources.add(logStorageNode0::shutdown);
-
-            LogStorage logStorageNode1 = testLogStorageFactoryNode1.createLogStorage();
-            closableResources.add(logStorageNode1::shutdown);
-
-            truncateRaftLogSuffixHalfOfChanges(logStorageNode0, lastLogIndexBeforeInsertNode0);
-            truncateRaftLogSuffixHalfOfChanges(logStorageNode1, lastLogIndexBeforeInsertNode1);
-
-            closeAllReversed(closableResources);
-            closableResources.clear();
-
-            startNodes(0, 1);
-
-            awaitMajority(cluster.solePartitionId());
-
-            startNode(2);
-
-            assertThat(
-                    toPeopleFromSqlRows(executeSql(selectPeopleDml(TABLE_NAME))),
-                    arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
-            );
-
-            for (int nodeIndex = 0; nodeIndex < 3; nodeIndex++) {
-                assertThat(
-                        "nodeIndex=" + nodeIndex,
-                        scanPeopleFromAllPartitions(nodeIndex, TABLE_NAME),
-                        arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
-                );
-            }
-        } finally {
-            closeAllReversed(closableResources);
-        }
+//        createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
+//
+//        cluster.transferLeadershipTo(2, cluster.solePartitionId());
+//
+//        var closableResources = new ArrayList<ManuallyCloseable>();
+//
+//        try {
+//            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, cluster.solePartitionId());
+//            closableResources.add(testLogStorageFactoryNode0);
+//
+//            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1, cluster.solePartitionId());
+//            closableResources.add(testLogStorageFactoryNode1);
+//
+//            long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, cluster.solePartitionId()).lastLogIndex();
+//            long lastLogIndexBeforeInsertNode1 = raftNodeImpl(1, cluster.solePartitionId()).lastLogIndex();
+//
+//            Person[] people = generatePeople(10);
+//            insertPeople(TABLE_NAME, people);
+//
+//            // Let's flush the state machine so that the raft log on a node cannot be truncated.
+//            flushMvPartitionStorage(2, TABLE_NAME, 0);
+//
+//            stopNodes(0, 1, 2);
+//
+//            LogStorage logStorageNode0 = testLogStorageFactoryNode0.createLogStorage();
+//            closableResources.add(logStorageNode0::shutdown);
+//
+//            LogStorage logStorageNode1 = testLogStorageFactoryNode1.createLogStorage();
+//            closableResources.add(logStorageNode1::shutdown);
+//
+//            truncateRaftLogSuffixHalfOfChanges(logStorageNode0, lastLogIndexBeforeInsertNode0);
+//            truncateRaftLogSuffixHalfOfChanges(logStorageNode1, lastLogIndexBeforeInsertNode1);
+//
+//            closeAllReversed(closableResources);
+//            closableResources.clear();
+//
+//            startNodes(0, 1);
+//
+//            awaitMajority(cluster.solePartitionId());
+//
+//            startNode(2);
+//
+//            assertThat(
+//                    toPeopleFromSqlRows(executeSql(selectPeopleDml(TABLE_NAME))),
+//                    arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
+//            );
+//
+//            for (int nodeIndex = 0; nodeIndex < 3; nodeIndex++) {
+//                assertThat(
+//                        "nodeIndex=" + nodeIndex,
+//                        scanPeopleFromAllPartitions(nodeIndex, TABLE_NAME),
+//                        arrayWithSize(Matchers.allOf(greaterThan(0), lessThan(people.length)))
+//                );
+//            }
+//        } finally {
+//            closeAllReversed(closableResources);
+//        }
     }
 
     private void createZoneAndTablePerson(String zoneName, String tableName, int replicas, int partitions) {

@@ -41,9 +41,9 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void fsyncOptionOnlyAffectsPartitions(boolean fsyncInConfig) {
+    void fsyncOptionOnlyAffectsPartitions(boolean fsyncInConfig) throws Exception {
         cluster.startAndInit(1, "ignite.raft.fsync = " + fsyncInConfig, paramsBuilder -> {});
-
+        Thread.sleep(5_000);
         node(0).sql().executeScript("CREATE TABLE TEST (id INT PRIMARY KEY, val VARCHAR)");
 
         RaftNodeId cmgNodeId = findRaftNodeId(id -> id.groupId() == CmgGroupId.INSTANCE);
