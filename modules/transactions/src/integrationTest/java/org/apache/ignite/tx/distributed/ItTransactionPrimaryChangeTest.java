@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapInternalTransaction;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.waitAndGetPrimaryReplica;
@@ -37,6 +38,7 @@ import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
@@ -44,6 +46,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -110,9 +113,11 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
 
         int partId = 0;
 
-        var tblReplicationGrp = new TablePartitionId(tbl.tableId(), partId);
+        var replicationGrp = enabledColocation()
+                ? new ZonePartitionId(tbl.zoneId(), partId)
+                : new TablePartitionId(tbl.tableId(), partId);
 
-        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), tblReplicationGrp).getLeaseholder();
+        String leaseholder = waitAndGetPrimaryReplica(unwrapIgniteImpl(node(0)), replicationGrp).getLeaseholder();
 
         IgniteImpl firstLeaseholderNode = findNodeByName(leaseholder);
 
@@ -137,7 +142,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             if (msg instanceof WriteActionRequest) {
                 WriteActionRequest writeActionRequest = (WriteActionRequest) msg;
 
-                if (tblReplicationGrp.toString().equals(writeActionRequest.groupId())
+                if (replicationGrp.toString().equals(writeActionRequest.groupId())
                         && writeActionRequest.deserializedCommand() instanceof UpdateCommand
                         && !fullTxReplicationAttemptFuture.isDone()) {
                     UpdateCommand updateCommand = (UpdateCommand) writeActionRequest.deserializedCommand();
@@ -165,7 +170,7 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             // Changing the primary.
             NodeUtils.transferPrimary(
                     cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
-                    tblReplicationGrp,
+                    replicationGrp,
                     txCrdNode.name()
             );
 

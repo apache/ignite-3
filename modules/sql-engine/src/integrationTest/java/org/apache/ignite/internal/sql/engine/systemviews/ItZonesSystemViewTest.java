@@ -59,7 +59,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
-                IMMEDIATE_TIMER_VALUE,
+                5,
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,

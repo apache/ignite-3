@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.tx;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTablesInternal;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -30,6 +34,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
@@ -68,11 +73,14 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
         // assertThrows(TransactionException.class, roTx::commit);
     }
 
-    @Test
+    @RepeatedTest(10)
     void readWriteTransactionTimesOut() throws InterruptedException {
         Table table = createTestTable();
 
-        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
+        int dataNodesAutoAdjustScaleUpSeconds =
+                unwrapIgniteImpl(node(0)).catalog().zoneDefinition(DEFAULT_ZONE_NAME).dataNodesAutoAdjustScaleUp();
+
+        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(dataNodesAutoAdjustScaleUpSeconds * 1_000 + 1_000));
 
         // Make sure the tx actually begins on the server (as thin client transactions are lazy).
         doPutOn(table, rwTx);

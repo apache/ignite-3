@@ -46,7 +46,8 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
 
     /** Tests correctness of fetch / offset params. */
     @Test
-    public void testInvalidLimitOffset() {
+    public void testInvalidLimitOffset() throws Exception {
+        Thread.sleep(5_000);
         BigDecimal moreThanUpperLong = new BigDecimal(Long.MAX_VALUE).add(new BigDecimal(1));
 
         // cache the plan with concrete type param

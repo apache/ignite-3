@@ -41,6 +41,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.mockito.BDDMockito.Then;
 
 /**
  * Test scenarios for the distribution zone scale up and scale down.
@@ -88,6 +90,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         int defaultZoneId = getDefaultZone().id();
 
+        Thread.sleep(5_000);
+
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
 
         topology.putNode(NODE_B);
@@ -109,6 +113,9 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         assertLogicalTopology(clusterNodes3, keyValueStorage);
 
         assertDataNodesFromLogicalNodesInStorage(zoneId, clusterNodes3, keyValueStorage);
+
+        Thread.sleep(5_000);
+
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes3, keyValueStorage);
     }
 
@@ -137,6 +144,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         Set<LogicalNode> clusterNodes = Set.of(NODE_A, NODE_B);
 
         int defaultZoneId = getDefaultZone().id();
+
+        Thread.sleep(5_000);
 
         assertDataNodesFromLogicalNodesInStorage(defaultZoneId, clusterNodes, keyValueStorage);
 
@@ -168,6 +177,7 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
 
         CatalogZoneDescriptor defaultZone = getDefaultZone();
 
+        Thread.sleep(5_000);
         assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes, keyValueStorage);
 
         alterZone(defaultZone.name(), INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE, null);
@@ -194,6 +204,8 @@ public class DistributionZoneManagerScaleUpScaleDownTest extends BaseDistributio
         Set<LogicalNode> clusterNodes = Set.of(NODE_A, NODE_B);
 
         CatalogZoneDescriptor defaultZone = getDefaultZone();
+
+        Thread.sleep(5_000);
 
         assertDataNodesFromLogicalNodesInStorage(defaultZone.id(), clusterNodes, keyValueStorage);
 

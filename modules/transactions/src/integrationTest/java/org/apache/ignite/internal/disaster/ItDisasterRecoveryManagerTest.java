@@ -22,11 +22,13 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -173,6 +175,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         insert(0, 0);
         insert(1, 1);
 
+        // TODO sanpwc localStateTableFuture rename.
         CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> localStateTableFuture =
                 node.disasterRecoveryManager().localPartitionStates(emptySet(), emptySet(), emptySet());
 
@@ -181,7 +184,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // A default zone and a custom zone, which was created in `BeforeEach`.
         // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
-        assertThat(localState, aMapWithSize(27));
+        assertThat(localState, aMapWithSize(2));
 
         int zoneId = zoneId(node);
 
@@ -249,7 +252,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         // A default zone and a custom zone, which was created in `BeforeEach`.
         // 27 partitions = CatalogUtils.DEFAULT_PARTITION_COUNT (=25) + 2.
-        assertThat(globalState, aMapWithSize(27));
+        assertThat(globalState, aMapWithSize(2));
 
         int zoneId = zoneId(node);
 

@@ -140,6 +140,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.mockito.BDDMockito.Then;
 
 /**
  * Tests for checking {@link DistributionZoneManager} behavior after node's restart.

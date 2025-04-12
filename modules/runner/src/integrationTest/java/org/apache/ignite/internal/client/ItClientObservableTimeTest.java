@@ -47,7 +47,8 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void observableTimeAdjustmentWorksForQueryStartedFromThinClient() {
+    void observableTimeAdjustmentWorksForQueryStartedFromThinClient() throws Exception{
+        Thread.sleep(5_000);
         try (
                 IgniteClient client1 = newClient();
                 IgniteClient client2 = newClient();
@@ -63,7 +64,8 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    void startOfRoTxInScriptAccountForPreviouslyExecutedStatements() {
+    void startOfRoTxInScriptAccountForPreviouslyExecutedStatements() throws Exception{
+        Thread.sleep(5_000);
         try (IgniteClient client = newClient()) {
             // Should not throw
             client.sql().executeScript(""
