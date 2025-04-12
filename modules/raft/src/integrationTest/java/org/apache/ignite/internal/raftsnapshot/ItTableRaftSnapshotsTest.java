@@ -73,7 +73,6 @@ import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -397,11 +396,11 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     /**
      * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
      */
-    private void doSnapshotOn(ReplicationGroupId tablePartitionId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
+    private void doSnapshotOn(ReplicationGroupId replicationGroupIdId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
+        RaftGroupService raftGroupService = cluster.leaderServiceFor(replicationGroupIdId);
 
         assertThat(
-                "Unexpected leadership change on group: " + tablePartitionId,
+                "Unexpected leadership change on group: " + replicationGroupIdId,
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 

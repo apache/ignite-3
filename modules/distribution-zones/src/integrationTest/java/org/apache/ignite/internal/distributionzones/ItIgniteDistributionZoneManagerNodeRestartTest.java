@@ -838,6 +838,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         if (useDefaultZone) {
             awaitDefaultZoneCreation(node);
 
+            Thread.sleep(8_000);
+
             CatalogZoneDescriptor defaultZone = getDefaultZone(getCatalogManager(node), node.clock().nowLong());
             zoneName = defaultZone.name();
 
