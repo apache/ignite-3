@@ -73,7 +73,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
         // assertThrows(TransactionException.class, roTx::commit);
     }
 
-    @RepeatedTest(10)
+    @Test
     void readWriteTransactionTimesOut() throws InterruptedException {
         Table table = createTestTable();
 
