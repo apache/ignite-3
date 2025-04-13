@@ -44,8 +44,11 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner.TimeHolder;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.tx.Transaction;
@@ -209,6 +212,10 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void testCompactionRun() {
+        CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
+        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        sql(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
+
         sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
                 CLUSTER_SIZE, CLUSTER_SIZE)
         );

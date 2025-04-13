@@ -66,6 +66,7 @@ dependencies {
     integrationTestImplementation project(':ignite-table')
     integrationTestImplementation testFixtures(project(':ignite-core'))
     integrationTestImplementation testFixtures(project(':ignite-runner'))
+    integrationTestImplementation(testFixtures(project(':ignite-catalog')))
 }
 
 description = "ignite-catalog-compaction"
