@@ -17,12 +17,16 @@
 
 package org.apache.ignite.internal.tx.readonly;
 
+import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.TransactionOptions;
@@ -59,6 +63,10 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
         Ignite node = cluster.node(0);
 
+        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+        setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {
                 try (ResultSet<SqlRow> resultSet = session.execute(tx, "SELECT COUNT(*) FROM " + TABLE_NAME)) {
@@ -79,5 +87,12 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
         long count = cluster.query(0, "SELECT COUNT(*) FROM " + TABLE_NAME, rs -> rs.next().longValue(0));
 
         assertThat(count, is(0L));
+    }
+
+    private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
+        CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
+        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+
+        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
     }
 }

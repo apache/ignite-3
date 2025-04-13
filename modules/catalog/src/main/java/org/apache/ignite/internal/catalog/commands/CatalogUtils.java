@@ -66,6 +66,11 @@ public class CatalogUtils {
      */
     public static final String DEFAULT_FILTER = "$..*";
 
+    /**
+     * Default auto adjust scale up timeout of the default zone.
+     */
+    public static final int DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS = 5;
+
     /** Infinite value for the distribution zone timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
 

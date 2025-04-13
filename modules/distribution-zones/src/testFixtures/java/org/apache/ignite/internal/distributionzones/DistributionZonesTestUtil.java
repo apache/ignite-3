@@ -22,6 +22,8 @@ import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.dataNodeHistoryContextFromValues;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
@@ -390,7 +392,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, 2000);
+        }, DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS + 2000);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
@@ -744,5 +746,15 @@ public class DistributionZonesTestUtil {
         assertNotNull(zoneId, "zoneName=" + zoneName + ", timestamp=" + timestamp);
 
         return zoneId;
+    }
+
+    /**
+     * Alter zone with zoneName by setting dataNodesAutoAdjustScaleUp to IMMEDIATE_TIMER_VALUE.
+     *
+     * @param catalogManager Catalog manager.
+     * @param zoneName Zone name.
+     */
+    public static void setZoneAutoAdjustScaleUpToImmediate(CatalogManager catalogManager, String zoneName) {
+        alterZone(catalogManager, zoneName, IMMEDIATE_TIMER_VALUE, null, null);
     }
 }
