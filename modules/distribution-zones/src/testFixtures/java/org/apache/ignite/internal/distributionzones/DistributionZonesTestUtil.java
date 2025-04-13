@@ -20,6 +20,7 @@ package org.apache.ignite.internal.distributionzones;
 import static java.util.Collections.emptyMap;
 import static java.util.Collections.emptySet;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS;
@@ -46,7 +47,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -392,7 +392,7 @@ public class DistributionZonesTestUtil {
             Set<Node> actualNodes = nodesGetter.get();
 
             return Objects.equals(actualNodes, nodes);
-        }, DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS + 2000);
+        }, SECONDS.toMillis(DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS) + 2000);
 
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
@@ -590,7 +590,7 @@ public class DistributionZonesTestUtil {
             Set<String> dataNodes = null;
             try {
                 dataNodes = distributionZoneManager.dataNodesManager()
-                        .dataNodes(zoneId, HybridTimestamp.MAX_VALUE).get(5, TimeUnit.SECONDS);
+                        .dataNodes(zoneId, HybridTimestamp.MAX_VALUE).get(5, SECONDS);
             } catch (Exception e) {
                 // Ignore
             }
@@ -601,7 +601,7 @@ public class DistributionZonesTestUtil {
         // We do a second check simply to print a nice error message in case the condition above is not achieved.
         if (!success) {
             Set<String> dataNodes = distributionZoneManager.dataNodesManager()
-                    .dataNodes(zoneId, HybridTimestamp.MAX_VALUE).get(5, TimeUnit.SECONDS);
+                    .dataNodes(zoneId, HybridTimestamp.MAX_VALUE).get(5, SECONDS);
 
             assertThat(dataNodes, is(expectedValueNames));
         }
