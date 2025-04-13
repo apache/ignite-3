@@ -175,16 +175,19 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                         hasCustomAttributes ? customAttributes.get(i) : defaultNodeAttributesConfiguration))
                 .forEach(cluster::add);
 
-        CompletableFuture<?>[] startFutures = cluster.parallelStream()
-                .map(Node::start)
-                .toArray(CompletableFuture[]::new);
+        cluster.parallelStream().forEach(Node::start);
 
         Node node0 = cluster.get(0);
         List<String> allNodeNames = cluster.stream().map(n -> n.name).collect(toList());
 
         node0.cmgManager.initCluster(allNodeNames, allNodeNames, "cluster");
 
-        assertThat(allOf(startFutures), willCompleteSuccessfully());
+        cluster.forEach(Node::waitWatches);
+
+        assertThat(
+                allOf(cluster.stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
+                willCompleteSuccessfully()
+        );
 
         assertTrue(waitForCondition(
                 () -> {
@@ -203,7 +206,11 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
 
         cluster.add(node);
 
-        assertThat(node.start(), willCompleteSuccessfully());
+        node.start();
+
+        node.waitWatches();
+
+        assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
 
         return node;
     }
@@ -279,6 +286,8 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
     }
 
     static int createTable(Node node, String zoneName, String tableName, String storageProfile) {
+        node.waitForMetadataCompletenessAtNow();
+
         TableTestUtils.createTable(
                 node.catalogManager,
                 DEFAULT_SCHEMA_NAME,

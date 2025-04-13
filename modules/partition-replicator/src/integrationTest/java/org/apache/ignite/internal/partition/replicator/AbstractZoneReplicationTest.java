@@ -140,15 +140,18 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 .mapToObj(i -> newNode(addresses.get(i), nodeFinder))
                 .forEach(cluster::add);
 
-        CompletableFuture<?>[] startFutures = cluster.parallelStream()
-                .map(Node::start)
-                .toArray(CompletableFuture[]::new);
+        cluster.parallelStream().forEach(Node::start);
 
         Node node0 = cluster.get(0);
 
         node0.cmgManager.initCluster(List.of(node0.name), List.of(node0.name), "cluster");
 
-        assertThat(allOf(startFutures), willCompleteSuccessfully());
+        cluster.forEach(Node::waitWatches);
+
+        assertThat(
+                allOf(cluster.stream().map(n -> n.cmgManager.onJoinReady()).toArray(CompletableFuture[]::new)),
+                willCompleteSuccessfully()
+        );
 
         assertTrue(waitForCondition(
                 () -> {
@@ -167,7 +170,11 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
 
         cluster.add(node);
 
-        assertThat(node.start(), willCompleteSuccessfully());
+        node.start();
+
+        node.waitWatches();
+
+        assertThat(node.cmgManager.onJoinReady(), willCompleteSuccessfully());
 
         return node;
     }
