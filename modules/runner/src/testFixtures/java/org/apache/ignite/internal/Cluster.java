@@ -709,6 +709,7 @@ public class Cluster {
             }
         }
     }
+
     /**
      * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
