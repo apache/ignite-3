@@ -91,7 +91,7 @@ import org.apache.ignite.network.ClusterNode;
  * node restart but after {@link ReplicaMeta#getExpirationTime()}.</p>
  */
 class IndexBuildController implements ManuallyCloseable {
-    IgniteLogger LOG = Loggers.forClass(IndexBuildController.class);
+    private static final IgniteLogger LOG = Loggers.forClass(IndexBuildController.class);
 
     private final IndexBuilder indexBuilder;
 
