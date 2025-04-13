@@ -38,6 +38,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -170,6 +173,10 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     void testLocalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
+        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+        setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+
         insert(0, 0);
         insert(1, 1);
 
@@ -238,6 +245,10 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     void testGlobalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
+        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+        setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+
         insert(0, 0);
         insert(1, 1);
 
@@ -296,5 +307,12 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         int partitions() default INITIAL_NODES;
 
         int nodes() default INITIAL_NODES;
+    }
+
+    private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
+        CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
+        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+
+        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
     }
 }
