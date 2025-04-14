@@ -34,16 +34,38 @@ import org.junit.jupiter.api.function.Executable;
  * Tests for {@link BatchedArguments}.
  */
 public class BatchedArgumentsTest {
+    @SuppressWarnings("DataFlowIssue")
     @Test
     public void nullAndEmptyArgumentsAreForbidden() {
         assertThrows(NullPointerException.class, "args", () -> BatchedArguments.of((Object[]) null));
-        assertThrows(NullPointerException.class, "batchedArgs", () -> BatchedArguments.from((List<List<Object>>) null));
+        assertThrows(NullPointerException.class, "batchedArgs", () -> BatchedArguments.from(null));
         assertThrows(NullPointerException.class, "Arguments list cannot be null.", () -> BatchedArguments.from(singletonList(null)));
         assertThrows(IllegalArgumentException.class, "Non empty arguments required.", () -> BatchedArguments.of(new Object[0]));
 
         BatchedArguments batch = BatchedArguments.create();
         assertThrows(NullPointerException.class, "args", () -> batch.add((Object[]) null));
         assertThrows(IllegalArgumentException.class, "Non empty arguments required.", () -> batch.add(new Object[0]));
+    }
+
+    @Test
+    public void nullArgumentValuesAreAllowed() {
+        BatchedArguments batch = BatchedArguments.from(singletonList(singletonList(null)));
+        assertThat(batch.size(), is(1));
+        assertThat(batch.get(0), equalTo(singletonList(null)));
+
+        batch.add((Object) null);
+        assertThat(batch.size(), is(2));
+        assertThat(batch.get(0), equalTo(singletonList(null)));
+        assertThat(batch.get(1), equalTo(singletonList(null)));
+
+        batch =  BatchedArguments.of((Object) null);
+        assertThat(batch.size(), is(1));
+        assertThat(batch.get(0), equalTo(singletonList(null)));
+
+        batch.add((Object) null);
+        assertThat(batch.size(), is(2));
+        assertThat(batch.get(0), equalTo(singletonList(null)));
+        assertThat(batch.get(1), equalTo(singletonList(null)));
     }
 
     @Test
@@ -83,13 +105,13 @@ public class BatchedArgumentsTest {
     @Test
     public void argumentsListsAreImmutable() {
         List<List<Object>> argLists = new ArrayList<>(2);
-        argLists.add(List.of(1));
-        argLists.add(List.of(2));
+        argLists.add(mutableListOf(1));
+        argLists.add(mutableListOf(2));
 
         BatchedArguments batch = BatchedArguments.from(argLists);
         assertThat(batch.size(), is(argLists.size()));
 
-        argLists.add(List.of(3));
+        argLists.add(mutableListOf(3));
         assertThat(batch.size(), is(argLists.size() - 1));
 
         argLists.clear();
@@ -97,6 +119,13 @@ public class BatchedArgumentsTest {
 
         Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).add("2"));
         Assertions.assertThrows(UnsupportedOperationException.class, () -> batch.get(0).remove(0));
+    }
+
+    /** Creates mutable list of given argument. */
+    private static List<Object> mutableListOf(Object e1) {
+        ArrayList<Object> args = new ArrayList<>(1);
+        args.add(e1);
+        return args;
     }
 
     private static <T extends Throwable> void assertThrows(Class<T> expectedType, String expMsg, Executable executable) {
