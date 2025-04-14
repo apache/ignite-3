@@ -66,6 +66,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     @Override
     public int zoneId() {
+        return Math.abs(zoneId);
+    }
+
+    public int internalZoneId() {
         return zoneId;
     }
 
@@ -84,6 +88,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     public boolean manualUpdate() {
         return manualUpdate;
+    }
+
+    boolean colocationEnabled() {
+        return zoneId > 0;
     }
 
     @Override

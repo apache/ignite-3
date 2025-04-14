@@ -39,7 +39,7 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
     protected void writeExternalData(GroupUpdateRequest request, IgniteDataOutput out) throws IOException {
         out.writeUuid(request.operationId());
         out.writeVarInt(request.catalogVersion());
-        out.writeVarInt(request.zoneId());
+        out.writeVarInt(request.internalZoneId());
         writeVarIntMap(request.partitionIds(), out);
         out.writeBoolean(request.manualUpdate());
     }

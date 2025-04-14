@@ -88,7 +88,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
 
     public static GroupUpdateRequestHandler<?> handler(GroupUpdateRequest request) {
-        return request.zoneId() > 0
+        return request.colocationEnabled()
                 ? new ZoneGroupUpdateRequestHandler(request)
                 : new TableGroupUpdateRequestHandler(request);
     }
@@ -422,11 +422,6 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
 
         TableGroupUpdateRequestHandler(GroupUpdateRequest request) {
             super(request);
-        }
-
-        @Override
-        protected int zoneId() {
-            return -super.zoneId();
         }
 
         @Override
