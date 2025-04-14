@@ -20,7 +20,6 @@ namespace Apache.Ignite;
 using System;
 using System.Globalization;
 using System.Numerics;
-using Internal.Common;
 using Internal.Proto.BinaryTuple;
 
 /// <summary>
