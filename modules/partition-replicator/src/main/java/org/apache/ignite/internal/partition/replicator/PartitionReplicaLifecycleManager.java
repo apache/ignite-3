@@ -1604,8 +1604,8 @@ public class PartitionReplicaLifecycleManager extends
                         stableAssignments,
                         revision,
                         zoneDescriptor.partitions(),
-                        isVolatileZone(zoneDescriptor)
-
+                        isVolatileZone(zoneDescriptor),
+                        false
                 );
             }));
         }, ioExecutor));
