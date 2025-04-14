@@ -18,16 +18,29 @@
 package org.apache.ignite.internal.tx.readonly;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.tx.TransactionOptions;
@@ -61,7 +74,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
      * table did not yet exist) even when the 'look in the past' optimization is enabled.
      */
     @Test
-    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
+    void explicitReadOnlyTxDoesNotLookBeforeTableCreation() throws Exception {
         Ignite node = cluster.node(0);
 
         if (enabledColocation()) {
@@ -69,6 +82,10 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
             setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
         }
+
+        // In case of empty assignments SQL engine will throw "Mandatory nodes was excluded from mapping: []".
+        // In order to eliminate this assignments stabilization is needed, otherwise test may fail. Not related to collocation.
+        awaitAssignmentsStabilization(node);
 
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {
@@ -97,5 +114,32 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
         CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
 
         node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
+    }
+
+    private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
+        IgniteImpl igniteImpl = unwrapIgniteImpl(node);
+        TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
+        int tableOrZoneId = enabledColocation() ? table.zoneId() : table.tableId();
+
+        HybridTimestamp timestamp = igniteImpl.clock().now();
+
+        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+            int totalPartitionSize = 0;
+
+            // Within given test, default zone is used.
+            for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
+                CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
+                        enabledColocation()
+                                ? new ZonePartitionId(tableOrZoneId, p)
+                                : new TablePartitionId(tableOrZoneId, p),
+                        timestamp);
+
+                assertThat(assignmentsFuture, willCompleteSuccessfully());
+
+                totalPartitionSize += assignmentsFuture.join().nodes().size();
+            }
+
+            return totalPartitionSize == DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT;
+        }, 10_000));
     }
 }
