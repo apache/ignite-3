@@ -25,6 +25,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 
@@ -33,6 +34,18 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
  */
 public class TestDisasterRecoveryUtils {
 
+    /**
+     * Reset partitions depending on {@link IgniteSystemProperties#enabledColocation}.
+     *
+     * @param disasterRecoveryManager disaster recovery manager.
+     * @param zoneName zone name.
+     * @param schemaName schema name.
+     * @param tableName table name.
+     * @param partitionIds partition ids.
+     * @param manualUpdate manual update flag.
+     * @param triggerRevision trigger revision.
+     * @return future when reset is done.
+     */
     public static CompletableFuture<Void> resetPartitions(
             DisasterRecoveryManager disasterRecoveryManager,
             String zoneName,
@@ -50,6 +63,17 @@ public class TestDisasterRecoveryUtils {
         }
     }
 
+    /**
+     * Return assignments based on states of partitions in the cluster depending on {@link IgniteSystemProperties#enabledColocation}. It is
+     * possible that returned value contains nodes from stable and pending, for example, when rebalance is in progress.
+     *
+     * @param disasterRecoveryManager disaster recovery manager.
+     * @param zoneName zone name.
+     * @param zoneId zone id.
+     * @param tableId table id.
+     * @param partitionId partition id.
+     * @return assignments.
+     */
     public static Set<String> getRealAssignments(
             DisasterRecoveryManager disasterRecoveryManager,
             String zoneName,
@@ -61,7 +85,6 @@ public class TestDisasterRecoveryUtils {
                 ? getZoneRealAssignments(disasterRecoveryManager, zoneName, new ZonePartitionId(zoneId, partitionId))
                 : getTableRealAssignments(disasterRecoveryManager, zoneName, new TablePartitionId(tableId, partitionId));
     }
-
 
     /**
      * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes from stable and
@@ -102,6 +125,5 @@ public class TestDisasterRecoveryUtils {
 
         return partitionStates.keySet();
     }
-
 
 }
