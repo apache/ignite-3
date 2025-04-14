@@ -193,7 +193,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
 
         if (enabledColocation()) {
             return entriesFuture.join().stream()
-                    .filter(entry -> extractZonePartitionId(entry.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES)
+                    .filter(entry -> extractZonePartitionId(entry.key(), ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
                                     .zoneId() == zoneId)
                     .map(entry -> Assignments.fromBytes(entry.value()))
                     .filter(Objects::nonNull)
