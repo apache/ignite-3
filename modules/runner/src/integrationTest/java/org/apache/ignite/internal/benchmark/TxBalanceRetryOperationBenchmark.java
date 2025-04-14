@@ -71,16 +71,13 @@ public class TxBalanceRetryOperationBenchmark extends AbstractMultiNodeBenchmark
     @Param({"100", "1000"})
     private int keysUpperBound;
 
-    @Param({"waitTimeout", "replicaOperationRetry"})
-    private String txRetryMode;
-
     @Param({"0", "10"})
     private int replicaOperationRetryInterval;
 
     @Override
     protected String clusterConfiguration() {
         return "ignite {"
-                + "replication: { replicaOperationRetryInterval: " + replicaOperationRetryInterval + " }"
+                + "replication: { replicaOperationRetryIntervalMillis: " + replicaOperationRetryInterval + " }"
                 + "}";
     }
 
