@@ -608,9 +608,17 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into date
       return Expressions.isConstantNull(format)
-          ? Expressions.call(BuiltInMethod.STRING_TO_DATE.method, operand)
-          : Expressions.call(Expressions.new_(BuiltInMethod.PARSE_DATE.method.getDeclaringClass()),
-              BuiltInMethod.PARSE_DATE.method, format, operand);
+              ? Expressions.call(BuiltInMethod.STRING_TO_DATE.method, operand)
+              : Expressions.call(
+                      // TODO https://issues.apache.org/jira/browse/IGNITE-25010 Remove redundant call to TO_DATE_EXACT
+                      IgniteMethod.TO_DATE_EXACT.method(),
+                      Expressions.call(
+                              Expressions.new_(BuiltInMethod.PARSE_DATE.method.getDeclaringClass()),
+                              BuiltInMethod.PARSE_DATE.method,
+                              format,
+                              operand
+                      )
+              );
 
     case TIMESTAMP:
       return
@@ -721,10 +729,14 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into timestamp
       return Expressions.isConstantNull(format)
-          ? Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand)
+          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand))
           : Expressions.call(
-              Expressions.new_(BuiltInMethod.PARSE_TIMESTAMP.method.getDeclaringClass()),
-              BuiltInMethod.PARSE_TIMESTAMP.method, format, operand);
+                  IgniteMethod.TO_TIMESTAMP_EXACT.method(),
+                  Expressions.call(
+                    Expressions.new_(BuiltInMethod.PARSE_TIMESTAMP.method.getDeclaringClass()),
+                    BuiltInMethod.PARSE_TIMESTAMP.method, format, operand
+                  )
+          );
 
     case DATE:
       return
@@ -774,21 +786,27 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // Since this type implies a local timezone, its explicit indication seems redundant,
       // so we prohibit the user from explicitly setting a timezone.
       return
-          Expressions.call(
-                  BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                  operand,
-                  Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+              Expressions.call(
+                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                      Expressions.call(
+                              BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                              operand,
+                              Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
+              );
 
     case DATE:
       return
-          Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-              RexImpTable.optimize2(operand,
-                  Expressions.call(
-                      BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
-                      Expressions.multiply(
-                          Expressions.convert_(operand, long.class),
-                          Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)))),
-              Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+              Expressions.call(
+                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                              RexImpTable.optimize2(operand,
+                                      Expressions.call(
+                                              BuiltInMethod.UNIX_TIMESTAMP_TO_STRING.method,
+                                              Expressions.multiply(
+                                                      Expressions.convert_(operand, long.class),
+                                                      Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)))),
+                              Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
+              );
 
     case TIME:
       return
@@ -817,13 +835,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
 
     case TIMESTAMP:
       return
-          Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-              RexImpTable.optimize2(operand,
-                  Expressions.call(
-                          IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
-                          operand,
-                          Expressions.constant(targetType.getPrecision()))),
-              Expressions.call(BuiltInMethod.TIME_ZONE.method, root));
+              Expressions.call(
+                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                          RexImpTable.optimize2(operand,
+                              Expressions.call(
+                                      IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
+                                      operand,
+                                      Expressions.constant(targetType.getPrecision()))),
+                          Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
+              );
 
     default:
       return defaultExpression.get();

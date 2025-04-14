@@ -931,8 +931,9 @@ public class RexImpTable {
           NullPolicy.STRICT);
       defineMethod(UNIX_MICROS, BuiltInMethod.UNIX_MICROS.method,
           NullPolicy.STRICT);
-      defineMethod(DATE_FROM_UNIX_DATE,
-          BuiltInMethod.DATE_FROM_UNIX_DATE.method, NullPolicy.STRICT);
+      // Uses ignite version
+      //defineMethod(DATE_FROM_UNIX_DATE,
+      //    BuiltInMethod.DATE_FROM_UNIX_DATE.method, NullPolicy.STRICT);
       defineMethod(UNIX_DATE, BuiltInMethod.UNIX_DATE.method,
           NullPolicy.STRICT);
 
@@ -1285,6 +1286,7 @@ public class RexImpTable {
       defineMethod(ROUND, IgniteMethod.ROUND.method(), NullPolicy.STRICT);
       defineMethod(TRUNCATE, IgniteMethod.TRUNCATE.method(), NullPolicy.STRICT);
       defineMethod(IgniteSqlOperatorTable.DECIMAL_DIVIDE, IgniteMethod.DECIMAL_DIVIDE.method(), NullPolicy.ARG0);
+      defineMethod(DATE_FROM_UNIX_DATE, IgniteMethod.TO_DATE_EXACT.method(), NullPolicy.STRICT);
 
       define(LN, new LogImplementor());
       define(LOG, new LogImplementor());
@@ -4046,7 +4048,7 @@ public class RexImpTable {
               operand0.getType().getSqlTypeName() == SqlTypeName.TIMESTAMP
                   ? BuiltInMethod.ADD_MONTHS
                   : BuiltInMethod.ADD_MONTHS_INT;
-          return Expressions.call(method.method, trop0, trop1);
+            return IgniteExpressions.addBoundsCheckIfNeeded(typeName, Expressions.call(method.method, trop0, trop1));
         }
 
       case INTERVAL_DAY:
@@ -4061,9 +4063,9 @@ public class RexImpTable {
       case INTERVAL_SECOND:
         switch (call.getKind()) {
         case MINUS:
-          return normalize(typeName, IgniteExpressions.subtractExact(trop0, trop1));
+          return normalize(typeName, IgniteExpressions.addBoundsCheckIfNeeded(typeName, IgniteExpressions.subtractExact(trop0, trop1)));
         default:
-          return normalize(typeName, IgniteExpressions.addExact(trop0, trop1));
+          return normalize(typeName, IgniteExpressions.addBoundsCheckIfNeeded(typeName, IgniteExpressions.addExact(trop0, trop1)));
         }
 
       default:

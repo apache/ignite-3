@@ -93,6 +93,7 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.TopologyService;
+import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
@@ -185,6 +186,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     /** Table manager. */
     final TableManager tableManager;
 
+    final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+
     /** Metric manager. */
     private final MetricManager metricManager;
 
@@ -211,7 +214,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             TopologyService topologyService,
             TableManager tableManager,
             MetricManager metricManager,
-            FailureManager failureManager
+            FailureManager failureManager,
+            PartitionReplicaLifecycleManager partitionReplicaLifecycleManager
     ) {
         this.threadPool = threadPool;
         this.messagingService = messagingService;
@@ -223,6 +227,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         this.tableManager = tableManager;
         this.metricManager = metricManager;
         this.failureManager = failureManager;
+        this.partitionReplicaLifecycleManager = partitionReplicaLifecycleManager;
 
         watchListener = event -> {
             handleTriggerKeyUpdate(event);
@@ -451,6 +456,45 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     UUID.randomUUID(),
                     zone.id(),
                     table.id(),
+                    partitionIds,
+                    nodeNames,
+                    catalog.time()
+            ));
+        } catch (Throwable t) {
+            return failedFuture(t);
+        }
+    }
+
+    /**
+     * Restarts replica service and raft group of passed partitions.
+     *
+     * @param nodeNames Names specifying nodes to restart partitions. Case-sensitive, empty set means "all nodes".
+     * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
+     * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
+     * @return Future that completes when partitions are restarted.
+     */
+    public CompletableFuture<Void> restartPartitions(
+            Set<String> nodeNames,
+            String zoneName,
+            Set<Integer> partitionIds
+    ) {
+        try {
+            // Validates passed node names.
+            getNodes(nodeNames);
+
+            Catalog catalog = catalogLatestVersion();
+
+            CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
+
+            checkPartitionsRange(partitionIds, Set.of(zone));
+
+            return processNewRequest(new ManualGroupRestartRequest(
+                    UUID.randomUUID(),
+                    zone.id(),
+                    // We pass here -1 as table id because it is not used for zone-based partitions.
+                    // We expect that the field will be removed once colocation track is finished.
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522
+                    -1,
                     partitionIds,
                     nodeNames,
                     catalog.time()

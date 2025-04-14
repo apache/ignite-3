@@ -15,32 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
-
-import org.apache.ignite.internal.event.Event;
+package org.apache.ignite.internal.schema;
 
 /**
- * Events produced by {@link PartitionReplicaLifecycleManager}.
+ * An exception thrown when an attempt to write value out of allowed range is performed.
  */
-public enum LocalPartitionReplicaEvent implements Event {
-    /**
-     * Fired before a partition replica is started.
-     */
-    BEFORE_REPLICA_STARTED,
+class ValueOutOfBoundsException extends SchemaMismatchException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
 
     /**
-     * Fired when partition replica has just been stopped and the related partition shouldn't be destroyed e.g. on Ignite node stop.
+     * Constructor.
+     *
+     * @param msg Error message.
      */
-    AFTER_REPLICA_STOPPED,
-
-    /**
-     * Fired when partition replica has just been stopped for the restart purposes
-     * and the related partition shouldn't be destroyed or storages shouldn't be closed.
-     */
-    AFTER_REPLICA_STOPPED_FOR_RESTART,
-
-    /**
-     * Fired when partition replica has been destroyed.
-     */
-    AFTER_REPLICA_DESTROYED
+    ValueOutOfBoundsException(String msg) {
+        super(msg);
+    }
 }
