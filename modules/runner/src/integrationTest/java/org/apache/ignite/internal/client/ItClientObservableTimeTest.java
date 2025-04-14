@@ -47,11 +47,11 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
         CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
         String defaultZoneName = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().name();
 
-         if (enabledColocation()) {
-             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-             setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZoneName);
-         }
+        if (enabledColocation()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZoneName);
+        }
     }
 
     @AfterEach
