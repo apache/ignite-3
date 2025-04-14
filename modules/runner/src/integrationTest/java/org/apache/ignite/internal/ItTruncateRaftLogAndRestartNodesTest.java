@@ -54,7 +54,7 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.IgniteJraftServiceFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -169,14 +169,14 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         }
     }
 
-    private NodeImpl raftNodeImpl(int nodeIndex, TablePartitionId tablePartitionId) {
+    private NodeImpl raftNodeImpl(int nodeIndex, ReplicationGroupId replicationGroupId) {
         NodeImpl[] node = {null};
 
         igniteImpl(nodeIndex).raftManager().forEach((raftNodeId, raftGroupService) -> {
-            if (tablePartitionId.equals(raftNodeId.groupId())) {
+            if (replicationGroupId.equals(raftNodeId.groupId())) {
                 assertNull(
                         node[0],
-                        String.format("NodeImpl already found: [nodeIndex=%s, tablePartitionId=%s]", nodeIndex, tablePartitionId)
+                        String.format("NodeImpl already found: [nodeIndex=%s, replicationGroupId=%s]", nodeIndex, replicationGroupId)
                 );
 
                 node[0] = (NodeImpl) raftGroupService.getRaftNode();
@@ -185,7 +185,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         NodeImpl res = node[0];
 
-        assertNotNull(res, String.format("Can't find NodeImpl: [nodeIndex=%s, tablePartitionId=%s]", nodeIndex, tablePartitionId));
+        assertNotNull(res, String.format("Can't find NodeImpl: [nodeIndex=%s, replicationGroupId=%s]", nodeIndex, replicationGroupId));
 
         return res;
     }
@@ -194,7 +194,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
      * Creates and prepares {@link TestLogStorageFactory} for {@link TestLogStorageFactory#createLogStorage} creation after the
      * corresponding node is stopped, so that there are no errors.
      */
-    private TestLogStorageFactory createTestLogStorageFactory(int nodeIndex, TablePartitionId tablePartitionId) {
+    private TestLogStorageFactory createTestLogStorageFactory(int nodeIndex, ReplicationGroupId replicationGroupId) {
         IgniteImpl ignite = igniteImpl(nodeIndex);
 
         LogStorageFactory logStorageFactory = SharedLogStorageFactoryUtils.create(
@@ -202,16 +202,16 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
                 ignite.partitionsWorkDir().raftLogPath()
         );
 
-        NodeImpl nodeImpl = raftNodeImpl(nodeIndex, tablePartitionId);
+        NodeImpl nodeImpl = raftNodeImpl(nodeIndex, replicationGroupId);
 
         return new TestLogStorageFactory(logStorageFactory, nodeImpl.getOptions(), nodeImpl.getRaftOptions());
     }
 
-    private void awaitMajority(TablePartitionId tablePartitionId) {
+    private void awaitMajority(ReplicationGroupId replicationGroupId) {
         IgniteImpl ignite = unwrapIgniteImpl(cluster.aliveNode());
 
         assertThat(
-                ignite.placementDriver().awaitPrimaryReplica(tablePartitionId, ignite.clock().now(), 10, TimeUnit.SECONDS),
+                ignite.placementDriver().awaitPrimaryReplica(replicationGroupId, ignite.clock().now(), 10, TimeUnit.SECONDS),
                 willCompleteSuccessfully()
         );
     }

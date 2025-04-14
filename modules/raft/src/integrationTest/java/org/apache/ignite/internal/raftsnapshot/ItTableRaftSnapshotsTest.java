@@ -72,7 +72,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.In
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -388,19 +388,19 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        TablePartitionId tablePartitionId = cluster.solePartitionId();
+        ReplicationGroupId replicationGroupId = cluster.solePartitionId();
 
-        doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex, forced);
+        doSnapshotOn(replicationGroupId, expectedLeaderNodeIndex, forced);
     }
 
     /**
      * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
      */
-    private void doSnapshotOn(TablePartitionId tablePartitionId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
+    private void doSnapshotOn(ReplicationGroupId replicationGroupId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
+        RaftGroupService raftGroupService = cluster.leaderServiceFor(replicationGroupId);
 
         assertThat(
-                "Unexpected leadership change on group: " + tablePartitionId,
+                "Unexpected leadership change on group: " + replicationGroupId,
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 
