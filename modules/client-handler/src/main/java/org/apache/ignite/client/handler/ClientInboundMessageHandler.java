@@ -1193,7 +1193,7 @@ public class ClientInboundMessageHandler
             List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder arg) {
-        return sendServerToClientRequest(ServerOp.PLATFORM_COMPUTE_JOB_EXEC,
+        return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
                 packer -> {
                     packer.packString(jobClassName);
 

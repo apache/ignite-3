@@ -22,5 +22,9 @@ package org.apache.ignite.internal.client.proto;
  */
 public class ServerOp {
     /** Execute platform compute job. */
-    public static final int PLATFORM_COMPUTE_JOB_EXEC = 1;
+    public static final int COMPUTE_JOB_EXEC = 1;
+
+    public static final int COMPUTE_JOB_CANCEL = 2;
+
+    public static final int DEPLOYMENT_UNIT_UNDEPLOY = 3;
 }
