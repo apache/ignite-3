@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.tx.readonly;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -63,9 +64,11 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
     void explicitReadOnlyTxDoesNotLookBeforeTableCreation() {
         Ignite node = cluster.node(0);
 
-        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-        setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+        if (enabledColocation()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate();
+        }
 
         long count = node.transactions().runInTransaction(tx -> {
             return cluster.doInSession(0, session -> {

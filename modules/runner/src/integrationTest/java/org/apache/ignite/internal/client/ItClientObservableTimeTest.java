@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.client.IgniteClient;
@@ -46,9 +47,11 @@ public class ItClientObservableTimeTest extends ClusterPerClassIntegrationTest {
         CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
         String defaultZoneName = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().name();
 
-        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-        setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZoneName);
+         if (enabledColocation()) {
+             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+             setZoneAutoAdjustScaleUpToImmediate(catalogManager, defaultZoneName);
+         }
     }
 
     @AfterEach

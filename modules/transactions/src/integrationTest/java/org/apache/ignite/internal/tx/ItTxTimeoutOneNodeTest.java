@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -49,12 +50,14 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     abstract InternalTransaction toInternalTransaction(Transaction tx);
 
     private Table createTestTable() {
-        CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
-        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        if (enabledColocation()) {
+            CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
+            CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
 
-        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
+        }
 
         ignite().sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
         return ignite().tables().table(TABLE_NAME);

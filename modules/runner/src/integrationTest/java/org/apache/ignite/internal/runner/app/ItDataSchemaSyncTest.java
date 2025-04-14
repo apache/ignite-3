@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
@@ -108,9 +109,11 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
         Ignite ignite0 = cluster.node(0);
         Ignite ignite1 = cluster.node(1);
 
-        // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
-        // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-        setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
+        if (enabledColocation()) {
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setDefaultZoneAutoAdjustScaleUpToImmediate(ignite1);
+        }
 
         createTable(ignite0, TABLE_NAME);
 
