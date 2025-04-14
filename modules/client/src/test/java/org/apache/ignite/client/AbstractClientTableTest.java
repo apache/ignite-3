@@ -219,6 +219,13 @@ public class AbstractClientTableTest extends AbstractClientTest {
         public long gid;
     }
 
+    /** Partial column set. */
+    protected static class IncompleteValPojo {
+        public byte zbyte;
+        public String zstring;
+        public byte[] zbytes;
+    }
+
     /** Columns of all types. */
     protected static class AllColumnsPojo {
         public long gid;

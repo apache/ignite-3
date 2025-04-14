@@ -651,8 +651,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
 
         var res = new LinkedHashMap<K, V>(cnt);
 
-        Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY);
-        Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL);
+        Marshaller keyMarsh = schema.getMarshaller(keySer.mapper(), TuplePart.KEY, false);
+        Marshaller valMarsh = schema.getMarshaller(valSer.mapper(), TuplePart.VAL, false);
 
         for (int i = 0; i < cnt; i++) {
             // TODO: Optimize (IGNITE-16022).

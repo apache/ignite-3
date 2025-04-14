@@ -63,6 +63,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -129,7 +130,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -1013,7 +1013,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new ConcurrentHashSet<>();
+        Set<String> blockedNodes = ConcurrentHashMap.newKeySet();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -1148,7 +1148,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new ConcurrentHashSet<>();
+        Set<String> blockedNodes = ConcurrentHashMap.newKeySet();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
