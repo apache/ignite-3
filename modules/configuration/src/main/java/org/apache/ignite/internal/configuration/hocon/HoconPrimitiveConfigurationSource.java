@@ -125,11 +125,11 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         assert !clazz.isPrimitive();
 
         if (clazz == String.class) {
-            if (hoconCfgValue.valueType() != STRING) {
-                throw wrongTypeException(clazz, path, idx);
-            }
+            String stringValue = hoconCfgValue.valueType() == STRING
+                    ? hoconCfgValue.unwrapped().toString()
+                    : hoconCfgValue.render();
 
-            return clazz.cast(hoconCfgValue.unwrapped());
+            return clazz.cast(stringValue);
         } else if (clazz == Boolean.class) {
             if (hoconCfgValue.valueType() != BOOLEAN) {
                 throw wrongTypeException(clazz, path, idx);
@@ -137,11 +137,15 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
             return clazz.cast(hoconCfgValue.unwrapped());
         } else if (clazz == Character.class) {
-            if (hoconCfgValue.valueType() != STRING || hoconCfgValue.unwrapped().toString().length() != 1) {
+            String stringValue = hoconCfgValue.valueType() == STRING
+                    ? hoconCfgValue.unwrapped().toString()
+                    : hoconCfgValue.render();
+
+            if (stringValue.length() != 1) {
                 throw wrongTypeException(clazz, path, idx);
             }
 
-            return clazz.cast(hoconCfgValue.unwrapped().toString().charAt(0));
+            return clazz.cast(stringValue.charAt(0));
         } else if (Number.class.isAssignableFrom(clazz)) {
             if (hoconCfgValue.valueType() != NUMBER) {
                 throw wrongTypeException(clazz, path, idx);
