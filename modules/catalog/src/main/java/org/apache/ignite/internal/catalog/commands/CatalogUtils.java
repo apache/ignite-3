@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHE
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -69,7 +70,8 @@ public class CatalogUtils {
     /**
      * Default auto adjust scale up timeout of the default zone.
      */
-    public static final int DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS = 5;
+    // TODO IGNITE-22522
+    public static final int DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS = enabledColocation() ? 5 : 0;
 
     /** Infinite value for the distribution zone timers. */
     public static final int INFINITE_TIMER_VALUE = Integer.MAX_VALUE;
