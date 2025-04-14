@@ -4731,6 +4731,11 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
                             stateMachine.getPeerId(), appliedIndexBeforeRunCommands, stateMachine.getAppliedIndex(), amount
                     )
             );
+
+            log.info(
+                    "Finish sendTestTaskAndWait: [peer={}, appliedIndexBeforeRunCommands={}, start={}, amount={}, appliedIndex={}]",
+                    stateMachine.getPeerId(), appliedIndexBeforeRunCommands, start, amount, stateMachine.getAppliedIndex()
+            );
         }
     }
 

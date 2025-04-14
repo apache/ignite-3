@@ -160,12 +160,12 @@ public class MockStateMachine extends StateMachineAdapter {
             finally {
                 this.lock.unlock();
             }
-            LOG.info("Node<" + this.peerId + "> saved snapshot into " + file);
+            LOG.info("Node<{}> saved snapshot into {}, snapshotIndex={}, appliedIndex={}", peerId, file, snapshotIndex, appliedIndex);
             writer.addFile("data");
             done.run(Status.OK());
         }
         catch (final IOException e) {
-            LOG.error("Failed to save the snapshot", e);
+            LOG.error("Failed to save the snapshot {}", e, file);
             done.run(new Status(RaftError.EIO, "Fail to save snapshot"));
         }
     }
