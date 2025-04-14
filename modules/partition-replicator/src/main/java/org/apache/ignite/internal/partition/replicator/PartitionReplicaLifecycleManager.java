@@ -53,7 +53,6 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -536,30 +535,37 @@ public class PartitionReplicaLifecycleManager extends
             int catalogVersion,
             int partitionCount
     ) {
-        return inBusyLockAsync(busyLock, () -> {
-            assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
+        assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
-            var partitionsStartFutures = new CompletableFuture<?>[assignments.size()];
+        // Zone nodes might be created in the same catalog version as a table in this zone, so there could be a race
+        // between storage creation due to replica start and storage creation due to table addition. To eliminate the race,
+        // we acquire a write lock on the zone (table addition acquires a read lock).
+        return inBusyLockAsync(busyLock, () -> executeUnderZoneWriteLock(zoneId,
+                () -> inBusyLockAsync(busyLock, () -> {
 
-            for (int partId = 0; partId < assignments.size(); partId++) {
-                Assignments zoneAssignment = assignments.get(partId);
+                    var partitionsStartFutures = new CompletableFuture<?>[assignments.size()];
 
-                Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
+                    for (int partId = 0; partId < assignments.size(); partId++) {
+                        Assignments zoneAssignment = assignments.get(partId);
 
-                var zonePartitionId = new ZonePartitionId(zoneId, partId);
+                        Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
 
-                partitionsStartFutures[partId] = createZonePartitionReplicationNode(
-                        zonePartitionId,
-                        localMemberAssignment,
-                        zoneAssignment,
-                        causalityToken,
-                        partitionCount,
-                        isVolatileZoneForCatalogVersion(zoneId, catalogVersion)
-                );
-            }
+                        var zonePartitionId = new ZonePartitionId(zoneId, partId);
 
-            return allOf(partitionsStartFutures);
-        });
+                        partitionsStartFutures[partId] = createZonePartitionReplicationNode(
+                                zonePartitionId,
+                                localMemberAssignment,
+                                zoneAssignment,
+                                causalityToken,
+                                partitionCount,
+                                isVolatileZoneForCatalogVersion(zoneId, catalogVersion),
+                                true
+                        );
+                    }
+
+                    return allOf(partitionsStartFutures);
+                })
+        ));
     }
 
     private boolean isVolatileZoneForCatalogVersion(int zoneId, int catalogVersion) {
@@ -599,7 +605,8 @@ public class PartitionReplicaLifecycleManager extends
             Assignments stableAssignments,
             long revision,
             int partitionCount,
-            boolean isVolatileZone
+            boolean isVolatileZone,
+            boolean holdingZoneWriteLock
     ) {
         if (localMemberAssignment == null) {
             return nullCompletedFuture();
@@ -673,11 +680,19 @@ public class PartitionReplicaLifecycleManager extends
                             return failedFuture(e);
                         }
                     })
-                    .thenCompose(v -> executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
-                        replicationGroupIds.add(zonePartitionId);
+                    .thenCompose(v -> {
+                        Supplier<CompletableFuture<Void>> addReplicationGroupIdFuture = () -> {
+                            replicationGroupIds.add(zonePartitionId);
+                            return nullCompletedFuture();
+                        };
 
-                        return trueCompletedFuture();
-                    }));
+                        if (holdingZoneWriteLock) {
+                            return addReplicationGroupIdFuture.get();
+                        } else {
+                            return executeUnderZoneWriteLock(zonePartitionId.zoneId(), addReplicationGroupIdFuture);
+                        }
+                    })
+                    .thenApply(unused -> true);
         };
 
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
@@ -1208,7 +1223,8 @@ public class PartitionReplicaLifecycleManager extends
                     computedStableAssignments,
                     revision,
                     zoneDescriptor.partitions(),
-                    isVolatileZone(zoneDescriptor)
+                    isVolatileZone(zoneDescriptor),
+                    false
             );
         } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
@@ -1588,8 +1604,8 @@ public class PartitionReplicaLifecycleManager extends
                         stableAssignments,
                         revision,
                         zoneDescriptor.partitions(),
-                        isVolatileZone(zoneDescriptor)
-
+                        isVolatileZone(zoneDescriptor),
+                        false
                 );
             }));
         }, ioExecutor));
