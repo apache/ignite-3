@@ -42,7 +42,6 @@ import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler.RowWrapper;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema.Builder;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
@@ -372,8 +371,7 @@ public class SqlRowHandlerTest extends IgniteAbstractTest {
         } else {
             BaseTypeSpec baseTypeSpec = (BaseTypeSpec) typeSpec;
             NativeType nativeType = baseTypeSpec.nativeType();
-            Class<?> type = Commons.nativeTypeToClass(nativeType);
-            return TypeUtils.toInternal(value, type);
+            return TypeUtils.toInternal(value, nativeType.spec());
         }
     }
 }

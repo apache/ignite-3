@@ -76,7 +76,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -278,7 +278,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @param nodeName Node name.
      * @param dbPath RocksDB path.
-     * @param failureManager Failure processor that is used to handle critical errors.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      * @param scheduledExecutor Scheduled executor. Needed only for asynchronous start of scheduled operations without performing blocking,
      *      long or IO operations.
@@ -286,13 +286,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     public RocksDbKeyValueStorage(
             String nodeName,
             Path dbPath,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
             ScheduledExecutorService scheduledExecutor
     ) {
         super(
                 nodeName,
-                failureManager,
+                failureProcessor,
                 readOperationForCompactionTracker
         );
 
@@ -400,6 +400,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 () -> KV_STORAGE_FLUSH_DELAY,
                 // It is expected that the metastorage command raft log works with fsync=true.
                 new NoOpLogSyncer(),
+                failureProcessor,
                 () -> {}
         );
 

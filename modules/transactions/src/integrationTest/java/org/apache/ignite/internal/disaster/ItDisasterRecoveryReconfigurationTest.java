@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -109,9 +110,9 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
-import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
@@ -123,7 +124,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -594,12 +594,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        var localStatesFut = node0.disasterRecoveryManager().localPartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
+        var localStatesFut = node0.disasterRecoveryManager().localTablePartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
         assertThat(localStatesFut, willCompleteSuccessfully());
 
-        Map<TablePartitionId, LocalPartitionStateByNode> localStates = localStatesFut.join();
+        Map<TablePartitionId, LocalTablePartitionStateByNode> localStates = localStatesFut.join();
         assertThat(localStates, is(not(anEmptyMap())));
-        LocalPartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
+        LocalTablePartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
 
         assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localPartitionStateByNode.values().iterator().next().state);
 
@@ -1001,7 +1001,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new ConcurrentHashSet<>();
+        Set<String> blockedNodes = ConcurrentHashMap.newKeySet();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -1140,7 +1140,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new ConcurrentHashSet<>();
+        Set<String> blockedNodes = ConcurrentHashMap.newKeySet();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -1753,19 +1753,19 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> statesFuture = node0.disasterRecoveryManager()
-                    .globalPartitionStates(Set.of(zoneName), emptySet());
+            CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> statesFuture = node0.disasterRecoveryManager()
+                    .globalTablePartitionStates(Set.of(zoneName), emptySet());
 
             assertThat(statesFuture, willCompleteSuccessfully());
 
-            Map<TablePartitionId, GlobalPartitionState> map = statesFuture.join();
+            Map<TablePartitionId, GlobalTablePartitionState> map = statesFuture.join();
 
-            GlobalPartitionState state = map.get(new TablePartitionId(tableId, partId));
+            GlobalTablePartitionState state = map.get(new TablePartitionId(tableId, partId));
 
             return state != null && state.state == expectedState;
         }, 500, 20_000),
                 () -> "Expected state: " + expectedState
-                        + ", actual: " + node0.disasterRecoveryManager().globalPartitionStates(Set.of(zoneName), emptySet()).join()
+                        + ", actual: " + node0.disasterRecoveryManager().globalTablePartitionStates(Set.of(zoneName), emptySet()).join()
         );
     }
 
@@ -1975,11 +1975,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * from stable and pending, for example, when rebalance is in progress.
      */
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
-                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localTablePartitionStates(Set.of(zoneName), Set.of(), Set.of());
         assertThat(partitionStatesFut, willCompleteSuccessfully());
 
-        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+        LocalTablePartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
 
         if (partitionStates == null) {
             return emptyList();

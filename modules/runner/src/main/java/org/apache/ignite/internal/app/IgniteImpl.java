@@ -606,7 +606,7 @@ public class IgniteImpl implements Ignite {
                 new DefaultIgniteProductVersionSource()
         );
 
-        clock = new HybridClockImpl();
+        clock = new HybridClockImpl(failureManager);
 
         clockWaiter = new ClockWaiter(name, clock, threadPoolsManager.commonScheduler());
 
@@ -671,7 +671,7 @@ public class IgniteImpl implements Ignite {
                 message -> threadPoolsManager.partitionOperationsExecutor()
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
         logicalTopology.addEventListener(logicalTopologyJoinedNodesListener(clusterSvc.topologyService()));
 
         ConfigurationTreeGenerator distributedConfigurationGenerator = new ConfigurationTreeGenerator(
@@ -791,6 +791,7 @@ public class IgniteImpl implements Ignite {
                 name,
                 storage,
                 metaStorageMgr,
+                failureManager,
                 readOperationForCompactionTracker,
                 systemDistributedConfiguration
         );
@@ -806,6 +807,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr::evictIdempotentCommandsCache,
                 raftConfiguration.retryTimeoutMillis(),
                 clockService,
+                failureManager,
                 1,
                 1,
                 MINUTES
@@ -828,6 +830,7 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
+                failureManager,
                 replicationConfig
         );
 
@@ -902,18 +905,18 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(StorageExtensionConfiguration.KEY).storage()
         );
 
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService());
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterSvc.messagingService(), failureManager);
 
         LongSupplier delayDurationMsSupplier = delayDurationMsSupplier(schemaSyncConfig);
 
         CatalogManagerImpl catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageMgr),
+                new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
                 delayDurationMsSupplier
         );
 
-        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
         nodeAttributesCollector.register(systemViewManager);
         logicalTopology.addEventListener(systemViewManager);
         systemViewManager.register(catalogManager);
@@ -943,6 +946,7 @@ public class IgniteImpl implements Ignite {
                 registry,
                 metaStorageMgr,
                 logicalTopologyService,
+                failureManager,
                 catalogManager,
                 systemDistributedConfiguration,
                 clockService
@@ -989,6 +993,7 @@ public class IgniteImpl implements Ignite {
         txManager = new TxManagerImpl(
                 name,
                 txConfig,
+                systemDistributedConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaSvc,
@@ -1002,14 +1007,16 @@ public class IgniteImpl implements Ignite {
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.commonScheduler(),
+                failureManager
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
                 storagePath.resolve(TX_STATE_DIR),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
+                partitionsLogStorageFactory,
+                failureManager
         );
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
@@ -1019,6 +1026,7 @@ public class IgniteImpl implements Ignite {
                 metaStorageMgr,
                 clusterSvc.topologyService(),
                 lowWatermark,
+                failureManager,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -1043,7 +1051,8 @@ public class IgniteImpl implements Ignite {
                 messagingServiceReturningToStorageOperationsPool,
                 transactionInflights,
                 txManager,
-                lowWatermark
+                lowWatermark,
+                failureManager
         );
 
         distributedTblMgr = new TableManager(
@@ -1072,6 +1081,7 @@ public class IgniteImpl implements Ignite {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
+                failureManager,
                 observableTimestampTracker,
                 placementDriverMgr.placementDriver(),
                 this::bareSql,
@@ -1094,7 +1104,9 @@ public class IgniteImpl implements Ignite {
                 raftMgr,
                 clusterSvc.topologyService(),
                 distributedTblMgr,
-                metricManager
+                metricManager,
+                failureManager,
+                partitionReplicaLifecycleManager
         );
 
         systemViewManager.register(disasterRecoveryManager);

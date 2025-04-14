@@ -18,11 +18,12 @@
 package org.apache.ignite.internal.distributionzones;
 
 import static java.util.stream.Collectors.toSet;
+import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
+import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.assertValueInStorage;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.DATA_AVAILABILITY_TIME_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.metastorage.impl.MetaStorageCompactionTriggerConfiguration.INTERVAL_SYSTEM_PROPERTY_NAME;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.executeUpdate;
@@ -39,6 +40,7 @@ import org.apache.ignite.InitParametersBuilder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -47,7 +49,7 @@ import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -154,19 +156,18 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
 
         MetaStorageManager metaStorageManager = ignite.metaStorageManager();
 
-        int tableId = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).tables()
+        CatalogTableDescriptor tabledDescriptor = ignite.catalogManager().activeCatalog(ignite.clock().now().longValue()).tables()
                 .stream()
                 .filter(t -> t.name().equals(TABLE_NAME))
                 .findFirst()
-                .orElseThrow()
-                .id();
+                .orElseThrow();
 
-        TablePartitionId partId = new TablePartitionId(tableId, 0);
+        PartitionGroupId partId = partitionReplicationGroupId(tabledDescriptor, 0);
 
         // Checking that there is only one replica in the stable assignments.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 1,
                 3_000L
@@ -180,7 +181,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
         // Wait for the rebalancing to finish.
         assertValueInStorage(
                 metaStorageManager,
-                stablePartAssignmentsKey(partId),
+                stablePartitionAssignmentsKey(partId),
                 (v) -> Assignments.fromBytes(v).nodes().size(),
                 2,
                 3_000L

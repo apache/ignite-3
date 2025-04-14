@@ -50,6 +50,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -197,12 +199,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
+     * @param systemCfg System configuration.
      * @param replicationConfiguration Replication configuration.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
+            SystemDistributedConfiguration systemCfg,
             ReplicationConfiguration replicationConfiguration
     ) {
         this(
@@ -211,6 +215,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 new TestMvPartitionStorage(0),
                 schema,
                 txConfiguration,
+                systemCfg,
                 replicationConfiguration
         );
     }
@@ -223,6 +228,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param storage Storage.
      * @param schema Schema.
      * @param txConfiguration Transaction configuration.
+     * @param systemCfg System configuration.
      * @param replicationConfiguration Replication Configuration.
      */
     public DummyInternalTableImpl(
@@ -231,6 +237,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             MvPartitionStorage storage,
             SchemaDescriptor schema,
             TransactionConfiguration txConfiguration,
+            SystemDistributedConfiguration systemCfg,
             ReplicationConfiguration replicationConfiguration
     ) {
         this(
@@ -243,6 +250,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 placementDriver,
                 replicationConfiguration,
                 txConfiguration,
+                systemCfg,
                 new RemotelyTriggeredResourceRegistry(),
                 new TransactionInflights(placementDriver, CLOCK_SERVICE)
         );
@@ -260,6 +268,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param tracker Observable timestamp tracker.
      * @param placementDriver Placement driver.
      * @param replicationConfiguration Replication configuration.
+     * @param txConfiguration Transaction configuration.
+     * @param systemCfg System configuration.
+     * @param resourcesRegistry Resource registry.
+     * @param transactionInflights Inflights.
      */
     public DummyInternalTableImpl(
             ReplicaService replicaSvc,
@@ -271,6 +283,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             PlacementDriver placementDriver,
             ReplicationConfiguration replicationConfiguration,
             TransactionConfiguration txConfiguration,
+            SystemDistributedConfiguration systemCfg,
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights
     ) {
@@ -280,7 +293,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 nextTableId.getAndIncrement(), // table id.
                 1, // number of partitions.
                 new SingleClusterNodeResolver(LOCAL_NODE),
-                txManager(replicaSvc, placementDriver, txConfiguration, resourcesRegistry),
+                txManager(replicaSvc, placementDriver, txConfiguration, systemCfg, resourcesRegistry),
                 mock(MvTableStorage.class),
                 new TestTxStateStorage(),
                 replicaSvc,
@@ -288,7 +301,6 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 tracker,
                 placementDriver,
                 transactionInflights,
-                0,
                 null,
                 mock(StreamerReceiverRunner.class),
                 () -> 10_000L,
@@ -476,7 +488,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 resourcesRegistry,
                 schemaManager,
                 mock(IndexMetaStorage.class),
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                mock(FailureProcessor.class)
         );
 
         if (enabledColocation) {
@@ -490,6 +503,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                     placementDriver,
                     mock(ClusterNodeResolver.class),
                     svc,
+                    mock(FailureProcessor.class),
                     LOCAL_NODE,
                     zonePartitionId
             );
@@ -634,12 +648,14 @@ public class DummyInternalTableImpl extends InternalTableImpl {
      * @param replicaSvc Replica service to use.
      * @param placementDriver Placement driver.
      * @param txConfiguration Transaction configuration.
+     * @param systemCfg System configuration.
      * @param resourcesRegistry Resources registry.
      */
     public static TxManagerImpl txManager(
             ReplicaService replicaSvc,
             PlacementDriver placementDriver,
             TransactionConfiguration txConfiguration,
+            SystemDistributedConfiguration systemCfg,
             RemotelyTriggeredResourceRegistry resourcesRegistry
     ) {
         TopologyService topologyService = mock(TopologyService.class);
@@ -654,6 +670,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         var txManager = new TxManagerImpl(
                 txConfiguration,
+                systemCfg,
                 clusterService,
                 replicaSvc,
                 HeapLockManager.smallInstance(),

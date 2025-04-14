@@ -65,6 +65,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -209,6 +210,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
 
         when(catalogService.catalog(anyInt())).thenReturn(catalog);
         when(catalogService.activeCatalog(anyLong())).thenReturn(catalog);
+        when(catalogService.catalogReadyFuture(anyInt())).thenReturn(nullCompletedFuture());
 
         CatalogTableDescriptor tableDescriptor = mock(CatalogTableDescriptor.class);
         when(tableDescriptor.tableVersion()).thenReturn(schemaDescriptor.version());
@@ -255,7 +257,8 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
                 new RemotelyTriggeredResourceRegistry(),
                 schemaManager,
                 mock(IndexMetaStorage.class),
-                new TestLowWatermark()
+                new TestLowWatermark(),
+                new NoOpFailureManager()
         );
 
         kvMarshaller = new ReflectionMarshallerFactory().create(schemaDescriptor, Integer.class, Integer.class);

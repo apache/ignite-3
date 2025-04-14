@@ -33,14 +33,16 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Planner test for force index hint.
+ * Planner tests for index hint usages.
  */
-public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
+public class IndexHintPlannerTest extends AbstractPlannerTest {
     private static IgniteSchema SCHEMA;
 
     private static final String TBL1 = "TBL1";
 
     private static final String TBL2 = "TBL2";
+
+    private static final String ERR_TEMPLATE = "Hints mentioned indexes [{}] were not found";
 
     @BeforeAll
     public static void setup() {
@@ -59,13 +61,89 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void testWrongIndexName() throws Exception {
-        var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE id = 0 AND val1 = 'v'";
+    public void testForceExistingIndexButUsedDifferent() throws Exception {
+        // range scan, force hash index but it not applicable, no exception raised
+        String template = "SELECT /*+ FORCE_INDEX({}), DISABLE_RULE('LogicalTableScanConverterRule') */ * FROM {} WHERE ID > 100";
 
-        assertNoCertainIndex(format(sql, "'tbl1_idx_id'"), TBL1, "TBL1_IDX_ID");
-        assertNoCertainIndex(format(sql, "\"tbl1_idx_id\""), TBL1, "TBL1_IDX_ID");
-        assertNoCertainIndex(format(sql, "'unexisting', 'tbl1_idx_id'"), TBL1, "UNEXISTING");
-        assertNoCertainIndex(format(sql, "\"unexisting\", \"tbl1_idx_id\""), TBL1, "UNEXISTING");
+        // check different index is chosen
+        assertPlan(format(template, "idx_id", TBL1), SCHEMA, nodeOrAnyChild(isAnyIndexScan(TBL1)));
+    }
+
+    @ParameterizedTest(name = "force={0}")
+    @ValueSource(booleans = {true, false})
+    public void testHintNotExistingIndex(boolean force) {
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "idx_id"),
+                () -> physicalPlan(format("SELECT /*+ " + (force ? "FORCE_INDEX" : "NO_INDEX") + "({}) */ * FROM {}",
+                        "'idx_id'", TBL1), SCHEMA)
+        );
+
+        // stupid but possible case
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "IDX_ID"),
+                () -> physicalPlan(format("SELECT /*+ " + (force ? "FORCE_INDEX" : "NO_INDEX") + "({}) */ x FROM (VALUES (1), (2)) as s(x)",
+                        "idx_id"), SCHEMA)
+        );
+    }
+
+    @ParameterizedTest(name = "force={0}")
+    @ValueSource(booleans = {true, false})
+    public void testHintIndexFromDifferentTable(boolean force) {
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "IDX_VAL2_VAL3"),
+                () -> physicalPlan(format("SELECT /*+ " + (force ? "FORCE_INDEX" : "NO_INDEX") + "({}) */ * FROM {}",
+                        "idx_val2_val3", TBL2), SCHEMA)
+        );
+    }
+
+    @ParameterizedTest(name = "force={0}")
+    @ValueSource(booleans = {true, false})
+    public void testHintIndexFromDifferentTableWithExactPk(boolean force) {
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "IDX_VAL2_VAL3"),
+                () -> physicalPlan(format("SELECT /*+ " + (force ? "FORCE_INDEX" : "NO_INDEX") + "({}) */ * FROM {} WHERE ID = 1",
+                        "idx_val2_val3", TBL2), SCHEMA)
+        );
+    }
+
+    @ParameterizedTest(name = "force={0}")
+    @ValueSource(booleans = {true, false})
+    public void testWrongIndexName(boolean force) {
+        String template = "SELECT /*+ " + (force ? "FORCE_INDEX" : "NO_INDEX") + "({}) */ * FROM TBL1";
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "idx_val1"),
+                () -> physicalPlan(format(template, "'idx_val1'"), SCHEMA)
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "tbl1_idx_id"),
+                () -> physicalPlan(format(template, "'tbl1_idx_id'"), SCHEMA)
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "tbl1_idx_id"),
+                () -> physicalPlan(format(template, "\"tbl1_idx_id\""), SCHEMA)
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "unexisting, tbl1_idx_id"),
+                () -> physicalPlan(format(template, "'unexisting', 'tbl1_idx_id'"), SCHEMA)
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_VALIDATION_ERR,
+                format(ERR_TEMPLATE, "unexisting, tbl1_idx_id"),
+                () -> physicalPlan(format(template, "\"unexisting\", \"tbl1_idx_id\""), SCHEMA)
+        );
     }
 
     @Test
@@ -73,10 +151,6 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
         var sql = "SELECT /*+ FORCE_INDEX({}) */ * FROM TBL1 WHERE val2 = 'v' AND val3 = 'v'";
 
         assertCertainIndex(format(sql, ""), TBL1, "IDX_VAL2_VAL3");
-        assertCertainIndex(format(sql, "unexisting, idx_val3"), TBL1, "IDX_VAL3");
-        assertCertainIndex(format(sql, "UNEXISTING, IDX_VAL3"), TBL1, "IDX_VAL3");
-        assertCertainIndex(format(sql, "'UNEXISTING', 'IDX_VAL3'"), TBL1, "IDX_VAL3");
-        assertCertainIndex(format(sql, "\"UNEXISTING\", \"IDX_VAL3\""), TBL1, "IDX_VAL3");
 
         assertPlan(format(sql, "IDX_VAL2_VAL3, IDX_VAL3"), SCHEMA, nodeOrAnyChild(isIndexScan(TBL1, "IDX_VAL2_VAL3")
                 .or(isIndexScan(TBL1, "IDX_VAL3"))));
@@ -168,9 +242,5 @@ public class ForceIndexHintPlannerTest extends AbstractPlannerTest {
 
     private void assertCertainIndex(String sql, String tblName, String idxName) throws Exception {
         assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)));
-    }
-
-    private void assertNoCertainIndex(String sql, String tblName, String idxName) throws Exception {
-        assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)).negate());
     }
 }

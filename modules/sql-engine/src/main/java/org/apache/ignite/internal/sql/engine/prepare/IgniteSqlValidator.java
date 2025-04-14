@@ -99,6 +99,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -118,8 +120,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
 public class IgniteSqlValidator extends SqlValidatorImpl {
-    /** Decimal of Integer.MAX_VALUE for fetch/offset bounding. */
-    private static final BigDecimal DEC_INT_MAX = BigDecimal.valueOf(Integer.MAX_VALUE);
+    /** Decimal of Long.MAX_VALUE for fetch/offset bounding. */
+    public static final BigDecimal LIMIT_UPPER = BigDecimal.valueOf(Long.MAX_VALUE);
 
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
@@ -570,6 +572,22 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     }
 
     @Override
+    public SqlLiteral resolveLiteral(SqlLiteral literal) {
+        SqlLiteral resolved = super.resolveLiteral(literal);
+        SqlTypeName typeName = resolved.getTypeName();
+
+        if (typeName == SqlTypeName.TIMESTAMP) {
+            long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
+
+            if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                throw newValidationError(literal, IgniteResource.INSTANCE.timestampLiteralOutOfRange(literal.toString()));
+            }
+        }
+
+        return resolved;
+    }
+
+    @Override
     protected RelDataType createTargetRowType(
             SqlValidatorTable table,
             SqlNodeList targetColumnList,
@@ -683,51 +701,55 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected void validateSelect(SqlSelect select, RelDataType targetRowType) {
         super.validateSelect(select, targetRowType);
 
-        checkIntegerLimit(select.getFetch(), "fetch / limit");
-        checkIntegerLimit(select.getOffset(), "offset");
+        invalidateFetchOffset(select.getFetch(), "fetch / limit");
+        invalidateFetchOffset(select.getOffset(), "offset");
     }
 
     /**
-     * Check integer limit.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Invalidate fetch/offset params restrictions.
      *
      * @param n        Node to check limit.
      * @param nodeName Node name.
      */
-    private void checkIntegerLimit(@Nullable SqlNode n, String nodeName) {
+    private void invalidateFetchOffset(@Nullable SqlNode n, String nodeName) {
         if (n == null) {
             return;
         }
 
         if (n instanceof SqlLiteral) {
-            BigDecimal offFetchLimit = ((SqlLiteral) n).bigDecimalValue();
+            BigDecimal offsetFetchLimit = ((SqlLiteral) n).bigDecimalValue();
 
-            if (offFetchLimit.compareTo(DEC_INT_MAX) > 0 || offFetchLimit.compareTo(BigDecimal.ZERO) < 0) {
-                throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-            }
+            checkLimitOffset(offsetFetchLimit, n, nodeName);
         } else if (n instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
-            RelDataType intType = typeFactory.createSqlType(INTEGER);
+            SqlTypeName expectType = SqlTypeName.BIGINT;
+            RelDataType dynParamType = typeFactory.createSqlType(expectType);
 
             // Validate value, if present.
             if (!isUnspecified(dynamicParam)) {
                 Object param = getDynamicParamValue(dynamicParam);
 
-                if (param instanceof Integer) {
-                    if ((Integer) param < 0) {
-                        throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-                    }
-                } else {
-                    String actualType = deriveDynamicParamType(dynamicParam).toString();
-                    String expectedType = intType.toString();
+                if (param == null) {
+                    throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
+                }
 
-                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectedType, actualType);
+                dynParamType = deriveDynamicParamType(dynamicParam);
+
+                if (!SqlTypeUtil.isNumeric(dynParamType)) {
+                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectType.toString(),
+                            dynParamType.getSqlTypeName().toString());
                     throw newValidationError(n, err);
                 }
             }
 
             // Dynamic parameters are nullable.
-            setDynamicParamType(dynamicParam, typeFactory.createTypeWithNullability(intType, true));
+            setDynamicParamType(dynamicParam, typeFactory.createTypeWithNullability(dynParamType, true));
+        }
+    }
+
+    private void checkLimitOffset(BigDecimal offsetFetchLimit, @Nullable SqlNode n, String nodeName) {
+        if (offsetFetchLimit.compareTo(LIMIT_UPPER) > 0 || offsetFetchLimit.signum() == -1) {
+            throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
         }
     }
 

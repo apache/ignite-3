@@ -17,6 +17,11 @@
 
 package org.apache.ignite.internal.schema;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
@@ -27,6 +32,26 @@ import org.apache.ignite.internal.schema.mapping.ColumnMapping;
  * Stateless schema utils that produces helper methods for schema preparation.
  */
 public class SchemaUtils {
+    /** Minimum allowed date value ({@code 0001-01-01}). */
+    public static final LocalDate DATE_MIN = LocalDate.of(1, 1, 1);
+
+    /** Maximum allowed date value ({@code 9999-12-31}). */
+    public static final LocalDate DATE_MAX = LocalDate.of(9999, 12, 31);
+
+    /** Minimum allowed datetime value ({@code 0001-01-01 18:00:00}). */
+    public static final LocalDateTime DATETIME_MIN =
+            LocalDateTime.of(DATE_MIN, LocalTime.MIN).minusSeconds(ZoneOffset.MIN.getTotalSeconds());
+
+    /** Maximum allowed datetime value ({@code 9999-12-31 05:59:59.999999999}). */
+    public static final LocalDateTime DATETIME_MAX =
+            LocalDateTime.of(DATE_MAX, LocalTime.MAX).minusSeconds(ZoneOffset.MAX.getTotalSeconds());
+
+    /** Minimum allowed timestamp value ({@code 0001-01-01 18:00:00 UTC}). */
+    public static final Instant TIMESTAMP_MIN = DATETIME_MIN.toInstant(ZoneOffset.UTC);
+
+    /** Maximum allowed timestamp value ({@code 9999-12-31 05:59:59.999999999 UTC}. */
+    public static final Instant TIMESTAMP_MAX = DATETIME_MAX.toInstant(ZoneOffset.UTC);
+
     /**
      * Creates schema descriptor for the table with specified descriptor.
      *

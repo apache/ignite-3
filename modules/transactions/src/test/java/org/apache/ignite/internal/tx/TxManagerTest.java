@@ -63,6 +63,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -150,6 +151,9 @@ public class TxManagerTest extends IgniteAbstractTest {
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     @InjectExecutorService
     private ScheduledExecutorService commonScheduler;
 
@@ -175,6 +179,7 @@ public class TxManagerTest extends IgniteAbstractTest {
 
         txManager = new TxManagerImpl(
                 txConfiguration,
+                systemDistributedConfiguration,
                 clusterService,
                 replicaService,
                 lockManager(),

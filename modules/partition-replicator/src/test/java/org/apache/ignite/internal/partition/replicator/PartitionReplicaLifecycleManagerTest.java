@@ -60,7 +60,7 @@ import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.partition.replicator.ZoneResourcesManager.ZonePartitionResources;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
@@ -138,7 +138,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock FailureManager failureManager,
             @Mock TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             @Mock LogStorageFactoryCreator logStorageFactoryCreator,
-            @Mock PartitionSnapshotStorageFactory partitionSnapshotStorageFactory,
+            @Mock PartitionSnapshotStorage partitionSnapshotStorage,
             @Mock TxStatePartitionStorage txStatePartitionStorage,
             @Mock ZonePartitionRaftListener raftGroupListener,
             @Mock DataStorageManager dataStorageManager
@@ -158,7 +158,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 .thenReturn(new ZonePartitionResources(
                         txStatePartitionStorage,
                         raftGroupListener,
-                        partitionSnapshotStorageFactory
+                        partitionSnapshotStorage
                 ));
 
         when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class), any()))
@@ -167,7 +167,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         metaStorageManager = StandaloneMetaStorageManager.create();
 
         catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageManager),
+                new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
                 failureManager,
                 () -> TEST_DELAY_DURATION
@@ -199,6 +199,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 metaStorageManager,
                 clusterService.topologyService(),
                 lowWatermark,
+                failureManager,
                 executorService,
                 scheduledExecutorService,
                 executorService,
