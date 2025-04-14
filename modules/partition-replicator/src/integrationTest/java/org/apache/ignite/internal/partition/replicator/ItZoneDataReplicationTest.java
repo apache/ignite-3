@@ -31,7 +31,6 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.doAnswer;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 
@@ -245,7 +244,13 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      * </ol>
      */
     @Test
-    void testTableDropInTheMiddleOfRebalanceOnOutgoingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
+    void testTableDropInTheMiddleOfRebalanceOnSendingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
+        // Disable automatic low watermark updates.
+        CompletableFuture<Void> cfgChangeFuture = gcConfiguration.lowWatermark()
+                .change(lowWatermarkChange -> lowWatermarkChange.changeUpdateIntervalMillis(Long.MAX_VALUE));
+
+        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+
         startCluster(1);
 
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
@@ -254,21 +259,24 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         Node node = cluster.get(0);
 
+        // Add some data to the table.
         KeyValueView<Integer, Integer> kvView = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
 
         Map<Integer, Integer> data = IntStream.range(0, 10).boxed().collect(toMap(Function.identity(), Function.identity()));
 
         kvView.putAll(null, data);
 
+        // Truncate the Raft log to force snapshot installation on the joining node.
         var partitionId = new ZonePartitionId(zoneId, 0);
 
         truncateLogOnEveryNode(partitionId);
 
         dropTable(node.catalogManager, DEFAULT_SCHEMA_NAME, TEST_TABLE_NAME1);
 
+        // Block snapshot installation before the new node joins.
         CompletableFuture<Void> outgoingSnapshotInstallationStartedFuture = startBlockOutgoingSnapshot(node, partitionId);
 
-        Node newNode = addNodeToCluster();
+        Node receiverNode = addNodeToCluster();
 
         // After we detected that snapshot is going to be installed, update the low watermark to start table removal and allow the
         // snapshot to proceed.
@@ -276,14 +284,22 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
                 .thenRunAsync(() -> {
                     node.lowWatermark.updateLowWatermark(node.hybridClock.now());
 
-                    verify(tableStorage(node, tableId), never()).destroyPartition(anyInt());
+                    // Check that no partitions are destroyed until the rebalance is completed.
+                    verify(tableStorage(node, tableId), timeout(1000).times(0)).destroyPartition(anyInt());
 
                     stopBlockingMessages(node, partitionId);
                 }, executorService);
 
         assertThat(runRaceFuture, willCompleteSuccessfully());
 
-        MvPartitionStorage mvPartition = tableStorage(newNode, tableId).getMvPartition(0);
+        // Rebalance is complete, the storage must be destroyed.
+        assertTrue(waitForCondition(() -> tableStorage(node, tableId) == null, 10_000));
+
+        MvTableStorage receiverTableStorage = tableStorage(receiverNode, tableId);
+
+        assertThat(receiverTableStorage, is(notNullValue()));
+
+        MvPartitionStorage mvPartition = receiverTableStorage.getMvPartition(0);
 
         assertThat(mvPartition, is(notNullValue()));
 
@@ -291,11 +307,16 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
     }
 
     /**
-     * Similar to {@link #testTableDropInTheMiddleOfRebalanceOnOutgoingSide} but tests table storage removal during an incoming snapshot
-     * rather than outgoing.
+     * Similar to {@link #testTableDropInTheMiddleOfRebalanceOnSendingSide} but tests table storage removal on the snapshot receiving side.
      */
     @Test
-    void testTableDropInTheMiddleOfRebalanceOnIncomingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
+    void testTableDropInTheMiddleOfRebalanceOnReceivingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
+        // Disable automatic low watermark updates.
+        CompletableFuture<Void> cfgChangeFuture = gcConfiguration.lowWatermark()
+                .change(lowWatermarkChange -> lowWatermarkChange.changeUpdateIntervalMillis(Long.MAX_VALUE));
+
+        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+
         startCluster(1);
 
         int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size() + 1);
@@ -314,20 +335,26 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
 
         truncateLogOnEveryNode(partitionId);
 
+        dropTable(node.catalogManager, DEFAULT_SCHEMA_NAME, TEST_TABLE_NAME1);
+
         // Block outgoing snapshot so that we have time to register mocks on the receiving side.
         startBlockOutgoingSnapshot(node, partitionId);
 
-        Node newNode = addNodeToCluster();
+        Node receiverNode = addNodeToCluster();
 
-        assertTrue(waitForCondition(() -> tableStorage(newNode, tableId) != null, 10_000));
+        // Wait for the table to start on the receiving side.
+        assertTrue(waitForCondition(() -> tableStorage(receiverNode, tableId) != null, 10_000));
 
-        MvTableStorage tableStorage = tableStorage(newNode, tableId);
+        MvTableStorage receivingTableStorage = tableStorage(receiverNode, tableId);
 
-        var firstConditionReachedFuture = new CompletableFuture<Void>();
-        var secondConditionReachedFuture = new CompletableFuture<Void>();
+        // Future that gets completed as soon as "receivingTableStorage.startRebalancePartition" has been called.
+        var starRebalanceInvokedFuture = new CompletableFuture<Void>();
+
+        // Future that is actually block the execution of "receivingTableStorage.startRebalancePartition".
+        var startRebalanceBlockingFuture = new CompletableFuture<Void>();
 
         doAnswer(invocationOnMock -> {
-            CompletableFuture<Void> result = secondConditionReachedFuture.thenCompose(v -> {
+            CompletableFuture<Void> result = startRebalanceBlockingFuture.thenCompose(v -> {
                 try {
                     return (CompletableFuture<Void>) invocationOnMock.callRealMethod();
                 } catch (Throwable e) {
@@ -335,35 +362,34 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
                 }
             });
 
-            firstConditionReachedFuture.complete(null);
+            starRebalanceInvokedFuture.complete(null);
 
             return result;
-        }).when(tableStorage).startRebalancePartition(anyInt());
+        }).when(receivingTableStorage).startRebalancePartition(anyInt());
 
         // Mocks have been registered, unblock snapshot on the sending side.
         stopBlockingMessages(node, partitionId);
 
-        dropTable(node.catalogManager, DEFAULT_SCHEMA_NAME, TEST_TABLE_NAME1);
-
-        // This actually blocks confirmation on of the snapshot having been installed from the receiving side. This is needed to make it
+        // This actually blocks confirmation of the snapshot having been installed from the receiving side. This is needed to make it
         // easier to call verification on mocks: we check that partition was only removed after the snapshot installation has been
         // completed.
-        startBlockIncomingSnapshot(newNode, partitionId);
+        startBlockSnapshotResponse(receiverNode, partitionId);
 
-        CompletableFuture<Void> runRaceFuture = firstConditionReachedFuture
+        CompletableFuture<Void> runRaceFuture = starRebalanceInvokedFuture
                 .thenRunAsync(() -> {
-                    newNode.lowWatermark.updateLowWatermark(newNode.hybridClock.now());
+                    receiverNode.lowWatermark.updateLowWatermark(receiverNode.hybridClock.now());
 
-                    secondConditionReachedFuture.complete(null);
+                    startRebalanceBlockingFuture.complete(null);
 
-                    verify(tableStorage, timeout(1_000).times(0)).destroyPartition(anyInt());
+                    verify(receivingTableStorage, timeout(1_000).times(0)).destroyPartition(anyInt());
 
-                    stopBlockingMessages(newNode, partitionId);
+                    stopBlockingMessages(receiverNode, partitionId);
                 }, executorService);
 
         assertThat(runRaceFuture, willCompleteSuccessfully());
 
-        verify(tableStorage, timeout(10_000)).destroyPartition(anyInt());
+        // Rebalance is complete, the storage must be destroyed.
+        assertTrue(waitForCondition(() -> tableStorage(receiverNode, tableId) == null, 10_000));
     }
 
     private void truncateLogOnEveryNode(ReplicationGroupId groupId) {
@@ -387,17 +413,21 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         return table == null ? null : table.internalTable().storage();
     }
 
+    /**
+     * Starts to block {@link InstallSnapshotRequest} sent from the given node (should be the group leader) to a follower.
+     *
+     * @return Future that completes when the node tried to send the first {@link InstallSnapshotRequest} message.
+     */
     private static CompletableFuture<Void> startBlockOutgoingSnapshot(Node node, ZonePartitionId partitionId) throws InterruptedException {
         return startBlockingMessages(node, partitionId, InstallSnapshotRequest.class);
     }
 
-    private static void stopBlockingMessages(Node node, ZonePartitionId partitionId) {
-        var raftNodeId = new RaftNodeId(partitionId, new Peer(node.name));
-
-        ((JraftServerImpl) node.raftManager.server()).stopBlockMessages(raftNodeId);
-    }
-
-    private static CompletableFuture<Void> startBlockIncomingSnapshot(Node node, ZonePartitionId partitionId) throws InterruptedException {
+    /**
+     * Starts to block {@link InstallSnapshotResponse} sent from the given node to the group leader after the snapshot has been installed.
+     *
+     * @return Future that completes when the node tried to send the first {@link InstallSnapshotResponse} message.
+     */
+    private static CompletableFuture<Void> startBlockSnapshotResponse(Node node, ZonePartitionId partitionId) throws InterruptedException {
         return startBlockingMessages(node, partitionId, InstallSnapshotResponse.class);
     }
 
@@ -425,5 +455,11 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         });
 
         return conditionReachedFuture;
+    }
+
+    private static void stopBlockingMessages(Node node, ZonePartitionId partitionId) {
+        var raftNodeId = new RaftNodeId(partitionId, new Peer(node.name));
+
+        ((JraftServerImpl) node.raftManager.server()).stopBlockMessages(raftNodeId);
     }
 }

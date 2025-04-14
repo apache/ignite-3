@@ -37,6 +37,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -46,6 +47,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
@@ -109,6 +111,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     private final Executor executor;
 
+    private final IgniteThrottledLogger throttledLogger;
+
     @Nullable
     private volatile CompletableFuture<SnapshotContext> snapshotMetaFuture;
 
@@ -133,12 +137,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     public IncomingSnapshotCopier(
             PartitionSnapshotStorage partitionSnapshotStorage,
             SnapshotUri snapshotUri,
-            Executor executor,
+            ExecutorService executor,
             long waitForMetadataCatchupMs
     ) {
         this.partitionSnapshotStorage = partitionSnapshotStorage;
         this.snapshotUri = snapshotUri;
         this.executor = executor;
+        this.throttledLogger = Loggers.toThrottledLogger(LOG, executor);
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
     }
 
@@ -571,7 +576,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         if (partition == null) {
             // Table might have been removed locally which is a normal situation, we log it just in case.
-            LOG.warn("No partition storage found locally for tableId={} while installing a snapshot", entry.tableId());
+            throttledLogger.warn("No partition storage found locally for tableId={} while installing a snapshot", entry.tableId());
 
             return;
         }
@@ -634,7 +639,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                 if (partitionAccess == null) {
                     // Table might have been removed locally which is a normal situation, we log it just in case.
-                    LOG.warn("No partition storage found locally for tableId={} while installing a snapshot", tableId);
+                    throttledLogger.warn("No partition storage found locally for tableId={} while installing a snapshot", tableId);
                 } else {
                     partitionAccess.setNextRowIdToBuildIndex(e.getValue());
                 }

@@ -331,6 +331,7 @@ public class IndexManager implements IgniteComponent {
         int earliestCatalogVersion = lwm == null
                 ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
+
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         Catalog nextCatalog = catalogService.catalog(latestCatalogVersion);
@@ -339,13 +340,16 @@ public class IndexManager implements IgniteComponent {
 
         for (int catalogVersion = latestCatalogVersion - 1; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
             Catalog catalog = catalogService.catalog(catalogVersion);
+
             assert catalog != null : "catalogVersion=" + catalogVersion;
 
-            Catalog finalNextCatalog = nextCatalog;
-            catalog.indexes().stream()
-                    .filter(idx -> finalNextCatalog.index(idx.id()) == null)
-                    .map(idx -> new DestroyIndexEvent(finalNextCatalog.version(), idx.id(), idx.tableId()))
-                    .forEach(destructionEventsQueue::enqueue);
+            for (CatalogIndexDescriptor index : catalog.indexes()) {
+                // Check if the index was removed in the next version of the catalog and, if yes, whether it was removed with the whole
+                // table. If the whole table was removed, it will remove its index by itself.
+                if (nextCatalog.index(index.id()) == null && nextCatalog.table(index.tableId()) != null) {
+                    destructionEventsQueue.enqueue(new DestroyIndexEvent(nextCatalog.version(), index.id(), index.tableId()));
+                }
+            }
 
             nextCatalog = catalog;
         }
@@ -363,15 +367,15 @@ public class IndexManager implements IgniteComponent {
             this.tableId = tableId;
         }
 
-        public int catalogVersion() {
+        int catalogVersion() {
             return catalogVersion;
         }
 
-        public int indexId() {
+        int indexId() {
             return indexId;
         }
 
-        public int tableId() {
+        int tableId() {
             return tableId;
         }
     }

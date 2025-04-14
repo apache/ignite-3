@@ -25,7 +25,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
@@ -49,7 +49,7 @@ class PartitionSnapshotStorageFactoryTest extends BaseIgniteAbstractTest {
             mock(PartitionTxStateAccess.class),
             mock(CatalogService.class),
             mock(FailureProcessor.class),
-            mock(Executor.class)
+            mock(ExecutorService.class)
     );
 
     @Mock

@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
 import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
@@ -59,7 +59,7 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
             mock(PartitionTxStateAccess.class),
             mock(CatalogService.class),
             mock(FailureProcessor.class),
-            mock(Executor.class)
+            mock(ExecutorService.class)
     );
 
     @Test
@@ -105,7 +105,7 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void partitionCanBeRemovedOnlyWithoutOutgoingSnapshot(@Mock PartitionMvStorageAccess partitionAccess) throws IOException {
+    void partitionCanBeRemovedWithoutSnapshotOperations(@Mock PartitionMvStorageAccess partitionAccess) {
         snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
 
         CompletableFuture<Void> removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);
@@ -113,8 +113,13 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
         assertThat(removeFuture.isDone(), is(true));
 
         assertThat(snapshotStorage.partitionsByTableId(), is(anEmptyMap()));
+    }
 
+    @Test
+    void partitionCanBeRemovedOnlyWithoutOutgoingSnapshot(@Mock PartitionMvStorageAccess partitionAccess) throws IOException {
         snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        CompletableFuture<Void> removeFuture;
 
         try (SnapshotReader ignored = snapshotStorage.startOutgoingSnapshot()) {
             removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);
@@ -133,15 +138,9 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
     void partitionCanBeRemovedOnlyWithoutIncomingSnapshot(@Mock PartitionMvStorageAccess partitionAccess) throws IOException {
         snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
 
-        CompletableFuture<Void> removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);
-
-        assertThat(removeFuture.isDone(), is(true));
-
-        assertThat(snapshotStorage.partitionsByTableId(), is(anEmptyMap()));
-
-        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
-
         String snapshotUri = SnapshotUri.toStringUri(UUID.randomUUID(), "node");
+
+        CompletableFuture<Void> removeFuture;
 
         try (SnapshotCopier ignored = snapshotStorage.startIncomingSnapshot(snapshotUri)) {
             removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);

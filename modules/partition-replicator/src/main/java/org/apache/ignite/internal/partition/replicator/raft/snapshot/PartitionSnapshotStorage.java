@@ -24,7 +24,7 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.MessagingService;
@@ -88,7 +88,7 @@ public class PartitionSnapshotStorage {
     private final FailureProcessor failureProcessor;
 
     /** Incoming snapshots executor. */
-    private final Executor incomingSnapshotsExecutor;
+    private final ExecutorService incomingSnapshotsExecutor;
 
     private final long waitForMetadataCatchupMs;
 
@@ -100,7 +100,7 @@ public class PartitionSnapshotStorage {
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
-            Executor incomingSnapshotsExecutor
+            ExecutorService incomingSnapshotsExecutor
     ) {
         this(
                 partitionKey,
@@ -122,7 +122,7 @@ public class PartitionSnapshotStorage {
             PartitionTxStateAccess txState,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
-            Executor incomingSnapshotsExecutor,
+            ExecutorService incomingSnapshotsExecutor,
             long waitForMetadataCatchupMs
     ) {
         this.partitionKey = partitionKey;
