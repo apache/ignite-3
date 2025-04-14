@@ -1112,7 +1112,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public CompletableFuture<Void> becomeLonelyLeader(long termBeforeChange, Set<String> targetVotingSet) {
+    public CompletableFuture<Void> initiateForcefulVotersChange(long termBeforeChange, Set<String> targetVotingSet) {
         return inBusyLockAsync(busyLock, () -> {
             synchronized (peersChangeMutex) {
                 if (peersChangeState != null) {
@@ -1133,6 +1133,12 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 return doWithOneOffRaftGroupService(newConfiguration, RaftGroupService::refreshLeader);
             }
+        }).whenComplete((res, ex) -> {
+            if (ex != null) {
+                LOG.error("initiateForcefulVotersChange failed", ex);
+            } else {
+                LOG.info("initiateForcefulVotersChange finished and obtained new leader");
+            }
         });
     }
 
@@ -1144,7 +1150,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration);
 
             return action.apply(raftGroupService)
-                    .whenComplete((res, ex) -> raftGroupService.shutdown());
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            LOG.error("One-off raft group action on {} failed", ex, raftClientConfiguration);
+                        }
+
+                        raftGroupService.shutdown();
+                    });
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }

@@ -175,7 +175,7 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private void handleBecomeMetastorageLeaderMessage(BecomeMetastorageLeaderMessage message, ClusterNode sender, long correlationId) {
-        metastorageGroupMaintenance.becomeLonelyLeader(message.termBeforeChange(), message.targetVotingSet())
+        metastorageGroupMaintenance.initiateForcefulVotersChange(message.termBeforeChange(), message.targetVotingSet())
                 .thenRun(() -> messagingService.respond(sender, successResponseMessage(), correlationId))
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
