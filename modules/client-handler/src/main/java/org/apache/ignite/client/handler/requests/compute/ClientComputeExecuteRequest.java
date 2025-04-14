@@ -30,7 +30,6 @@ import java.util.function.Function;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
@@ -72,6 +71,7 @@ public class ClientComputeExecuteRequest {
         JobExecutionOptions.Builder options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt());
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
+        // TODO: IGNITE-25116 propagate executor type.
         // TODO: Feature flag
         int jobExecutorType = in.unpackInt();
 

@@ -515,7 +515,10 @@ public class ClientCompute implements IgniteCompute {
         w.packInt(descriptor.options().priority());
         w.packInt(descriptor.options().maxRetries());
         ClientComputeJobPacker.packJobArgument(arg, descriptor.argumentMarshaller(), w);
-        w.packInt(descriptor.options().executorType().ordinal());
+
+        // TODO: IGNITE-25116: descriptor.options().executorType().ordinal()
+        // TODO: Feature flag.
+        w.packInt(0);
     }
 
     private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
