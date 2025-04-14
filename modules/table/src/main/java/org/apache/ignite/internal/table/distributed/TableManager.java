@@ -1399,23 +1399,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     ) {
         CompletableFuture<Set<Assignment>> assignmentsFuture =
                 reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
-                        .thenCompose(catalog -> {
-                            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
-                            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
-
-                            return calculateAssignments(tablePartitionId, catalog.version(), zoneDescriptor, tableDescriptor);
-                        });
+                        .thenCompose(catalog -> calculateAssignments(tablePartitionId, catalog));
 
         return orStopManagerFuture(assignmentsFuture);
     }
 
-    private CompletableFuture<Set<Assignment>> calculateAssignments(
-            TablePartitionId tablePartitionId,
-            int catalogVersion,
-            CatalogZoneDescriptor zoneDescriptor,
-            CatalogTableDescriptor tableDescriptor
-    ) {
-        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, tableDescriptor.zoneId())
+    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId, Catalog catalog) {
+        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
+
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), tableDescriptor.zoneId())
                 .thenApply(dataNodes -> calculateAssignmentForPartition(
                         dataNodes,
                         tablePartitionId.partitionId(),

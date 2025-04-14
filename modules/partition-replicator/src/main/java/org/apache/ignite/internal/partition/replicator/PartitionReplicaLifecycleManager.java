@@ -31,7 +31,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_CREATE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.subtract;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
-import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener.handleReduceChanged;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
@@ -48,7 +47,6 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.assignmentListToString;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
-import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -696,27 +694,24 @@ public class PartitionReplicaLifecycleManager extends
                 });
     }
 
-    private CompletableFuture<Set<Assignment>> calculateZoneAssignments(
-            ZonePartitionId zonePartitionId,
-            Long assignmentsTimestamp
-    ) {
+    private CompletableFuture<Set<Assignment>> calculateZoneAssignments(ZonePartitionId zonePartitionId, Long assignmentsTimestamp) {
         CompletableFuture<Set<Assignment>> assignmentsFuture =
                 reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
-                        .thenCompose(catalog -> {
-                            CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
-
-                            int zoneId = zonePartitionId.zoneId();
-
-                            return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneId)
-                                    .thenApply(dataNodes -> calculateAssignmentForPartition(
-                                            dataNodes,
-                                            zonePartitionId.partitionId(),
-                                            zoneDescriptor.partitions(),
-                                            zoneDescriptor.replicas()
-                                    ));
-                        });
+                        .thenCompose(catalog -> calculateZoneAssignments(zonePartitionId, catalog));
 
         return CompletableFuture.anyOf(stopReplicaLifecycleFuture, assignmentsFuture).thenApply(a -> (Set<Assignment>) a);
+    }
+
+    private CompletableFuture<Set<Assignment>> calculateZoneAssignments(ZonePartitionId zonePartitionId, Catalog catalog) {
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zonePartitionId.zoneId());
+
+        return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), zoneDescriptor.id())
+                .thenApply(dataNodes -> calculateAssignmentForPartition(
+                        dataNodes,
+                        zonePartitionId.partitionId(),
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas()
+                ));
     }
 
     private PartitionMover createPartitionMover(ZonePartitionId replicaGrpId) {
@@ -859,7 +854,7 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = catalog.time();
 
             return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> calculateAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
+                    .thenApply(dataNodes -> calculateZoneAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
                             .stream()
                             .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
                             .collect(toList())
@@ -945,21 +940,30 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = assignments.timestamp();
 
             return reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
-                    .thenCompose(catalog -> inBusyLockAsync(busyLock, () -> {
-                        CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
-
-                        return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
-                                .thenCompose(dataNodes -> handleReduceChanged(
-                                        metaStorageMgr,
-                                        dataNodes,
-                                        zoneDescriptor.partitions(),
-                                        zoneDescriptor.replicas(),
-                                        replicaGrpId,
-                                        evt,
-                                        assignmentsTimestamp
-                                ));
-                    }));
+                    .thenCompose(catalog ->
+                            inBusyLockAsync(busyLock, () -> handleReduceChanged(evt, catalog, replicaGrpId, assignmentsTimestamp))
+                    );
         });
+    }
+
+    private CompletableFuture<Void> handleReduceChanged(
+            WatchEvent evt,
+            Catalog catalog,
+            ZonePartitionId replicaGrpId,
+            long assignmentsTimestamp
+    ) {
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(replicaGrpId.zoneId());
+
+        return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), replicaGrpId.zoneId())
+                .thenCompose(dataNodes -> ZoneRebalanceRaftGroupEventsListener.handleReduceChanged(
+                        metaStorageMgr,
+                        dataNodes,
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas(),
+                        replicaGrpId,
+                        evt,
+                        assignmentsTimestamp
+                ));
     }
 
     /**
