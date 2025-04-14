@@ -534,12 +534,13 @@ public class PartitionReplicaLifecycleManager extends
             int catalogVersion,
             int partitionCount
     ) {
+        assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
+
         // Zone nodes might be created in the same catalog version as a table in this zone, so there could be a race
         // between storage creation due to replica start and storage creation due to table addition. To eliminate the race,
         // we acquire a write lock on the zone (table addition acquires a read lock).
         return inBusyLockAsync(busyLock, () -> executeUnderZoneWriteLock(zoneId,
                 () -> inBusyLockAsync(busyLock, () -> {
-                    assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
                     var partitionsStartFutures = new CompletableFuture<?>[assignments.size()];
 
