@@ -43,6 +43,7 @@ import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.SqlCommon;
@@ -62,7 +63,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-24335
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 // TODO https://issues.apache.org/jira/browse/IGNITE-22332 Add test cases.
 public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest {
@@ -123,6 +123,31 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         assertThat(restartPartitionsFuture, willCompleteSuccessfully());
         assertThat(awaitPrimaryReplicaForNow(node, new TablePartitionId(tableId(node), partitionId)), willCompleteSuccessfully());
+
+        insert(2, 2);
+        insert(3, 3);
+
+        assertThat(selectAll(), hasSize(4));
+    }
+
+    @Test
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    void testRestartZonePartitions() {
+        IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
+
+        insert(0, 0);
+        insert(1, 1);
+
+        int partitionId = 0;
+
+        CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartPartitions(
+                Set.of(node.name()),
+                ZONE_NAME,
+                Set.of(partitionId)
+        );
+
+        assertThat(restartPartitionsFuture, willCompleteSuccessfully());
+        assertThat(awaitPrimaryReplicaForNow(node, new ZonePartitionId(zoneId(node), partitionId)), willCompleteSuccessfully());
 
         insert(2, 2);
         insert(3, 3);
@@ -296,8 +321,8 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         return node.catalogManager().catalog(node.catalogManager().latestCatalogVersion()).zone(ZONE_NAME).id();
     }
 
-    private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, TablePartitionId tablePartitionId) {
-        return node.placementDriver().awaitPrimaryReplica(tablePartitionId, node.clock().now(), 60, SECONDS);
+    private static CompletableFuture<ReplicaMeta> awaitPrimaryReplicaForNow(IgniteImpl node, ReplicationGroupId replicationGroupId) {
+        return node.placementDriver().awaitPrimaryReplica(replicationGroupId, node.clock().now(), 60, SECONDS);
     }
 
     @Retention(RetentionPolicy.RUNTIME)
