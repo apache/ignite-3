@@ -72,9 +72,8 @@ public class ClientComputeExecuteRequest {
         JobExecutionOptions.Builder options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt());
         ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
 
-        // TODO: Feature flag, handle more types.
-        JobExecutorType jobExecutorType = in.unpackInt() == 0 ? JobExecutorType.JavaEmbedded : JobExecutorType.DotNetSidecar;
-        options.executorType(jobExecutorType);
+        // TODO: Feature flag
+        int jobExecutorType = in.unpackInt();
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
                 candidates, deploymentUnits, jobClassName, options.build(), arg, null
