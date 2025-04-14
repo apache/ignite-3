@@ -673,7 +673,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
-        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
+        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(hybridTimestamp(ts));
     }
 
     private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
@@ -1403,21 +1403,25 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
                             CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-                            return distributionZoneManager.dataNodes(
-                                    zoneDescriptor.updateTimestamp(),
-                                    catalog.version(),
-                                    tableDescriptor.zoneId()
-                            ).thenApply(dataNodes ->
-                                    calculateAssignmentForPartition(
-                                            dataNodes,
-                                            tablePartitionId.partitionId(),
-                                            zoneDescriptor.partitions(),
-                                            zoneDescriptor.replicas()
-                                    )
-                            );
+                            return calculateAssignments(tablePartitionId, catalog.version(), zoneDescriptor, tableDescriptor);
                         });
 
         return orStopManagerFuture(assignmentsFuture);
+    }
+
+    private CompletableFuture<Set<Assignment>> calculateAssignments(
+            TablePartitionId tablePartitionId,
+            int catalogVersion,
+            CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor
+    ) {
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, tableDescriptor.zoneId())
+                .thenApply(dataNodes -> calculateAssignmentForPartition(
+                        dataNodes,
+                        tablePartitionId.partitionId(),
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas()
+                ));
     }
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
@@ -2505,20 +2509,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                                     CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-                                    return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(),
-                                                    tableDescriptor.zoneId())
-                                            .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
-                                                    metaStorageMgr,
-                                                    dataNodes,
-                                                    zoneDescriptor.partitions(),
-                                                    zoneDescriptor.replicas(),
-                                                    replicaGrpId,
-                                                    evt,
-                                                    assignmentsTimestamp
-                                            ));
+                                    return handleReduceChanged(evt, catalog.version(), zoneDescriptor, replicaGrpId, assignmentsTimestamp);
                                 }));
                     }));
         });
+    }
+
+    private CompletableFuture<Void> handleReduceChanged(
+            WatchEvent evt,
+            int catalogVersion,
+            CatalogZoneDescriptor zoneDescriptor,
+            TablePartitionId replicaGrpId,
+            long assignmentsTimestamp
+    ) {
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
+                .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
+                        metaStorageMgr,
+                        dataNodes,
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas(),
+                        replicaGrpId,
+                        evt,
+                        assignmentsTimestamp
+                ));
     }
 
     /**
