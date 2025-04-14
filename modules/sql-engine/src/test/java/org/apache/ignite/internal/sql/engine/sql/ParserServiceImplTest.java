@@ -171,6 +171,16 @@ public class ParserServiceImplTest {
                     containsString(result.originalQuery())
             );
         }
+
+        assertThat(
+                results.get(0).originalQuery(),
+                is("seLECT * FROM Table_1;")
+        );
+        assertThat(
+                results.get(1).originalQuery(),
+                is("select /*+ USE_INDEX(table_2_idx)*/ Table_2.* \n"
+                        + "  FROM table_2;")
+        );
     }
 
     @Test
