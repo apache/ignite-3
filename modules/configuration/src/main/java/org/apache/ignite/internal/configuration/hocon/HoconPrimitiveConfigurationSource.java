@@ -125,9 +125,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         assert !clazz.isPrimitive();
 
         if (clazz == String.class) {
-            String stringValue = hoconCfgValue.valueType() == STRING
-                    ? hoconCfgValue.unwrapped().toString()
-                    : hoconCfgValue.render();
+            String stringValue = unwrapStringValue(hoconCfgValue);
 
             return clazz.cast(stringValue);
         } else if (clazz == Boolean.class) {
@@ -137,9 +135,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
             return clazz.cast(hoconCfgValue.unwrapped());
         } else if (clazz == Character.class) {
-            String stringValue = hoconCfgValue.valueType() == STRING
-                    ? hoconCfgValue.unwrapped().toString()
-                    : hoconCfgValue.render();
+            String stringValue = unwrapStringValue(hoconCfgValue);
 
             if (stringValue.length() != 1) {
                 throw wrongTypeException(clazz, path, idx);
@@ -181,6 +177,12 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
         }
 
         throw new IllegalArgumentException("Unsupported type: " + clazz);
+    }
+
+    private static String unwrapStringValue(ConfigValue hoconCfgValue) {
+        return hoconCfgValue.valueType() == STRING
+                ? hoconCfgValue.unwrapped().toString()
+                : hoconCfgValue.render();
     }
 
     /**
