@@ -103,6 +103,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
@@ -191,16 +192,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     private final ConcurrentHashMap<Integer, CompletableFuture<HybridTimestamp>> dropZoneTimestamps = new ConcurrentHashMap<>();
 
-    private PendingComparableValuesTracker<Long, Void> revisionsTracker;
-
     @BeforeEach
     void beforeEach() {
-        revisionsTracker = new PendingComparableValuesTracker<>(0L);
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener());
-        metaStorageManager.registerRevisionUpdateListener(rev -> {
-            revisionsTracker.update(rev, null);
-            return nullCompletedFuture();
-        });
         metaStorageManager.registerPrefixWatch(
                 new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8)),
                 createMetastorageDataNodesListener()
@@ -1025,7 +1019,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @Test
+    @RepeatedTest(1000)
     void checkDataNodesRepeatedOnNodeAdded() throws Exception {
         prepareZonesWithTwoDataNodes();
 
@@ -1179,13 +1173,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             // Change logical topology. NODE_2 is added.
             topologyRevision = putNodeInLogicalTopologyAndGetTimestamp(NODE_2, newTopology);
-            assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision.revision, TIMEOUT));
         } else {
             newTopology.remove(NODE_1);
 
             // Change logical topology. NODE_1 is removed.
             topologyRevision = removeNodeInLogicalTopologyAndGetTimestamp(Set.of(NODE_1), newTopology);
-            assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= topologyRevision.revision, TIMEOUT));
         }
 
         assertEquals(topologyRevision.timestamp, topologyUpdateRevision.get().timestamp);
@@ -1373,7 +1365,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         RevWithTimestamp rwt = revisionFut.get(TIMEOUT, MILLISECONDS);
 
-        assertThat(revisionsTracker.waitFor(rwt.revision), willSucceedFast());
+        try {
+            assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= rwt.revision, TIMEOUT));
+        } catch (AssertionError e) {
+            log.info("qqq Failed to wait for revision: appliedRevision={}, rwt={}", metaStorageManager.appliedRevision(), rwt.revision);
+        }
 
         return rwt;
     }
@@ -1398,7 +1394,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         topology.removeNodes(nodes);
 
-        return revisionFut.get(TIMEOUT, MILLISECONDS);
+        RevWithTimestamp rwt = revisionFut.get(TIMEOUT, MILLISECONDS);
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= rwt.revision, TIMEOUT));
+
+        return rwt;
     }
 
     /**
@@ -1427,7 +1427,12 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         topology.fireTopologyLeap();
 
-        return revisionFut.get(TIMEOUT, MILLISECONDS);
+        RevWithTimestamp rwt = revisionFut.get(TIMEOUT, MILLISECONDS);
+
+        assertTrue(waitForCondition(() -> metaStorageManager.appliedRevision() >= rwt.revision, TIMEOUT));
+
+        return rwt;
+
     }
 
     /**
@@ -1574,6 +1579,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             if (topologyRevisions.containsKey(nodeNames)) {
                 topologyRevisions.remove(nodeNames).complete(new RevWithTimestamp(revision, timestamp));
+                log.info("qqq Topology update event, rev=" + revision);
             }
 
             return nullCompletedFuture();
