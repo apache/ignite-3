@@ -65,7 +65,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -432,6 +431,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<LocalPartitionReplicaEventParameters> onBeforeZoneReplicaStartedListener = this::beforeZoneReplicaStarted;
     private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaStoppedListener = this::onZoneReplicaStopped;
     private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaDestroyedListener = this::onZoneReplicaDestroyed;
+    private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaStoppedForRestartListener =
+            this::onZoneReplicaStoppedForRestart;
 
     private final EventListener<CreateTableEventParameters> onTableCreateListener = enabledColocation
             ? this::prepareTableResourcesAndLoadToZoneReplica : this::onTableCreate;
@@ -631,6 +632,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 );
                 partitionReplicaLifecycleManager.listen(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
                 partitionReplicaLifecycleManager.listen(LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
+                partitionReplicaLifecycleManager.listen(
+                        LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED_FOR_RESTART, onZoneReplicaStoppedForRestartListener
+                );
             }
 
             if (!enabledColocation) {
@@ -681,7 +685,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenCompose(v -> {
                     ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-                    Set<TableImpl> zoneTables = zoneTables(zonePartitionId.zoneId());
+                    Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
 
                     int partitionIndex = zonePartitionId.partitionId();
                     PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
@@ -716,13 +720,34 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return falseCompletedFuture();
         }
 
-        Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+        Set<TableImpl> zoneTables = zoneTablesRawSet(parameters.zonePartitionId().zoneId());
 
         CompletableFuture<?>[] futures = zoneTables.stream()
                 .map(this::tableStopFuture)
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures).thenApply(v -> false);
+    }
+
+    private CompletableFuture<Boolean> onZoneReplicaStoppedForRestart(LocalPartitionReplicaEventParameters parameters) {
+        if (!enabledColocation) {
+            return falseCompletedFuture();
+        }
+
+        ZonePartitionId zonePartitionId = parameters.zonePartitionId();
+
+        return inBusyLockAsync(busyLock, () -> {
+            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+                    .map(table -> supplyAsync(
+                            () -> inBusyLockAsync(
+                                    busyLock,
+                                    () -> stopTablePartition(new TablePartitionId(table.tableId(), zonePartitionId.partitionId()), table)
+                            ),
+                            ioExecutor))
+                    .toArray(CompletableFuture[]::new);
+
+            return allOf(futures);
+        }).thenApply((unused) -> false);
     }
 
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
@@ -733,7 +758,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
         return inBusyLockAsync(busyLock, () -> {
-            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+            CompletableFuture<?>[] futures = zoneTablesRawSet(zonePartitionId.zoneId()).stream()
                     .map(table -> supplyAsync(
                             () -> inBusyLockAsync(
                                     busyLock,
@@ -1526,6 +1551,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             );
 
             partitionReplicaLifecycleManager.removeListener(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
+
+            partitionReplicaLifecycleManager.removeListener(
+                    LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED_FOR_RESTART,
+                    onZoneReplicaStoppedForRestartListener
+            );
 
             partitionReplicaLifecycleManager.removeListener(
                     LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED,
@@ -3074,13 +3104,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     public Set<TableImpl> zoneTables(int zoneId) {
-        return tablesPerZone.computeIfAbsent(zoneId, id -> new HashSet<>());
+        return Set.copyOf(zoneTablesRawSet(zoneId));
+    }
+
+    private Set<TableImpl> zoneTablesRawSet(int zoneId) {
+        return tablesPerZone.getOrDefault(zoneId, Set.of());
     }
 
     private void addTableToZone(int zoneId, TableImpl table) {
         tablesPerZone.compute(zoneId, (id, tbls) -> {
             if (tbls == null) {
-                tbls = new HashSet<>();
+                // Using a concurrent set as a value as it can be read (and iterated over) without any synchronization by external callers.
+                tbls = ConcurrentHashMap.newKeySet();
             }
 
             tbls.add(table);

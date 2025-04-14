@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -49,6 +50,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -215,7 +217,7 @@ public class Node {
 
     public final ReplicaManager replicaManager;
 
-    public final MetaStorageManagerImpl metaStorageManager;
+    public final MetaStorageManager metaStorageManager;
 
     private final VaultManager vaultManager;
 
@@ -263,6 +265,9 @@ public class Node {
 
     /** Cleanup manager for tx resources. */
     private final ResourceVacuumManager resourceVacuumManager;
+
+    /** The future have to be complete after the node start and all Meta storage watches are deployd. */
+    private CompletableFuture<Void> deployWatchesFut;
 
     /** Hybrid clock. */
     public final HybridClock hybridClock = new HybridClockImpl();
@@ -834,13 +839,18 @@ public class Node {
         return new PublicApiThreadingIgniteSql(igniteSql, ForkJoinPool.commonPool());
     }
 
+    public void waitForMetadataCompletenessAtNow() {
+        assertThat(schemaSyncService.waitForMetadataCompleteness(hybridClock.now()), willCompleteSuccessfully());
+    }
+
     /**
      * Starts the created components.
      */
-    public CompletableFuture<Void> start() {
+    public void start() {
         ComponentContext componentContext = new ComponentContext();
 
-        IgniteComponent[] componentsToStartBeforeJoin = {
+        deployWatchesFut = startComponentsAsync(
+                componentContext,
                 threadPoolsManager,
                 vaultManager,
                 nodeCfgMgr,
@@ -852,9 +862,10 @@ public class Node {
                 raftManager,
                 cmgManager,
                 lowWatermark
-        };
-
-        IgniteComponent[] componentsToStartAfterJoin = {
+        ).thenComposeAsync(
+                v -> cmgManager.joinFuture()
+        ).thenApplyAsync(v -> startComponentsAsync(
+                componentContext,
                 metaStorageManager,
                 clusterCfgMgr,
                 placementDriverManager,
@@ -877,25 +888,21 @@ public class Node {
                 resourceVacuumManager,
                 systemViewManager,
                 sqlQueryProcessor
-        };
+        )).thenComposeAsync(componentFuts -> {
+            CompletableFuture<Void> configurationNotificationFut = metaStorageManager.recoveryFinishedFuture()
+                    .thenCompose(rev -> allOf(
+                            nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
+                            ((MetaStorageManagerImpl) metaStorageManager).notifyRevisionUpdateListenerOnStart(),
+                            componentFuts
+                    ));
 
-        return startComponentsAsync(componentContext, componentsToStartBeforeJoin)
-                .thenCompose(v -> cmgManager.joinFuture())
-                .thenComposeAsync(v -> {
-                    CompletableFuture<Void> componentsStartAfterJoin = startComponentsAsync(componentContext, componentsToStartAfterJoin);
+            assertThat(configurationNotificationFut, willSucceedIn(1, TimeUnit.MINUTES));
 
-                    return metaStorageManager.recoveryFinishedFuture()
-                            .thenCompose(rev -> allOf(
-                                    nodeCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                    clusterCfgMgr.configurationRegistry().notifyCurrentConfigurationListeners(),
-                                    metaStorageManager.notifyRevisionUpdateListenerOnStart(),
-                                    componentsStartAfterJoin
-                            ));
-                }).thenCompose(v -> {
-                    lowWatermark.scheduleUpdates();
+            lowWatermark.scheduleUpdates();
 
-                    return metaStorageManager.deployWatches();
-                }).thenCompose(v -> cmgManager.onJoinReady());
+            return metaStorageManager.deployWatches();
+        });
     }
 
     private CompletableFuture<Void> startComponentsAsync(ComponentContext componentContext, IgniteComponent... components) {
@@ -908,6 +915,13 @@ public class Node {
         }
 
         return allOf(componentStartFutures);
+    }
+
+    /**
+     * Waits for watches deployed.
+     */
+    public void waitWatches() {
+        assertThat("Watches were not deployed", deployWatchesFut, willCompleteSuccessfully());
     }
 
     /**
