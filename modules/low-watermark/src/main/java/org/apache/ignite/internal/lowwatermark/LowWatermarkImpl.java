@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -343,7 +344,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
                                     new ChangeLowWatermarkEventParameters(newLowWatermark)), scheduledThreadPool)
                             .whenCompleteAsync((unused, throwable) -> {
                                 if (throwable != null) {
-                                    if (!(throwable instanceof NodeStoppingException)) {
+                                    if (!(unwrapCause(throwable) instanceof NodeStoppingException)) {
                                         LOG.error("Failed to update low watermark, will schedule again: {}", throwable, newLowWatermark);
 
                                         failureManager.process(new FailureContext(CRITICAL_ERROR, throwable));
