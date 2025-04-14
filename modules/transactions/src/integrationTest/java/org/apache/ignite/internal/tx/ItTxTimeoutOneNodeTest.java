@@ -86,7 +86,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     void readWriteTransactionTimesOut() throws InterruptedException {
         Table table = createTestTable();
 
-        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(5_000));
+        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
 
         // Make sure the tx actually begins on the server (as thin client transactions are lazy).
         doPutOn(table, rwTx);
@@ -105,7 +105,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
     void timeoutExceptionHasCorrectCause() throws InterruptedException {
         Table table = createTestTable();
 
-        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(5_000));
+        Transaction rwTx = ignite().transactions().begin(new TransactionOptions().readOnly(false).timeoutMillis(1_000));
 
         // Wait for an exception.
         assertTrue(
