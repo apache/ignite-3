@@ -47,6 +47,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.assignmentListToString;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -854,7 +855,7 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = catalog.time();
 
             return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> calculateZoneAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
+                    .thenApply(dataNodes -> calculateAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
                             .stream()
                             .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
                             .collect(toList())
