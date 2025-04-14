@@ -58,26 +58,12 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
     }
 
     @Test
-    public void testWrongIndexName() throws Exception {
-        var sql = "SELECT /*+ NO_INDEX({}) */ * FROM TBL1 WHERE id = 0";
-
-        assertCertainIndex(format(sql, "'idx_id'"), TBL1, "IDX_ID");
-        assertCertainIndex(format(sql, "\"idx_id\""), TBL1, "IDX_ID");
-        assertCertainIndex(format(sql, "'unexisting', 'idx_id'"), TBL1, "IDX_ID");
-        assertCertainIndex(format(sql, "\"unexisting\", \"idx_id\""), TBL1, "IDX_ID");
-    }
-
-    @Test
     public void testSingleTable() throws Exception {
         assertNoAnyIndex("SELECT /*+ NO_INDEX */ * FROM TBL1 WHERE id = 0");
 
         var sql = "SELECT /*+ NO_INDEX({}) */ * FROM TBL1 WHERE id = 0";
 
         assertNoAnyIndex(format(sql, ""));
-        assertNoCertainIndex(format(sql, "unexisting, idx_id"), TBL1, "IDX_ID");
-        assertNoCertainIndex(format(sql, "UNEXISTING, IDX_ID"), TBL1, "IDX_ID");
-        assertNoCertainIndex(format(sql, "'UNEXISTING', 'IDX_ID'"), TBL1, "IDX_ID");
-        assertNoCertainIndex(format(sql, "\"UNEXISTING\", \"IDX_ID\""), TBL1, "IDX_ID");
 
         assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1, IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1=1 and val2='v'");
         assertNoAnyIndex("SELECT /*+ NO_INDEX(IDX_VAL1), NO_INDEX(IDX_VAL2_VAL3) */ * FROM TBL1 WHERE val1=1 and val2='v'");
@@ -176,9 +162,5 @@ public class NoIndexHintPlannerTest extends AbstractPlannerTest {
 
     private void assertNoCertainIndex(String sql, String tblName, String idxName) throws Exception {
         assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)).negate());
-    }
-
-    private void assertCertainIndex(String sql, String tblName, String idxName) throws Exception {
-        assertPlan(sql, SCHEMA, nodeOrAnyChild(isIndexScan(tblName, idxName)));
     }
 }

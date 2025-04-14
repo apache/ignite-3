@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.schema.BinaryRowMatcher.equalToRow;
 import static org.apache.ignite.internal.storage.MvPartitionStorage.REBALANCE_IN_PROGRESS;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
 import static org.apache.ignite.internal.storage.util.StorageUtils.initialRowIdToBuild;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -281,8 +282,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
     }
 
     /**
-     * Tests that an attempt to destroy an index in a table storage that is already destroyed does not
-     * cause an exception.
+     * Tests that an attempt to destroy an index in a table storage that is already destroyed does not cause an exception.
      */
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
@@ -310,8 +310,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
     }
 
     /**
-     * Tests that an attempt to destroy an index in a table storage where a partition is already destroyed does not
-     * cause an exception.
+     * Tests that an attempt to destroy an index in a table storage where a partition is already destroyed does not cause an exception.
      */
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
@@ -1444,6 +1443,42 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
         mvPartitionStorage = getOrCreateMvPartition(PARTITION_ID);
 
         assertThat(mvPartitionStorage.estimatedSize(), is(0L));
+    }
+
+    @Test
+    void throwsStorageDestroyedExceptionAfterBeingDestroyed() {
+        tableStorage.destroy();
+
+        assertThrowsWithCause(() -> tableStorage.getMvPartition(PARTITION_ID), StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.createMvPartition(PARTITION_ID), StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.clearPartition(PARTITION_ID), StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.getIndex(PARTITION_ID, 0), StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.createHashIndex(PARTITION_ID, mock(StorageHashIndexDescriptor.class)),
+                StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.createSortedIndex(PARTITION_ID, mock(StorageSortedIndexDescriptor.class)),
+                StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.startRebalancePartition(PARTITION_ID), StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.finishRebalancePartition(PARTITION_ID, mock(MvPartitionMeta.class)),
+                StorageDestroyedException.class);
+        assertThrowsWithCause(() -> tableStorage.abortRebalancePartition(PARTITION_ID), StorageDestroyedException.class);
+    }
+
+    @Test
+    void throwsStorageClosedExceptionAfterBeingClosed() throws Exception {
+        tableStorage.close();
+
+        assertThrowsWithCause(() -> tableStorage.getMvPartition(PARTITION_ID), StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.createMvPartition(PARTITION_ID), StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.clearPartition(PARTITION_ID), StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.getIndex(PARTITION_ID, 0), StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.createHashIndex(PARTITION_ID, mock(StorageHashIndexDescriptor.class)),
+                StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.createSortedIndex(PARTITION_ID, mock(StorageSortedIndexDescriptor.class)),
+                StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.startRebalancePartition(PARTITION_ID), StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.finishRebalancePartition(PARTITION_ID, mock(MvPartitionMeta.class)),
+                StorageClosedException.class);
+        assertThrowsWithCause(() -> tableStorage.abortRebalancePartition(PARTITION_ID), StorageClosedException.class);
     }
 
     private void startRebalanceWithChecks(
