@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.emptySet;
 import static java.util.Map.of;
 import static java.util.Objects.requireNonNull;
@@ -30,10 +29,8 @@ import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -69,6 +66,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -81,6 +79,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -106,13 +106,18 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
@@ -142,8 +147,6 @@ import org.junit.jupiter.api.Timeout;
  * partitions.
  */
 @Timeout(120)
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
@@ -278,8 +281,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForScale(node0, 3);
 
-        DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetTablePartitions(
+        CompletableFuture<?> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                node0.disasterRecoveryManager(),
                 zoneName,
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -337,11 +340,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> anotherPartErrorsBeforeReset = insertValues(table, anotherPartId, 0);
         assertThat(anotherPartErrorsBeforeReset, not(empty()));
 
-        CompletableFuture<?> updateFuture = node0.disasterRecoveryManager().resetTablePartitions(
+        CompletableFuture<?> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                node0.disasterRecoveryManager(),
                 zoneName,
                 SCHEMA_NAME,
                 TABLE_NAME,
-                Set.of(anotherPartId)
+                Set.of(anotherPartId),
+                true,
+                -1
         );
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
@@ -378,7 +384,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         waitForScale(node0, 1);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetTablePartitions(
+        CompletableFuture<?> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
                 zoneName,
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -448,7 +455,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // pending = [0, force]
         // planned = [0, 3, 4]
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetTablePartitions(
+        CompletableFuture<?> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
                 zoneName,
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -596,7 +604,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // pending = [1, force]
         // planned = [0, 1, 3]
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<Void> resetFuture = disasterRecoveryManager.resetTablePartitions(
+        CompletableFuture<Void> resetFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
                 zoneName,
                 SCHEMA_NAME,
                 TABLE_NAME,
@@ -608,14 +617,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        var localStatesFut = node0.disasterRecoveryManager().localTablePartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
-        assertThat(localStatesFut, willCompleteSuccessfully());
-
-        Map<TablePartitionId, LocalTablePartitionStateByNode> localStates = localStatesFut.join();
-        assertThat(localStates, is(not(anEmptyMap())));
-        LocalTablePartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
-
-        assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localPartitionStateByNode.values().iterator().next().state);
+        assertLocalState(node0, partId, LocalPartitionStateEnum.INSTALLING_SNAPSHOT);
 
         // fromReset == true, assert force == false.
         Assignments assignmentsPending = Assignments.of(Set.of(
@@ -658,6 +660,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
     }
 
+
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     public void testNewResetOverwritesFlags() throws Exception {
@@ -692,7 +695,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // planned = [0, 2, 3]
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<Void> resetFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
@@ -723,7 +726,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockRebalanceStableSwitch(partId, blockedRebalance3);
 
         CompletableFuture<Void> resetFuture2 =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
         assertThat(resetFuture2, willCompleteSuccessfully());
 
         Assignments pendingAssignments = getPendingAssignments(node0, partId);
@@ -761,7 +764,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // planned = [0, 3, 4]
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<Void> resetFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         Assignments assignmentsPending = Assignments.forced(Set.of(
@@ -815,7 +818,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
 
         assertThat(updateFuture, willSucceedIn(60, SECONDS));
 
@@ -862,7 +865,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -929,7 +932,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<Void> resetFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
         assertThat(resetFuture, willCompleteSuccessfully());
 
         // force == true, fromReset == false.
@@ -999,7 +1002,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        PartitionGroupId partitionGroupId = partitionGroupId(partId);
 
         // We filter out the leader to be able to reliably block raft state transfer.
         String leaderName = findLeader(1, partId);
@@ -1018,7 +1021,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(followerNodes.remove(node0IndexInFollowers == -1 ? 0 : node0IndexInFollowers));
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, tablePartitionId, blockedNodes));
+        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1055,7 +1058,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
         assertThat(updateFuture, willCompleteSuccessfully());
 
         // Pending is the one with the most up to date log index.
@@ -1134,7 +1137,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<Throwable> errors = insertValues(table, partId, 0);
         assertThat(errors, is(empty()));
 
-        TablePartitionId tablePartitionId = new TablePartitionId(tableId, partId);
+        PartitionGroupId partitionGroupId = partitionGroupId(partId);
 
         // We filter out the leader to be able to reliably block raft state transfer on the other nodes.
         String leaderName = findLeader(1, partId);
@@ -1154,7 +1157,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         blockedNodes.add(blockedNode);
         logger().info("Blocking updates on nodes [ids={}]", blockedNodes);
 
-        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, tablePartitionId, blockedNodes));
+        blockMessage((nodeName, msg) -> dataReplicateMessage(nodeName, msg, partitionGroupId, blockedNodes));
 
         // Write data(2) to 6 nodes.
         errors = insertValues(table, partId, 10);
@@ -1185,7 +1188,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
         assertThat(updateFuture, willCompleteSuccessfully());
 
         String pendingNodeName = getPendingNodeName(nodesNamesForFinalAssignments, blockedNode);
@@ -1242,7 +1245,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1265,6 +1268,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 7, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testAssignmentsChainUpdate() throws Exception {
         int partId = 0;
 
@@ -1525,7 +1530,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1550,7 +1555,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNode(2);
 
         CompletableFuture<?> updateFuture2 =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
 
         assertThat(updateFuture2, willCompleteSuccessfully());
 
@@ -1566,6 +1571,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testGracefulRewritesChainAfterForceReset() throws Exception {
         int partId = 0;
 
@@ -1605,7 +1612,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture2 =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+                TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
 
         assertThat(updateFuture2, willCompleteSuccessfully());
 
@@ -1682,12 +1689,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     private static boolean dataReplicateMessage(
             String nodeName,
             NetworkMessage msg,
-            TablePartitionId tablePartitionId,
+            PartitionGroupId partitionGroupId,
             Set<String> blockedNodes
     ) {
         if (msg instanceof AppendEntriesRequest) {
             var appendEntriesRequest = (AppendEntriesRequest) msg;
-            if (tablePartitionId.toString().equals(appendEntriesRequest.groupId())) {
+            if (partitionGroupId.toString().equals(appendEntriesRequest.groupId())) {
                 return blockedNodes.contains(nodeName);
             }
         }
@@ -1715,7 +1722,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
                     UpdateStatement updateStatement = (UpdateStatement) andThen;
                     List<Operation> operations = updateStatement.update().operations();
 
-                    ByteArray stablePartAssignmentsKey = stablePartAssignmentsKey(new TablePartitionId(tableId, partId));
+                    ByteArray stablePartAssignmentsKey = stablePartitionAssignmentsKey(partitionGroupId(partId));
 
                     for (Operation operation : operations) {
                         ByteArray opKey = new ByteArray(toByteArray(operation.key()));
@@ -1732,6 +1739,17 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
+        if (enabledColocation()) {
+            waitForZonePartitionState(node0, partId, expectedState);
+        } else {
+            waitForTablePartitionState(node0, partId, expectedState);
+        }
+    }
+
+    private void waitForTablePartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState)
+            throws InterruptedException {
+        AtomicReference<GlobalTablePartitionState> partitionState = new AtomicReference<>(null);
+
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> statesFuture = node0.disasterRecoveryManager()
                     .globalTablePartitionStates(Set.of(zoneName), emptySet());
@@ -1742,17 +1760,72 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
             GlobalTablePartitionState state = map.get(new TablePartitionId(tableId, partId));
 
+            partitionState.set(state);
+
             return state != null && state.state == expectedState;
         }, 500, 20_000),
-                () -> "Expected state: " + expectedState
-                        + ", actual: " + node0.disasterRecoveryManager().globalTablePartitionStates(Set.of(zoneName), emptySet()).join()
+                () -> "Expected state: " + expectedState + ", actual: " + partitionState.get()
         );
     }
+
+    private void waitForZonePartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState)
+            throws InterruptedException {
+        AtomicReference<GlobalPartitionState> partitionState = new AtomicReference<>(null);
+
+        assertTrue(waitForCondition(() -> {
+            CompletableFuture<Map<ZonePartitionId, GlobalPartitionState>> statesFuture = node0.disasterRecoveryManager()
+                    .globalPartitionStates(Set.of(zoneName), emptySet());
+
+            assertThat(statesFuture, willCompleteSuccessfully());
+
+            Map<ZonePartitionId, GlobalPartitionState> map = statesFuture.join();
+
+
+            GlobalPartitionState state = map.get(new ZonePartitionId(zoneId, partId));
+
+            partitionState.set(state);
+
+            return state != null && state.state == expectedState;
+        }, 500, 20_000),
+                () -> "Expected state: " + expectedState + ", actual: " + partitionState.get()
+        );
+    }
+
+    private void assertLocalState(IgniteImpl node0, int partId, LocalPartitionStateEnum state) {
+        if (enabledColocation()) {
+            assertZoneLocalState(node0, partId, state);
+        } else {
+            assertTableLocalState(node0, partId, state);
+        }
+    }
+
+    private void assertTableLocalState(IgniteImpl node0, int partId, LocalPartitionStateEnum state) {
+        var localStatesFut = node0.disasterRecoveryManager().localTablePartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
+        assertThat(localStatesFut, willCompleteSuccessfully());
+
+        Map<TablePartitionId, LocalTablePartitionStateByNode> localStates = localStatesFut.join();
+        assertThat(localStates, is(not(anEmptyMap())));
+        LocalTablePartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
+
+        assertEquals(state, localPartitionStateByNode.values().iterator().next().state);
+    }
+
+    private void assertZoneLocalState(IgniteImpl node0, int partId, LocalPartitionStateEnum state) {
+        var localStatesFut = node0.disasterRecoveryManager().localPartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
+        assertThat(localStatesFut, willCompleteSuccessfully());
+
+        Map<ZonePartitionId, LocalPartitionStateByNode> localStates = localStatesFut.join();
+        assertThat(localStates, is(not(anEmptyMap())));
+        LocalPartitionStateByNode localPartitionStateByNode = localStates.get(new ZonePartitionId(zoneId, partId));
+
+        assertEquals(state, localPartitionStateByNode.values().iterator().next().state);
+    }
+
 
     private String findLeader(int nodeIdx, int partId) {
         IgniteImpl node = igniteImpl(nodeIdx);
 
-        var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
+        var raftNodeId = new RaftNodeId(partitionGroupId(partId), new Peer(node.name()));
         var jraftServer = (JraftServerImpl) node.raftManager().server();
 
         RaftGroupService raftGroupService = jraftServer.raftGroupService(raftNodeId);
@@ -1763,7 +1836,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     private NodeImpl getRaftNode(int nodeIdx, int partId) {
         IgniteImpl node = igniteImpl(nodeIdx);
 
-        var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
+        var raftNodeId = new RaftNodeId(partitionGroupId(partId), new Peer(node.name()));
         var jraftServer = (JraftServerImpl) node.raftManager().server();
 
         RaftGroupService raftGroupService = jraftServer.raftGroupService(raftNodeId);
@@ -1779,7 +1852,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     private void triggerRaftSnapshot(int nodeIdx, int partId, boolean forced) throws InterruptedException, ExecutionException {
         IgniteImpl node = igniteImpl(nodeIdx);
 
-        var raftNodeId = new RaftNodeId(new TablePartitionId(tableId, partId), new Peer(node.name()));
+        var raftNodeId = new RaftNodeId(partitionGroupId(partId), new Peer(node.name()));
         var jraftServer = (JraftServerImpl) node.raftManager().server();
 
         RaftGroupService raftGroupService = jraftServer.raftGroupService(raftNodeId);
@@ -1792,9 +1865,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertEquals(RaftError.SUCCESS, fut.get().getRaftError());
     }
 
+    private PartitionGroupId partitionGroupId(int partId) {
+        return enabledColocation() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
+    }
+
     private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
-                .awaitPrimaryReplica(new TablePartitionId(tableId, partId), node0.clock().now(), 60, SECONDS);
+                .awaitPrimaryReplica(partitionGroupId(partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willSucceedIn(60, SECONDS));
     }
@@ -1955,17 +2032,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * from stable and pending, for example, when rebalance is in progress.
      */
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
-        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
-                .localTablePartitionStates(Set.of(zoneName), Set.of(), Set.of());
-        assertThat(partitionStatesFut, willCompleteSuccessfully());
+        Set<String> nodeNames =
+                TestDisasterRecoveryUtils.getRealAssignments(node0.disasterRecoveryManager(), zoneName, zoneId, tableId, partId);
 
-        LocalTablePartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
-
-        if (partitionStates == null) {
-            return emptyList();
-        }
-
-        return partitionStates.keySet()
+        return nodeNames
                 .stream()
                 .map(cluster::nodeIndex)
                 .sorted()
@@ -1974,7 +2044,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable Assignments getPlannedAssignments(IgniteImpl node, int partId) {
         CompletableFuture<Entry> plannedFut = node.metaStorageManager()
-                .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partId)));
+                .get(plannedPartitionAssignmentsKey(partitionGroupId(partId)));
 
         assertThat(plannedFut, willCompleteSuccessfully());
 
@@ -1985,7 +2055,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable Assignments getPendingAssignments(IgniteImpl node, int partId) {
         CompletableFuture<Entry> pendingFut = node.metaStorageManager()
-                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partId)));
+                .get(pendingPartitionAssignmentsKey(partitionGroupId(partId)));
 
         assertThat(pendingFut, willCompleteSuccessfully());
 
@@ -1996,7 +2066,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable Assignments getStableAssignments(IgniteImpl node, int partId) {
         CompletableFuture<Entry> stableFut = node.metaStorageManager()
-                .get(stablePartAssignmentsKey(new TablePartitionId(tableId, partId)));
+                .get(stablePartitionAssignmentsKey(partitionGroupId(partId)));
 
         assertThat(stableFut, willCompleteSuccessfully());
 
@@ -2025,5 +2095,48 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int nodes() default INITIAL_NODES;
 
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
+    }
+
+
+    /**
+     * Returns stable partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Stable partition assignments key.
+     */
+    public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
+        if (enabledColocation()) {
+            return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
+        } else {
+            return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
+        }
+    }
+
+    /**
+     * Returns pending partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Pending partition assignments key.
+     */
+    public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
+        if (enabledColocation()) {
+            return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
+        } else {
+            return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
+        }
+    }
+
+    /**
+     * Returns planned partition assignments key.
+     *
+     * @param partitionGroupId Partition group identifier.
+     * @return Planned partition assignments key.
+     */
+    public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
+        if (enabledColocation()) {
+            return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
+        } else {
+            return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
+        }
     }
 }

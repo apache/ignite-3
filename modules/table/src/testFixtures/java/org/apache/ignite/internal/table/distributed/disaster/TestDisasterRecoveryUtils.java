@@ -17,10 +17,16 @@
 
 package org.apache.ignite.internal.table.distributed.disaster;
 
+import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Helper util class for disaster recovery tests.
@@ -43,4 +49,59 @@ public class TestDisasterRecoveryUtils {
                     .resetTablePartitions(zoneName, schemaName, tableName, partitionIds, manualUpdate, triggerRevision);
         }
     }
+
+    public static Set<String> getRealAssignments(
+            DisasterRecoveryManager disasterRecoveryManager,
+            String zoneName,
+            int zoneId,
+            int tableId,
+            int partitionId
+    ) {
+        return enabledColocation()
+                ? getZoneRealAssignments(disasterRecoveryManager, zoneName, new ZonePartitionId(zoneId, partitionId))
+                : getTableRealAssignments(disasterRecoveryManager, zoneName, new TablePartitionId(tableId, partitionId));
+    }
+
+
+    /**
+     * Return assignments based on states of partitions in the cluster. It is possible that returned value contains nodes from stable and
+     * pending, for example, when rebalance is in progress.
+     */
+    private static Set<String> getTableRealAssignments(
+            DisasterRecoveryManager disasterRecoveryManager,
+            String zoneName,
+            TablePartitionId tablePartitionId
+    ) {
+        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> partitionStatesFut = disasterRecoveryManager
+                .localTablePartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        assertThat(partitionStatesFut, willCompleteSuccessfully());
+
+        LocalTablePartitionStateByNode partitionStates = partitionStatesFut.join().get(tablePartitionId);
+
+        if (partitionStates == null) {
+            return emptySet();
+        }
+
+        return partitionStates.keySet();
+    }
+
+    private static Set<String> getZoneRealAssignments(
+            DisasterRecoveryManager disasterRecoveryManager,
+            String zoneName,
+            ZonePartitionId zonePartitionId
+    ) {
+        CompletableFuture<Map<ZonePartitionId, LocalPartitionStateByNode>> partitionStatesFut = disasterRecoveryManager
+                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        assertThat(partitionStatesFut, willCompleteSuccessfully());
+
+        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(zonePartitionId);
+
+        if (partitionStates == null) {
+            return emptySet();
+        }
+
+        return partitionStates.keySet();
+    }
+
+
 }
