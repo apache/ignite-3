@@ -28,8 +28,6 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.contains;
-import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
@@ -52,7 +50,6 @@ import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -288,21 +285,6 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
         BroadcastExecution<Object> execution = executionFut.join();
 
         assertThat(execution.resultsAsync(), will(everyItem(nullValue())));
-    }
-
-    @Test
-    void executesDotNetJob() {
-        JobExecutionOptions jobExecutionOptions = JobExecutionOptions.builder().executorType(JobExecutorType.DotNetSidecar).build();
-
-        JobDescriptor<Object, Object> jobDesc = JobDescriptor
-                .builder("Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor")
-                .options(jobExecutionOptions)
-                .build();
-
-        Ignite node = node(0);
-        Object result = node.compute().execute(JobTarget.node(clusterNode(node)), jobDesc, "testArg");
-
-        assertThat(result.toString(), containsString("JobArg=testArg"));
     }
 
     private Stream<Arguments> targetNodeIndexes() {

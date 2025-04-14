@@ -25,6 +25,12 @@ internal enum ServerOp
     /** None */
     None = 0,
 
+    Ping = 1,
+
     /** Execute platform compute job. */
-    PlatformComputeJobExec = 1
+    ComputeJobExec = 2
+
+    ComputeJobCancel = 3,
+
+    DeploymentUnitUndeploy = 4
 }
