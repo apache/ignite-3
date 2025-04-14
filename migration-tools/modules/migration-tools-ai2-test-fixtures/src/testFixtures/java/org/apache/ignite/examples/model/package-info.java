@@ -15,23 +15,9 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+/**
+ * <!-- Package description. -->
+ * These classes were copied from Apache Ignite 2 examples to be used as examples in the tests.
+ */
 
-description = 'migration-tools-commons'
-
-dependencies {
-    implementation project(path: ":migration-tools-ignite3-repack", configuration: "shadow")
-    implementation libs.ignite2.core
-    implementation libs.ignite2.spring
-    implementation libs.commons.lang3
-    implementation libs.commons.collections4
-    implementation libs.slf4j.api
-
-    testImplementation project(":migration-tools-commons-tests")
-    testImplementation testFixtures(project(":migration-tools-ai2-test-fixtures"))
-    testImplementation libs.assertj.core
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
-}
+package org.apache.ignite.examples.model;

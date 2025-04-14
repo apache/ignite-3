@@ -15,23 +15,18 @@
  * limitations under the License.
  */
 
-apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
+package org.apache.ignite.examples.model;
 
-description = 'migration-tools-commons'
+/**
+ * Organization type enum.
+ */
+public enum OrganizationType {
+    /** Non-profit organization. */
+    NON_PROFIT,
 
-dependencies {
-    implementation project(path: ":migration-tools-ignite3-repack", configuration: "shadow")
-    implementation libs.ignite2.core
-    implementation libs.ignite2.spring
-    implementation libs.commons.lang3
-    implementation libs.commons.collections4
-    implementation libs.slf4j.api
+    /** Private organization. */
+    PRIVATE,
 
-    testImplementation project(":migration-tools-commons-tests")
-    testImplementation testFixtures(project(":migration-tools-ai2-test-fixtures"))
-    testImplementation libs.assertj.core
-    testImplementation libs.junit5.api
-    testImplementation libs.junit5.params
+    /** Government organization. */
+    GOVERNMENT
 }

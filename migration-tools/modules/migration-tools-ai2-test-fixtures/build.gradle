@@ -18,25 +18,12 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
-description = 'migration-tools-e2e-implementations'
+description = 'migration-tools-ai2-test-fixtures'
 
 dependencies {
-    annotationProcessor libs.auto.service
-
-    compileOnly project(":ignite-api")
-    compileOnly libs.ignite2.core
-    compileOnly libs.ignite2.spring
-    compileOnly libs.spotbugs.annotations
-
-    implementation files("resources/model.jar")
-    implementation project(":migration-tools-e2e-core")
-    implementation(testFixtures(project(":migration-tools-ai2-test-fixtures"))) {
-        transitive = false
-    }
-    implementation libs.auto.service.annotations
-    implementation libs.commons.lang3
-    implementation libs.assertj.core
-    implementation libs.log4j.api
-    implementation libs.junit5.api
+    testFixturesImplementation libs.ignite2.core
 }
+
+// TODO: Check if need to add a shaddow jar so that we do not ship the whole ignite 2 core.

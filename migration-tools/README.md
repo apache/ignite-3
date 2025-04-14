@@ -141,17 +141,6 @@ The project can be built using maven: `./gradlew build`.
 
 Make sure you meet the following dependencies.
 
-#### Apache Ignite 2 Examples
-
-This project requires access to the Apache Ignite 2 Examples package.
-Unfortunately, these packages are not pre-built.
-Install them in your local maven repo:
-
-1. Clone the [Apache Ignite 2 repository](https://github.com/apache/ignite).
-2. Checkout the 2.15 branch: `git fetch origin ignite-2.15 && git checkout ignite-2.15`.
-3. Navigate to the examples folder: `cd examples`.
-4. Install the `mvn install -Dmaven.javadoc.skip=true -DskipTests` artifact.
-
 #### Apache Ignite 3 Docker Image
 
 This image is necessary for running tests.

@@ -35,7 +35,7 @@ dependencies {
     testImplementation project(":migration-tools-commons-tests")
     testImplementation project(":migration-tools-e2e-core")
     testImplementation project(":migration-tools-e2e-implementations")
-    testImplementation libs.ignite2.examples
+    testImplementation testFixtures(project(":migration-tools-ai2-test-fixtures"))
     testImplementation libs.mockito.core
     testImplementation libs.assertj.core
     testImplementation libs.junit5.api
