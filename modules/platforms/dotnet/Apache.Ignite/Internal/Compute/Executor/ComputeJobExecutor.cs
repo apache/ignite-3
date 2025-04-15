@@ -39,12 +39,6 @@ internal static class ComputeJobExecutor
     /// </summary>
     internal static readonly string? IgniteComputeExecutorId = Environment.GetEnvironmentVariable("IGNITE_COMPUTE_EXECUTOR_ID");
 
-    private static readonly MethodInfo ExecMethod =
-        typeof(ComputeJobExecutor).GetMethod(nameof(ExecuteGenericJobAsync), BindingFlags.NonPublic | BindingFlags.Static)!;
-
-    // TODO: Isolation.
-    private static readonly ConcurrentDictionary<string, Func<object?, ValueTask<object?>>> CachedJobs = new();
-
     /// <summary>
     /// Executes compute job.
     /// </summary>
@@ -86,8 +80,6 @@ internal static class ComputeJobExecutor
 
         static JobExecuteRequest Read(MsgPackReader r)
         {
-            // TODO: Get marshaller from the job class.
-            // TODO: Load libraries into AssemblyLoadContext.
             string jobClassName = r.ReadString();
 
             int cnt = r.ReadInt32();
@@ -109,45 +101,14 @@ internal static class ComputeJobExecutor
         }
     }
 
-    private static async ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
+    private static ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
     {
-        var job = CachedJobs.GetOrAdd(req.JobClassName, GetJobDelegate);
-
-        return await job(req.Arg).ConfigureAwait(false);
-    }
-
-    private static Func<object?, ValueTask<object?>> GetJobDelegate(string jobClassName)
-    {
-        // TODO: AssemblyLoadContext and assembly resolution with additional paths.
-        var type = Type.GetType(jobClassName);
-        if (type == null)
+        if (req.JobClassName == "TEST_ONLY_DOTNET_JOB:ECHO")
         {
-            throw new InvalidOperationException($"Failed to load job class: {jobClassName}");
+            return ValueTask.FromResult(req.Arg)!;
         }
 
-        var jobInterface = type
-            .GetInterfaces()
-            .FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
-
-        if (jobInterface == null)
-        {
-            throw new InvalidOperationException($"Failed to find job interface: {jobClassName}");
-        }
-
-        var job = Activator.CreateInstance(type)!;
-
-        var method = ExecMethod.MakeGenericMethod(jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
-
-        // TODO: Compiled delegates.
-        return arg => (ValueTask<object?>)method.Invoke(null, [job, arg])!;
-    }
-
-    private static async ValueTask<object?> ExecuteGenericJobAsync<TArg, TResult>(IComputeJob<TArg, TResult> job, object? arg)
-    {
-        // TODO: Use marshallers.
-        TResult res = await job.ExecuteAsync(null!, (TArg)arg!).ConfigureAwait(false);
-
-        return res;
+        throw new NotImplementedException("Platform jobs are not supported yet.");
     }
 
     private record JobExecuteRequest(IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
