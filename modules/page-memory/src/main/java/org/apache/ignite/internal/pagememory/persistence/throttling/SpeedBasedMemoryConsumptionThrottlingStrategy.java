@@ -514,6 +514,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         CheckpointProgress progress = cpProgress.get();
         assert progress != null;
 
+        if (progress.currentCheckpointPagesCount() == 0) {
+            return;
+        }
+
         long pagesWriteTimeMillis = progress.getPagesWriteTimeMillis();
         long fsyncTimeMillis = progress.getFsyncTimeMillis();
 
