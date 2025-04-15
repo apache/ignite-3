@@ -26,7 +26,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -83,7 +83,7 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
                 txStateAccess,
                 catalogService,
                 mock(FailureProcessor.class),
-                mock(ExecutorService.class)
+                mock(Executor.class)
         );
 
         snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess1);

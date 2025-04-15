@@ -247,11 +247,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      */
     @Test
     void testTableDropInTheMiddleOfRebalanceOnSendingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
-        // Disable automatic low watermark updates.
-        CompletableFuture<Void> cfgChangeFuture = gcConfiguration.lowWatermark()
-                .change(lowWatermarkChange -> lowWatermarkChange.changeUpdateIntervalMillis(Long.MAX_VALUE));
-
-        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+        disableLowWatermarkUpdates();
 
         startCluster(1);
 
@@ -313,11 +309,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      */
     @Test
     void testTableDropInTheMiddleOfRebalanceOnReceivingSide(@InjectExecutorService ExecutorService executorService) throws Exception {
-        // Disable automatic low watermark updates.
-        CompletableFuture<Void> cfgChangeFuture = gcConfiguration.lowWatermark()
-                .change(lowWatermarkChange -> lowWatermarkChange.changeUpdateIntervalMillis(Long.MAX_VALUE));
-
-        assertThat(cfgChangeFuture, willCompleteSuccessfully());
+        disableLowWatermarkUpdates();
 
         startCluster(1);
 
@@ -350,9 +342,9 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         MvTableStorage receivingTableStorage = tableStorage(receiverNode, tableId);
 
         // Future that gets completed as soon as "receivingTableStorage.startRebalancePartition" has been called.
-        var starRebalanceInvokedFuture = new CompletableFuture<Void>();
+        var startRebalanceInvokedFuture = new CompletableFuture<Void>();
 
-        // Future that is actually block the execution of "receivingTableStorage.startRebalancePartition".
+        // Future that blocks the execution of "receivingTableStorage.startRebalancePartition".
         var startRebalanceBlockingFuture = new CompletableFuture<Void>();
 
         doAnswer(invocationOnMock -> {
@@ -364,7 +356,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
                 }
             });
 
-            starRebalanceInvokedFuture.complete(null);
+            startRebalanceInvokedFuture.complete(null);
 
             return result;
         }).when(receivingTableStorage).startRebalancePartition(anyInt());
@@ -377,7 +369,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         // completed.
         startBlockSnapshotResponse(receiverNode, partitionId);
 
-        CompletableFuture<Void> runRaceFuture = starRebalanceInvokedFuture
+        CompletableFuture<Void> runRaceFuture = startRebalanceInvokedFuture
                 .thenRunAsync(() -> {
                     receiverNode.lowWatermark.updateLowWatermark(receiverNode.hybridClock.now());
 
@@ -463,5 +455,12 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
         var raftNodeId = new RaftNodeId(partitionId, new Peer(node.name));
 
         ((JraftServerImpl) node.raftManager.server()).stopBlockMessages(raftNodeId);
+    }
+
+    private void disableLowWatermarkUpdates() {
+        CompletableFuture<Void> cfgChangeFuture = gcConfiguration.lowWatermark()
+                .change(lowWatermarkChange -> lowWatermarkChange.changeUpdateIntervalMillis(Long.MAX_VALUE));
+
+        assertThat(cfgChangeFuture, willCompleteSuccessfully());
     }
 }

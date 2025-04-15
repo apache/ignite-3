@@ -22,7 +22,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -63,7 +63,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
 
     private final FailureProcessor failureProcessor;
 
-    private final ExecutorService partitionOperationsExecutor;
+    private final Executor partitionOperationsExecutor;
 
     /** Map from zone IDs to their resource holders. */
     private final Map<Integer, ZoneResources> resourcesByZoneId = new ConcurrentHashMap<>();
@@ -77,7 +77,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
             TopologyService topologyService,
             CatalogService catalogService,
             FailureProcessor failureProcessor,
-            ExecutorService partitionOperationsExecutor
+            Executor partitionOperationsExecutor
     ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
         this.txManager = txManager;

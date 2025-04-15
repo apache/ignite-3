@@ -281,7 +281,7 @@ public class PartitionReplicaLifecycleManager extends
             FailureProcessor failureProcessor,
             ExecutorService ioExecutor,
             ScheduledExecutorService rebalanceScheduler,
-            ExecutorService partitionOperationsExecutor,
+            Executor partitionOperationsExecutor,
             ClockService clockService,
             PlacementDriver placementDriver,
             SchemaSyncService schemaSyncService,
