@@ -23,7 +23,10 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
+import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
+import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
+import static org.apache.ignite.internal.table.TableTestUtils.dropSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -117,7 +120,6 @@ import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModule;
 import org.apache.ignite.internal.storage.DataStorageModules;
@@ -254,7 +256,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, INDEX_NAME);
 
-        int tableId = catalogManager.activeCatalog(clock.nowLong()).table(SqlCommon.DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
+        int tableId = catalogManager.activeCatalog(clock.nowLong()).table(DEFAULT_SCHEMA_NAME, TABLE_NAME).id();
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
         verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
@@ -272,6 +274,29 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).createMvPartition(anyInt());
         verify(txStateStorage, timeout(WAIT_TIMEOUT).times(PARTITIONS)).getOrCreatePartitionStorage(anyInt());
+    }
+
+    @Test
+    public void tablesAreScheduledForRemovalOnRecovery() throws Exception {
+        startComponents();
+
+        createSimpleTable(catalogManager, TABLE_NAME);
+
+        dropSimpleTable(catalogManager, TABLE_NAME);
+
+        clearInvocations(mvTableStorage);
+        clearInvocations(txStateStorage);
+
+        stopComponents();
+        startComponents();
+
+        // Table is available after restart.
+        verify(mvTableStorage, timeout(WAIT_TIMEOUT).atLeastOnce()).createMvPartition(anyInt());
+        verify(txStateStorage, timeout(WAIT_TIMEOUT).atLeastOnce()).getOrCreatePartitionStorage(anyInt());
+
+        lowWatermark.updateLowWatermark(clock.now());
+
+        verify(mvTableStorage, timeout(WAIT_TIMEOUT)).destroy();
     }
 
     /**
@@ -532,7 +557,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     private void createTable(String tableName) {
         TableTestUtils.createTable(
                 catalogManager,
-                SqlCommon.DEFAULT_SCHEMA_NAME,
+                DEFAULT_SCHEMA_NAME,
                 ZONE_NAME,
                 tableName,
                 List.of(
@@ -548,11 +573,11 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     }
 
     private void dropTable(String tableName) {
-        TableTestUtils.dropTable(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName);
+        TableTestUtils.dropTable(catalogManager, DEFAULT_SCHEMA_NAME, tableName);
     }
 
     private void createIndex(String tableName, String indexName) {
-        createHashIndex(catalogManager, SqlCommon.DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
+        createHashIndex(catalogManager, DEFAULT_SCHEMA_NAME, tableName, indexName, List.of(INDEXED_COLUMN_NAME), false);
     }
 
     private static PersistentPageMemoryDataStorageModule createDataStorageModule() {
