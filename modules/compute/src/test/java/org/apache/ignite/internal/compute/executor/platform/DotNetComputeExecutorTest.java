@@ -26,6 +26,7 @@ import java.io.File;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
+// TODO: Move those tests to .NET to avoid Java -> .NET dependency?
 public class DotNetComputeExecutorTest {
     @Test
     public void dotNetBinaryPathExists() {
