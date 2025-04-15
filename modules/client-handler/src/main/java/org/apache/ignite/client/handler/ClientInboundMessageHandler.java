@@ -1241,10 +1241,11 @@ public class ClientInboundMessageHandler
 
     private void processServerOpResponse(long requestId, ClientMessageUnpacker in) {
         try (in) {
-            var fut = serverToClientRequests.remove(requestId);
+            CompletableFuture<ClientMessageUnpacker> fut = serverToClientRequests.remove(requestId);
 
             if (fut == null) {
-                // TODO: Log warning?
+                LOG.warn("Received SERVER_OP_RESPONSE with unknown id [id=" + requestId
+                        + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress() + ']');
                 return;
             }
 
@@ -1258,9 +1259,10 @@ public class ClientInboundMessageHandler
                 // TODO: Deserialize.
                 fut.completeExceptionally(new IllegalStateException("TODO: Client returned error"));
             }
-
         } catch (Throwable t) {
-            LOG.warn("Unexpected error processing server response: " + t.getMessage(), t);
+            LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id=" + requestId
+                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
+                    + ", message=" + t.getMessage() + ']', t);
         }
     }
 }
