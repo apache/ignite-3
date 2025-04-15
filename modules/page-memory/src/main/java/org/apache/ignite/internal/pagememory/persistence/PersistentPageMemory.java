@@ -2160,7 +2160,6 @@ public class PersistentPageMemory implements PageMemory {
 
         checkpointUrgency.set(NOT_REQUIRED);
 
-        // Should it really be here?
         PagesWriteThrottlePolicy writeThrottle0 = writeThrottle;
         if (writeThrottle0 != null) {
             writeThrottle0.onBeginCheckpoint();
