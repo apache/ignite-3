@@ -18,6 +18,10 @@
 package org.apache.ignite.internal.compute.executor.platform;
 
 import java.io.IOException;
+import java.net.URISyntaxException;
+import java.net.URL;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -27,6 +31,8 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 
 public class DotNetComputeExecutor {
+    static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
+
     private final PlatformComputeTransport transport;
 
     // TODO: Secure random.
@@ -98,6 +104,36 @@ public class DotNetComputeExecutor {
             return processBuilder.start();
         } catch (IOException e) {
             // TODO
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static String resolveDotNetBinaryPath() {
+        return resolveDotNetBinaryDir().resolve("Apache.Ignite.Internal.ComputeExecutor.dll").normalize().toString();
+    }
+
+    private static Path resolveDotNetBinaryDir() {
+        Path basePath = getCurrentClassPath();
+
+        if (basePath.endsWith(Paths.get("modules", "compute", "build", "classes", "java", "main"))) {
+            // Dev mode, class file.
+            return basePath.resolve(Path.of("..", "..", "..", "..", "..", "platforms", "dotnet",
+                    "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
+        } else if (basePath.endsWith("SNAPSHOT.jar")) {
+            // Dev mode, jar file.
+            return basePath.getParent().resolve(Path.of("..", "..", "..", "..", "platforms", "dotnet",
+                    "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
+        } else {
+            // Release mode - dll is next to jars.
+            return basePath.getParent();
+        }
+    }
+
+    private static Path getCurrentClassPath() {
+        URL url = DotNetComputeExecutor.class.getProtectionDomain().getCodeSource().getLocation();
+        try {
+            return Paths.get(url.toURI());
+        } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
     }
