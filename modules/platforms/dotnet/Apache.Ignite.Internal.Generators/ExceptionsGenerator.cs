@@ -148,7 +148,7 @@ namespace Apache.Ignite.Internal.Generators
 
         private static string GetXmlDoc(string javaClassName, string javaSource)
         {
-            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/\s+public(?:\s\w+)? class", RegexOptions.Singleline);
+            var javaDocMatch = Regex.Match(javaSource, @"/\*\*\s*\*?\s*(.*?)\s*\*/(\s+@(?:\s\w+))?\s+public(?:\s\w+)? class", RegexOptions.Singleline);
 
             if (!javaDocMatch.Success)
             {
