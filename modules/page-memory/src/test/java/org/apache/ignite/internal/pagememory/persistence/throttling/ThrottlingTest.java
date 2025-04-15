@@ -18,8 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 import static java.lang.Thread.State.TIMED_WAITING;
-import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.MAX_DIRTY_PAGES;
-import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.MIN_RATIO_NO_THROTTLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;

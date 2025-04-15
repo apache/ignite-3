@@ -204,7 +204,8 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
     private ThrottlingType getThrottlingType() {
         return getSystemConfig(THROTTLING_TYPE_SYSTEM_PROPERTY,
                 ThrottlingType.SPEED_BASED,
-                value -> ThrottlingType.valueOf(value.toUpperCase())
+                value -> ThrottlingType.valueOf(value.toUpperCase()),
+                "Valid values are (case-insensitive): " + Arrays.toString(ThrottlingType.values()) + "."
         );
     }
 
@@ -220,14 +221,15 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                     }
 
                     return logThresholdMillis;
-                }
+                },
+                "Positive integer is expected."
         ));
     }
 
     private double getMinDirtyPages() {
         return getSystemConfig(
                 THROTTLING_MIN_DIRTY_PAGES_SYSTEM_PROPERTY,
-                PagesWriteSpeedBasedThrottle.MIN_RATIO_NO_THROTTLE,
+                PagesWriteSpeedBasedThrottle.DEFAULT_MIN_RATIO_NO_THROTTLE,
                 value -> {
                     double maxDirtyPages = Double.parseDouble(value);
 
@@ -236,14 +238,15 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                     }
 
                     return maxDirtyPages;
-                }
+                },
+                "Floating point value in a range (0.01, 0.75] is expected."
         );
     }
 
     private double getMaxDirtyPages() {
         return getSystemConfig(
                 THROTTLING_MAX_DIRTY_PAGES_SYSTEM_PROPERTY,
-                PagesWriteSpeedBasedThrottle.MAX_DIRTY_PAGES,
+                PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES,
                 value -> {
                     double maxDirtyPages = Double.parseDouble(value);
 
@@ -252,11 +255,12 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
                     }
 
                     return maxDirtyPages;
-                }
+                },
+                "Floating point value in a range (0.5, 0.99999] is expected."
         );
     }
 
-    private <T> T getSystemConfig(String name, T defaultValue, Function<String, T> parseFunction) {
+    private <T> T getSystemConfig(String name, T defaultValue, Function<String, T> parseFunction, String extraErrorMessage) {
         SystemPropertyView property = systemLocalConfig == null
                 ? null
                 : systemLocalConfig.value().properties().get(name);
@@ -269,7 +273,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
             }
         } catch (Exception e) {
             LOG.warn(
-                    "Invalid throttling configuration {}={}, using default value {}",
+                    "Invalid throttling configuration {}={}, using default value {}. " + extraErrorMessage,
                     name,
                     property.propertyValue(),
                     defaultValue
