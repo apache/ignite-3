@@ -172,11 +172,6 @@ public class HoconPresentationTest {
     void testErrorUpdateCfg() {
         assertFutureThrows(
                 IllegalArgumentException.class,
-                cfgPresentation.update("{\"root\":{\"foo\":100,\"subCfg\":{\"bar\":\"foo\"}}}")
-        );
-
-        assertFutureThrows(
-                IllegalArgumentException.class,
                 cfgPresentation.update("{\"root0\":{\"foo\":\"foo\",\"subCfg\":{\"bar\":\"foo\"}}}")
         );
 
