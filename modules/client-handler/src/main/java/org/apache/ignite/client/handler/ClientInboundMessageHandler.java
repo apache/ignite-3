@@ -649,6 +649,32 @@ public class ClientInboundMessageHandler
         }
     }
 
+    private Throwable readErrorFromClient(ClientMessageUnpacker r, long requestId) {
+        UUID traceId = r.tryUnpackNil() ? null : r.unpackUuid();
+        Integer code = r.tryUnpackNil() ? null : r.unpackInt();
+        String className = r.unpackString();
+        String message = r.unpackStringNullable();
+        String stackTrace = r.unpackStringNullable();
+
+        int extCount = r.unpackInt();
+        for (int i = 0; i < extCount; i++) {
+            String extName = r.unpackString();
+
+            LOG.warn("Ignoring unknown error extension from client: " + extName);
+            LOG.warn("Ignoring unknown error extension from client [id=" + requestId
+                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
+                    + ", key=" + extName + ']');
+
+            r.skipValues(1);
+        }
+
+        if (code != null) {
+            return new TraceableException(code, traceId, className, message, stackTrace);
+        } else {
+            return new IgniteException(className, message);
+        }
+    }
+
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
         // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
