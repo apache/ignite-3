@@ -253,10 +253,11 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
             // When: Disable throttling
             simulateCheckpointBufferInSafeZoneSituation();
-            stopReportingCheckpointProgress(cpProgress);
 
             // And: Finish the checkpoint.
             plc.onFinishCheckpoint();
+
+            stopReportingCheckpointProgress(cpProgress);
 
             // Then: All load threads should be unparked.
             for (Thread t : loadThreads) {
