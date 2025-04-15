@@ -2985,6 +2985,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return allOf(startTableFutures.toArray(CompletableFuture[]::new))
+                // Only now do we complete the future allowing replica starts being processed. This is why on node recovery
+                // PartitionReplicaLifecycleManager does not acquire write locks (as mutual exclusion of replica starts and table additions
+                // is guaranteed bu completing the future here, in TableManager).
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
