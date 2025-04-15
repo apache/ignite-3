@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.metastorage.dsl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
@@ -27,25 +26,11 @@ import org.junit.jupiter.api.Test;
  * Tests that persisted enum ordinals have not been accidentally changed by a developer.
  */
 class OperationTypeTest {
+    /** Checks that the transferable ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
-    void testOrdinal() {
-        assertEquals(0, OperationType.NO_OP.ordinal());
-
-        assertEquals(1, OperationType.PUT.ordinal());
-
-        assertEquals(2, OperationType.REMOVE.ordinal());
-    }
-
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
-    @Test
-    void testFromOrdinal() {
-        assertEquals(OperationType.NO_OP, OperationType.fromOrdinal(0));
-
-        assertEquals(OperationType.PUT, OperationType.fromOrdinal(1));
-
-        assertEquals(OperationType.REMOVE, OperationType.fromOrdinal(2));
-
-        assertThrows(IllegalArgumentException.class, () -> OperationType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> OperationType.fromOrdinal(3));
+    void testTransferableId() {
+        assertEquals(0, OperationType.NO_OP.transferableId());
+        assertEquals(1, OperationType.PUT.transferableId());
+        assertEquals(2, OperationType.REMOVE.transferableId());
     }
 }
