@@ -17,9 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
-import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
-
 import static java.lang.Double.isNaN;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
