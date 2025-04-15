@@ -343,12 +343,14 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             String msg = String.format("Throttling is applied to page modifications "
                             + "[fractionOfParkTime=%.2f, markDirty=%d pages/sec, checkpointWrite=%d pages/sec, "
                             + "estIdealMarkDirty=%d pages/sec, curDirty=%.2f, maxDirty=%.2f, avgParkTime=%d ns, "
-                            + "pages: (total=%d, evicted=%d, written=%d, synced=%d, cpBufUsed=%d, cpBufTotal=%d)]",
+                            + "pages: (total=%d, evicted=%d, written=%d, synced=%d, cpBufUsed=%d, cpBufTotal=%d, "
+                            + "writeVsFsyncCoefficient=%.2f)]",
                     weight, getMarkDirtySpeed(), getCpWriteSpeed(),
                     getLastEstimatedSpeedForMarkAll(), getCurrDirtyRatio(), getTargetDirtyRatio(), throttleParkTime(),
                     cleanPagesProtector.cpTotalPages(), cleanPagesProtector.cpEvictedPages(), cpWrittenPages(),
-                    cleanPagesProtector.cpSyncedPages(),
-                    pageMemory.usedCheckpointBufferPages(), pageMemory.maxCheckpointBufferPages());
+                    cleanPagesProtector.cpSyncedPages(), pageMemory.usedCheckpointBufferPages(), pageMemory.maxCheckpointBufferPages(),
+                    cleanPagesProtector.getWriteVsFsyncCoefficient()
+            );
 
             LOG.info(msg);
         }

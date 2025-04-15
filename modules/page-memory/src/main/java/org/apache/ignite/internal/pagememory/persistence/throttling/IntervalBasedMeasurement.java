@@ -21,6 +21,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -94,7 +95,7 @@ class IntervalBasedMeasurement {
      * @return Speed in pages per second based on current data.
      */
     long getSpeedOpsPerSec(long curNanoTime) {
-        return calcSpeed(interval(curNanoTime), curNanoTime);
+        return calcSpeed(interval(true, curNanoTime), curNanoTime);
     }
 
     /**
@@ -105,7 +106,9 @@ class IntervalBasedMeasurement {
     long getSpeedOpsPerSecReadOnly() {
         MeasurementInterval interval = measurementIntervalAtomicRef.get();
 
-        long curNanoTime = System.nanoTime();
+        long curNanoTime = interval == null || interval.endNanoTime == 0
+                ? System.nanoTime()
+                : interval.endNanoTime;
 
         return calcSpeed(interval, curNanoTime);
     }
@@ -163,12 +166,17 @@ class IntervalBasedMeasurement {
      * @param curNanoTime Current nano time.
      * @return Interval to use.
      */
-    private MeasurementInterval interval(long curNanoTime) {
+    @Contract("true, _ -> !null")
+    private MeasurementInterval interval(boolean canInit, long curNanoTime) {
         MeasurementInterval interval;
 
         do {
             interval = measurementIntervalAtomicRef.get();
             if (interval == null) {
+                if (!canInit) {
+                    return null;
+                }
+
                 MeasurementInterval newInterval = new MeasurementInterval(curNanoTime);
 
                 if (measurementIntervalAtomicRef.compareAndSet(null, newInterval)) {
@@ -206,13 +214,33 @@ class IntervalBasedMeasurement {
     }
 
     /**
-     * Set exact value for counter in current measurement interval, useful only for manually managed measurements.
+     * Set exact value for counter in current measurement interval, useful only for manually managed measurements. Does nothing if
+     * checkpoint is not in progress according to current measurements.
+     *
+     * @param val New value to set.
+     * @param curNanoTime Current nano time.
+     * @see #measurementIntervalAtomicRef
+     */
+    void setCounter(long val, long curNanoTime) {
+        MeasurementInterval interval = interval(false, curNanoTime);
+
+        if (interval == null) {
+            return;
+        }
+
+        interval.cntr.set(val);
+    }
+
+    /**
+     * Set exact value for counter in current measurement interval, useful only for manually managed measurements. Unlike
+     * {@link #setCounter(long, long)}, works even if checkpoint is not in progress. Could be used to trigger the measurement of checkpoint
+     * that is currently starting.
      *
      * @param val New value to set.
      * @param curNanoTime Current nano time.
      */
-    void setCounter(long val, long curNanoTime) {
-        interval(curNanoTime).cntr.set(val);
+    void forceCounter(long val, long curNanoTime) {
+        interval(true, curNanoTime).cntr.set(val);
     }
 
     /**
@@ -245,7 +273,7 @@ class IntervalBasedMeasurement {
     public long getAverage() {
         long time = System.nanoTime();
 
-        return avgMeasurementWithHistorical(interval(time), time);
+        return avgMeasurementWithHistorical(interval(false, time), time);
     }
 
     /**
@@ -279,7 +307,7 @@ class IntervalBasedMeasurement {
      * @param val Value measured now, to be used for average calculation.
      */
     void addMeasurementForAverageCalculation(long val) {
-        MeasurementInterval interval = interval(System.nanoTime());
+        MeasurementInterval interval = interval(true, System.nanoTime());
 
         interval.cntr.incrementAndGet();
         interval.sum.addAndGet(val);

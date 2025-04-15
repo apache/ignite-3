@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
@@ -65,6 +66,9 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        AtomicInteger evictedPagesCounter = new AtomicInteger();
+        when(progress.evictedPagesCounter()).thenReturn(evictedPagesCounter);
+
         when(pageMemory2g.totalPages()).thenReturn((2L * Constants.GiB) / 4096);
     }
 
