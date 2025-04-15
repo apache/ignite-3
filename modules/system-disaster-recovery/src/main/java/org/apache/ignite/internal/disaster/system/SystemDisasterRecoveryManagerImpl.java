@@ -175,8 +175,11 @@ public class SystemDisasterRecoveryManagerImpl implements SystemDisasterRecovery
     }
 
     private void handleBecomeMetastorageLeaderMessage(BecomeMetastorageLeaderMessage message, ClusterNode sender, long correlationId) {
-        metastorageGroupMaintenance.initiateForcefulVotersChange(message.termBeforeChange(), message.targetVotingSet())
-                .thenRun(() -> messagingService.respond(sender, successResponseMessage(), correlationId))
+        nullCompletedFuture()
+                .thenRun(() -> {
+                    metastorageGroupMaintenance.initiateForcefulVotersChange(message.termBeforeChange(), message.targetVotingSet());
+                    messagingService.respond(sender, successResponseMessage(), correlationId);
+                })
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         LOG.error("Error when handling a BecomeMetastorageLeaderMessage", ex);

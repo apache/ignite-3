@@ -60,7 +60,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Metastorage does not work anymore.
         assertThatMetastorageHasNoMajority(node0);
 
-        assertThat(node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames()), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames());
 
         assertThatMetastorageHasMajority(node0);
     }
@@ -118,7 +118,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames()), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames());
 
         Node node3 = startNode();
 
@@ -138,7 +138,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.initiateForcefulVotersChange(1, Set.of(node0.name())), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, Set.of(node0.name()));
 
         Node node3 = startNode();
 
@@ -167,7 +167,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames()), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames());
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
 
@@ -206,7 +206,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.initiateForcefulVotersChange(1, Set.of(node0.name())), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, Set.of(node0.name()));
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
         HybridTimestamp timeBeforeOp = clusterTime0.currentSafeTime();

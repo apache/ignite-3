@@ -90,8 +90,16 @@ public class MetastorageRepairImpl implements MetastorageRepair {
 
                     long bestIndex = indexes.get(bestNodeName).index();
                     return cmgManager.changeMetastorageNodes(newMgNodes, bestIndex + 1)
-                            .thenCompose(unused -> initiateForcefulConfigurationChange(bestNodeName, indexes.get(bestNodeName).term(), newMgNodes))
-                            .thenRun(() -> LOG.info("Appointed MG leader forcefully [leader={}].", bestNodeName));
+                            .thenCompose(unused -> initiateForcefulConfigurationChange(
+                                    bestNodeName,
+                                    indexes.get(bestNodeName).term(),
+                                    newMgNodes
+                            ))
+                            .thenRun(() -> LOG.info(
+                                    "Initiated forceful MG configuration change [leader={}, targetVotingSet={}].",
+                                    bestNodeName,
+                                    newMgNodes
+                            ));
                 });
     }
 
