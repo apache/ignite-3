@@ -179,6 +179,11 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 "Counter for fsynced checkpoint pages.",
                 cleanPagesProtector::cpSyncedPages
         ));
+        metricSource.addMetric(new DoubleGauge(
+                "WriteVsFsyncCoefficient",
+                "Ratio of the write pages duration to the total 'write+fsync' duration",
+                cleanPagesProtector::getWriteVsFsyncCoefficient
+        ));
     }
 
     @Override public void onMarkDirty(boolean isPageInCheckpoint) {

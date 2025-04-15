@@ -332,7 +332,7 @@ public class Checkpointer extends IgniteWorker {
 
             tracker.onCheckpointStart();
 
-            startCheckpointProgress();
+            CheckpointProgressImpl currentCheckpointProgress = startCheckpointProgress();
 
             try {
                 chp = checkpointWorkflow.markCheckpointBegin(
@@ -393,6 +393,11 @@ public class Checkpointer extends IgniteWorker {
                     );
                 }
             }
+
+            currentCheckpointProgress.setPagesWriteTimeMillis(
+                    tracker.pagesWriteDuration(MILLISECONDS) + tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS)
+            );
+            currentCheckpointProgress.setFsyncTimeMillis(tracker.fsyncDuration(MILLISECONDS));
 
             // Must mark successful checkpoint only if there are no exceptions or interrupts.
             checkpointWorkflow.markCheckpointEnd(chp);
@@ -672,7 +677,7 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Update the current checkpoint info from the scheduled one.
      */
-    void startCheckpointProgress() {
+    CheckpointProgressImpl startCheckpointProgress() {
         long checkpointStartTimestamp = coarseCurrentTimeMillis();
 
         // This can happen in an unlikely event of two checkpoints happening within a currentTimeMillis() granularity window.
@@ -697,6 +702,8 @@ public class Checkpointer extends IgniteWorker {
             curr.futureFor(LOCK_TAKEN).thenRun(() -> {
                 currentCheckpointProgressForThrottling = curr;
             });
+
+            return curr;
         }
     }
 

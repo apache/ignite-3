@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
+import static java.lang.Double.isNaN;
+
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -71,6 +73,11 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * store). This ratio is excluded from throttling.
      */
     private volatile double initDirtyRatioAtCpBegin = MIN_RATIO_NO_THROTTLE;
+
+    /**
+     * An estimated proportion of "write pages" time in the total "write + fsync" time.
+     */
+    private volatile double writeVsFsyncCoefficient = 5.0d / 6;
 
     /** Average checkpoint write speed. Only the current value is used. Pages/second. */
     private final ProgressSpeedCalculation cpWriteSpeed = new ProgressSpeedCalculation();
@@ -154,10 +161,9 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * @return Estimation of work done (in pages).
      */
     private int cpDonePagesEstimation(int cpWrittenPages) {
-        // TODO: IGNITE-16879 - this only works correctly if time-to-write a page is close to time-to-sync a page.
-        // In reality, this does not seem to hold, which produces wrong estimations. We could measure the real times
-        // in Checkpointer and make this estimation a lot more precise.
-        return (cpWrittenPages + cpSyncedPages()) / 2;
+        double coefficient = writeVsFsyncCoefficient;
+
+        return (int) (cpWrittenPages * coefficient + cpSyncedPages() * (1 - coefficient));
     }
 
     /**
@@ -418,6 +424,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         return evictedPagesCounter == null ? 0 : evictedPagesCounter.get();
     }
 
+    double getWriteVsFsyncCoefficient() {
+        return writeVsFsyncCoefficient;
+    }
+
     /**
      * Returns sleep time in nanoseconds.
      *
@@ -496,5 +506,31 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     void finish() {
         cpWriteSpeed.closeInterval();
         threadIds.clear();
+
+        updateWriteVsFsyncCoefficient();
+    }
+
+    private void updateWriteVsFsyncCoefficient() {
+        CheckpointProgress progress = cpProgress.get();
+        assert progress != null;
+
+        long pagesWriteTimeMillis = progress.getPagesWriteTimeMillis();
+        long fsyncTimeMillis = progress.getFsyncTimeMillis();
+
+        double coefficient = ((double) pagesWriteTimeMillis) / (pagesWriteTimeMillis + fsyncTimeMillis);
+        if (isNaN(coefficient)) {
+            return;
+        }
+
+        double newCoefficient = writeVsFsyncCoefficient * 0.85 + coefficient * 0.15;
+
+        // Put it within reasonable bounds just in case.
+        if (newCoefficient < 0.1) {
+            newCoefficient = 0.1;
+        } else if (newCoefficient > 0.9) {
+            newCoefficient = 0.9;
+        }
+
+        writeVsFsyncCoefficient = newCoefficient;
     }
 }
