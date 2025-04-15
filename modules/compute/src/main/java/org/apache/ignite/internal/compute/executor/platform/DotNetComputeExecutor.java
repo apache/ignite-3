@@ -22,8 +22,11 @@ import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.SecureRandom;
+import java.util.Base64;
 import java.util.List;
-import java.util.UUID;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -35,11 +38,12 @@ public class DotNetComputeExecutor {
 
     private static final int PROCESS_START_TIMEOUT_MS = 5000;
 
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private final PlatformComputeTransport transport;
 
-    // TODO: Secure random.
-    // TODO: Single-use secret to prevent replay attacks.
-    private final String computeExecutorId = UUID.randomUUID().toString();
+    /** Single-use secret to match the connection to the process. */
+    private String computeExecutorId;
 
     private Process process;
 
@@ -65,10 +69,12 @@ public class DotNetComputeExecutor {
             // TODO: Ticket for cancellation
         }
 
-        Process proc = ensureProcessStarted();
+        Entry<Process, String> procEntry = ensureProcessStarted();
+        Process proc = procEntry.getKey();
+        String executorId = procEntry.getValue();
 
         return transport
-                .getConnectionAsync(computeExecutorId)
+                .getConnectionAsync(executorId)
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .exceptionally(e -> {
                     if (proc.isAlive()) {
@@ -99,12 +105,14 @@ public class DotNetComputeExecutor {
         }
     }
 
-    private synchronized Process ensureProcessStarted() {
+    private synchronized Map.Entry<Process, String> ensureProcessStarted() {
         if (process == null || !process.isAlive()) {
+            // Generate a new id for every new process to prevent replay attacks.
+            computeExecutorId = generateSecureRandomId();
             process = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), computeExecutorId);
         }
 
-        return process;
+        return Map.entry(process, computeExecutorId);
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
@@ -150,5 +158,12 @@ public class DotNetComputeExecutor {
         } catch (URISyntaxException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private static String generateSecureRandomId() {
+        byte[] randomBytes = new byte[64];
+        SECURE_RANDOM.nextBytes(randomBytes);
+
+        return new String(Base64.getEncoder().encode(randomBytes));
     }
 }
