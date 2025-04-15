@@ -89,12 +89,7 @@ public class DotNetComputeExecutor {
 
     @SuppressWarnings("UseOfProcessBuilder")
     private static Process startDotNetProcess(String address, boolean ssl, String executorId) {
-        // TODO IGNITE-25133: Support all deployment scenarios.
-        // TODO: Resolve relative path to the executable.
-        String executorPath = "/home/pavel/w/ignite-3/modules/platforms/dotnet/"
-                + "Apache.Ignite.Internal.ComputeExecutor/bin/Debug/net8.0/Apache.Ignite.Internal.ComputeExecutor.dll";
-
-        ProcessBuilder processBuilder = new ProcessBuilder("dotnet", executorPath);
+        ProcessBuilder processBuilder = new ProcessBuilder("dotnet", DOTNET_BINARY_PATH);
 
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_ENABLED", Boolean.toString(ssl));
@@ -103,7 +98,6 @@ public class DotNetComputeExecutor {
         try {
             return processBuilder.start();
         } catch (IOException e) {
-            // TODO
             throw new RuntimeException(e);
         }
     }
