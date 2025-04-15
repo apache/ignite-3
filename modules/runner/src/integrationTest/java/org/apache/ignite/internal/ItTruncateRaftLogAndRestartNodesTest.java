@@ -108,11 +108,11 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         try {
             ReplicationGroupId replicationGroup = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
 
-            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0,replicationGroup);
+            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, replicationGroup);
 
             closableResources.add(testLogStorageFactoryNode0);
 
-            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1,replicationGroup);
+            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1, replicationGroup);
             closableResources.add(testLogStorageFactoryNode1);
 
             long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, replicationGroup).lastLogIndex();
