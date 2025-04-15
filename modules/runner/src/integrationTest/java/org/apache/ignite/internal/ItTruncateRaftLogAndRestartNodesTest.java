@@ -101,19 +101,22 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
         createZoneAndTablePerson(ZONE_NAME, TABLE_NAME, 3, 1);
 
-        cluster.transferLeadershipTo(2, cluster.solePartitionId());
+        cluster.transferLeadershipTo(2, cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
 
         var closableResources = new ArrayList<ManuallyCloseable>();
 
         try {
-            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0, cluster.solePartitionId());
+            ReplicationGroupId replicationGroup = cluster.solePartitionId(ZONE_NAME, TABLE_NAME);
+
+            TestLogStorageFactory testLogStorageFactoryNode0 = createTestLogStorageFactory(0,replicationGroup);
+
             closableResources.add(testLogStorageFactoryNode0);
 
-            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1, cluster.solePartitionId());
+            TestLogStorageFactory testLogStorageFactoryNode1 = createTestLogStorageFactory(1,replicationGroup);
             closableResources.add(testLogStorageFactoryNode1);
 
-            long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, cluster.solePartitionId()).lastLogIndex();
-            long lastLogIndexBeforeInsertNode1 = raftNodeImpl(1, cluster.solePartitionId()).lastLogIndex();
+            long lastLogIndexBeforeInsertNode0 = raftNodeImpl(0, replicationGroup).lastLogIndex();
+            long lastLogIndexBeforeInsertNode1 = raftNodeImpl(1, replicationGroup).lastLogIndex();
 
             Person[] people = generatePeople(10);
             insertPeople(TABLE_NAME, people);
@@ -137,7 +140,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
 
             startNodes(0, 1);
 
-            awaitMajority(cluster.solePartitionId());
+            awaitMajority(cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
 
             startNode(2);
 
