@@ -56,7 +56,7 @@ public class CorrelatedNestedLoopJoinExecutionTest extends AbstractExecutionTest
     @ParameterizedTest
     @EnumSource(value = JoinRelType.class, mode = Mode.INCLUDE, names = {"INNER", "LEFT"})
     public void testCorrelatedNestedLoopJoin(JoinRelType joinType) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        ExecutionContext<Object[]> ctx = executionContext();
         RowHandler<Object[]> hnd = ctx.rowHandler();
 
         ScanNode<Object[]> left = new ScanNode<>(ctx, Arrays.asList(

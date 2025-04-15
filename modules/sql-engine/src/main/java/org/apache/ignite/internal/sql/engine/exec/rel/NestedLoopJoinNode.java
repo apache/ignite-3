@@ -40,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
 public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterializedJoinNode<RowT> {
     protected final BiPredicate<RowT, RowT> cond;
 
-    final List<RowT> rightMaterialized = new ArrayList<>(inBufSize);
+    final List<RowT> rightMaterialized;
 
     /**
      * Creates NestedLoopJoinNode.
@@ -52,6 +52,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
         super(ctx);
 
         this.cond = cond;
+        rightMaterialized = new ArrayList<>(inBufSize);
     }
 
     /** {@inheritDoc} */
@@ -195,7 +196,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 inLoop = true;
                 int processed = 0;
                 try {
-                    List<RowT> batch = newBatch();
+                    List<RowT> batch = allocateBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
@@ -205,6 +206,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (processed++ > inBufSize) {
                                 if (!batch.isEmpty()) {
                                     downstream().push(batch);
+                                    releaseBatch(batch);
                                 }
                                 // Allow others to do their job.
                                 execute(this::join);
@@ -229,6 +231,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     if (!batch.isEmpty()) {
                         downstream().push(batch);
+                        releaseBatch(batch);
 
                         if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
@@ -291,7 +294,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 inLoop = true;
                 int processed = 0;
                 try {
-                    List<RowT> batch = newBatch();
+                    List<RowT> batch = allocateBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
@@ -303,6 +306,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (processed++ > inBufSize) {
                                 if (!batch.isEmpty()) {
                                     downstream().push(batch);
+                                    releaseBatch(batch);
                                 }
                                 // Allow others to do their job.
                                 execute(this::join);
@@ -340,6 +344,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     if (!batch.isEmpty()) {
                         downstream().push(batch);
+                        releaseBatch(batch);
 
                         if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
@@ -429,7 +434,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 inLoop = true;
                 int processed = 0;
                 try {
-                    List<RowT> batch = newBatch();
+                    List<RowT> batch = allocateBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
@@ -439,6 +444,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (processed++ > inBufSize) {
                                 if (!batch.isEmpty()) {
                                     downstream().push(batch);
+                                    releaseBatch(batch);
                                 }
                                 // Allow others to do their job.
                                 execute(this::join);
@@ -467,6 +473,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     if (!batch.isEmpty()) {
                         downstream().push(batch);
+                        releaseBatch(batch);
 
                         if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
@@ -485,7 +492,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     inLoop = true;
                     try {
-                        List<RowT> batch = newBatch();
+                        List<RowT> batch = allocateBatch();
                         while (requested > 0 && rightNotMatchedIt.hasNext()) {
                             int rowIdx = rightNotMatchedIt.nextInt();
                             RowT row = outputProjection.project(context(), leftRowFactory.create(), rightMaterialized.get(rowIdx));
@@ -496,6 +503,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         if (!batch.isEmpty()) {
                             downstream().push(batch);
+                            releaseBatch(batch);
 
                             if (requested > 0 && rightNotMatchedIt.hasNext()) {
                                 execute(this::join);
@@ -582,7 +590,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 inLoop = true;
                 int processed = 0;
                 try {
-                    List<RowT> batch = newBatch();
+                    List<RowT> batch = allocateBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
@@ -594,6 +602,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (processed++ > inBufSize) {
                                 if (!batch.isEmpty()) {
                                     downstream().push(batch);
+                                    releaseBatch(batch);
                                 }
                                 // Allow others to do their job.
                                 execute(this::join);
@@ -635,6 +644,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     if (!batch.isEmpty()) {
                         downstream().push(batch);
+                        releaseBatch(batch);
 
                         if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
@@ -653,7 +663,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     inLoop = true;
                     try {
-                        List<RowT> batch = newBatch();
+                        List<RowT> batch = allocateBatch();
                         while (requested > 0 && rightNotMatchedIt.hasNext()) {
                             int rowIdx = rightNotMatchedIt.nextInt();
                             RowT row = outputProjection.project(context(), leftRowFactory.create(), rightMaterialized.get(rowIdx));
@@ -664,6 +674,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                         if (!batch.isEmpty()) {
                             downstream().push(batch);
+                            releaseBatch(batch);
 
                             if (requested > 0 && rightNotMatchedIt.hasNext()) {
                                 execute(this::join);
@@ -733,7 +744,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 inLoop = true;
                 try {
                     int processed = 0;
-                    List<RowT> batch = newBatch();
+                    List<RowT> batch = allocateBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
@@ -745,6 +756,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (processed++ > inBufSize) {
                                 if (!batch.isEmpty()) {
                                     downstream().push(batch);
+                                    releaseBatch(batch);
                                 }
                                 // Allow others to do their job.
                                 execute(this::join);
@@ -770,6 +782,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     if (!batch.isEmpty()) {
                         downstream().push(batch);
+                        releaseBatch(batch);
 
                         if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);
@@ -813,7 +826,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                 inLoop = true;
                 int processed = 0;
                 try {
-                    List<RowT> batch = newBatch();
+                    List<RowT> batch = allocateBatch();
                     while (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                         if (left == null) {
                             left = leftInBuf.remove();
@@ -825,6 +838,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
                             if (processed++ > inBufSize) {
                                 if (!batch.isEmpty()) {
                                     downstream().push(batch);
+                                    releaseBatch(batch);
                                 }
                                 // Allow others to do their job.
                                 execute(this::join);
@@ -849,6 +863,7 @@ public abstract class NestedLoopJoinNode<RowT> extends AbstractRightMaterialized
 
                     if (!batch.isEmpty()) {
                         downstream().push(batch);
+                        releaseBatch(batch);
 
                         if (requested > 0 && (left != null || !leftInBuf.isEmpty())) {
                             execute(this::join);

@@ -228,7 +228,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         try {
             if (requested > 0 && !outBuf.isEmpty()) {
                 int batchSize = Math.min(requested, outBuf.size());
-                List<RowT> batch = newBatch(batchSize);
+                List<RowT> batch = allocateBatch(batchSize);
                 requested -= batchSize;
 
                 for (int i = 0; i < batchSize; i++) {
@@ -236,6 +236,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 }
 
                 downstream().push(batch);
+                releaseBatch(batch);
 
                 if (requested > 0 && !outBuf.isEmpty()) {
                     execute(this::flush);

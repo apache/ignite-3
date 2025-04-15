@@ -246,7 +246,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         inLoop = true;
         try {
-            List<RowT> batch = newBatch();
+            List<RowT> batch = allocateBatch();
             loop:
             while (requested > 0 && !heap.isEmpty()) {
                 RemoteSource<RowT> source = heap.poll().right;
@@ -277,10 +277,12 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
                 if (requested > 0 && !heap.isEmpty()) {
                     execute(this::pushOrdered);
+                    releaseBatch(batch);
 
                     return;
                 }
             }
+            releaseBatch(batch);
         } finally {
             inLoop = false;
         }
@@ -301,7 +303,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
 
         inLoop = true;
         try {
-            List<RowT> batch = newBatch();
+            List<RowT> batch = allocateBatch();
             while (requested > 0 && !remoteSources.isEmpty()) {
                 RemoteSource<RowT> source = remoteSources.get(idx);
 
@@ -338,11 +340,13 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 downstream().push(batch);
 
                 if (requested > 0 && !remoteSources.isEmpty()) {
+                    releaseBatch(batch);
                     execute(this::pushUnordered);
 
                     return;
                 }
             }
+            releaseBatch(batch);
         } finally {
             inLoop = false;
         }

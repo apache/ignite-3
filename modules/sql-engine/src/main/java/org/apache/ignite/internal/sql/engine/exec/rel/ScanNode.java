@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -110,7 +109,7 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 inst = func.createInstance(context());
             }
 
-            ArrayList<RowT> batch = new ArrayList<>(inBufSize);
+            List<RowT> batch = allocateBatch(inBufSize);
             while (requested > 0 && inst.hasNext()) {
                 requested--;
                 batch.add(inst.next());
@@ -119,10 +118,12 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
             if (!batch.isEmpty()) {
                 downstream().push(batch);
                 if (requested > 0) {
+                    releaseBatch(batch);
                     this.execute(this::push);
                     return;
                 }
             }
+            releaseBatch(batch);
         } catch (QueryCancelledException | SqlException e) {
             throw e;
         } finally {

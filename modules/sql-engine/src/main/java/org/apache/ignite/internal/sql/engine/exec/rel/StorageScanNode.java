@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.Flow;
@@ -124,7 +123,7 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
         if (requested > 0 && !inBuff.isEmpty()) {
             inLoop = true;
             try {
-                List<RowT> batch = new ArrayList<>(Math.min(requested, inBufSize));
+                List<RowT> batch = allocateBatch(Math.min(requested, inBufSize));
                 while (requested > 0 && !inBuff.isEmpty()) {
                     RowT row = inBuff.poll();
 
@@ -142,11 +141,8 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
                 if (!batch.isEmpty()) {
                     downstream().push(batch);
-                    if (requested > 0) {
-                        execute(this::push);
-                        return;
-                    }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }

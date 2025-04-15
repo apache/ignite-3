@@ -138,26 +138,26 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         throw new IndexOutOfBoundsException();
     }
 
-    private void pushLeft(List<RowT> row) throws Exception {
+    private void pushLeft(List<RowT> rows) throws Exception {
         assert downstream() != null;
         assert waitingLeft > 0;
 
-        waitingLeft -= row.size();
+        waitingLeft -= rows.size();
 
-        leftInBuf.addAll(row);
+        leftInBuf.addAll(rows);
 
         if (waitingLeft == 0 && waitingRight <= 0) {
             join();
         }
     }
 
-    private void pushRight(List<RowT> row) throws Exception {
+    private void pushRight(List<RowT> rows) throws Exception {
         assert downstream() != null;
         assert waitingRight > 0;
 
-        waitingRight -= row.size();
+        waitingRight -= rows.size();
 
-        rightInBuf.addAll(row);
+        rightInBuf.addAll(rows);
 
         if (waitingRight == 0 && waitingLeft <= 0) {
             join();
@@ -306,7 +306,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                List<RowT> batch = newBatch();
+                List<RowT> batch = allocateBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null)) {
                     if (left == null) {
@@ -401,11 +401,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     downstream().push(batch);
 
                     if (requested > 0) {
+                        releaseBatch(batch);
                         execute(this::join);
 
                         return;
                     }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }
@@ -486,7 +488,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                List<RowT> batch = newBatch();
+                List<RowT> batch = allocateBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty()
                         || rightMaterialization != null || waitingRight == NOT_WAITING)) {
                     if (left == null) {
@@ -603,11 +605,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     downstream().push(batch);
 
                     if (requested > 0) {
+                        releaseBatch(batch);
                         execute(this::join);
 
                         return;
                     }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }
@@ -686,7 +690,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                List<RowT> batch = newBatch();
+                List<RowT> batch = allocateBatch();
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && (right != null || !rightInBuf.isEmpty() || rightMaterialization != null)) {
                     if (left == null && !leftInBuf.isEmpty()) {
@@ -815,11 +819,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     downstream().push(batch);
 
                     if (requested > 0) {
+                        releaseBatch(batch);
                         execute(this::join);
 
                         return;
                     }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }
@@ -907,7 +913,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                List<RowT> batch = newBatch();
+                List<RowT> batch = allocateBatch();
                 while (requested > 0 && !(left == null && leftInBuf.isEmpty() && waitingLeft != NOT_WAITING)
                         && !(right == null && rightInBuf.isEmpty() && rightMaterialization == null && waitingRight != NOT_WAITING)) {
 
@@ -1066,11 +1072,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     downstream().push(batch);
 
                     if (requested > 0) {
+                        releaseBatch(batch);
                         execute(this::join);
 
                         return;
                     }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }
@@ -1123,7 +1131,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                List<RowT> batch = newBatch();
+                List<RowT> batch = allocateBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty()) && (right != null || !rightInBuf.isEmpty())) {
                     if (left == null) {
                         left = leftInBuf.remove();
@@ -1155,11 +1163,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     downstream().push(batch);
 
                     if (requested > 0) {
+                        releaseBatch(batch);
                         execute(this::join);
 
                         return;
                     }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }
@@ -1212,7 +1222,7 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
         protected void join() throws Exception {
             inLoop = true;
             try {
-                List<RowT> batch = newBatch();
+                List<RowT> batch = allocateBatch();
                 while (requested > 0 && (left != null || !leftInBuf.isEmpty())
                         && !(right == null && rightInBuf.isEmpty() && waitingRight != NOT_WAITING)) {
                     if (left == null) {
@@ -1247,11 +1257,13 @@ public abstract class MergeJoinNode<RowT> extends AbstractNode<RowT> {
                     downstream().push(batch);
 
                     if (requested > 0) {
+                        releaseBatch(batch);
                         execute(this::join);
 
                         return;
                     }
                 }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }

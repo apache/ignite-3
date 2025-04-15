@@ -63,6 +63,7 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
     public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
 
+        // TODO: IGNITE-249023: Verify if it is safe to modify the batch in place.
         for (int i = 0; i < batch.size(); i++) {
             batch.set(i, prj.apply(batch.get(i)));
         }

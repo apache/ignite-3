@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
@@ -194,11 +193,15 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
         return downstream;
     }
 
-    protected <RowT> ArrayList<RowT> newBatch() {
-        return newBatch(inBufSize);
+    protected List<RowT> allocateBatch() {
+        return allocateBatch(inBufSize);
     }
 
-    protected <RowT> ArrayList<RowT> newBatch(int size) {
-        return new ArrayList<>(size);
+    protected List<RowT> allocateBatch(int size) {
+        return context().allocateBuffer(size);
+    }
+
+    protected void releaseBatch(List<RowT> batch) {
+        context().releaseBuffer(batch);
     }
 }

@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.lang.reflect.Type;
 import java.time.Instant;
 import java.time.ZoneId;
@@ -358,7 +359,7 @@ public class ExecutionContext<RowT> implements DataContext {
                 Throwable unwrappedException = ExceptionUtils.unwrapCause(e);
                 onError.accept(unwrappedException);
 
-                if (unwrappedException instanceof IgniteException 
+                if (unwrappedException instanceof IgniteException
                         || unwrappedException instanceof IgniteInternalException
                         || unwrappedException instanceof IgniteCheckedException
                         || unwrappedException instanceof IgniteInternalCheckedException
@@ -448,5 +449,43 @@ public class ExecutionContext<RowT> implements DataContext {
     @Override
     public int hashCode() {
         return Objects.hash(executionId, description.fragmentId());
+    }
+
+
+    // Naive buffer pool implementation.
+    private static class BufferPool<RowT> {
+        private static final int BUFFER_POOL_CAPACITY = 10;
+        private final Object[] bufferPool = new Object[BUFFER_POOL_CAPACITY];
+        private int size;
+
+        ObjectArrayList<RowT> getOrAllocate(int batchSize) {
+            if (size == 0) {
+                return new ObjectArrayList<>(batchSize);
+            }
+
+            int slot = --size;
+            ObjectArrayList<RowT> batch0 = (ObjectArrayList<RowT>) bufferPool[slot];
+            bufferPool[slot] = null;
+            batch0.ensureCapacity(batchSize);
+            return batch0;
+        }
+
+        void release(ObjectArrayList<RowT> batch) {
+            int slot = size == BUFFER_POOL_CAPACITY ? size : size++;
+            bufferPool[slot] = batch;
+            batch.clear();
+        }
+    }
+
+    private final BufferPool<RowT> bufferPool = new BufferPool<>();
+
+    public List<RowT> allocateBuffer(int batchSize) {
+        return bufferPool.getOrAllocate(batchSize);
+    }
+
+    public void releaseBuffer(List<RowT> batch) {
+        if (batch instanceof ObjectArrayList) {
+            bufferPool.release((ObjectArrayList<RowT>) batch);
+        }
     }
 }

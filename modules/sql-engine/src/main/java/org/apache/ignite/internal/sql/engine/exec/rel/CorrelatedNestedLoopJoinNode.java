@@ -189,7 +189,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         waitingLeft -= batch.size();
 
         if (leftInBuf == null) {
-            leftInBuf = newBatch(leftInBufferSize);
+            leftInBuf = new ArrayList<>(leftInBufferSize);
         }
 
         leftInBuf.addAll(batch);
@@ -204,7 +204,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
         waitingRight -= batch.size();
 
         if (rightInBuf == null) {
-            rightInBuf = newBatch(rightInBufferSize);
+            rightInBuf = new ArrayList<>(rightInBufferSize);
         }
 
         rightInBuf.addAll(batch);
@@ -348,7 +348,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
         state = State.IN_LOOP;
         try {
-            List<RowT> batch = newBatch(requested);
+            List<RowT> batch = allocateBatch(requested);
             while (requested > 0 && rightIdx < rightInBuf.size()) {
                 if (leftIdx == leftInBuf.size()) {
                     leftIdx = 0;
@@ -380,11 +380,13 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 downstream().push(batch);
 
                 if (requested > 0 && rightIdx < rightInBuf.size()) {
+                    releaseBatch(batch);
                     execute(this::join);
 
                     return;
                 }
             }
+            releaseBatch(batch);
         } finally {
             state = State.IDLE;
         }
@@ -409,7 +411,7 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
                 state = State.IN_LOOP;
 
                 try {
-                    List<RowT> batch = newBatch(Math.min(requested, leftInBuf.size() - notMatchedIdx));
+                    List<RowT> batch = allocateBatch(Math.min(requested, leftInBuf.size() - notMatchedIdx));
                     while (requested > 0 && notMatchedIdx < leftInBuf.size()) {
                         requested--;
 
@@ -425,10 +427,12 @@ public class CorrelatedNestedLoopJoinNode<RowT> extends AbstractNode<RowT> {
 
                         if (requested > 0 && notMatchedIdx < leftInBuf.size()) {
                             execute(this::join);
+                            releaseBatch(batch);
 
                             return;
                         }
                     }
+                    releaseBatch(batch);
                 } finally {
                     state = State.IDLE;
                 }

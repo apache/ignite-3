@@ -115,7 +115,7 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
     private void filter() throws Exception {
         inLoop = true;
         try {
-            List<RowT> batch = newBatch();
+            List<RowT> batch = allocateBatch();
             while (requested > 0 && !inBuf.isEmpty()) {
                 requested--;
                 batch.add(inBuf.remove());
@@ -125,11 +125,13 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
                 downstream().push(batch);
 
                 if (requested > 0 && !inBuf.isEmpty()) {
+                    releaseBatch(batch);
                     execute(this::filter);
 
                     return;
                 }
             }
+            releaseBatch(batch);
         } finally {
             inLoop = false;
         }

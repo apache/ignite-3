@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import java.util.ArrayDeque;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -159,46 +158,39 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
     private void flush() throws Exception {
         assert waiting == NOT_WAITING;
 
-        ArrayDeque<Grouping> groupingsQueue = groupingsQueue();
+        int currGroup = 0;
 
         inLoop = true;
         try {
-            if (requested > 0 && !groupingsQueue.isEmpty()) {
-                List<RowT> batch = newBatch(requested);
-                while (requested > 0 && !groupingsQueue.isEmpty()) {
-                    Grouping grouping = groupingsQueue.peek();
+            List<RowT> batch = allocateBatch(requested);
+            while (requested > 0 && currGroup < groupings.size()) {
+                Grouping grouping = groupings.get(currGroup);
 
-                    int collected = grouping.collectRows(batch, requested);
-                    requested -= collected;
+                int collected = grouping.collectRows(batch, requested);
+                requested -= collected;
 
-                    if (grouping.isEmpty()) {
-                        groupingsQueue.poll();
-                    }
+                if (grouping.isEmpty()) {
+                    currGroup++;
                 }
+            }
 
-                downstream().push(batch);
+            downstream().push(batch);
+            releaseBatch(batch);
 
-                if (requested > 0 && !groupingsQueue.isEmpty()) {
-                    // allow others to do their job
-                    this.execute(this::flush);
+            if (requested > 0 && currGroup < groupings.size()) {
+                // allow others to do their job
+                this.execute(this::flush);
 
-                    return;
-                }
+                return;
             }
         } finally {
             inLoop = false;
         }
 
-        if (requested > 0 && groupingsQueue.isEmpty()) {
+        if (requested > 0 && currGroup == groupings.size()) {
             requested = 0;
             downstream().end();
         }
-    }
-
-    private ArrayDeque<Grouping> groupingsQueue() {
-        return groupings.stream()
-                .filter(g -> !g.isEmpty())
-                .collect(toCollection(ArrayDeque::new));
     }
 
     private class Grouping {
@@ -206,7 +198,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private final ImmutableBitSet grpFields;
 
-        private final Map<GroupKey, AggregateRow<RowT>> groups = new HashMap<>();
+        private final Object2ObjectOpenHashMap<GroupKey, AggregateRow<RowT>> groups = new Object2ObjectOpenHashMap<>();
 
         private Grouping(byte grpId, ImmutableBitSet grpFields) {
             this.grpId = grpId;
@@ -254,13 +246,13 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
          * @return Actually collected rows number.
          */
         private int collectRows(List<RowT> batch, int cnt) {
-            Iterator<Map.Entry<GroupKey, AggregateRow<RowT>>> it = groups.entrySet().iterator();
+            Iterator<Object2ObjectMap.Entry<GroupKey, AggregateRow<RowT>>> it = groups.object2ObjectEntrySet().fastIterator();
 
             int rowNum = Math.min(cnt, groups.size());
             int collected = 0;
 
             for (int i = 0; i < rowNum; i++) {
-                Map.Entry<GroupKey, AggregateRow<RowT>> entry = it.next();
+                Object2ObjectMap.Entry<GroupKey, AggregateRow<RowT>> entry = it.next();
 
                 GroupKey grpKey = entry.getKey();
                 AggregateRow<RowT> aggRow = entry.getValue();

@@ -177,12 +177,13 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 int batchSize = Math.min(queue.size(), requested);
                 requested -= batchSize;
 
-                List<RowT> batch = newBatch(batchSize);
+                List<RowT> batch = allocateBatch(batchSize);
                 for (int i = 0; i < batchSize; i++) {
                     batch.add(queue.poll());
                 }
 
                 downstream().push(batch);
+                releaseBatch(batch);
 
                 if (requested > 0 && !queue.isEmpty()) {
                     this.execute(this::flush);
