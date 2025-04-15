@@ -62,15 +62,14 @@ public class CompactorTest extends BaseIgniteAbstractTest {
 
     @Test
     void testStartAndStop() throws Exception {
-        Compactor compactor = new Compactor(
+        var compactor = new Compactor(
                 log,
                 "test",
                 threadsConfig(1),
                 mock(FilePageStoreManager.class),
                 PAGE_SIZE,
-                mock(FailureManager.class));
-
-        compactor.start();
+                mock(FailureManager.class)
+        );
 
         assertNull(compactor.runner());
 
@@ -81,6 +80,10 @@ public class CompactorTest extends BaseIgniteAbstractTest {
         compactor.start();
 
         assertTrue(waitForCondition(() -> compactor.runner() != null, 10, 1_000));
+
+        assertFalse(compactor.isCancelled());
+        assertFalse(compactor.isDone());
+        assertFalse(Thread.currentThread().isInterrupted());
 
         compactor.stop();
 

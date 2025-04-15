@@ -77,7 +77,7 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
     @Override
     protected String clusterConfiguration() {
         return "ignite {"
-                + "replication: { replicaOperationRetryInterval: " + replicaOperationRetryInterval + " }"
+                + "replication: { replicaOperationRetryIntervalMillis: " + replicaOperationRetryInterval + " }"
                 + "}";
     }
 
