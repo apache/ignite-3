@@ -581,6 +581,7 @@ public class Node {
 
         txManager = new TxManagerImpl(
                 transactionConfiguration,
+                systemConfiguration,
                 clusterService,
                 replicaSvc,
                 lockManager,
@@ -960,7 +961,7 @@ public class Node {
         }
     }
 
-    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+    public @Nullable TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
     }
 

@@ -208,9 +208,6 @@ public class InternalTableImpl implements InternalTable {
     /** Map update guarded by {@link #updatePartitionMapsMux}. */
     private volatile Int2ObjectMap<PendingComparableValuesTracker<Long, Void>> storageIndexTrackerByPartitionId = emptyMap();
 
-    /** Attempts to take lock. */
-    private final int attemptsObtainLock;
-
     /** Default read-write transaction timeout. */
     private final Supplier<Long> defaultRwTxTimeout;
 
@@ -232,7 +229,6 @@ public class InternalTableImpl implements InternalTable {
      * @param clockService A hybrid logical clock service.
      * @param placementDriver Placement driver.
      * @param transactionInflights Transaction inflights.
-     * @param attemptsObtainLock Attempts to take lock.
      * @param streamerFlushExecutor Streamer flush executor.
      * @param streamerReceiverRunner Streamer receiver runner.
      * @param defaultRwTxTimeout Default read-write transaction timeout.
@@ -252,7 +248,6 @@ public class InternalTableImpl implements InternalTable {
             HybridTimestampTracker observableTimestampTracker,
             PlacementDriver placementDriver,
             TransactionInflights transactionInflights,
-            int attemptsObtainLock,
             Supplier<ScheduledExecutorService> streamerFlushExecutor,
             StreamerReceiverRunner streamerReceiverRunner,
             Supplier<Long> defaultRwTxTimeout,
@@ -271,7 +266,6 @@ public class InternalTableImpl implements InternalTable {
         this.observableTimestampTracker = observableTimestampTracker;
         this.placementDriver = placementDriver;
         this.transactionInflights = transactionInflights;
-        this.attemptsObtainLock = attemptsObtainLock;
         this.streamerFlushExecutor = streamerFlushExecutor;
         this.streamerReceiverRunner = streamerReceiverRunner;
         this.defaultRwTxTimeout = defaultRwTxTimeout;
@@ -379,7 +373,7 @@ public class InternalTableImpl implements InternalTable {
                     false,
                     enlistment,
                     noWriteChecker,
-                    attemptsObtainLock
+                    txManager.lockRetryCount()
             );
         } else {
             fut = enlistAndInvoke(
@@ -494,7 +488,7 @@ public class InternalTableImpl implements InternalTable {
                         false,
                         enlistment,
                         noOpChecker,
-                        attemptsObtainLock
+                        txManager.lockRetryCount()
                 );
             } else {
                 fut = enlistAndInvoke(
@@ -636,7 +630,7 @@ public class InternalTableImpl implements InternalTable {
     ) {
         return enlist(partId, tx)
                 .thenCompose(enlistment ->
-                        trackingInvoke(tx, partId, mapFunc, full, enlistment, noWriteChecker, attemptsObtainLock));
+                        trackingInvoke(tx, partId, mapFunc, full, enlistment, noWriteChecker, txManager.lockRetryCount()));
     }
 
     /**

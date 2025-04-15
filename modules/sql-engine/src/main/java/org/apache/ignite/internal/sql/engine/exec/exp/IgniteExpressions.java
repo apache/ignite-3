@@ -23,6 +23,7 @@ import org.apache.calcite.linq4j.tree.ExpressionType;
 import org.apache.calcite.linq4j.tree.Expressions;
 import org.apache.calcite.linq4j.tree.Primitive;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.jetbrains.annotations.Nullable;
 
@@ -103,6 +104,30 @@ public class IgniteExpressions {
         }
 
         return Expressions.makeBinary(ExpressionType.Divide, left, right);
+    }
+
+    /** Generate expression to verify bounds of temporal types. */
+    public static Expression addBoundsCheckIfNeeded(SqlTypeName type, Expression expr) {
+        String methodName;
+
+        switch (type) {
+            case DATE:
+                methodName = "toDateExact";
+                break;
+
+            case TIMESTAMP:
+                methodName = "toTimestampExact";
+                break;
+
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                methodName = "toTimestampLtzExact";
+                break;
+
+            default:
+                return expr;
+        }
+
+        return Expressions.call(IgniteSqlFunctions.class, methodName, expr);
     }
 
     static Expression convertChecked(Expression exp, Primitive fromPrimitive, Primitive toPrimitive) {

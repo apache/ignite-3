@@ -18,15 +18,20 @@
 package org.apache.ignite.internal.pagememory.inmemory;
 
 import static org.apache.ignite.internal.configuration.ConfigurationTestUtils.fixConfiguration;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.pagememory.AbstractPageMemoryNoLoadSelfTest;
+import org.apache.ignite.internal.pagememory.PageMemory;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfiguration;
 import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileConfigurationSchema;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
+import org.apache.ignite.internal.pagememory.mem.IgniteOutOfMemoryException;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -57,5 +62,27 @@ public class VolatilePageMemoryNoLoadSelfTest extends AbstractPageMemoryNoLoadSe
                 PAGE_SIZE,
                 new OffheapReadWriteLock(OffheapReadWriteLock.DEFAULT_CONCURRENCY_LEVEL)
         );
+    }
+
+    @Test
+    public void testLoadedPagesCount() {
+        PageMemory mem = memory();
+
+        mem.start();
+
+        int expPages = MAX_MEMORY_SIZE / mem.systemPageSize();
+
+        try {
+            assertThrows(IgniteOutOfMemoryException.class, () -> {
+                for (int i = 0; i < expPages * 2; i++) {
+                    allocatePage(mem);
+                }
+            });
+
+            assertEquals(mem.loadedPages(), expPages);
+        } finally {
+
+            mem.stop(true);
+        }
     }
 }

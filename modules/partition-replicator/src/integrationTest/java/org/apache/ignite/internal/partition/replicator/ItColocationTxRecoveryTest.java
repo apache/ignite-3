@@ -17,10 +17,10 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.table.KeyValueView;
@@ -44,8 +44,10 @@ class ItColocationTxRecoveryTest extends ItAbstractColocationTest {
      * </ol>
      */
     @Test
-    void abandonedTransactionGetsAbortedOnTouch() throws Exception {
-        assertThat(txConfiguration.abandonedCheckTs().update(600_000L), willCompleteSuccessfully());
+    void abandonedTransactionGetsAbortedOnTouch(
+            @InjectConfiguration("mock.properties.txnAbandonedCheckTs=\"600000\"") SystemDistributedConfiguration systemCfg)
+            throws Exception {
+        this.systemDistributedConfiguration = systemCfg;
 
         startCluster(3);
 

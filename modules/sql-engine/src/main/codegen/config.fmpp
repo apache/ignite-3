@@ -338,6 +338,7 @@ data: {
     # Return type of method implementation should be 'SqlNode'.
     # Example: "SqlShowDatabases()", "SqlShowTables()".
     statementParserMethods: [
+      "SqlIgniteExplain()",
       "SqlAlterTable()",
       "SqlAlterZone()",
       "SqlStartTransaction()",

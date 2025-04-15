@@ -111,6 +111,7 @@ import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -1023,6 +1024,11 @@ public class DdlSqlToCommandConverter {
                 case DATETIME: {
                     literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
                     var tsString = literal.getValueAs(TimestampString.class);
+                    long ts = tsString.getMillisSinceEpoch();
+
+                    if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                        throw new SqlException(STMT_VALIDATION_ERR, "TIMESTAMP out of range.");
+                    }
 
                     return fromInternal(tsString.getMillisSinceEpoch(), NativeTypeSpec.DATETIME);
                 }

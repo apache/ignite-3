@@ -68,8 +68,7 @@ import org.junit.jupiter.api.Test;
  * Test for disaster recovery REST commands.
  */
 @MicronautTest
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+// TODO https://issues.apache.org/jira/browse/IGNITE-25104
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;

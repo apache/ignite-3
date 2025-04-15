@@ -379,6 +379,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                     onDisconnected(ex);
                 } else {
                     metrics.requestsSentIncrement();
+
+                    Runnable action = payloadCh.onSentAction();
+                    if (action != null) {
+                        asyncContinuationExecutor.execute(action);
+                    }
                 }
             });
 

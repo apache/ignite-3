@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.rebalance;
 
+import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignments;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -35,13 +37,13 @@ import java.util.concurrent.TimeUnit;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
-import org.apache.ignite.internal.hlc.HybridClockImpl;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.table.QualifiedName;
@@ -52,6 +54,10 @@ import org.junit.jupiter.api.Test;
  * Tests for recovery of the rebalance procedure.
  */
 public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTest {
+    private static final String ZONE_NAME = "TEST_ZONE";
+
+    private static final String TABLE_NAME = "TEST";
+
     private static final int PARTITION_ID = 0;
 
     private static final String US_NODE_BOOTSTRAP_CFG_TEMPLATE = "ignite {\n"
@@ -90,7 +96,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    void testRebalanceTriggersRecoveryAfterFilterUpdate() throws InterruptedException {
+    void testRebalanceTriggersRecoveryAfterFilterUpdate() throws Exception {
         // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
         startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
@@ -98,8 +104,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         cluster.doInSession(0, session -> {
             session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 2, NODES FILTER '$[?(@.region == \"US\")]') "
                     + "STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
+            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
+            session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
         });
 
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -112,7 +118,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE TEST_ZONE SET DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
+            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -123,10 +129,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 10_000));
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(unwrapIgniteImpl(node(0)).catalogManager(), "TEST", new HybridClockImpl().nowLong());
-        unwrapIgniteImpl(node(0))
-                .metaStorageManager()
-                .remove(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, PARTITION_ID))).join();
+        removePendingPartAssignmentsQueueKey(TABLE_NAME, PARTITION_ID);
 
         restartNode(1);
         restartNode(2);
@@ -136,7 +139,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    void testRebalanceTriggersRecoveryAfterReplicasUpdate() throws InterruptedException {
+    void testRebalanceTriggersRecoveryAfterReplicasUpdate() throws Exception {
         // The nodes from different regions/zones needed to implement the predictable way of nodes choice.
         startNode(1, US_NODE_BOOTSTRAP_CFG_TEMPLATE);
         startNode(2, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
@@ -144,8 +147,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         cluster.doInSession(0, session -> {
             session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
                     + "NODES FILTER '$[?(@.zone == \"global\")]') STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
+            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
+            session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
         });
 
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -158,7 +161,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2");
+            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET REPLICAS=2");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -169,10 +172,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 10_000));
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
-        Integer tableId = getTableId(unwrapIgniteImpl(node(0)).catalogManager(), "TEST", new HybridClockImpl().nowLong());
-        unwrapIgniteImpl(node(0))
-                .metaStorageManager()
-                .remove(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, PARTITION_ID))).join();
+        removePendingPartAssignmentsQueueKey(TABLE_NAME, PARTITION_ID);
 
         restartNode(1);
         restartNode(2);
@@ -192,8 +192,8 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         cluster.doInSession(0, session -> {
             session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1, "
                     + "NODES FILTER '$[?(@.region == \"US\")]') STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
-            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
+            session.execute(null, "CREATE TABLE " + TABLE_NAME + " (id INT PRIMARY KEY, name INT) ZONE " + ZONE_NAME);
+            session.execute(null, "INSERT INTO " + TABLE_NAME + " VALUES (0, 0)");
         });
 
         assertTrue(waitForCondition(() -> containsPartition(cluster.node(1)), 10_000));
@@ -202,7 +202,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         stopNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
+            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET REPLICAS=2, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
         });
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.
@@ -211,48 +211,54 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 (() -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID).equals(Set.of())),
                 10_000));
 
-        TablePartitionId tablePartitionId =
-                new TablePartitionId(
-                        getTableId(unwrapIgniteImpl(node(0)).catalogManager(),
-                                "TEST",
-                                new HybridClockImpl().nowLong()),
-                        PARTITION_ID
-                );
-        long pendingsKeysRevisionBeforeRecovery = unwrapIgniteImpl(node(0)).metaStorageManager()
-                .get(pendingPartAssignmentsQueueKey(tablePartitionId))
-                .get(10, TimeUnit.SECONDS).revision();
-
+        long pendingKeysRevisionBeforeRecovery = pendingPartAssignmentsQueueKeyRevision(TABLE_NAME, PARTITION_ID);
 
         startNode(3, GLOBAL_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
-        long pendingsKeysRevisionAfterRecovery = unwrapIgniteImpl(node(0)).metaStorageManager()
-                .get(pendingPartAssignmentsQueueKey(tablePartitionId))
-                .get(10, TimeUnit.SECONDS).revision();
+        long pendingKeysRevisionAfterRecovery = pendingPartAssignmentsQueueKeyRevision(TABLE_NAME, PARTITION_ID);
 
         // Check that recovered node doesn't produce new rebalances for already processed triggers.
-        assertEquals(pendingsKeysRevisionBeforeRecovery, pendingsKeysRevisionAfterRecovery);
+        assertEquals(pendingKeysRevisionBeforeRecovery, pendingKeysRevisionAfterRecovery);
     }
 
     private static Set<Assignment> getPartitionPendingClusterNodes(IgniteImpl node, int partNum) {
-        return Optional.ofNullable(getTableId(node.catalogManager(), "TEST", new HybridClockImpl().nowLong()))
-                .map(tableId -> partitionPendingAssignments(node.metaStorageManager(), tableId, partNum).join())
-                .orElse(Set.of());
+        CompletableFuture<Set<Assignment>> pendingAssignmentsFuture = pendingPartitionAssignments(
+                node.metaStorageManager(),
+                unwrapTableViewInternal(node.distributedTableManager().table(TABLE_NAME)),
+                partNum);
+
+        return Optional.ofNullable(pendingAssignmentsFuture.join()).orElse(Set.of());
     }
 
-    private static CompletableFuture<Set<Assignment>> partitionPendingAssignments(
-            MetaStorageManager metaStorageManager,
-            int tableId,
-            int partitionNumber
-    ) {
+    private long pendingPartAssignmentsQueueKeyRevision(String tableName, int partitionId) throws Exception {
+        MetaStorageManager metaStorageManager = unwrapIgniteImpl(node(0)).metaStorageManager();
+
+        TableViewInternal table = unwrapTableViewInternal(unwrapIgniteImpl(node(0)).distributedTableManager().table(tableName));
+
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, partitionId);
+
         return metaStorageManager
-                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
+                .get(pendingPartitionAssignmentsKey(partitionGroupId))
+                .get(10, TimeUnit.SECONDS)
+                .revision();
+    }
+
+    private void removePendingPartAssignmentsQueueKey(String tableName, int partitionId) {
+        IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
+
+        MetaStorageManager metaStorageManager = node.metaStorageManager();
+
+        TableViewInternal table = unwrapTableViewInternal(node.distributedTableManager().table(tableName));
+
+        ByteArray pendingPartAssignmentsQueueKey = pendingPartitionAssignmentsKey(partitionReplicationGroupId(table, partitionId));
+
+        metaStorageManager.remove(pendingPartAssignmentsQueueKey).join();
     }
 
     private static boolean containsPartition(Ignite node) {
         TableManager tableManager = unwrapTableManager(node.tables());
 
-        MvPartitionStorage storage = tableManager.tableView(QualifiedName.fromSimple("TEST"))
+        MvPartitionStorage storage = tableManager.tableView(QualifiedName.fromSimple(TABLE_NAME))
                 .internalTable()
                 .storage()
                 .getMvPartition(PARTITION_ID);

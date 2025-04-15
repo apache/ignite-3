@@ -34,6 +34,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -93,6 +94,9 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
     @InjectConfiguration
     private SystemLocalConfiguration systemLocalConfiguration;
 
+    @InjectConfiguration("mock.properties.txnLockRetryCount=\"0\"")
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     /**
      * The constructor.
      *
@@ -109,6 +113,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
                 testInfo,
                 raftConfiguration,
                 txConfiguration,
+                systemDistributedConfiguration,
                 workDir,
                 nodes(),
                 replicas(),
@@ -130,6 +135,7 @@ public class ItTxDistributedTestSingleNodeNoCleanupMessage extends TxAbstractTes
             ) {
                 return new TxManagerImpl(
                         txConfiguration,
+                        systemDistributedConfiguration,
                         clusterService,
                         replicaSvc,
                         new HeapLockManager(systemLocalConfiguration),

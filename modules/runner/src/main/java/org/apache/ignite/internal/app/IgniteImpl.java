@@ -993,6 +993,7 @@ public class IgniteImpl implements Ignite {
         txManager = new TxManagerImpl(
                 name,
                 txConfig,
+                systemDistributedConfiguration,
                 messagingServiceReturningToStorageOperationsPool,
                 clusterSvc.topologyService(),
                 replicaSvc,
@@ -1104,7 +1105,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 distributedTblMgr,
                 metricManager,
-                failureManager
+                failureManager,
+                partitionReplicaLifecycleManager
         );
 
         systemViewManager.register(disasterRecoveryManager);
@@ -1218,8 +1220,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());

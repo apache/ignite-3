@@ -71,24 +71,14 @@ public class TxUpsertRetryOperationBenchmark extends AbstractMultiNodeBenchmark 
     @Param({"100", "1000"})
     private int keysUpperBound;
 
-    @Param({"waitTimeout", "replicaOperationRetry"})
-    private String txRetryMode;
+    @Param({"0", "10"})
+    private int replicaOperationRetryInterval;
 
     @Override
     protected String clusterConfiguration() {
-        if (txRetryMode.equals("waitTimeout")) {
-            return "ignite {"
-                    + "transaction: { deadlockPreventionPolicy: { waitTimeout: 30, txIdComparator: NATURAL } },"
-                    + "replication: { replicaOperationRetryInterval: 0 }"
-                    + "}";
-        } else {
-            assert txRetryMode.equals("replicaOperationRetry");
-
-            return "ignite {"
-                    + "transaction: { deadlockPreventionPolicy: { waitTimeout: 0, txIdComparator: NATURAL } },"
-                    + "replication: { replicaOperationRetryInterval: 10 }"
-                    + "}";
-        }
+        return "ignite {"
+                + "replication: { replicaOperationRetryIntervalMillis: " + replicaOperationRetryInterval + " }"
+                + "}";
     }
 
     /**

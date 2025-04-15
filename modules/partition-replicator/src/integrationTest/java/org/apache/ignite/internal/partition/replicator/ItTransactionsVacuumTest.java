@@ -17,18 +17,18 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteTransaction;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
-import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.tx.impl.ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -59,8 +59,9 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
      * @throws Exception If failed.
      */
     @Test
-    public void testTransactionsVacuum() throws Exception {
-        updateTxnResourceTtl(50L);
+    public void testTransactionsVacuum(
+            @InjectConfiguration("mock.properties.txnResourceTtl=\"50\"") SystemDistributedConfiguration systemCfg) throws Exception {
+        this.systemDistributedConfiguration = systemCfg;
 
         startCluster(1);
         Node node = cluster.get(0);
@@ -95,17 +96,6 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
     }
 
     /**
-     * Updates txn resource time-to-live value..
-     *
-     * @param ttl Time-to-live value.
-     */
-    private void updateTxnResourceTtl(long ttl) {
-        CompletableFuture<?> updateFuture = txConfiguration.change(change -> change.changeTxnResourceTtl(ttl));
-
-        assertThat(updateFuture, willSucceedFast());
-    }
-
-    /**
      * Returns transaction's meta from volatile storage.
      *
      * @param node Node.
@@ -126,7 +116,7 @@ public class ItTransactionsVacuumTest extends ItAbstractColocationTest {
      * @return Transaction meta.
      */
     private static TransactionMeta persistentTxState(Node node, int zoneId, int partId, UUID txId) {
-        return IgniteTestUtils.bypassingThreadAssertions(() -> node.txStatePartitionStorage(zoneId, partId).get(txId));
+        return IgniteTestUtils.bypassingThreadAssertions(() -> requireNonNull(node.txStatePartitionStorage(zoneId, partId)).get(txId));
     }
 
     /**

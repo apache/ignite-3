@@ -122,8 +122,7 @@ public class TxCleanupTest extends IgniteAbstractTest {
                 new TxMessageSender(
                         messagingService,
                         replicaService,
-                        clockService,
-                        transactionConfiguration
+                        clockService
                 )
         );
 

@@ -16,6 +16,7 @@
  */
 package org.apache.ignite.raft.jraft.rpc.impl;
 
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.net.ConnectException;
@@ -48,7 +49,6 @@ import org.apache.ignite.raft.jraft.rpc.RpcRequests;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.ErrorResponse;
 import org.apache.ignite.raft.jraft.rpc.RpcResponseClosure;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 
 /**
  * Abstract RPC client service based.
@@ -65,7 +65,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     /**
      * The set of pinged consistent IDs.
      */
-    private final Set<String> readyConsistentIds = new ConcurrentHashSet<>();
+    private final Set<String> readyConsistentIds = ConcurrentHashMap.newKeySet();
 
     public RpcClient getRpcClient() {
         return this.rpcClient;
@@ -140,7 +140,7 @@ public abstract class AbstractClientService implements ClientService, TopologyEv
     public CompletableFuture<Boolean> connectAsync(PeerId peerId) {
         final RpcClient rc = this.rpcClient;
         if (rc == null) {
-            throw new IllegalStateException("Client service is uninitialized.");
+            return falseCompletedFuture();
         }
 
         // Remote node is alive and pinged, safe to continue.

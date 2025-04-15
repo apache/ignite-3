@@ -651,8 +651,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
                 new TxMessageSender(
                         messagingService,
                         mock(ReplicaService.class),
-                        clockService,
-                        transactionConfiguration
+                        clockService
                 )
         );
 
@@ -1740,14 +1739,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
+        Catalog mockEarliestCatalog = mock(Catalog.class);
+        when(mockEarliestCatalog.version()).thenReturn(earliestVersion);
 
         UUID txId = newTxId();
         HybridTimestamp beginTs = beginTimestamp(txId);
         HybridTimestamp commitTs = clock.now();
 
         HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
-        when(catalogService.activeCatalogVersion(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
-        when(catalogService.earliestCatalogVersion()).thenReturn(earliestVersion);
+        when(catalogService.activeCatalog(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
+        when(catalogService.earliestCatalog()).thenReturn(mockEarliestCatalog);
 
         CompletableFuture<ReplicaResult> invokeFuture = partitionReplicaListener.invoke(
                     TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
@@ -2553,6 +2554,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2603,6 +2606,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRwOperationsFailIfTableWasDropped(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2620,6 +2625,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void replaceRequestFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
@@ -2635,6 +2642,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void rwScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
         testRwOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, key) -> {
             return doRwScanRetrieveBatchRequest(targetTxId);
@@ -2654,6 +2663,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRoGetFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
@@ -2687,6 +2698,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRoGetFailsIfTableWasDropped(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
@@ -2701,6 +2714,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void roScanRequestFailsIfTableWasDropped(@Values(booleans = {false, true}) boolean onExistingRow) {
         testRoOperationFailsIfTableWasDropped(onExistingRow, (targetTxId, readTimestamp, key) -> {
             return doRoScanRetrieveBatchRequest(targetTxId, readTimestamp);
@@ -2772,6 +2787,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("singleRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRwOperationsFailIfSchemaVersionMismatchesTx(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2812,6 +2829,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @CartesianTest
     @CartesianTest.MethodFactory("multiRowRwOperationTypesFactory")
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRwOperationsFailIfSchemaVersionMismatchesTx(RequestType requestType, boolean onExistingRow, boolean full) {
         RwListenerInvocation invocation = null;
 
@@ -2829,6 +2848,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void replaceRequestFailsIfSchemaVersionMismatchesTx(
             @Values(booleans = {false, true}) boolean onExistingRow,
             @Values(booleans = {false, true}) boolean full
@@ -2844,6 +2865,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void singleRowRoGetFailsIfSchemaVersionMismatchesTx(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow
@@ -2875,6 +2898,8 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @CartesianTest
+    // TODO: IGNITE-22522 Remove the test. There's a counterpart in ZonePartitionReplicationListenerTest.
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void multiRowRoGetFailsIfSchemaVersionMismatchesTx(
             @Values(booleans = {false, true}) boolean direct,
             @Values(booleans = {false, true}) boolean onExistingRow

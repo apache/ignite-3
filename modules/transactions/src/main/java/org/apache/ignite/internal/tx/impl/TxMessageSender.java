@@ -38,7 +38,6 @@ import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.PartitionEnlistment;
 import org.apache.ignite.internal.tx.TransactionMeta;
 import org.apache.ignite.internal.tx.TransactionResult;
-import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.message.EnlistedPartitionGroupMessage;
 import org.apache.ignite.internal.tx.message.PartitionEnlistmentMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
@@ -49,6 +48,8 @@ import org.jetbrains.annotations.Nullable;
  * This class is responsible for interacting with the messaging layer. Sends transaction messages.
  */
 public class TxMessageSender {
+    private static final int RPC_TIMEOUT_MILLIS = 60 * 1000;
+
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -63,26 +64,21 @@ public class TxMessageSender {
 
     private final ClockService clockService;
 
-    private final TransactionConfiguration transactionConfiguration;
-
     /**
      * Constructor.
      *
      * @param messagingService Messaging service.
      * @param replicaService Replica service.
      * @param clockService Clock service.
-     * @param transactionConfiguration Transaction configuration.
      */
     public TxMessageSender(
             MessagingService messagingService,
             ReplicaService replicaService,
-            ClockService clockService,
-            TransactionConfiguration transactionConfiguration
+            ClockService clockService
     ) {
         this.messagingService = messagingService;
         this.replicaService = replicaService;
         this.clockService = clockService;
-        this.transactionConfiguration = transactionConfiguration;
     }
 
     /**
@@ -141,7 +137,7 @@ public class TxMessageSender {
                         .timestamp(clockService.now())
                         .groups(toPartitionMessages(enlistedPartitionGroups))
                         .build(),
-                transactionConfiguration.rpcTimeout().value());
+                RPC_TIMEOUT_MILLIS);
     }
 
     /**
@@ -226,7 +222,7 @@ public class TxMessageSender {
                                 .readTimestamp(timestamp)
                                 .txId(txId)
                                 .build(),
-                        transactionConfiguration.rpcTimeout().value())
+                        RPC_TIMEOUT_MILLIS)
                 .thenApply(resp -> {
                     assert resp instanceof TxStateResponse : "Unsupported response type [type=" + resp.getClass().getSimpleName() + ']';
 

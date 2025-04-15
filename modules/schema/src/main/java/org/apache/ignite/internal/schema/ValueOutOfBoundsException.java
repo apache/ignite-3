@@ -15,21 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.configuration;
-
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
+package org.apache.ignite.internal.schema;
 
 /**
- * Configuration schema for deadlock prevention policy.
+ * An exception thrown when an attempt to write value out of allowed range is performed.
  */
-@Config
-public class DeadlockPreventionPolicyConfigurationSchema {
-    @OneOf({"NATURAL", "REVERSED", "NONE"})
-    @Value(hasDefault = true)
-    public String txIdComparator = "NATURAL";
+class ValueOutOfBoundsException extends SchemaMismatchException {
+    /** Serial version uid. */
+    private static final long serialVersionUID = 0L;
 
-    @Value(hasDefault = true)
-    public long waitTimeout = 0;
+    /**
+     * Constructor.
+     *
+     * @param msg Error message.
+     */
+    ValueOutOfBoundsException(String msg) {
+        super(msg);
+    }
 }
