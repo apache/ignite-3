@@ -52,6 +52,8 @@ import org.junit.jupiter.api.Test;
 class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     private static final int NODES_TO_START = 3;
 
+    private static final String ZONE_NAME = "TEST_ZONE";
+
     private static final String TABLE_NAME = "TEST";
 
     private final LogInspector appendEntriesInterceptorInspector = LogInspector.create(CheckCatalogVersionOnAppendEntries.class, true);
@@ -105,9 +107,8 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
-        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
-                + " zone TEST_ZONE";
+        String zoneSql = "create zone " + ZONE_NAME + " with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+        String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone " + ZONE_NAME;
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -117,7 +118,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
 
     private void transferLeadershipsTo(int nodeIndex) throws InterruptedException {
         cluster.transferLeadershipTo(nodeIndex, MetastorageGroupId.INSTANCE);
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
+        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(ZONE_NAME, TABLE_NAME));
     }
 
     private CompletableFuture<?> rejectionDueToMetadataLagTriggered() {

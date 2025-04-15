@@ -32,22 +32,24 @@ public class ReplicationGroupsUtils {
     /**
      * Returns the IDs of all table partitions that exist on the given node.
      */
-    public static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
+    public static List<TablePartitionId> tablePartitionIds(IgniteImpl node, int tableId) {
         return node.raftManager().localNodes().stream()
                 .map(RaftNodeId::groupId)
                 .filter(TablePartitionId.class::isInstance)
                 .map(TablePartitionId.class::cast)
+                .filter(tablePartitionId -> tablePartitionId.tableId() == tableId)
                 .collect(toList());
     }
 
     /**
      * Returns the IDs of all zone partitions that exist on the given node.
      */
-    public static List<ZonePartitionId> zonePartitionIds(IgniteImpl node) {
+    public static List<ZonePartitionId> zonePartitionIds(IgniteImpl node, int zoneId) {
         return node.raftManager().localNodes().stream()
                 .map(RaftNodeId::groupId)
                 .filter(ZonePartitionId.class::isInstance)
                 .map(ZonePartitionId.class::cast)
+                .filter(zonePartitionId -> zonePartitionId.zoneId() == zoneId)
                 .collect(toList());
     }
 }
