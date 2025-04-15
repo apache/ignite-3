@@ -510,18 +510,10 @@ public class ClientCompute implements IgniteCompute {
     }
 
     private static <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
-        ClientMessagePacker w = out.out();
-        w.packDeploymentUnits(descriptor.units());
+        boolean platformComputeSupported = out.clientChannel().protocolContext()
+                .isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB);
 
-        w.packString(descriptor.jobClassName());
-        w.packInt(descriptor.options().priority());
-        w.packInt(descriptor.options().maxRetries());
-        ClientComputeJobPacker.packJobArgument(arg, descriptor.argumentMarshaller(), w);
-
-        if (out.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_EXECUTOR)) {
-            // TODO: IGNITE-25116: descriptor.options().executorType().ordinal()
-            w.packInt(0);
-        }
+        ClientComputeJobPacker.packJob(descriptor, arg, out.out(), platformComputeSupported);
     }
 
     private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {

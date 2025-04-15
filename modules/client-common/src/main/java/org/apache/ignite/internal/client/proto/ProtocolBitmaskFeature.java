@@ -40,9 +40,14 @@ public enum ProtocolBitmaskFeature {
     TX_DIRECT_MAPPING(2),
 
     /**
-     * Platform compute executor (non-Java job execution via thin client protocol).
+     * Platform compute jobs (call non-Java jobs from client).
      */
-    PLATFORM_COMPUTE_EXECUTOR(3);
+    PLATFORM_COMPUTE_JOB(3),
+
+    /**
+     * Platform compute executor (respond to server calls for job execution).
+     */
+    PLATFORM_COMPUTE_EXECUTOR(4);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
