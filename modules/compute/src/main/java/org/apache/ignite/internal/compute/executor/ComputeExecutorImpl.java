@@ -129,14 +129,17 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
+        // TODO IGNITE-25116: Remove.
+        if (jobClassName.startsWith("TEST_ONLY_DOTNET_JOB:")) {
+            return dotNetComputeExecutor.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName.substring(22), input, context);
+        }
+
         switch (executorType) {
             case JavaEmbedded:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
             case DotNetSidecar:
-                ArrayList<String> unitPaths = getDeploymentUnitPaths(classLoader);
-
-                return dotNetComputeExecutor.getJobCallable(unitPaths, jobClassName, input, context);
+                return dotNetComputeExecutor.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
