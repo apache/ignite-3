@@ -671,7 +671,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return startTables(recoveryRevision, lowWatermark.getLowWatermark())
+            return recoverTables(recoveryRevision, lowWatermark.getLowWatermark())
                     .thenCompose(v -> processAssignmentsOnRecovery(recoveryRevision));
         });
     }
@@ -2948,18 +2948,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return tables.stream().filter(table -> table.qualifiedName().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
     }
 
-    private CompletableFuture<Void> startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
+    private CompletableFuture<Void> recoverTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
         int earliestCatalogVersion = lwm == null
                 ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
+
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var startedTables = new IntOpenHashSet();
         var startTableFutures = new ArrayList<CompletableFuture<?>>();
 
+        Catalog nextCatalog = null;
+
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
-            for (CatalogTableDescriptor tableDescriptor : catalogService.catalog(ver).tables()) {
-                if (!startedTables.add(tableDescriptor.id())) {
+            Catalog catalog = catalogService.catalog(ver);
+
+            for (CatalogTableDescriptor tableDescriptor : catalog.tables()) {
+                // Handle missed table drop event.
+                int tableId = tableDescriptor.id();
+
+                if (nextCatalog != null && nextCatalog.table(tableId) == null) {
+                    destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
+                }
+
+                if (!startedTables.add(tableId)) {
                     continue;
                 }
 
@@ -2982,6 +2994,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 startTableFutures.add(startTableFuture);
             }
+
+            nextCatalog = catalog;
         }
 
         return allOf(startTableFutures.toArray(CompletableFuture[]::new))
