@@ -32,4 +32,8 @@ public class DotNetComputeExecutorTest {
 
         assertTrue(new File(dotNetBinaryPath).exists(), "File does not exist: " + dotNetBinaryPath);
     }
+
+    public void startDotNetProcessThrowsOnWrongAddress() {
+        Process proc = DotNetComputeExecutor.startDotNetProcess("foobar", false, "123");
+    }
 }

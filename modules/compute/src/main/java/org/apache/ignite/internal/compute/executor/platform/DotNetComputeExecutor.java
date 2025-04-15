@@ -33,6 +33,8 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 public class DotNetComputeExecutor {
     static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
 
+    private static final int PROCESS_START_TIMEOUT_MS = 5000;
+
     private final PlatformComputeTransport transport;
 
     // TODO: Secure random.
@@ -60,15 +62,14 @@ public class DotNetComputeExecutor {
             JobExecutionContext context) {
         if (context.isCancelled()) {
             // TODO early exit?
+            // TODO: Ticket for cancellation
         }
 
         ensureProcessStarted();
 
-        // TODO: Configurable timeout
-        // TODO: Handle disconnects and crashed processes.
         return transport
                 .getConnectionAsync(computeExecutorId)
-                .orTimeout(3000, TimeUnit.MILLISECONDS)
+                .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
 
@@ -88,7 +89,7 @@ public class DotNetComputeExecutor {
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
-    private static Process startDotNetProcess(String address, boolean ssl, String executorId) {
+    static Process startDotNetProcess(String address, boolean ssl, String executorId) {
         ProcessBuilder processBuilder = new ProcessBuilder("dotnet", DOTNET_BINARY_PATH);
 
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
