@@ -43,6 +43,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -100,6 +101,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                         VerificationTimes.exactly(1));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24226")
     @Test
     void shouldSendEventsByTimeout() {
         clientAndServer

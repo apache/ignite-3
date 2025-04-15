@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.catalog.events.CatalogEvent.INDEX_REMOV
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.table.distributed.index.IndexUtils.registerIndexToTable;
+import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -46,7 +47,6 @@ import org.apache.ignite.internal.causality.IncrementalVersionedValue;
 import org.apache.ignite.internal.causality.RevisionListenerRegistry;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
-import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
@@ -65,8 +65,7 @@ import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 
 /**
- * An Ignite component that is responsible for handling index-related commands like CREATE or DROP
- * as well as managing indexes' lifecycle.
+ * An Ignite component that is responsible for handling index-related commands like CREATE or DROP as well as managing indexes' lifecycle.
  *
  * <p>To avoid errors when using indexes while applying replication log during node recovery, the registration of indexes was moved to the
  * start of the tables.</p>
@@ -170,8 +169,8 @@ public class IndexManager implements IgniteComponent {
      *
      * @param causalityToken Causality token.
      * @param tableId Table ID.
-     * @return Future with multi-version table storage, completes with an exception if the table or storage does not exist
-     *      according to the passed parameters.
+     * @return Future with multi-version table storage, completes with an exception if the table or storage does not exist according to the
+     *         passed parameters.
      */
     CompletableFuture<MvTableStorage> getMvTableStorage(long causalityToken, int tableId) {
         return tableManager
@@ -244,7 +243,7 @@ public class IndexManager implements IgniteComponent {
 
     private CompletableFuture<Boolean> onLwmChanged(ChangeLowWatermarkEventParameters parameters) {
         if (!busyLock.enterBusy()) {
-            return failedFuture(new NodeStoppingException());
+            return falseCompletedFuture();
         }
 
         try {
@@ -252,10 +251,14 @@ public class IndexManager implements IgniteComponent {
 
             List<DestroyIndexEvent> events = destructionEventsQueue.drainUpTo(newEarliestCatalogVersion);
 
-            return runAsync(
-                    () -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())),
-                    ioExecutor
-            ).thenApply(unused -> false);
+            runAsync(() -> events.forEach(event -> destroyIndex(event.indexId(), event.tableId())), ioExecutor)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Unable to destroy indices", e);
+                        }
+                    });
+
+            return falseCompletedFuture();
         } catch (Throwable t) {
             return failedFuture(t);
         } finally {
@@ -344,10 +347,14 @@ public class IndexManager implements IgniteComponent {
             assert catalog != null : "catalogVersion=" + catalogVersion;
 
             for (CatalogIndexDescriptor index : catalog.indexes()) {
+                int indexId = index.id();
+
+                int tableId = index.tableId();
+
                 // Check if the index was removed in the next version of the catalog and, if yes, whether it was removed with the whole
                 // table. If the whole table was removed, it will remove its index by itself.
-                if (nextCatalog.index(index.id()) == null && nextCatalog.table(index.tableId()) != null) {
-                    destructionEventsQueue.enqueue(new DestroyIndexEvent(nextCatalog.version(), index.id(), index.tableId()));
+                if (nextCatalog.index(indexId) == null && nextCatalog.table(tableId) != null) {
+                    destructionEventsQueue.enqueue(new DestroyIndexEvent(nextCatalog.version(), indexId, tableId));
                 }
             }
 
