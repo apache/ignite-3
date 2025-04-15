@@ -154,8 +154,8 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     }
 
     /**
-     * Returns an estimation of the progress made during the current checkpoint. Currently, it is an average of written pages and fully
-     * synced pages (probably, to account for both writing (which may be pretty ahead of syncing) and syncing at the same time).
+     * Returns an estimation of the progress made during the current checkpoint. It is a weighted average of written pages and fully
+     * synced pages, which uses {@link #writeVsFsyncCoefficient} as a weight value.
      *
      * @param cpWrittenPages Count of pages written during current checkpoint.
      * @return Estimation of work done (in pages).
@@ -526,9 +526,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             return;
         }
 
+        // Here we use exponential smoothing with a weight of 0.85.
         double newCoefficient = writeVsFsyncCoefficient * 0.85 + coefficient * 0.15;
 
-        // Put it within reasonable bounds just in case.
+        // Put it within reasonable bounds just in case, so that we're not too close to 0 or 1.
         if (newCoefficient < 0.1) {
             newCoefficient = 0.1;
         } else if (newCoefficient > 0.9) {
