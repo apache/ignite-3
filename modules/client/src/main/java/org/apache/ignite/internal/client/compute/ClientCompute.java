@@ -405,7 +405,7 @@ public class ClientCompute implements IgniteCompute {
 
                     keyWriter.accept(outputChannel, schema);
 
-                    packJob(w, descriptor, arg);
+                    packJob(outputChannel, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
@@ -445,7 +445,7 @@ public class ClientCompute implements IgniteCompute {
 
                     w.packInt(partitionId);
 
-                    packJob(w, descriptor, arg);
+                    packJob(outputChannel, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 PartitionAwarenessProvider.of(partitionId),
