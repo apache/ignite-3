@@ -43,10 +43,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /** Maximum fraction of dirty pages in a region. */
-    public static final double MAX_DIRTY_PAGES = 0.75;
+    public static final double DEFAULT_MAX_DIRTY_PAGES = 0.75;
 
     /** Percent of dirty pages which will not cause throttling. */
-    public static final double MIN_RATIO_NO_THROTTLE = 0.03;
+    public static final double DEFAULT_MIN_RATIO_NO_THROTTLE = 0.03;
 
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
@@ -142,7 +142,7 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             CheckpointLockStateChecker stateChecker,
             PersistentPageMemoryMetricSource metricSource
     ) {
-        this(DEFAULT_LOGGING_THRESHOLD, MIN_RATIO_NO_THROTTLE, MAX_DIRTY_PAGES, pageMemory, cpProgress, stateChecker, metricSource);
+        this(DEFAULT_LOGGING_THRESHOLD, DEFAULT_MIN_RATIO_NO_THROTTLE, DEFAULT_MAX_DIRTY_PAGES, pageMemory, cpProgress, stateChecker, metricSource);
     }
 
     private void initMetrics(PersistentPageMemoryMetricSource metricSource) {

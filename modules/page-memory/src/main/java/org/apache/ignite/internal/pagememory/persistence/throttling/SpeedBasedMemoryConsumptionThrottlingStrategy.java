@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
-import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.MAX_DIRTY_PAGES;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -269,7 +269,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * @return {@code true} iff clean space left is too low.
      */
     private static boolean lowCleanSpaceLeft(double dirtyPagesRatio, double targetDirtyRatio) {
-        return dirtyPagesRatio > targetDirtyRatio && (dirtyPagesRatio + 0.05 > MAX_DIRTY_PAGES);
+        return dirtyPagesRatio > targetDirtyRatio && (dirtyPagesRatio + 0.05 > DEFAULT_MAX_DIRTY_PAGES);
     }
 
     private void publishSpeedAndRatioForMetrics(long speedForMarkAll, double targetDirtyRatio) {
@@ -280,7 +280,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     /**
      * Calculates speed needed to mark dirty all currently clean pages before the current checkpoint ends. May return 0 if the provided
      * parameters do not give enough information to calculate the speed, OR if the current dirty pages ratio is too high (higher than
-     * {@link PagesWriteSpeedBasedThrottle#MAX_DIRTY_PAGES}), in which case we're not going to throttle anyway.
+     * {@link PagesWriteSpeedBasedThrottle#DEFAULT_MAX_DIRTY_PAGES}), in which case we're not going to throttle anyway.
      *
      * @param dirtyPagesRatio Current percent of dirty pages.
      * @param donePages Roughly, count of written and sync'ed pages
