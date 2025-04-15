@@ -135,6 +135,9 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         initMetrics(metricSource);
     }
 
+    /**
+     * Test constructor with fewer parameters.
+     */
     @TestOnly
     public PagesWriteSpeedBasedThrottle(
             PersistentPageMemory pageMemory,
