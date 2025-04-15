@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
+import static java.lang.Double.isNaN;
 import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
 
 import java.util.Set;
@@ -71,6 +72,11 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * store). This ratio is excluded from throttling.
      */
     private volatile double initDirtyRatioAtCpBegin;
+
+    /**
+     * An estimated proportion of "write pages" time in the total "write + fsync" time.
+     */
+    private volatile double writeVsFsyncCoefficient = 5.0 / 6;
 
     /** Average checkpoint write speed. Only the current value is used. Pages/second. */
     private final ProgressSpeedCalculation cpWriteSpeed = new ProgressSpeedCalculation();
@@ -154,17 +160,16 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     }
 
     /**
-     * Returns an estimation of the progress made during the current checkpoint. Currently, it is an average of written pages and fully
-     * synced pages (probably, to account for both writing (which may be pretty ahead of syncing) and syncing at the same time).
+     * Returns an estimation of the progress made during the current checkpoint. It is a weighted average of written pages and fully
+     * synced pages, which uses {@link #writeVsFsyncCoefficient} as a weight value.
      *
      * @param cpWrittenPages Count of pages written during current checkpoint.
      * @return Estimation of work done (in pages).
      */
     private int cpDonePagesEstimation(int cpWrittenPages) {
-        // TODO: IGNITE-16879 - this only works correctly if time-to-write a page is close to time-to-sync a page.
-        // In reality, this does not seem to hold, which produces wrong estimations. We could measure the real times
-        // in Checkpointer and make this estimation a lot more precise.
-        return (cpWrittenPages + cpSyncedPages()) / 2;
+        double coefficient = writeVsFsyncCoefficient;
+
+        return (int) (cpWrittenPages * coefficient + cpSyncedPages() * (1 - coefficient));
     }
 
     /**
@@ -425,6 +430,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         return evictedPagesCounter == null ? 0 : evictedPagesCounter.get();
     }
 
+    double getWriteVsFsyncCoefficient() {
+        return writeVsFsyncCoefficient;
+    }
+
     /**
      * Returns sleep time in nanoseconds.
      *
@@ -503,5 +512,36 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     void finish() {
         cpWriteSpeed.closeInterval();
         threadIds.clear();
+
+        updateWriteVsFsyncCoefficient();
+    }
+
+    private void updateWriteVsFsyncCoefficient() {
+        CheckpointProgress progress = cpProgress.get();
+        assert progress != null;
+
+        if (progress.currentCheckpointPagesCount() == 0) {
+            return;
+        }
+
+        long pagesWriteTimeMillis = progress.getPagesWriteTimeMillis();
+        long fsyncTimeMillis = progress.getFsyncTimeMillis();
+
+        double coefficient = ((double) pagesWriteTimeMillis) / (pagesWriteTimeMillis + fsyncTimeMillis);
+        if (isNaN(coefficient)) {
+            return;
+        }
+
+        // Here we use exponential smoothing with a weight of 0.85.
+        double newCoefficient = writeVsFsyncCoefficient * 0.85 + coefficient * 0.15;
+
+        // Put it within reasonable bounds just in case, so that we're not too close to 0 or 1.
+        if (newCoefficient < 0.1) {
+            newCoefficient = 0.1;
+        } else if (newCoefficient > 0.9) {
+            newCoefficient = 0.9;
+        }
+
+        writeVsFsyncCoefficient = newCoefficient;
     }
 }
