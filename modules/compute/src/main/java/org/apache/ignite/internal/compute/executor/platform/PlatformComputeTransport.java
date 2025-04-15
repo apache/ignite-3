@@ -15,35 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+package org.apache.ignite.internal.compute.executor.platform;
 
-using System;
-using System.Diagnostics.CodeAnalysis;
+import java.util.concurrent.CompletableFuture;
 
-/// <summary>
-/// Response flags.
-/// </summary>
-[Flags]
-[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-internal enum ResponseFlags
-{
-    /// <summary>
-    /// Indicates partition assignment update.
-    /// </summary>
-    PartitionAssignmentChanged = 1,
+/**
+ * Interface for the transport layer of the platform compute executor.
+ * <p>
+ * This interface is responsible for managing connections to external executors
+ * and providing the necessary methods to send and receive messages.
+ */
+public interface PlatformComputeTransport {
+    /**
+     * Gets the server address for the external executor to connect to.
+     *
+     * @return Server address.
+     */
+    String serverAddress();
 
-    /// <summary>
-    /// Indicates a server-to-client notification.
-    /// </summary>
-    Notification = 2,
-
-    /// <summary>
-    /// Indicates error response.
-    /// </summary>
-    Error = 4,
-
-    /// <summary>
-    /// Indicates that a server-to-client operation (server sends request, client returns response).
-    /// </summary>
-    ServerOp = 8
+    /**
+     * Gets the external executor connection by id.
+     *
+     * @param id Connection id.
+     * @return Compute connection.
+     */
+    CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id);
 }

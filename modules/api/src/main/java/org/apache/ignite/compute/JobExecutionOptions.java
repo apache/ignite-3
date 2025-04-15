@@ -31,15 +31,12 @@ public class JobExecutionOptions {
 
     private final int maxRetries;
 
-    /**
-     * Constructor.
-     *
-     * @param priority Job execution priority.
-     * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
-     */
-    private JobExecutionOptions(int priority, int maxRetries) {
+    private final JobExecutorType executorType;
+
+    private JobExecutionOptions(int priority, int maxRetries, JobExecutorType executorType) {
         this.priority = priority;
         this.maxRetries = maxRetries;
+        this.executorType = executorType == null ? JobExecutorType.JavaEmbedded : executorType;
     }
 
     public static Builder builder() {
@@ -54,11 +51,17 @@ public class JobExecutionOptions {
         return maxRetries;
     }
 
+    public JobExecutorType executorType() {
+        return executorType;
+    }
+
     /** JobExecutionOptions builder. */
     public static class Builder {
         private int priority;
 
         private int maxRetries;
+
+        private JobExecutorType executorType;
 
         public Builder priority(int priority) {
             this.priority = priority;
@@ -70,8 +73,13 @@ public class JobExecutionOptions {
             return this;
         }
 
+        public Builder executorType(JobExecutorType executorType) {
+            this.executorType = executorType;
+            return this;
+        }
+
         public JobExecutionOptions build() {
-            return new JobExecutionOptions(priority, maxRetries);
+            return new JobExecutionOptions(priority, maxRetries, executorType);
         }
     }
 }

@@ -17,22 +17,35 @@
 
 namespace Apache.Ignite.Compute;
 
-using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using Marshalling;
 
 /// <summary>
-/// Compute job descriptor.
+/// Ignite compute job interface.
+/// <para />
+/// To define a compute job, implement this interface and deploy the binaries to the cluster with the Deployemnt API.
 /// </summary>
-/// <param name="JobClassName">Java class name of the job to execute.</param>
-/// <param name="DeploymentUnits">Deployment units.</param>
-/// <param name="Options">Options.</param>
-/// <param name="ArgMarshaller">Argument marshaller (serializer).</param>
-/// <param name="ResultMarshaller">Result marshaller (deserializer).</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
-public sealed record JobDescriptor<TArg, TResult>(
-    string JobClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    JobExecutionOptions? Options = null,
-    IMarshaller<TArg>? ArgMarshaller = null,
-    IMarshaller<TResult>? ResultMarshaller = null);
+public interface IComputeJob<TArg, TResult>
+{
+    /// <summary>
+    /// Gets the custom marshaller for the job input argument.
+    /// </summary>
+    IMarshaller<TArg>? InputMarshaller => null;
+
+    /// <summary>
+    /// Gets the custom marshaller for the job result.
+    /// </summary>
+    IMarshaller<TResult>? ResultMarshaller => null;
+
+    /// <summary>
+    /// Executes the job.
+    /// </summary>
+    /// <param name="context">Job execution context.</param>
+    /// <param name="arg">Job argument.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Job result.</returns>
+    ValueTask<TResult> ExecuteAsync(IJobExecutionContext context, TArg arg, CancellationToken cancellationToken);
+}

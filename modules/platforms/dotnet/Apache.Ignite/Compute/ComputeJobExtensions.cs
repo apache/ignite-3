@@ -17,22 +17,21 @@
 
 namespace Apache.Ignite.Compute;
 
-using System.Collections.Generic;
-using Marshalling;
-
 /// <summary>
-/// Compute job descriptor.
+/// Compute job extensions.
 /// </summary>
-/// <param name="JobClassName">Java class name of the job to execute.</param>
-/// <param name="DeploymentUnits">Deployment units.</param>
-/// <param name="Options">Options.</param>
-/// <param name="ArgMarshaller">Argument marshaller (serializer).</param>
-/// <param name="ResultMarshaller">Result marshaller (deserializer).</param>
-/// <typeparam name="TArg">Argument type.</typeparam>
-/// <typeparam name="TResult">Result type.</typeparam>
-public sealed record JobDescriptor<TArg, TResult>(
-    string JobClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
-    JobExecutionOptions? Options = null,
-    IMarshaller<TArg>? ArgMarshaller = null,
-    IMarshaller<TResult>? ResultMarshaller = null);
+public static class ComputeJobExtensions // TODO: Review this approach.
+{
+    /// <summary>
+    /// Gets the job descriptor for the given job.
+    /// </summary>
+    /// <param name="job">Job.</param>
+    /// <typeparam name="TArg">Arg type.</typeparam>
+    /// <typeparam name="TResult">Result type.</typeparam>
+    /// <returns>Job descriptor.</returns>
+    public static JobDescriptor<TArg, TResult> GetDescriptor<TArg, TResult>(this IComputeJob<TArg, TResult> job) =>
+        new(
+            JobClassName: job.GetType().AssemblyQualifiedName!,
+            ArgMarshaller: job.InputMarshaller,
+            ResultMarshaller: job.ResultMarshaller);
+}

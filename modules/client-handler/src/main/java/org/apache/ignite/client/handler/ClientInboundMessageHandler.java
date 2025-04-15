@@ -32,6 +32,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.codec.DecoderException;
 import java.util.BitSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -102,6 +103,8 @@ import org.apache.ignite.client.handler.requests.tx.ClientTransactionBeginReques
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionCommitRequest;
 import org.apache.ignite.client.handler.requests.tx.ClientTransactionRollbackRequest;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessageCommon;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -111,7 +114,10 @@ import org.apache.ignite.internal.client.proto.HandshakeExtension;
 import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
+import org.apache.ignite.internal.client.proto.ServerOp;
+import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -154,7 +160,9 @@ import org.jetbrains.annotations.TestOnly;
  * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
 @SuppressWarnings({"rawtypes", "unchecked"})
-public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter implements EventListener<AuthenticationEventParameters> {
+public class ClientInboundMessageHandler
+        extends ChannelInboundHandlerAdapter
+        implements EventListener<AuthenticationEventParameters>, PlatformComputeConnection {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -230,6 +238,14 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
     private final Map<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
+    private final Consumer<ClientInboundMessageHandler> onHandshake;
+
+    private final Consumer<ClientInboundMessageHandler> onDisconnect;
+
+    private final AtomicLong serverToClientRequestId = new AtomicLong(-1);
+
+    private final Map<Long, CompletableFuture<ClientMessageUnpacker>> serverToClientRequests = new ConcurrentHashMap<>();
+
     /**
      * Constructor.
      *
@@ -269,7 +285,9 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Executor commonExecutor
+            Executor commonExecutor,
+            Consumer<ClientInboundMessageHandler> onHandshake,
+            Consumer<ClientInboundMessageHandler> onDisconnect
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -318,6 +336,13 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         this.extensions = extensions;
 
         this.commonExecutor = commonExecutor;
+
+        this.onHandshake = onHandshake;
+        this.onDisconnect = onDisconnect;
+    }
+
+    @Nullable String computeExecutorId() {
+        return clientContext != null ? clientContext.computeExecutorId() : null;
     }
 
     @Override
@@ -384,6 +409,8 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
+
+        onDisconnect.accept(this);
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
@@ -399,18 +426,23 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             int clientCode = unpacker.unpackInt();
 
             BitSet clientFeatures = HandshakeUtils.unpackFeatures(unpacker);
-            Map<HandshakeExtension, Object> extensions = HandshakeUtils.unpackExtensions(unpacker);
+            Map<HandshakeExtension, Object> clientHandshakeExtensions = HandshakeUtils.unpackExtensions(unpacker);
+            String computeExecutorId = (String) clientHandshakeExtensions.get(HandshakeExtension.COMPUTE_EXECUTOR_ID);
 
+            // TODO: Bypass authentication if computeExecutorId is set.
             authenticationManager
-                    .authenticateAsync(createAuthenticationRequest(extensions))
+                    .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
                     .handleAsync((user, err) -> {
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
                             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
-                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
+
+                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user, computeExecutorId);
 
                             sendHandshakeResponse(ctx, packer);
+
+                            commonExecutor.execute(() -> onHandshake.accept(this));
                         }
 
                         return null;
@@ -634,6 +666,11 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
             if (LOG.isTraceEnabled()) {
                 LOG.trace("Client request started [id=" + requestId + ", op=" + opCode
                         + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+            }
+
+            if (opCode == ClientOp.SERVER_OP_RESPONSE) {
+                processServerOpResponse(requestId, in);
+                return;
             }
 
             if (isPartitionOperation(opCode)) {
@@ -983,7 +1020,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
                     + ctx.channel().remoteAddress() + ']');
         }
 
-        int flags = ResponseFlags.getFlags(primaryReplicasUpdated, isNotification, isError);
+        int flags = ResponseFlags.getFlags(primaryReplicasUpdated, isNotification, isError, false);
         out.packInt(flags);
 
         if (primaryReplicasUpdated) {
@@ -1149,5 +1186,77 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
     @TestOnly
     public int cancelHandlesCount() {
         return cancelHandles.size();
+    }
+
+    @Override
+    public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+            List<String> deploymentUnitPaths,
+            String jobClassName,
+            ComputeJobDataHolder arg) {
+        return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
+                packer -> {
+                    packer.packString(jobClassName);
+
+                    packer.packInt(deploymentUnitPaths.size());
+                    for (String path : deploymentUnitPaths) {
+                        packer.packString(path);
+                    }
+
+                    ClientComputeJobPacker.packJobArgument(arg, null, packer);
+                })
+                .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);
+    }
+
+    private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
+        // Server and client request ids do not clash, but we use negative to simplify the debugging.
+        var requestId = serverToClientRequestId.decrementAndGet();
+        var packer = getPacker(channelHandlerContext.alloc());
+
+        try {
+            packer.packLong(requestId);
+            int flags = ResponseFlags.getFlags(false, false, false, true);
+            packer.packInt(flags);
+            packer.packLong(observableTimestamp(null));
+            packer.packInt(serverOp);
+
+            writer.accept(packer);
+
+            var fut = new CompletableFuture<ClientMessageUnpacker>();
+            serverToClientRequests.put(requestId, fut);
+
+            write(packer, channelHandlerContext);
+
+            return fut;
+        } catch (Throwable t) {
+            packer.close();
+            serverToClientRequests.remove(requestId);
+
+            return CompletableFuture.failedFuture(t);
+        }
+    }
+
+    private void processServerOpResponse(long requestId, ClientMessageUnpacker in) {
+        try (in) {
+            var fut = serverToClientRequests.remove(requestId);
+
+            if (fut == null) {
+                // TODO: Log warning?
+                return;
+            }
+
+            int flags = in.unpackInt();
+
+            if (flags == 0) {
+                // No error.
+                fut.complete(in);
+            } else {
+                // Error.
+                // TODO: Deserialize.
+                fut.completeExceptionally(new IllegalStateException("TODO: Client returned error"));
+            }
+
+        } catch (Throwable t) {
+            LOG.warn("Unexpected error processing server response: " + t.getMessage(), t);
+        }
     }
 }
