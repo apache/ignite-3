@@ -76,8 +76,8 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
         // This test is rather fragile because it's time dependent. The test uses one second as tx timeout and assumes that it's enough
         // for an initial operation to find the primary replica, which might not be the case in case of concurrent interleaving rebalance.
         // Not related to colocation. awaitAssignmentsStabilization awaits that the default zone/table stable partition assignments size
-        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone, that's
-        // why given method isn't located in a utility class.
+        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone,
+        // that's why given method isn't located in a utility class.
         awaitAssignmentsStabilization(cluster.node(0));
 
         return ignite().tables().table(TABLE_NAME);
