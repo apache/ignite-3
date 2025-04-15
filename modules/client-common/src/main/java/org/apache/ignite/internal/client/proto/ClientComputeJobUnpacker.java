@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.util.List;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
@@ -59,5 +62,54 @@ public final class ClientComputeJobUnpacker {
         }
 
         return new ComputeJobDataHolder(type, unpacker.readBinary());
+    }
+
+    public static Job unpackJob(ClientMessageUnpacker in, boolean enablePlatformJobs) {
+        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
+        String jobClassName = in.unpackString();
+        var options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt());
+
+        if (enablePlatformJobs) {
+            // TODO: IGNITE-25116 propagate executor type.
+            int executorType = in.unpackInt();
+        }
+
+        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
+
+        return new Job(deploymentUnits, jobClassName, options.build(), args);
+    }
+
+    public static class Job {
+        private final List<DeploymentUnit> deploymentUnits;
+        private final String jobClassName;
+        private final JobExecutionOptions options;
+        private final @Nullable ComputeJobDataHolder args;
+
+        private Job(
+                List<DeploymentUnit> deploymentUnits,
+                String jobClassName,
+                JobExecutionOptions options,
+                @Nullable ComputeJobDataHolder args) {
+            this.deploymentUnits = deploymentUnits;
+            this.jobClassName = jobClassName;
+            this.options = options;
+            this.args = args;
+        }
+
+        public List<DeploymentUnit> deploymentUnits() {
+            return deploymentUnits;
+        }
+
+        public String jobClassName() {
+            return jobClassName;
+        }
+
+        public JobExecutionOptions options() {
+            return options;
+        }
+
+        public @Nullable ComputeJobDataHolder arg() {
+            return args;
+        }
     }
 }
