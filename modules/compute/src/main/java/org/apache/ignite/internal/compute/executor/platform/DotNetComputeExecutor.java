@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.JobExecutionContext;
@@ -38,6 +39,7 @@ public class DotNetComputeExecutor {
 
     private static final int PROCESS_START_TIMEOUT_MS = 5000;
 
+    /** Thread-safe secure random */
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final PlatformComputeTransport transport;
@@ -45,6 +47,7 @@ public class DotNetComputeExecutor {
     /** Single-use secret to match the connection to the process. */
     private String computeExecutorId;
 
+    /** .NET process. Uses computeExecutorId above. */
     private Process process;
 
     public DotNetComputeExecutor(PlatformComputeTransport transport) {
@@ -65,8 +68,8 @@ public class DotNetComputeExecutor {
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         if (context.isCancelled()) {
-            // TODO early exit?
-            // TODO: Ticket for cancellation
+            // TODO IGNITE-25153 Platform job cancellation.
+            return CompletableFuture.failedFuture(new CancellationException("Job was cancelled"));
         }
 
         Entry<Process, String> procEntry = ensureProcessStarted();
