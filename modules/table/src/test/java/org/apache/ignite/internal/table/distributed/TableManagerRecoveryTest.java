@@ -480,24 +480,24 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         var componentContext = new ComponentContext();
 
-        assertThat(
-                metaStorageManager.startAsync(componentContext)
-                        .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
-                        .thenCompose(unused -> {
-                            CompletableFuture<Void> startComponentsFuture = startAsync(
-                                    componentContext,
-                                    catalogManager,
-                                    sm,
-                                    indexMetaStorage,
-                                    sharedTxStateStorage,
-                                    partitionReplicaLifecycleManager,
-                                    tableManager
-                            );
-                            return allOf(startComponentsFuture, metaStorageManager.notifyRevisionUpdateListenerOnStart());
-                        })
-                        .thenCompose(unused -> metaStorageManager.deployWatches()),
-                willSucceedIn(10, SECONDS)
-        );
+        CompletableFuture<Void> startFuture = metaStorageManager.startAsync(componentContext)
+                .thenCompose(unused -> metaStorageManager.recoveryFinishedFuture())
+                .thenCompose(unused -> {
+                    CompletableFuture<Void> startComponentsFuture = startAsync(
+                            componentContext,
+                            catalogManager,
+                            sm,
+                            indexMetaStorage,
+                            sharedTxStateStorage,
+                            partitionReplicaLifecycleManager,
+                            tableManager
+                    );
+                    return allOf(startComponentsFuture, metaStorageManager.notifyRevisionUpdateListenerOnStart());
+                })
+                .thenCompose(unused -> metaStorageManager.deployWatches())
+                .thenCompose(unused -> catalogManager.catalogInitializationFuture());
+
+        assertThat(startFuture, willSucceedIn(10, SECONDS));
     }
 
     /** Stops TableManager and dependencies. */
