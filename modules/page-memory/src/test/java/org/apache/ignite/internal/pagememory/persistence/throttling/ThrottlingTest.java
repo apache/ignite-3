@@ -111,9 +111,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, metricSource);
 
         double dirtyPagesRatio = DEFAULT_MAX_DIRTY_PAGES - 0.08;
+        int completedPages = (903150 + 227217) / 2;
         int markDirtySpeed = 34422;
         int cpWriteSpeed = 19416;
-        long time = throttle.getCleanPagesProtectionParkTime(dirtyPagesRatio, ((903150 + 227217) / 2), 903150, 1, markDirtySpeed, cpWriteSpeed);
+        long time = throttle.getCleanPagesProtectionParkTime(dirtyPagesRatio, completedPages, 903150, 1, markDirtySpeed, cpWriteSpeed);
 
         assertEquals(415110, time);
     }
@@ -209,8 +210,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
     public void doNotThrottleWhenDirtyPagesRatioIsTooHigh() {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, metricSource);
 
+        double dirtyPagesRatio = DEFAULT_MAX_DIRTY_PAGES;
         // 363308 350004 348976 10604
-        long time = throttle.getCleanPagesProtectionParkTime(DEFAULT_MAX_DIRTY_PAGES, ((350004 + 348976) / 2), 350004 - 10604, 4, 279, 23933);
+        int completedPages = (350004 + 348976) / 2;
+        long time = throttle.getCleanPagesProtectionParkTime(dirtyPagesRatio, completedPages, 350004 - 10604, 4, 279, 23933);
 
         assertEquals(0, time);
     }
