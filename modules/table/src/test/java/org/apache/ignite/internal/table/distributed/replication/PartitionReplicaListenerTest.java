@@ -1739,14 +1739,16 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
     // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
+        Catalog mockEarliestCatalog = mock(Catalog.class);
+        when(mockEarliestCatalog.version()).thenReturn(earliestVersion);
 
         UUID txId = newTxId();
         HybridTimestamp beginTs = beginTimestamp(txId);
         HybridTimestamp commitTs = clock.now();
 
         HybridTimestamp reliableCatalogVersionTs = commit ? commitTs : beginTs;
-        when(catalogService.activeCatalogVersion(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
-        when(catalogService.earliestCatalogVersion()).thenReturn(earliestVersion);
+        when(catalogService.activeCatalog(reliableCatalogVersionTs.longValue())).thenThrow(new CatalogNotFoundException("Oops"));
+        when(catalogService.earliestCatalog()).thenReturn(mockEarliestCatalog);
 
         CompletableFuture<ReplicaResult> invokeFuture = partitionReplicaListener.invoke(
                     TX_MESSAGES_FACTORY.writeIntentSwitchReplicaRequest()
