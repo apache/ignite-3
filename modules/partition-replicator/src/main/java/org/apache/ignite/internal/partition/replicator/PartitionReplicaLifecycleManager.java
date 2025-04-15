@@ -1578,9 +1578,11 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param zonePartitionId Zone partition id.
      * @param tableId Table's identifier.
+     *
+     * @return A future that gets completed after all resources have been unloaded.
      */
-    public void unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
-        zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
+    public CompletableFuture<Void> unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
+        return zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
     }
 
     /**
