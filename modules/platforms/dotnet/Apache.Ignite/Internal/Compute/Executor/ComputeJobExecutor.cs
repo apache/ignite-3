@@ -23,6 +23,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Ignite.Compute;
@@ -145,7 +146,8 @@ internal static class ComputeJobExecutor
     private static async ValueTask<object?> ExecuteGenericJobAsync<TArg, TResult>(IComputeJob<TArg, TResult> job, object? arg)
     {
         // TODO: Use marshallers.
-        TResult res = await job.ExecuteAsync(null!, (TArg)arg!).ConfigureAwait(false);
+        // TODO: Support cancellation.
+        TResult res = await job.ExecuteAsync(null!, (TArg)arg!, CancellationToken.None).ConfigureAwait(false);
 
         return res;
     }

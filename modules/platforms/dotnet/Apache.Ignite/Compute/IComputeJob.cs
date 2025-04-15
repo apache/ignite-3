@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
+using System.Threading;
 using System.Threading.Tasks;
 using Marshalling;
 
@@ -44,6 +45,7 @@ public interface IComputeJob<TArg, TResult>
     /// </summary>
     /// <param name="context">Job execution context.</param>
     /// <param name="arg">Job argument.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Job result.</returns>
-    ValueTask<TResult> ExecuteAsync(IJobExecutionContext context, TArg arg);
+    ValueTask<TResult> ExecuteAsync(IJobExecutionContext context, TArg arg, CancellationToken cancellationToken);
 }

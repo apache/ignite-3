@@ -26,11 +26,4 @@ public interface IJobExecutionContext
     /// Gets the Ignite API entry point.
     /// </summary>
     IIgnite Ignite { get; }
-
-    /// <summary>
-    /// Gets a value indicating whether the job was cancelled.
-    /// </summary>
-    bool Cancelled { get; }
-
-    // TODO IGNITE-24994 Partition property
 }
