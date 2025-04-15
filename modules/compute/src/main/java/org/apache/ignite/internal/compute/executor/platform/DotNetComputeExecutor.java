@@ -65,27 +65,46 @@ public class DotNetComputeExecutor {
             // TODO: Ticket for cancellation
         }
 
-        ensureProcessStarted();
+        Process proc = ensureProcessStarted();
 
         return transport
                 .getConnectionAsync(computeExecutorId)
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .exceptionally(e -> {
+                    if (proc.isAlive()) {
+                        // Process is alive but did not communicate back to the server.
+                        proc.destroyForcibly();
+                        throw new RuntimeException(".NET executor process failed to establish connection with the server" , e);
+                    } else {
+                        try {
+                            var output = new String(proc.getErrorStream().readAllBytes());
+
+                            throw new RuntimeException(".NET executor process failed to start: " + output, e);
+                        } catch (IOException ex) {
+                            RuntimeException err = new RuntimeException(
+                                    ".NET executor process failed to start, could not read process output: " + e.getMessage(), e);
+
+                            err.addSuppressed(ex);
+
+                            throw err;
+                        }
+                    }
+                })
                 .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
 
     public synchronized void stop() {
-        // TODO: Stop guard
         if (process != null) {
             process.destroy();
         }
     }
 
-    private synchronized void ensureProcessStarted() {
-        if (process != null && process.isAlive()) {
-            return;
+    private synchronized Process ensureProcessStarted() {
+        if (process == null || !process.isAlive()) {
+            process = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), computeExecutorId);
         }
 
-        process = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), computeExecutorId);
+        return process;
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
