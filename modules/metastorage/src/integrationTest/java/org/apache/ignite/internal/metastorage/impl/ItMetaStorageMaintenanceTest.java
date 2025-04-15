@@ -46,7 +46,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(ConfigurationExtension.class)
 class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTest {
     @Test
-    void becomeLonelyLeaderMakesNodeLeaderForcefully() throws Exception {
+    void initiateForcefulVotersChangeMakesNodeLeaderForcefully() throws Exception {
         start3VotingNodes();
 
         Node node0 = nodes.get(0);
@@ -60,7 +60,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Metastorage does not work anymore.
         assertThatMetastorageHasNoMajority(node0);
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, allNodeNames()), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames());
 
         assertThatMetastorageHasMajority(node0);
     }
@@ -110,7 +110,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
     }
 
     @Test
-    void becomeLonelyLeaderStopsLearnerManagementIfPauseRequested() throws Exception {
+    void initiateForcefulVotersChangeStopsLearnerManagementIfPauseRequested() throws Exception {
         start3VotingNodes();
 
         Node node0 = nodes.get(0);
@@ -118,7 +118,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, allNodeNames()), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames());
 
         Node node3 = startNode();
 
@@ -130,7 +130,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
     }
 
     @Test
-    void becomeLonelyLeaderContinuesLearnerManagementIfPauseNotRequested() throws Exception {
+    void initiateForcefulVotersChangeContinuesLearnerManagementIfPauseNotRequested() throws Exception {
         start3VotingNodes();
 
         Node node0 = nodes.get(0);
@@ -138,7 +138,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, Set.of(node0.name())), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, Set.of(node0.name()));
 
         Node node3 = startNode();
 
@@ -158,7 +158,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
     }
 
     @Test
-    void becomeLonelyLeaderStopsIdleSafeTimePropagationIfPauseRequested() throws Exception {
+    void initiateForcefulVotersChangeStopsIdleSafeTimePropagationIfPauseRequested() throws Exception {
         enableIdleSafeTimeSync();
         start3VotingNodes();
 
@@ -167,7 +167,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, allNodeNames()), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, allNodeNames());
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
 
@@ -197,7 +197,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
     }
 
     @Test
-    void becomeLonelyLeaderKeepsIdleSafeTimePropagationIfPauseNotRequested() throws Exception {
+    void initiateForcefulVotersChangeKeepsIdleSafeTimePropagationIfPauseNotRequested() throws Exception {
         enableIdleSafeTimeSync();
         start3VotingNodes();
 
@@ -206,7 +206,7 @@ class ItMetaStorageMaintenanceTest extends ItMetaStorageMultipleNodesAbstractTes
         // Stop the majority.
         stopAllNodesExcept0();
 
-        assertThat(node0.metaStorageManager.becomeLonelyLeader(1, Set.of(node0.name())), willCompleteSuccessfully());
+        node0.metaStorageManager.initiateForcefulVotersChange(1, Set.of(node0.name()));
 
         ClusterTime clusterTime0 = node0.metaStorageManager.clusterTime();
         HybridTimestamp timeBeforeOp = clusterTime0.currentSafeTime();

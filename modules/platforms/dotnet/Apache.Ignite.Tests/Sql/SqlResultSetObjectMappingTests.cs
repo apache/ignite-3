@@ -117,7 +117,7 @@ public class SqlResultSetObjectMappingTests : IgniteTestsBase
     [Test]
     public async Task TestSelectUuid()
     {
-        var resultSet = await Client.Sql.ExecuteAsync<Guid>(null, "select MAX(UUID) from TBL_ALL_COLUMNS_SQL WHERE UUID <> ?", Guid.Empty);
+        var resultSet = await Client.Sql.ExecuteAsync<Guid>(null, "select MAX(\"UUID\") from TBL_ALL_COLUMNS_SQL WHERE \"UUID\" <> ?", Guid.Empty);
         var rows = await resultSet.ToListAsync();
 
         Assert.AreEqual(1, rows.Count);

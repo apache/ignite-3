@@ -96,7 +96,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -802,15 +801,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         rel.getInputs().forEach(this::clearHints);
     }
 
-    protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
-        return nodeOrAnyChild(
-                isInstanceOf(IgniteProject.class)
-                        .and(projection -> {
-                            String actualProjStr = projection.getProjects().toString();
-                            String expectedProjStr = Arrays.asList(exprs).toString();
-                            return actualProjStr.equals(expectedProjStr);
-                        })
-                        .and(input(isTableScan(tableName)))
+    protected Predicate<? extends RelNode> tableWithProjection(String tableName, String... exprs) {
+        return nodeOrAnyChild(isTableScan(tableName)
+                .and(scan -> scan.projects() != null)
+                .and(table -> {
+                    String actualProjStr = table.projects().toString();
+                    String expectedProjStr = Arrays.asList(exprs).toString();
+                    return actualProjStr.equals(expectedProjStr);
+                })
         );
     }
 

@@ -70,8 +70,6 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlNumericLiteral;
-import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
-import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -121,6 +119,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlColumnDeclaration;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
@@ -318,8 +317,8 @@ public class DdlSqlToCommandConverter {
                 .collect(Collectors.toList());
 
         for (SqlNode sqlNode : createTblNode.columnList().getList()) {
-            if (sqlNode instanceof SqlColumnDeclaration) {
-                String colName = ((SqlColumnDeclaration) sqlNode).name.getSimple();
+            if (sqlNode instanceof IgniteSqlColumnDeclaration) {
+                String colName = ((IgniteSqlColumnDeclaration) sqlNode).name().getSimple();
 
                 if (IgniteSqlValidator.isSystemFieldName(colName)) {
                     throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
@@ -336,7 +335,7 @@ public class DdlSqlToCommandConverter {
 
             SqlIdentifier uuidTypeName = new SqlIdentifier(UuidType.NAME, SqlParserPos.ZERO);
             SqlDataTypeSpec type = new SqlDataTypeSpec(new IgniteSqlTypeNameSpec(uuidTypeName, SqlParserPos.ZERO), SqlParserPos.ZERO);
-            SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
+            SqlNode col = new IgniteSqlColumnDeclaration(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
 
             createTblNode.columnList().add(0, col);
         }
@@ -390,21 +389,21 @@ public class DdlSqlToCommandConverter {
                         .map(SqlIdentifier::getSimple)
                         .collect(Collectors.toList());
 
-        List<SqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
-                .filter(SqlColumnDeclaration.class::isInstance)
-                .map(SqlColumnDeclaration.class::cast)
+        List<IgniteSqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
+                .filter(IgniteSqlColumnDeclaration.class::isInstance)
+                .map(IgniteSqlColumnDeclaration.class::cast)
                 .collect(Collectors.toList());
 
         List<ColumnParams> columns = new ArrayList<>(colDeclarations.size());
 
-        for (SqlColumnDeclaration col : colDeclarations) {
-            if (!col.name.isSimple()) {
+        for (IgniteSqlColumnDeclaration col : colDeclarations) {
+            if (!col.name().isSimple()) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Unexpected value of columnName ["
-                        + "expected a simple identifier, but was " + col.name + "; "
+                        + "expected a simple identifier, but was " + col.name() + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
 
-            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name.getSimple())));
+            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name().getSimple())));
         }
 
         String storageProfile = null;
@@ -428,14 +427,14 @@ public class DdlSqlToCommandConverter {
                 .build();
     }
 
-    private static ColumnParams convertColumnDeclaration(SqlColumnDeclaration col, IgnitePlanner planner, boolean nullable) {
-        assert col.name.isSimple();
+    private static ColumnParams convertColumnDeclaration(IgniteSqlColumnDeclaration col, IgnitePlanner planner, boolean nullable) {
+        assert col.name().isSimple();
 
-        String name = col.name.getSimple();
+        String name = col.name().getSimple();
 
         RelDataType relType;
         try {
-            relType = planner.convert(col.dataType, nullable);
+            relType = planner.convert(col.dataType(), nullable);
         } catch (CalciteContextException e) {
             String errorMessage = e.getMessage();
             if (errorMessage == null) {
@@ -466,7 +465,7 @@ public class DdlSqlToCommandConverter {
                 .precision(typeParams.precision)
                 .scale(typeParams.scale)
                 .length(typeParams.length)
-                .defaultValue(convertDefault(col.expression, relType, name))
+                .defaultValue(convertDefault(col.expression(), relType, name))
                 .build();
     }
 
@@ -493,11 +492,11 @@ public class DdlSqlToCommandConverter {
         List<ColumnParams> columns = new ArrayList<>(alterTblNode.columns().size());
 
         for (SqlNode colNode : alterTblNode.columns()) {
-            assert colNode instanceof SqlColumnDeclaration : colNode.getClass();
-            SqlColumnDeclaration col = (SqlColumnDeclaration) colNode;
-            Boolean nullable = col.dataType.getNullable();
+            assert colNode instanceof IgniteSqlColumnDeclaration : colNode.getClass();
+            IgniteSqlColumnDeclaration col = (IgniteSqlColumnDeclaration) colNode;
+            Boolean nullable = col.dataType().getNullable();
 
-            String colName = col.name.getSimple();
+            String colName = col.name().getSimple();
             if (IgniteSqlValidator.isSystemFieldName(colName)) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                         + "Column '" + colName + "' is reserved name.");

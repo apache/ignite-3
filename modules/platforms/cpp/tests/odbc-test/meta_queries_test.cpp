@@ -637,7 +637,7 @@ TEST_F(meta_queries_test, get_data_with_select_query) {
     check_single_row_result_set_with_get_data(m_statement);
 }
 
-TEST_F(meta_queries_test, insert_too_long_value_ok) {
+TEST_F(meta_queries_test, insert_too_long_value_fails) {
     odbc_connect(get_basic_connection_string());
 
     SQLCHAR insert_req[] = "insert into META_QUERIES_TEST(id, str) "
