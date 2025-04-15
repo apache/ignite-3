@@ -56,6 +56,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientSchema;
@@ -330,7 +331,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
                     packNodeNames(w.out(), nodes);
-                    packJob(w.out(), descriptor, arg);
+                    packJob(w, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
@@ -508,7 +509,8 @@ public class ClientCompute implements IgniteCompute {
         }
     }
 
-    private static <T, R> void packJob(ClientMessagePacker w, JobDescriptor<T, R> descriptor, T arg) {
+    private static <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
+        ClientMessagePacker w = out.out();
         w.packDeploymentUnits(descriptor.units());
 
         w.packString(descriptor.jobClassName());
@@ -516,9 +518,10 @@ public class ClientCompute implements IgniteCompute {
         w.packInt(descriptor.options().maxRetries());
         ClientComputeJobPacker.packJobArgument(arg, descriptor.argumentMarshaller(), w);
 
-        // TODO: IGNITE-25116: descriptor.options().executorType().ordinal()
-        // TODO: Feature flag.
-        w.packInt(0);
+        if (out.clientChannel().protocolContext().isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_EXECUTOR)) {
+            // TODO: IGNITE-25116: descriptor.options().executorType().ordinal()
+            w.packInt(0);
+        }
     }
 
     private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {

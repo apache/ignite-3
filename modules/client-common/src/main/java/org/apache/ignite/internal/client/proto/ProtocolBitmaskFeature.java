@@ -37,7 +37,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Direct mapping for transactions.
      */
-    TX_DIRECT_MAPPING(2);
+    TX_DIRECT_MAPPING(2),
+
+    /**
+     * Platform compute executor (non-Java job execution via thin client protocol).
+     */
+    PLATFORM_COMPUTE_EXECUTOR(3);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);
