@@ -1175,15 +1175,6 @@ DATE(year, month, day)
 
 Returns a DATE value for year, month, and day (all of type INTEGER).
 
-=== CURRENT_TIME
-
-[source,sql]
-----
-CURRENT_TIME
-----
-
-Returns the current time in the session time zone, in a value of datatype TIMESTAMP WITH TIME ZONE.
-
 === CURRENT_TIMESTAMP
 
 [source,sql]
@@ -1191,7 +1182,7 @@ Returns the current time in the session time zone, in a value of datatype TIMEST
 CURRENT_TIMESTAMP
 ----
 
-Returns the current date and time in the session time zone, in a value of datatype TIMESTAMP WITH TIME ZONE.
+Returns the current date and time in the session time zone, in a value of datatype TIMESTAMP WITH LOCAL TIME ZONE.
 
 === CURRENT_DATE
 

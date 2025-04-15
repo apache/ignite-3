@@ -71,13 +71,11 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
         }
 
         checkDateTimeQuery("SELECT CURRENT_DATE", Clock.DATE_CLOCK, LocalDate.class, zoneId);
-        checkDateTimeQuery("SELECT CURRENT_TIME", Clock.TIME_CLOCK, LocalTime.class, zoneId);
-        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class, zoneId);
+        checkDateTimeQuery("SELECT CURRENT_TIMESTAMP", Clock.TIMESTAMP_CLOCK, Instant.class, zoneId);
         checkDateTimeQuery("SELECT LOCALTIME", Clock.TIME_CLOCK, LocalTime.class, zoneId);
         checkDateTimeQuery("SELECT LOCALTIMESTAMP", Clock.DATE_TIME_CLOCK, LocalDateTime.class, zoneId);
         checkDateTimeQuery("SELECT {fn CURDATE()}", Clock.DATE_CLOCK, LocalDate.class, zoneId);
-        checkDateTimeQuery("SELECT {fn CURTIME()}", Clock.TIME_CLOCK, LocalTime.class, zoneId);
-        checkDateTimeQuery("SELECT {fn NOW()}", Clock.DATE_TIME_CLOCK, LocalDateTime.class, zoneId);
+        checkDateTimeQuery("SELECT {fn NOW()}", Clock.TIMESTAMP_CLOCK, Instant.class, zoneId);
     }
 
     private static <T extends Temporal & Comparable<? super T>> void checkDateTimeQuery(
@@ -297,6 +295,13 @@ public class ItFunctionsTest extends BaseSqlIntegrationTest {
          * A clock reporting a local datetime.
          */
         Clock<LocalDateTime> DATE_TIME_CLOCK = zoneId -> LocalDateTime.now(zoneId).truncatedTo(ChronoUnit.MILLIS);
+
+        /**
+         * A clock reporting an instant.
+         */
+        Clock<Instant> TIMESTAMP_CLOCK = zoneId -> {
+            return Instant.now().truncatedTo(ChronoUnit.MILLIS);
+        };
 
         /**
          * Returns a temporal value representing the current moment.

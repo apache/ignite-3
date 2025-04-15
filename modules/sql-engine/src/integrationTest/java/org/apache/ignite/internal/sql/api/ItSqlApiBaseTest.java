@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -906,11 +907,11 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
         ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
         SqlRow row = resultSet.next();
 
-        LocalDateTime ts = row.value(0);
+        Instant ts = row.value(0);
         assertNotNull(ts);
 
         float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float nowMillis = LocalDateTime.now(zoneId).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        float nowMillis = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
         float deltaMillis = 5000;
 
         assertEquals(nowMillis, tsMillis, deltaMillis);
