@@ -482,6 +482,11 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
     }
 
     @Override
+    public boolean sslEnabled() {
+        return clientConnectorConfiguration.value().ssl().enabled();
+    }
+
+    @Override
     public CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id) {
         return computeExecutors.computeIfAbsent(id, k -> new CompletableFuture<>());
     }

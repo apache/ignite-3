@@ -78,22 +78,19 @@ public class DotNetComputeExecutor {
             return;
         }
 
-        process = startDotNetProcess(transport.serverAddress(), computeExecutorId);
-
-        // TODO: Wait for the process to start and connect.
-        // We need access to ClientInboundMessageHandler to do that, through some interface.
+        process = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), computeExecutorId);
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
-    private static Process startDotNetProcess(String address, String executorId) {
+    private static Process startDotNetProcess(String address, boolean ssl, String executorId) {
         // TODO: Resolve relative path to the executable.
         String executorPath = "/home/pavel/w/ignite-3/modules/platforms/dotnet/"
                 + "Apache.Ignite.Internal.ComputeExecutor/bin/Debug/net8.0/Apache.Ignite.Internal.ComputeExecutor.dll";
 
         ProcessBuilder processBuilder = new ProcessBuilder("dotnet", executorPath);
 
-        // TODO: Pass SSL details if present.
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
+        processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_ENABLED", Boolean.toString(ssl));
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_ID", executorId);
 
         try {

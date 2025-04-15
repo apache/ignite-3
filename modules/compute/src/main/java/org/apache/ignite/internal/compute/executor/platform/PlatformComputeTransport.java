@@ -34,6 +34,13 @@ public interface PlatformComputeTransport {
     String serverAddress();
 
     /**
+     * Gets a value indicating whether SSL is enabled on the transport.
+     *
+     * @return True if SSL is enabled; otherwise, false.
+     */
+    boolean sslEnabled();
+
+    /**
      * Gets the external executor connection by id.
      *
      * @param id Connection id.
