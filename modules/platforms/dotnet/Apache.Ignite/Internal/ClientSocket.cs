@@ -45,6 +45,16 @@ namespace Apache.Ignite.Internal
         /** General-purpose client type code. */
         private const byte ClientType = 2;
 
+        /** Features supported by the client. */
+        private const ProtocolBitmaskFeature Features =
+            ProtocolBitmaskFeature.UserAttributes |
+            ProtocolBitmaskFeature.TableReqsUseQualifiedName |
+            ProtocolBitmaskFeature.PlatformComputeJob |
+            ProtocolBitmaskFeature.PlatformComputeExecutor;
+
+        /** Features as byte array */
+        private static readonly byte[] FeatureBytes = [(byte)Features];
+
         /** Version 3.0.0. */
         private static readonly ClientProtocolVersion Ver300 = new(3, 0, 0);
 
@@ -569,7 +579,7 @@ namespace Apache.Ignite.Internal
 
             w.Write(ClientType); // Client type: general purpose.
 
-            w.WriteBinaryHeader(0); // Features.
+            w.Write(FeatureBytes);
 
             if (configuration.Authenticator != null)
             {
@@ -935,7 +945,7 @@ namespace Apache.Ignite.Internal
 
         private bool HandleServerOp(long requestId, ServerOp op, PooledBuffer request)
         {
-            if (op != ServerOp.PlatformComputeJobExec)
+            if (op != ServerOp.ComputeJobExec)
             {
                 // TODO:
             }
