@@ -167,6 +167,16 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return evictedPagesCntr;
     }
 
+    @Override
+    public long getPagesWriteTimeMillis() {
+        return pagesWriteTimeMillis;
+    }
+
+    @Override
+    public long getFsyncTimeMillis() {
+        return fsyncTimeMillis;
+    }
+
     /**
      * Returns scheduled time of checkpoint in nanos.
      */
@@ -174,18 +184,8 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return nextCheckpointNanos;
     }
 
-    @Override
-    public long getPagesWriteTimeMillis() {
-        return pagesWriteTimeMillis;
-    }
-
     void setPagesWriteTimeMillis(long pagesWriteTimeMillis) {
         this.pagesWriteTimeMillis = pagesWriteTimeMillis;
-    }
-
-    @Override
-    public long getFsyncTimeMillis() {
-        return fsyncTimeMillis;
     }
 
     void setFsyncTimeMillis(long fsyncTimeMillis) {
