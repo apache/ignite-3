@@ -373,7 +373,6 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
         PagesWriteThrottlePolicy writeThrottle;
         if (speedBasedThrottling) {
             writeThrottle = new PagesWriteSpeedBasedThrottle(
-                    DEFAULT_LOGGING_THRESHOLD,
                     pageMemory,
                     checkpointManager::currentCheckpointProgress,
                     checkpointManager.checkpointTimeoutLock()::checkpointLockIsHeldByThread,

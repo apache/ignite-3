@@ -808,8 +808,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (availablePeers.isEmpty()) {
                 LOG.warn(
-                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}].",
-                        localPeers, groupId, retryContext.errorTraceId()
+                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}, "
+                                + "request {}, origin command {}].",
+                        localPeers,
+                        groupId,
+                        retryContext.errorTraceId(),
+                        retryContext.request().toStringForLightLogging(),
+                        retryContext.originCommandDescription()
                 );
 
                 retryContext.resetUnavailablePeers();
