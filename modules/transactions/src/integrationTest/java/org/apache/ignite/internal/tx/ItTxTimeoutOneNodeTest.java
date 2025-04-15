@@ -42,7 +42,6 @@ import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.table.TableImpl;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.tx.Transaction;
@@ -74,6 +73,11 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
         ignite().sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
 
+        // This test is rather fragile because it's time dependent. The test uses one second as tx timeout and assumes that it's enough
+        // for an initial operation to find the primary replica, which might not be the case in case of concurrent interleaving rebalance.
+        // Not related to colocation. awaitAssignmentsStabilization awaits that the default zone/table stable partition assignments size
+        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone, that's
+        // why given method isn't located in a utility class.
         awaitAssignmentsStabilization(cluster.node(0));
 
         return ignite().tables().table(TABLE_NAME);
@@ -161,7 +165,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
         HybridTimestamp timestamp = igniteImpl.clock().now();
 
-        assertTrue(IgniteTestUtils.waitForCondition(() -> {
+        assertTrue(waitForCondition(() -> {
             int totalPartitionSize = 0;
 
             // Within given test, default zone is used.

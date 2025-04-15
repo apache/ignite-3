@@ -85,6 +85,9 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
 
         // In case of empty assignments SQL engine will throw "Mandatory nodes was excluded from mapping: []".
         // In order to eliminate this assignments stabilization is needed, otherwise test may fail. Not related to collocation.
+        // awaitAssignmentsStabilization awaits that the default zone/table stable partition assignments size
+        // will be DEFAULT_PARTITION_COUNT * DEFAULT_REPLICA_COUNT. It's correct only for a single-node cluster that uses default zone, that's
+        // why given method isn't located in a utility class.
         awaitAssignmentsStabilization(node);
 
         long count = node.transactions().runInTransaction(tx -> {
