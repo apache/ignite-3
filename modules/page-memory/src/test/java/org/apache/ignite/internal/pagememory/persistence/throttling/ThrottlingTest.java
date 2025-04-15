@@ -145,7 +145,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
         IntervalBasedMeasurement measurement = new IntervalBasedMeasurement(100, 1);
 
         for (int i = 0; i < 1000; i++) {
-            measurement.setCounter(i, System.nanoTime());
+            measurement.forceCounter(i, System.nanoTime());
         }
 
         long speed = measurement.getSpeedOpsPerSec(System.nanoTime());
@@ -165,7 +165,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
         int nanosPark = 100;
         int multiplier = 100000;
         for (int i = 0; i < runs; i++) {
-            measurement.setCounter(i * multiplier, System.nanoTime());
+            measurement.forceCounter(i * multiplier, System.nanoTime());
 
             LockSupport.parkNanos(nanosPark);
         }
@@ -408,6 +408,8 @@ public class ThrottlingTest extends IgniteAbstractTest {
     @Test
     public void speedBasedThrottleShouldReportCpWriteSpeedWhenThePageIsNotInCheckpointAndProgressIsReported() throws InterruptedException {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProvider, stateChecker, metricSource);
+
+        throttle.onBeginCheckpoint();
 
         simulateCheckpointProgressIsStarted();
         allowSomeTimeToPass();
