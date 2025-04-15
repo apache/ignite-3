@@ -1342,6 +1342,10 @@ public class PartitionReplicaLifecycleManager extends
         return assignments.stream().anyMatch(isLocalNodeAssignment);
     }
 
+    private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
+        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(hybridTimestamp(ts));
+    }
+
     /**
      * Checks that the local node is primary or not.
      * <br>
