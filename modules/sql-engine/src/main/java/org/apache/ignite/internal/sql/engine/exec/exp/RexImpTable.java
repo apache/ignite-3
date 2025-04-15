@@ -526,7 +526,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  *    Expressions.add        -> IgniteExpressions.addExact
  *    Expressions.subtract   -> IgniteExpressions.subtractExact
  * 6. Custom LogImplementor
- * 7. Uses Ignite's CURRENT_TIMESTAMP that TIMESTAMP WITH LOCAL TIMEZONE.
+ * 7. Uses Ignite's CURRENT_TIMESTAMP that returns TIMESTAMP WITH LOCAL TIME ZONE instead of TIMESTAMP.
  *
  * <p>Immutable.
  */
