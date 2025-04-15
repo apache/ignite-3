@@ -77,7 +77,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     /**
      * An estimated proportion of "write pages" time in the total "write + fsync" time.
      */
-    private volatile double writeVsFsyncCoefficient = 5.0d / 6;
+    private volatile double writeVsFsyncCoefficient = 5.0 / 6;
 
     /** Average checkpoint write speed. Only the current value is used. Pages/second. */
     private final ProgressSpeedCalculation cpWriteSpeed = new ProgressSpeedCalculation();
