@@ -36,6 +36,7 @@ import org.apache.ignite.internal.replicator.Member;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.table.KeyValueView;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -176,6 +177,7 @@ public class ItZoneDataReplicationTest extends AbstractZoneReplicationTest {
      * Tests the recovery phase, when a node is restarted and we expect the data to be restored by the Raft mechanisms.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25142")
     void testLocalRaftLogReapplication() throws Exception {
         startCluster(1);
 
