@@ -203,7 +203,7 @@ class PersistentPageMemoryDataRegion implements DataRegion<PersistentPageMemory>
 
     private ThrottlingType getThrottlingType() {
         return getSystemConfig(THROTTLING_TYPE_SYSTEM_PROPERTY,
-                ThrottlingType.SPEED_BASED,
+                ThrottlingType.DISABLED,
                 value -> ThrottlingType.valueOf(value.toUpperCase()),
                 "Valid values are (case-insensitive): " + Arrays.toString(ThrottlingType.values()) + "."
         );
