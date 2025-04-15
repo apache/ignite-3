@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.compute.executor.platform;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
 public class DotNetComputeExecutorTest {
@@ -33,7 +37,17 @@ public class DotNetComputeExecutorTest {
         assertTrue(new File(dotNetBinaryPath).exists(), "File does not exist: " + dotNetBinaryPath);
     }
 
-    public void startDotNetProcessThrowsOnWrongAddress() {
-        Process proc = DotNetComputeExecutor.startDotNetProcess("foobar", false, "123");
+    @Test
+    public void startDotNetProcessThrowsOnWrongAddress() throws Exception {
+        Process proc = DotNetComputeExecutor
+                .startDotNetProcess("foobar", false, "123")
+                .onExit()
+                .orTimeout(9, TimeUnit.SECONDS)
+                .join();
+
+        assertEquals(134, proc.exitValue());
+
+        String result = new String(proc.getErrorStream().readAllBytes());
+        assertThat(result, containsString("SocketException"));
     }
 }
