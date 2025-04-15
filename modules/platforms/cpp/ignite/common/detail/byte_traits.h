@@ -13,7 +13,7 @@
 #include <cstring>
 #include <string>
 
-namespace ignite {
+namespace ignite::detail {
 
 struct byte_traits : std::char_traits<char> {
     using char_type = std::byte;
@@ -59,4 +59,4 @@ struct byte_traits : std::char_traits<char> {
     static int_type eof() noexcept { return int_type(EOF); }
 };
 
-} // namespace ignite
+} // namespace ignite::detail

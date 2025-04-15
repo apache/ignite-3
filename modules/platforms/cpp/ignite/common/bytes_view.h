@@ -28,8 +28,8 @@
 namespace ignite {
 
 /** A slice of raw bytes. */
-struct bytes_view : std::basic_string_view<std::byte, byte_traits> {
-    using base_type = std::basic_string_view<std::byte, byte_traits>;
+struct bytes_view : std::basic_string_view<std::byte, detail::byte_traits> {
+    using base_type = std::basic_string_view<std::byte, detail::byte_traits>;
 
     constexpr bytes_view() noexcept = default;
 
