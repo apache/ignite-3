@@ -142,7 +142,15 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
             CheckpointLockStateChecker stateChecker,
             PersistentPageMemoryMetricSource metricSource
     ) {
-        this(DEFAULT_LOGGING_THRESHOLD, DEFAULT_MIN_RATIO_NO_THROTTLE, DEFAULT_MAX_DIRTY_PAGES, pageMemory, cpProgress, stateChecker, metricSource);
+        this(
+                DEFAULT_LOGGING_THRESHOLD,
+                DEFAULT_MIN_RATIO_NO_THROTTLE,
+                DEFAULT_MAX_DIRTY_PAGES,
+                pageMemory,
+                cpProgress,
+                stateChecker,
+                metricSource
+        );
     }
 
     private void initMetrics(PersistentPageMemoryMetricSource metricSource) {
