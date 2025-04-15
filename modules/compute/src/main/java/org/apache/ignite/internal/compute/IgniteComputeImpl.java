@@ -468,7 +468,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionOptions options = ExecutionOptions.builder()
                 .priority(jobExecutionOptions.priority())
                 .maxRetries(jobExecutionOptions.maxRetries())
-                .executorType(jobExecutionOptions.executorType())
+                // TODO IGNITE-25116
+                // .executorType(jobExecutionOptions.executorType())
                 .partition(partition)
                 .build();
 
