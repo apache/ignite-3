@@ -1112,14 +1112,14 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public CompletableFuture<Void> becomeLonelyLeader(long termBeforeChange, Set<String> targetVotingSet) {
-        return inBusyLockAsync(busyLock, () -> {
+    public void initiateForcefulVotersChange(long termBeforeChange, Set<String> targetVotingSet) {
+        inBusyLock(busyLock, () -> {
             synchronized (peersChangeMutex) {
                 if (peersChangeState != null) {
-                    return failedFuture(new IgniteInternalException(
+                    throw new IgniteInternalException(
                             INTERNAL_ERR,
                             "Peers change is under way [state=" + peersChangeState + "]."
-                    ));
+                    );
                 }
 
                 // If the target voting set matches the 'lonely leader' voting set, we don't need second step (that is, switching to
@@ -1130,8 +1130,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 PeersAndLearners newConfiguration = PeersAndLearners.fromPeers(Set.of(raftNodeId.peer()), emptySet());
 
                 ((Loza) raftMgr).resetPeers(raftNodeId, newConfiguration);
-
-                return doWithOneOffRaftGroupService(newConfiguration, RaftGroupService::refreshLeader);
             }
         });
     }
@@ -1144,7 +1142,13 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             RaftGroupService raftGroupService = raftMgr.startRaftGroupService(MetastorageGroupId.INSTANCE, raftClientConfiguration);
 
             return action.apply(raftGroupService)
-                    .whenComplete((res, ex) -> raftGroupService.shutdown());
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            LOG.error("One-off raft group action on {} failed", ex, raftClientConfiguration);
+                        }
+
+                        raftGroupService.shutdown();
+                    });
         } catch (NodeStoppingException e) {
             return failedFuture(e);
         }

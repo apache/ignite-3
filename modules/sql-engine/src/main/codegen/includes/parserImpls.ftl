@@ -59,18 +59,6 @@ SqlDataTypeSpec IntervalType() :
     }
 }
 
-SqlTypeNameSpec UuidType(Span s) :
-{
-    final SqlIdentifier typeName;
-}
-{
-    <UUID> { s = span(); typeName = new SqlIdentifier(UuidType.NAME, s.pos()); }
-    {
-        return new IgniteSqlTypeNameSpec(typeName, s.end(this));
-    }
-}
-
-
 void TableElement(List<SqlNode> list) :
 {
     final SqlDataTypeSpec type;
@@ -109,7 +97,7 @@ void TableElement(List<SqlNode> list) :
     ]
     {
         list.add(
-            SqlDdlNodes.column(s.add(id).end(this), id,
+            new IgniteSqlColumnDeclaration(s.add(id).end(this), id,
                 type.withNullable(nullable), dflt, strategy));
     }
 |
@@ -423,7 +411,7 @@ SqlNode ColumnWithType() :
         }
     )
     {
-        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
+        return new IgniteSqlColumnDeclaration(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
 }
 
@@ -785,5 +773,41 @@ Boolean SqlKillNoWait():
     )?
     {
         return noWait;
+    }
+}
+
+/**
+ * Parses an EXPLAIN PLAN statement.
+ */
+SqlNode SqlIgniteExplain() :
+{
+    SqlNode stmt;
+    SqlExplainLevel detailLevel = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
+    SqlExplain.Depth depth;
+    Span s;
+    final SqlExplainFormat format;
+}
+{
+    <EXPLAIN> { s = span(); } <PLAN>
+    [ detailLevel = ExplainDetailLevel() ]
+    depth = ExplainDepth()
+    (
+        LOOKAHEAD(2)
+        <AS> <XML> { format = SqlExplainFormat.XML; }
+    |
+        LOOKAHEAD(2)
+        <AS> <JSON> { format = SqlExplainFormat.JSON; }
+    |
+        <AS> <DOT_FORMAT> { format = SqlExplainFormat.DOT; }
+    |
+        { format = SqlExplainFormat.TEXT; }
+    )
+    <FOR> stmt = SqlQueryOrDml() {
+        return new SqlExplain(s.end(this),
+            stmt,
+            detailLevel.symbol(SqlParserPos.ZERO),
+            depth.symbol(SqlParserPos.ZERO),
+            format.symbol(SqlParserPos.ZERO),
+            nDynamicParams);
     }
 }

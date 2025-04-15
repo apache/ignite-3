@@ -247,8 +247,7 @@ public class TestClientHandlerModule implements IgniteComponent {
                                         ),
                                         Runnable::run,
                                         features,
-                                        randomExtensions(),
-                                        Runnable::run
+                                        randomExtensions()
                                 )
                         );
                     }

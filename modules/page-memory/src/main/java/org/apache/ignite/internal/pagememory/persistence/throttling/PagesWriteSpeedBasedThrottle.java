@@ -42,6 +42,12 @@ import org.jetbrains.annotations.TestOnly;
  * Otherwise, uses average checkpoint write speed and instant speed of marking pages as dirty.<br>
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
+    /** Maximum fraction of dirty pages in a region. */
+    public static final double DEFAULT_MAX_DIRTY_PAGES = 0.9;
+
+    /** Percent of dirty pages which will not cause throttling. */
+    public static final double DEFAULT_MIN_RATIO_NO_THROTTLE = 0.5;
+
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
     /** The maximum time for a single {@link LockSupport#parkNanos(long)} call if we don't throttle the checkpoint buffer. */
@@ -105,6 +111,8 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
      */
     public PagesWriteSpeedBasedThrottle(
             long logThresholdNanos,
+            double minDirtyPages,
+            double maxDirtyPages,
             PersistentPageMemory pageMemory,
             Supplier<CheckpointProgress> cpProgress,
             CheckpointLockStateChecker stateChecker,
@@ -115,10 +123,37 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
         this.cpProgress = cpProgress;
         cpLockStateChecker = stateChecker;
 
-        cleanPagesProtector = new SpeedBasedMemoryConsumptionThrottlingStrategy(pageMemory, cpProgress, markSpeedAndAvgParkTime);
+        cleanPagesProtector = new SpeedBasedMemoryConsumptionThrottlingStrategy(
+                minDirtyPages,
+                maxDirtyPages,
+                pageMemory,
+                cpProgress,
+                markSpeedAndAvgParkTime
+        );
         cpBufferWatchdog = new CheckpointBufferOverflowWatchdog(pageMemory);
 
         initMetrics(metricSource);
+    }
+
+    /**
+     * Test constructor with fewer parameters.
+     */
+    @TestOnly
+    public PagesWriteSpeedBasedThrottle(
+            PersistentPageMemory pageMemory,
+            Supplier<CheckpointProgress> cpProgress,
+            CheckpointLockStateChecker stateChecker,
+            PersistentPageMemoryMetricSource metricSource
+    ) {
+        this(
+                DEFAULT_LOGGING_THRESHOLD,
+                DEFAULT_MIN_RATIO_NO_THROTTLE,
+                DEFAULT_MAX_DIRTY_PAGES,
+                pageMemory,
+                cpProgress,
+                stateChecker,
+                metricSource
+        );
     }
 
     private void initMetrics(PersistentPageMemoryMetricSource metricSource) {
@@ -178,6 +213,11 @@ public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
                 "CpSyncedPages",
                 "Counter for fsynced checkpoint pages.",
                 cleanPagesProtector::cpSyncedPages
+        ));
+        metricSource.addMetric(new DoubleGauge(
+                "WriteVsFsyncCoefficient",
+                "Ratio of the write pages duration to the total 'write+fsync' duration",
+                cleanPagesProtector::getWriteVsFsyncCoefficient
         ));
     }
 
