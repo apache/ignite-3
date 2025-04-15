@@ -61,6 +61,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -80,6 +81,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSn
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -377,6 +379,13 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 new ZonePartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
 
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = mock(ClockService.class);
+        when(clockService.current()).thenReturn(clock.current());
+
         return new PartitionListener(
                 txManager,
                 storage,
@@ -389,7 +398,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 minimumRequiredTimeCollectorService,
-                executor
+                executor,
+                placementDriver,
+                clockService
         );
     }
 

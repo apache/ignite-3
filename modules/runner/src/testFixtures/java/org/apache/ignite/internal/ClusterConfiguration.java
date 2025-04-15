@@ -1,18 +1,10 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements. See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License. You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ *  Copyright (C) GridGain Systems. All Rights Reserved.
+ *  _________        _____ __________________        _____
+ *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+ *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+ *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+ *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
  */
 
 package org.apache.ignite.internal;
@@ -20,6 +12,8 @@ package org.apache.ignite.internal;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 
 import java.nio.file.Path;
+import java.util.function.Function;
+import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -35,11 +29,12 @@ public class ClusterConfiguration {
     public static final int DEFAULT_BASE_HTTPS_PORT = 10400;
 
     /** Default nodes bootstrap configuration pattern. */
+    @Language("HOCON")
     private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  \"network\": {\n"
-            + "    \"port\":{},\n"
-            + "    \"nodeFinder\":{\n"
-            + "      \"netClusterNodes\": [ {} ]\n"
+            + "  network: {\n"
+            + "    port: {},\n"
+            + "    nodeFinder: {\n"
+            + "      netClusterNodes: [ {} ]\n"
             + "    }\n"
             + "  },\n"
             + "  clientConnector: { port:{} }\n"
@@ -47,6 +42,7 @@ public class ClusterConfiguration {
             + "    port: {},\n"
             + "    ssl.port: {}\n"
             + "  }\n"
+            + "  nodeAttributes.nodeAttributes: {}\n"
             + "}";
 
     private final TestInfo testInfo;
@@ -67,6 +63,8 @@ public class ClusterConfiguration {
 
     private final NodeNamingStrategy nodeNamingStrategy;
 
+    private final Function<Integer, String> nodeAttributesProvider;
+
     private ClusterConfiguration(
             TestInfo testInfo,
             Path workDir,
@@ -76,7 +74,8 @@ public class ClusterConfiguration {
             int baseClientPort,
             int baseHttpPort,
             int baseHttpsPort,
-            NodeNamingStrategy nodeNamingStrategy
+            NodeNamingStrategy nodeNamingStrategy,
+            Function<Integer, String> nodeAttributesProvider
     ) {
         this.testInfo = testInfo;
         this.workDir = workDir;
@@ -87,6 +86,7 @@ public class ClusterConfiguration {
         this.baseHttpPort = baseHttpPort;
         this.baseHttpsPort = baseHttpsPort;
         this.nodeNamingStrategy = nodeNamingStrategy;
+        this.nodeAttributesProvider = nodeAttributesProvider;
     }
 
     public TestInfo testInfo() {
@@ -125,6 +125,10 @@ public class ClusterConfiguration {
         return nodeNamingStrategy;
     }
 
+    public Function<Integer, String> nodeAttributesProvider() {
+        return nodeAttributesProvider;
+    }
+
     public static Builder builder(TestInfo testInfo, Path workDir) {
         return new Builder(testInfo, workDir);
     }
@@ -150,6 +154,8 @@ public class ClusterConfiguration {
         private int baseHttpsPort = DEFAULT_BASE_HTTPS_PORT;
 
         private NodeNamingStrategy nodeNamingStrategy = new DefaultNodeNamingStrategy();
+
+        private Function<Integer, String> nodeAttributesProvider = n -> "{}";
 
         public Builder(TestInfo testInfo, Path workDir) {
             this.testInfo = testInfo;
@@ -191,6 +197,11 @@ public class ClusterConfiguration {
             return this;
         }
 
+        public Builder nodeAttributesProvider(Function<Integer, String> nodeAttributesProvider) {
+            this.nodeAttributesProvider = nodeAttributesProvider;
+            return this;
+        }
+
         /**
          * Creates a new {@link ClusterConfiguration}.
          */
@@ -204,7 +215,8 @@ public class ClusterConfiguration {
                     baseClientPort,
                     baseHttpPort,
                     baseHttpsPort,
-                    nodeNamingStrategy
+                    nodeNamingStrategy,
+                    nodeAttributesProvider
             );
         }
     }

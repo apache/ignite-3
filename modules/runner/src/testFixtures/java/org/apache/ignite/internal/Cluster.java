@@ -282,7 +282,8 @@ public class Cluster {
                 seedAddressesString(),
                 clusterConfiguration.baseClientPort() + nodeIndex,
                 httpPort(nodeIndex),
-                clusterConfiguration.baseHttpsPort() + nodeIndex
+                clusterConfiguration.baseHttpsPort() + nodeIndex,
+                clusterConfiguration.nodeAttributesProvider().apply(nodeIndex)
         ));
 
         IgniteServer node = TestIgnitionManager.start(
