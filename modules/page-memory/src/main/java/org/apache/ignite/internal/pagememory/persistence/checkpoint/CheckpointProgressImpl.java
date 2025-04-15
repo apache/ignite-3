@@ -172,9 +172,17 @@ class CheckpointProgressImpl implements CheckpointProgress {
         return pagesWriteTimeMillis;
     }
 
+    void setPagesWriteTimeMillis(long pagesWriteTimeMillis) {
+        this.pagesWriteTimeMillis = pagesWriteTimeMillis;
+    }
+
     @Override
     public long getFsyncTimeMillis() {
         return fsyncTimeMillis;
+    }
+
+    void setFsyncTimeMillis(long fsyncTimeMillis) {
+        this.fsyncTimeMillis = fsyncTimeMillis;
     }
 
     /**
@@ -182,14 +190,6 @@ class CheckpointProgressImpl implements CheckpointProgress {
      */
     public long nextCheckpointNanos() {
         return nextCheckpointNanos;
-    }
-
-    void setPagesWriteTimeMillis(long pagesWriteTimeMillis) {
-        this.pagesWriteTimeMillis = pagesWriteTimeMillis;
-    }
-
-    void setFsyncTimeMillis(long fsyncTimeMillis) {
-        this.fsyncTimeMillis = fsyncTimeMillis;
     }
 
     /**
