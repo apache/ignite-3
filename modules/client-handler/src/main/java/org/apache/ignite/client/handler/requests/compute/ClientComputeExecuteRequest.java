@@ -30,6 +30,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.NodeNotFoundException;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -64,8 +65,7 @@ public class ClientComputeExecuteRequest {
             boolean enablePlatformJobs
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
-
-        var job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
                 candidates, job.deploymentUnits(), job.jobClassName(), job.options(), job.arg(), null

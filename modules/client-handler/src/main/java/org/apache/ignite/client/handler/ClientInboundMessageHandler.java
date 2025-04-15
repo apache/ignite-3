@@ -845,7 +845,8 @@ public class ClientInboundMessageHandler
                         compute,
                         igniteTables,
                         clusterService,
-                        notificationSender(requestId)
+                        notificationSender(requestId),
+                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
                 );
 
             case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
@@ -855,7 +856,8 @@ public class ClientInboundMessageHandler
                         compute,
                         igniteTables,
                         clusterService,
-                        notificationSender(requestId)
+                        notificationSender(requestId),
+                        clientContext.hasFeature(PLATFORM_COMPUTE_JOB)
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
