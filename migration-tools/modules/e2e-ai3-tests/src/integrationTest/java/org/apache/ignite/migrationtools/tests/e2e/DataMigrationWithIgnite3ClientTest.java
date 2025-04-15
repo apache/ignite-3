@@ -112,7 +112,7 @@ public class DataMigrationWithIgnite3ClientTest extends MigrationTestBase {
                     };
 
                     Executable migrationTest = withAssumptions.apply(
-                            () -> migrationIsSuccessfull(test.getTableName(), "IGNORE_COLUMN")
+                            () -> MigrationTestBase.migrationIsSuccessfull(test.getTableName(), "IGNORE_COLUMN")
                     );
                     Executable apiTest = withAssumptions.apply(() -> runIgnite3ApiTest(ai3ClientBuilder, test));
                     Stream<DynamicTest> jdbcTests = test.jdbcTests().entrySet().stream()

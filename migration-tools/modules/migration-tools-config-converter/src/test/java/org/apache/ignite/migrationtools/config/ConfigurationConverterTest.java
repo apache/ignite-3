@@ -21,8 +21,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.typesafe.config.Config;
 import java.nio.file.Files;
-import java.time.Duration;
-import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
@@ -30,32 +28,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
-import org.apache.ignite.migrationtools.tests.containers.Ignite3ClusterContainer;
-import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
-import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
-import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.utility.MountableFile;
 
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 class ConfigurationConverterTest {
-
-    private static Stream<Arguments> configPaths() {
-        return Stream.of(
-                Arguments.of("configs-custom/ignite-config.0.xml"),
-                Arguments.of("configs-custom/ignite-config.1.xml"),
-                Arguments.of("configs-custom/ignite-config.2.xml")
-        );
-    }
-
-    private static Stream<Arguments> allCacheExamples() {
-        return configPaths();
+    private static Stream<String> configPaths() {
+        return ConfigExamples.configPaths();
     }
 
     private static Stream<Arguments> nodePorts() {
@@ -219,24 +200,5 @@ class ConfigurationConverterTest {
     void testDefaultsAreNotWritten() throws Exception {
         var testDescr = ConfigTestUtils.loadResourceFile("configs-custom/empty-config.xml");
         assertThat(Files.size(testDescr.getNodeCfgPath())).isZero();
-    }
-
-    @Order(Integer.MAX_VALUE)
-    @ParameterizedTest
-    @MethodSource("allCacheExamples")
-    void dockerRunsSuccessfully(String inputPath) throws Exception {
-        var testDescr = ConfigTestUtils.loadResourceFile(inputPath);
-        var nodeCfgPath = testDescr.getNodeCfgPath();
-
-        try (var container = new GenericContainer(Ignite3ClusterContainer.DOCKER_IMAGE_NAME)
-                .withCommand("--config-path=/node.cfg")
-                .withCopyToContainer(MountableFile.forHostPath(nodeCfgPath), "/node.cfg")
-                .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
-                .waitingFor(Wait.forLogMessage(".*Components started.*", 1)
-                        .withStartupTimeout(Duration.of(30, ChronoUnit.SECONDS)))) {
-
-            container.start();
-            assertThat(container.isRunning()).isTrue();
-        }
     }
 }

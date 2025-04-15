@@ -18,23 +18,24 @@
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
+apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 
 description = 'migration-tools-e2e-ai3-tests'
 
 dependencies {
-    testImplementation project(":migration-tools-commons-tests")
-    testImplementation project(":migration-tools-e2e-core")
-    testImplementation project(":migration-tools-e2e-implementations")
-
-    testImplementation project(":ignite-client")
-    testImplementation project(":ignite-jdbc")
-    testImplementation libs.assertj.core
-    testImplementation libs.junit5.api
-    testImplementation libs.testcontainers.core
-    testImplementation libs.testcontainers.junit
-    testImplementation libs.log4j.api
-    testImplementation libs.log4j.core
+    integrationTestImplementation project(":migration-tools-commons-tests")
+    integrationTestImplementation project(":migration-tools-e2e-core")
+    integrationTestImplementation project(":migration-tools-e2e-implementations")
+    integrationTestImplementation project(":ignite-client")
+    integrationTestImplementation project(":ignite-jdbc")
+    integrationTestImplementation libs.assertj.core
+    integrationTestImplementation libs.junit5.api
+    integrationTestImplementation libs.testcontainers.core
+    integrationTestImplementation libs.testcontainers.junit
+    integrationTestImplementation libs.log4j.api
+    integrationTestImplementation libs.log4j.core
 }
 
-tasks.test.dependsOn += ":migration-tools-packaging-cli:docker"
+tasks.integrationTest.dependsOn += ":migration-tools-e2e-ai2-runner:docker"
+tasks.integrationTest.dependsOn += ":migration-tools-packaging-cli:docker"
 
