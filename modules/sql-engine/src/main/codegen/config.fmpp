@@ -32,8 +32,8 @@ data: {
       "org.apache.calcite.sql.SqlDdl",
       "org.apache.calcite.sql.SqlLiteral",
       "org.apache.calcite.schema.ColumnStrategy",
-      "org.apache.calcite.sql.ddl.SqlDdlNodes",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlParserUtil",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlColumnDeclaration",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
@@ -61,7 +61,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKillObjectType",
-      "org.apache.ignite.internal.sql.engine.type.UuidType",
       "org.apache.ignite.internal.sql.engine.util.IgniteResource",
     ]
 
@@ -77,7 +76,6 @@ data: {
       "SORTED"
       "HASH"
       "RENAME"
-      "UUID"
       "KILL"
       "QUERY"
       "COMPUTE"
@@ -93,7 +91,6 @@ data: {
       "PROFILE"
       "SORTED"
       "HASH"
-      "UUID"
       "QUERY"
       "COMPUTE"
       "WAIT"
@@ -357,7 +354,6 @@ data: {
     # Return type of method implementation should be "SqlTypeNameSpec".
     # Example: SqlParseTimeStampZ().
     dataTypeParserMethods: [
-      "UuidType(s)",
       "IgniteDateTimeTypeName()"
     ]
 

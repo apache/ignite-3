@@ -51,7 +51,7 @@ protected:
 
         client.get_sql().execute(nullptr, nullptr,
             {"INSERT INTO TBL_ALL_COLUMNS_SQL("
-             R"(STR, INT8, KEY, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, "DATE", "TIME", TIME2, "DATETIME", DATETIME2, )"
+             R"(STR, INT8, KEY, INT16, INT32, INT64, FLOAT, DOUBLE, "UUID", "DATE", "TIME", TIME2, "DATETIME", DATETIME2, )"
              R"("TIMESTAMP", TIMESTAMP2, "BLOB", "DECIMAL", "BOOLEAN"))"
              " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
             {std::string("test"), std::int8_t(1), std::int64_t(42), std::int16_t(2), std::int32_t(3), std::int64_t(4),
