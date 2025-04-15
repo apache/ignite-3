@@ -126,7 +126,7 @@ class ItReadOnlyTxInPastTest extends ClusterPerTestIntegrationTest {
         assertTrue(IgniteTestUtils.waitForCondition(() -> {
             int totalPartitionSize = 0;
 
-            // Within given test, default zone is used.
+            // Within given test default zone is used.
             for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
                 CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
                         enabledColocation()

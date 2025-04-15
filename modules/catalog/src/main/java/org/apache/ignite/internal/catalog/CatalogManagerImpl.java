@@ -260,7 +260,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
                         .replicas(DEFAULT_REPLICA_COUNT)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleUp(DEFAULT_ZONE_DEFAULT_AUTO_ADJUST_SCALE_UP_TIMEOUT_SECONDS)
                         .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .filter(DEFAULT_FILTER)
                         .storageProfilesParams(
