@@ -26,8 +26,8 @@ import java.io.Reader;
 import java.util.List;
 import java.util.Map;
 import org.apache.calcite.config.Lex;
-import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlBasicCall;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
 import org.apache.calcite.sql.SqlDataTypeSpec;
@@ -68,7 +68,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  * <p>One should use parsing methods defined in this class,
  * instead of creating {@link SqlParser} that use {@link IgniteSqlParserImpl} directly.
  */
-public final class IgniteSqlParser  {
+public final class IgniteSqlParser {
     /**
      * Parser configuration.
      */
@@ -86,13 +86,11 @@ public final class IgniteSqlParser  {
     }
 
     /**
-     * Parses the given SQL string in the specified {@link ParseMode mode},
-     * which determines the result of the parse operation.
+     * Parses the given SQL string in the specified {@link ParseMode mode}, which determines the result of the parse operation.
      *
-     * @param sql  An SQL string.
-     * @param mode  A parse mode.
-     * @return  A parse result.
-     *
+     * @param sql An SQL string.
+     * @param mode A parse mode.
+     * @return A parse result.
      * @see StatementParseResult#MODE
      * @see ScriptParseResult#MODE
      */
@@ -103,18 +101,17 @@ public final class IgniteSqlParser  {
     }
 
     /**
-     * Parses an SQL string from the given reader in the specified {@link ParseMode mode},
-     * which determines the result of the parse operation.
+     * Parses an SQL string from the given reader in the specified {@link ParseMode mode}, which determines the result of the parse
+     * operation.
      *
-     * @param reader  A read that contains an SQL string.
-     * @param mode  A parse mode.
-     * @return  A parse result.
-     *
+     * @param reader A read that contains an SQL string.
+     * @param mode A parse mode.
+     * @return A parse result.
      * @see StatementParseResult#MODE
      * @see ScriptParseResult#MODE
      */
     public static <T extends ParseResult> T parse(Reader reader, ParseMode<T> mode) {
-        try  {
+        try {
             InternalIgniteSqlParser.dynamicParamCount.set(null);
 
             SqlParser parser = SqlParser.create(reader, PARSER_CONFIG);
@@ -164,10 +161,9 @@ public final class IgniteSqlParser  {
      * Converts the given exception to the {@link SqlException}.
      *
      * <p>Besides converting, cut out part of the message from original exception with
-     * suggested options. The reason to do that is currently grammar of the parser is not aligned
-     * with Ignite's capabilities. As a result, the message may contain misleading options. Another
-     * problem is that message sometimes may contain almost every keyword, bloating the message up
-     * to hundreds of lines (given that every keyword is on a new line).
+     * suggested options. The reason to do that is currently grammar of the parser is not aligned with Ignite's capabilities. As a result,
+     * the message may contain misleading options. Another problem is that message sometimes may contain almost every keyword, bloating the
+     * message up to hundreds of lines (given that every keyword is on a new line).
      *
      * @param ex An exception to convert.
      * @return An instance of SqlException.
