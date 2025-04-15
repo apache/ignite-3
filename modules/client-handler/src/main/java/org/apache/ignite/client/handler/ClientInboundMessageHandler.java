@@ -116,6 +116,7 @@ import org.apache.ignite.internal.client.proto.HandshakeUtils;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.client.proto.ResponseFlags;
 import org.apache.ignite.internal.client.proto.ServerOp;
+import org.apache.ignite.internal.client.proto.ServerOpResponseFlags;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
@@ -1250,8 +1251,9 @@ public class ClientInboundMessageHandler
             }
 
             int flags = in.unpackInt();
+            boolean error = ServerOpResponseFlags.getErrorFlag(flags);
 
-            if (flags == 0) {
+            if (!error) {
                 // No error.
                 fut.complete(in);
             } else {
