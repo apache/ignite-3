@@ -414,6 +414,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds Map of per table partitions' sets to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
+     * @param colocationEnabled Whether the update is a zone request (enabled colocation) or a table request (colocation disabled).
      * @return Future that completes when partitions are reset.
      */
     private CompletableFuture<Void> resetPartitions(

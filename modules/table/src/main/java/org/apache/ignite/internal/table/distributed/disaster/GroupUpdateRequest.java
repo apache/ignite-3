@@ -44,6 +44,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private final int catalogVersion;
 
+    /**
+     * A field containing zone id and a COLOCATION_BIT bit. Used to distinguish between zone and table requests. If this is a table request,
+     * COLOCATION_BIT is set, otherwise it is not.
+     */
     private final int internalZoneId;
 
     /**
