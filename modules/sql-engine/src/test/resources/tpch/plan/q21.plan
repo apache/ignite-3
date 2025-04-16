@@ -48,7 +48,7 @@ Limit
                         TableScan
                             table: [PUBLIC, LINEITEM]
                             filters: >(L_RECEIPTDATE, L_COMMITDATE)
-                            fields: [L_ORDERKEY, L_PARTKEY, L_SUPPKEY, L_LINENUMBER, L_QUANTITY, L_EXTENDEDPRICE, L_DISCOUNT, L_TAX, L_RETURNFLAG, L_LINESTATUS, L_SHIPDATE, L_COMMITDATE, L_RECEIPTDATE, L_SHIPINSTRUCT, L_SHIPMODE, L_COMMENT, __part]
+                            fields: [L_ORDERKEY, L_SUPPKEY, L_COMMITDATE, L_RECEIPTDATE]
                             est. row count: 3000608
                       MergeJoin
                           condition: =(S_NATIONKEY, N_NATIONKEY)
@@ -63,7 +63,7 @@ Limit
                               table: [PUBLIC, SUPPLIER]
                               index: S_NK
                               type: SORTED
-                              fields: [S_SUPPKEY, S_NAME, S_ADDRESS, S_NATIONKEY, S_PHONE, S_ACCTBAL, S_COMMENT, __part]
+                              fields: [S_SUPPKEY, S_NAME, S_NATIONKEY]
                               collation: [S_NATIONKEY ASC]
                               est. row count: 10000
                         Exchange
@@ -75,7 +75,7 @@ Limit
                             TableScan
                                 table: [PUBLIC, NATION]
                                 filters: =(N_NAME, _UTF-8'SAUDI ARABIA')
-                                fields: [N_NATIONKEY, N_NAME, N_REGIONKEY, N_COMMENT, __part]
+                                fields: [N_NATIONKEY, N_NAME]
                                 est. row count: 8
                     Exchange
                         distribution: single
@@ -83,7 +83,7 @@ Limit
                       TableScan
                           table: [PUBLIC, ORDERS]
                           filters: =(O_ORDERSTATUS, _UTF-8'F')
-                          fields: [O_ORDERKEY, O_CUSTKEY, O_ORDERSTATUS, O_TOTALPRICE, O_ORDERDATE, O_ORDERPRIORITY, O_CLERK, O_SHIPPRIORITY, O_COMMENT, __part]
+                          fields: [O_ORDERKEY, O_ORDERSTATUS]
                           est. row count: 499500
               Project
                   fields: []
