@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.not;
-import static org.junit.jupiter.api.Assumptions.assumeFalse;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
@@ -314,8 +312,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_1_0_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -355,8 +353,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_2_1_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -392,8 +390,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_4_3_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -425,8 +423,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_2_0_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -454,8 +452,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_3_1_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -479,8 +477,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_5_3_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -500,8 +498,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_5_0_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -517,8 +515,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_6_1_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -530,8 +528,8 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
                         .secondOpMatches(ofType(Types.DECIMAL_8_3)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_REAL)
-                        .firstOpMatches(ofType(NativeTypes.DOUBLE))
-                        .secondOpMatches(ofType(NativeTypes.DOUBLE)),
+                        .firstOpMatches(ofType(NativeTypes.FLOAT))
+                        .secondOpMatches(ofType(NativeTypes.FLOAT)),
 
                 forTypePair(NumericPair.DECIMAL_8_3_DOUBLE)
                         .firstOpMatches(ofType(NativeTypes.DOUBLE))
@@ -560,9 +558,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
-        // TODO: IGNITE-24706 remove this assumption
-        assumeFalse(typePair.first().spec() == NativeTypeSpec.DECIMAL || typePair.second().spec() == NativeTypeSpec.DECIMAL);
-
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 = SOME(SELECT c2 FROM t) FROM t", schema,
@@ -582,9 +577,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
-        // TODO: IGNITE-24706 remove this assumption
-        assumeFalse(typePair.first().spec() == NativeTypeSpec.DECIMAL || typePair.second().spec() == NativeTypeSpec.DECIMAL);
-
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 < SOME(SELECT c2 FROM t) FROM t", schema,
@@ -604,9 +596,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
-        // TODO: IGNITE-24706 remove this assumption
-        assumeFalse(typePair.first().spec() == NativeTypeSpec.DECIMAL || typePair.second().spec() == NativeTypeSpec.DECIMAL);
-
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 <= SOME(SELECT c2 FROM t) FROM t", schema,
@@ -626,9 +615,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
-        // TODO: IGNITE-24706 remove this assumption
-        assumeFalse(typePair.first().spec() == NativeTypeSpec.DECIMAL || typePair.second().spec() == NativeTypeSpec.DECIMAL);
-
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 > SOME(SELECT c2 FROM t) FROM t", schema,
@@ -648,9 +634,6 @@ public class NumericQuantifyOperatorTypeCoercionTest extends BaseTypeCoercionTes
             Matcher<RexNode> firstOperandMatcher,
             Matcher<RexNode> secondOperandMatcher
     ) throws Exception {
-        // TODO: IGNITE-24706 remove this assumption
-        assumeFalse(typePair.first().spec() == NativeTypeSpec.DECIMAL || typePair.second().spec() == NativeTypeSpec.DECIMAL);
-
         IgniteSchema schema = createSchemaWithTwoColumnTable(typePair.first(), typePair.second());
 
         assertPlan("SELECT c1 >= SOME(SELECT c2 FROM t) FROM t", schema,

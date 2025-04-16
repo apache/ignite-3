@@ -22,7 +22,7 @@ import java.lang.System.Logger;
 import java.lang.System.Logger.Level;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
@@ -40,7 +40,7 @@ class IgniteThrottledLoggerImpl implements IgniteThrottledLogger {
     /** Log messages. */
     private final Map<LogThrottleKey, Long> messagesMap;
 
-    IgniteThrottledLoggerImpl(Logger delegate, ExecutorService executor) {
+    IgniteThrottledLoggerImpl(Logger delegate, Executor executor) {
         this.delegate = delegate;
 
         messagesMap = Caffeine.newBuilder()

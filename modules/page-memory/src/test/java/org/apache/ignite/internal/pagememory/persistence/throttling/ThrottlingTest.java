@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
 import static java.lang.Thread.State.TIMED_WAITING;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MIN_RATIO_NO_THROTTLE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -73,7 +75,8 @@ public class ThrottlingTest extends IgniteAbstractTest {
     public void shouldThrottleWhenWritingTooFast() {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, metricSource);
 
-        long parkTime = throttle.getCleanPagesProtectionParkTime(0.67, (362584 + 67064) / 2, 328787, 1, 60184, 23103);
+        double dirtyPagesRatio = DEFAULT_MAX_DIRTY_PAGES - 0.08;
+        long parkTime = throttle.getCleanPagesProtectionParkTime(dirtyPagesRatio, (362584 + 67064) / 2, 328787, 1, 60184, 23103);
 
         assertTrue(parkTime > 0);
     }
@@ -107,9 +110,11 @@ public class ThrottlingTest extends IgniteAbstractTest {
     public void testCorrectTimeToPark() {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, metricSource);
 
+        double dirtyPagesRatio = DEFAULT_MAX_DIRTY_PAGES - 0.08;
+        int completedPages = (903150 + 227217) / 2;
         int markDirtySpeed = 34422;
         int cpWriteSpeed = 19416;
-        long time = throttle.getCleanPagesProtectionParkTime(0.67, ((903150 + 227217) / 2), 903150, 1, markDirtySpeed, cpWriteSpeed);
+        long time = throttle.getCleanPagesProtectionParkTime(dirtyPagesRatio, completedPages, 903150, 1, markDirtySpeed, cpWriteSpeed);
 
         assertEquals(415110, time);
     }
@@ -179,7 +184,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
         assertEquals(0, throttle.getCleanPagesProtectionParkTime(0.01, 100, 400000, 1, 20103, 23103));
 
         // Mark speed 22413 for mark all remaining as dirty.
-        long time = throttle.getCleanPagesProtectionParkTime(0.024, 100, 400000, 1, 24000, 23103);
+        long time = throttle.getCleanPagesProtectionParkTime(DEFAULT_MIN_RATIO_NO_THROTTLE - 0.005, 100, 400000, 1, 24000, 23103);
         assertTrue(time > 0);
 
         assertEquals(0, throttle.getCleanPagesProtectionParkTime(0.01, 100, 400000, 1, 22412, 23103));
@@ -189,13 +194,13 @@ public class ThrottlingTest extends IgniteAbstractTest {
     public void enforceThrottleAtTheEndOfCp() {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, metricSource);
 
-        long time1 = throttle.getCleanPagesProtectionParkTime(0.70, 300000, 400000, 1, 20200, 23000);
-        long time2 = throttle.getCleanPagesProtectionParkTime(0.71, 300000, 400000, 1, 20200, 23000);
+        long time1 = throttle.getCleanPagesProtectionParkTime(DEFAULT_MAX_DIRTY_PAGES - 0.05, 300000, 400000, 1, 20200, 23000);
+        long time2 = throttle.getCleanPagesProtectionParkTime(DEFAULT_MAX_DIRTY_PAGES - 0.04, 300000, 400000, 1, 20200, 23000);
 
         assertTrue(time2 >= time1 * 2); // Extra slowdown should be applied.
 
-        long time3 = throttle.getCleanPagesProtectionParkTime(0.73, 300000, 400000, 1, 20200, 23000);
-        long time4 = throttle.getCleanPagesProtectionParkTime(0.74, 300000, 400000, 1, 20200, 23000);
+        long time3 = throttle.getCleanPagesProtectionParkTime(DEFAULT_MAX_DIRTY_PAGES - 0.02, 300000, 400000, 1, 20200, 23000);
+        long time4 = throttle.getCleanPagesProtectionParkTime(DEFAULT_MAX_DIRTY_PAGES - 0.01, 300000, 400000, 1, 20200, 23000);
 
         assertTrue(time3 > time2);
         assertTrue(time4 > time3);
@@ -205,8 +210,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
     public void doNotThrottleWhenDirtyPagesRatioIsTooHigh() {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, null, stateChecker, metricSource);
 
+        double dirtyPagesRatio = DEFAULT_MAX_DIRTY_PAGES;
         // 363308 350004 348976 10604
-        long time = throttle.getCleanPagesProtectionParkTime(0.75, ((350004 + 348976) / 2), 350004 - 10604, 4, 279, 23933);
+        int completedPages = (350004 + 348976) / 2;
+        long time = throttle.getCleanPagesProtectionParkTime(dirtyPagesRatio, completedPages, 350004 - 10604, 4, 279, 23933);
 
         assertEquals(0, time);
     }

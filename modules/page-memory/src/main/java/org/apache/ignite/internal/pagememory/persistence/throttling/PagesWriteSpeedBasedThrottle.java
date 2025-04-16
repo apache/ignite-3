@@ -43,10 +43,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class PagesWriteSpeedBasedThrottle implements PagesWriteThrottlePolicy {
     /** Maximum fraction of dirty pages in a region. */
-    public static final double DEFAULT_MAX_DIRTY_PAGES = 0.75;
+    public static final double DEFAULT_MAX_DIRTY_PAGES = 0.9;
 
     /** Percent of dirty pages which will not cause throttling. */
-    public static final double DEFAULT_MIN_RATIO_NO_THROTTLE = 0.03;
+    public static final double DEFAULT_MIN_RATIO_NO_THROTTLE = 0.5;
 
     private static final IgniteLogger LOG = Loggers.forClass(PagesWriteSpeedBasedThrottle.class);
 
