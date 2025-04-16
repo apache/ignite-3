@@ -107,7 +107,7 @@ class ItSchemaSyncAndReplicationTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone " + ZONE_NAME + " with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+        String zoneSql = "create zone " + ZONE_NAME + " (partitions 1, replicas 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20)) zone " + ZONE_NAME;
 
         cluster.doInSession(0, session -> {

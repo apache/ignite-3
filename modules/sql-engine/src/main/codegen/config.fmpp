@@ -27,6 +27,7 @@ data: {
     # List of additional classes and packages to import.
     # Example: "org.apache.calcite.sql.*", "java.util.List".
     imports: [
+      "org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum",
       "org.apache.calcite.sql.SqlCreate",
       "org.apache.calcite.sql.SqlDrop",
       "org.apache.calcite.sql.SqlDdl",
@@ -67,15 +68,27 @@ data: {
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
     # not a reserved keyword, add it to the 'nonReservedKeywords' section.
     keywords: [
+      "AUTO"
+      "DOWN"
+      "PARTITIONS"
+      "REPLICAS"
+      "DISTRIBUTION"
+      "ALGORITHM"
+      "NODES"
+      "ADJUST"
+      "CONSISTENCY"
+      "MODE"
       "COLOCATE"
       "STORAGE"
       "PROFILE"
+      "PROFILES"
       "IF"
       "INDEX"
       "ENGINE"
       "SORTED"
       "HASH"
       "RENAME"
+      "UP"
       "KILL"
       "QUERY"
       "COMPUTE"
@@ -86,6 +99,18 @@ data: {
     # items in this list become non-reserved.
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
+      "AUTO"
+      "DOWN"
+      "PARTITIONS"
+      "REPLICAS"
+      "DISTRIBUTION"
+      "ALGORITHM"
+      "NODES"
+      "ADJUST"
+      "CONSISTENCY"
+      "MODE"
+      "PROFILES"
+      "UP"
       "ENGINE"
       "STORAGE"
       "PROFILE"

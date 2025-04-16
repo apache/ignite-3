@@ -21,7 +21,6 @@ import static org.apache.calcite.rel.type.RelDataType.PRECISION_NOT_SPECIFIED;
 import static org.apache.calcite.rel.type.RelDataType.SCALE_NOT_SPECIFIED;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_LENGTH;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultLength;
-import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseStorageProfiles;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.CONSISTENCY_MODE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_AUTO_ADJUST;
@@ -31,7 +30,6 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DISTRIBUTION_ALGORITHM;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
-import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.STORAGE_PROFILES;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToShortExact;
@@ -59,6 +57,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.runtime.CalciteContextException;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.sql.SqlCall;
+import org.apache.calcite.sql.SqlCharStringLiteral;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDdl;
 import org.apache.calcite.sql.SqlIdentifier;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.catalog.commands.DropTableCommand;
 import org.apache.ignite.internal.catalog.commands.DropTableCommandBuilder;
 import org.apache.ignite.internal.catalog.commands.DropZoneCommand;
 import org.apache.ignite.internal.catalog.commands.RenameZoneCommand;
+import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
 import org.apache.ignite.internal.catalog.commands.TableHashPrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TablePrimaryKey;
 import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
@@ -183,8 +183,6 @@ public class DdlSqlToCommandConverter {
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleUp),
                 DATA_NODES_AUTO_ADJUST_SCALE_DOWN,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::dataNodesAutoAdjustScaleDown),
-                STORAGE_PROFILES, new DdlOptionInfo<>(String.class, this::checkEmptyString,
-                        (builder, params) -> builder.storageProfilesParams(parseStorageProfiles(params))),
                 CONSISTENCY_MODE, new DdlOptionInfo<>(String.class, this::checkEmptyString,
                         (builder, params) -> builder.consistencyModeParams(parseConsistencyMode(params)))
         ));
@@ -688,26 +686,26 @@ public class DdlSqlToCommandConverter {
      * Converts the given '{@code CREATE ZONE}' AST to the {@link CreateZoneCommand} catalog command.
      */
     private CatalogCommand convertCreateZone(IgniteSqlCreateZone createZoneNode, PlanningContext ctx) {
+        if (createZoneNode.storageProfiles().isEmpty()) {
+            throw new SqlException(STMT_VALIDATION_ERR, "STORAGE PROFILES can not be empty");
+        }
+
         CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
 
         builder.zoneName(deriveObjectName(createZoneNode.name(), ctx, "zoneName"));
         builder.ifNotExists(createZoneNode.ifNotExists());
 
-        if (createZoneNode.createOptionList() == null) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
-        }
-
         Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
 
-        for (SqlNode optionNode : createZoneNode.createOptionList().getList()) {
+        for (SqlNode optionNode : createZoneNode.createOptionList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
             updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
         }
 
-        if (remainingKnownOptions.contains(STORAGE_PROFILES.name())) {
-            throw new SqlException(STMT_VALIDATION_ERR, STORAGE_PROFILES + " option cannot be null");
-        }
+        List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
+
+        builder.storageProfilesParams(profiles);
 
         return builder.build();
     }
@@ -882,6 +880,19 @@ public class DdlSqlToCommandConverter {
                 );
                 throw new SqlException(STMT_VALIDATION_ERR, msg);
         }
+    }
+
+    private static List<StorageProfileParams> extractProfiles(SqlNodeList values) {
+        List<StorageProfileParams> profiles = new ArrayList<>(values.size());
+
+        SqlCharStringLiteral literal;
+        for (SqlNode node : values) {
+            literal = (SqlCharStringLiteral) node;
+            String profile = literal.getValueAs(String.class).trim();
+            profiles.add(StorageProfileParams.builder().storageProfile(profile).build());
+        }
+
+        return profiles;
     }
 
     private static <S, T> void validateValue(String sqlObjName, Object optId, DdlOptionInfo<S, T> optInfo, String query, T expectedValue) {

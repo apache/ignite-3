@@ -60,11 +60,11 @@ public class ItUnstableTopologyTest extends BaseSqlIntegrationTest {
         CLUSTER.startNode(2, DATA_NODE_BOOTSTRAP_CFG_TEMPLATE);
         CLUSTER.startNode(3, DATA_NODE_BOOTSTRAP_CFG_TEMPLATE);
 
-        sql("CREATE ZONE my_zone WITH" 
-                + " partitions = 1," 
-                + " replicas = 3," 
-                + " storage_profiles = 'default'," 
-                + " data_nodes_filter='$[?(@.role == \"data\")]'");
+        sql("CREATE ZONE my_zone ("
+                + "partitions 1, "
+                + "replicas 3, "
+                + "nodes filter '$[?(@.role == \"data\")]') "
+                + "storage profiles ['default']");
 
         sql("CREATE TABLE my_table (id INT PRIMARY KEY, val INT) ZONE my_zone STORAGE PROFILE 'default'");
         assertQuery("INSERT INTO my_table SELECT x, x FROM system_range(1, 1000)")

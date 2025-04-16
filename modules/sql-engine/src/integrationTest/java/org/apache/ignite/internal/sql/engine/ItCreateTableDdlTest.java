@@ -429,13 +429,13 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testSuccessfulCreateTableWithZoneIdentifier() {
-        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE test_zone STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE test_zone");
     }
 
     @Test
     public void testSuccessfulCreateTableWithZoneQuotedLiteral() {
-        sql("CREATE ZONE \"test_zone\" WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE \"test_zone\" STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
         sql("CREATE TABLE test_table (id INT PRIMARY KEY, val INT) ZONE \"test_zone\"");
         sql("DROP TABLE test_table");
         sql("DROP ZONE \"test_zone\"");
@@ -443,7 +443,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void testExceptionalCreateTableWithZoneUnquotedLiteral() {
-        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE test_zone STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
         assertThrowsSqlException(
                 SqlException.class,
                 STMT_VALIDATION_ERR,
@@ -492,7 +492,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfileWithCustomZoneDefaultProfile() {
-        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE ZONE1 (PARTITIONS 1) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) ZONE ZONE1");
 
@@ -509,7 +509,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
 
     @Test
     public void tableStorageProfileWithCustomZoneExplicitProfile() {
-        sql("CREATE ZONE ZONE1 WITH PARTITIONS = 1, STORAGE_PROFILES = '" + DEFAULT_STORAGE_PROFILE + "'");
+        sql("CREATE ZONE ZONE1 (PARTITIONS 1) STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']");
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT) ZONE ZONE1 STORAGE PROFILE '" + DEFAULT_STORAGE_PROFILE + "'");
 
@@ -765,7 +765,7 @@ public class ItCreateTableDdlTest extends BaseSqlIntegrationTest {
     public void creatingTableOnZoneReferencingNonExistingProfile() {
         String tableName = "test_table";
 
-        sql("CREATE ZONE test_zone WITH STORAGE_PROFILES='no-such-profile'");
+        sql("CREATE ZONE test_zone STORAGE PROFILES ['no-such-profile']");
         sql("CREATE TABLE " + tableName + " (id INT PRIMARY KEY, val INT) ZONE test_zone");
 
         Table table = CLUSTER.aliveNode().tables().table(tableName);
