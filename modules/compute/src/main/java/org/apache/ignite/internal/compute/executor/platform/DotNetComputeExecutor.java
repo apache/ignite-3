@@ -62,6 +62,12 @@ public class DotNetComputeExecutor {
         return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
     }
 
+    public synchronized void stop() {
+        if (process != null) {
+            process.destroy();
+        }
+    }
+
     private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
             List<String> deploymentUnitPaths,
             String jobClassName,
@@ -80,31 +86,29 @@ public class DotNetComputeExecutor {
                 .getConnectionAsync(executorId)
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .exceptionally(e -> {
-                    if (proc.isAlive()) {
-                        // Process is alive but did not communicate back to the server.
-                        proc.destroyForcibly();
-                        throw new RuntimeException(".NET executor process failed to establish connection with the server" , e);
-                    } else {
-                        try {
-                            var output = new String(proc.getErrorStream().readAllBytes());
-
-                            throw new RuntimeException(".NET executor process failed to start: " + output, e);
-                        } catch (IOException ex) {
-                            RuntimeException err = new RuntimeException(
-                                    ".NET executor process failed to start, could not read process output: " + e.getMessage(), e);
-
-                            err.addSuppressed(ex);
-
-                            throw err;
-                        }
-                    }
+                    throw handleTransportError(e, proc);
                 })
                 .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
 
-    public synchronized void stop() {
-        if (process != null) {
-            process.destroy();
+    private static RuntimeException handleTransportError(Throwable e, Process proc) {
+        if (proc.isAlive()) {
+            // Process is alive but did not communicate back to the server.
+            proc.destroyForcibly();
+            return new RuntimeException(".NET executor process failed to establish connection with the server" , e);
+        } else {
+            try {
+                var output = new String(proc.getErrorStream().readAllBytes());
+
+                throw new RuntimeException(".NET executor process failed to start: " + output, e);
+            } catch (IOException ex) {
+                RuntimeException err = new RuntimeException(
+                        ".NET executor process failed to start, could not read process output: " + e.getMessage(), e);
+
+                err.addSuppressed(ex);
+
+                return err;
+            }
         }
     }
 

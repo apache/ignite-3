@@ -438,7 +438,7 @@ public class ClientInboundMessageHandler
 
                             sendHandshakeResponse(ctx, packer);
 
-                            commonExecutor.execute(() -> onHandshake.accept(this));
+                            onHandshake.accept(this);
                         }
 
                         return null;
