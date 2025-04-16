@@ -43,7 +43,6 @@ import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.hlc.ClockService;
-import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -226,7 +225,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
                 || lastKnownLease.getExpirationTime().compareTo(currentTime) < 0) {
             return true;
         } else {
-            return localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId());
+            return !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId());
         }
     }
 

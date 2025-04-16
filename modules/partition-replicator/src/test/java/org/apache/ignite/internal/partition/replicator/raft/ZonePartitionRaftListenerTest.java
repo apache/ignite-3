@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -368,11 +369,11 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     private PartitionListener partitionListener(int tableId) {
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
-        when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
-        when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.current()).thenReturn(clock.current());
 
         return new PartitionListener(
                 txManager,
