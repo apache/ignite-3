@@ -66,6 +66,9 @@ internal static class ComputeJobExecutor
                 try
                 {
                     // TODO: Send error to the server.
+                    using var errResponseBuf = ProtoCommon.GetMessageWriter();
+
+                    WriteError(errResponseBuf.MessageWriter, jobEx);
                 }
                 catch (Exception resultSendEx)
                 {
@@ -91,10 +94,22 @@ internal static class ComputeJobExecutor
             return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
         }
 
-        void Write(MsgPackWriter w, object? res)
+        static void Write(MsgPackWriter w, object? res)
         {
             w.Write(0); // Flags: success.
             ComputePacker.PackArgOrResult(ref w, res, null);
+        }
+
+        static void WriteError(MsgPackWriter w, Exception e)
+        {
+            var igniteEx = e as IgniteException;
+            Guid traceId = igniteEx?.TraceId ?? Guid.NewGuid();
+            int code = igniteEx?.ErrorCode ?? ErrorGroups.Compute.ComputeJobFailed;
+            string className = e.GetType().ToString();
+            string message = e.Message;
+            string? stackTrace = e.StackTrace;
+
+            // TODO
         }
     }
 
