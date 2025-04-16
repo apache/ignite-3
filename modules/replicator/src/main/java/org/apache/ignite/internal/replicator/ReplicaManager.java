@@ -34,7 +34,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -502,7 +502,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .whenComplete((response, ex) -> {
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                        } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
+                        } else if (!hasCause(ex, NodeStoppingException.class) && !hasCause(ex, ReplicaStoppingException.class)) {
                             String errorMessage = String.format("Failed to process placement driver message [msg=%s].", msg);
                             failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
@@ -1113,9 +1113,11 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
             if (ex != null
-                    && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
-                    && !hasCauseOrSuppressed(ex, CancellationException.class)
-                    && !hasCauseOrSuppressed(ex, RejectedExecutionException.class)
+                    && !hasCause(ex, NodeStoppingException.class)
+                    && !hasCause(ex, CancellationException.class)
+                    && !hasCause(ex, RejectedExecutionException.class)
+                    // Not a problem, there will be a retry.
+                    && !hasCause(ex, TimeoutException.class)
             ) {
                 failureProcessor.process(new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
             }

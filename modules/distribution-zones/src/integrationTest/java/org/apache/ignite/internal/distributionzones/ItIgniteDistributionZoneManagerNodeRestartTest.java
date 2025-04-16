@@ -102,8 +102,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -228,6 +227,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
+        var failureProcessor = mock(FailureProcessor.class);
+
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                 name,
                 networkConfiguration,
@@ -236,12 +237,11 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new VaultStaleIds(vault),
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
-                mock(FailureManager.class),
+                failureProcessor,
                 defaultChannelTypeRegistry(),
                 new DefaultIgniteProductVersionSource()
         );
 
-        var failureProcessor = new NoOpFailureManager();
         var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureProcessor);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);

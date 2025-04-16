@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageM
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -70,6 +71,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -307,7 +309,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         // stop method.
         cmgFut.complete(msNodes);
 
-        assertThat(metaStorageManager.metaStorageService(), willThrowFast(CancellationException.class));
+        assertThat(metaStorageManager.metaStorageService(), willThrow(NodeStoppingException.class));
     }
 
     @Test

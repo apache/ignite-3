@@ -21,11 +21,13 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockSafe;
 
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -205,9 +207,8 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 metaStorageManager.sendCompactionCommand(newCompactionRevision)
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
-                                Throwable cause = unwrapCause(throwable);
-
-                                if (!(cause instanceof NodeStoppingException)) {
+                                if (!hasCause(throwable, NodeStoppingException.class)
+                                        && !hasCause(throwable, CancellationException.class)) {
                                     String errorMessage = String.format(
                                             "Unknown error occurred while sending the metastorage compaction command: "
                                                     + "[newCompactionRevision=%s]",
