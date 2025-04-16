@@ -515,7 +515,7 @@ public class PartitionReplicaLifecycleManager extends
             long causalityToken,
             int catalogVersion,
             CatalogZoneDescriptor zoneDescriptor,
-            boolean nodeRecovery
+            boolean onNodeRecovery
     ) {
         return inBusyLockAsync(busyLock, () -> {
             int zoneId = zoneDescriptor.id();
@@ -529,7 +529,7 @@ public class PartitionReplicaLifecycleManager extends
                                     causalityToken,
                                     catalogVersion,
                                     zoneDescriptor.partitions(),
-                                    nodeRecovery
+                                    onNodeRecovery
                             )
                     );
         });
@@ -541,7 +541,7 @@ public class PartitionReplicaLifecycleManager extends
             long causalityToken,
             int catalogVersion,
             int partitionCount,
-            boolean nodeRecovery
+            boolean onNodeRecovery
     ) {
         assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
 
@@ -562,7 +562,7 @@ public class PartitionReplicaLifecycleManager extends
                         causalityToken,
                         partitionCount,
                         isVolatileZoneForCatalogVersion(zoneId, catalogVersion),
-                        !nodeRecovery
+                        !onNodeRecovery
                 );
             }
 
@@ -578,7 +578,7 @@ public class PartitionReplicaLifecycleManager extends
         // namely, TableManager makes sure that it starts all tables before it allows the replicas to initiate their starts.
         // That's why during node recovery we DON'T acquire write locks for zones here: that would create a deadlock with the mechanism
         // in TableManager.
-        if (nodeRecovery) {
+        if (onNodeRecovery) {
             return createZoneReplicationNodes.get();
         } else {
             return inBusyLockAsync(busyLock, () -> executeUnderZoneWriteLock(zoneId, createZoneReplicationNodes));
@@ -1039,7 +1039,7 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> handleChangeStableAssignmentEvent(
             Entry stableAssignmentsWatchEvent,
             long revision,
-            boolean isRecovery
+            boolean onNodeRecovery
     ) {
         ZonePartitionId zonePartitionId = extractZonePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
@@ -1060,7 +1060,7 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId,
                     stableAssignments,
                     pendingAssignments,
-                    isRecovery,
+                    onNodeRecovery,
                     revision
             );
         }, ioExecutor).thenCompose(identity());
@@ -1093,10 +1093,10 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Set<Assignment> stableAssignments,
             Assignments pendingAssignments,
-            boolean isRecovery,
+            boolean onNodeRecovery,
             long revision
     ) {
-        CompletableFuture<Void> clientUpdateFuture = isRecovery
+        CompletableFuture<Void> clientUpdateFuture = onNodeRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
                 : updatePartitionClients(zonePartitionId, stableAssignments, pendingAssignments.nodes());
