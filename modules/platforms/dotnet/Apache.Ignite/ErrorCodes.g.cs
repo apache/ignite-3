@@ -596,6 +596,9 @@ namespace Apache.Ignite
 
             /// <summary> MarshallingTypeMismatch error. </summary>
             public const int MarshallingTypeMismatch = (GroupCode << 16) | (13 & 0xFFFF);
+
+            /// <summary> ComputeJobCancelled error. </summary>
+            public const int ComputeJobCancelled = (GroupCode << 16) | (14 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>

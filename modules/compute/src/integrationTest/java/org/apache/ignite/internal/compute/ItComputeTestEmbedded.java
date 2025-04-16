@@ -19,8 +19,8 @@ package org.apache.ignite.internal.compute;
 
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicCheckedException;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertPublicException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicCheckedException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.publicException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -191,7 +191,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 null));
 
-        assertPublicException(ex, exception.code(), exception.getMessage());
+        assertThat(ex, is(publicException(exception.code(), exception.getMessage())));
     }
 
     @SuppressWarnings("AssignmentToStaticFieldFromInstanceMethod")
@@ -207,7 +207,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 null));
 
-        assertPublicCheckedException(ex, exception.code(), exception.getMessage());
+        assertThat(ex, is(publicCheckedException(exception.code(), exception.getMessage())));
     }
 
     private static Stream<Arguments> privateExceptions() {
@@ -232,7 +232,7 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
                 JobDescriptor.builder(CustomFailingJob.class).units(units()).build(),
                 null));
 
-        assertComputeException(ex, throwable);
+        assertThat(ex, is(computeJobFailedException(throwable.getClass().getName(), throwable.getMessage())));
     }
 
     @ParameterizedTest
