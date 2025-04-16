@@ -35,8 +35,6 @@ import org.apache.ignite.internal.tostring.S;
  */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
 
-    private static final int COLOCATION_BIT = 1 << 31;
-
     private final UUID operationId;
 
     /**
@@ -44,14 +42,13 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private final int catalogVersion;
 
-    /**
-     * A field containing zone id and a COLOCATION_BIT bit. Used to distinguish between zone and table requests. If this is a table request,
-     * COLOCATION_BIT is set, otherwise it is not.
-     */
-    private final int internalZoneId;
+    private final int zoneId;
+
+    private final boolean colocationEnabled;
 
     /**
-     * Map of (tableId -> setOfPartitions) to reset.
+     * Map of (tableId -> setOfPartitions) to reset if colocation is disabled
+     * or map of (zoneId -> setOfPartitions) to reset if colocation is enabled.
      */
     private final Map<Integer, Set<Integer>> partitionIds;
 
@@ -60,15 +57,17 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
     private GroupUpdateRequest(
             UUID operationId,
             int catalogVersion,
-            int internalZoneId,
+            int zoneId,
             Map<Integer, Set<Integer>> partitionIds,
-            boolean manualUpdate
+            boolean manualUpdate,
+            boolean colocationEnabled
     ) {
         this.operationId = operationId;
         this.catalogVersion = catalogVersion;
-        this.internalZoneId = internalZoneId;
+        this.zoneId = zoneId;
         this.partitionIds = Map.copyOf(partitionIds);
         this.manualUpdate = manualUpdate;
+        this.colocationEnabled = colocationEnabled;
     }
 
     @Override
@@ -78,11 +77,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     @Override
     public int zoneId() {
-        return zoneIdFromInternalZoneId(internalZoneId);
-    }
-
-    public int internalZoneId() {
-        return internalZoneId;
+        return zoneId;
     }
 
     @Override
@@ -107,28 +102,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      * colocation disabled.
      */
     boolean colocationEnabled() {
-        return (internalZoneId & COLOCATION_BIT) == 0;
-    }
-
-    private static int zoneIdFromInternalZoneId(int zoneId) {
-        return zoneId & ~COLOCATION_BIT;
-    }
-
-    private static int toInternalZoneId(int zoneId, boolean colocationEnabled) {
-        return (colocationEnabled ? 0 : COLOCATION_BIT) | zoneId;
-    }
-
-    public static GroupUpdateRequest createColocationAware(
-            UUID operationId,
-            int catalogVersion,
-            int zoneId,
-            Map<Integer, Set<Integer>> partitionIds,
-            boolean manualUpdate,
-            boolean colocationEnabled
-    ) {
-        int internalZoneId = toInternalZoneId(zoneId, colocationEnabled);
-
-        return new GroupUpdateRequest(operationId, catalogVersion, internalZoneId, partitionIds, manualUpdate);
+        return colocationEnabled;
     }
 
     public static GroupUpdateRequest create(
@@ -136,9 +110,10 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
             int catalogVersion,
             int zoneId,
             Map<Integer, Set<Integer>> partitionIds,
-            boolean manualUpdate
+            boolean manualUpdate,
+            boolean colocationEnabled
     ) {
-        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
+        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate, colocationEnabled);
     }
 
     @Override

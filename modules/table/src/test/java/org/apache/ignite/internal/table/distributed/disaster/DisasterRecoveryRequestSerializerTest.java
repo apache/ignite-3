@@ -41,7 +41,8 @@ class DisasterRecoveryRequestSerializerTest {
                 1000,
                 2000,
                 Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
-                true
+                true,
+                false
         );
 
         byte[] bytes = VersionedSerialization.toBytes(originalRequest, serializer);
@@ -52,6 +53,21 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.zoneId(), is(2000));
         assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
         assertThat(restoredRequest.manualUpdate(), is(true));
+        assertThat(restoredRequest.colocationEnabled(), is(false));
+
+        var colocatedZoneRequest = GroupUpdateRequest.create(
+                new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
+                1000,
+                2000,
+                Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
+                true,
+                true
+        );
+
+        byte[] bytesZone = VersionedSerialization.toBytes(colocatedZoneRequest, serializer);
+        GroupUpdateRequest restoredZoneRequest = (GroupUpdateRequest) VersionedSerialization.fromBytes(bytesZone, serializer);
+
+        assertThat(restoredZoneRequest.colocationEnabled(), is(true));
     }
 
     @Test
@@ -64,6 +80,7 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.zoneId(), is(2000));
         assertThat(restoredRequest.partitionIds(), is(Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41))));
         assertThat(restoredRequest.manualUpdate(), is(true));
+        assertThat(restoredRequest.colocationEnabled(), is(false));
     }
 
     @Test
@@ -99,43 +116,6 @@ class DisasterRecoveryRequestSerializerTest {
         assertThat(restoredRequest.partitionIds(), is(Set.of(11, 21, 31)));
         assertThat(restoredRequest.nodeNames(), is(Set.of("a", "b")));
         assertThat(restoredRequest.assignmentsTimestamp(), is(HybridTimestamp.MAX_VALUE.longValue()));
-    }
-
-    @Test
-    void testColocationAwareRequests() {
-        var colocatedZoneRequest = GroupUpdateRequest.createColocationAware(
-                new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
-                1000,
-                2000,
-                Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
-                true,
-                true
-        );
-
-        assertThat(colocatedZoneRequest.internalZoneId(), is(2000));
-
-        byte[] bytesZone = VersionedSerialization.toBytes(colocatedZoneRequest, serializer);
-        GroupUpdateRequest restoredZoneRequest = (GroupUpdateRequest) VersionedSerialization.fromBytes(bytesZone, serializer);
-
-        assertThat(restoredZoneRequest.zoneId(), is(2000));
-        assertThat(restoredZoneRequest.colocationEnabled(), is(true));
-
-        var colocatedTableRequest = GroupUpdateRequest.createColocationAware(
-                new UUID(0x1234567890ABCDEFL, 0xFEDCBA0987654321L),
-                1000,
-                2000,
-                Map.of(3000, Set.of(11, 21, 31), 4000, Set.of(22, 31, 41)),
-                true,
-                false
-        );
-
-        assertThat(colocatedTableRequest.internalZoneId(), is(2000 | (1 << 31)));
-
-        byte[] bytesTable = VersionedSerialization.toBytes(colocatedTableRequest, serializer);
-        GroupUpdateRequest restoredTableRequest = (GroupUpdateRequest) VersionedSerialization.fromBytes(bytesTable, serializer);
-
-        assertThat(restoredTableRequest.zoneId(), is(2000));
-        assertThat(restoredTableRequest.colocationEnabled(), is(false));
     }
 
     @SuppressWarnings("unused")

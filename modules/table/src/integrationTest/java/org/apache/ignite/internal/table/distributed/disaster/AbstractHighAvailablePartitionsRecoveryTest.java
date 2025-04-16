@@ -55,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -110,7 +111,6 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
-import org.jetbrains.annotations.Nullable;
 
 /** Parent for tests of HA zones feature. */
 // TODO https://issues.apache.org/jira/browse/IGNITE-24144
@@ -295,7 +295,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         if (enabledColocation()) {
             int zoneId = TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager(), tableName, clock.nowLong());
-            return getZonePartitionClusterNodes(node, zoneId, partNum);
+            try {
+                return ZoneRebalanceUtil.zonePartitionAssignments(node.metaStorageManager(), zoneId, partNum).get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
         } else {
             return getTablePartitionClusterNodes(node, tableName, partNum);
         }
@@ -304,12 +308,6 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     private Set<Assignment> getTablePartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
                 .map(tableId -> stablePartitionAssignments(node.metaStorageManager(), tableId, partNum).join())
-                .orElse(Set.of());
-    }
-
-    private Set<Assignment> getZonePartitionClusterNodes(IgniteImpl node, @Nullable Integer zoneId, int partNum) {
-        return Optional.ofNullable(zoneId)
-                .map(id -> ZoneRebalanceUtil.zonePartitionAssignments(node.metaStorageManager(), id, partNum).join())
                 .orElse(Set.of());
     }
 
@@ -479,10 +477,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
                     if (raftNodeId.groupId() instanceof TablePartitionId
                             && tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
-                        incrementReplicaCount(raftNodeId, igniteImpl, numberOfInitializedReplicas);
+                        incrementReplicaCountIfHasLog(raftNodeId, igniteImpl, numberOfInitializedReplicas);
                     } else if (raftNodeId.groupId() instanceof ZonePartitionId
                             && zoneId == ((ZonePartitionId) raftNodeId.groupId()).zoneId()) {
-                        incrementReplicaCount(raftNodeId, igniteImpl, numberOfInitializedReplicas);
+                        incrementReplicaCountIfHasLog(raftNodeId, igniteImpl, numberOfInitializedReplicas);
                     }
                 });
 
@@ -492,7 +490,11 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         }, 10_000));
     }
 
-    private static void incrementReplicaCount(RaftNodeId raftNodeId, IgniteImpl igniteImpl, AtomicInteger numberOfInitializedReplicas) {
+    private static void incrementReplicaCountIfHasLog(
+            RaftNodeId raftNodeId,
+            IgniteImpl igniteImpl,
+            AtomicInteger numberOfInitializedReplicas
+    ) {
         try {
             if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
                 numberOfInitializedReplicas.incrementAndGet();

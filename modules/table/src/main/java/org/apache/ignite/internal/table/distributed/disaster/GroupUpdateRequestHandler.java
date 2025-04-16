@@ -87,13 +87,13 @@ import org.jetbrains.annotations.Nullable;
 abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
     private static final IgniteLogger LOG = Loggers.forClass(GroupUpdateRequest.class);
 
+    private final GroupUpdateRequest request;
+
     public static GroupUpdateRequestHandler<?> handler(GroupUpdateRequest request) {
         return request.colocationEnabled()
                 ? new ZoneGroupUpdateRequestHandler(request)
                 : new TableGroupUpdateRequestHandler(request);
     }
-
-    private final GroupUpdateRequest request;
 
     GroupUpdateRequestHandler(GroupUpdateRequest request) {
         this.request = request;
@@ -110,7 +110,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
 
         Catalog catalog = disasterRecoveryManager.catalogManager.catalog(catalogVersion);
 
-        int zoneId = zoneId();
+        int zoneId = request.zoneId();
 
         CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
 
@@ -129,13 +129,13 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                     .map(NodeWithAttributes::nodeName)
                     .collect(toSet());
 
-            List<CompletableFuture<Void>> tableFuts = new ArrayList<>(request.partitionIds().size());
+            List<CompletableFuture<Void>> assignmentsUpdateFut = new ArrayList<>(request.partitionIds().size());
 
             for (Entry<Integer, Set<Integer>> partitionEntry : request.partitionIds().entrySet()) {
 
                 int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionEntry.getValue(), zoneDescriptor.partitions());
 
-                tableFuts.add(forceAssignmentsUpdate(
+                assignmentsUpdateFut.add(forceAssignmentsUpdate(
                         partitionEntry.getKey(),
                         zoneDescriptor,
                         dataNodes,
@@ -150,7 +150,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 ));
             }
 
-            return allOf(tableFuts.toArray(new CompletableFuture[]{}));
+            return allOf(assignmentsUpdateFut.toArray(new CompletableFuture[]{}));
         })
         .thenCompose(Function.identity())
         .whenComplete((unused, throwable) -> {
@@ -159,10 +159,6 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 LOG.error("Failed to reset partition", throwable);
             }
         });
-    }
-
-    protected int zoneId() {
-        return request.zoneId();
     }
 
     /**
@@ -220,7 +216,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
     }
 
     private CompletableFuture<Void> updateAssignments(
-            int entityId,
+            int replicationId,
             CatalogZoneDescriptor zoneDescriptor,
             Set<String> dataNodes,
             Set<String> aliveNodesConsistentIds,
@@ -238,7 +234,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
         CompletableFuture<?>[] futures = new CompletableFuture[partitionIds.length];
 
         for (int i = 0; i < partitionIds.length; i++) {
-            T replicaGrpId = replicationGroupId(entityId, partitionIds[i]);
+            T replicaGrpId = replicationGroupId(replicationId, partitionIds[i]);
             LocalPartitionStateMessageByNode localStatesByNode = localStatesMap.containsKey(replicaGrpId)
                     ? localStatesMap.get(replicaGrpId)
                     : new LocalPartitionStateMessageByNode(emptyMap());
@@ -405,7 +401,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             int[] partitionIds
     );
 
-    abstract T replicationGroupId(int id, int partitionId);
+    abstract T replicationGroupId(int replicationId, int partitionId);
 
     abstract CompletableFuture<Integer> invoke(
             T partId,

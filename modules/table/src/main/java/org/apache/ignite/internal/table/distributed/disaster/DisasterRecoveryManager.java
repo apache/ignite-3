@@ -405,13 +405,13 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
     }
 
     /**
-     * Updates assignments of the table in a forced manner, allowing for the recovery of raft group with lost majorities. It is achieved via
-     * triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required. New pending
-     * assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via "resetPeers"
-     * so that a new leader could be elected.
+     * Updates assignments of the table or zone in a forced manner, allowing for the recovery of raft group with lost majorities. It is
+     * achieved via triggering a new rebalance with {@code force} flag enabled in {@link Assignments} for partitions where it's required.
+     * New pending assignments with {@code force} flag remove old stable nodes from the distribution, and force new Raft configuration via
+     * "resetPeers" so that a new leader could be elected.
      *
      * @param zoneName Name of the distribution zone. Case-sensitive, without quotes.
-     * @param partitionIds Map of per table partitions' sets to reset. If empty, reset all zone's partitions.
+     * @param partitionIds Map of per zone or table partitions' sets to reset. If empty, reset all zone's partitions.
      * @param manualUpdate Whether the update is triggered manually by user or automatically by core logic.
      * @param triggerRevision Revision of the event, which produce this reset. -1 for manual reset.
      * @param colocationEnabled Whether the update is a zone request (enabled colocation) or a table request (colocation disabled).
@@ -432,7 +432,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             partitionIds.values().forEach(ids -> checkPartitionsRange(ids, Set.of(zone)));
 
             return processNewRequest(
-                    GroupUpdateRequest.createColocationAware(
+                    GroupUpdateRequest.create(
                             UUID.randomUUID(),
                             catalog.version(),
                             zone.id(),
