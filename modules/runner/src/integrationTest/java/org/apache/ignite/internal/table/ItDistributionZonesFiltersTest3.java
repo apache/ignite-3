@@ -44,7 +44,6 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
-import org.apache.ignite.table.Table;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -159,7 +158,7 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
         return createStartConfig(NODE_ATTRIBUTES, STORAGE_PROFILES_CONFIGS);
     }
 
-    public void countThroughJdbc(int rowCount) throws SQLException {
+    private void countThroughJdbc(int rowCount) throws SQLException {
         int actualCount = 0;
         try (Statement stmt = conn.createStatement()) {
             try (java.sql.ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM " + TABLE_NAME)) {
@@ -187,14 +186,9 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
 
         node0.sql().execute(null, createTableSql());
 
-        Table table = node0.tables().table(TABLE_NAME);
-
         StringBuilder sqlInsert = new StringBuilder("INSERT INTO " + TABLE_NAME + " (key, val) VALUES \n");
 
         for (int i = 0; i < rowCount / 2; i++) {
-            /*table.recordView().upsert(null, Tuple.create()
-                    .set(COLUMN_KEY, Integer.valueOf(i))
-                    .set(COLUMN_VAL, "val"));*/
             sqlInsert.append("(").append(i + 1).append(", 'value" + (i + 1) + "')");
             if (i != rowCount / 2 - 1) {
                 sqlInsert.append(", \n");
@@ -203,20 +197,17 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
 
         node0.sql().execute(null, sqlInsert.toString());
 
-        //---
+        // ---
         sqlInsert = new StringBuilder("INSERT INTO " + TABLE_NAME + " (key, val) VALUES \n");
 
         for (int i = rowCount / 2; i < rowCount; i++) {
-            /*table.recordView().upsert(null, Tuple.create()
-                    .set(COLUMN_KEY, Integer.valueOf(i))
-                    .set(COLUMN_VAL, "val"));*/
             sqlInsert.append("(").append(i + 1).append(", 'value" + (i + 1) + "')");
             if (i != rowCount - 1) {
                 sqlInsert.append(", \n");
             }
         }
         node0.sql().execute(null, sqlInsert.toString());
-        //---
+        // ---
 
         String changedFilter = "$[?(@.region == \"US\")]";
         node0.sql().execute(null, alterZoneSql(changedFilter));
@@ -228,7 +219,7 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
             assertTrue(waitForCondition(() -> {
                 Set<String> nodeNames = new HashSet<>();
 
-                for (int j =0; j < partCount; j++) {
+                for (int j = 0; j < partCount; j++) {
                     Set<Assignment> nodes = unwrapIgniteImpl(node0)
                             .placementDriver()
                             .getAssignments(new TablePartitionId(tableImpl.tableId(), j), igniteImpl.clock().current())
@@ -243,7 +234,7 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
         } catch (AssertionError e) {
             Set<String> nodeNames = new HashSet<>();
 
-            for (int j =0; j < partCount; j++) {
+            for (int j = 0; j < partCount; j++) {
                 Set<Assignment> nodes = unwrapIgniteImpl(node0)
                         .placementDriver()
                         .getAssignments(new TablePartitionId(tableImpl.tableId(), j), igniteImpl.clock().current())
@@ -287,7 +278,7 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
         assertTrue(waitForCondition(() -> {
             Set<String> nodeNames = new HashSet<>();
 
-            for (int j =0; j < partCount; j++) {
+            for (int j = 0; j < partCount; j++) {
                 Set<Assignment> nodes = unwrapIgniteImpl(node0)
                         .placementDriver()
                         .getAssignments(new TablePartitionId(tableImpl.tableId(), j), igniteImpl.clock().current())
@@ -345,9 +336,11 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
                 + "\"CONSISTENCY_MODE\" = '%s'";
         return String.format(sqlFormat, ZONE_NAME, replicas, partitions, filter, scaleUp, scaleDown, storageProfiles, consistencyMode);
     }
+
     private static String alterZoneSql(String filter) {
         return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
     }
+
     private static String createTableSql() {
         return String.format(
                 "CREATE TABLE %s(%s INT PRIMARY KEY, %s VARCHAR) ZONE %s STORAGE PROFILE '%s'",
