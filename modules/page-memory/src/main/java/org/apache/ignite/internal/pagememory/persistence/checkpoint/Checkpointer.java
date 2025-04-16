@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
@@ -699,9 +700,7 @@ public class Checkpointer extends IgniteWorker {
 
             currentCheckpointProgress = curr;
 
-            curr.futureFor(LOCK_TAKEN).thenRun(() -> {
-                currentCheckpointProgressForThrottling = curr;
-            });
+            curr.futureFor(PAGES_SNAPSHOT_TAKEN).thenRun(() -> currentCheckpointProgressForThrottling = curr);
 
             return curr;
         }
