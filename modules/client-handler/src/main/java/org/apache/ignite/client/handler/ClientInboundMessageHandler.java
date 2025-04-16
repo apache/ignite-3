@@ -662,11 +662,14 @@ public class ClientInboundMessageHandler
             r.skipValues(1);
         }
 
-        if (code != null) {
-            return new TraceableException(code, traceId, className, message, stackTrace);
-        } else {
-            return new IgniteException(className, message);
-        }
+        traceId = traceId == null ? UUID.randomUUID() : traceId;
+        code = code == null ? INTERNAL_ERR : code;
+        String messageExt = "Client-side error: " + message;
+
+        // Nest details to mix platform-specific and Java-side stack traces.
+        Throwable cause = new RuntimeException(className + ": " + message + System.lineSeparator() + stackTrace);
+
+        return new IgniteException(traceId, code, messageExt, cause);
     }
 
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
