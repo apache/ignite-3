@@ -17,11 +17,18 @@
 
 package org.apache.ignite.internal.partition.replicator.raft.snapshot;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.anEmptyMap;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import java.io.IOException;
+import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -30,6 +37,8 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.Ou
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotCopier;
+import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -93,5 +102,56 @@ public class PartitionSnapshotStorageTest extends BaseIgniteAbstractTest {
 
         assertEquals(3L, startupSnapshotMeta.lastIncludedIndex());
         assertEquals(2L, startupSnapshotMeta.lastIncludedTerm());
+    }
+
+    @Test
+    void partitionCanBeRemovedWithoutSnapshotOperations(@Mock PartitionMvStorageAccess partitionAccess) {
+        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        CompletableFuture<Void> removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);
+
+        assertThat(removeFuture.isDone(), is(true));
+
+        assertThat(snapshotStorage.partitionsByTableId(), is(anEmptyMap()));
+    }
+
+    @Test
+    void partitionCanBeRemovedOnlyWithoutOutgoingSnapshot(@Mock PartitionMvStorageAccess partitionAccess) throws IOException {
+        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        CompletableFuture<Void> removeFuture;
+
+        try (SnapshotReader ignored = snapshotStorage.startOutgoingSnapshot()) {
+            removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);
+
+            assertThat(removeFuture.isDone(), is(false));
+
+            assertThat(snapshotStorage.partitionsByTableId(), is(not(anEmptyMap())));
+        }
+
+        assertThat(removeFuture.isDone(), is(true));
+
+        assertThat(snapshotStorage.partitionsByTableId(), is(anEmptyMap()));
+    }
+
+    @Test
+    void partitionCanBeRemovedOnlyWithoutIncomingSnapshot(@Mock PartitionMvStorageAccess partitionAccess) throws IOException {
+        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess);
+
+        String snapshotUri = SnapshotUri.toStringUri(UUID.randomUUID(), "node");
+
+        CompletableFuture<Void> removeFuture;
+
+        try (SnapshotCopier ignored = snapshotStorage.startIncomingSnapshot(snapshotUri)) {
+            removeFuture = snapshotStorage.removeMvPartition(TABLE_ID_1);
+
+            assertThat(removeFuture.isDone(), is(false));
+
+            assertThat(snapshotStorage.partitionsByTableId(), is(not(anEmptyMap())));
+        }
+
+        assertThat(removeFuture.isDone(), is(true));
+
+        assertThat(snapshotStorage.partitionsByTableId(), is(anEmptyMap()));
     }
 }
