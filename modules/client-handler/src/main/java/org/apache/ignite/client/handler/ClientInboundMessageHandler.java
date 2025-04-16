@@ -425,7 +425,8 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> clientHandshakeExtensions = HandshakeUtils.unpackExtensions(unpacker);
             String computeExecutorId = (String) clientHandshakeExtensions.get(HandshakeExtension.COMPUTE_EXECUTOR_ID);
 
-            // TODO: Bypass authentication if computeExecutorId is set.
+            // TODO: Validate computeExecutorId and reject handshake if not valid.
+            // TODO: Bypass authentication if computeExecutorId is set and matches the one in the server.
             authenticationManager
                     .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
                     .handleAsync((user, err) -> {
