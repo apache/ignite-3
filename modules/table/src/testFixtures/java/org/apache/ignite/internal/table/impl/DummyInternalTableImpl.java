@@ -518,7 +518,7 @@ public class DummyInternalTableImpl extends InternalTableImpl {
 
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
-        when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.current()).thenReturn(clock.current());
 
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
         var tablePartitionListener = new PartitionListener(

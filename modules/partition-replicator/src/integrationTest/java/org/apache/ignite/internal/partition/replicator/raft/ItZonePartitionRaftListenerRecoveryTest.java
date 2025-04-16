@@ -36,6 +36,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -380,11 +381,11 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         );
 
         LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
-        when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
 
         HybridClock clock = new HybridClockImpl();
         ClockService clockService = mock(ClockService.class);
-        when(clockService.current()).thenReturn(clock.current());
+        lenient().when(clockService.current()).thenReturn(clock.current());
 
         return new PartitionListener(
                 txManager,
