@@ -34,11 +34,15 @@ public interface MetastorageGroupMaintenance {
     CompletableFuture<IndexWithTerm> raftNodeIndex();
 
     /**
-     * Makes this node a leader of the Metastorage group (with the voting set containing of just this node).
+     * Initiates the following sequence.
      *
-     * @param termBeforeChange Term that Metastorage on the target node has before we make it become the leader.
+     * <ol>
+     *     <li>forceful switch of this node to a leader of the Metastorage group (with the voting set containing of just this node)</li>
+     *     <li>if the target voting set contains other nodes, extension of configuration to the target voting set.</li>
+     * </ol>
+     *
+     * @param termBeforeChange Term that Metastorage on this node has before we make it become the leader.
      * @param targetVotingSet Voting set members which we want to achieve (becoming a leader is just the first step in doing so).
-     * @return Future which completes when new leader becomes available.
      */
-    CompletableFuture<Void> becomeLonelyLeader(long termBeforeChange, Set<String> targetVotingSet);
+    void initiateForcefulVotersChange(long termBeforeChange, Set<String> targetVotingSet);
 }

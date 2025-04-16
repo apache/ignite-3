@@ -866,13 +866,13 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         // Both S1 and S2 has tables named test
 
         // S1 schema
-        sql("CREATE ZONE zone1 WITH PARTITIONS=5, STORAGE_PROFILES='default'");
+        sql("CREATE ZONE zone1 (PARTITIONS 5) STORAGE PROFILES ['default']");
         sql("CREATE SCHEMA s1");
         sql("CREATE TABLE s1.test (k int, v varchar, CONSTRAINT PK PRIMARY KEY (k)) ZONE zone1");
         sql("INSERT INTO s1.test(k, v) VALUES (1, 'a')");
 
         // S2 schema
-        sql("CREATE ZONE zone2 WITH PARTITIONS=7, STORAGE_PROFILES='default'");
+        sql("CREATE ZONE zone2 (PARTITIONS 7) STORAGE PROFILES ['default']");
         sql("CREATE SCHEMA s2");
         sql("CREATE TABLE s2.test (k int, v varchar, CONSTRAINT PK PRIMARY KEY (k)) ZONE zone2");
         sql("INSERT INTO s2.test(k, v) VALUES (1, 'b')");

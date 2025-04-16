@@ -20,9 +20,11 @@ package org.apache.ignite.internal.storage.rocksdb;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance.DFLT_WRITE_OPTS;
 import static org.apache.ignite.internal.storage.util.StorageUtils.createMissingMvPartitionErrorMessage;
+import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionDependingOnStorageState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToClosedState;
+import static org.apache.ignite.internal.storage.util.StorageUtils.transitionToDestroyedState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
@@ -44,6 +48,7 @@ import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.rocksdb.index.AbstractRocksDbIndexStorage;
 import org.apache.ignite.internal.storage.rocksdb.instance.SharedRocksDbInstance;
 import org.apache.ignite.internal.storage.util.MvPartitionStorages;
+import org.apache.ignite.internal.storage.util.StorageState;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 import org.rocksdb.ColumnFamilyHandle;
@@ -66,8 +71,7 @@ public class RocksDbTableStorage implements MvTableStorage {
     /** Busy lock to stop synchronously. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-    /** Prevents double stopping of the component. */
-    private final AtomicBoolean stopGuard = new AtomicBoolean();
+    private final AtomicReference<StorageState> state = new AtomicReference<>(StorageState.RUNNABLE);
 
     /** Table descriptor. */
     private final StorageTableDescriptor tableDescriptor;
@@ -149,11 +153,15 @@ public class RocksDbTableStorage implements MvTableStorage {
      * @param schedule {@code true} if {@link RocksDB#flush(FlushOptions)} should be explicitly triggered in the near future.
      */
     public CompletableFuture<Void> awaitFlush(boolean schedule) {
-        return inBusyLock(busyLock, () -> rocksDb.flusher.awaitFlush(schedule));
+        return busy(() -> rocksDb.flusher.awaitFlush(schedule));
     }
 
     private CompletableFuture<Void> stop(boolean destroy) {
-        if (!stopGuard.compareAndSet(false, true)) {
+        boolean transitionedToTerminalState = destroy
+                ? transitionToDestroyedState(state)
+                : transitionToClosedState(state, this::createStorageInfo);
+
+        if (!transitionedToTerminalState) {
             return nullCompletedFuture();
         }
 
@@ -202,7 +210,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<MvPartitionStorage> createMvPartition(int partitionId) throws StorageException {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.create(partitionId, partId -> {
+        return busy(() -> mvPartitionStorages.create(partitionId, partId -> {
             RocksDbMvPartitionStorage partition = new RocksDbMvPartitionStorage(this, partitionId);
 
             if (partition.lastAppliedIndex() == 0L) {
@@ -220,7 +228,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public @Nullable RocksDbMvPartitionStorage getMvPartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.get(partitionId));
+        return busy(() -> mvPartitionStorages.get(partitionId));
     }
 
     @Override
@@ -256,7 +264,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public void createSortedIndex(int partitionId, StorageSortedIndexDescriptor indexDescriptor) {
-        inBusyLock(busyLock, () -> {
+        busy(() -> {
             // TODO: IGNITE-24926 - invoke checkPartitionExists() instead to throw StorageException is partition is absent.
             if (partitionExists(partitionId)) {
                 indexes.createSortedIndex(partitionId, indexDescriptor);
@@ -266,7 +274,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public void createHashIndex(int partitionId, StorageHashIndexDescriptor indexDescriptor) {
-        inBusyLock(busyLock, () -> {
+        busy(() -> {
             // TODO: IGNITE-24926 - invoke checkPartitionExists() instead to throw StorageException is partition is absent.
             if (partitionExists(partitionId)) {
                 indexes.createHashIndex(partitionId, indexDescriptor);
@@ -298,7 +306,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> startRebalancePartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
+        return busy(() -> mvPartitionStorages.startRebalance(partitionId, mvPartitionStorage -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
                 mvPartitionStorage.startRebalance(writeBatch);
 
@@ -319,7 +327,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> abortRebalancePartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage -> {
+        return busy(() -> mvPartitionStorages.abortRebalance(partitionId, mvPartitionStorage -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
                 mvPartitionStorage.abortRebalance(writeBatch);
 
@@ -339,7 +347,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> finishRebalancePartition(int partitionId, MvPartitionMeta partitionMeta) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
+        return busy(() -> mvPartitionStorages.finishRebalance(partitionId, mvPartitionStorage -> {
             try (WriteBatch writeBatch = new WriteBatch()) {
                 mvPartitionStorage.finishRebalance(writeBatch, partitionMeta);
 
@@ -359,7 +367,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public CompletableFuture<Void> clearPartition(int partitionId) {
-        return inBusyLock(busyLock, () -> mvPartitionStorages.clear(partitionId, mvPartitionStorage -> {
+        return busy(() -> mvPartitionStorages.clear(partitionId, mvPartitionStorage -> {
             List<AbstractRocksDbIndexStorage> indexStorages = indexes.getAllStorages(partitionId).collect(toList());
 
             try (WriteBatch writeBatch = new WriteBatch()) {
@@ -403,7 +411,7 @@ public class RocksDbTableStorage implements MvTableStorage {
 
     @Override
     public @Nullable IndexStorage getIndex(int partitionId, int indexId) {
-        return inBusyLock(busyLock, () -> {
+        return busy(() -> {
             checkPartitionExists(partitionId);
 
             return indexes.getIndex(partitionId, indexId);
@@ -413,5 +421,33 @@ public class RocksDbTableStorage implements MvTableStorage {
     @Override
     public StorageTableDescriptor getTableDescriptor() {
         return tableDescriptor;
+    }
+
+    private <V> V busy(Supplier<V> supplier) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            return supplier.get();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private void busy(Runnable action) {
+        if (!busyLock.enterBusy()) {
+            throwExceptionDependingOnStorageState(state.get(), createStorageInfo());
+        }
+
+        try {
+            action.run();
+        } finally {
+            busyLock.leaveBusy();
+        }
+    }
+
+    private String createStorageInfo() {
+        return IgniteStringFormatter.format("tableId={}", getTableId());
     }
 }

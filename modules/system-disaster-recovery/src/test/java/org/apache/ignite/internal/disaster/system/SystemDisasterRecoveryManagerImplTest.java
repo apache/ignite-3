@@ -745,8 +745,6 @@ class SystemDisasterRecoveryManagerImplTest extends BaseIgniteAbstractTest {
         Set<String> targetSet = IntStream.range(0, targetVotingSetSize)
                 .mapToObj(n -> "node" + n)
                 .collect(toSet());
-        when(metastorageMaintenance.becomeLonelyLeader(1, targetSet))
-                .thenReturn(nullCompletedFuture());
 
         NetworkMessageHandler handler = extractMessageHandler();
         BecomeMetastorageLeaderMessage message = messagesFactory.becomeMetastorageLeaderMessage()

@@ -189,11 +189,11 @@ public class ItRebalanceTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createZone(String zoneName, int partitions, int replicas) {
-        String sql1 = String.format("create zone %s with "
-                + "partitions=%d, replicas=%d, "
-                + "data_nodes_auto_adjust_scale_up=0, "
-                + "data_nodes_auto_adjust_scale_down=0, "
-                + "storage_profiles='%s'", zoneName, partitions, replicas, DEFAULT_STORAGE_PROFILE);
+        String sql1 = String.format("create zone %s "
+                + "(partitions %d, replicas %d, "
+                + "auto scale up 0, "
+                + "auto scale down 0) "
+                + "storage profiles ['%s']", zoneName, partitions, replicas, DEFAULT_STORAGE_PROFILE);
 
         cluster.doInSession(0, session -> {
             executeUpdate(sql1, session);

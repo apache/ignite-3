@@ -127,6 +127,10 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
     private static final int PARTITION_ID = 0;
 
+    private static final String TEST_ZONE_NAME = "test_zone";
+
+    private static final String TEST_TABLE_NAME = "test";
+
     /**
      * Nodes bootstrap configuration pattern.
      *
@@ -311,7 +315,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
 
         CompletableFuture<ReplicaMeta> primary = node.placementDriver().awaitPrimaryReplica(
-                cluster.solePartitionId(),
+                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
                 node.clockService().now(),
                 AWAIT_PRIMARY_REPLICA_SECONDS,
                 TimeUnit.SECONDS);
@@ -325,7 +329,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
 
         CompletableFuture<ReplicaMeta> primary = node.placementDriver().getPrimaryReplica(
-                cluster.solePartitionId(),
+                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
                 node.clockService().now()
         );
 
@@ -361,10 +365,10 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         String storageProfile =
                 DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DEFAULT_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
 
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + storageProfile + "';";
+        String zoneSql = "create zone " + TEST_ZONE_NAME + " (partitions 1, replicas 3) storage profiles ['" + storageProfile + "'];";
 
-        String sql = "create table test (key int primary key, val varchar(20))"
-                + " zone TEST_ZONE storage profile '" + storageProfile + "';";
+        String sql = "create table " + TEST_TABLE_NAME + " (key int primary key, val varchar(20))"
+                + " zone " + TEST_ZONE_NAME + " storage profile '" + storageProfile + "';";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -388,7 +392,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        ReplicationGroupId replicationGroupId = cluster.solePartitionId();
+        ReplicationGroupId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME);
 
         doSnapshotOn(replicationGroupId, expectedLeaderNodeIndex, forced);
     }
@@ -448,7 +452,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
+        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
     }
 
     private void transferPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
@@ -458,7 +462,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
             String newPrimaryName = NodeUtils.transferPrimary(
                     cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
-                    cluster.solePartitionId(),
+                    cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
                     proposedPrimaryName
             );
 
@@ -894,7 +898,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         BlockingAppendEntriesRequestProcessor blockingProcessor = new BlockingAppendEntriesRequestProcessor(
                 appenderExecutor,
                 raftMessagesFactory,
-                cluster.solePartitionId().toString()
+                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME).toString()
         );
 
         rpcServer.registerProcessor(blockingProcessor);

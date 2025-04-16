@@ -70,7 +70,7 @@ public class ItReadOnlyTransactionTest extends ClusterPerClassIntegrationTest {
 
     @BeforeEach
     public void beforeEach() {
-        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}';",
+        sql(format("CREATE ZONE IF NOT EXISTS {} (REPLICAS {}, PARTITIONS {}) STORAGE PROFILES ['{}'];",
                 ZONE_NAME, initialNodes(), 10, DEFAULT_STORAGE_PROFILE));
         sql(format("CREATE TABLE {}(id INT PRIMARY KEY, val VARCHAR) ZONE {}",
                 TABLE_NAME, ZONE_NAME));

@@ -116,6 +116,11 @@ public class FakeCatalogService implements CatalogService {
     }
 
     @Override
+    public Catalog earliestCatalog() {
+        return catalog;
+    }
+
+    @Override
     public int latestCatalogVersion() {
         return 0;
     }

@@ -25,6 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.io.Reader;
 import java.util.List;
 import org.apache.calcite.config.Lex;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCollectionTypeNameSpec;
 import org.apache.calcite.sql.SqlDataTypeSpec;
@@ -49,6 +50,7 @@ import org.apache.ignite.internal.generated.query.calcite.sql.IgniteSqlParserImp
 import org.apache.ignite.internal.generated.query.calcite.sql.ParseException;
 import org.apache.ignite.internal.generated.query.calcite.sql.Token;
 import org.apache.ignite.internal.generated.query.calcite.sql.TokenMgrError;
+import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.util.StringUtils;
@@ -125,11 +127,11 @@ public final class IgniteSqlParser  {
 
                 validateTopLevelNode(node);
 
-                list.set(i, node);
-            }
+                ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
+                SqlNode newNode = node.accept(visitor);
 
-            ValidateSqlIdentifiers visitor = new ValidateSqlIdentifiers();
-            nodeList.accept(visitor);
+                list.set(i, newNode);
+            }
 
             return mode.createResult(list, dynamicParamsCount);
         } catch (SqlParseException e) {
@@ -344,6 +346,19 @@ public final class IgniteSqlParser  {
         @Override
         public @Nullable SqlNode visit(SqlDataTypeSpec type) {
             this.visit(type.getTypeName());
+
+            // Replace calcite's UUID with IgniteCustomDataType UUID because calcite's UUID is not usable until
+            // calcite's runtime expression engine supports it.
+            if (type.getTypeNameSpec() instanceof SqlBasicTypeNameSpec) {
+                SqlBasicTypeNameSpec basicTypeNameSpec = (SqlBasicTypeNameSpec) type.getTypeNameSpec();
+
+                if (basicTypeNameSpec.getTypeName().isSimple() && basicTypeNameSpec.getTypeName().getSimple().equals(UuidType.NAME)) {
+                    SqlIdentifier typeName = new SqlIdentifier(UuidType.NAME, basicTypeNameSpec.getParserPos());
+                    IgniteSqlTypeNameSpec uuidTypeNameSpec = new IgniteSqlTypeNameSpec(typeName, basicTypeNameSpec.getParserPos());
+
+                    return new SqlDataTypeSpec(uuidTypeNameSpec, null, type.getNullable(), type.getParserPosition());
+                }
+            }
 
             // getComponentTypeSpec throws AssertionError if typeNameSpec is not an instance of CollectionTypeNameSpec.
             if (type.getTypeNameSpec() instanceof SqlCollectionTypeNameSpec) {

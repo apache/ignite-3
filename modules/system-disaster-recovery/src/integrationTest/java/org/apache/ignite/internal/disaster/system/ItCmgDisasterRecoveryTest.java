@@ -280,8 +280,8 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
 
         cluster.node(1).sql().execute(
                 null,
-                "CREATE ZONE " + zoneName + " WITH STORAGE_PROFILES='default', "
-                        + "DATA_NODES_AUTO_ADJUST_SCALE_UP=0, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=0"
+                "CREATE ZONE " + zoneName
+                        + " (AUTO SCALE UP 0, AUTO SCALE DOWN 0) STORAGE PROFILES ['default']"
         );
 
         int zoneId = igniteImpl(1).catalogManager().activeCatalog(Long.MAX_VALUE).zone("TEST_ZONE").id();

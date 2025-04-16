@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.pagememory.persistence.throttling;
 
+import static java.lang.Double.isNaN;
+import static org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteSpeedBasedThrottle.DEFAULT_MAX_DIRTY_PAGES;
+
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -33,11 +36,9 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointPr
  * @see #protectionParkTime(long)
  */
 class SpeedBasedMemoryConsumptionThrottlingStrategy {
-    /** Maximum fraction of dirty pages in a region. */
-    private static final double MAX_DIRTY_PAGES = 0.75;
+    private final double minDirtyPages;
 
-    /** Percent of dirty pages which will not cause throttling. */
-    private static final double MIN_RATIO_NO_THROTTLE = 0.03;
+    private final double maxDirtyPages;
 
     /** Page memory. */
     private final PersistentPageMemory pageMemory;
@@ -70,7 +71,12 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Dirty pages ratio that was observed at a checkpoint start (here the start is a moment when the first page was actually saved to
      * store). This ratio is excluded from throttling.
      */
-    private volatile double initDirtyRatioAtCpBegin = MIN_RATIO_NO_THROTTLE;
+    private volatile double initDirtyRatioAtCpBegin;
+
+    /**
+     * An estimated proportion of "write pages" time in the total "write + fsync" time.
+     */
+    private volatile double writeVsFsyncCoefficient = 5.0 / 6;
 
     /** Average checkpoint write speed. Only the current value is used. Pages/second. */
     private final ProgressSpeedCalculation cpWriteSpeed = new ProgressSpeedCalculation();
@@ -82,12 +88,19 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      */
     private final IntervalBasedMeasurement markSpeedAndAvgParkTime;
 
-    SpeedBasedMemoryConsumptionThrottlingStrategy(PersistentPageMemory pageMemory,
-                                                  Supplier<CheckpointProgress> cpProgress,
-                                                  IntervalBasedMeasurement markSpeedAndAvgParkTime) {
+    SpeedBasedMemoryConsumptionThrottlingStrategy(
+            double minDirtyPages,
+            double maxDirtyPages,
+            PersistentPageMemory pageMemory,
+            Supplier<CheckpointProgress> cpProgress,
+            IntervalBasedMeasurement markSpeedAndAvgParkTime
+    ) {
+        this.minDirtyPages = minDirtyPages;
+        this.maxDirtyPages = maxDirtyPages;
         this.pageMemory = pageMemory;
         this.cpProgress = cpProgress;
         this.markSpeedAndAvgParkTime = markSpeedAndAvgParkTime;
+        initDirtyRatioAtCpBegin = minDirtyPages;
     }
 
     /**
@@ -147,17 +160,16 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     }
 
     /**
-     * Returns an estimation of the progress made during the current checkpoint. Currently, it is an average of written pages and fully
-     * synced pages (probably, to account for both writing (which may be pretty ahead of syncing) and syncing at the same time).
+     * Returns an estimation of the progress made during the current checkpoint. It is a weighted average of written pages and fully
+     * synced pages, which uses {@link #writeVsFsyncCoefficient} as a weight value.
      *
      * @param cpWrittenPages Count of pages written during current checkpoint.
      * @return Estimation of work done (in pages).
      */
     private int cpDonePagesEstimation(int cpWrittenPages) {
-        // TODO: IGNITE-16879 - this only works correctly if time-to-write a page is close to time-to-sync a page.
-        // In reality, this does not seem to hold, which produces wrong estimations. We could measure the real times
-        // in Checkpointer and make this estimation a lot more precise.
-        return (cpWrittenPages + cpSyncedPages()) / 2;
+        double coefficient = writeVsFsyncCoefficient;
+
+        return (int) (cpWrittenPages * coefficient + cpSyncedPages() * (1 - coefficient));
     }
 
     /**
@@ -186,7 +198,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
 
         detectCpPagesWriteStart(cpWrittenPages, dirtyPagesRatio);
 
-        if (dirtyPagesRatio >= MAX_DIRTY_PAGES) {
+        if (dirtyPagesRatio >= maxDirtyPages) {
             return 0; // Too late to throttle, will wait on safe to update instead.
         } else {
             return getParkTime(dirtyPagesRatio,
@@ -262,7 +274,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * @return {@code true} iff clean space left is too low.
      */
     private static boolean lowCleanSpaceLeft(double dirtyPagesRatio, double targetDirtyRatio) {
-        return dirtyPagesRatio > targetDirtyRatio && (dirtyPagesRatio + 0.05 > MAX_DIRTY_PAGES);
+        return dirtyPagesRatio > targetDirtyRatio && (dirtyPagesRatio + 0.05 > DEFAULT_MAX_DIRTY_PAGES);
     }
 
     private void publishSpeedAndRatioForMetrics(long speedForMarkAll, double targetDirtyRatio) {
@@ -273,7 +285,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     /**
      * Calculates speed needed to mark dirty all currently clean pages before the current checkpoint ends. May return 0 if the provided
      * parameters do not give enough information to calculate the speed, OR if the current dirty pages ratio is too high (higher than
-     * {@link #MAX_DIRTY_PAGES}), in which case we're not going to throttle anyway.
+     * {@link PagesWriteSpeedBasedThrottle#DEFAULT_MAX_DIRTY_PAGES}), in which case we're not going to throttle anyway.
      *
      * @param dirtyPagesRatio Current percent of dirty pages.
      * @param donePages Roughly, count of written and sync'ed pages
@@ -292,7 +304,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             return 0;
         }
 
-        if (dirtyPagesRatio >= MAX_DIRTY_PAGES) {
+        if (dirtyPagesRatio >= maxDirtyPages) {
             return 0;
         }
 
@@ -301,7 +313,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         // checkpointed), but the CP Buffer is usually not too big, and if it gets nearly filled, writes become
         // throttled really hard by exponential throttler. Maybe we should subtract the number of not-yet-written-by-CP
         // pages from the count of clean pages? In such a case, we would lessen the risk of CP Buffer-caused throttling.
-        double remainedCleanPages = (MAX_DIRTY_PAGES - dirtyPagesRatio) * pageMemTotalPages();
+        double remainedCleanPages = (maxDirtyPages - dirtyPagesRatio) * pageMemTotalPages();
 
         double secondsTillCpEnd = 1.0 * (cpTotalPages - donePages) / avgCpWriteSpeed;
 
@@ -336,7 +348,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
 
         double fractionToVaryDirtyRatio = 1.0 - constStart;
 
-        return (cpProgress * fractionToVaryDirtyRatio + constStart) * MAX_DIRTY_PAGES;
+        return (cpProgress * fractionToVaryDirtyRatio + constStart) * maxDirtyPages;
     }
 
     /**
@@ -418,6 +430,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         return evictedPagesCounter == null ? 0 : evictedPagesCounter.get();
     }
 
+    double getWriteVsFsyncCoefficient() {
+        return writeVsFsyncCoefficient;
+    }
+
     /**
      * Returns sleep time in nanoseconds.
      *
@@ -468,8 +484,8 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
         if (cpWrittenPages > 0 && lastObservedWritten.compareAndSet(0, cpWrittenPages)) {
             double newMinRatio = dirtyPagesRatio;
 
-            if (newMinRatio < MIN_RATIO_NO_THROTTLE) {
-                newMinRatio = MIN_RATIO_NO_THROTTLE;
+            if (newMinRatio < minDirtyPages) {
+                newMinRatio = minDirtyPages;
             }
 
             if (newMinRatio > 1) {
@@ -486,7 +502,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      */
     void reset() {
         cpWriteSpeed.setProgress(0L, System.nanoTime());
-        initDirtyRatioAtCpBegin = MIN_RATIO_NO_THROTTLE;
+        initDirtyRatioAtCpBegin = minDirtyPages;
         lastObservedWritten.set(0);
     }
 
@@ -496,5 +512,36 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
     void finish() {
         cpWriteSpeed.closeInterval();
         threadIds.clear();
+
+        updateWriteVsFsyncCoefficient();
+    }
+
+    private void updateWriteVsFsyncCoefficient() {
+        CheckpointProgress progress = cpProgress.get();
+        assert progress != null;
+
+        if (progress.currentCheckpointPagesCount() == 0) {
+            return;
+        }
+
+        long pagesWriteTimeMillis = progress.getPagesWriteTimeMillis();
+        long fsyncTimeMillis = progress.getFsyncTimeMillis();
+
+        double coefficient = ((double) pagesWriteTimeMillis) / (pagesWriteTimeMillis + fsyncTimeMillis);
+        if (isNaN(coefficient)) {
+            return;
+        }
+
+        // Here we use exponential smoothing with a weight of 0.85.
+        double newCoefficient = writeVsFsyncCoefficient * 0.85 + coefficient * 0.15;
+
+        // Put it within reasonable bounds just in case, so that we're not too close to 0 or 1.
+        if (newCoefficient < 0.1) {
+            newCoefficient = 0.1;
+        } else if (newCoefficient > 0.9) {
+            newCoefficient = 0.9;
+        }
+
+        writeVsFsyncCoefficient = newCoefficient;
     }
 }
