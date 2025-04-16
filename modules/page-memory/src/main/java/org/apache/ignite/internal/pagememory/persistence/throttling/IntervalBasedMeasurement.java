@@ -117,7 +117,7 @@ class IntervalBasedMeasurement {
      * Reduce measurements to calculate average speed.
      *
      * @param interval Current measurement.
-     * @param curNanoTime Current time in nanoseconds.
+     * @param curNanoTime Current time in nanoseconds, according to which we'll calculate the speed.
      * @return Speed in operations per second from historical only measurements.
      */
     private long calcSpeed(@Nullable MeasurementInterval interval, long curNanoTime) {
