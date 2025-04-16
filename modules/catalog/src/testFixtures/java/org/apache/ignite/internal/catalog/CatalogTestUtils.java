@@ -57,6 +57,8 @@ import org.apache.ignite.internal.catalog.storage.UpdateLog.OnUpdateHandler;
 import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -104,7 +106,9 @@ public class CatalogTestUtils {
 
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), clockService, delayDurationMsSupplier) {
+        FailureProcessor failureProcessor = new NoOpFailureManager();
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor);
+        return new CatalogManagerImpl(updateLog, clockService, failureProcessor, delayDurationMsSupplier) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 assertThat(metastore.startAsync(componentContext), willCompleteSuccessfully());
@@ -148,7 +152,13 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter), () -> TEST_DELAY_DURATION) {
+        var failureProcessor = new NoOpFailureManager();
+        return new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(metastore.startAsync(componentContext), super.startAsync(componentContext))
@@ -186,7 +196,13 @@ public class CatalogTestUtils {
             ClockWaiter clockWaiter,
             HybridClock clock
     ) {
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter), () -> TEST_DELAY_DURATION);
+        var failureProcessor = new NoOpFailureManager();
+        return new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        );
     }
 
     /**
@@ -215,7 +231,13 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
-        return new CatalogManagerImpl(new UpdateLogImpl(metastore), new TestClockService(clock, clockWaiter), delayDurationMsSupplier) {
+        var failureProcessor = new NoOpFailureManager();
+        return new CatalogManagerImpl(
+                new UpdateLogImpl(metastore, failureProcessor),
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                delayDurationMsSupplier
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
@@ -258,7 +280,9 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
-        UpdateLogImpl updateLog = new UpdateLogImpl(metastore) {
+        var failureProcessor = new NoOpFailureManager();
+
+        UpdateLogImpl updateLog = new UpdateLogImpl(metastore, failureProcessor) {
             @Override
             public void registerUpdateHandler(OnUpdateHandler handler) {
                 interceptor.registerUpdateHandler(handler);
@@ -267,7 +291,12 @@ public class CatalogTestUtils {
             }
         };
 
-        return new CatalogManagerImpl(updateLog, new TestClockService(clock, clockWaiter), () -> TEST_DELAY_DURATION) {
+        return new CatalogManagerImpl(
+                updateLog,
+                new TestClockService(clock, clockWaiter),
+                failureProcessor,
+                () -> TEST_DELAY_DURATION
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));
@@ -309,7 +338,12 @@ public class CatalogTestUtils {
 
         var clockWaiter = new ClockWaiter(nodeName, clock, scheduledExecutor);
 
-        return new CatalogManagerImpl(new TestUpdateLog(clock), new TestClockService(clock, clockWaiter), () -> TEST_DELAY_DURATION) {
+        return new CatalogManagerImpl(
+                new TestUpdateLog(clock),
+                new TestClockService(clock, clockWaiter),
+                new NoOpFailureManager(),
+                () -> TEST_DELAY_DURATION
+        ) {
             @Override
             public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
                 return allOf(clockWaiter.startAsync(componentContext), super.startAsync(componentContext));

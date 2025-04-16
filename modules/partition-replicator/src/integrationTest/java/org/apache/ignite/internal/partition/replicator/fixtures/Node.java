@@ -257,7 +257,7 @@ public class Node {
 
     private final ConfigurationTreeGenerator clusterCfgGenerator;
 
-    private final LowWatermarkImpl lowWatermark;
+    public final LowWatermarkImpl lowWatermark;
 
     public final RemotelyTriggeredResourceRegistry resourcesRegistry;
 
@@ -393,16 +393,16 @@ public class Node {
                 new NoOpFailureManager()
         );
 
+        failureManager = new NoOpFailureManager();
+
         var clusterStateStorage = new TestClusterStateStorage();
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
         var clusterInitializer = new ClusterInitializer(
                 clusterService,
                 hocon -> hocon,
                 new TestConfigurationValidator()
         );
-
-        failureManager = new NoOpFailureManager();
 
         ComponentWorkingDir cmgWorkDir = new ComponentWorkingDir(dir.resolve("cmg"));
 
@@ -518,6 +518,7 @@ public class Node {
                 raftManager,
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
+                failureManager,
                 replicationConfiguration
         );
 
@@ -580,6 +581,7 @@ public class Node {
 
         txManager = new TxManagerImpl(
                 transactionConfiguration,
+                systemConfiguration,
                 clusterService,
                 replicaSvc,
                 lockManager,
@@ -619,8 +621,9 @@ public class Node {
         LongSupplier delayDurationMsSupplier = () -> DELAY_DURATION_MS;
 
         catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metaStorageManager),
+                new UpdateLogImpl(metaStorageManager, failureManager),
                 clockService,
+                failureManager,
                 delayDurationMsSupplier
         );
 
@@ -676,10 +679,11 @@ public class Node {
                 storagePath.resolve("tx-state"),
                 threadPoolsManager.commonScheduler(),
                 threadPoolsManager.tableIoExecutor(),
-                partitionsLogStorageFactory
+                partitionsLogStorageFactory,
+                failureManager
         );
 
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(name, clusterService.messagingService(), failureManager);
 
         partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
                 catalogManager,
@@ -688,6 +692,7 @@ public class Node {
                 metaStorageManager,
                 clusterService.topologyService(),
                 lowWatermark,
+                failureManager,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -709,7 +714,8 @@ public class Node {
                 clusterService.messagingService(),
                 transactionInflights,
                 txManager,
-                lowWatermark
+                lowWatermark,
+                failureManager
         );
 
         tableManager = new TableManager(
@@ -738,6 +744,7 @@ public class Node {
                 distributionZoneManager,
                 schemaSyncService,
                 catalogManager,
+                failureManager,
                 observableTimestampTracker,
                 placementDriverManager.placementDriver(),
                 () -> mock(IgniteSql.class),
@@ -795,7 +802,7 @@ public class Node {
                 lowWatermark
         );
 
-        systemViewManager = new SystemViewManagerImpl(name, catalogManager);
+        systemViewManager = new SystemViewManagerImpl(name, catalogManager, failureManager);
 
         sqlQueryProcessor = new SqlQueryProcessor(
                 clusterService,
@@ -954,7 +961,7 @@ public class Node {
         }
     }
 
-    public TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
+    public @Nullable TxStatePartitionStorage txStatePartitionStorage(int zoneId, int partitionId) {
         return partitionReplicaLifecycleManager.txStatePartitionStorage(zoneId, partitionId);
     }
 

@@ -140,7 +140,7 @@ NOTE: In Ignite 3, you can create and maintain the configuration in either JSON 
 "ignite" : {
   "clientConnector" : {
     "port" : 10800,
-    "idleTimeout" :3000,
+    "idleTimeoutMillis" :3000,
     "sendServerExceptionStackTraceToClient" : true,
     "ssl" : {
       "enabled" : true,
@@ -166,8 +166,8 @@ The table below covers the configuration for client connector:
 |======
 |Property|Default|Description
 
-|connectTimeout|5000| Connection attempt timeout, in milliseconds.
-|idleTimeout|0|How long the client can be idle before the connection is dropped,in milliseconds. By default, there is no limit.
+|connectTimeoutMillis|5000| Connection attempt timeout, in milliseconds.
+|idleTimeoutMillis|0|How long the client can be idle before the connection is dropped, in milliseconds. By default, there is no limit.
 |metricsEnabled|`false`|Defines if client metrics are collected.
 |port|10800|The port the client connector will be listening to.
 |sendServerExceptionStackTraceToClient|`false`|Defines if cluster exceptions are sent to the client.

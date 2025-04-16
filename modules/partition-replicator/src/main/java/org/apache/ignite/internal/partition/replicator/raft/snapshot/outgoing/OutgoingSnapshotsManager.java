@@ -33,6 +33,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -66,6 +68,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      */
     private final MessagingService messagingService;
 
+    private final FailureProcessor failureProcessor;
+
     /**
      * Map with outgoing snapshots.
      */
@@ -79,9 +83,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
      *
      * @param messagingService Messaging service.
      */
-    public OutgoingSnapshotsManager(String nodeName, MessagingService messagingService) {
+    public OutgoingSnapshotsManager(String nodeName, MessagingService messagingService, FailureProcessor failureProcessor) {
         this.nodeName = nodeName;
         this.messagingService = messagingService;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -118,10 +123,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     /**
-     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken',
-     * that is, the immutable scope of the snapshot (what MV data and what TX data belongs to it) is established.
+     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken', that is, the immutable
+     * scope of the snapshot (what MV data and what TX data belongs to it) is established.
      *
-     * @param snapshotId       Snapshot id.
+     * @param snapshotId Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
     void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
@@ -175,13 +180,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
             return;
         }
 
-        CompletableFuture
-                .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
-                .whenCompleteAsync((response, throwable) -> {
-                    if (response != null) {
-                        respond(response, throwable, sender, correlationId);
-                    }
-                }, executor);
+        CompletableFuture.supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
+                .whenCompleteAsync((response, throwable) -> respond(response, throwable, sender, correlationId), executor);
     }
 
     private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
@@ -200,16 +200,17 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void respond(NetworkMessage response, Throwable throwable, ClusterNode sender, Long correlationId) {
+    private void respond(NetworkMessage response, @Nullable Throwable throwable, ClusterNode sender, long correlationId) {
         if (throwable != null) {
-            LOG.warn("Something went wrong while handling a request", throwable);
+            failureProcessor.process(new FailureContext(throwable, "Something went wrong while handling a request"));
             return;
         }
 
         try {
             messagingService.respond(sender, response, correlationId);
         } catch (RuntimeException e) {
-            LOG.warn("Could not send a response with correlationId=" + correlationId, e);
+            String errorMessage = String.format("Could not send a response with correlationId=%d", correlationId);
+            failureProcessor.process(new FailureContext(e, errorMessage));
         }
     }
 

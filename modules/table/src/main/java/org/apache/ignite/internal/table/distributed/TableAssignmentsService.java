@@ -40,10 +40,13 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -64,26 +67,30 @@ public class TableAssignmentsService {
     private final MetaStorageManager metaStorageMgr;
     private final CatalogService catalogService;
     private final DistributionZoneManager distributionZoneManager;
+    private final FailureProcessor failureProcessor;
 
     /** Constructor. */
     public TableAssignmentsService(
             MetaStorageManager metaStorageMgr,
             CatalogService catalogService,
-            DistributionZoneManager distributionZoneManager
+            DistributionZoneManager distributionZoneManager,
+            FailureProcessor failureProcessor
     ) {
         this.metaStorageMgr = metaStorageMgr;
         this.catalogService = catalogService;
         this.distributionZoneManager = distributionZoneManager;
+        this.failureProcessor = failureProcessor;
     }
 
     CompletableFuture<List<Assignments>> createAndWriteTableAssignmentsToMetastorage(
             int tableId,
             CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
         CompletableFuture<List<Assignments>> assignments =
-                getOrCreateAssignments(tableId, zoneDescriptor, causalityToken, catalogVersion);
+                getOrCreateAssignments(tableId, zoneDescriptor, tableDescriptor, causalityToken, catalogVersion);
 
         return writeTableAssignmentsToMetastore(tableId, zoneDescriptor.consistencyMode(), assignments);
     }
@@ -110,11 +117,11 @@ public class TableAssignmentsService {
                     .invoke(condition, partitionAssignments, Collections.emptyList())
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            LOG.error(
-                                    "Couldn't write assignments [assignmentsList={}] to metastore during invoke.",
-                                    e,
+                            String errorMessage = String.format(
+                                    "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                     Assignments.assignmentListToString(newAssignments)
                             );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     })
                     .thenCompose(invokeResult -> {
@@ -141,6 +148,7 @@ public class TableAssignmentsService {
     private CompletableFuture<List<Assignments>> getOrCreateAssignments(
             int tableId,
             CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor,
             long causalityToken,
             int catalogVersion
     ) {
@@ -154,7 +162,7 @@ public class TableAssignmentsService {
 
             long assignmentsTimestamp = catalog.time();
 
-            assignmentsFuture = distributionZoneManager.dataNodes(causalityToken, catalogVersion, zoneDescriptor.id())
+            assignmentsFuture = distributionZoneManager.dataNodes(tableDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
                     .thenApply(dataNodes ->
                             PartitionDistributionUtils.calculateAssignments(
                                             dataNodes,
@@ -205,7 +213,8 @@ public class TableAssignmentsService {
             return realAssignments;
         }).whenComplete((realAssignments, e) -> {
             if (e != null) {
-                LOG.error("Couldn't get assignments from metastore for table [tableId={}].", e, tableId);
+                String errorMessage = String.format("Couldn't get assignments from metastore for table [tableId=%s].", tableId);
+                failureProcessor.process(new FailureContext(e, errorMessage));
             }
         });
     }

@@ -96,7 +96,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
                 + "  },\n"
                 + "  storage.engines: { "
                 + "    aipersist: { checkpoint: { "
-                + "      interval: " + CHECK_POINT_INTERVAL_MS
+                + "      intervalMillis: " + CHECK_POINT_INTERVAL_MS
                 + "    } } "
                 + "  },\n"
                 + "  clientConnector.port: {},\n"
@@ -109,7 +109,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     @Override
     protected void configureInitParameters(InitParametersBuilder builder) {
         String clusterConfiguration = format(
-                "ignite { gc: {lowWatermark: { dataAvailabilityTime: {}, updateInterval: {} } } }",
+                "ignite { gc: {lowWatermark: { dataAvailabilityTimeMillis: {}, updateIntervalMillis: {} } } }",
                 // dataAvailabilityTime is 2 x updateFrequency by default
                 LW_UPDATE_TIME_MS * 2, LW_UPDATE_TIME_MS
         );
@@ -197,7 +197,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
 
             // Read-only transactions are not counted,
             ignoredReadonlyTxs.forEach(tx -> {
-                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.startTimestamp().longValue()));
+                assertThat(timeHolder.txMinRequiredTime, greaterThan(tx.schemaTimestamp().longValue()));
             });
 
             assertThat(timeHolder.txMinRequiredTime, greaterThanOrEqualTo(minTime));
@@ -208,7 +208,7 @@ class ItCatalogCompactionTest extends ClusterPerClassIntegrationTest {
     }
 
     @Test
-    public void testCompactionRun() throws InterruptedException {
+    public void testCompactionRun() {
         sql(format("create zone if not exists test with partitions={}, replicas={}, storage_profiles='default'",
                 CLUSTER_SIZE, CLUSTER_SIZE)
         );

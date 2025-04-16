@@ -181,7 +181,7 @@ public class VolatilePageMemory implements PageMemory {
 
         assert sysPageSize % 8 == 0 : sysPageSize;
 
-        totalPages = (int) (this.storageProfileView.maxSize() / sysPageSize);
+        totalPages = (int) (this.storageProfileView.maxSizeBytes() / sysPageSize);
 
         this.rwLock = rwLock;
     }
@@ -195,8 +195,8 @@ public class VolatilePageMemory implements PageMemory {
 
             started = true;
 
-            long startSize = storageProfileView.initSize();
-            long maxSize = storageProfileView.maxSize();
+            long startSize = storageProfileView.initSizeBytes();
+            long maxSize = storageProfileView.maxSizeBytes();
 
             long[] chunks = new long[SEG_CNT];
 
@@ -292,8 +292,8 @@ public class VolatilePageMemory implements PageMemory {
         if (relPtr == INVALID_REL_PTR) {
             IgniteOutOfMemoryException oom = new IgniteOutOfMemoryException("Out of memory in data region ["
                     + "name=" + storageProfileView.name()
-                    + ", initSize=" + IgniteUtils.readableSize(storageProfileView.initSize(), false)
-                    + ", maxSize=" + IgniteUtils.readableSize(storageProfileView.maxSize(), false)
+                    + ", initSize=" + IgniteUtils.readableSize(storageProfileView.initSizeBytes(), false)
+                    + ", maxSize=" + IgniteUtils.readableSize(storageProfileView.maxSizeBytes(), false)
                     + ", persistence=false] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (VolatilePageMemoryProfileConfigurationSchema.maxSize)"
                     + lineSeparator()

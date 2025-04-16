@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static java.lang.Math.toIntExact;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
@@ -62,7 +63,13 @@ import java.util.concurrent.atomic.LongAdder;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.LongSupplier;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.configuration.SystemPropertyView;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -107,6 +114,7 @@ import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.TxStateMeta;
 import org.apache.ignite.internal.tx.TxStateMetaFinishing;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.tx.impl.DeadlockPreventionPolicyImpl.TxIdComparators;
 import org.apache.ignite.internal.tx.impl.TransactionInflights.ReadWriteTxContext;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.tx.views.LocksViewProvider;
@@ -124,11 +132,33 @@ import org.jetbrains.annotations.TestOnly;
  * <p>Uses 2PC for atomic commitment and 2PL for concurrency control.
  */
 public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemViewProvider {
+    private static final String ABANDONED_CHECK_TS_PROP = "txnAbandonedCheckTs";
+
+    private static final long ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE = 5_000;
+
+    private static final String LOCK_RETRY_COUNT_PROP = "txnLockRetryCount";
+
+    private static final int LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE = 3;
+
+    private static final String RESOURCE_TTL_PROP = "txnResourceTtl";
+
+    private static final int RESOURCE_TTL_PROP_DEFAULT_VALUE = 30 * 1000;
+
+    private static final TxIdComparators DEFAULT_TX_ID_COMPARATOR = TxIdComparators.NATURAL;
+
+    private static final long DEFAULT_LOCK_TIMEOUT = 0;
+
+    /** Expiration trigger frequency. */
+    private static final long EXPIRE_FREQ_MILLIS = 1000;
+
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(TxManagerImpl.class);
 
     /** Transaction configuration. */
     private final TransactionConfiguration txConfig;
+
+    /** Transaction configuration. */
+    private final SystemDistributedConfiguration systemCfg;
 
     /** Lock manager. */
     private final LockManager lockManager;
@@ -207,6 +237,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final ScheduledExecutorService commonScheduler;
 
+    private final FailureProcessor failureProcessor;
+
     private final TransactionsViewProvider txViewProvider = new TransactionsViewProvider();
 
     private volatile PersistentTxStateVacuumizer persistentTxStateVacuumizer;
@@ -217,10 +249,13 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private final boolean enabledColocation = IgniteSystemProperties.enabledColocation();
 
+    private volatile int lockRetryCount = 0;
+
     /**
      * Test-only constructor.
      *
      * @param txConfig Transaction configuration.
+     * @param systemCfg System configuration.
      * @param clusterService Cluster service.
      * @param replicaService Replica service.
      * @param lockManager Lock manager.
@@ -236,6 +271,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     @TestOnly
     public TxManagerImpl(
             TransactionConfiguration txConfig,
+            SystemDistributedConfiguration systemCfg,
             ClusterService clusterService,
             ReplicaService replicaService,
             LockManager lockManager,
@@ -252,6 +288,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this(
                 clusterService.nodeName(),
                 txConfig,
+                systemCfg,
                 clusterService.messagingService(),
                 clusterService.topologyService(),
                 replicaService,
@@ -265,7 +302,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 resourcesRegistry,
                 transactionInflights,
                 lowWatermark,
-                commonScheduler
+                commonScheduler,
+                new FailureManager(new NoOpFailureHandler())
         );
     }
 
@@ -273,6 +311,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
      * The constructor.
      *
      * @param txConfig Transaction configuration.
+     * @param systemCfg System configuration.
      * @param messagingService Messaging service.
      * @param topologyService Topology service.
      * @param replicaService Replica service.
@@ -290,6 +329,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     public TxManagerImpl(
             String nodeName,
             TransactionConfiguration txConfig,
+            SystemDistributedConfiguration systemCfg,
             MessagingService messagingService,
             TopologyService topologyService,
             ReplicaService replicaService,
@@ -303,9 +343,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             RemotelyTriggeredResourceRegistry resourcesRegistry,
             TransactionInflights transactionInflights,
             LowWatermark lowWatermark,
-            ScheduledExecutorService commonScheduler
+            ScheduledExecutorService commonScheduler,
+            FailureProcessor failureProcessor
     ) {
         this.txConfig = txConfig;
+        this.systemCfg = systemCfg;
         this.lockManager = lockManager;
         this.clockService = clockService;
         this.transactionIdGenerator = transactionIdGenerator;
@@ -321,6 +363,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         this.lowWatermark = lowWatermark;
         this.replicaService = replicaService;
         this.commonScheduler = commonScheduler;
+        this.failureProcessor = failureProcessor;
 
         placementDriverHelper = new PlacementDriverHelper(placementDriver, clockService);
 
@@ -343,7 +386,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 partitionOperationsExecutor
         );
 
-        txMessageSender = new TxMessageSender(messagingService, replicaService, clockService, txConfig);
+        txMessageSender = new TxMessageSender(messagingService, replicaService, clockService);
 
         var writeIntentSwitchProcessor = new WriteIntentSwitchProcessor(placementDriverHelper, txMessageSender, topologyService);
 
@@ -441,7 +484,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         UUID txId = transactionIdGenerator.transactionIdFor(beginTimestamp, options.priority());
 
-        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeout().value());
+        long timeout = getTimeoutOrDefault(options, txConfig.readWriteTimeoutMillis().value());
 
         var transaction = new ReadWriteTransactionImpl(this, timestampTracker, txId, localNodeId, implicit, timeout);
 
@@ -451,7 +494,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         boolean scheduleExpiration = !implicit;
 
         if (scheduleExpiration) {
-            transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+            transactionExpirationRegistry.register(transaction);
         }
 
         return transaction;
@@ -491,7 +534,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         try {
             CompletableFuture<Void> txFuture = new CompletableFuture<>();
 
-            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeout().value());
+            long timeout = getTimeoutOrDefault(options, txConfig.readOnlyTimeoutMillis().value());
 
             var transaction = new ReadOnlyTransactionImpl(
                     this, timestampTracker, txId, localNodeId, implicit, timeout, readTimestamp, txFuture
@@ -503,7 +546,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             boolean scheduleExpiration = !implicit;
 
             if (scheduleExpiration) {
-                transactionExpirationRegistry.register(transaction, physicalExpirationTimeMillis(beginTimestamp, timeout));
+                transactionExpirationRegistry.register(transaction);
             }
 
             txFuture.whenComplete((unused, throwable) -> {
@@ -519,24 +562,6 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         } catch (Throwable t) {
             lowWatermark.unlock(txId);
             throw t;
-        }
-    }
-
-    private static long physicalExpirationTimeMillis(HybridTimestamp beginTimestamp, long effectiveTimeoutMillis) {
-        return sumWithSaturation(beginTimestamp.getPhysical(), effectiveTimeoutMillis);
-    }
-
-    private static long sumWithSaturation(long a, long b) {
-        assert a >= 0 : a;
-        assert b >= 0 : b;
-
-        long sum = a + b;
-
-        if (sum < 0) {
-            // Overflow.
-            return Long.MAX_VALUE;
-        } else {
-            return sum;
         }
     }
 
@@ -893,12 +918,51 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
+    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout) {
+        assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
+
+        // Switch to default timeout if needed.
+        timeout = timeout == USE_CONFIGURED_TIMEOUT_DEFAULT ? txConfig.readWriteTimeoutMillis().value() : timeout;
+
+        // Adjust the timeout so local expiration happens after coordinator expiration.
+        var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, topologyService.localMember(),
+                timeout + clockService.maxClockSkewMillis()) {
+            boolean isTimeout = false;
+
+            @Override
+            public TxState state() {
+                TxStateMeta meta = TxManagerImpl.this.stateMeta(txId);
+
+                return meta == null ? null : meta.txState();
+            }
+
+            @Override
+            public CompletableFuture<Void> rollbackTimeoutExceededAsync() {
+                isTimeout = true;
+
+                // Directly mapped entries become abandoned on local tx timeout.
+                // Release locks to allow write intent resolution on abandoned path.
+                // Can be safely retried multiple times, because releaseAll is idempotent.
+                partitionOperationsExecutor.execute(() -> lockManager.releaseAll(txId));
+
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public boolean isRolledBackWithTimeoutExceeded() {
+                return isTimeout;
+            }
+        };
+
+        transactionExpirationRegistry.register(tx);
+
+        return tx;
+    }
+
+    @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         return inBusyLockAsync(busyLock, () -> {
-            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(
-                    txConfig.deadlockPreventionPolicy().txIdComparator().value(),
-                    txConfig.deadlockPreventionPolicy().waitTimeout().value()
-            );
+            var deadlockPreventionPolicy = new DeadlockPreventionPolicyImpl(DEFAULT_TX_ID_COMPARATOR, DEFAULT_LOCK_TIMEOUT);
 
             // TODO https://issues.apache.org/jira/browse/IGNITE-23539
             lockManager.start(deadlockPreventionPolicy);
@@ -907,14 +971,20 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             messagingService.addMessageHandler(ReplicaMessageGroup.class, this);
 
-            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(replicaService, topologyService.localMember(), clockService,
-                    placementDriver);
+            persistentTxStateVacuumizer = new PersistentTxStateVacuumizer(
+                    replicaService,
+                    topologyService.localMember(),
+                    clockService,
+                    placementDriver,
+                    failureProcessor
+            );
 
             txStateVolatileStorage.start();
 
             txViewProvider.init(localNodeId, txStateVolatileStorage.statesMap());
 
-            orphanDetector.start(txStateVolatileStorage, txConfig.abandonedCheckTs());
+            orphanDetector.start(txStateVolatileStorage,
+                    () -> longProperty(systemCfg, ABANDONED_CHECK_TS_PROP, ABANDONED_CHECK_TS_PROP_DEFAULT_VALUE));
 
             txCleanupRequestSender.start();
 
@@ -924,7 +994,10 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, primaryReplicaElectedListener);
 
-            transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow, 1000, 1000, MILLISECONDS);
+            transactionExpirationJobFuture = commonScheduler.scheduleAtFixedRate(this::expireTransactionsUpToNow,
+                    EXPIRE_FREQ_MILLIS, EXPIRE_FREQ_MILLIS, MILLISECONDS);
+
+            lockRetryCount = toIntExact(longProperty(systemCfg, LOCK_RETRY_COUNT_PROP, LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE));
 
             return nullCompletedFuture();
         });
@@ -937,7 +1010,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             expirationTime = clockService.current();
             transactionExpirationRegistry.expireUpTo(expirationTime.getPhysical());
         } catch (Throwable t) {
-            LOG.error("Could not expire transactions up to {}", t, expirationTime);
+            failureProcessor.process(new FailureContext(t, String.format("Could not expire transactions up to %s", expirationTime)));
         }
     }
 
@@ -1023,7 +1096,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         return txStateVolatileStorage.vacuum(
                 vacuumObservationTimestamp,
-                txConfig.txnResourceTtl().value(),
+                longProperty(systemCfg, RESOURCE_TTL_PROP, RESOURCE_TTL_PROP_DEFAULT_VALUE),
                 persistentTxStateVacuumizer::vacuumPersistentTxStates);
     }
 
@@ -1041,6 +1114,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         }
 
         return falseCompletedFuture();
+    }
+
+    @Override
+    public int lockRetryCount() {
+        return lockRetryCount;
     }
 
     @Override
@@ -1182,5 +1260,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             return null;
         });
+    }
+
+    private static long longProperty(SystemDistributedConfiguration systemProperties, String name, long defaultValue) {
+        SystemPropertyView property = systemProperties.properties().value().get(name);
+
+        return property == null ? defaultValue : Long.parseLong(property.propertyValue());
     }
 }

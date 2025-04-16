@@ -86,7 +86,9 @@ public class AbstractMultiNodeBenchmark {
     @Setup
     public void nodeSetUp() throws Exception {
         System.setProperty("jraft.available_processors", "2");
-        startCluster();
+        if (!remote()) {
+            startCluster();
+        }
 
         try {
             // Create a new zone on the cluster's start-up.
@@ -135,7 +137,7 @@ public class AbstractMultiNodeBenchmark {
     }
 
     protected static void createTable(String tableName, List<String> columns, List<String> primaryKeys, List<String> colocationKeys) {
-        var createTableStatement = "CREATE TABLE " + tableName + "(\n";
+        var createTableStatement = "CREATE TABLE IF NOT EXISTS " + tableName + "(\n";
 
         createTableStatement += String.join(",\n", columns);
         createTableStatement += "\n, PRIMARY KEY (" + String.join(", ", primaryKeys) + ")\n)";
@@ -184,11 +186,15 @@ public class AbstractMultiNodeBenchmark {
      * @throws Exception In case of any error.
      */
     @TearDown
-    public final void nodeTearDown() throws Exception {
+    public void nodeTearDown() throws Exception {
         IgniteUtils.closeAll(igniteServers.stream().map(node -> node::shutdown));
     }
 
     private void startCluster() throws Exception {
+        if (remote()) {
+            throw new AssertionError("Can't start the cluster in remote mode");
+        }
+
         Path workDir = workDir();
 
         String connectNodeAddr = "\"localhost:" + BASE_PORT + '\"';
@@ -203,9 +209,10 @@ public class AbstractMultiNodeBenchmark {
                 + "  },\n"
                 + "  storage.profiles: {"
                 + "        " + DEFAULT_STORAGE_PROFILE + ".engine: aipersist, "
-                + "        " + DEFAULT_STORAGE_PROFILE + ".size: 2073741824 " // Avoid page replacement.
+                + "        " + DEFAULT_STORAGE_PROFILE + ".sizeBytes: 2073741824 " // Avoid page replacement.
                 + "  },\n"
                 + "  clientConnector: { port:{} },\n"
+                + "  clientConnector.sendServerExceptionStackTraceToClient: true\n"
                 + "  rest.port: {},\n"
                 + "  raft.fsync = " + fsync() + ",\n"
                 + "  system.partitionsLogPath = \"" + logPath() + "\",\n"
@@ -272,5 +279,9 @@ public class AbstractMultiNodeBenchmark {
 
     protected int replicaCount() {
         return CatalogUtils.DEFAULT_REPLICA_COUNT;
+    }
+
+    protected boolean remote() {
+        return false;
     }
 }

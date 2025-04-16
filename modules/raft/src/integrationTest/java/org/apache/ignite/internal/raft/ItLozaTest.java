@@ -140,13 +140,17 @@ public class ItLozaTest extends IgniteAbstractTest {
 
         var nodeId = new RaftNodeId(groupId, configuration.peer(node.name()));
 
-        return loza.startRaftGroupNodeAndWaitNodeReady(
-                        nodeId,
-                        configuration,
-                        raftGroupListener,
-                        RaftGroupEventsListener.noopLsnr,
-                        groupOptionsConfigurer
-                );
+        RaftGroupOptions ops = RaftGroupOptions.defaults();
+
+        groupOptionsConfigurer.configure(ops);
+
+        return loza.startRaftGroupNode(
+                nodeId,
+                configuration,
+                raftGroupListener,
+                RaftGroupEventsListener.noopLsnr,
+                ops
+        );
     }
 
     /**

@@ -136,7 +136,8 @@ public:
     /**
      * Performs operation with proper schema.
      *
-     * @param handler Callback to call on error during retrieval of the latest schema.
+     * @param user_callback User callback.
+     * @param callback Callback to call on error during retrieval of the latest schema.
      */
     template<typename T>
     void with_proper_schema_async(

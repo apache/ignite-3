@@ -25,12 +25,11 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import java.io.IOException;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
@@ -39,7 +38,6 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartiti
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.raft.jraft.entity.RaftOutter.SnapshotMeta;
-import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -50,7 +48,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
  */
 @ExtendWith(MockitoExtension.class)
 public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
-    private static final int ZONE_ID = 0;
     private static final int TABLE_ID_1 = 1;
     private static final int TABLE_ID_2 = 2;
 
@@ -58,7 +55,6 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
     void testForChoosingMaximumAppliedIndexForMeta(
             @Mock CatalogService catalogService,
             @Mock Catalog catalog,
-            @Mock CatalogTableDescriptor tableDescriptor,
             @Mock RaftGroupConfiguration raftGroupConfiguration,
             @Mock PartitionMvStorageAccess partitionAccess1,
             @Mock PartitionMvStorageAccess partitionAccess2,
@@ -66,8 +62,6 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
             @Mock PartitionTxStateAccess txStateAccess
     ) throws IOException {
         when(catalogService.catalog(anyInt())).thenReturn(catalog);
-        when(catalog.table(anyInt())).thenReturn(tableDescriptor);
-        when(tableDescriptor.zoneId()).thenReturn(ZONE_ID);
 
         when(partitionAccess1.tableId()).thenReturn(TABLE_ID_1);
         when(partitionAccess2.tableId()).thenReturn(TABLE_ID_2);
@@ -82,23 +76,18 @@ public class OutgoingSnapshotReaderTest extends BaseIgniteAbstractTest {
             return null;
         }).when(outgoingSnapshotsManager).startOutgoingSnapshot(any(), any());
 
-        var partitionsByTableId = new Int2ObjectOpenHashMap<PartitionMvStorageAccess>();
-
-        partitionsByTableId.put(TABLE_ID_1, partitionAccess1);
-        partitionsByTableId.put(TABLE_ID_2, partitionAccess2);
-
-        PartitionSnapshotStorage snapshotStorage = new PartitionSnapshotStorage(
+        var snapshotStorage = new PartitionSnapshotStorage(
                 new ZonePartitionKey(0, 0),
                 mock(TopologyService.class),
                 outgoingSnapshotsManager,
-                "",
-                mock(RaftOptions.class),
-                partitionsByTableId,
                 txStateAccess,
                 catalogService,
-                mock(SnapshotMeta.class),
+                mock(FailureProcessor.class),
                 mock(Executor.class)
         );
+
+        snapshotStorage.addMvPartition(TABLE_ID_1, partitionAccess1);
+        snapshotStorage.addMvPartition(TABLE_ID_2, partitionAccess2);
 
         when(partitionAccess1.lastAppliedIndex()).thenReturn(5L);
         when(partitionAccess2.lastAppliedIndex()).thenReturn(6L);

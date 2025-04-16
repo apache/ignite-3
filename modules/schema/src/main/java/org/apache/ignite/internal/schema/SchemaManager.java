@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedF
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
@@ -294,13 +293,18 @@ public class SchemaManager implements IgniteComponent {
      *
      * @param tableId Table id.
      */
-    public CompletableFuture<?> dropRegistryAsync(int tableId) {
-        return inBusyLockAsync(busyLock, () -> {
-            SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
-            removedRegistry.close();
+    public void dropRegistry(int tableId) {
+        if (!busyLock.enterBusy()) {
+            throw new IgniteException(NODE_STOPPING_ERR, new NodeStoppingException());
+        }
 
-            return falseCompletedFuture();
-        });
+        try {
+            SchemaRegistryImpl removedRegistry = registriesById.remove(tableId);
+
+            removedRegistry.close();
+        } finally {
+            busyLock.leaveBusy();
+        }
     }
 
     @Override

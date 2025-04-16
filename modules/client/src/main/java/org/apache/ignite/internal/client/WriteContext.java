@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.tx.configuration;
 
-import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.configuration.validation.OneOf;
+package org.apache.ignite.internal.client;
+
+import org.jetbrains.annotations.Nullable;
 
 /**
- * Configuration schema for deadlock prevention policy.
+ * Write context.
  */
-@Config
-public class DeadlockPreventionPolicyConfigurationSchema {
-    @OneOf({"NATURAL", "REVERSED", "NONE"})
-    @Value(hasDefault = true)
-    public String txIdComparator = "NATURAL";
-
-    @Value(hasDefault = true)
-    public long waitTimeout = 0;
+public class WriteContext {
+    public @Nullable PartitionMapping pm;
+    public @Nullable Long enlistmentToken;
 }

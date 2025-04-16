@@ -58,6 +58,8 @@ import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.storage.UpdateLog;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -103,7 +105,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
 
     ClockService clockService;
 
-    private MetaStorageManager metastore;
+    protected MetaStorageManager metastore;
 
     UpdateLog updateLog;
 
@@ -115,7 +117,8 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
     void setUp() {
         metastore = StandaloneMetaStorageManager.create(NODE_NAME, clock);
 
-        updateLog = spy(new UpdateLogImpl(metastore));
+        FailureProcessor failureProcessor = new NoOpFailureManager();
+        updateLog = spy(new UpdateLogImpl(metastore, failureProcessor));
         clockWaiter = spy(new ClockWaiter(NODE_NAME, clock, scheduledExecutor));
 
         clockService = new TestClockService(clock, clockWaiter);
@@ -123,6 +126,7 @@ public abstract class BaseCatalogManagerTest extends BaseIgniteAbstractTest {
         manager = new CatalogManagerImpl(
                 updateLog,
                 clockService,
+                failureProcessor,
                 delayDuration::get
         );
 

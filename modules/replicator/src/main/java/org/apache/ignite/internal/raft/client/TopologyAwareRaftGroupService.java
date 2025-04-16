@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -238,8 +239,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      *         get a cluster.
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
-        clusterService.messagingService().invoke(node, msg, raftConfiguration.responseTimeout().value()).whenCompleteAsync((unused, th) -> {
-            if (th == null) {
+        Long responseTimeout = raftConfiguration.responseTimeoutMillis().value();
+
+        clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
+            if (invokeThrowable == null) {
                 msgSendFut.complete(true);
 
                 return;
@@ -247,20 +250,19 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
             if (!msg.subscribe()) {
                 // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
-
-                if (th instanceof Error) {
-                    msgSendFut.completeExceptionally(th);
+                if (unwrapCause(invokeThrowable) instanceof Error) {
+                    msgSendFut.completeExceptionally(invokeThrowable);
                 } else {
-                    LOG.debug("An exception while trying to unsubscribe", th);
+                    LOG.debug("An exception while trying to unsubscribe", invokeThrowable);
 
                     msgSendFut.complete(false);
                 }
-            } else if (recoverable(th)) {
-                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetIssue) -> {
-                    if (topologyGetIssue != null) {
-                        LOG.error("Actual logical topology snapshot was not got.", topologyGetIssue);
+            } else if (recoverable(invokeThrowable)) {
+                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetThrowable) -> {
+                    if (topologyGetThrowable != null) {
+                        LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
 
-                        msgSendFut.completeExceptionally(topologyGetIssue);
+                        msgSendFut.completeExceptionally(topologyGetThrowable);
 
                         return;
                     }
@@ -269,17 +271,17 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         sendWithRetry(node, msg, msgSendFut);
                     } else {
                         LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
-                                + " cluster [node={}]", node);
+                                + " cluster: [node={}]", node);
 
                         msgSendFut.complete(false);
                     }
                 }, executor);
             } else {
-                if (!(th instanceof NodeStoppingException)) {
-                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                if (!(unwrapCause(invokeThrowable) instanceof NodeStoppingException)) {
+                    LOG.error("Could not send the subscribe message to the node: [node={}, msg={}]", invokeThrowable, node, msg);
                 }
 
-                msgSendFut.completeExceptionally(th);
+                msgSendFut.completeExceptionally(invokeThrowable);
             }
         }, executor);
     }

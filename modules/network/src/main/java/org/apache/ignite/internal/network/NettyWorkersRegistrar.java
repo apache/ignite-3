@@ -101,7 +101,7 @@ public class NettyWorkersRegistrar implements IgniteComponent {
         }
         workers = List.copyOf(nettyWorkers);
 
-        long heartbeatInterval = criticalWorkersConfiguration.nettyThreadsHeartbeatInterval().value();
+        long heartbeatInterval = criticalWorkersConfiguration.nettyThreadsHeartbeatIntervalMillis().value();
         sendHearbeatsTaskFuture = scheduler.scheduleAtFixedRate(this::sendHearbeats, heartbeatInterval, heartbeatInterval, MILLISECONDS);
 
         return nullCompletedFuture();

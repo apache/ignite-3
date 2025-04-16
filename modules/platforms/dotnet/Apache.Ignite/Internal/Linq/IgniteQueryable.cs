@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Linq;
 using System.Linq;
 using System.Linq.Expressions;
 using Common;
+using Ignite.Table;
 using Remotion.Linq;
 
 /// <summary>
@@ -51,7 +52,7 @@ internal sealed class IgniteQueryable<T>
     }
 
     /// <inheritdoc/>
-    public string TableName => IgniteQueryProvider.TableName;
+    public QualifiedName TableName => IgniteQueryProvider.TableName;
 
     /// <inheritdoc/>
     IgniteQueryProvider IIgniteQueryableInternal.Provider => IgniteQueryProvider;

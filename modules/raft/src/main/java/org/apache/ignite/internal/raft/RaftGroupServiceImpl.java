@@ -531,7 +531,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     }
 
     private long defaultTimeout() {
-        return configuration.retryTimeout().value();
+        return configuration.retryTimeoutMillis().value();
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
@@ -587,7 +587,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
-                            .invoke(node, retryContext.request(), configuration.responseTimeout().value()))
+                            .invoke(node, retryContext.request(), configuration.responseTimeoutMillis().value()))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
@@ -759,7 +759,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
         executor.schedule(
                 () -> sendWithRetry(fut, retryContext),
-                configuration.retryDelay().value(),
+                configuration.retryDelayMillis().value(),
                 TimeUnit.MILLISECONDS
         );
     }
@@ -808,8 +808,13 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             if (availablePeers.isEmpty()) {
                 LOG.warn(
-                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}].",
-                        localPeers, groupId, retryContext.errorTraceId()
+                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}, "
+                                + "request {}, origin command {}].",
+                        localPeers,
+                        groupId,
+                        retryContext.errorTraceId(),
+                        retryContext.request().toStringForLightLogging(),
+                        retryContext.originCommandDescription()
                 );
 
                 retryContext.resetUnavailablePeers();

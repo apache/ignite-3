@@ -27,6 +27,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -65,6 +66,8 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
 
     private final PageIoRegistry ioRegistry;
 
+    private final FailureProcessor failureProcessor;
+
     private final Map<String, VolatilePageMemoryDataRegion> regions = new ConcurrentHashMap<>();
 
     private volatile ExecutorService destructionExecutor;
@@ -75,12 +78,14 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
      * @param igniteInstanceName Ignite instance name.
      * @param storageConfig Storage engine and storage profiles configurations.
      * @param ioRegistry IO registry.
+     * @param failureProcessor Failure processor.
      * @param clock Hybrid Logical Clock.
      */
     public VolatilePageMemoryStorageEngine(
             String igniteInstanceName,
             StorageConfiguration storageConfig,
             PageIoRegistry ioRegistry,
+            FailureProcessor failureProcessor,
             HybridClock clock
     ) {
         super(clock);
@@ -89,6 +94,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         this.storageConfig = storageConfig;
         this.engineConfig = ((VolatilePageMemoryStorageEngineExtensionConfiguration) storageConfig.engines()).aimem();
         this.ioRegistry = ioRegistry;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -163,7 +169,8 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
                 indexDescriptorSupplier,
                 this,
                 dataRegion,
-                destructionExecutor
+                destructionExecutor,
+                failureProcessor
         );
     }
 
@@ -181,7 +188,7 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
         VolatilePageMemoryProfileConfiguration storageProfileConfiguration =
                 (VolatilePageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
-        int pageSize = engineConfig.pageSize().value();
+        int pageSize = engineConfig.pageSizeBytes().value();
 
         VolatilePageMemoryDataRegion dataRegion = new VolatilePageMemoryDataRegion(
                 storageProfileConfiguration,

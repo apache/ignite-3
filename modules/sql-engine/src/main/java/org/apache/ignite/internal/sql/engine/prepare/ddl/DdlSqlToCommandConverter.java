@@ -42,9 +42,6 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.STMT_VALIDATION_ERR;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.Period;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -73,8 +70,6 @@ import org.apache.calcite.sql.SqlLiteral;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.SqlNodeList;
 import org.apache.calcite.sql.SqlNumericLiteral;
-import org.apache.calcite.sql.ddl.SqlColumnDeclaration;
-import org.apache.calcite.sql.ddl.SqlDdlNodes;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.parser.SqlParserUtil;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -114,6 +109,7 @@ import org.apache.ignite.internal.catalog.commands.TableSortedPrimaryKey;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.partitiondistribution.DistributionAlgorithm;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
@@ -123,6 +119,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlColumnDeclaration;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateSchema;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable;
@@ -140,6 +137,7 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -319,8 +317,8 @@ public class DdlSqlToCommandConverter {
                 .collect(Collectors.toList());
 
         for (SqlNode sqlNode : createTblNode.columnList().getList()) {
-            if (sqlNode instanceof SqlColumnDeclaration) {
-                String colName = ((SqlColumnDeclaration) sqlNode).name.getSimple();
+            if (sqlNode instanceof IgniteSqlColumnDeclaration) {
+                String colName = ((IgniteSqlColumnDeclaration) sqlNode).name().getSimple();
 
                 if (IgniteSqlValidator.isSystemFieldName(colName)) {
                     throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
@@ -337,7 +335,7 @@ public class DdlSqlToCommandConverter {
 
             SqlIdentifier uuidTypeName = new SqlIdentifier(UuidType.NAME, SqlParserPos.ZERO);
             SqlDataTypeSpec type = new SqlDataTypeSpec(new IgniteSqlTypeNameSpec(uuidTypeName, SqlParserPos.ZERO), SqlParserPos.ZERO);
-            SqlNode col = SqlDdlNodes.column(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
+            SqlNode col = new IgniteSqlColumnDeclaration(SqlParserPos.ZERO, colName, type, null, ColumnStrategy.DEFAULT);
 
             createTblNode.columnList().add(0, col);
         }
@@ -391,21 +389,21 @@ public class DdlSqlToCommandConverter {
                         .map(SqlIdentifier::getSimple)
                         .collect(Collectors.toList());
 
-        List<SqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
-                .filter(SqlColumnDeclaration.class::isInstance)
-                .map(SqlColumnDeclaration.class::cast)
+        List<IgniteSqlColumnDeclaration> colDeclarations = createTblNode.columnList().getList().stream()
+                .filter(IgniteSqlColumnDeclaration.class::isInstance)
+                .map(IgniteSqlColumnDeclaration.class::cast)
                 .collect(Collectors.toList());
 
         List<ColumnParams> columns = new ArrayList<>(colDeclarations.size());
 
-        for (SqlColumnDeclaration col : colDeclarations) {
-            if (!col.name.isSimple()) {
+        for (IgniteSqlColumnDeclaration col : colDeclarations) {
+            if (!col.name().isSimple()) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Unexpected value of columnName ["
-                        + "expected a simple identifier, but was " + col.name + "; "
+                        + "expected a simple identifier, but was " + col.name() + "; "
                         + "querySql=\"" + ctx.query() + "\"]");
             }
 
-            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name.getSimple())));
+            columns.add(convertColumnDeclaration(col, ctx.planner(), !pkColumns.contains(col.name().getSimple())));
         }
 
         String storageProfile = null;
@@ -429,14 +427,14 @@ public class DdlSqlToCommandConverter {
                 .build();
     }
 
-    private static ColumnParams convertColumnDeclaration(SqlColumnDeclaration col, IgnitePlanner planner, boolean nullable) {
-        assert col.name.isSimple();
+    private static ColumnParams convertColumnDeclaration(IgniteSqlColumnDeclaration col, IgnitePlanner planner, boolean nullable) {
+        assert col.name().isSimple();
 
-        String name = col.name.getSimple();
+        String name = col.name().getSimple();
 
         RelDataType relType;
         try {
-            relType = planner.convert(col.dataType, nullable);
+            relType = planner.convert(col.dataType(), nullable);
         } catch (CalciteContextException e) {
             String errorMessage = e.getMessage();
             if (errorMessage == null) {
@@ -467,7 +465,7 @@ public class DdlSqlToCommandConverter {
                 .precision(typeParams.precision)
                 .scale(typeParams.scale)
                 .length(typeParams.length)
-                .defaultValue(convertDefault(col.expression, relType, name))
+                .defaultValue(convertDefault(col.expression(), relType, name))
                 .build();
     }
 
@@ -494,11 +492,11 @@ public class DdlSqlToCommandConverter {
         List<ColumnParams> columns = new ArrayList<>(alterTblNode.columns().size());
 
         for (SqlNode colNode : alterTblNode.columns()) {
-            assert colNode instanceof SqlColumnDeclaration : colNode.getClass();
-            SqlColumnDeclaration col = (SqlColumnDeclaration) colNode;
-            Boolean nullable = col.dataType.getNullable();
+            assert colNode instanceof IgniteSqlColumnDeclaration : colNode.getClass();
+            IgniteSqlColumnDeclaration col = (IgniteSqlColumnDeclaration) colNode;
+            Boolean nullable = col.dataType().getNullable();
 
-            String colName = col.name.getSimple();
+            String colName = col.name().getSimple();
             if (IgniteSqlValidator.isSystemFieldName(colName)) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                         + "Column '" + colName + "' is reserved name.");
@@ -993,12 +991,12 @@ public class DdlSqlToCommandConverter {
                     try {
                         literal = SqlParserUtil.parseDateLiteral(literal.getValueAs(String.class), literal.getParserPosition());
                         int val = literal.getValueAs(DateString.class).getDaysSinceEpoch();
-                        return fromInternal(val, LocalDate.class);
+                        return fromInternal(val, NativeTypeSpec.DATE);
                     } catch (CalciteContextException e) {
                         literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
                         TimestampString tsString = literal.getValueAs(TimestampString.class);
                         int val = convertToIntExact(TimeUnit.MILLISECONDS.toDays(tsString.getMillisSinceEpoch()));
-                        return fromInternal(val, LocalDate.class);
+                        return fromInternal(val, NativeTypeSpec.DATE);
                     }
                 }
                 case TIME: {
@@ -1009,13 +1007,18 @@ public class DdlSqlToCommandConverter {
                     }
                     literal = SqlParserUtil.parseTimeLiteral(strLiteral, literal.getParserPosition());
                     int val = literal.getValueAs(TimeString.class).getMillisOfDay();
-                    return fromInternal(val, LocalTime.class);
+                    return fromInternal(val, NativeTypeSpec.TIME);
                 }
                 case DATETIME: {
                     literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
                     var tsString = literal.getValueAs(TimestampString.class);
+                    long ts = tsString.getMillisSinceEpoch();
 
-                    return fromInternal(tsString.getMillisSinceEpoch(), LocalDateTime.class);
+                    if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                        throw new SqlException(STMT_VALIDATION_ERR, "TIMESTAMP out of range.");
+                    }
+
+                    return fromInternal(tsString.getMillisSinceEpoch(), NativeTypeSpec.DATETIME);
                 }
                 case TIMESTAMP:
                     // TODO: IGNITE-17376

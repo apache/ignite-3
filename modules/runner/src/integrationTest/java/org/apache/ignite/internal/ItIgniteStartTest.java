@@ -49,7 +49,7 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
     @Override
     protected String getNodeBootstrapConfigTemplate() {
         ConfigDocument document = ConfigDocumentFactory.parseString(super.getNodeBootstrapConfigTemplate())
-                .withValueText("ignite.raft.retryTimeout", Long.toString(RAFT_RETRY_TIMEOUT_MILLIS));
+                .withValueText("ignite.raft.retryTimeoutMillis", Long.toString(RAFT_RETRY_TIMEOUT_MILLIS));
         return document.render();
     }
 

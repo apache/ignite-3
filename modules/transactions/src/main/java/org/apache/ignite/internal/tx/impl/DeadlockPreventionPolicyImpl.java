@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.tx.impl;
 
-import static java.util.Objects.requireNonNull;
-
 import java.util.Comparator;
 import java.util.UUID;
 import org.apache.ignite.internal.tx.DeadlockPreventionPolicy;
@@ -32,16 +30,6 @@ public class DeadlockPreventionPolicyImpl implements DeadlockPreventionPolicy {
     private final Comparator<UUID> txIdComparator;
 
     private final long waitTimeout;
-
-    /**
-     * Constructor.
-     *
-     * @param txIdComparator Comparator name.
-     * @param waitTimeout Wait timeout.
-     */
-    public DeadlockPreventionPolicyImpl(String txIdComparator, long waitTimeout) {
-        this(TxIdComparators.valueOf(requireNonNull(txIdComparator)), waitTimeout);
-    }
 
     /**
      * Constructor.

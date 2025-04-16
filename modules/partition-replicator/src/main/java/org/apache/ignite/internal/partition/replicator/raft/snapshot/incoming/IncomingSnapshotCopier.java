@@ -43,8 +43,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.IgniteThrottledLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
 import org.apache.ignite.internal.lowwatermark.message.LowWatermarkMessagesFactory;
@@ -70,7 +72,6 @@ import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
@@ -107,8 +108,12 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /** Busy lock for synchronous rebalance cancellation. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
+    private final Executor executor;
+
+    private final IgniteThrottledLogger throttledLogger;
+
     @Nullable
-    private volatile CompletableFuture<PartitionSnapshotMeta> snapshotMetaFuture;
+    private volatile CompletableFuture<SnapshotContext> snapshotMetaFuture;
 
     @Nullable
     private volatile CompletableFuture<Void> rebalanceFuture;
@@ -124,28 +129,30 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      *
      * @param partitionSnapshotStorage Snapshot storage.
      * @param snapshotUri Snapshot URI.
+     * @param executor Thread pool for IO operations.
      * @param waitForMetadataCatchupMs How much time to allow for metadata on this node to reach the catalog version required by an
      *         incoming snapshot.
      */
     public IncomingSnapshotCopier(
             PartitionSnapshotStorage partitionSnapshotStorage,
             SnapshotUri snapshotUri,
+            Executor executor,
             long waitForMetadataCatchupMs
     ) {
         this.partitionSnapshotStorage = partitionSnapshotStorage;
         this.snapshotUri = snapshotUri;
+        this.executor = executor;
+        this.throttledLogger = Loggers.toThrottledLogger(LOG, executor);
         this.waitForMetadataCatchupMs = waitForMetadataCatchupMs;
     }
 
     @Override
     public void start() {
-        Executor executor = partitionSnapshotStorage.getIncomingSnapshotsExecutor();
-
         LOG.info("Copier is started for the partition [{}]", createPartitionInfo());
 
         ClusterNode snapshotSender = getSnapshotSender(snapshotUri.nodeName);
 
-        CompletableFuture<PartitionSnapshotMeta> metadataSufficiencyFuture;
+        CompletableFuture<SnapshotContext> metadataSufficiencyFuture;
 
         if (snapshotSender == null) {
             metadataSufficiencyFuture = failedFuture(new StorageRebalanceException("Snapshot sender not found: " + snapshotUri.nodeName));
@@ -161,7 +168,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
                                     return null;
                                 } else {
-                                    return snapshotMeta;
+                                    return new SnapshotContext(snapshotMeta, partitionSnapshotStorage.partitionsByTableId());
                                 }
                             })
                     );
@@ -169,41 +176,35 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         this.snapshotMetaFuture = metadataSufficiencyFuture;
 
-        // Create a defensive copy, because this map is modified externally.
-        CompletableFuture<Int2ObjectOpenHashMap<PartitionMvStorageAccess>> storagesFuture = metadataSufficiencyFuture
-                .thenApply(v -> new Int2ObjectOpenHashMap<>(partitionSnapshotStorage.partitionsByTableId()));
-
         CompletableFuture<Void> rebalanceFuture = metadataSufficiencyFuture
-                .thenCombineAsync(storagesFuture, (snapshotMeta, partitionsByTableId) -> {
-                    if (snapshotMeta == null) {
-                        return CompletableFutures.<Void>nullCompletedFuture();
+                .thenComposeAsync(snapshotContext -> {
+                    if (snapshotContext == null) {
+                        return nullCompletedFuture();
                     }
 
                     assert snapshotSender != null : createPartitionInfo();
 
-                    return startRebalance(partitionsByTableId)
-                            .thenCompose(v -> loadSnapshotMvData(snapshotMeta, snapshotSender, executor, partitionsByTableId))
-                            .thenCompose(v -> loadSnapshotTxData(snapshotSender, executor))
-                            .thenRunAsync(() -> setNextRowIdToBuildIndexes(snapshotMeta), executor);
-                }, executor)
-                .thenCompose(Function.identity());
+                    return startRebalance(snapshotContext)
+                            .thenCompose(v -> loadSnapshotMvData(snapshotContext, snapshotSender))
+                            .thenCompose(v -> loadSnapshotTxData(snapshotSender))
+                            .thenRunAsync(() -> setNextRowIdToBuildIndexes(snapshotContext), executor);
+                }, executor);
 
         this.rebalanceFuture = rebalanceFuture;
 
         this.joinFuture = metadataSufficiencyFuture
-                .thenCombine(storagesFuture, (snapshotMeta, partitionsByTableId) -> {
-                    if (snapshotMeta == null) {
-                        return CompletableFutures.<Void>nullCompletedFuture();
+                .thenCompose(snapshotContext -> {
+                    if (snapshotContext == null) {
+                        return nullCompletedFuture();
                     }
 
                     assert snapshotSender != null : createPartitionInfo();
 
                     return rebalanceFuture
-                            .handleAsync((v, throwable) -> completeRebalance(snapshotMeta, throwable, partitionsByTableId), executor)
+                            .handleAsync((v, throwable) -> completeRebalance(snapshotContext, throwable), executor)
                             .thenCompose(Function.identity())
-                            .thenCompose(v -> tryUpdateLowWatermark(snapshotSender, executor, partitionsByTableId));
-                })
-                .thenCompose(Function.identity());
+                            .thenCompose(v -> tryUpdateLowWatermark(snapshotContext, snapshotSender));
+                });
     }
 
     private CompletableFuture<?> waitForMetadataWithTimeout(PartitionSnapshotMeta snapshotMeta) {
@@ -237,7 +238,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 Throwable cause = e.getCause();
 
                 if (!(cause instanceof CancellationException)) {
-                    LOG.error("Error when completing the copier", cause);
+                    partitionSnapshotStorage.failureProcessor().process(new FailureContext(e, "Error when completing the copier"));
 
                     if (isOk()) {
                         setError(RaftError.UNKNOWN, "Unknown error on completion the copier");
@@ -285,15 +286,15 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
     @Override
     public SnapshotReader getReader() {
-        CompletableFuture<PartitionSnapshotMeta> snapshotMetaFuture = this.snapshotMetaFuture;
+        CompletableFuture<SnapshotContext> snapshotMetaFuture = this.snapshotMetaFuture;
 
         // This one's called when "join" is complete.
         assert snapshotMetaFuture != null && snapshotMetaFuture.isDone();
 
-        // Use 'null' if we failed or were cancelled, this is what JRaft expects.
-        PartitionSnapshotMeta meta = snapshotMetaFuture.isCompletedExceptionally() ? null : snapshotMetaFuture.join();
+        SnapshotContext context = snapshotMetaFuture.isCompletedExceptionally() ? null : snapshotMetaFuture.join();
 
-        return new IncomingSnapshotReader(meta);
+        // Use 'null' if we failed or were cancelled, this is what JRaft expects.
+        return new IncomingSnapshotReader(context == null ? null : context.meta);
     }
 
     private @Nullable ClusterNode getSnapshotSender(String nodeName) {
@@ -309,7 +310,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotMetaRequest().id(snapshotUri.snapshotId).build(),
                     NETWORK_TIMEOUT
@@ -326,9 +327,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     }
 
     private boolean metadataIsSufficientlyComplete(PartitionSnapshotMeta snapshotMeta) {
-        int latestCatalogVersion = partitionSnapshotStorage.catalogService().latestCatalogVersion();
-
-        return snapshotMeta.requiredCatalogVersion() <= latestCatalogVersion;
+        return partitionSnapshotStorage.catalogService().catalogReadyFuture(snapshotMeta.requiredCatalogVersion()).isDone();
     }
 
     private void logMetadataInsufficiencyAndSetError(PartitionSnapshotMeta snapshotMeta) {
@@ -352,18 +351,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link MvPartitionStorage}.
      */
-    private CompletableFuture<?> loadSnapshotMvData(
-            PartitionSnapshotMeta snapshotMeta,
-            ClusterNode snapshotSender,
-            Executor executor,
-            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId
-    ) {
+    private CompletableFuture<?> loadSnapshotMvData(SnapshotContext snapshotContext, ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotMvDataRequest()
                             .id(snapshotUri.snapshotId)
@@ -381,7 +375,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                         }
 
                         try {
-                            writeVersion(snapshotMeta, entry, i, partitionsByTableId);
+                            writeVersion(snapshotContext, entry, i);
                         } finally {
                             busyLock.leaveBusy();
                         }
@@ -404,7 +398,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     );
 
                     // Let's upload the rest.
-                    return loadSnapshotMvData(snapshotMeta, snapshotSender, executor, partitionsByTableId);
+                    return loadSnapshotMvData(snapshotContext, snapshotSender);
                 }
             }, executor);
         } finally {
@@ -415,13 +409,13 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
     /**
      * Requests and stores data into {@link TxStatePartitionStorage}.
      */
-    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender, Executor executor) {
+    private CompletableFuture<Void> loadSnapshotTxData(ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     TABLE_MSG_FACTORY.snapshotTxDataRequest()
                             .id(snapshotUri.snapshotId)
@@ -464,7 +458,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                     );
 
                     // Let's upload the rest.
-                    return loadSnapshotTxData(snapshotSender, executor);
+                    return loadSnapshotTxData(snapshotSender);
                 }
             }, executor);
         } finally {
@@ -478,46 +472,48 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
      * @param throwable Error occurred while rebalancing the partition storages, {@code null} means that the rebalancing was
      *         successful.
      */
-    private CompletableFuture<Void> completeRebalance(
-            PartitionSnapshotMeta meta,
-            @Nullable Throwable throwable,
-            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId
-    ) {
+    private CompletableFuture<Void> completeRebalance(SnapshotContext snapshotContext, @Nullable Throwable throwable) {
         if (!busyLock.enterBusy()) {
             if (isOk()) {
                 setError(RaftError.ECANCELED, "Copier is cancelled");
             }
 
-            return abortRebalance(partitionsByTableId);
+            return abortRebalance(snapshotContext);
         }
 
         try {
             if (throwable != null) {
-                LOG.error("Partition rebalancing error [{}]", throwable, createPartitionInfo());
+                String errorMessage = String.format("Partition rebalancing error [%s]", createPartitionInfo());
+                partitionSnapshotStorage.failureProcessor().process(new FailureContext(throwable, errorMessage));
 
                 if (isOk()) {
                     setError(RaftError.UNKNOWN, throwable.getMessage());
                 }
 
-                return abortRebalance(partitionsByTableId).thenCompose(unused -> failedFuture(throwable));
+                return abortRebalance(snapshotContext)
+                        .exceptionally(e -> {
+                            throwable.addSuppressed(e);
+
+                            return null;
+                        })
+                        .thenCompose(unused -> failedFuture(throwable));
             }
 
             if (LOG.isInfoEnabled()) {
-                LOG.info("Copier completes the rebalancing of the partition: [{}, meta={}]", createPartitionInfo(), meta);
+                LOG.info("Copier completes the rebalancing of the partition: [{}, meta={}]", createPartitionInfo(), snapshotContext.meta);
             }
 
-            MvPartitionMeta snapshotMeta = mvPartitionMeta(meta, partitionsByTableId);
+            MvPartitionMeta snapshotMeta = mvPartitionMeta(snapshotContext);
 
-            return finishRebalance(snapshotMeta, partitionsByTableId);
+            return finishRebalance(snapshotMeta, snapshotContext);
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private static MvPartitionMeta mvPartitionMeta(
-            PartitionSnapshotMeta meta,
-            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId
-    ) {
+    private static MvPartitionMeta mvPartitionMeta(SnapshotContext snapshotContext) {
+        PartitionSnapshotMeta meta = snapshotContext.meta;
+
         RaftGroupConfiguration raftGroupConfig = raftGroupConfig(meta);
 
         LeaseInfo leaseInfo = leaseInfo(meta);
@@ -529,7 +525,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 meta.lastIncludedTerm(),
                 leaseInfo,
                 raftGroupConfigBytes,
-                partitionsByTableId.keySet()
+                snapshotContext.partitionsByTableId.keySet()
         );
 
         byte[] snapshotInfoBytes = VersionedSerialization.toBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE);
@@ -574,13 +570,15 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         return partitionSnapshotStorage.partitionKey().toString();
     }
 
-    private void writeVersion(
-            PartitionSnapshotMeta snapshotMeta,
-            ResponseEntry entry,
-            int entryIndex,
-            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId
-    ) {
-        PartitionMvStorageAccess partition = partitionsByTableId.get(entry.tableId());
+    private void writeVersion(SnapshotContext snapshotContext, ResponseEntry entry, int entryIndex) {
+        PartitionMvStorageAccess partition = snapshotContext.partitionsByTableId.get(entry.tableId());
+
+        if (partition == null) {
+            // Table might have been removed locally which is a normal situation, we log it just in case.
+            throttledLogger.warn("No partition storage found locally for tableId={} while installing a snapshot", entry.tableId());
+
+            return;
+        }
 
         RowId rowId = new RowId(partId(), entry.rowId());
 
@@ -588,7 +586,7 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
 
         BinaryRow binaryRow = rowVersion == null ? null : rowVersion.asBinaryRow();
 
-        int snapshotCatalogVersion = snapshotMeta.requiredCatalogVersion();
+        int snapshotCatalogVersion = snapshotContext.meta.requiredCatalogVersion();
 
         if (entryIndex == entry.timestamps().length) {
             // Writes an intent to write (uncommitted version).
@@ -610,21 +608,21 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
     }
 
-    private void setNextRowIdToBuildIndexes(PartitionSnapshotMeta snapshotMeta) {
+    private void setNextRowIdToBuildIndexes(SnapshotContext snapshotContext) {
         if (!busyLock.enterBusy()) {
             return;
         }
 
         try {
-            Map<Integer, UUID> nextRowUuidToBuildByIndexId = snapshotMeta.nextRowIdToBuildByIndexId();
+            Map<Integer, UUID> nextRowUuidToBuildByIndexId = snapshotContext.meta.nextRowIdToBuildByIndexId();
 
             if (nullOrEmpty(nextRowUuidToBuildByIndexId)) {
                 return;
             }
 
-            Catalog catalog = partitionSnapshotStorage.catalogService().catalog(snapshotMeta.requiredCatalogVersion());
+            Catalog catalog = partitionSnapshotStorage.catalogService().catalog(snapshotContext.meta.requiredCatalogVersion());
 
-            var nextRowIdToBuildByIndexIdAndTableId = new HashMap<Integer, Map<Integer, RowId>>();
+            var nextRowIdToBuildByIndexIdAndTableId = new Int2ObjectOpenHashMap<Map<Integer, RowId>>();
 
             nextRowUuidToBuildByIndexId.forEach((indexId, rowUuid) -> {
                 int tableId = catalog.index(indexId).tableId();
@@ -633,25 +631,30 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                         .put(indexId, new RowId(partId(), rowUuid));
             });
 
-            nextRowIdToBuildByIndexIdAndTableId.forEach((tableId, nextRowIdToBuildByIndexId) ->
-                    partitionSnapshotStorage.partitionsByTableId().get(tableId).setNextRowIdToBuildIndex(nextRowIdToBuildByIndexId)
-            );
+            for (Int2ObjectMap.Entry<Map<Integer, RowId>> e : nextRowIdToBuildByIndexIdAndTableId.int2ObjectEntrySet()) {
+                int tableId = e.getIntKey();
+
+                PartitionMvStorageAccess partitionAccess = snapshotContext.partitionsByTableId.get(tableId);
+
+                if (partitionAccess == null) {
+                    // Table might have been removed locally which is a normal situation, we log it just in case.
+                    throttledLogger.warn("No partition storage found locally for tableId={} while installing a snapshot", tableId);
+                } else {
+                    partitionAccess.setNextRowIdToBuildIndex(e.getValue());
+                }
+            }
         } finally {
             busyLock.leaveBusy();
         }
     }
 
-    private CompletableFuture<Void> tryUpdateLowWatermark(
-            ClusterNode snapshotSender,
-            Executor executor,
-            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId
-    ) {
+    private CompletableFuture<Void> tryUpdateLowWatermark(SnapshotContext snapshotContext, ClusterNode snapshotSender) {
         if (!busyLock.enterBusy()) {
             return nullCompletedFuture();
         }
 
         try {
-            return partitionSnapshotStorage.outgoingSnapshotsManager().messagingService().invoke(
+            return partitionSnapshotStorage.messagingService().invoke(
                     snapshotSender,
                     LWM_MSG_FACTORY.getLowWatermarkRequest().build(),
                     NETWORK_TIMEOUT
@@ -661,7 +664,8 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
                 HybridTimestamp senderLowWatermark = nullableHybridTimestamp(getLowWatermarkResponse.lowWatermark());
 
                 if (senderLowWatermark != null) {
-                    partitionsByTableId.values().forEach(mvPartition -> mvPartition.updateLowWatermark(senderLowWatermark));
+                    snapshotContext.partitionsByTableId.values()
+                            .forEach(mvPartition -> mvPartition.updateLowWatermark(senderLowWatermark));
                 }
             }, executor);
         } finally {
@@ -669,42 +673,53 @@ public class IncomingSnapshotCopier extends SnapshotCopier {
         }
     }
 
-    private CompletableFuture<Void> startRebalance(Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId) {
+    private CompletableFuture<Void> startRebalance(SnapshotContext snapshotContext) {
         return allOf(
-                aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, partitionsByTableId),
+                aggregateFutureFromPartitions(PartitionMvStorageAccess::startRebalance, snapshotContext),
                 partitionSnapshotStorage.txState().startRebalance()
         );
     }
 
-    private CompletableFuture<Void> finishRebalance(MvPartitionMeta meta, Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId) {
-        CompletableFuture<Void> partitionsFinishRebalanceFuture = allOf(aggregateFutureFromPartitions(
+    private CompletableFuture<Void> finishRebalance(MvPartitionMeta meta, SnapshotContext snapshotContext) {
+        CompletableFuture<Void> partitionsFinishRebalanceFuture = aggregateFutureFromPartitions(
                 mvPartition -> mvPartition.finishRebalance(meta),
-                partitionsByTableId
-        ));
+                snapshotContext
+        );
 
         // Finish rebalance in tx state after all partitions have finished rebalance in order to guarantee that the snapshot meta
         // information stored in the TX storage consistently reflects the state of the partition storages.
         return partitionsFinishRebalanceFuture.thenComposeAsync(
                 v -> partitionSnapshotStorage.txState().finishRebalance(meta),
-                partitionSnapshotStorage.getIncomingSnapshotsExecutor()
+                executor
         );
     }
 
-    private CompletableFuture<Void> abortRebalance(Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId) {
+    private CompletableFuture<Void> abortRebalance(SnapshotContext snapshotContext) {
         return allOf(
-                aggregateFutureFromPartitions(PartitionMvStorageAccess::abortRebalance, partitionsByTableId),
+                aggregateFutureFromPartitions(PartitionMvStorageAccess::abortRebalance, snapshotContext),
                 partitionSnapshotStorage.txState().abortRebalance()
         );
     }
 
     private static CompletableFuture<Void> aggregateFutureFromPartitions(
             Function<PartitionMvStorageAccess, CompletableFuture<Void>> action,
-            Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId
+            SnapshotContext snapshotContext
     ) {
-        CompletableFuture<?>[] futures = partitionsByTableId.values().stream()
+        CompletableFuture<?>[] futures = snapshotContext.partitionsByTableId.values().stream()
                 .map(action)
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures);
+    }
+
+    private static class SnapshotContext {
+        final PartitionSnapshotMeta meta;
+
+        final Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId;
+
+        SnapshotContext(PartitionSnapshotMeta meta, Int2ObjectMap<PartitionMvStorageAccess> partitionsByTableId) {
+            this.meta = meta;
+            this.partitionsByTableId = partitionsByTableId;
+        }
     }
 }

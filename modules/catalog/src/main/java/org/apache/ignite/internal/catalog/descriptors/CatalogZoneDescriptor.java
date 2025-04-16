@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -57,7 +58,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * Returns {@code true} if zone upgrade will lead to assignments recalculation.
      */
     public static boolean updateRequiresAssignmentsRecalculation(CatalogZoneDescriptor oldDescriptor, CatalogZoneDescriptor newDescriptor) {
-        if (oldDescriptor.updateToken() == newDescriptor.updateToken()) {
+        if (oldDescriptor.updateTimestamp().equals(newDescriptor.updateTimestamp())) {
             return false;
         }
 
@@ -95,7 +96,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             ConsistencyMode consistencyMode
     ) {
         this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
-                filter, storageProfiles, INITIAL_CAUSALITY_TOKEN, consistencyMode);
+                filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
     }
 
     /**
@@ -109,7 +110,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
      * @param filter Nodes filter.
-     * @param causalityToken Token of the update of the descriptor.
+     * @param timestamp Timestamp of the update of the descriptor.
      */
     CatalogZoneDescriptor(
             int id,
@@ -121,10 +122,10 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             int dataNodesAutoAdjustScaleDown,
             String filter,
             CatalogStorageProfilesDescriptor storageProfiles,
-            long causalityToken,
+            HybridTimestamp timestamp,
             ConsistencyMode consistencyMode
     ) {
-        super(id, Type.ZONE, name, causalityToken);
+        super(id, Type.ZONE, name, timestamp);
 
         this.partitions = partitions;
         this.replicas = replicas;

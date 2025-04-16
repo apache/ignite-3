@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table;
 import static java.util.Objects.requireNonNull;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER_OR_EQUAL;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.LESS_OR_EQUAL;
@@ -63,7 +64,9 @@ import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTuplePrefix;
@@ -122,7 +125,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         // Set a short timeout for the test because it uses defaultTimeouts for implicit transactions,
         // It is too long to wait for 30 seconds (default value for Read-Write Transactions).
-        builder.clusterConfiguration("{ignite.transaction.readWriteTimeout: 5000}");
+        builder.clusterConfiguration("{ignite.transaction.readWriteTimeoutMillis: 5000}");
     }
 
     @BeforeEach
@@ -783,10 +786,12 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         if (readOnly) {
             IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-            var tablePartId = new TablePartitionId(internalTable.tableId(), PART_ID);
+            ReplicationGroupId partitionId = enabledColocation()
+                    ? new ZonePartitionId(internalTable.zoneId(), PART_ID)
+                    : new TablePartitionId(internalTable.tableId(), PART_ID);
 
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                    ignite.placementDriver().awaitPrimaryReplica(tablePartId, ignite.clock().now(), 30, TimeUnit.SECONDS));
+                    ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
             ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
                     .findFirst().get();
@@ -881,7 +886,11 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     }
 
     private PrimaryReplica getPrimaryReplica(int partId, InternalTransaction tx) {
-        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(new TablePartitionId(table.tableId(), partId));
+        ReplicationGroupId replicationGroupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), partId)
+                : new TablePartitionId(table.tableId(), partId);
+
+        PendingTxPartitionEnlistment enlistment = tx.enlistedPartition(replicationGroupId);
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
@@ -1074,21 +1083,23 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
         );
 
         InternalTable table = unwrapTableViewInternal(ignite.tables().table(TABLE_NAME)).internalTable();
-        TablePartitionId tblPartId = new TablePartitionId(table.tableId(), partId);
+        ReplicationGroupId replicationGroupId = enabledColocation()
+                ? new ZonePartitionId(table.zoneId(), partId)
+                : new TablePartitionId(table.tableId(), partId);
 
         PlacementDriver placementDriver = ignite.placementDriver();
         ReplicaMeta primaryReplica = IgniteTestUtils.await(
-                placementDriver.awaitPrimaryReplica(tblPartId, ignite.clock().now(), 30, TimeUnit.SECONDS)
+                placementDriver.awaitPrimaryReplica(replicationGroupId, ignite.clock().now(), 30, TimeUnit.SECONDS)
         );
 
         tx.enlist(
-                tblPartId,
-                tblPartId.tableId(),
+                replicationGroupId,
+                table.tableId(),
                 requireNonNull(primaryReplica.getLeaseholder(), "primaryReplica#getLeaseholder"),
                 primaryReplica.getStartTime().longValue()
         );
 
-        tx.assignCommitPartition(tblPartId);
+        tx.assignCommitPartition(replicationGroupId);
 
         return tx;
     }

@@ -29,5 +29,5 @@ public class DeploymentConfigurationSchema {
      * Relative path to folder in node working directory where will store all deployment units content.
      */
     @Value(hasDefault = true)
-    public final String deploymentLocation = "deployment";
+    public final String location = "deployment";
 }

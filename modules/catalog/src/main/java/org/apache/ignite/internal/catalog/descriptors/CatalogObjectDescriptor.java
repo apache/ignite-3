@@ -17,10 +17,11 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
-import static org.apache.ignite.internal.catalog.CatalogManagerImpl.INITIAL_CAUSALITY_TOKEN;
+import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
 import java.util.Objects;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
 
 /**
@@ -30,13 +31,13 @@ public abstract class CatalogObjectDescriptor {
     private final int id;
     private final String name;
     private final Type type;
-    private long updateToken;
+    private HybridTimestamp updateTimestamp;
 
-    CatalogObjectDescriptor(int id, Type type, String name, long causalityToken) {
+    CatalogObjectDescriptor(int id, Type type, String name, HybridTimestamp timestamp) {
         this.id = id;
         this.type = Objects.requireNonNull(type, "type");
         this.name = Objects.requireNonNull(name, "name");
-        this.updateToken = causalityToken;
+        this.updateTimestamp = timestamp;
     }
 
     /** Returns id of the described object. */
@@ -55,29 +56,29 @@ public abstract class CatalogObjectDescriptor {
     }
 
     /**
-     * Token of the update of the descriptor.
-     * Updated when {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the
-     * corresponding catalog descriptor. This token is the token that is associated with the corresponding update being applied to
+     * Timestamp of the update of the descriptor.
+     * Updated when {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, HybridTimestamp)} is called for the
+     * corresponding catalog descriptor. This timestamp is the timestamp that is associated with the corresponding update being applied to
      * the Catalog. Any new catalog descriptor associated with an {@link UpdateEntry}, meaning that this token is set only once.
      *
-     * @return Token of the update of the descriptor.
+     * @return timestamp of the update of the descriptor.
      */
-    public long updateToken() {
-        return updateToken;
+    public HybridTimestamp updateTimestamp() {
+        return updateTimestamp;
     }
 
     /**
-     * Set token of the update of the descriptor. Must be called only once when
-     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, long)} is called for the corresponding catalog descriptor.
-     * This token is the token that is associated with the corresponding update being applied to
+     * Set timestamp of the update of the descriptor. Must be called only once when
+     * {@link UpdateEntry#applyUpdate(org.apache.ignite.internal.catalog.Catalog, HybridTimestamp)} is called for the corresponding catalog
+     * descriptor. This timestamp is the timestamp that is associated with the corresponding update being applied to
      * the Catalog. Any new catalog descriptor associated with an {@link UpdateEntry}, meaning that this token is set only once.
      *
-     * @param updateToken Update token of the descriptor.
+     * @param updateTimestamp Update timestamp of the descriptor.
      */
-    public void updateToken(long updateToken) {
-        assert this.updateToken == INITIAL_CAUSALITY_TOKEN : "Update token for the descriptor must be updated only once";
+    public void updateTimestamp(HybridTimestamp updateTimestamp) {
+        assert this.updateTimestamp.equals(INITIAL_TIMESTAMP) : "Update timestamp for the descriptor must be updated only once";
 
-        this.updateToken = updateToken;
+        this.updateTimestamp = updateTimestamp;
     }
 
     @Override

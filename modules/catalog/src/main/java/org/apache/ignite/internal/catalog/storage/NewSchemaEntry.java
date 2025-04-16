@@ -21,6 +21,7 @@ import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntryType;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.util.CollectionUtils;
 
 /**
@@ -39,8 +40,8 @@ public class NewSchemaEntry implements UpdateEntry {
 
     /** {@inheritDoc} */
     @Override
-    public Catalog applyUpdate(Catalog catalog, long causalityToken) {
-        descriptor.updateToken(causalityToken);
+    public Catalog applyUpdate(Catalog catalog, HybridTimestamp timestamp) {
+        descriptor.updateTimestamp(timestamp);
 
         return new Catalog(
                 catalog.version(),

@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lowwatermark.LowWatermarkImpl.LOW_WATERMARK_VAULT_KEY;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowWithCauseOrSuppressed;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -60,6 +61,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.event.ChangeLowWatermarkEventParameters;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkRequest;
 import org.apache.ignite.internal.lowwatermark.message.GetLowWatermarkResponse;
@@ -89,6 +91,8 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
 
     private final VaultManager vaultManager = mock(VaultManager.class);
 
+    private final FailureManager failureManager = mock(FailureManager.class);
+
     private EventListener<ChangeLowWatermarkEventParameters> lwmChangedListener;
 
     private LowWatermarkImpl lowWatermark;
@@ -105,7 +109,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
                 lowWatermarkConfig,
                 clockService,
                 vaultManager,
-                mock(FailureManager.class),
+                failureManager,
                 messagingService
         );
 
@@ -157,7 +161,7 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     void testCreateNewLowWatermarkCandidate() {
         when(clockService.now()).thenReturn(new HybridTimestamp(1_000, 500));
 
-        assertThat(lowWatermarkConfig.dataAvailabilityTime().update(100L), willSucceedFast());
+        assertThat(lowWatermarkConfig.dataAvailabilityTimeMillis().update(100L), willSucceedFast());
 
         HybridTimestamp newLowWatermarkCandidate = lowWatermark.createNewLowWatermarkCandidate();
 
@@ -200,14 +204,14 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
     /** Let's make sure that the low watermark update happens one by one and not in parallel. */
     @Test
     void testUpdateWatermarkSequentially() throws Exception {
-        assertThat(lowWatermarkConfig.updateInterval().update(10L), willSucceedFast());
+        assertThat(lowWatermarkConfig.updateIntervalMillis().update(10L), willSucceedFast());
 
         var onLwmChangedLatch = new CountDownLatch(3);
 
         var onLwmChangedFinishFuture = new CompletableFuture<>();
 
         try {
-            assertThat(lowWatermarkConfig.updateInterval().update(100L), willSucceedFast());
+            assertThat(lowWatermarkConfig.updateIntervalMillis().update(100L), willSucceedFast());
 
             when(lwmChangedListener.notify(any())).then(invocation -> {
                 onLwmChangedLatch.countDown();
@@ -321,6 +325,15 @@ public class LowWatermarkImplTest extends BaseIgniteAbstractTest {
         });
 
         assertThat(lowWatermark.updateAndNotify(newLwm), willCompleteSuccessfully());
+    }
+
+    @Test
+    void testUpdateAndNotifyNotInvokeFailureManagerWhenGetNodeStoppingException() {
+        lowWatermark.listen(LOW_WATERMARK_CHANGED, parameters -> failedFuture(new NodeStoppingException()));
+
+        assertThat(lowWatermark.updateAndNotify(clockService.now()), willThrowWithCauseOrSuppressed(NodeStoppingException.class));
+
+        verify(failureManager, never()).process(any());
     }
 
     private CompletableFuture<HybridTimestamp> listenUpdateLowWatermark() {

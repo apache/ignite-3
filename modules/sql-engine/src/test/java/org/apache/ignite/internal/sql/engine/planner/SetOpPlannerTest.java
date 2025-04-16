@@ -728,9 +728,9 @@ public class SetOpPlannerTest extends AbstractPlannerTest {
                 + " SELECT * FROM table3 ";
 
         assertPlan(sql, publicSchema, nodeOrAnyChild(isInstanceOf(setOp.map)
-                        .and(input(0, projectFromTable("TABLE1", "CAST($0):DOUBLE", "$1")))
+                        .and(input(0, tableWithProjection("TABLE1", "CAST($t0):DOUBLE", "$t1")))
                         .and(input(1, isTableScan("TABLE2")))
-                        .and(input(2, projectFromTable("TABLE3", "CAST($0):DOUBLE", "$1")))
+                        .and(input(2, tableWithProjection("TABLE3", "CAST($t0):DOUBLE", "$t1")))
                 )
         );
     }

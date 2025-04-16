@@ -51,6 +51,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorConfigurati
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.HandshakeExtension;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -211,6 +212,9 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
+        BitSet features = BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()});
+        features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING.featureId());
+
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override
                     protected void initChannel(Channel ch) {
@@ -242,14 +246,13 @@ public class TestClientHandlerModule implements IgniteComponent {
                                                 new TestLowWatermark()
                                         ),
                                         Runnable::run,
-                                        BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()}),
-                                        randomExtensions(),
-                                        Runnable::run
+                                        features,
+                                        randomExtensions()
                                 )
                         );
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout());
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeoutMillis());
 
         int port = configuration.port();
         Channel ch = null;

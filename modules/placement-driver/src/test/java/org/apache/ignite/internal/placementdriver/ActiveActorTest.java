@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Set;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -130,6 +131,7 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
                 mockRaftMgr,
                 raftGroupServiceFactory,
                 new TestClockService(new HybridClockImpl()),
+                mock(FailureProcessor.class),
                 replicationConfiguration
         );
 
