@@ -24,6 +24,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -143,7 +144,7 @@ public class AbstractNodeSelfTest extends BaseIgniteAbstractTest {
         }
 
         @Override
-        public void push(T row) {
+        public void push(List<T> batch) {
             throw new UnsupportedOperationException();
         }
 

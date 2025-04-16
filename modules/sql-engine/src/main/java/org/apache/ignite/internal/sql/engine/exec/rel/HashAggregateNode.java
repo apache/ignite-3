@@ -17,14 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
-import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
-import java.util.ArrayDeque;
+import it.unimi.dsi.fastutil.objects.Object2ObjectMap;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -106,20 +105,20 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            this.execute(this::doFlush);
+            this.execute(this::flush);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
 
         for (Grouping grouping : groupings) {
-            grouping.add(row);
+            batch.forEach(grouping::add);
         }
 
         if (waiting == 0) {
@@ -156,55 +155,42 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return this;
     }
 
-    private void doFlush() throws Exception {
-        flush();
-    }
-
     private void flush() throws Exception {
         assert waiting == NOT_WAITING;
 
-        int processed = 0;
-        ArrayDeque<Grouping> groupingsQueue = groupingsQueue();
+        int currGroup = 0;
 
         inLoop = true;
         try {
-            while (requested > 0 && !groupingsQueue.isEmpty()) {
-                Grouping grouping = groupingsQueue.peek();
+            List<RowT> batch = allocateBatch(requested);
+            while (requested > 0 && currGroup < groupings.size()) {
+                Grouping grouping = groupings.get(currGroup);
 
-                int toSnd = Math.min(requested, inBufSize - processed);
-
-                for (RowT row : grouping.getRows(toSnd)) {
-                    requested--;
-                    downstream().push(row);
-
-                    processed++;
-                }
-
-                if (processed >= inBufSize && requested > 0) {
-                    // allow others to do their job
-                    this.execute(this::doFlush);
-
-                    return;
-                }
+                int collected = grouping.collectRows(batch, requested);
+                requested -= collected;
 
                 if (grouping.isEmpty()) {
-                    groupingsQueue.remove();
+                    currGroup++;
                 }
+            }
+
+            downstream().push(batch);
+            releaseBatch(batch);
+
+            if (requested > 0 && currGroup < groupings.size()) {
+                // allow others to do their job
+                this.execute(this::flush);
+
+                return;
             }
         } finally {
             inLoop = false;
         }
 
-        if (requested > 0) {
+        if (requested > 0 && currGroup == groupings.size()) {
             requested = 0;
             downstream().end();
         }
-    }
-
-    private ArrayDeque<Grouping> groupingsQueue() {
-        return groupings.stream()
-                .filter(g -> !g.isEmpty())
-                .collect(toCollection(ArrayDeque::new));
     }
 
     private class Grouping {
@@ -212,7 +198,7 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         private final ImmutableBitSet grpFields;
 
-        private final Map<GroupKey, AggregateRow<RowT>> groups = new HashMap<>();
+        private final Object2ObjectOpenHashMap<GroupKey, AggregateRow<RowT>> groups = new Object2ObjectOpenHashMap<>();
 
         private Grouping(byte grpId, ImmutableBitSet grpFields) {
             this.grpId = grpId;
@@ -255,17 +241,18 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         /**
          * Returns up to {@code cnt} rows collected by the given node group by group.
          *
-         * @param cnt Number of rows.
-         * @return Actually sent rows number.
+         * @param batch Batch to collect rows to.
+         * @param cnt Number of rows to collect.
+         * @return Actually collected rows number.
          */
-        private List<RowT> getRows(int cnt) {
-            Iterator<Map.Entry<GroupKey, AggregateRow<RowT>>> it = groups.entrySet().iterator();
+        private int collectRows(List<RowT> batch, int cnt) {
+            Iterator<Object2ObjectMap.Entry<GroupKey, AggregateRow<RowT>>> it = groups.object2ObjectEntrySet().fastIterator();
 
             int rowNum = Math.min(cnt, groups.size());
-            List<RowT> res = new ArrayList<>(rowNum);
+            int collected = 0;
 
             for (int i = 0; i < rowNum; i++) {
-                Map.Entry<GroupKey, AggregateRow<RowT>> entry = it.next();
+                Object2ObjectMap.Entry<GroupKey, AggregateRow<RowT>> entry = it.next();
 
                 GroupKey grpKey = entry.getKey();
                 AggregateRow<RowT> aggRow = entry.getValue();
@@ -283,11 +270,12 @@ public class HashAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
                 RowT row = rowFactory.create(fields);
 
-                res.add(row);
+                collected++;
+                batch.add(row);
                 it.remove();
             }
 
-            return res;
+            return collected;
         }
 
         private AggregateRow<RowT> create() {

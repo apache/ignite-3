@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -152,13 +153,15 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert waiting > 0 : waiting;
 
-        waiting--;
+        waiting -= batch.size();
 
-        if (currentNode == null || dest.targets(row).contains(currentNode)) {
-            inBuf.add(row);
+        for (RowT row : batch) {
+            if (currentNode == null || dest.targets(row).contains(currentNode)) {
+                inBuf.add(row);
+            }
         }
 
         flush();
@@ -290,28 +293,34 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
                 });
     }
 
+    private final ObjectArrayList<RemoteDownstream<RowT>> destinationsBuffer = new ObjectArrayList<>();
+
     private void flush() throws Exception {
         while (!inBuf.isEmpty()) {
             List<String> targets = dest.targets(inBuf.peek());
-            List<RemoteDownstream<RowT>> buffers = new ArrayList<>(targets.size());
+            destinationsBuffer.ensureCapacity(targets.size());
 
+            boolean ready = true;
             for (String target : targets) {
                 RemoteDownstream<RowT> buffer = nodeBuffers.get(target);
-
-                if (!buffer.ready()) {
-                    return;
-                }
-
-                buffers.add(buffer);
+                ready = ready && buffer.ready();
+                destinationsBuffer.add(buffer);
             }
 
-            assert !nullOrEmpty(buffers);
+            if (!ready) {
+                destinationsBuffer.clear();
+                return;
+            }
+
+            assert !nullOrEmpty(destinationsBuffer);
 
             RowT row = inBuf.remove();
 
-            for (RemoteDownstream<RowT> dest : buffers) {
+            for (RemoteDownstream<RowT> dest : destinationsBuffer) {
                 dest.add(row);
             }
+
+            destinationsBuffer.clear();
         }
 
         assert inBuf.isEmpty();
@@ -463,7 +472,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
         private State state = State.FILLING;
         private int lastSentBatchId = -1;
 
-        private @Nullable List<RowT> curr;
+        private List<RowT> curr;
         private int pendingCount;
 
         private RemoteDownstream(String nodeName, BatchSender<RowT> sender) {
@@ -482,7 +491,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
             state = State.FILLING;
             lastSentBatchId += pendingCount;
             pendingCount = 0;
-            curr = new ArrayList<>(IO_BATCH_SIZE);
+            curr.clear();
         }
 
         /** A handler of a requests from downstream. */
@@ -534,14 +543,13 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
             pendingCount--;
 
+            curr.clear();
             if (lastBatch) {
                 state = State.END;
-                curr = null;
                 lastSentBatchId += pendingCount;
                 pendingCount = 0;
             } else {
                 state = State.FILLING;
-                curr = new ArrayList<>(IO_BATCH_SIZE);
             }
         }
 
@@ -558,7 +566,7 @@ public class Outbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, S
 
         /** Closes this downstream and clears all acquired resources. */
         void close() {
-            curr = null;
+            curr.clear();
             state = State.END;
         }
     }

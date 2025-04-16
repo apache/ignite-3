@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.exec.rel;
 
+import java.util.List;
+
 /**
  * Represents an abstract data consumer.
  *
  * <b>Note</b>: except several cases (like consumer node and mailboxes), {@link Node#request(int)},
- * {@link Downstream#push(Object)} and {@link Downstream#end()} methods should be used from one single thread.
+ * {@link Downstream#push(List)} and {@link Downstream#end()} methods should be used from one single thread.
  */
 public interface Downstream<RowT> {
     /**
@@ -29,7 +31,12 @@ public interface Downstream<RowT> {
      *
      * @param row Data row.
      */
-    void push(RowT row) throws Exception;
+    @Deprecated
+    default void push(RowT row) throws Exception {
+        push(List.of(row));
+    }
+
+     void push(List<RowT> batch) throws Exception;
 
     /**
      * Signals that data is over.

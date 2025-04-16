@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.IN_BUFFER_SIZE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -34,14 +35,25 @@ import org.junit.jupiter.api.Test;
  * Test LimitNode execution.
  */
 public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
+
+    public int BUFFER_SIZE = IN_BUFFER_SIZE;
+
     /** Tests correct results fetched with Limit node. */
     @Test
     public void testLimit() {
-        int bufSize = IN_BUFFER_SIZE;
+        BUFFER_SIZE = 1;
 
         checkLimit(0, 1);
         checkLimit(1, 0);
         checkLimit(1, 1);
+
+        checkLimit(0, 10);
+        checkLimit(10, 0);
+        checkLimit(10, 10);
+
+        BUFFER_SIZE = IN_BUFFER_SIZE;
+        int bufSize = BUFFER_SIZE;
+
         checkLimit(0, bufSize);
         checkLimit(0, bufSize - 1);
         checkLimit(0, bufSize + 1);
@@ -58,7 +70,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
     /** Tests Sort node can limit its output when fetch param is set. */
     @Test
     public void testSortLimit() {
-        int bufSize = IN_BUFFER_SIZE;
+        int bufSize = BUFFER_SIZE;
 
         checkLimitSort(0, 1);
         checkLimitSort(1, 0);
@@ -89,7 +101,7 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
         SortNode<Object[]> sortNode = new SortNode<>(ctx, LimitExecutionTest::compareArrays, offset,
                 fetch == 0 ? -1 : fetch);
 
-        List<Object[]> data = IntStream.range(0, IN_BUFFER_SIZE + fetch + offset).boxed()
+        List<Object[]> data = IntStream.range(0, BUFFER_SIZE + fetch + offset).boxed()
                 .map(i -> new Object[] {i}).collect(Collectors.toList());
         Collections.shuffle(data);
 
@@ -114,11 +126,12 @@ public class LimitExecutionTest extends AbstractExecutionTest<Object[]> {
      * @param fetch Fetch rows count (zero means unlimited).
      */
     private void checkLimit(int offset, int fetch) {
-        ExecutionContext<Object[]> ctx = executionContext(true);
+        System.out.println("checkLimit: offset=" + offset + ", fetch=" + fetch);
+        ExecutionContext<Object[]> ctx = executionContext(BUFFER_SIZE);
 
         RootNode<Object[]> rootNode = new RootNode<>(ctx);
         LimitNode<Object[]> limitNode = new LimitNode<>(ctx, offset, fetch == 0 ? -1 : fetch);
-        List<Object[]> data = IntStream.range(0, IN_BUFFER_SIZE + fetch + offset).boxed()
+        List<Object[]> data = IntStream.range(0, BUFFER_SIZE + fetch + offset).boxed()
                 .map(i -> new Object[] {i}).collect(Collectors.toList());
 
         ScanNode<Object[]> srcNode = new ScanNode<>(ctx, data);

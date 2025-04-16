@@ -34,8 +34,8 @@ public class TestDownstream<T> implements Downstream<T> {
     private final CompletableFuture<List<T>> completion = new CompletableFuture<>();
 
     @Override
-    public void push(T row) {
-        rows.add(row);
+    public void push(List<T> batch) {
+        rows.addAll(batch);
     }
 
     @Override

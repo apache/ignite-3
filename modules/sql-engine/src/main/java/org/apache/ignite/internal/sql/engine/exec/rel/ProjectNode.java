@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import java.util.List;
 import java.util.function.Function;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
@@ -59,10 +60,15 @@ public class ProjectNode<RowT> extends AbstractNode<RowT> implements SingleNode<
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
 
-        downstream().push(prj.apply(row));
+        // TODO: IGNITE-249023: Verify if it is safe to modify the batch in place.
+        for (int i = 0; i < batch.size(); i++) {
+            batch.set(i, prj.apply(batch.get(i)));
+        }
+
+        downstream().push(batch);
     }
 
     /** {@inheritDoc} */

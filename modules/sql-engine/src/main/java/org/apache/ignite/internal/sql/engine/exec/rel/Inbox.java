@@ -244,15 +244,15 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
             }
         }
 
-        int processed = 0;
         inLoop = true;
         try {
+            List<RowT> batch = allocateBatch();
             loop:
             while (requested > 0 && !heap.isEmpty()) {
                 RemoteSource<RowT> source = heap.poll().right;
 
                 requested--;
-                downstream().push(source.remove());
+                batch.add(source.remove());
 
                 State state = source.check();
 
@@ -270,14 +270,19 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                     default:
                         throw unexpected(state);
                 }
+            }
 
-                if (processed++ >= inBufSize) {
-                    // Allow others to do their job.
-                    execute(this::push);
+            if (!batch.isEmpty()) {
+                downstream().push(batch);
+
+                if (requested > 0 && !heap.isEmpty()) {
+                    execute(this::pushOrdered);
+                    releaseBatch(batch);
 
                     return;
                 }
             }
+            releaseBatch(batch);
         } finally {
             inLoop = false;
         }
@@ -296,9 +301,9 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
         int idx = 0;
         int noProgress = 0;
 
-        int processed = 0;
         inLoop = true;
         try {
+            List<RowT> batch = allocateBatch();
             while (requested > 0 && !remoteSources.isEmpty()) {
                 RemoteSource<RowT> source = remoteSources.get(idx);
 
@@ -310,7 +315,7 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                     case READY:
                         noProgress = 0;
                         requested--;
-                        downstream().push(source.remove());
+                        batch.add(source.remove());
 
                         break;
                     case WAITING:
@@ -329,14 +334,19 @@ public class Inbox<RowT> extends AbstractNode<RowT> implements Mailbox<RowT>, Si
                 if (idx == remoteSources.size()) {
                     idx = 0;
                 }
+            }
 
-                if (processed++ >= inBufSize) {
-                    // Allow others to do their job.
-                    execute(this::push);
+            if (!batch.isEmpty()) {
+                downstream().push(batch);
+
+                if (requested > 0 && !remoteSources.isEmpty()) {
+                    releaseBatch(batch);
+                    execute(this::pushUnordered);
 
                     return;
                 }
             }
+            releaseBatch(batch);
         } finally {
             inLoop = false;
         }
