@@ -16,19 +16,26 @@
  */
 
 using Apache.Ignite;
+using Microsoft.Extensions.Logging;
 
 const string envServerAddr = "IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS";
+const string envServerSslEnabled = "IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_ENABLED";
+
 string? serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
+bool serverSslEnabled = string.Equals("true", Environment.GetEnvironmentVariable(envServerSslEnabled), StringComparison.OrdinalIgnoreCase);
 
 if (string.IsNullOrWhiteSpace(serverAddr))
 {
     throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");
 }
 
-// TODO: Set up SSL as necessary.
 var clientCfg = new IgniteClientConfiguration(serverAddr)
 {
-    RetryPolicy = RetryNonePolicy.Instance // No reconnect.
+    RetryPolicy = RetryNonePolicy.Instance, // No reconnect.
+    SslStreamFactory = serverSslEnabled
+        ? new SslStreamFactory()
+        : null,
+    LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning))
 };
 
 using var client = await IgniteClient.StartAsync(clientCfg).ConfigureAwait(false);
