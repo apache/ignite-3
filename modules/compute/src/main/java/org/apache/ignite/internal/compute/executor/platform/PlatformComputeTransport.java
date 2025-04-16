@@ -41,10 +41,10 @@ public interface PlatformComputeTransport {
     boolean sslEnabled();
 
     /**
-     * Gets the external executor connection by id.
+     * Registers a single-use secret for a platform compute connection.
      *
-     * @param id Connection id.
-     * @return Compute connection.
+     * @param computeExecutorId Compute executor id.
+     * @return Future that will complete once the connection with the specified executor id is established.
      */
-    CompletableFuture<PlatformComputeConnection> getConnectionAsync(String id);
+    CompletableFuture<PlatformComputeConnection> registerComputeExecutorId(String computeExecutorId);
 }

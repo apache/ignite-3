@@ -82,8 +82,11 @@ public class DotNetComputeExecutor {
         Process proc = procEntry.getKey();
         String executorId = procEntry.getValue();
 
+        // TODO: Refactor:
+        // 1. Register a single-use ID once
+        // 2. On timeout or process crash, try again a few times.
         return transport
-                .getConnectionAsync(executorId)
+                .registerComputeExecutorId(executorId)
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .exceptionally(e -> {
                     throw handleTransportError(e, proc);
