@@ -106,11 +106,11 @@ class IntervalBasedMeasurement {
     long getSpeedOpsPerSecReadOnly() {
         MeasurementInterval interval = measurementIntervalAtomicRef.get();
 
-        long curNanoTime = interval == null || interval.endNanoTime == 0
+        long endNanoTime = interval == null || interval.endNanoTime == 0
                 ? System.nanoTime()
                 : interval.endNanoTime;
 
-        return calcSpeed(interval, curNanoTime);
+        return calcSpeed(interval, endNanoTime);
     }
 
     /**
@@ -163,11 +163,13 @@ class IntervalBasedMeasurement {
     /**
      * Gets or creates measurement interval, performs switch to new measurement by timeout.
      *
+     * @param canInit If {@code true}, {@link #measurementIntervalAtomicRef} will always be not-null when this method is finished.
+     *      If {@code false} and {@link #measurementIntervalAtomicRef} is null, this method will return null.
      * @param curNanoTime Current nano time.
      * @return Interval to use.
      */
     @Contract("true, _ -> !null")
-    private MeasurementInterval interval(boolean canInit, long curNanoTime) {
+    private @Nullable MeasurementInterval interval(boolean canInit, long curNanoTime) {
         MeasurementInterval interval;
 
         do {
@@ -266,7 +268,6 @@ class IntervalBasedMeasurement {
 
     /**
      * Gets average metric value previously reported by {@link #addMeasurementForAverageCalculation(long)}.
-     * This method may start new interval measurement or switch current.
      *
      * @return Average metric value.
      */

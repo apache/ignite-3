@@ -2160,9 +2160,9 @@ public class PersistentPageMemory implements PageMemory {
 
         checkpointUrgency.set(NOT_REQUIRED);
 
-        PagesWriteThrottlePolicy writeThrottle0 = writeThrottle;
-        if (writeThrottle0 != null) {
-            writeThrottle0.onBeginCheckpoint();
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
+        if (writeThrottle != null) {
+            writeThrottle.onBeginCheckpoint();
         }
 
         return CollectionUtils.concat(dirtyPageIds);
@@ -2193,9 +2193,9 @@ public class PersistentPageMemory implements PageMemory {
      * Checks if the Checkpoint Buffer is currently close to exhaustion.
      */
     public boolean isCpBufferOverflowThresholdExceeded() {
-        PagesWriteThrottlePolicy writeThrottle0 = writeThrottle;
-        if (writeThrottle0 != null) {
-            return writeThrottle0.isCpBufferOverflowThresholdExceeded();
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
+        if (writeThrottle != null) {
+            return writeThrottle.isCpBufferOverflowThresholdExceeded();
         }
 
         assert started;
