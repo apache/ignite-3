@@ -349,6 +349,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
 
             if (!canAssign) {
+                // Throws proper exception if assignment is not possible due to
+                // problem with dynamic parameter type inference.
+                validateInferredDynamicParameters();
+
                 String targetTypeString;
                 String sourceTypeString;
                 if (SqlTypeUtil.areCharacterSetsMismatched(
