@@ -35,6 +35,8 @@ import org.apache.ignite.internal.tostring.S;
  */
 class GroupUpdateRequest implements DisasterRecoveryRequest {
 
+    private static final int COLOCATION_BIT = 1 << 31;
+
     private final UUID operationId;
 
     /**
@@ -42,7 +44,7 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
      */
     private final int catalogVersion;
 
-    private final int zoneId;
+    private final int internalZoneId;
 
     /**
      * Map of (tableId -> setOfPartitions) to reset.
@@ -51,10 +53,16 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     private final boolean manualUpdate;
 
-    GroupUpdateRequest(UUID operationId, int catalogVersion, int zoneId, Map<Integer, Set<Integer>> partitionIds, boolean manualUpdate) {
+    private GroupUpdateRequest(
+            UUID operationId,
+            int catalogVersion,
+            int internalZoneId,
+            Map<Integer, Set<Integer>> partitionIds,
+            boolean manualUpdate
+    ) {
         this.operationId = operationId;
         this.catalogVersion = catalogVersion;
-        this.zoneId = zoneId;
+        this.internalZoneId = internalZoneId;
         this.partitionIds = Map.copyOf(partitionIds);
         this.manualUpdate = manualUpdate;
     }
@@ -66,11 +74,11 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
 
     @Override
     public int zoneId() {
-        return Math.abs(zoneId);
+        return zoneIdFromInternalZoneId(internalZoneId);
     }
 
     public int internalZoneId() {
-        return zoneId;
+        return internalZoneId;
     }
 
     @Override
@@ -90,8 +98,43 @@ class GroupUpdateRequest implements DisasterRecoveryRequest {
         return manualUpdate;
     }
 
+    /**
+     * Returns {@code true} if this request is a zone request with enabled colocation and {@code false} if this is a table request with
+     * colocation disabled.
+     */
     boolean colocationEnabled() {
-        return zoneId > 0;
+        return (internalZoneId & COLOCATION_BIT) == 0;
+    }
+
+    private static int zoneIdFromInternalZoneId(int zoneId) {
+        return zoneId & ~COLOCATION_BIT;
+    }
+
+    private static int toInternalZoneId(int zoneId, boolean colocationEnabled) {
+        return (colocationEnabled ? 0 : COLOCATION_BIT) | zoneId;
+    }
+
+    public static GroupUpdateRequest createColocationAware(
+            UUID operationId,
+            int catalogVersion,
+            int zoneId,
+            Map<Integer, Set<Integer>> partitionIds,
+            boolean manualUpdate,
+            boolean colocationEnabled
+    ) {
+        int internalZoneId = toInternalZoneId(zoneId, colocationEnabled);
+
+        return new GroupUpdateRequest(operationId, catalogVersion, internalZoneId, partitionIds, manualUpdate);
+    }
+
+    public static GroupUpdateRequest create(
+            UUID operationId,
+            int catalogVersion,
+            int zoneId,
+            Map<Integer, Set<Integer>> partitionIds,
+            boolean manualUpdate
+    ) {
+        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
     }
 
     @Override

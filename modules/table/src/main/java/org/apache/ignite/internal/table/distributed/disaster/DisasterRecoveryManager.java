@@ -430,10 +430,15 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
             partitionIds.values().forEach(ids -> checkPartitionsRange(ids, Set.of(zone)));
 
-            // Negative zone id for disabled colocation - avoiding serialization change.
-            int zoneId = colocationEnabled ? zone.id() : -zone.id();
             return processNewRequest(
-                    new GroupUpdateRequest(UUID.randomUUID(), catalog.version(), zoneId, partitionIds, manualUpdate),
+                    GroupUpdateRequest.createColocationAware(
+                            UUID.randomUUID(),
+                            catalog.version(),
+                            zone.id(),
+                            partitionIds,
+                            manualUpdate,
+                            colocationEnabled
+                    ),
                     triggerRevision
             );
         } catch (Throwable t) {

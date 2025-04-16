@@ -52,6 +52,6 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
         Map<Integer, Set<Integer>> partitionIds = readVarIntMap(in);
         boolean manualUpdate = in.readBoolean();
 
-        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
+        return GroupUpdateRequest.create(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
     }
 }
