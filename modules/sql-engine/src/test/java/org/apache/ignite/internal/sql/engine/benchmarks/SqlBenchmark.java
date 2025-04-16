@@ -75,7 +75,7 @@ public class SqlBenchmark {
 
         //noinspection ConcatenationWithEmptyString
         cluster.node("N1").initSchema(""
-                + "CREATE ZONE test_zone WITH partitions=3, storage_profiles='Default';"
+                + "CREATE ZONE test_zone (partitions 3) storage profiles ['Default'];"
                 + "CREATE TABLE t1 (id INT PRIMARY KEY, val VARCHAR(64)) ZONE test_zone");
 
         cluster.setAssignmentsProvider("T1", (partitionCount, b) -> {

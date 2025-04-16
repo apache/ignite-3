@@ -95,7 +95,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
     }
 
     private void createInMemoryTable() {
-        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " WITH STORAGE_PROFILES = '" + DEFAULT_AIMEM_PROFILE_NAME + "'");
+        executeSql("CREATE ZONE ZONE_" + TABLE_NAME + " STORAGE PROFILES ['" + DEFAULT_AIMEM_PROFILE_NAME + "']");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) ZONE ZONE_" + TABLE_NAME + " STORAGE PROFILE '"
@@ -198,7 +198,7 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
 
     private void createPersistentTable() {
         executeSql("CREATE ZONE ZONE_" + TABLE_NAME
-                + " WITH STORAGE_PROFILES = '" + DEFAULT_ROCKSDB_PROFILE_NAME + "'");
+                + " STORAGE PROFILES ['" + DEFAULT_ROCKSDB_PROFILE_NAME + "']");
 
         executeSql("CREATE TABLE " + TABLE_NAME
                 + " (k int, v int, CONSTRAINT PK PRIMARY KEY (k)) "
@@ -279,8 +279,8 @@ class ItRaftStorageVolatilityTest extends ClusterPerTestIntegrationTest {
         cluster.doInSession(0, session -> {
             session.execute(
                     null,
-                    "create zone zone1 with partitions=1, replicas=1, "
-                            + "storage_profiles = '" + DEFAULT_AIMEM_PROFILE_NAME + "'"
+                    "create zone zone1 (partitions 1, replicas 1) "
+                            + "storage profiles ['" + DEFAULT_AIMEM_PROFILE_NAME + "']"
             );
             session.execute(null, "create table " + tableName
                     + " (id int primary key, name varchar) zone ZONE1 storage profile '"

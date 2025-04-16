@@ -49,7 +49,7 @@ public class IgniteSqlCreateTable extends SqlCreate {
         public SqlCall createCall(@Nullable SqlLiteral functionQualifier, SqlParserPos pos,
                 @Nullable SqlNode... operands) {
             return new IgniteSqlCreateTable(pos, existFlag(), (SqlIdentifier) operands[0], (SqlNodeList) operands[1],
-                    (SqlNodeList) operands[2], (SqlIdentifier) operands[3], (SqlLiteral) operands[4]);
+                    (SqlNodeList) operands[2], (SqlIdentifier) operands[3], operands[4]);
         }
     }
 

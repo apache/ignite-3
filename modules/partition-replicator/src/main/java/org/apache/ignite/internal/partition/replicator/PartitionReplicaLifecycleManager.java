@@ -425,7 +425,7 @@ public class PartitionReplicaLifecycleManager extends
             catalogService.catalog(ver).zones().stream()
                     .filter(zone -> startedZones.add(zone.id()))
                     .forEach(zoneDescriptor -> startZoneFutures.add(
-                            calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor)));
+                            calculateZoneAssignmentsAndCreateReplicationNodes(recoveryRevision, ver0, zoneDescriptor, true)));
         }
 
         return allOf(startZoneFutures.toArray(CompletableFuture[]::new))
@@ -505,7 +505,8 @@ public class PartitionReplicaLifecycleManager extends
             return calculateZoneAssignmentsAndCreateReplicationNodes(
                     createZoneEventParameters.causalityToken(),
                     createZoneEventParameters.catalogVersion(),
-                    createZoneEventParameters.zoneDescriptor()
+                    createZoneEventParameters.zoneDescriptor(),
+                    false
             ).thenApply(unused -> false);
         });
     }
@@ -513,7 +514,8 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> calculateZoneAssignmentsAndCreateReplicationNodes(
             long causalityToken,
             int catalogVersion,
-            CatalogZoneDescriptor zoneDescriptor
+            CatalogZoneDescriptor zoneDescriptor,
+            boolean onNodeRecovery
     ) {
         return inBusyLockAsync(busyLock, () -> {
             int zoneId = zoneDescriptor.id();
@@ -526,7 +528,8 @@ public class PartitionReplicaLifecycleManager extends
                                     assignments,
                                     causalityToken,
                                     catalogVersion,
-                                    zoneDescriptor.partitions()
+                                    zoneDescriptor.partitions(),
+                                    onNodeRecovery
                             )
                     );
         });
@@ -537,39 +540,49 @@ public class PartitionReplicaLifecycleManager extends
             List<Assignments> assignments,
             long causalityToken,
             int catalogVersion,
-            int partitionCount
+            int partitionCount,
+            boolean onNodeRecovery
     ) {
         assert assignments != null : IgniteStringFormatter.format("Zone has empty assignments [id={}].", zoneId);
+
+        Supplier<CompletableFuture<Void>> createZoneReplicationNodes = () -> inBusyLockAsync(busyLock, () -> {
+            var partitionsStartFutures = new CompletableFuture<?>[assignments.size()];
+
+            for (int partId = 0; partId < assignments.size(); partId++) {
+                Assignments zoneAssignment = assignments.get(partId);
+
+                Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
+
+                var zonePartitionId = new ZonePartitionId(zoneId, partId);
+
+                partitionsStartFutures[partId] = createZonePartitionReplicationNode(
+                        zonePartitionId,
+                        localMemberAssignment,
+                        zoneAssignment,
+                        causalityToken,
+                        partitionCount,
+                        isVolatileZoneForCatalogVersion(zoneId, catalogVersion),
+                        !onNodeRecovery
+                );
+            }
+
+            return allOf(partitionsStartFutures);
+        });
 
         // Zone nodes might be created in the same catalog version as a table in this zone, so there could be a race
         // between storage creation due to replica start and storage creation due to table addition. To eliminate the race,
         // we acquire a write lock on the zone (table addition acquires a read lock).
-        return inBusyLockAsync(busyLock, () -> executeUnderZoneWriteLock(zoneId,
-                () -> inBusyLockAsync(busyLock, () -> {
 
-                    var partitionsStartFutures = new CompletableFuture<?>[assignments.size()];
-
-                    for (int partId = 0; partId < assignments.size(); partId++) {
-                        Assignments zoneAssignment = assignments.get(partId);
-
-                        Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
-
-                        var zonePartitionId = new ZonePartitionId(zoneId, partId);
-
-                        partitionsStartFutures[partId] = createZonePartitionReplicationNode(
-                                zonePartitionId,
-                                localMemberAssignment,
-                                zoneAssignment,
-                                causalityToken,
-                                partitionCount,
-                                isVolatileZoneForCatalogVersion(zoneId, catalogVersion),
-                                true
-                        );
-                    }
-
-                    return allOf(partitionsStartFutures);
-                })
-        ));
+        // The mutual exclusion mechanism described above is used during normal functioning (i.e. not during node recovery).
+        // On node recovery, there is another mechanism that guarantees mutual exclusion between replica starts and table additions:
+        // namely, TableManager makes sure that it starts all tables before it allows the replicas to initiate their starts.
+        // That's why during node recovery we DON'T acquire write locks for zones here: that would create a deadlock with the mechanism
+        // in TableManager.
+        if (onNodeRecovery) {
+            return createZoneReplicationNodes.get();
+        } else {
+            return inBusyLockAsync(busyLock, () -> executeUnderZoneWriteLock(zoneId, createZoneReplicationNodes));
+        }
     }
 
     private boolean isVolatileZoneForCatalogVersion(int zoneId, int catalogVersion) {
@@ -1026,7 +1039,7 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> handleChangeStableAssignmentEvent(
             Entry stableAssignmentsWatchEvent,
             long revision,
-            boolean isRecovery
+            boolean onNodeRecovery
     ) {
         ZonePartitionId zonePartitionId = extractZonePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
@@ -1047,7 +1060,7 @@ public class PartitionReplicaLifecycleManager extends
                     zonePartitionId,
                     stableAssignments,
                     pendingAssignments,
-                    isRecovery,
+                    onNodeRecovery,
                     revision
             );
         }, ioExecutor).thenCompose(identity());
@@ -1080,10 +1093,10 @@ public class PartitionReplicaLifecycleManager extends
             ZonePartitionId zonePartitionId,
             Set<Assignment> stableAssignments,
             Assignments pendingAssignments,
-            boolean isRecovery,
+            boolean onNodeRecovery,
             long revision
     ) {
-        CompletableFuture<Void> clientUpdateFuture = isRecovery
+        CompletableFuture<Void> clientUpdateFuture = onNodeRecovery
                 // Updating clients is not needed on recovery.
                 ? nullCompletedFuture()
                 : updatePartitionClients(zonePartitionId, stableAssignments, pendingAssignments.nodes());
@@ -1578,9 +1591,11 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param zonePartitionId Zone partition id.
      * @param tableId Table's identifier.
+     *
+     * @return A future that gets completed after all resources have been unloaded.
      */
-    public void unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
-        zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
+    public CompletableFuture<Void> unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
+        return zoneResourcesManager.removeTableResources(zonePartitionId, tableId);
     }
 
     /**

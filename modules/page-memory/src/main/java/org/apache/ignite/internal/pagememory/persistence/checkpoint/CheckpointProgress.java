@@ -68,6 +68,16 @@ public interface CheckpointProgress {
     AtomicInteger evictedPagesCounter();
 
     /**
+     * Returns time it took from the start of checkpoint to the moment when all pages have been written.
+     */
+    long getPagesWriteTimeMillis();
+
+    /**
+     * Returns time it took to sync all updated pages.
+     */
+    long getFsyncTimeMillis();
+
+    /**
      * Returns a number of written checkpoint pages.
      */
     int writtenPages();

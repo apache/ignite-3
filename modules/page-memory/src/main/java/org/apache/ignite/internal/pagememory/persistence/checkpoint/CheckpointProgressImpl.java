@@ -81,6 +81,12 @@ class CheckpointProgressImpl implements CheckpointProgress {
     /** Assistant for synchronizing page replacement and fsync phase. */
     private final CheckpointPageReplacement checkpointPageReplacement = new CheckpointPageReplacement();
 
+    /** Time it took from the start of checkpoint to the moment when all pages have been written. */
+    private long pagesWriteTimeMillis;
+
+    /** Time it took to sync all updated pages. */
+    private long fsyncTimeMillis;
+
     /**
      * Constructor.
      *
@@ -159,6 +165,24 @@ class CheckpointProgressImpl implements CheckpointProgress {
     @Override
     public AtomicInteger evictedPagesCounter() {
         return evictedPagesCntr;
+    }
+
+    @Override
+    public long getPagesWriteTimeMillis() {
+        return pagesWriteTimeMillis;
+    }
+
+    void setPagesWriteTimeMillis(long pagesWriteTimeMillis) {
+        this.pagesWriteTimeMillis = pagesWriteTimeMillis;
+    }
+
+    @Override
+    public long getFsyncTimeMillis() {
+        return fsyncTimeMillis;
+    }
+
+    void setFsyncTimeMillis(long fsyncTimeMillis) {
+        this.fsyncTimeMillis = fsyncTimeMillis;
     }
 
     /**

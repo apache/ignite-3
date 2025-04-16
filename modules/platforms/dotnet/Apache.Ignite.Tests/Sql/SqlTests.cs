@@ -556,13 +556,11 @@ namespace Apache.Ignite.Tests.Sql
                 {
                     await using var resultSet = await client.Sql.ExecuteAsync(null, statement with { TimeZoneId = zoneId });
 
-                    var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
+                    var resTime = (Instant)(await resultSet.SingleAsync())[0]!;
 
-                    var currentTimeInZone = SystemClock.Instance.GetCurrentInstant()
-                        .InZone(zoneProvider[zoneId])
-                        .LocalDateTime;
+                    var currentTimeInZone = SystemClock.Instance.GetCurrentInstant();
 
-                    AssertLocalDateTimeSimilar(currentTimeInZone, resTime, zoneId);
+                    AssertInstantSimilar(currentTimeInZone, resTime, zoneId);
                 }
                 catch (Exception e)
                 {
@@ -585,21 +583,19 @@ namespace Apache.Ignite.Tests.Sql
         {
             var statement = new SqlStatement("SELECT CURRENT_TIMESTAMP", timeZoneId: $"UTC+{offset}");
             await using var resultSet = await Client.Sql.ExecuteAsync(null, statement);
-            var resTime = (LocalDateTime)(await resultSet.SingleAsync())[0]!;
+            var resTime = (Instant)(await resultSet.SingleAsync())[0]!;
 
-            var expectedTime = SystemClock.Instance.GetCurrentInstant()
-                .InZone(DateTimeZone.ForOffset(Offset.FromHours(offset)))
-                .LocalDateTime;
+            var expectedTime = SystemClock.Instance.GetCurrentInstant();
 
-            AssertLocalDateTimeSimilar(expectedTime, resTime, $"Offset: {offset}");
+            AssertInstantSimilar(expectedTime, resTime, $"Offset: {offset}");
         }
 
-        private static void AssertLocalDateTimeSimilar(LocalDateTime expected, LocalDateTime actual, string message)
+        private static void AssertInstantSimilar(Instant expected, Instant actual, string message)
         {
             double deltaSeconds = 10;
 
-            var expectedSeconds = ToUnixTimeSeconds(expected);
-            var actualSeconds = ToUnixTimeSeconds(actual);
+            var expectedSeconds = expected.ToUnixTimeSeconds();
+            var actualSeconds = actual.ToUnixTimeSeconds();
             var diff = Math.Abs(expectedSeconds - actualSeconds);
 
             if (diff > deltaSeconds)
@@ -607,9 +603,6 @@ namespace Apache.Ignite.Tests.Sql
                 throw new InvalidOperationException(
                     $"Expected: {expectedSeconds}, actual: {actualSeconds}, diff: {diff / 3600} hours ({message})");
             }
-
-            static double ToUnixTimeSeconds(LocalDateTime localDateTime) =>
-                new DateTimeOffset(localDateTime.ToDateTimeUnspecified()).ToUnixTimeSeconds();
         }
     }
 }

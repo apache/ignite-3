@@ -1220,8 +1220,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         metricMessaging = new MetricMessaging(metricManager, clusterSvc.messagingService(), clusterSvc.topologyService());

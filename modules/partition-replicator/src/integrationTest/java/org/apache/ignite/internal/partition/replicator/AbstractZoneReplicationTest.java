@@ -102,7 +102,7 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
     private static StorageConfiguration storageConfiguration;
 
     @InjectConfiguration
-    private static GcConfiguration gcConfiguration;
+    GcConfiguration gcConfiguration;
 
     @InjectConfiguration
     private SqlLocalConfiguration sqlLocalConfiguration;

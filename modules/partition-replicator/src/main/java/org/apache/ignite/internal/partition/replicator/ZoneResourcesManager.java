@@ -178,15 +178,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
         });
     }
 
-    void removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
+    CompletableFuture<Void> removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
 
-        resources.replicaListenerFuture()
-                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaProcessor(tableId));
+        return resources.replicaListenerFuture
+                .thenCompose(zoneReplicaListener -> {
+                    zoneReplicaListener.removeTableReplicaProcessor(tableId);
 
-        resources.raftListener().removeTableProcessor(tableId);
+                    resources.raftListener().removeTableProcessor(tableId);
 
-        resources.snapshotStorage().removeMvPartition(tableId);
+                    return resources.snapshotStorage().removeMvPartition(tableId);
+                });
     }
 
     @TestOnly
