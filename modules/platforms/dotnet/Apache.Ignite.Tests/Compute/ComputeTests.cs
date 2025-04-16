@@ -192,8 +192,8 @@ namespace Apache.Ignite.Tests.Compute
                 ex.InnerException!.Message);
 
             Assert.AreEqual(ErrorGroups.Table.ColumnNotFound, ex.Code);
-            Assert.AreEqual("IGN-TBL-3", ex.CodeAsString);
-            Assert.AreEqual(3, ex.ErrorCode);
+            Assert.AreEqual("IGN-TBL-4", ex.CodeAsString);
+            Assert.AreEqual(4, ex.ErrorCode);
             Assert.AreEqual("TBL", ex.GroupName);
         }
 
