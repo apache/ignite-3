@@ -29,6 +29,7 @@ import org.apache.calcite.sql.SqlFunctionCategory;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlOperatorBinding;
+import org.apache.calcite.sql.fun.SqlAbstractTimeFunction;
 import org.apache.calcite.sql.fun.SqlInternalOperators;
 import org.apache.calcite.sql.fun.SqlLibraryOperators;
 import org.apache.calcite.sql.fun.SqlMinMaxAggFunction;
@@ -441,6 +442,12 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     public static final SqlAggFunction SOME =
             new SqlMinMaxAggFunction("SOME", SqlKind.MAX, OperandTypes.BOOLEAN.and(NOT_CUSTOM_TYPE));
 
+    /**
+     * The <code>CURRENT_TIMESTAMP [(<i>precision</i>)]</code> function.
+     */
+    public static final SqlFunction CURRENT_TIMESTAMP =
+            new SqlAbstractTimeFunction("CURRENT_TIMESTAMP", SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {};
+
     /** Singleton instance. */
     public static final IgniteSqlOperatorTable INSTANCE = new IgniteSqlOperatorTable();
 
@@ -725,8 +732,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
         definedOperatorsBuilder.add(SqlInternalOperators.LITERAL_AGG);
 
         // Current time functions.
-        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_TIME);
-        definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_TIMESTAMP);
+        definedOperatorsBuilder.add(CURRENT_TIMESTAMP);
         definedOperatorsBuilder.add(SqlStdOperatorTable.CURRENT_DATE);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIME);
         definedOperatorsBuilder.add(SqlStdOperatorTable.LOCALTIMESTAMP);

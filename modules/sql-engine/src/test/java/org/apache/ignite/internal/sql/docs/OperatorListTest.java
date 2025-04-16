@@ -242,8 +242,7 @@ public class OperatorListTest extends BaseIgniteAbstractTest {
                 .sig("(<timestamp with local time zone>, <string>)");
 
         // Current time functions.
-        ops.add(SqlStdOperatorTable.CURRENT_TIME);
-        ops.add(SqlStdOperatorTable.CURRENT_TIMESTAMP);
+        ops.add(IgniteSqlOperatorTable.CURRENT_TIMESTAMP);
         ops.add(SqlStdOperatorTable.CURRENT_DATE);
         ops.add(SqlStdOperatorTable.LOCALTIME);
         ops.add(SqlStdOperatorTable.LOCALTIMESTAMP);
