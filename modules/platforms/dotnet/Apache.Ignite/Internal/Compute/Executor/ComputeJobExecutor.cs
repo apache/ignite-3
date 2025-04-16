@@ -65,10 +65,10 @@ internal static class ComputeJobExecutor
             {
                 try
                 {
-                    // TODO: Send error to the server.
                     using var errResponseBuf = ProtoCommon.GetMessageWriter();
-
                     WriteError(errResponseBuf.MessageWriter, jobEx);
+
+                    await socket.SendServerOpResponseAsync(requestId, errResponseBuf).ConfigureAwait(false);
                 }
                 catch (Exception resultSendEx)
                 {
@@ -103,13 +103,19 @@ internal static class ComputeJobExecutor
         static void WriteError(MsgPackWriter w, Exception e)
         {
             var igniteEx = e as IgniteException;
+
             Guid traceId = igniteEx?.TraceId ?? Guid.NewGuid();
             int code = igniteEx?.ErrorCode ?? ErrorGroups.Compute.ComputeJobFailed;
             string className = e.GetType().ToString();
             string message = e.Message;
             string? stackTrace = e.StackTrace;
 
-            // TODO
+            w.Write((int)ServerOpResponseFlags.Error);
+            w.Write(traceId);
+            w.Write(code);
+            w.Write(className);
+            w.Write(message);
+            w.Write(stackTrace);
         }
     }
 
