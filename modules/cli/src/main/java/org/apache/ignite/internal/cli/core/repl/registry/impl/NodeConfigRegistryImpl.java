@@ -20,11 +20,14 @@ package org.apache.ignite.internal.cli.core.repl.registry.impl;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import jakarta.inject.Singleton;
+import org.apache.ignite.internal.cli.call.configuration.JsonString;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigShowCallInput;
+import org.apache.ignite.internal.cli.core.call.DefaultCallOutput;
 import org.apache.ignite.internal.cli.core.repl.SessionInfo;
 import org.apache.ignite.internal.cli.core.repl.registry.NodeConfigRegistry;
 import org.apache.ignite.internal.cli.event.ConnectionEventListener;
+import org.jetbrains.annotations.Nullable;
 
 /** Implementation of {@link NodeConfigRegistry}. */
 @Singleton
@@ -32,6 +35,7 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEve
 
     private final NodeConfigShowCall nodeConfigShowCall;
 
+    @Nullable
     private LazyObjectRef<Config> configRef;
 
     public NodeConfigRegistryImpl(NodeConfigShowCall nodeConfigShowCall) {
@@ -43,12 +47,16 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEve
         configRef = new LazyObjectRef<>(() -> fetchConfig(sessionInfo));
     }
 
+    @Nullable
     private Config fetchConfig(SessionInfo sessionInfo) {
-        return ConfigFactory.parseString(
-                nodeConfigShowCall.execute(
-                        // todo https://issues.apache.org/jira/browse/IGNITE-17416
-                        NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
-                ).body().getValue());
+        DefaultCallOutput<JsonString> result = nodeConfigShowCall.execute(
+                // todo https://issues.apache.org/jira/browse/IGNITE-17416
+                NodeConfigShowCallInput.builder().nodeUrl(sessionInfo.nodeUrl()).build()
+        );
+        if (result.hasError()) {
+            return null;
+        }
+        return ConfigFactory.parseString(result.body().getValue());
     }
 
     @Override
@@ -56,7 +64,7 @@ public class NodeConfigRegistryImpl implements NodeConfigRegistry, ConnectionEve
         configRef = null;
     }
 
-    /** {@inheritDoc} */
+    @Nullable
     @Override
     public Config config() {
         return configRef == null ? null : configRef.get();
