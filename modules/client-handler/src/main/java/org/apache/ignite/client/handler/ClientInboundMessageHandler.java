@@ -643,35 +643,6 @@ public class ClientInboundMessageHandler
         }
     }
 
-    private Throwable readErrorFromClient(long requestId, ClientMessageUnpacker r) {
-        UUID traceId = r.tryUnpackNil() ? null : r.unpackUuid();
-        Integer code = r.tryUnpackNil() ? null : r.unpackInt();
-        String className = r.unpackString();
-        String message = r.unpackStringNullable();
-        String stackTrace = r.unpackStringNullable();
-
-        int extCount = r.unpackInt();
-        for (int i = 0; i < extCount; i++) {
-            String extName = r.unpackString();
-
-            LOG.warn("Ignoring unknown error extension from client: " + extName);
-            LOG.warn("Ignoring unknown error extension from client [id=" + requestId
-                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
-                    + ", key=" + extName + ']');
-
-            r.skipValues(1);
-        }
-
-        traceId = traceId == null ? UUID.randomUUID() : traceId;
-        code = code == null ? INTERNAL_ERR : code;
-        String messageExt = "Client-side error: " + message;
-
-        // Nest details to mix platform-specific and Java-side stack traces.
-        Throwable cause = new RuntimeException(className + ": " + message + System.lineSeparator() + stackTrace);
-
-        return new IgniteException(traceId, code, messageExt, cause);
-    }
-
     private static ClientMessagePacker getPacker(ByteBufAllocator alloc) {
         // Outgoing messages are released on write.
         return new ClientMessagePacker(alloc.buffer());
@@ -1302,5 +1273,33 @@ public class ClientInboundMessageHandler
                     + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
                     + ", message=" + t.getMessage() + ']', t);
         }
+    }
+
+    private Throwable readErrorFromClient(long requestId, ClientMessageUnpacker r) {
+        UUID traceId = r.tryUnpackNil() ? null : r.unpackUuid();
+        Integer code = r.tryUnpackNil() ? null : r.unpackInt();
+        String className = r.unpackString();
+        String message = r.unpackStringNullable();
+        String stackTrace = r.unpackStringNullable();
+
+        int extCount = r.unpackInt();
+        for (int i = 0; i < extCount; i++) {
+            String extName = r.unpackString();
+
+            LOG.warn("Ignoring unknown error extension from client [id=" + requestId
+                    + ", connectionId=" + connectionId + ", remoteAddress=" + channelHandlerContext.channel().remoteAddress()
+                    + ", key=" + extName + ']');
+
+            r.skipValues(1);
+        }
+
+        traceId = traceId == null ? UUID.randomUUID() : traceId;
+        code = code == null ? INTERNAL_ERR : code;
+        String messageExt = "Client-side error: " + message;
+
+        // Nest details to mix platform-specific and Java-side stack traces.
+        Throwable cause = new RuntimeException(className + ": " + message + System.lineSeparator() + stackTrace);
+
+        return new IgniteException(traceId, code, messageExt, cause);
     }
 }
