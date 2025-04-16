@@ -85,6 +85,7 @@ public class DotNetComputeExecutor {
         // TODO: Refactor:
         // 1. Register a single-use ID once
         // 2. On timeout or process crash, try again a few times.
+        // 3. In handshake, validate executor id against registered ids, and remove immediately (single use).
         return transport
                 .registerComputeExecutorId(executorId)
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
