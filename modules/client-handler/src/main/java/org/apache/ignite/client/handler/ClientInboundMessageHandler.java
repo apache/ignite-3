@@ -643,7 +643,7 @@ public class ClientInboundMessageHandler
         }
     }
 
-    private Throwable readErrorFromClient(ClientMessageUnpacker r, long requestId) {
+    private Throwable readErrorFromClient(long requestId, ClientMessageUnpacker r) {
         UUID traceId = r.tryUnpackNil() ? null : r.unpackUuid();
         Integer code = r.tryUnpackNil() ? null : r.unpackInt();
         String className = r.unpackString();
@@ -1289,12 +1289,10 @@ public class ClientInboundMessageHandler
             boolean error = ServerOpResponseFlags.getErrorFlag(flags);
 
             if (!error) {
-                // No error.
                 fut.complete(in);
             } else {
-                // Error.
-                // TODO: Deserialize.
-                fut.completeExceptionally(new IllegalStateException("TODO: Client returned error"));
+                Throwable err = readErrorFromClient(requestId, in);
+                fut.completeExceptionally(err);
             }
         } catch (Throwable t) {
             LOG.warn("Unexpected error while processing SERVER_OP_RESPONSE [id=" + requestId
