@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Buffers;
+using Microsoft.Extensions.Logging;
 using Proto;
 using Proto.MsgPack;
 
@@ -41,15 +42,18 @@ internal static class ComputeJobExecutor
     /// <param name="requestId">Request id.</param>
     /// <param name="request">Request.</param>
     /// <param name="socket">Socket.</param>
+    /// <param name="logger">Logger.</param>
     /// <returns>Task.</returns>
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
-    internal static async Task ExecuteJobAsync(long requestId, PooledBuffer request, ClientSocket socket)
+    internal static async Task ExecuteJobAsync(long requestId, PooledBuffer request, ClientSocket socket, ILogger logger)
     {
         using (request)
         {
+            JobExecuteRequest? jobReq = null;
+
             try
             {
-                var jobReq = Read(request.GetReader());
+                jobReq = Read(request.GetReader());
                 var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
 
                 using var responseBuf = ProtoCommon.GetMessageWriter();
@@ -59,17 +63,14 @@ internal static class ComputeJobExecutor
             }
             catch (Exception jobEx)
             {
-                // TODO: Log error.
-                Console.WriteLine(jobEx);
-
                 try
                 {
                     // TODO: Send error to the server.
                 }
                 catch (Exception resultSendEx)
                 {
-                    // TODO: Log failed to reply with error.
-                    Console.WriteLine(resultSendEx.Message);
+                    var aggregateEx = new AggregateException(jobEx, resultSendEx);
+                    logger.LogComputeJobResponseError(aggregateEx, requestId, jobEx.Message, jobReq?.JobClassName);
                 }
             }
         }

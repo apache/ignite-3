@@ -205,4 +205,11 @@ internal static partial class LogMessages
         EventId = 1027)]
     internal static partial void LogReceivedResponseTrace(
         this ILogger logger, long requestId, ResponseFlags flags, EndPoint remoteAddress);
+
+    [LoggerMessage(
+        Message = "Failed to send platform compute job response [requestId={RequestId}, message={Message}, jobClassName={JobClassName}]",
+        Level = LogLevel.Error,
+        EventId = 1028)]
+    internal static partial void LogComputeJobResponseError(
+        this ILogger logger, Exception e, long requestId, string message, string? jobClassName);
 }

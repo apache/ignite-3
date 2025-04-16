@@ -956,7 +956,7 @@ namespace Apache.Ignite.Internal
                 callBack: static state =>
                 {
                     // Ignore the returned task.
-                    _ = ComputeJobExecutor.ExecuteJobAsync(state.JobId, state.Buf, state.Socket);
+                    _ = ComputeJobExecutor.ExecuteJobAsync(state.JobId, state.Buf, state.Socket, state.Socket._logger);
                 },
                 state: (this, request, requestId),
                 preferLocal: true);
