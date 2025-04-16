@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.sql;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
@@ -142,7 +143,62 @@ public class ParserServiceImplTest {
             assertThat(parsedTree, notNullValue());
             assertThat(parsedTree.toString(), equalTo(singleStatementResult.parsedTree().toString()));
             assertThat(result.normalizedQuery(), equalTo(singleStatementResult.normalizedQuery()));
-            assertThat(result.originalQuery(), equalTo(singleStatementResult.normalizedQuery()));
+            assertThat(result.originalQuery(), containsString(singleStatementResult.originalQuery()));
+        }
+    }
+
+    @Test
+    void originalQueryMatchesTheWayItIsSpecifiedInScript() {
+        ParserService service = new ParserServiceImpl();
+
+        @SuppressWarnings("ConcatenationWithEmptyString")
+        String script = ""
+                + "-- simple comment before first statement \n"
+                + "seLECT * FROM Table_1; -- simple comment after first\n"
+                + "/* multiline\n"
+                + "comment\n"
+                + "before second */ \n"
+                + "select /*+ USE_INDEX(table_2_idx)*/ Table_2.* \n"
+                + "  FROM table_2; /* multiline\n"
+                + "comment"
+                + "after second */";
+
+        List<ParsedResult> results = service.parseScript(script);
+
+        for (ParsedResult result : results) {
+            assertThat(
+                    script,
+                    containsString(result.originalQuery())
+            );
+        }
+
+        assertThat(
+                results.get(0).originalQuery(),
+                is("seLECT * FROM Table_1;")
+        );
+        assertThat(
+                results.get(1).originalQuery(),
+                is("select /*+ USE_INDEX(table_2_idx)*/ Table_2.* \n"
+                        + "  FROM table_2;")
+        );
+    }
+
+    @Test
+    void lackOfLastSemicolonDoesntCauseProblem() {
+        ParserService service = new ParserServiceImpl();
+
+        @SuppressWarnings("ConcatenationWithEmptyString")
+        String script = ""
+                + "SELECT * FROM table_1;\n"
+                + "SELECT * FROM table_2";
+
+        List<ParsedResult> results = service.parseScript(script);
+
+        for (ParsedResult result : results) {
+            assertThat(
+                    script,
+                    containsString(result.originalQuery())
+            );
         }
     }
 }

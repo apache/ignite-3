@@ -236,8 +236,6 @@ public class ClientInboundMessageHandler
 
     private final Map<HandshakeExtension, Object> extensions;
 
-    private final Executor commonExecutor;
-
     private final Map<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
     private final Consumer<ClientInboundMessageHandler> onHandshake;
@@ -267,7 +265,6 @@ public class ClientInboundMessageHandler
      * @param partitionOperationsExecutor Partition operations executor.
      * @param features Features.
      * @param extensions Extensions.
-     * @param commonExecutor Common executor used by SQL script handler.
      */
     public ClientInboundMessageHandler(
             IgniteTablesInternal igniteTables,
@@ -287,7 +284,6 @@ public class ClientInboundMessageHandler
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Executor commonExecutor,
             Consumer<ClientInboundMessageHandler> onHandshake,
             Consumer<ClientInboundMessageHandler> onDisconnect
     ) {
@@ -336,8 +332,6 @@ public class ClientInboundMessageHandler
 
         this.features = features;
         this.extensions = extensions;
-
-        this.commonExecutor = commonExecutor;
 
         this.onHandshake = onHandshake;
         this.onDisconnect = onDisconnect;
@@ -903,7 +897,9 @@ public class ClientInboundMessageHandler
                 return ClientClusterGetNodesRequest.process(out, clusterService);
 
             case ClientOp.SQL_EXEC:
-                return ClientSqlExecuteRequest.process(in, out, requestId, cancelHandles, queryProcessor, resources, metrics);
+                return ClientSqlExecuteRequest.process(
+                        partitionOperationsExecutor, in, out, requestId, cancelHandles, queryProcessor, resources, metrics
+                );
 
             case ClientOp.SQL_CANCEL_EXEC:
                 return ClientSqlCancelRequest.process(in, out, cancelHandles);
@@ -921,13 +917,19 @@ public class ClientInboundMessageHandler
                 return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
-                return ClientSqlExecuteScriptRequest.process(in, out, queryProcessor, commonExecutor, requestId, cancelHandles);
+                return ClientSqlExecuteScriptRequest.process(
+                        partitionOperationsExecutor, in, out, queryProcessor, requestId, cancelHandles
+                );
 
             case ClientOp.SQL_QUERY_META:
-                return ClientSqlQueryMetadataRequest.process(in, out, queryProcessor, resources);
+                return ClientSqlQueryMetadataRequest.process(
+                        partitionOperationsExecutor, in, out, queryProcessor, resources
+                );
 
             case ClientOp.SQL_EXEC_BATCH:
-                return ClientSqlExecuteBatchRequest.process(in, out, queryProcessor, resources);
+                return ClientSqlExecuteBatchRequest.process(
+                        partitionOperationsExecutor, in, out, queryProcessor, resources
+                );
 
             case ClientOp.STREAMER_BATCH_SEND:
                 return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
@@ -965,6 +967,13 @@ public class ClientInboundMessageHandler
                 || opCode == ClientOp.TUPLE_GET_AND_DELETE
                 || opCode == ClientOp.TUPLE_CONTAINS_KEY
                 || opCode == ClientOp.STREAMER_BATCH_SEND;
+
+                // Sql-related operation must do some bookkeeping first on the client's thread to avoid races
+                // (for instance, cancellation must not be processed until execution request is registered).
+                // || opCode == ClientOp.SQL_EXEC
+                // || opCode == ClientOp.SQL_EXEC_BATCH
+                // || opCode == ClientOp.SQL_EXEC_SCRIPT
+                // || opCode == ClientOp.SQL_QUERY_META;
 
                 // TODO: IGNITE-23641 The batch operations were excluded because fast switching leads to performance degradation for them.
                 // || opCode == ClientOp.TUPLE_UPSERT_ALL

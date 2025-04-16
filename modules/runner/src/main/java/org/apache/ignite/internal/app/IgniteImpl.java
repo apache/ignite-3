@@ -1222,8 +1222,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
-                threadPoolsManager.partitionOperationsExecutor(),
-                threadPoolsManager.commonScheduler()
+                threadPoolsManager.partitionOperationsExecutor()
         );
 
         computeExecutor.setPlatformComputeTransport(clientHandlerModule);

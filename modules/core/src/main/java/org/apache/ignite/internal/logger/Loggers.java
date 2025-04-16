@@ -19,7 +19,7 @@ package org.apache.ignite.internal.logger;
 
 import java.lang.System.Logger;
 import java.util.Objects;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import org.apache.ignite.lang.LoggerFactory;
 
 /**
@@ -93,7 +93,7 @@ public final class Loggers {
      * @param logger Logger.
      * @param executor Executor for cleaning internal structures.
      */
-    public static IgniteThrottledLogger toThrottledLogger(IgniteLogger logger, ExecutorService executor) {
+    public static IgniteThrottledLogger toThrottledLogger(IgniteLogger logger, Executor executor) {
         assert logger instanceof IgniteLoggerImpl : logger;
 
         return new IgniteThrottledLoggerImpl(((IgniteLoggerImpl) logger).delegate, executor);

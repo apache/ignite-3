@@ -27,13 +27,14 @@ data: {
     # List of additional classes and packages to import.
     # Example: "org.apache.calcite.sql.*", "java.util.List".
     imports: [
+      "org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum",
       "org.apache.calcite.sql.SqlCreate",
       "org.apache.calcite.sql.SqlDrop",
       "org.apache.calcite.sql.SqlDdl",
       "org.apache.calcite.sql.SqlLiteral",
       "org.apache.calcite.schema.ColumnStrategy",
-      "org.apache.calcite.sql.ddl.SqlDdlNodes",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlParserUtil",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlColumnDeclaration",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
@@ -61,23 +62,33 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlKillObjectType",
-      "org.apache.ignite.internal.sql.engine.type.UuidType",
       "org.apache.ignite.internal.sql.engine.util.IgniteResource",
     ]
 
     # List of new keywords. Example: "DATABASES", "TABLES". If the keyword is
     # not a reserved keyword, add it to the 'nonReservedKeywords' section.
     keywords: [
+      "AUTO"
+      "DOWN"
+      "PARTITIONS"
+      "REPLICAS"
+      "DISTRIBUTION"
+      "ALGORITHM"
+      "NODES"
+      "ADJUST"
+      "CONSISTENCY"
+      "MODE"
       "COLOCATE"
       "STORAGE"
       "PROFILE"
+      "PROFILES"
       "IF"
       "INDEX"
       "ENGINE"
       "SORTED"
       "HASH"
       "RENAME"
-      "UUID"
+      "UP"
       "KILL"
       "QUERY"
       "COMPUTE"
@@ -88,12 +99,23 @@ data: {
     # items in this list become non-reserved.
     nonReservedKeywordsToAdd: [
       # Keywords introduced by Ignite
+      "AUTO"
+      "DOWN"
+      "PARTITIONS"
+      "REPLICAS"
+      "DISTRIBUTION"
+      "ALGORITHM"
+      "NODES"
+      "ADJUST"
+      "CONSISTENCY"
+      "MODE"
+      "PROFILES"
+      "UP"
       "ENGINE"
       "STORAGE"
       "PROFILE"
       "SORTED"
       "HASH"
-      "UUID"
       "QUERY"
       "COMPUTE"
       "WAIT"
@@ -313,6 +335,7 @@ data: {
     # Return type of method implementation should be 'SqlNode'.
     # Example: "SqlShowDatabases()", "SqlShowTables()".
     statementParserMethods: [
+      "SqlIgniteExplain()",
       "SqlAlterTable()",
       "SqlAlterZone()",
       "SqlStartTransaction()",
@@ -356,7 +379,6 @@ data: {
     # Return type of method implementation should be "SqlTypeNameSpec".
     # Example: SqlParseTimeStampZ().
     dataTypeParserMethods: [
-      "UuidType(s)",
       "IgniteDateTimeTypeName()"
     ]
 

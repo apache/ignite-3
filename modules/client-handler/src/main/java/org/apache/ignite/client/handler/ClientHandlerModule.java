@@ -142,8 +142,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
 
     private final Executor partitionOperationsExecutor;
 
-    private final Executor commonExecutor;
-
     private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
 
     @TestOnly
@@ -166,7 +164,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
      * @param clientConnectorConfiguration Configuration of the connector.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
-     * @param commonExecutor Common executor used by SQL script handler.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -185,8 +182,7 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
-            Executor partitionOperationsExecutor,
-            Executor commonExecutor
+            Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -205,7 +201,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
         assert partitionOperationsExecutor != null;
-        assert commonExecutor != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -224,7 +219,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.commonExecutor = commonExecutor;
     }
 
     /** {@inheritDoc} */
@@ -437,7 +431,6 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
                 Map.of(),
-                commonExecutor,
                 this::onHandshake,
                 this::onDisconnect
         );

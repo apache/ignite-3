@@ -27,11 +27,11 @@ import org.apache.calcite.sql.SqlOperator;
 import org.apache.calcite.sql.SqlWriter;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.util.Litmus;
+import org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum;
 import org.checkerframework.checker.nullness.qual.Nullable;
 
 /** An AST node representing option in CREATE ZONE and ALTER ZONE statements. */
 public class IgniteSqlZoneOption extends SqlCall {
-
     /** ZONE option operator. */
     protected static class Operator extends IgniteSqlSpecialOperator {
 
@@ -86,8 +86,13 @@ public class IgniteSqlZoneOption extends SqlCall {
     /** {@inheritDoc} */
     @Override
     public void unparse(SqlWriter writer, int leftPrec, int rightPrec) {
-        key.unparse(writer, leftPrec, rightPrec);
-        writer.keyword("=");
+        try {
+            writer.keyword(ZoneOptionEnum.valueOf(key.names.get(0)).sqlName);
+        } catch (IllegalArgumentException ignored) {
+            // If option is unknown then unparse it as is.
+            key.unparse(writer, leftPrec, rightPrec);
+        }
+
         value.unparse(writer, leftPrec, rightPrec);
     }
 

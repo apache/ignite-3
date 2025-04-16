@@ -54,7 +54,7 @@ public class PlacementDriverNodesOperabilityTest extends ClusterPerClassIntegrat
      */
     @Test
     public void testAssignmentsAreTrackedOnEveryNode() throws InterruptedException {
-        sql("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH REPLICAS=2, PARTITIONS=1, STORAGE_PROFILES='default'");
+        sql("CREATE ZONE IF NOT EXISTS ZONE_TEST (REPLICAS 2, PARTITIONS 1) STORAGE PROFILES ['default']");
         sql("CREATE TABLE TABLE_TEST (id INT PRIMARY KEY, name VARCHAR) ZONE ZONE_TEST");
 
         Set<Integer> cmgMetastoreNodesIndices = Arrays.stream(cmgMetastoreNodes()).boxed().collect(toSet());

@@ -43,6 +43,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.union;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
@@ -65,7 +66,6 @@ import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -141,6 +141,7 @@ import org.apache.ignite.internal.network.serialization.MessageSerializationRegi
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ReliableCatalogVersions;
 import org.apache.ignite.internal.partition.replicator.ReplicaTableProcessor;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.ChangePeersAndLearnersAsyncReplicaRequest;
@@ -443,6 +444,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<ChangeLowWatermarkEventParameters> onLowWatermarkChangedListener = this::onLwmChanged;
     private final EventListener<PrimaryReplicaEventParameters> onPrimaryReplicaExpiredListener = this::onTablePrimaryReplicaExpired;
     private final TableAssignmentsService assignmentsService;
+    private final ReliableCatalogVersions reliableCatalogVersions;
 
     /**
      * Creates a new table manager.
@@ -544,6 +546,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         this.executorInclinedSchemaSyncService = new ExecutorInclinedSchemaSyncService(schemaSyncService, partitionOperationsExecutor);
         this.executorInclinedPlacementDriver = new ExecutorInclinedPlacementDriver(placementDriver, partitionOperationsExecutor);
+        this.reliableCatalogVersions = new ReliableCatalogVersions(schemaSyncService, catalogService);
 
         TxMessageSender txMessageSender = new TxMessageSender(
                 messagingService,
@@ -668,13 +671,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             long recoveryRevision = recoveryFinishFuture.join().revision();
 
-            return startTables(recoveryRevision, lowWatermark.getLowWatermark())
+            return recoverTables(recoveryRevision, lowWatermark.getLowWatermark())
                     .thenCompose(v -> processAssignmentsOnRecovery(recoveryRevision));
         });
     }
 
     private CompletableFuture<Void> waitForMetadataCompleteness(long ts) {
-        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(HybridTimestamp.hybridTimestamp(ts));
+        return executorInclinedSchemaSyncService.waitForMetadataCompleteness(hybridTimestamp(ts));
     }
 
     private CompletableFuture<Boolean> beforeZoneReplicaStarted(LocalPartitionReplicaEventParameters parameters) {
@@ -686,7 +689,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 .thenCompose(v -> {
                     ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-                    Set<TableImpl> zoneTables = zoneTables(zonePartitionId.zoneId());
+                    Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
 
                     int partitionIndex = zonePartitionId.partitionId();
                     PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
@@ -721,7 +724,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return falseCompletedFuture();
         }
 
-        Set<TableImpl> zoneTables = zoneTables(parameters.zonePartitionId().zoneId());
+        Set<TableImpl> zoneTables = zoneTablesRawSet(parameters.zonePartitionId().zoneId());
 
         CompletableFuture<?>[] futures = zoneTables.stream()
                 .map(this::tableStopFuture)
@@ -759,7 +762,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
         return inBusyLockAsync(busyLock, () -> {
-            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+            CompletableFuture<?>[] futures = zoneTablesRawSet(zonePartitionId.zoneId()).stream()
                     .map(table -> supplyAsync(
                             () -> inBusyLockAsync(
                                     busyLock,
@@ -1419,26 +1422,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             TablePartitionId tablePartitionId,
             Long assignmentsTimestamp
     ) {
-        return orStopManagerFuture(waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused -> {
-            int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
+        CompletableFuture<Set<Assignment>> assignmentsFuture =
+                reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
+                        .thenCompose(catalog -> calculateAssignments(tablePartitionId, catalog));
 
-            CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalogVersion);
+        return orStopManagerFuture(assignmentsFuture);
+    }
 
-            CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
+    private CompletableFuture<Set<Assignment>> calculateAssignments(TablePartitionId tablePartitionId, Catalog catalog) {
+        CatalogTableDescriptor tableDescriptor = getTableDescriptor(tablePartitionId.tableId(), catalog);
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-            return distributionZoneManager.dataNodes(
-                    zoneDescriptor.updateTimestamp(),
-                    catalogVersion,
-                    tableDescriptor.zoneId()
-            ).thenApply(dataNodes ->
-                    calculateAssignmentForPartition(
-                            dataNodes,
-                            tablePartitionId.partitionId(),
-                            zoneDescriptor.partitions(),
-                            zoneDescriptor.replicas()
-                    )
-            );
-        }));
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalog.version(), tableDescriptor.zoneId())
+                .thenApply(dataNodes -> calculateAssignmentForPartition(
+                        dataNodes,
+                        tablePartitionId.partitionId(),
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas()
+                ));
     }
 
     private boolean isLocalNodeInAssignments(Collection<Assignment> assignments) {
@@ -2525,29 +2526,35 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                         long assignmentsTimestamp = assignments.timestamp();
 
-                        return waitForMetadataCompleteness(assignmentsTimestamp)
-                                .thenCompose(unused -> inBusyLockAsync(busyLock, () -> {
-                                    int catalogVersion = catalogService.activeCatalogVersion(assignmentsTimestamp);
+                        return reliableCatalogVersions.safeReliableCatalogFor(hybridTimestamp(assignmentsTimestamp))
+                                .thenCompose(catalog -> inBusyLockAsync(busyLock, () -> {
+                                    CatalogTableDescriptor tableDescriptor = getTableDescriptor(replicaGrpId.tableId(), catalog);
 
-                                    CatalogTableDescriptor tableDescriptor =
-                                            getTableDescriptor(replicaGrpId.tableId(), catalogVersion);
+                                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalog);
 
-                                    CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, catalogVersion);
-
-                                    return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion,
-                                                    tableDescriptor.zoneId())
-                                            .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
-                                                    metaStorageMgr,
-                                                    dataNodes,
-                                                    zoneDescriptor.partitions(),
-                                                    zoneDescriptor.replicas(),
-                                                    replicaGrpId,
-                                                    evt,
-                                                    assignmentsTimestamp
-                                            ));
+                                    return handleReduceChanged(evt, catalog.version(), zoneDescriptor, replicaGrpId, assignmentsTimestamp);
                                 }));
                     }));
         });
+    }
+
+    private CompletableFuture<Void> handleReduceChanged(
+            WatchEvent evt,
+            int catalogVersion,
+            CatalogZoneDescriptor zoneDescriptor,
+            TablePartitionId replicaGrpId,
+            long assignmentsTimestamp
+    ) {
+        return distributionZoneManager.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
+                .thenCompose(dataNodes -> RebalanceUtilEx.handleReduceChanged(
+                        metaStorageMgr,
+                        dataNodes,
+                        zoneDescriptor.partitions(),
+                        zoneDescriptor.replicas(),
+                        replicaGrpId,
+                        evt,
+                        assignmentsTimestamp
+                ));
     }
 
     /**
@@ -2739,16 +2746,21 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO https://issues.apache.org/jira/browse/IGNITE-19170 Partitions should be stopped on the assignments change
         //  event triggered by zone drop or alter. Stop replica asynchronously, out of metastorage event pipeline.
         for (int partitionId = 0; partitionId < partitions; partitionId++) {
+            CompletableFuture<Void> resourcesUnloadFuture;
+
             if (enabledColocation) {
-                partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
+                resourcesUnloadFuture = partitionReplicaLifecycleManager.unloadTableResourcesFromZoneReplica(
                         new ZonePartitionId(internalTable.zoneId(), partitionId),
                         internalTable.tableId()
                 );
+            } else {
+                resourcesUnloadFuture = nullCompletedFuture();
             }
 
             var tablePartitionId = new TablePartitionId(internalTable.tableId(), partitionId);
 
-            stopReplicaAndDestroyFutures[partitionId] = stopAndDestroyTablePartition(tablePartitionId, table);
+            stopReplicaAndDestroyFutures[partitionId] = resourcesUnloadFuture
+                    .thenCompose(v -> stopAndDestroyTablePartition(tablePartitionId, table));
         }
 
         return allOf(stopReplicaAndDestroyFutures);
@@ -2907,19 +2919,23 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return findTableImplByName(tables.values(), name);
     }
 
-    private CatalogTableDescriptor getTableDescriptor(int tableId, int catalogVersion) {
-        CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(tableId);
+    private static CatalogTableDescriptor getTableDescriptor(int tableId, Catalog catalog) {
+        CatalogTableDescriptor tableDescriptor = catalog.table(tableId);
 
-        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalogVersion;
+        assert tableDescriptor != null : "tableId=" + tableId + ", catalogVersion=" + catalog.version();
 
         return tableDescriptor;
     }
 
     private CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, int catalogVersion) {
-        CatalogZoneDescriptor zoneDescriptor = catalogService.catalog(catalogVersion).zone(tableDescriptor.zoneId());
+        return getZoneDescriptor(tableDescriptor, catalogService.catalog(catalogVersion));
+    }
+
+    private static CatalogZoneDescriptor getZoneDescriptor(CatalogTableDescriptor tableDescriptor, Catalog catalog) {
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
 
         assert zoneDescriptor != null :
-                "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+                "tableId=" + tableDescriptor.id() + ", zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalog.version();
 
         return zoneDescriptor;
     }
@@ -2937,18 +2953,30 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         return tables.stream().filter(table -> table.qualifiedName().equals(QualifiedName.fromSimple(name))).findAny().orElse(null);
     }
 
-    private CompletableFuture<Void> startTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
+    private CompletableFuture<Void> recoverTables(long recoveryRevision, @Nullable HybridTimestamp lwm) {
         int earliestCatalogVersion = lwm == null
                 ? catalogService.earliestCatalogVersion()
                 : catalogService.activeCatalogVersion(lwm.longValue());
+
         int latestCatalogVersion = catalogService.latestCatalogVersion();
 
         var startedTables = new IntOpenHashSet();
         var startTableFutures = new ArrayList<CompletableFuture<?>>();
 
+        Catalog nextCatalog = null;
+
         for (int ver = latestCatalogVersion; ver >= earliestCatalogVersion; ver--) {
-            for (CatalogTableDescriptor tableDescriptor : catalogService.catalog(ver).tables()) {
-                if (!startedTables.add(tableDescriptor.id())) {
+            Catalog catalog = catalogService.catalog(ver);
+
+            for (CatalogTableDescriptor tableDescriptor : catalog.tables()) {
+                // Handle missed table drop event.
+                int tableId = tableDescriptor.id();
+
+                if (nextCatalog != null && nextCatalog.table(tableId) == null) {
+                    destructionEventsQueue.enqueue(new DestroyTableEvent(nextCatalog.version(), tableId));
+                }
+
+                if (!startedTables.add(tableId)) {
                     continue;
                 }
 
@@ -2971,9 +2999,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 startTableFutures.add(startTableFuture);
             }
+
+            nextCatalog = catalog;
         }
 
         return allOf(startTableFutures.toArray(CompletableFuture[]::new))
+                // Only now do we complete the future allowing replica starts being processed. This is why on node recovery
+                // PartitionReplicaLifecycleManager does not acquire write locks (as mutual exclusion of replica starts and table additions
+                // is guaranteed bu completing the future here, in TableManager).
                 .whenComplete(copyStateTo(readyToProcessReplicaStarts))
                 .whenComplete((unused, throwable) -> {
                     if (throwable != null) {
@@ -3100,13 +3133,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     public Set<TableImpl> zoneTables(int zoneId) {
-        return tablesPerZone.computeIfAbsent(zoneId, id -> new HashSet<>());
+        return Set.copyOf(zoneTablesRawSet(zoneId));
+    }
+
+    private Set<TableImpl> zoneTablesRawSet(int zoneId) {
+        return tablesPerZone.getOrDefault(zoneId, Set.of());
     }
 
     private void addTableToZone(int zoneId, TableImpl table) {
         tablesPerZone.compute(zoneId, (id, tbls) -> {
             if (tbls == null) {
-                tbls = new HashSet<>();
+                // Using a concurrent set as a value as it can be read (and iterated over) without any synchronization by external callers.
+                tbls = ConcurrentHashMap.newKeySet();
             }
 
             tbls.add(table);

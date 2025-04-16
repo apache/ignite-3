@@ -392,6 +392,13 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
 
+        // We should not insert additional implicit casts between char and varchar because casts between these types
+        // perform data silent truncation as defined by the SQL standard.
+        // Do not add implicit casts to prevent data truncation from sneaking in.
+        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+            return false;
+        }
+
         // No need to cast between binary types.
         if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
             return false;
