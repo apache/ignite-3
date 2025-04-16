@@ -182,7 +182,7 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
 
         supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
-                .whenComplete((response, throwable) -> respond(response, throwable, sender, correlationId));
+                .whenCompleteAsync((response, throwable) -> respond(response, throwable, sender, correlationId), executor);
     }
 
     private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
@@ -215,9 +215,9 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
 
         messagingService.respond(sender, response, correlationId)
                 .whenComplete((v, e) -> {
-                    String errorMessage = String.format("Could not send a response with correlationId=%d", correlationId);
-
-                    failureProcessor.process(new FailureContext(e, errorMessage));
+                    if (e != null) {
+                        LOG.error("Could not send a response with correlationId={}", e, correlationId);
+                    }
                 });
     }
 
