@@ -32,19 +32,19 @@ public class ColumnType<T> {
     private static final Map<Class<?>, ColumnType<?>> TYPES = new LinkedHashMap<>();
 
     /** {@code BOOLEAN} SQL column type. */
-    public static final ColumnType<Boolean> BOOLEAN = new ColumnType<>(Boolean.class, "boolean");
+    public static final ColumnType<Boolean> BOOLEAN = new ColumnType<>(Boolean.class, "BOOLEAN");
 
     /** {@code TINYINT} SQL column type. */
-    public static final ColumnType<Byte> TINYINT = new ColumnType<>(Byte.class, "tinyint");
+    public static final ColumnType<Byte> TINYINT = new ColumnType<>(Byte.class, "TINYINT");
 
     /** {@code SMALLINT} SQL column type. */
-    public static final ColumnType<Short> SMALLINT = new ColumnType<>(Short.class, "smallint");
+    public static final ColumnType<Short> SMALLINT = new ColumnType<>(Short.class, "SMALLINT");
 
     /** {@code INTEGER} SQL column type. */
-    public static final ColumnType<Integer> INTEGER = new ColumnType<>(Integer.class, "int");
+    public static final ColumnType<Integer> INTEGER = new ColumnType<>(Integer.class, "INT");
 
     /** {@code BIGINT} SQL column type. */
-    public static final ColumnType<Long> BIGINT = new ColumnType<>(Long.class, "bigint");
+    public static final ColumnType<Long> BIGINT = new ColumnType<>(Long.class, "BIGINT");
 
     /** 8-bit signed integer. An alias for {@link #TINYINT}. */
     public static final ColumnType<Byte> INT8 = TINYINT;
@@ -59,16 +59,16 @@ public class ColumnType<T> {
     public static final ColumnType<Long> INT64 = BIGINT;
 
     /** {@code REAL} SQL column type. */
-    public static final ColumnType<Float> REAL = new ColumnType<>(Float.class, "real");
+    public static final ColumnType<Float> REAL = new ColumnType<>(Float.class, "REAL");
 
     /** 32-bit single-precision floating-point number. An alias for {@link #REAL}. */
     public static final ColumnType<Float> FLOAT = REAL;
 
     /** {@code DOUBLE} SQL column type. */
-    public static final ColumnType<Double> DOUBLE = new ColumnType<>(Double.class, "double");
+    public static final ColumnType<Double> DOUBLE = new ColumnType<>(Double.class, "DOUBLE");
 
     /** {@code VARCHAR} SQL column type. */
-    public static final ColumnType<String> VARCHAR = new ColumnType<>(String.class, "varchar");
+    public static final ColumnType<String> VARCHAR = new ColumnType<>(String.class, "VARCHAR");
 
     /** {@code VARCHAR} with specified length. */
     public static ColumnType<String> varchar(int length) {
@@ -76,7 +76,7 @@ public class ColumnType<T> {
     }
 
     /** {@code VARBINARY} SQL column type. */
-    public static final ColumnType<byte[]> VARBINARY = new ColumnType<>(byte[].class, "varbinary");
+    public static final ColumnType<byte[]> VARBINARY = new ColumnType<>(byte[].class, "VARBINARY");
 
     /** {@code VARBINARY} with specified length. */
     public static ColumnType<byte[]> varbinary(int length) {
@@ -84,7 +84,7 @@ public class ColumnType<T> {
     }
 
     /** {@code TIME} SQL column type. */
-    public static final ColumnType<LocalTime> TIME = new ColumnType<>(LocalTime.class, "time");
+    public static final ColumnType<LocalTime> TIME = new ColumnType<>(LocalTime.class, "TIME");
 
     /** {@code TIME} with specified precision. */
     public static ColumnType<LocalTime> time(int precision) {
@@ -92,7 +92,7 @@ public class ColumnType<T> {
     }
 
     /** {@code TIMESTAMP} SQL column type. */
-    public static final ColumnType<LocalDateTime> TIMESTAMP = new ColumnType<>(LocalDateTime.class, "timestamp");
+    public static final ColumnType<LocalDateTime> TIMESTAMP = new ColumnType<>(LocalDateTime.class, "TIMESTAMP");
 
     /** {@code TIMESTAMP} with specified precision. */
     public static ColumnType<LocalDateTime> timestamp(int precision) {
@@ -100,10 +100,10 @@ public class ColumnType<T> {
     }
 
     /** {@code DATE} SQL column type. */
-    public static final ColumnType<LocalDate> DATE = new ColumnType<>(LocalDate.class, "date");
+    public static final ColumnType<LocalDate> DATE = new ColumnType<>(LocalDate.class, "DATE");
 
     /** {@code DECIMAL} SQL column type. */
-    public static final ColumnType<BigDecimal> DECIMAL = new ColumnType<>(BigDecimal.class, "decimal");
+    public static final ColumnType<BigDecimal> DECIMAL = new ColumnType<>(BigDecimal.class, "DECIMAL");
 
     /** {@code DECIMAL} with specified precision and scale. */
     public static ColumnType<BigDecimal> decimal(int precision, int scale) {
@@ -111,11 +111,11 @@ public class ColumnType<T> {
     }
 
     /** {@code UUID} SQL column type. */
-    public static final ColumnType<UUID> UUID = new ColumnType<>(UUID.class, "uuid");
+    public static final ColumnType<UUID> UUID = new ColumnType<>(UUID.class, "UUID");
 
     /** {@code TIMESTAMP WITH LOCAL TIME ZONE} SQL column type. */
     public static final ColumnType<Instant> TIMESTAMP_WITH_LOCAL_TIME_ZONE = new ColumnType<>(
-            Instant.class, "timestamp with local time zone");
+            Instant.class, "TIMESTAMP WITH LOCAL TIME ZONE");
 
     private final Class<T> type;
 

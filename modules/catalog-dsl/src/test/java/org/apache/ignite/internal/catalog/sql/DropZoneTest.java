@@ -25,13 +25,17 @@ import org.junit.jupiter.api.Test;
 class DropZoneTest {
     @Test
     void testDropZone() {
-        Query query2 = dropZone().name("zone1");
-        String sql = query2.toString();
-        assertThat(sql, is("DROP ZONE zone1;"));
+        Query query1 = dropZone().name("zone1");
+        String sql = query1.toString();
+        assertThat(sql, is("DROP ZONE ZONE1;"));
 
-        Query query1 = dropZone().ifExists().name("zone1");
-        sql = query1.toString();
-        assertThat(sql, is("DROP ZONE IF EXISTS zone1;"));
+        Query query2 = dropZone().ifExists().name("zone1");
+        sql = query2.toString();
+        assertThat(sql, is("DROP ZONE IF EXISTS ZONE1;"));
+
+        Query query3 = dropZone().name("Zo Ne1");
+        sql = query3.toString();
+        assertThat(sql, is("DROP ZONE \"Zo Ne1\";"));
     }
 
     private static DropZoneImpl dropZone() {

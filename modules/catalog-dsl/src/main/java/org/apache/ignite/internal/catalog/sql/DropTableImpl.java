@@ -37,7 +37,7 @@ class DropTableImpl extends AbstractCatalogQuery<Name> {
     DropTableImpl name(String... names) {
         Objects.requireNonNull(names, "Table name must not be null");
 
-        this.tableName = new Name(names);
+        this.tableName = Name.compound(names);
         return this;
     }
 

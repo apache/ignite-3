@@ -32,6 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -524,49 +525,98 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         assertEquals(15, columns.size());
 
         assertEquals("STR", columns.get(0).name());
-        assertEquals("varchar", columns.get(0).type().typeName());
+        assertEquals("VARCHAR", columns.get(0).type().typeName());
 
         assertEquals("BYTECOL", columns.get(1).name());
-        assertEquals("tinyint", columns.get(1).type().typeName());
+        assertEquals("TINYINT", columns.get(1).type().typeName());
 
         assertEquals("SHORTCOL", columns.get(2).name());
-        assertEquals("smallint", columns.get(2).type().typeName());
+        assertEquals("SMALLINT", columns.get(2).type().typeName());
 
         assertEquals("INTCOL", columns.get(3).name());
-        assertEquals("int", columns.get(3).type().typeName());
+        assertEquals("INT", columns.get(3).type().typeName());
 
         assertEquals("LONGCOL", columns.get(4).name());
-        assertEquals("bigint", columns.get(4).type().typeName());
+        assertEquals("BIGINT", columns.get(4).type().typeName());
 
         assertEquals("FLOATCOL", columns.get(5).name());
-        assertEquals("real", columns.get(5).type().typeName());
+        assertEquals("REAL", columns.get(5).type().typeName());
 
         assertEquals("DOUBLECOL", columns.get(6).name());
-        assertEquals("double", columns.get(6).type().typeName());
+        assertEquals("DOUBLE", columns.get(6).type().typeName());
 
         assertEquals("DECIMALCOL", columns.get(7).name());
-        assertEquals("decimal", columns.get(7).type().typeName());
+        assertEquals("DECIMAL", columns.get(7).type().typeName());
 
         assertEquals("BOOLCOL", columns.get(8).name());
-        assertEquals("boolean", columns.get(8).type().typeName());
+        assertEquals("BOOLEAN", columns.get(8).type().typeName());
 
         assertEquals("BYTESCOL", columns.get(9).name());
-        assertEquals("varbinary", columns.get(9).type().typeName());
+        assertEquals("VARBINARY", columns.get(9).type().typeName());
 
         assertEquals("UUIDCOL", columns.get(10).name());
-        assertEquals("uuid", columns.get(10).type().typeName());
+        assertEquals("UUID", columns.get(10).type().typeName());
 
         assertEquals("DATECOL", columns.get(11).name());
-        assertEquals("date", columns.get(11).type().typeName());
+        assertEquals("DATE", columns.get(11).type().typeName());
 
         assertEquals("TIMECOL", columns.get(12).name());
-        assertEquals("time", columns.get(12).type().typeName());
+        assertEquals("TIME", columns.get(12).type().typeName());
 
         assertEquals("DATETIMECOL", columns.get(13).name());
-        assertEquals("timestamp", columns.get(13).type().typeName());
+        assertEquals("TIMESTAMP", columns.get(13).type().typeName());
 
         assertEquals("INSTANTCOL", columns.get(14).name());
-        assertEquals("timestamp with local time zone", columns.get(14).type().typeName());
+        assertEquals("TIMESTAMP WITH LOCAL TIME ZONE", columns.get(14).type().typeName());
+    }
+
+    @Test
+    public void testQuotedZoneName() {
+        IgniteCatalog catalog = CLUSTER.node(0).catalog();
+
+        sql("CREATE ZONE \"Some Zone\" WITH STORAGE_PROFILES='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
+
+        ZoneDefinition zone = catalog.zoneDefinition("Some Zone");
+        assertNotNull(zone);
+        assertEquals("Some Zone", zone.zoneName());
+    }
+
+    @Test
+    public void testQuotedTableName() {
+        IgniteCatalog catalog = CLUSTER.node(0).catalog();
+
+        sql("CREATE SCHEMA \"Table Schema\"");
+        sql("CREATE TABLE \"Table Schema\".\"a b\" (id INT PRIMARY KEY, \"int val\" INT)");
+        sql("CREATE INDEX \"a b index\" ON \"Table Schema\".\"a b\" (\"int val\")");
+
+        QualifiedName name =  QualifiedName.parse("\"Table Schema\".\"a b\"");
+
+        TableDefinition table = catalog.tableDefinition(name);
+        assertNotNull(table);
+        // Table Name
+        assertEquals("a b", table.tableName());
+        // Schema name
+        assertEquals("Table Schema", table.schemaName());
+
+        // Column
+        List<ColumnDefinition> columns = table.columns();
+        assertNotNull(columns);
+        ColumnDefinition col = columns.stream()
+                .filter(c -> "int val".equals(c.name()))
+                .findAny()
+                .orElse(null);
+        assertNotNull(col, "Columns: " + columns.stream().map(ColumnDefinition::name).collect(Collectors.toList()));
+
+        // Index
+        List<IndexDefinition> indexes = table.indexes();
+        assertNotNull(indexes);
+
+        IndexDefinition index = indexes
+                .stream().filter(idx -> Objects.equals(idx.name(), "a b index"))
+                .findAny().orElse(null);
+        assertNotNull(index, "Indexes: " + indexes.stream().map(IndexDefinition::name).collect(Collectors.toList()));
+
+        catalog.dropTable(table);
     }
 
     private static IgniteCatalog catalog() {
