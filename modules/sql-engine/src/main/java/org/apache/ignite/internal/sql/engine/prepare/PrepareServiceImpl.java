@@ -432,6 +432,8 @@ public class PrepareServiceImpl implements PrepareService {
                         nextPlanId(), SqlQueryType.QUERY, optimizedRel, resultSetMetadata, parameterMetadata, catalogVersion, fastPlan
                 );
 
+                logPlan(parsedResult.originalQuery(), plan);
+
                 if (LOG.isDebugEnabled()) {
                     LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
                 }
@@ -501,9 +503,7 @@ public class PrepareServiceImpl implements PrepareService {
             );
         }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Plan prepared: \n{}\n\n{}", originalQuery, plan.explain());
-        }
+        logPlan(originalQuery, plan);
 
         return CompletableFuture.completedFuture(plan);
     }
@@ -565,9 +565,7 @@ public class PrepareServiceImpl implements PrepareService {
                     );
                 }
 
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
-                }
+                logPlan(parsedResult.originalQuery(), plan);
 
                 return plan;
             }, planningPool));
@@ -604,23 +602,19 @@ public class PrepareServiceImpl implements PrepareService {
 
         ResultSetMetadata resultSetMetadata = resultSetMetadata(rowType, null, aliases);
 
-        QueryPlan plan;
-
-        if (fastOptRel instanceof IgniteSelectCount) {
-            plan = new SelectCountPlan(
-                    nextPlanId(),
-                    planningContext.catalogVersion(),
-                    (IgniteSelectCount) fastOptRel,
-                    resultSetMetadata,
-                    stmt.parameterMetadata
-            );
-        } else {
+        if (!(fastOptRel instanceof IgniteSelectCount)) {
             throw new IllegalStateException("Unexpected optimized node: " + fastOptRel);
         }
 
-        if (LOG.isDebugEnabled()) {
-            LOG.debug("Plan prepared: \n{}\n\n{}", stmt.parsedResult.originalQuery(), fastOptRel.explain());
-        }
+        SelectCountPlan plan = new SelectCountPlan(
+                nextPlanId(),
+                planningContext.catalogVersion(),
+                (IgniteSelectCount) fastOptRel,
+                resultSetMetadata,
+                stmt.parameterMetadata
+        );
+
+        logPlan(stmt.parsedResult.originalQuery(), plan);
 
         return plan;
     }
@@ -864,6 +858,12 @@ public class PrepareServiceImpl implements PrepareService {
             this.parsedResult = parsedResult;
             this.value = value;
             this.parameterMetadata = parameterMetadata;
+        }
+    }
+
+    private static void logPlan(String queryString, ExplainablePlan plan) {
+        if (LOG.isDebugEnabled()) {
+            LOG.debug("Plan prepared: \n{}\n\n{}", queryString, plan.explain());
         }
     }
 }
