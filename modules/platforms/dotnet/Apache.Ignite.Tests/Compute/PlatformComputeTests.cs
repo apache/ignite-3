@@ -51,11 +51,10 @@ public class PlatformComputeTests : IgniteTestsBase
         var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobError);
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
-        await jobExec.GetResultAsync();
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        StringAssert.Contains("Could not start .NET executor process", ex.Message);
-        StringAssert.Contains("Connection reset by peer", ex.ToString());
+        Assert.AreEqual("Platform jobs are not supported yet.", ex.Message);
+        Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
     [Test]
