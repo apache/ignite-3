@@ -73,7 +73,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private PriorityQueueExecutor executorService;
 
-    private DotNetComputeExecutor dotNetComputeExecutor;
+    private @Nullable DotNetComputeExecutor dotNetComputeExecutor;
 
     /**
      * Constructor.
@@ -129,9 +129,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
+        DotNetComputeExecutor dotNetExec0 = dotNetComputeExecutor;
+
         // TODO IGNITE-25116: Remove.
-        if (jobClassName.startsWith("TEST_ONLY_DOTNET_JOB:")) {
-            return dotNetComputeExecutor.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+        if (jobClassName.startsWith("TEST_ONLY_DOTNET_JOB:") && dotNetExec0 != null) {
+            return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
         }
 
         switch (executorType) {
@@ -139,7 +141,11 @@ public class ComputeExecutorImpl implements ComputeExecutor {
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
             case DotNetSidecar:
-                return dotNetComputeExecutor.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+                if (dotNetExec0 == null) {
+                    throw new IllegalStateException("DotNetComputeExecutor is not set");
+                }
+
+                return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
@@ -220,6 +226,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public void stop() {
         stateMachine.stop();
         executorService.shutdown();
-        dotNetComputeExecutor.stop();
+
+        DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+        if (dotNetExec != null) {
+            dotNetExec.stop();
+        }
     }
 }
