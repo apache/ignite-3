@@ -8,8 +8,11 @@
         <IsPackable>false</IsPackable>
         <RootNamespace>Apache.Ignite.Internal.ComputeExecutor</RootNamespace>
 
-        <PublishSingleFile>false</PublishSingleFile> <!-- Does not allow producing a dll for all platforms. -->
-        <SelfContained>false</SelfContained> <!-- Do not include runtime in the single file. -->
+        <!-- Do not produce a native executable - dll is enough. -->
+        <UseAppHost>false</UseAppHost>
+
+        <!-- Single file does not allow producing a dll for all platforms. -->
+        <PublishSingleFile>false</PublishSingleFile>
     </PropertyGroup>
 
     <ItemGroup>
