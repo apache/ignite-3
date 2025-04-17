@@ -32,6 +32,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 
+import java.net.URL;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -47,6 +48,7 @@ import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.state.InMemoryComputeStateMachine;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
@@ -73,6 +75,8 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
 
     private ComputeExecutor computeExecutor;
 
+    private final JobClassLoader jobClassLoader = new JobClassLoader(List.of(), new URL[0], getClass().getClassLoader());
+
     @BeforeEach
     void setUp() {
         InMemoryComputeStateMachine stateMachine = new InMemoryComputeStateMachine(computeConfiguration, "testNode");
@@ -90,7 +94,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 InterruptingJob.class.getName(),
-                null,
+                jobClassLoader,
                 null
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
@@ -120,7 +124,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 CancellingJob.class.getName(),
-                null,
+                jobClassLoader,
                 null
         );
         JobState executingState = await().until(execution::state, jobStateWithStatus(EXECUTING));
@@ -155,7 +159,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobFail.class.getName(),
-                null,
+                jobClassLoader,
                 null
         );
 
@@ -183,7 +187,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 RetryJobSuccess.class.getName(),
-                null,
+                jobClassLoader,
                 SharedComputeUtils.marshalArgOrResult(maxRetries, null)
         );
 
@@ -216,7 +220,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.builder().maxRetries(maxRetries).build(),
                 JobSuccess.class.getName(),
-                null,
+                jobClassLoader,
                 null
         );
 
@@ -263,7 +267,7 @@ class ComputeExecutorTest extends BaseIgniteAbstractTest {
         JobExecutionInternal<?> execution = computeExecutor.executeJob(
                 ExecutionOptions.DEFAULT,
                 SimpleJob.class.getName(),
-                null,
+                jobClassLoader,
                 null
         );
 
