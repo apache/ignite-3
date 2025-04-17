@@ -1298,10 +1298,10 @@ public class ClientInboundMessageHandler
     }
 
     private Throwable readErrorFromClient(long requestId, ClientMessageUnpacker r) {
-        UUID traceId = r.tryUnpackNil() ? null : r.unpackUuid();
-        Integer code = r.tryUnpackNil() ? null : r.unpackInt();
+        UUID traceId = r.tryUnpackNil() ? UUID.randomUUID() : r.unpackUuid();
+        int code = r.tryUnpackNil() ? INTERNAL_ERR : r.unpackInt();
         String className = r.unpackString();
-        String message = r.unpackStringNullable();
+        String message = r.tryUnpackNil() ? "Unknown error" : r.unpackString();
         String stackTrace = r.unpackStringNullable();
 
         int extCount = r.unpackInt();
@@ -1314,10 +1314,6 @@ public class ClientInboundMessageHandler
 
             r.skipValues(1);
         }
-
-        traceId = traceId == null ? UUID.randomUUID() : traceId;
-        code = code == null ? INTERNAL_ERR : code;
-        message = message == null ? "Unknown error" : message;
 
         // Nest details to mix platform-specific and Java-side stack traces.
         Throwable cause = new RuntimeException(className + ": " + message + System.lineSeparator() + stackTrace);
