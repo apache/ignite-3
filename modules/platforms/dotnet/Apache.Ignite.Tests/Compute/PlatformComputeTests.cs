@@ -30,6 +30,8 @@ public class PlatformComputeTests : IgniteTestsBase
 {
     private const string TestOnlyDotnetJobEcho = "TEST_ONLY_DOTNET_JOB:ECHO";
 
+    private const string TestOnlyDotnetJobError = "TEST_ONLY_DOTNET_JOB:ERR";
+
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
@@ -40,6 +42,20 @@ public class PlatformComputeTests : IgniteTestsBase
         var result = await jobExec.GetResultAsync();
 
         Assert.AreEqual("Hello world!", result);
+    }
+
+    [Test]
+    public async Task TestJobError()
+    {
+        var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
+        var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobError);
+
+        var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
+        await jobExec.GetResultAsync();
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
+
+        StringAssert.Contains("Could not start .NET executor process", ex.Message);
+        StringAssert.Contains("Connection reset by peer", ex.ToString());
     }
 
     [Test]
