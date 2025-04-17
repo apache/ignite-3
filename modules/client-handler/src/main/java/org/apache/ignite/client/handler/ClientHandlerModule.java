@@ -17,7 +17,6 @@
 
 package org.apache.ignite.client.handler;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -431,37 +430,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
                 Map.of(),
-                this::onHandshake,
-                this::onDisconnect
+                computeExecutors::remove
         );
-    }
-
-    private void onHandshake(ClientInboundMessageHandler messageHandler) {
-        String execId = messageHandler.computeExecutorId();
-
-        if (execId != null) {
-            computeExecutors.compute(execId, (key, fut) -> {
-                if (fut == null) {
-                    return completedFuture(messageHandler);
-                }
-
-                if (fut.isDone()) {
-                    // TODO: Duplicate executor with same id - log error?
-                }
-
-                fut.complete(messageHandler);
-                return fut;
-            });
-        }
-    }
-
-    private void onDisconnect(ClientInboundMessageHandler messageHandler) {
-        String execId = messageHandler.computeExecutorId();
-
-        if (execId != null) {
-            // TODO: ???
-            computeExecutors.remove(execId);
-        }
     }
 
     @TestOnly

@@ -42,6 +42,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import javax.net.ssl.SSLException;
 import org.apache.ignite.client.handler.configuration.ClientConnectorView;
@@ -135,6 +136,7 @@ import org.apache.ignite.internal.schema.SchemaVersionMismatchException;
 import org.apache.ignite.internal.security.authentication.AnonymousRequest;
 import org.apache.ignite.internal.security.authentication.AuthenticationManager;
 import org.apache.ignite.internal.security.authentication.AuthenticationRequest;
+import org.apache.ignite.internal.security.authentication.UserDetails;
 import org.apache.ignite.internal.security.authentication.UsernamePasswordRequest;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEvent;
 import org.apache.ignite.internal.security.authentication.event.AuthenticationEventParameters;
@@ -238,9 +240,7 @@ public class ClientInboundMessageHandler
 
     private final Map<Long, CancelHandle> cancelHandles = new ConcurrentHashMap<>();
 
-    private final Consumer<ClientInboundMessageHandler> onHandshake;
-
-    private final Consumer<ClientInboundMessageHandler> onDisconnect;
+    private final Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc;
 
     private final AtomicLong serverToClientRequestId = new AtomicLong(-1);
 
@@ -284,8 +284,7 @@ public class ClientInboundMessageHandler
             Executor partitionOperationsExecutor,
             BitSet features,
             Map<HandshakeExtension, Object> extensions,
-            Consumer<ClientInboundMessageHandler> onHandshake,
-            Consumer<ClientInboundMessageHandler> onDisconnect
+            Function<String, CompletableFuture<PlatformComputeConnection>> computeConnectionFunc
     ) {
         assert igniteTables != null;
         assert txManager != null;
@@ -333,12 +332,7 @@ public class ClientInboundMessageHandler
         this.features = features;
         this.extensions = extensions;
 
-        this.onHandshake = onHandshake;
-        this.onDisconnect = onDisconnect;
-    }
-
-    @Nullable String computeExecutorId() {
-        return clientContext != null ? clientContext.computeExecutorId() : null;
+        this.computeConnectionFunc = computeConnectionFunc;
     }
 
     @Override
@@ -405,8 +399,6 @@ public class ClientInboundMessageHandler
         if (LOG.isDebugEnabled()) {
             LOG.debug("Connection closed [connectionId=" + connectionId + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
         }
-
-        onDisconnect.accept(this);
     }
 
     private void handshake(ChannelHandlerContext ctx, ClientMessageUnpacker unpacker, ClientMessagePacker packer) {
@@ -425,21 +417,33 @@ public class ClientInboundMessageHandler
             Map<HandshakeExtension, Object> clientHandshakeExtensions = HandshakeUtils.unpackExtensions(unpacker);
             String computeExecutorId = (String) clientHandshakeExtensions.get(HandshakeExtension.COMPUTE_EXECUTOR_ID);
 
-            // TODO: Validate computeExecutorId and reject handshake if not valid.
-            // TODO: Bypass authentication if computeExecutorId is set and matches the one in the server.
+            if (computeExecutorId != null) {
+                CompletableFuture<PlatformComputeConnection> computeConnFut = computeConnectionFunc.apply(computeExecutorId);
+
+                if (computeConnFut == null) {
+                    LOG.warn("Invalid compute executor ID, client connection rejected [connectionId=" + connectionId
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " + computeExecutorId);
+
+                    ctx.close();
+                    return;
+                }
+
+                // Bypass authentication for compute executor connections.
+                handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
+
+                // Ready to handle compute requests now.
+                computeConnFut.complete(this);
+
+                return;
+            }
+
             authenticationManager
                     .authenticateAsync(createAuthenticationRequest(clientHandshakeExtensions))
                     .handleAsync((user, err) -> {
                         if (err != null) {
                             handshakeError(ctx, packer, err);
                         } else {
-                            BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
-
-                            clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user, computeExecutorId);
-
-                            sendHandshakeResponse(ctx, packer);
-
-                            onHandshake.accept(this);
+                            handshakeSuccess(ctx, packer, user, clientFeatures, clientVer, clientCode);
                         }
 
                         return null;
@@ -449,6 +453,20 @@ public class ClientInboundMessageHandler
         } finally {
             unpacker.close();
         }
+    }
+
+    private void handshakeSuccess(
+            ChannelHandlerContext ctx,
+            ClientMessagePacker packer,
+            UserDetails user,
+            BitSet clientFeatures,
+            ProtocolVersion clientVer,
+            int clientCode) {
+        BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
+
+        clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
+
+        sendHandshakeResponse(ctx, packer);
     }
 
     private void handshakeError(ChannelHandlerContext ctx, ClientMessagePacker packer, Throwable t) {
@@ -719,9 +737,7 @@ public class ClientInboundMessageHandler
                 return null;
 
             case ClientOp.TABLES_GET:
-                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> {
-                    out.meta(clockService.current());
-                });
+                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> out.meta(clockService.current()));
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
