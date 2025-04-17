@@ -275,16 +275,14 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
             } else {
-                var notifyWatchesEvent = new AdvanceSafeTimeEvent(() -> {
-                    setCompactionRevision(compactionRevision);
-
-                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
-                }, context.timestamp);
-
                 if (compactionRevision > planedUpdateCompactionRevision) {
                     planedUpdateCompactionRevision = compactionRevision;
 
-                    notifyWatchProcessor(notifyWatchesEvent);
+                    notifyWatchProcessor(new AdvanceSafeTimeEvent(() -> {
+                        setCompactionRevision(compactionRevision);
+
+                        compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
+                    }, context.timestamp));
                 } else if (areWatchesStarted()) {
                     watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
                 }
