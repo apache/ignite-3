@@ -476,11 +476,8 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
             CompletableFuture<Void> continueSendReadActionRequestFuture
     ) {
         ((DefaultMessagingService) clusterService.messagingService()).dropMessages((recipientConsistentId, message) -> {
-            System.out.println("Received " + message);
             if (message instanceof ReadActionRequest) {
                 startSendReadActionRequestFuture.complete(null);
-
-                System.out.println("<$> Blocking starting from " + message);
 
                 assertThat(continueSendReadActionRequestFuture, willCompleteSuccessfully());
             }
