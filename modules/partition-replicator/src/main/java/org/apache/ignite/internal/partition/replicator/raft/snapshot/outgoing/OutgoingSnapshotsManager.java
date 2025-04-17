@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing;
 
 import static java.util.Collections.unmodifiableList;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -123,10 +124,10 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
     }
 
     /**
-     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken',
-     * that is, the immutable scope of the snapshot (what MV data and what TX data belongs to it) is established.
+     * Starts an outgoing snapshot and registers it in the manager. This is the point where snapshot is 'taken', that is, the immutable
+     * scope of the snapshot (what MV data and what TX data belongs to it) is established.
      *
-     * @param snapshotId       Snapshot id.
+     * @param snapshotId Snapshot id.
      * @param outgoingSnapshot Outgoing snapshot.
      */
     void startOutgoingSnapshot(UUID snapshotId, OutgoingSnapshot outgoingSnapshot) {
@@ -180,13 +181,8 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
             return;
         }
 
-        CompletableFuture
-                .supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
-                .whenCompleteAsync((response, throwable) -> {
-                    if (response != null) {
-                        respond(response, throwable, sender, correlationId);
-                    }
-                }, executor);
+        supplyAsync(() -> handleSnapshotRequestMessage(networkMessage, outgoingSnapshot), executor)
+                .whenCompleteAsync((response, throwable) -> respond(response, throwable, sender, correlationId), executor);
     }
 
     private static @Nullable NetworkMessage handleSnapshotRequestMessage(NetworkMessage networkMessage, OutgoingSnapshot outgoingSnapshot) {
@@ -205,18 +201,24 @@ public class OutgoingSnapshotsManager implements PartitionsSnapshots, IgniteComp
         }
     }
 
-    private void respond(NetworkMessage response, Throwable throwable, ClusterNode sender, Long correlationId) {
+    private void respond(@Nullable NetworkMessage response, @Nullable Throwable throwable, ClusterNode sender, long correlationId) {
         if (throwable != null) {
             failureProcessor.process(new FailureContext(throwable, "Something went wrong while handling a request"));
+
             return;
         }
 
-        try {
-            messagingService.respond(sender, response, correlationId);
-        } catch (RuntimeException e) {
-            String errorMessage = String.format("Could not send a response with correlationId=%s", correlationId);
-            failureProcessor.process(new FailureContext(e, errorMessage));
+        // Can happen on node stop, see "OutgoingSnapshot#logThatAlreadyClosedAndReturnNull".
+        if (response == null) {
+            return;
         }
+
+        messagingService.respond(sender, response, correlationId)
+                .whenComplete((v, e) -> {
+                    if (e != null) {
+                        LOG.error("Could not send a response with correlationId={}", e, correlationId);
+                    }
+                });
     }
 
     @Override

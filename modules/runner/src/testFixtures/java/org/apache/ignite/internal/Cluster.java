@@ -66,6 +66,10 @@ import org.apache.ignite.internal.ClusterConfiguration.NetworkValueInjector;
 import org.apache.ignite.internal.ClusterConfiguration.NodeAttributesValueInjector;
 import org.apache.ignite.internal.ClusterConfiguration.RestValueInjector;
 import org.apache.ignite.internal.ClusterConfiguration.ValueInjector;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -74,6 +78,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
@@ -758,10 +763,17 @@ public class Cluster {
      * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
-    public ReplicationGroupId solePartitionId() {
+    public ReplicationGroupId solePartitionId(String zoneName, String tableName) {
+        IgniteImpl node = unwrapIgniteImpl(aliveNode());
+
+        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
+
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
+
         List<? extends ReplicationGroupId> replicationGroupIds = enabledColocation()
-                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()))
-                : tablePartitionIds(unwrapIgniteImpl(aliveNode()));
+                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
+                : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
 
         assertThat(replicationGroupIds.size(), is(1));
 

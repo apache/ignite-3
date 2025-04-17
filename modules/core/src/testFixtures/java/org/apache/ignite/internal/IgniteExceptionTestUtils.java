@@ -17,74 +17,77 @@
 
 package org.apache.ignite.internal;
 
-import static org.apache.ignite.lang.ErrorGroups.extractGroupCode;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
-import static org.hamcrest.Matchers.instanceOf;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TraceableException;
+import org.hamcrest.FeatureMatcher;
+import org.hamcrest.Matcher;
 
 /**
  * Test utils for checking public exceptions.
  */
 public class IgniteExceptionTestUtils {
+
     /**
-     * <em>Assert</em> that passed throwable is a public exception with expected error group, code and message.
+     * Creates a matcher that matches a traceable exception with expected type.
      *
-     * @param throwable exception to check.
-     * @param expectedErrorCode - expected error code.
-     * @param containMessage - message that exception should contain.
+     * @param expectedType expected exception type.
      */
-    public static void assertPublicException(
-            Throwable throwable,
-            int expectedErrorCode,
-            String containMessage
-    ) {
-        assertTraceableException(throwable, IgniteException.class, expectedErrorCode, containMessage);
+    public static TraceableExceptionMatcher traceableException(Class<? extends TraceableException> expectedType) {
+        return new TraceableExceptionMatcher(expectedType);
     }
 
     /**
-     * <em>Assert</em> that passed throwable is a public checked exception with expected error group, code and message.
+     * Creates a matcher that matches a traceable exception with expected type, code and message.
      *
-     * @param throwable exception to check.
-     * @param expectedErrorCode - expected error code.
-     * @param containMessage - message that exception should contain.
+     * @param expectedType expected exception type.
+     * @param expectedCode expected code.
+     * @param containMessage message that exception should contain.
      */
-    public static void assertPublicCheckedException(
-            Throwable throwable,
-            int expectedErrorCode,
-            String containMessage
-    ) {
-        assertTraceableException(throwable, IgniteCheckedException.class, expectedErrorCode, containMessage);
-    }
-
-    /**
-     * <em>Assert</em> that passed throwable is a traceable exception with expected type, error group, code and message.
-     *
-     * @param throwable - exception to check.
-     * @param expectedType - expected public exception type.
-     * @param expectedErrorCode - expected error code.
-     * @param containMessage - message that exception should contain.
-     */
-    public static void assertTraceableException(
-            Throwable throwable,
+    public static TraceableExceptionMatcher traceableException(
             Class<? extends TraceableException> expectedType,
-            int expectedErrorCode,
+            int expectedCode,
             String containMessage
     ) {
-        Throwable cause = ExceptionUtils.unwrapCause(throwable);
+        return traceableException(expectedType)
+                .withCode(is(expectedCode))
+                .withMessage(containsString(containMessage));
+    }
 
-        assertThat(cause, instanceOf(expectedType));
-        TraceableException ex = expectedType.cast(cause);
+    /**
+     * Creates a matcher that matches a public exception with expected code and message.
+     *
+     * @param expectedCode expected code.
+     * @param containMessage message that exception should contain.
+     */
+    public static TraceableExceptionMatcher publicException(int expectedCode, String containMessage) {
+        return traceableException(IgniteException.class, expectedCode, containMessage);
+    }
 
-        assertThat(ex.groupCode(), is(extractGroupCode(expectedErrorCode)));
-        assertThat(ex.code(), is(expectedErrorCode));
-        assertThat(ex.traceId(), is(notNullValue()));
-        assertThat(cause.getMessage(), containsString(containMessage));
+    /**
+     * Creates a matcher that matches a public checked exception with expected code and message.
+     *
+     * @param expectedCode expected code.
+     * @param containMessage message that exception should contain.
+     */
+    public static TraceableExceptionMatcher publicCheckedException(int expectedCode, String containMessage) {
+        return traceableException(IgniteCheckedException.class, expectedCode, containMessage);
+    }
+
+    /**
+     * Creates a matcher that matches an exception with the message matching specified matcher.
+     *
+     * @param messageMatcher Matcher to match message with.
+     */
+    public static Matcher<Throwable> hasMessage(Matcher<String> messageMatcher) {
+        return new FeatureMatcher<>(messageMatcher, "a throwable with message", "message") {
+            @Override
+            protected String featureValueOf(Throwable actual) {
+                return actual.getMessage();
+            }
+        };
     }
 }

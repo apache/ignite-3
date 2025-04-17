@@ -392,7 +392,6 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     @Test
     public void testCurrentTimeFunctions() {
         // Don't check returned value, only ability to use these functions.
-        assertExpression("CURRENT_TIME").check();
         assertExpression("CURRENT_TIMESTAMP").check();
         assertExpression("CURRENT_DATE").check();
         assertExpression("LOCALTIME").check();

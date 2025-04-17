@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare;
 
 import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.linq4j.Nullness.castNonNull;
 import static org.apache.calcite.sql.type.NonNullableAccessors.getCollation;
 import static org.apache.calcite.sql.validate.SqlNonNullableAccessors.getScope;
 import static org.apache.calcite.util.Static.RESOURCE;
@@ -34,6 +35,7 @@ import org.apache.calcite.rel.type.DynamicRecordType;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
+import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
@@ -52,6 +54,7 @@ import org.apache.calcite.sql.fun.SqlCase;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
 import org.apache.calcite.sql.parser.SqlParserPos;
 import org.apache.calcite.sql.type.SqlTypeFamily;
+import org.apache.calcite.sql.type.SqlTypeMappingRule;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.validate.SqlValidator;
@@ -371,7 +374,51 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
 
         validateDynamicParametersInModify(scope, targetRowType, query);
 
-        return super.querySourceCoercion(scope, sourceRowType, targetRowType, query);
+        List<RelDataTypeField> sourceFields = sourceRowType.getFieldList();
+        List<RelDataTypeField> targetFields = targetRowType.getFieldList();
+        int sourceCount = sourceFields.size();
+        SqlTypeMappingRule mappingRule = validator.getTypeMappingRule();
+        for (int i = 0; i < sourceCount; i++) {
+            RelDataType sourceType = sourceFields.get(i).getType();
+            RelDataType targetType = targetFields.get(i).getType();
+            if (!SqlTypeUtil.equalSansNullability(validator.getTypeFactory(), sourceType, targetType)
+                    && !SqlTypeUtil.canCastFrom(targetType, sourceType, mappingRule)) {
+                // Returns early if types not equals and can not do type coercion.
+                return false;
+            }
+        }
+        boolean coerced = false;
+        for (int i = 0; i < sourceFields.size(); i++) {
+            RelDataType targetType = targetFields.get(i).getType();
+            coerced = coerceSourceRowType(scope, query, i, targetType) || coerced;
+        }
+        return coerced;
+    }
+
+    @SuppressWarnings("MethodOverridesInaccessibleMethodOfSuper")
+    private boolean coerceSourceRowType(
+            @org.checkerframework.checker.nullness.qual.Nullable SqlValidatorScope sourceScope,
+            SqlNode query,
+            int columnIndex,
+            RelDataType targetType) {
+        switch (query.getKind()) {
+            case INSERT:
+                SqlInsert insert = (SqlInsert) query;
+                return coerceSourceRowType(sourceScope,
+                        insert.getSource(),
+                        columnIndex,
+                        targetType);
+            case UPDATE:
+                SqlUpdate update = (SqlUpdate) query;
+                SqlSelect select = castNonNull(update.getSourceSelect());
+                columnIndex += select.getSelectList().size() - update.getTargetColumnList().size();
+                return coerceSourceRowType(sourceScope,
+                        select,
+                        columnIndex,
+                        targetType);
+            default:
+                return rowTypeCoercion(sourceScope, query, columnIndex, targetType);
+        }
     }
 
     /** {@inheritDoc} */
@@ -391,6 +438,13 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
     @Override
     protected boolean needToCast(SqlValidatorScope scope, SqlNode node, RelDataType toType) {
         RelDataType fromType = validator.deriveType(scope, node);
+
+        // We should not insert additional implicit casts between char and varchar because casts between these types
+        // perform data silent truncation as defined by the SQL standard.
+        // Do not add implicit casts to prevent data truncation from sneaking in.
+        if (SqlTypeUtil.isCharacter(toType) && SqlTypeUtil.isCharacter(fromType)) {
+            return false;
+        }
 
         // No need to cast between binary types.
         if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {

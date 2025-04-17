@@ -203,6 +203,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::TX_ALREADY_FINISHED:
         case error::code::TX_STALE_OPERATION:
         case error::code::TX_STALE_READ_ONLY_OPERATION:
+        case error::code::TX_ALREADY_FINISHED_WITH_TIMEOUT:
             return sql_state::S25000_INVALID_TRANSACTION_STATE;
 
         // Replicator group. Group code: 8
@@ -273,6 +274,8 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::PRIMARY_REPLICA_RESOLVE:
         case error::code::CHANGE_JOB_PRIORITY:
         case error::code::NODE_NOT_FOUND:
+        case error::code::MARSHALLING_TYPE_MISMATCH:
+        case error::code::COMPUTE_JOB_CANCELLED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
@@ -307,7 +310,6 @@ sql_state error_code_to_sql_state(error::code code) {
         // Marshalling group. Group code: 22
         case error::code::COMMON:
         case error::code::UNSUPPORTED_OBJECT_TYPE:
-        case error::code::MARSHALLING_TYPE_MISMATCH:
         case error::code::UNMARSHALLING:
             return sql_state::SHY000_GENERAL_ERROR;
 

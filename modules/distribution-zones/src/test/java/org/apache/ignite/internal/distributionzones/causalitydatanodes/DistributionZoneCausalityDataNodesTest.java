@@ -1026,6 +1026,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25027")
     void checkDataNodesRepeatedOnNodeAdded() throws Exception {
         prepareZonesWithTwoDataNodes();
 

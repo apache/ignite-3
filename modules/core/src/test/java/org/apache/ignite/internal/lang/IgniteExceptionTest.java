@@ -70,9 +70,9 @@ public class IgniteExceptionTest {
         var originalMessage = "Msg";
         var originalTraceId = UUID.randomUUID();
         var expectedFullMessage = IgniteException.class.getName() + ": "
-                + errorMessage(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
+                + errorMessage(originalTraceId, Table.COLUMN_NOT_FOUND_ERR, originalMessage);
 
-        var originalEx = new IgniteCheckedException(originalTraceId, Table.COLUMN_ALREADY_EXISTS_ERR, originalMessage);
+        var originalEx = new IgniteCheckedException(originalTraceId, Table.COLUMN_NOT_FOUND_ERR, originalMessage);
         var wrappedEx = new CompletionException(originalEx);
         IgniteException res = ExceptionUtils.wrap(wrappedEx);
 

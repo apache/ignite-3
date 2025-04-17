@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
@@ -45,7 +46,6 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.EntryEvent;
 import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
@@ -103,9 +103,6 @@ public class WatchProcessor implements ManuallyCloseable {
 
     /** Meta Storage revision update listeners. */
     private final List<RevisionUpdateListener> revisionUpdateListeners = new CopyOnWriteArrayList<>();
-
-    /** Metastorage compaction revision update listeners. */
-    private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
 
     /** Failure processor that is used to handle critical errors. */
     private final FailureProcessor failureProcessor;
@@ -170,19 +167,17 @@ public class WatchProcessor implements ManuallyCloseable {
      *
      * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
      *
-     * @param updatedEntries Entries that were changed during a Meta Storage update.
+     * @param newRevision Revision associated with an update.
+     * @param updatedEntries Entries that were changed during a Meta Storage update, empty if only need to update the revision.
      * @param time Timestamp of the Meta Storage update.
      * @return Future that gets completed when all registered watches have been notified of the given event.
      */
-    public CompletableFuture<Void> notifyWatches(List<Entry> updatedEntries, HybridTimestamp time) {
+    public CompletableFuture<Void> notifyWatches(long newRevision, List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
         CompletableFuture<Void> newFuture = notificationFuture
                 .thenComposeAsync(v -> {
-                    // Revision must be the same for all entries.
-                    long newRevision = updatedEntries.get(0).revision();
-
-                    List<Entry> filteredUpdatedEntries = updatedEntries.stream()
+                    List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
                             .filter(WatchProcessor::isNotIdempotentCacheCommand)
                             .collect(toList());
 
@@ -264,7 +259,7 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private List<WatchAndEvents> collectWatchesAndEvents(List<Entry> updatedEntries, long revision) {
-        if (watches.isEmpty()) {
+        if (watches.isEmpty() || updatedEntries.isEmpty()) {
             return List.of();
         }
 
@@ -307,13 +302,20 @@ public class WatchProcessor implements ManuallyCloseable {
      * Advances safe time without notifying watches (as there is no new revision).
      *
      * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.
+     *
+     * @param callback A callback that will be executed in meta-storage watch thread strictly before advancing safe time.
+     * @param time Timestamp value for advancing.
      */
-    public void advanceSafeTime(HybridTimestamp time) {
+    public void advanceSafeTime(Runnable callback, HybridTimestamp time) {
         assert time != null;
 
         //noinspection NonAtomicOperationOnVolatileField
         notificationFuture = notificationFuture
-                .thenRunAsync(() -> watchEventHandlingCallback.onSafeTimeAdvanced(time), watchExecutor)
+                .thenRunAsync(() -> {
+                    callback.run();
+
+                    watchEventHandlingCallback.onSafeTimeAdvanced(time);
+                }, watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
                         notifyFailureHandlerOnFirstFailureInNotificationChain(e);
@@ -354,16 +356,6 @@ public class WatchProcessor implements ManuallyCloseable {
         revisionUpdateListeners.remove(listener);
     }
 
-    /** Registers a metastorage compaction revision update listener. */
-    void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        compactionRevisionUpdateListeners.add(listener);
-    }
-
-    /** Unregisters a metastorage compaction revision update listener. */
-    void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        compactionRevisionUpdateListeners.remove(listener);
-    }
-
     /** Explicitly notifies revision update listeners. */
     CompletableFuture<Void> notifyUpdateRevisionListeners(long newRevision) {
         // Lazy set.
@@ -378,48 +370,6 @@ public class WatchProcessor implements ManuallyCloseable {
         }
 
         return futures.isEmpty() ? nullCompletedFuture() : allOf(futures.toArray(CompletableFuture[]::new));
-    }
-
-    /**
-     * Updates the metastorage compaction revision in the WatchEvent queue.
-     *
-     * <p>This method is not thread-safe and must be performed under an exclusive lock in concurrent scenarios.</p>
-     *
-     * @param compactionRevision New metastorage compaction revision.
-     * @param time Metastorage compaction revision update timestamp.
-     */
-    void updateCompactionRevision(long compactionRevision, HybridTimestamp time) {
-        //noinspection NonAtomicOperationOnVolatileField
-        notificationFuture = notificationFuture
-                .thenRunAsync(() -> {
-                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
-
-                    watchEventHandlingCallback.onSafeTimeAdvanced(time);
-                }, watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
-                    }
-                });
-    }
-
-    /**
-     * Updates the metastorage revision in the WatchEvent queue. It should be used for those cases when the revision has been updated but
-     * no {@link Entry}s have been updated.
-     *
-     * @param newRevision New metastorage revision.
-     * @param time Metastorage revision update timestamp.
-     */
-    void updateOnlyRevision(long newRevision, HybridTimestamp time) {
-        //noinspection NonAtomicOperationOnVolatileField
-        notificationFuture = notificationFuture
-                .thenComposeAsync(unused -> notifyUpdateRevisionListeners(newRevision), watchExecutor)
-                .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
-                    }
-                });
     }
 
     private static boolean isNotIdempotentCacheCommand(Entry entry) {

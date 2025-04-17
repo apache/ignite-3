@@ -222,7 +222,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
     }
 
     private static void createAndPopulateTable(int replicas, int partitions) {
-        sql(format("CREATE ZONE IF NOT EXISTS {} WITH REPLICAS={}, PARTITIONS={}, STORAGE_PROFILES='{}'",
+        sql(format("CREATE ZONE IF NOT EXISTS {} (REPLICAS {}, PARTITIONS {}) STORAGE PROFILES ['{}']",
                 ZONE_NAME, replicas, partitions, DEFAULT_STORAGE_PROFILE
         ));
 

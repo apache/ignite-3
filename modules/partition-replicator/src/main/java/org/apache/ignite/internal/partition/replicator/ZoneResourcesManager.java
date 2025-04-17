@@ -46,6 +46,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
@@ -178,15 +179,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
         });
     }
 
-    void removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
+    CompletableFuture<Void> removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
 
-        resources.replicaListenerFuture()
-                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaProcessor(tableId));
+        return resources.replicaListenerFuture
+                .thenCompose(zoneReplicaListener -> {
+                    zoneReplicaListener.removeTableReplicaProcessor(tableId);
 
-        resources.raftListener().removeTableProcessor(tableId);
+                    resources.raftListener().removeTableProcessor(tableId);
 
-        resources.snapshotStorage().removeMvPartition(tableId);
+                    return resources.snapshotStorage().removeMvPartition(tableId);
+                });
     }
 
     @TestOnly
@@ -212,7 +215,8 @@ class ZoneResourcesManager implements ManuallyCloseable {
         }
     }
 
-    static class ZonePartitionResources {
+    @VisibleForTesting
+    public static class ZonePartitionResources {
         private final TxStatePartitionStorage txStatePartitionStorage;
         private final ZonePartitionRaftListener raftListener;
         private final PartitionSnapshotStorage snapshotStorage;
@@ -249,7 +253,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
             return snapshotStorage;
         }
 
-        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
+        public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
             return replicaListenerFuture;
         }
     }

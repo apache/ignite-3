@@ -26,7 +26,6 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
-import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
@@ -79,9 +78,6 @@ public enum IgniteMethod {
 
     /** See {@link IgniteSqlFunctions#toByteString(String)}. */
     STRING_TO_BYTESTRING(IgniteSqlFunctions.class, "toByteString", String.class),
-
-    /** See {@link IgniteSqlFunctions#currentTime(DataContext)}. */
-    CURRENT_TIME(IgniteSqlFunctions.class, "currentTime", DataContext.class),
 
     /** See {@link IgniteSqlFunctions#least2(Object, Object)}. */
     LEAST2(IgniteSqlFunctions.class, "least2", Object.class, Object.class),

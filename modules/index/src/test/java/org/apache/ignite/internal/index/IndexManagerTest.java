@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -167,8 +168,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         dropIndex(INDEX_NAME);
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
-        verify(tableViewInternal).unregisterIndex(indexId);
-        verify(tableViewInternal.internalTable().storage()).destroyIndex(indexId);
+        verify(tableViewInternal, timeout(1000)).unregisterIndex(indexId);
+        verify(tableViewInternal.internalTable().storage(), timeout(1000)).destroyIndex(indexId);
     }
 
     @Test
