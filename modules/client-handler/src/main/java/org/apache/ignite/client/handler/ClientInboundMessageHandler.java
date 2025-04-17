@@ -1317,11 +1317,11 @@ public class ClientInboundMessageHandler
 
         traceId = traceId == null ? UUID.randomUUID() : traceId;
         code = code == null ? INTERNAL_ERR : code;
-        String messageExt = "Client-side error: " + message;
+        message = message == null ? "Unknown error" : message;
 
         // Nest details to mix platform-specific and Java-side stack traces.
         Throwable cause = new RuntimeException(className + ": " + message + System.lineSeparator() + stackTrace);
 
-        return new IgniteException(traceId, code, messageExt, cause);
+        return new IgniteException(traceId, code, message, cause);
     }
 }
