@@ -72,6 +72,9 @@ public class PlatformComputeTests : IgniteTestsBase
         StringAssert.Contains("Connection reset by peer", ex.ToString());
     }
 
+    // TODO IGNITE-XXXXX
+    // Test for crashed process
+    // Test for long job cancellation
     private async Task<IClusterNode> GetClusterNodeAsync(string suffix)
     {
         var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;

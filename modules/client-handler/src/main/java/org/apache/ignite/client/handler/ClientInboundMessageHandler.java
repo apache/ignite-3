@@ -394,6 +394,9 @@ public class ClientInboundMessageHandler
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
 
+        // TODO: Cancel all pending requests, stop accepting more.
+        serverToClientRequests
+
         super.channelInactive(ctx);
 
         if (LOG.isDebugEnabled()) {

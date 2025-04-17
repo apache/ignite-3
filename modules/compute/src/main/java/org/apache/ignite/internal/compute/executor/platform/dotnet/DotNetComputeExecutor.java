@@ -156,6 +156,7 @@ public class DotNetComputeExecutor {
 
     private static String getProcessOutput(Process proc) {
         try {
+            // TODO: Only tail, output can be huge.
             return new String(proc.getInputStream().readAllBytes());
         } catch (IOException e) {
             return "Failed to read process output: " + e.getMessage();
