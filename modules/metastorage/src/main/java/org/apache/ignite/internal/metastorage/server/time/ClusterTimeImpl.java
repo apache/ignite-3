@@ -237,6 +237,8 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
             currentTask = executorService.schedule(() -> {
                 try {
                     tryToSyncTimeAndReschedule();
+                } catch (RejectedExecutionException ignored) {
+                    // Ignore, the node is stopping.
                 } catch (Throwable t) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, t));
 
