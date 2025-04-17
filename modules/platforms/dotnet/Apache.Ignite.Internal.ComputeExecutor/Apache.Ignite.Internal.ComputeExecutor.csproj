@@ -7,6 +7,9 @@
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
         <RootNamespace>Apache.Ignite.Internal.ComputeExecutor</RootNamespace>
+
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>false</SelfContained> <!-- Do not include runtime in the single file. -->
     </PropertyGroup>
 
     <ItemGroup>
