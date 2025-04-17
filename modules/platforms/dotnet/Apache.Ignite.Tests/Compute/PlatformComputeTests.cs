@@ -27,8 +27,9 @@ using NUnit.Framework;
 public class PlatformComputeTests : IgniteTestsBase
 {
     [Test]
-    public async Task TestDotNetEchoJob()
+    public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
+        // TODO: pick correct node.
         var target = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
         var desc = new JobDescriptor<string, string>("TEST_ONLY_DOTNET_JOB:ECHO");
 
@@ -36,5 +37,12 @@ public class PlatformComputeTests : IgniteTestsBase
         var result = await jobExec.GetResultAsync();
 
         Assert.AreEqual("Hello world!", result);
+    }
+
+    [Test]
+    public async Task TestDotNetJobFailsOnServerWithClientCertificate()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 }
