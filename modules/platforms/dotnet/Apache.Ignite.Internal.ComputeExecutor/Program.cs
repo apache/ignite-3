@@ -27,9 +27,6 @@ string? serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
 bool serverSslEnabled = string.Equals("true", Environment.GetEnvironmentVariable(envServerSslEnabled), StringComparison.OrdinalIgnoreCase);
 bool serverSslSkipCertValidation = string.Equals("true", Environment.GetEnvironmentVariable(envServerSslSkipValidation), StringComparison.OrdinalIgnoreCase);
 
-Console.WriteLine($"Ignite.NET compute executor starting: {envServerAddr}='{serverAddr}', " +
-                  $"{envServerSslEnabled}={serverSslEnabled}, {envServerSslSkipValidation}={serverSslSkipCertValidation}...");
-
 if (string.IsNullOrWhiteSpace(serverAddr))
 {
     throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");

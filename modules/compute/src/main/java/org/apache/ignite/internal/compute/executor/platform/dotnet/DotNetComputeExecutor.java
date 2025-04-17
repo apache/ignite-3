@@ -168,12 +168,12 @@ public class DotNetComputeExecutor {
     }
 
     private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
+        String output = getProcessOutputTail(proc, 10_000);
+
         if (proc.isAlive()) {
             // Process is alive but did not communicate back to the server.
             proc.destroyForcibly();
         }
-
-        String output = getProcessOutputTail(proc, 500);
 
         return new RuntimeException(".NET executor process failed to establish connection with the server: " + output, cause);
     }
