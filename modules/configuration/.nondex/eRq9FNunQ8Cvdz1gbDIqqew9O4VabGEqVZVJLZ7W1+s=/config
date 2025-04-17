@@ -1,0 +1,11 @@
+nondexFilter=.*
+nondexMode=FULL
+nondexSeed=1264730
+nondexStart=0
+nondexEnd=9223372036854775807
+nondexPrintstack=false
+nondexDir=/Users/macuser/ignite-3/modules/configuration/.nondex
+nondexJarDir=/Users/macuser/ignite-3/modules/configuration/.nondex
+nondexExecid=eRq9FNunQ8Cvdz1gbDIqqew9O4VabGEqVZVJLZ7W1+s=
+nondexLogging=CONFIG
+test=

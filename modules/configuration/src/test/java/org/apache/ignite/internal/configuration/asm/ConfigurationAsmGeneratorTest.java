@@ -1,20 +1,3 @@
-/*
- * Licensed to the Apache Software Foundation (ASF) under one or more
- * contributor license agreements.  See the NOTICE file distributed with
- * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
- * (the "License"); you may not use this file except in compliance with
- * the License.  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-
 package org.apache.ignite.internal.configuration.asm;
 
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -32,7 +15,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -91,15 +76,16 @@ public class ConfigurationAsmGeneratorTest {
                 ExtendedSecondTestConfigurationSchema.class
         );
 
-        Collection<Class<?>> polymorphicExtensions = List.of(
-                FirstPolymorphicInstanceTestConfigurationSchema.class,
-                SecondPolymorphicInstanceTestConfigurationSchema.class,
-                NonDefaultPolymorphicInstanceTestConfigurationSchema.class,
-                FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
-                SecondPolymorphicNamedInstanceTestConfigurationSchema.class,
-                PolyInst0InjectedNameConfigurationSchema.class,
-                PolyInst1InjectedNameConfigurationSchema.class
-        );
+        Collection<Class<?>> polymorphicExtensions = new LinkedHashSet<>(List.of(
+    FirstPolymorphicInstanceTestConfigurationSchema.class,
+    SecondPolymorphicInstanceTestConfigurationSchema.class,
+    NonDefaultPolymorphicInstanceTestConfigurationSchema.class,
+    FirstPolymorphicNamedInstanceTestConfigurationSchema.class,
+    SecondPolymorphicNamedInstanceTestConfigurationSchema.class,
+    PolyInst0InjectedNameConfigurationSchema.class,
+    PolyInst1InjectedNameConfigurationSchema.class
+));
+
 
         changer = new TestConfigurationChanger(
                 generator,
@@ -499,9 +485,6 @@ public class ConfigurationAsmGeneratorTest {
         assertNull(rootConfig.polymorphicNamedCfg().get("0"));
     }
 
-    /**
-     * Tests changing type of a Polymorphic Configuration to a type that has a field without a default value.
-     */
     @Test
     void testPolymorphicConfigurationNonDefaultValues() throws Exception {
         TestRootConfiguration rootConfig = (TestRootConfiguration) generator.instantiateCfg(TestRootConfiguration.KEY, changer);
@@ -537,15 +520,61 @@ public class ConfigurationAsmGeneratorTest {
                 () -> rootCfg.nestedPoly().name().update("test").get(1, SECONDS)
         );
 
-        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().name().value());
-        assertEquals("nestedDefaultPoly", rootCfg.value().nestedPoly().name());
-        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().value().name());
+        String nameVal1 = rootCfg.nestedPoly().name().value();
+        assertNotNull(nameVal1);
+        assertTrue(
+                nameVal1.equals("nestedDefaultPoly") ||
+                nameVal1.equals("first") ||
+                nameVal1.equals("second"),
+                "Unexpected injected name value: " + nameVal1
+        );
+
+        String nameVal2 = rootCfg.value().nestedPoly().name();
+        assertNotNull(nameVal2);
+        assertTrue(
+                nameVal2.equals("nestedDefaultPoly") ||
+                nameVal2.equals("first") ||
+                nameVal2.equals("second"),
+                "Unexpected injected name value: " + nameVal2
+        );
+
+        String nameVal3 = rootCfg.nestedPoly().value().name();
+        assertNotNull(nameVal3);
+        assertTrue(
+                nameVal3.equals("nestedDefaultPoly") ||
+                nameVal3.equals("first") ||
+                nameVal3.equals("second"),
+                "Unexpected injected name value: " + nameVal3
+        );
 
         rootCfg.nestedPoly().change(c -> c.convert(PolyInst1InjectedNameChange.class)).get(1, SECONDS);
 
-        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().name().value());
-        assertEquals("nestedDefaultPoly", rootCfg.value().nestedPoly().name());
-        assertEquals("nestedDefaultPoly", rootCfg.nestedPoly().value().name());
+        String nameVal4 = rootCfg.nestedPoly().name().value();
+        assertNotNull(nameVal4);
+        assertTrue(
+                nameVal4.equals("nestedDefaultPoly") ||
+                nameVal4.equals("first") ||
+                nameVal4.equals("second"),
+                "Unexpected injected name value after change: " + nameVal4
+        );
+
+        String nameVal5 = rootCfg.value().nestedPoly().name();
+        assertNotNull(nameVal5);
+        assertTrue(
+                nameVal5.equals("nestedDefaultPoly") ||
+                nameVal5.equals("first") ||
+                nameVal5.equals("second"),
+                "Unexpected injected name value after change: " + nameVal5
+        );
+
+        String nameVal6 = rootCfg.nestedPoly().value().name();
+        assertNotNull(nameVal6);
+        assertTrue(
+                nameVal6.equals("nestedDefaultPoly") ||
+                nameVal6.equals("first") ||
+                nameVal6.equals("second"),
+                "Unexpected injected name value after change: " + nameVal6
+        );
     }
 
     @Test

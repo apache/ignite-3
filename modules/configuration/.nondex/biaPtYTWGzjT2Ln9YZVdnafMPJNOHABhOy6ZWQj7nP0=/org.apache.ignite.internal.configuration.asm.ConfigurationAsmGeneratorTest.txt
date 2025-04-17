@@ -1,0 +1,8 @@
+-------------------------------------------------------------------------------
+Test set: org.apache.ignite.internal.configuration.asm.ConfigurationAsmGeneratorTest
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 1, Errors: 0, Skipped: 0, Time elapsed: 0.09 s <<< FAILURE! - in org.apache.ignite.internal.configuration.asm.ConfigurationAsmGeneratorTest
+org.apache.ignite.internal.configuration.asm.ConfigurationAsmGeneratorTest.testNestedConfigurationWithInjectedNameField  Time elapsed: 0.07 s  <<< FAILURE!
+java.lang.AssertionError: org.apache.ignite.internal.configuration.asm.ConfigurationAsmGeneratorTest$PolymorphicTestConfigurationSchema
+	at org.apache.ignite.internal.configuration.asm.ConfigurationAsmGeneratorTest.beforeEach(ConfigurationAsmGeneratorTest.java:97)
+
