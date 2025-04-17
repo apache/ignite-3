@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 import org.intellij.lang.annotations.Language;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
 /**
@@ -175,15 +176,8 @@ public class ClusterConfiguration {
         return annotations;
     }
 
-    static boolean containsOverrides(TestInfo testInfo, int nodeIndex) {
-        List<ConfigOverride> annotations = annotations(testInfo);
-
-        return annotations.stream()
-                .anyMatch(a -> a.nodeIndex() == -1 || a.nodeIndex() == nodeIndex);
-    }
-
-    static Map<String, String> configWithOverrides(TestInfo testInfo, int nodeIndex, List<ValueInjector> injectors) {
-        List<ConfigOverride> annotations = annotations(testInfo);
+    static Map<String, String> configWithOverrides(@Nullable TestInfo testInfo, int nodeIndex, List<ValueInjector> injectors) {
+        List<ConfigOverride> annotations = testInfo == null ? List.of() : annotations(testInfo);
 
         Map<String, String> cfg = baseConfig(injectors);
 
@@ -324,6 +318,7 @@ public class ClusterConfiguration {
 
     interface ValueInjector {
         String name();
+
         String config();
     }
 

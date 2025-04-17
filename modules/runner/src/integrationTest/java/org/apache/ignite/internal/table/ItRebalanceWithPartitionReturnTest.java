@@ -139,6 +139,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
 
         node0.sql().execute(null, createTableSql());
 
+        // First transaction.
         StringBuilder sqlInsert = new StringBuilder("INSERT INTO " + TABLE_NAME + " (key, val) VALUES \n");
 
         for (int i = 0; i < rowCount / 2; i++) {
@@ -150,7 +151,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
 
         node0.sql().execute(null, sqlInsert.toString());
 
-        // ---
+        // Second transaction.
         sqlInsert = new StringBuilder("INSERT INTO " + TABLE_NAME + " (key, val) VALUES \n");
 
         for (int i = rowCount / 2; i < rowCount; i++) {
@@ -159,8 +160,8 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
                 sqlInsert.append(", \n");
             }
         }
+
         node0.sql().execute(null, sqlInsert.toString());
-        // ---
 
         String changedFilter = "$[?(@.region == \"US\")]";
         node0.sql().execute(null, alterZoneSql(changedFilter));
@@ -197,7 +198,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
                 nodeNames.addAll(nodes.stream().map(Assignment::consistentId).collect(toSet()));
             }
 
-            throw new AssertionError("qqq wrong assignments, nodes=" + nodeNames, e);
+            throw new AssertionError("Test: wrong assignments, nodes=" + nodeNames, e);
         }
 
         // Check count.
