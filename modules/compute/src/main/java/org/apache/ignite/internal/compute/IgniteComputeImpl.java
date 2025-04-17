@@ -622,7 +622,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @TestOnly
-    ComputeComponent computeComponent() {
+    public ComputeComponent computeComponent() {
         return computeComponent;
     }
 
