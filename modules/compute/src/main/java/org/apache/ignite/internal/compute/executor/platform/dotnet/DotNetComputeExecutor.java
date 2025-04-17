@@ -54,10 +54,26 @@ public class DotNetComputeExecutor {
 
     private DotNetExecutorProcess process;
 
+    /**
+     * Constructor.
+     *
+     * @param transport Compute transport.
+     */
     public DotNetComputeExecutor(PlatformComputeTransport transport) {
+        assert transport != null;
+
         this.transport = transport;
     }
 
+    /**
+     * Creates a callable for executing a job.
+     *
+     * @param deploymentUnitPaths Paths to deployment units.
+     * @param jobClassName Name of the job class.
+     * @param input Job argument.
+     * @param context Job execution context.
+     * @return Callable that executes the job.
+     */
     public Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
             List<String> deploymentUnitPaths,
             String jobClassName,
@@ -66,6 +82,9 @@ public class DotNetComputeExecutor {
         return () -> executeJobAsync(deploymentUnitPaths, jobClassName, input, context);
     }
 
+    /**
+     * Stops the executor.
+     */
     public synchronized void stop() {
         if (process != null) {
             process.process().destroy();
