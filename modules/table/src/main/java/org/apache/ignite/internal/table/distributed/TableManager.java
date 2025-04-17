@@ -1898,16 +1898,18 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         InternalTable internalTable = table.internalTable();
 
-        Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
-                .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
-                .collect(toSet());
+        if (!enabledColocation) {
+            Set<ByteArray> assignmentKeys = IntStream.range(0, internalTable.partitions())
+                    .mapToObj(p -> stablePartAssignmentsKey(new TablePartitionId(tableId, p)))
+                    .collect(toSet());
 
-        metaStorageMgr.removeAll(assignmentKeys)
-                .whenComplete((v, e) -> {
-                    if (e != null) {
-                        LOG.error("Failed to remove assignments from metastorage [tableId={}]", e, tableId);
-                    }
-                });
+            metaStorageMgr.removeAll(assignmentKeys)
+                    .whenComplete((v, e) -> {
+                        if (e != null) {
+                            LOG.error("Failed to remove assignments from metastorage [tableId={}]", e, tableId);
+                        }
+                    });
+        }
 
         return stopAndDestroyTablePartitions(table)
                 .thenComposeAsync(unused -> inBusyLockAsync(busyLock, () -> {
