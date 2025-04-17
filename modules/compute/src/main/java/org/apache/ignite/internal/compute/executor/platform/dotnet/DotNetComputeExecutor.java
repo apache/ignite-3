@@ -144,7 +144,7 @@ public class DotNetComputeExecutor {
     }
 
     private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
-        String output = getProcessOutput(proc);
+        String output = getProcessOutputTail(proc, 500);
 
         if (proc.isAlive()) {
             // Process is alive but did not communicate back to the server.
@@ -154,10 +154,11 @@ public class DotNetComputeExecutor {
         return new RuntimeException(".NET executor process failed to establish connection with the server: " + output, cause);
     }
 
-    private static String getProcessOutput(Process proc) {
+    private static String getProcessOutputTail(Process proc, int tail) {
         try {
-            // TODO: Only tail, output can be huge.
-            return new String(proc.getInputStream().readAllBytes());
+            String output = new String(proc.getInputStream().readAllBytes());
+
+            return output.substring(Math.max(0, output.length() - tail));
         } catch (IOException e) {
             return "Failed to read process output: " + e.getMessage();
         }
@@ -183,6 +184,9 @@ public class DotNetComputeExecutor {
     @SuppressWarnings("UseOfProcessBuilder")
     static Process startDotNetProcess(String address, boolean ssl, String executorId, String binaryPath) {
         ProcessBuilder processBuilder = new ProcessBuilder("dotnet", binaryPath);
+
+        // Merge stdout and stderr.
+        processBuilder.redirectErrorStream(true);
 
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_ENABLED", Boolean.toString(ssl));
