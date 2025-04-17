@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -38,7 +39,7 @@ public class DotNetComputeExecutorTest {
 
         assertEquals(1, proc.exitValue());
 
-        String result = new String(proc.getErrorStream().readAllBytes());
+        String result = new String(proc.getInputStream().readAllBytes(), UTF_8);
         assertThat(result, containsString("file was not found"));
     }
 }
