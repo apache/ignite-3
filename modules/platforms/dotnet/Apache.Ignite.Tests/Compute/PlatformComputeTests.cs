@@ -17,8 +17,10 @@
 
 namespace Apache.Ignite.Tests.Compute;
 
+using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Network;
 using NUnit.Framework;
 
 /// <summary>
@@ -29,8 +31,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
-        // TODO: pick correct node.
-        var target = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+        var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_2" : string.Empty));
         var desc = new JobDescriptor<string, string>("TEST_ONLY_DOTNET_JOB:ECHO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
@@ -44,5 +45,13 @@ public class PlatformComputeTests : IgniteTestsBase
     {
         await Task.Delay(1);
         Assert.Fail("TODO");
+    }
+
+    private async Task<IClusterNode> GetClusterNodeAsync(string suffix)
+    {
+        var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
+
+        var nodes = await Client.GetClusterNodesAsync();
+        return nodes.First(n => n.Name == nodeName);
     }
 }
