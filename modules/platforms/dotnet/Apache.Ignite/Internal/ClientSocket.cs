@@ -286,17 +286,6 @@ namespace Apache.Ignite.Internal
             DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
                 .WaitAsync(_operationTimeout);
 
-        /// <summary>
-        /// Sends a response to a server->client request.
-        /// </summary>
-        /// <param name="requestId">Request id.</param>
-        /// <param name="response">Response.</param>
-        /// <returns>Task.</returns>
-        public async Task SendServerOpResponseAsync(
-            long requestId,
-            PooledArrayBuffer? response) =>
-            await SendRequestAsync(response, ClientOp.ServerOpResponse, requestId).ConfigureAwait(false);
-
         /// <inheritdoc/>
         public void Dispose()
         {
@@ -938,44 +927,6 @@ namespace Apache.Ignite.Internal
             }
 
             return notificationHandler.TrySetResult(response);
-        }
-
-        private bool HandleServerOp(long requestId, ServerOp op, PooledBuffer request)
-        {
-            ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long RequestId, ServerOp Op)>(
-                callBack: static state =>
-                {
-                    // Ignore the returned task.
-                    _ = state.Socket.HandleServerOpAsync(state.Buf, state.RequestId, state.Op);
-                },
-                state: (this, request, requestId, op),
-                preferLocal: true);
-
-            return true;
-        }
-
-        private async Task HandleServerOpAsync(PooledBuffer request, long requestId, ServerOp op)
-        {
-            using var buf = request;
-
-            switch (op)
-            {
-                case ServerOp.Ping:
-                    break;
-
-                case ServerOp.ComputeJobExec:
-                    await ComputeJobExecutor.ExecuteJobAsync(requestId, buf, this, _logger).ConfigureAwait(false);
-                    break;
-
-                case ServerOp.ComputeJobCancel:
-                    break;
-
-                case ServerOp.DeploymentUnitUndeploy:
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(op), op, null);
-            }
         }
 
         private void HandleObservableTimestamp(ref MsgPackReader reader)

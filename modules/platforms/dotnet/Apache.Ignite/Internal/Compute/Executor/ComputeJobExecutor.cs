@@ -19,11 +19,8 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Buffers;
-using Microsoft.Extensions.Logging;
-using Proto;
 using Proto.MsgPack;
 
 /// <summary>
@@ -39,41 +36,17 @@ internal static class ComputeJobExecutor
     /// <summary>
     /// Executes compute job.
     /// </summary>
-    /// <param name="requestId">Request id.</param>
     /// <param name="request">Request.</param>
-    /// <param name="socket">Socket.</param>
-    /// <param name="logger">Logger.</param>
+    /// <param name="response">Response.</param>
     /// <returns>Task.</returns>
-    [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
-    internal static async Task ExecuteJobAsync(long requestId, PooledBuffer request, ClientSocket socket, ILogger logger)
+    internal static async Task ExecuteJobAsync(
+        PooledBuffer request,
+        PooledArrayBuffer response)
     {
-        JobExecuteRequest? jobReq = null;
+        var jobReq = Read(request.GetReader());
+        var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
 
-        try
-        {
-            jobReq = Read(request.GetReader());
-            var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
-
-            using var responseBuf = ProtoCommon.GetMessageWriter();
-            Write(responseBuf.MessageWriter, jobRes);
-
-            await socket.SendServerOpResponseAsync(requestId, responseBuf).ConfigureAwait(false);
-        }
-        catch (Exception jobEx)
-        {
-            try
-            {
-                using var errResponseBuf = ProtoCommon.GetMessageWriter();
-                WriteError(errResponseBuf.MessageWriter, jobEx);
-
-                await socket.SendServerOpResponseAsync(requestId, errResponseBuf).ConfigureAwait(false);
-            }
-            catch (Exception resultSendEx)
-            {
-                var aggregateEx = new AggregateException(jobEx, resultSendEx);
-                logger.LogComputeJobResponseError(aggregateEx, requestId, jobEx.Message, jobReq?.JobClassName);
-            }
-        }
+        Write(response.MessageWriter, jobRes);
 
         static JobExecuteRequest Read(MsgPackReader r)
         {
@@ -95,25 +68,6 @@ internal static class ComputeJobExecutor
         {
             w.Write(0); // Flags: success.
             ComputePacker.PackArgOrResult(ref w, res, null);
-        }
-
-        static void WriteError(MsgPackWriter w, Exception e)
-        {
-            var igniteEx = e as IgniteException;
-
-            Guid traceId = igniteEx?.TraceId ?? Guid.NewGuid();
-            int code = igniteEx?.ErrorCode ?? ErrorGroups.Compute.ComputeJobFailed;
-            string className = e.GetType().ToString();
-            string message = e.Message;
-            string? stackTrace = e.StackTrace;
-
-            w.Write((int)ServerOpResponseFlags.Error);
-            w.Write(traceId);
-            w.Write(code);
-            w.Write(className);
-            w.Write(message);
-            w.Write(stackTrace);
-            w.Write(0); // Extensions count.
         }
     }
 
