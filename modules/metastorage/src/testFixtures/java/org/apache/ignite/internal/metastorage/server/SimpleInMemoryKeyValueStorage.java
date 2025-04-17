@@ -536,7 +536,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         var event = new UpdateEntriesEvent(List.copyOf(updatedEntries), ts);
 
-        addToNotifyWatchProcessorEventsBeforeStartingWatches(event);
+        notifyWatchProcessor(event);
 
         updatedEntries.clear();
     }

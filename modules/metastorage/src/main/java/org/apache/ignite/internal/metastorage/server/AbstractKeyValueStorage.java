@@ -284,11 +284,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
                 if (compactionRevision > planedUpdateCompactionRevision) {
                     planedUpdateCompactionRevision = compactionRevision;
 
-                    if (areWatchesStarted()) {
-                        notifyWatchesEvent.notify(watchProcessor);
-                    } else {
-                        addToNotifyWatchProcessorEventsBeforeStartingWatches(notifyWatchesEvent);
-                    }
+                    notifyWatchProcessor(notifyWatchesEvent);
                 } else if (areWatchesStarted()) {
                     watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
                 }
@@ -508,12 +504,14 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return new Revisions(rev, compactionRevision);
     }
 
-    protected void addToNotifyWatchProcessorEventsBeforeStartingWatches(NotifyWatchProcessorEvent event) {
-        assert !areWatchesStarted();
+    protected void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
+        if (areWatchesStarted()) {
+            event.notify(watchProcessor);
+        } else {
+            boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
 
-        boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
-
-        assert added : event;
+            assert added : event;
+        }
     }
 
     protected void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
