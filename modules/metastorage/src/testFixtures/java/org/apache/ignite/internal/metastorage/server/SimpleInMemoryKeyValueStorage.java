@@ -553,13 +553,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         HybridTimestamp ts = revToTsMap.get(newRevision);
         assert ts != null : newRevision;
 
-        if (updatedEntries.isEmpty()) {
-            watchProcessor.updateOnlyRevision(newRevision, ts);
-        } else {
-            watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
-
-            updatedEntries.clear();
-        }
+        watchProcessor.notifyWatches(newRevision, List.copyOf(updatedEntries), ts);
+        updatedEntries.clear();
     }
 
     @Override
@@ -807,7 +802,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         setIndexAndTerm(context.index, context.term);
 
         if (advanceSafeTime && areWatchesStarted()) {
-            watchProcessor.advanceSafeTime(context.timestamp);
+            watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
         }
     }
 

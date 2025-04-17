@@ -21,18 +21,22 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.noop;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willTimeoutFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -41,7 +45,9 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.IntStream;
@@ -56,6 +62,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
 import org.apache.ignite.internal.metastorage.server.ExistenceCondition.Type;
 import org.apache.ignite.internal.metastorage.server.time.ClusterTimeImpl;
 import org.apache.ignite.internal.raft.IndexWithTerm;
+import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.Cursor;
@@ -1084,6 +1091,154 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         assertThat(updateCompactionRevisionInWatchEvenQueue.waitFor(1L), willCompleteSuccessfully());
         assertEquals(1, storage.getCompactionRevision());
+    }
+
+    @Test
+    void testConcurrentReadAndCompaction() {
+        KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
+
+        for (int i = 0; i < 1000; i++) {
+            byte[] key = key(i);
+            byte[] value = keyValue(i, i);
+
+            storage.put(key, value, context);
+            long revision = storage.revision();
+            storage.remove(key, context);
+
+            runRace(
+                    () -> {
+                        storage.setCompactionRevision(revision);
+                        storage.compact(revision);
+                    },
+                    () -> {
+                        for (int j = 0; j < 1000; j++) {
+                            try {
+                                Entry entry = storage.get(key, revision);
+
+                                assertEquals(revision, entry.revision());
+                                assertArrayEquals(value, entry.value());
+                            } catch (CompactedException ignore) {
+                                // Expected outcome. Loop can be stopped.
+                                return;
+                            }
+                        }
+                    }
+            );
+        }
+    }
+
+    @Test
+    void testConcurrentReadAllAndCompaction() {
+        KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
+
+        int numberOfKeys = 100;
+        for (int i = 0; i < 100; i++) {
+            List<byte[]> keys = new ArrayList<>();
+            List<byte[]> values = new ArrayList<>();
+            for (int j = 0; j < numberOfKeys; j++) {
+                int k = i * numberOfKeys + j;
+
+                keys.add(key(k));
+                values.add(keyValue(k, k));
+            }
+
+            storage.putAll(keys, values, context);
+            long revision = storage.revision();
+            storage.removeAll(keys, context);
+
+            runRace(
+                    () -> {
+                        storage.setCompactionRevision(revision);
+                        storage.compact(revision);
+                    },
+                    () -> {
+                        for (int j = 0; j < 1000; j++) {
+                            try {
+                                List<Entry> entries = storage.getAll(keys, revision);
+
+                                assertEquals(numberOfKeys, entries.size());
+                                for (int k = 0; k < numberOfKeys; k++) {
+                                    Entry entry = entries.get(k);
+
+                                    assertEquals(revision, entry.revision());
+                                    assertArrayEquals(values.get(k), entry.value());
+                                }
+                            } catch (CompactedException ignore) {
+                                // Expected outcome. Loop can be stopped.
+                                return;
+                            }
+                        }
+                    }
+            );
+        }
+    }
+
+    @Test
+    void testConcurrentRangeAndCompaction() {
+        KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
+
+        int numberOfKeys = 100;
+        for (int i = 0; i < 100; i++) {
+            List<byte[]> keys = new ArrayList<>();
+            List<byte[]> values = new ArrayList<>();
+            Map<ByteArray, byte[]> keyValueMap = new HashMap<>();
+
+            String prefix = "key" + i + "-";
+            for (int j = 0; j < numberOfKeys; j++) {
+                int k = i * numberOfKeys + j;
+
+                ByteArray key = ByteArray.fromString(prefix + j);
+                byte[] value = keyValue(k, k);
+
+                keys.add(key.bytes());
+                values.add(value);
+
+                keyValueMap.put(key, value);
+            }
+
+            storage.putAll(keys, values, context);
+            long revision = storage.revision();
+            storage.removeAll(keys, context);
+
+            runRace(
+                    () -> {
+                        storage.setCompactionRevision(revision);
+                        storage.compact(revision);
+                    },
+                    () -> {
+                        for (int j = 0; j < 1000; j++) {
+                            byte[] from = ByteArray.fromString(prefix).bytes();
+                            byte[] to = RocksUtils.incrementPrefix(from);
+
+                            Cursor<Entry> cursor;
+                            try {
+                                cursor = storage.range(from, to, revision);
+                            } catch (CompactedException ignore) {
+                                // Expected outcome. Loop can be stopped.
+                                return;
+                            }
+
+                            try (cursor) {
+                                for (int k = 0; k < numberOfKeys; k++) {
+                                    assertTrue(cursor.hasNext());
+
+                                    Entry entry = cursor.next();
+
+                                    assertEquals(revision, entry.revision());
+
+                                    ByteArray key = new ByteArray(entry.key());
+                                    byte[] expectedValue = keyValueMap.get(key);
+                                    assertNotNull(expectedValue, key.toString());
+
+                                    assertArrayEquals(expectedValue, entry.value());
+                                }
+
+                                assertFalse(cursor.hasNext());
+                            }
+                        }
+                    }
+            );
+        }
     }
 
     private List<Integer> collectRevisions(byte[] key) {

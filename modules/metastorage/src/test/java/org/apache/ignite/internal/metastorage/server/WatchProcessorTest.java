@@ -96,7 +96,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
         var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -125,7 +125,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         HybridTimestamp ts = new HybridTimestamp(1, 2);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), ts);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), ts);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -137,7 +137,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         ts = new HybridTimestamp(2, 3);
 
-        notificationFuture = watchProcessor.notifyWatches(List.of(entry2), ts);
+        notificationFuture = watchProcessor.notifyWatches(2, List.of(entry2), ts);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -165,7 +165,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
         var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willThrow(IllegalStateException.class));
 
@@ -198,7 +198,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
         var entry2 = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        watchProcessor.notifyWatches(List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
+        watchProcessor.notifyWatches(1, List.of(entry1, entry2), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry1), entry1)));
         verify(listener2, timeout(1_000)).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry2), entry2)));
@@ -206,7 +206,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
         var entry3 = new EntryImpl("foo".getBytes(UTF_8), null, 2, TIMESTAMP);
         var entry4 = new EntryImpl("bar".getBytes(UTF_8), null, 2, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(2, List.of(entry3, entry4), HybridTimestamp.MAX_VALUE);
 
         verify(listener1, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry3), entry3)));
         verify(listener2, never()).onUpdate(new WatchEvent(new EntryEvent(oldEntry(entry4), entry4)));
@@ -231,7 +231,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         var entry = new EntryImpl("bar".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willCompleteSuccessfully());
 
@@ -247,7 +247,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willThrow(RuntimeException.class));
 
@@ -281,7 +281,7 @@ public class WatchProcessorTest extends BaseIgniteAbstractTest {
 
         var entry1 = new EntryImpl("foo".getBytes(UTF_8), null, 1, TIMESTAMP);
 
-        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(List.of(entry1), HybridTimestamp.MAX_VALUE);
+        CompletableFuture<Void> notificationFuture = watchProcessor.notifyWatches(1, List.of(entry1), HybridTimestamp.MAX_VALUE);
 
         assertThat(notificationFuture, willThrow(NodeStoppingException.class));
 

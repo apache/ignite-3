@@ -1001,6 +1001,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             compactKeys(revision);
 
             compactAuxiliaryMappings(revision);
+
+            db.compactRange();
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -1369,7 +1371,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             db.write(writeOptions, batch);
 
             if (advanceSafeTime && areWatchesStarted()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
+                watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
             }
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
