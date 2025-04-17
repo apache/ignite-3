@@ -35,8 +35,8 @@ import org.apache.ignite.internal.util.CompletableFutures;
  *
  * <p>Expected usage:</p>
  * <ul>
- *     <li>Before starting execution, the reading command invoke {@link #track} with its ID and the compaction revision that is currently
- *     set ({@link KeyValueStorage#setCompactionRevision}).</li>
+ *     <li>Before starting execution, the reading command invoke {@link #track} with its ID and the lowest estimation for revision upper
+ *     bound.
  *     <li>After completion, the reading command will invoke {@link #untrack} with the same arguments as when calling {@link #track},
  *     regardless of whether the operation was successful or not.</li>
  *     <li>{@link #collect} will be invoked only after a new compaction revision has been set
@@ -54,28 +54,28 @@ public class ReadOperationForCompactionTracker {
     }
 
     /**
-     * Starts tracking the completion of a read operation on the current compaction revision.
+     * Starts tracking the completion of a read operation on its lowest estimation for revision upper bound.
      *
      * <p>Method is expected not to be called more than once for the same arguments.</p>
      *
      * <p>Expected usage pattern:</p>
      * <pre><code>
      *     Object readOperationId = ...;
-     *     int compactionRevision = ...;
+     *     int operationRevision = ...;
      *
-     *     tracker.track(readOperationId, compactionRevision);
+     *     tracker.track(readOperationId, operationRevision);
      *
      *     try {
      *         doReadOperation(...);
      *     } finally {
-     *         tracker.untrack(readOperationId, compactionRevision);
+     *         tracker.untrack(readOperationId, operationRevision);
      *     }
      * </code></pre>
      *
      * @see #untrack(Object, long)
      */
-    public void track(Object readOperationId, long compactionRevision) {
-        var key = new ReadOperationKey(readOperationId, compactionRevision);
+    public void track(Object readOperationId, long operationRevision) {
+        var key = new ReadOperationKey(readOperationId, operationRevision);
 
         CompletableFuture<Void> previous = readOperationFutureByKey.putIfAbsent(key, new CompletableFuture<>());
 
@@ -83,15 +83,15 @@ public class ReadOperationForCompactionTracker {
     }
 
     /**
-     * Stops tracking the read operation on the compaction revision on which tracking start.
+     * Stops tracking the read operation. {@code operationRevision} must match the corresponding value from {@link #track}.
      *
      * <p>Method is expected not to be called more than once for the same arguments, and {@link #track} was previously called for same
      * arguments.</p>
      *
      * @see #track(Object, long)
      */
-    public void untrack(Object readOperationId, long compactionRevision) {
-        var key = new ReadOperationKey(readOperationId, compactionRevision);
+    public void untrack(Object readOperationId, long operationRevision) {
+        var key = new ReadOperationKey(readOperationId, operationRevision);
 
         CompletableFuture<Void> removed = readOperationFutureByKey.remove(key);
 
@@ -101,14 +101,14 @@ public class ReadOperationForCompactionTracker {
     }
 
     /**
-     * Collects all read operations that were started before {@code compactionRevisionExcluded} and returns a future that will complete
+     * Collects all read operations that were started before {@code compactionRevision} and returns a future that will complete
      * when all collected operations complete.
      *
      * <p>Future completes without exception.</p>
      */
-    public CompletableFuture<Void> collect(long compactionRevisionExcluded) {
+    public CompletableFuture<Void> collect(long compactionRevision) {
         return readOperationFutureByKey.entrySet().stream()
-                .filter(entry -> entry.getKey().compactionRevision < compactionRevisionExcluded)
+                .filter(entry -> entry.getKey().operationRevision <= compactionRevision)
                 .map(Entry::getValue)
                 .collect(collectingAndThen(toList(), CompletableFutures::allOf));
     }
@@ -117,11 +117,11 @@ public class ReadOperationForCompactionTracker {
         @IgniteToStringInclude
         private final Object readOperationId;
 
-        private final long compactionRevision;
+        private final long operationRevision;
 
-        private ReadOperationKey(Object readOperationId, long compactionRevision) {
+        private ReadOperationKey(Object readOperationId, long operationRevision) {
             this.readOperationId = readOperationId;
-            this.compactionRevision = compactionRevision;
+            this.operationRevision = operationRevision;
         }
 
         @Override
@@ -135,13 +135,13 @@ public class ReadOperationForCompactionTracker {
 
             ReadOperationKey that = (ReadOperationKey) o;
 
-            return compactionRevision == that.compactionRevision && readOperationId.equals(that.readOperationId);
+            return operationRevision == that.operationRevision && readOperationId.equals(that.readOperationId);
         }
 
         @Override
         public int hashCode() {
             int result = readOperationId.hashCode();
-            result = 31 * result + (int) (compactionRevision ^ (compactionRevision >>> 32));
+            result = 31 * result + Long.hashCode(operationRevision);
             return result;
         }
 

@@ -916,7 +916,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     Value value = getValueNullable(key, revision);
 
                     // Value may be null if the compaction has removed it in parallel.
-                    if (value == null || (revision <= compactionRevision && value.tombstone())) {
+                    if (value == null || value.tombstone()) {
                         return EntryImpl.empty(key);
                     }
 
@@ -928,14 +928,12 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         Iterator<Entry> iterator = entries.iterator();
 
         long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
-        long compactionRevisionOnCreateIterator = compactionRevision;
-
-        readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);
+        readOperationForCompactionTracker.track(readOperationId, revUpperBound);
 
         return new Cursor<>() {
             @Override
             public void close() {
-                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionOnCreateIterator);
+                readOperationForCompactionTracker.untrack(readOperationId, revUpperBound);
             }
 
             @Override

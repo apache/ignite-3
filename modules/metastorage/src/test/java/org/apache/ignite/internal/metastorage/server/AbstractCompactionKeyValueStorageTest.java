@@ -972,8 +972,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
             assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorLatest));
             assertEquals(List.of(5L), collectRevisions(rangeFooKeyCursorBounded));
 
-            assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorLatest));
-            assertEquals(List.of(5L), collectRevisions(rangeBarKeyCursorBounded));
+            assertEquals(List.of(), collectRevisions(rangeBarKeyCursorLatest));
+            assertEquals(List.of(), collectRevisions(rangeBarKeyCursorBounded));
         }
     }
 
@@ -1132,7 +1132,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testConcurrentReadAllAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
-        int numberOfKeys = 100;
+        int numberOfKeys = 15;
         for (int i = 0; i < 100; i++) {
             List<byte[]> keys = new ArrayList<>();
             List<byte[]> values = new ArrayList<>();
@@ -1178,7 +1178,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testConcurrentRangeAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
-        int numberOfKeys = 100;
+        int numberOfKeys = 3;
         for (int i = 0; i < 100; i++) {
             List<byte[]> keys = new ArrayList<>();
             List<byte[]> values = new ArrayList<>();

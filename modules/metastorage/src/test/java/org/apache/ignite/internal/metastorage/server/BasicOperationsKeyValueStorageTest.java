@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -76,7 +77,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -2300,7 +2300,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         var invokesFinished = new AtomicBoolean();
 
-        IgniteTestUtils.runRace(
+        runRace(
                 () -> {
                     try {
                         // Sufficiently large number of iterations. 10 used to be enough to reproduce the issue, but 1000 is better.
@@ -2333,7 +2333,9 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                             continue;
                         }
 
-                        storage.compact(storage.revision() - 1);
+                        long compactedRevision = storage.revision() - 1;
+                        storage.setCompactionRevision(compactedRevision);
+                        storage.compact(compactedRevision);
                     }
                 }
         );
