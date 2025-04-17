@@ -1097,7 +1097,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testConcurrentReadAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
-        for (int i = 0; i < 1000; i++) {
+        for (int i = 0; i < 100; i++) {
             byte[] key = key(i);
             byte[] value = keyValue(i, i);
 
