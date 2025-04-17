@@ -24,7 +24,8 @@ import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.hasMessage;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -33,12 +34,15 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.testframework.matchers.JobExecutionMatcher.jobExecutionWithResultStatusAndNode;
 import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.jobStateWithStatus;
 import static org.apache.ignite.lang.ErrorGroups.Compute.CLASS_INITIALIZATION_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_CANCELLED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.both;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.either;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.in;
@@ -60,8 +64,6 @@ import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
@@ -79,7 +81,6 @@ import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
@@ -89,6 +90,7 @@ import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -177,7 +179,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                                 null
                         ));
 
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
+        assertThat(ex, is(traceableException(ComputeException.class, errorCode, msg)));
     }
 
     @ParameterizedTest
@@ -185,11 +187,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
     void executesWrongJobClassLocallyAsync(String jobClassName, int errorCode, String msg) {
         Ignite entryNode = node(0);
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> compute().executeAsync(
-                        JobTarget.node(clusterNode(entryNode)), JobDescriptor.builder(jobClassName).units(units()).build(), null)
-                .get(1, TimeUnit.SECONDS));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
+        assertThat(compute().executeAsync(
+                        JobTarget.node(clusterNode(entryNode)),
+                        JobDescriptor.builder(jobClassName).units(units()).build(),
+                        null),
+                willThrow(traceableException(ComputeException.class, errorCode, msg))
+        );
     }
 
     @ParameterizedTest
@@ -200,19 +203,17 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobDescriptor.builder(jobClassName).units(units()).build(),
                 null));
 
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
+        assertThat(ex, is(traceableException(ComputeException.class, errorCode, msg)));
     }
 
     @ParameterizedTest
     @MethodSource("wrongJobClassArguments")
     void executesWrongJobClassOnRemoteNodesAsync(String jobClassName, int errorCode, String msg) {
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> compute().executeAsync(
-                JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
-                JobDescriptor.builder(jobClassName).units(units()).build(),
-                null
-        ).get(1, TimeUnit.SECONDS));
-
-        assertTraceableException(ex, ComputeException.class, errorCode, msg);
+        assertThat(compute().executeAsync(
+                        JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
+                        JobDescriptor.builder(jobClassName).units(units()).build(),
+                        null),
+                willThrow(traceableException(ComputeException.class, errorCode, msg)));
     }
 
     @Test
@@ -293,7 +294,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobTarget.node(clusterNode(entryNode)),
                 JobDescriptor.builder(failingJobClass()).units(units()).build(), null));
 
-        assertComputeException(ex, "JobException", "Oops");
+        assertThat(ex, is(computeJobFailedException("JobException", "Oops")));
     }
 
     @Test
@@ -306,9 +307,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
-
-        assertComputeException(ex, "JobException", "Oops");
+        assertThat(execution.resultAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
     }
@@ -319,7 +318,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 JobTarget.anyNode(clusterNode(node(1)), clusterNode(node(2))),
                 JobDescriptor.builder(failingJobClass()).units(units()).build(), null));
 
-        assertComputeException(ex, "JobException", "Oops");
+        assertThat(ex, is(computeJobFailedException("JobException", "Oops")));
     }
 
     @Test
@@ -343,9 +342,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
                 null
         );
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
-
-        assertComputeException(ex, "JobException", "Oops");
+        assertThat(execution.resultAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
 
         assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
     }
@@ -399,14 +396,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         Collection<JobExecution<String>> executions = broadcastExecution.executions();
         assertThat(executions, hasSize(3));
         for (JobExecution<String> execution : executions) {
-            ExecutionException ex = assertThrows(ExecutionException.class, () -> execution.resultAsync().get(1, TimeUnit.SECONDS));
-            assertComputeException(ex, "JobException", "Oops");
+            assertThat(execution.resultAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
 
             assertThat(execution.stateAsync(), willBe(jobStateWithStatus(FAILED)));
         }
 
-        ExecutionException ex = assertThrows(ExecutionException.class, () -> broadcastExecution.resultsAsync().get(1, TimeUnit.SECONDS));
-        assertComputeException(ex, "JobException", "Oops");
+        assertThat(broadcastExecution.resultsAsync(), willThrow(computeJobFailedException("JobException", "Oops")));
     }
 
     @Test
@@ -499,7 +494,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
     @ParameterizedTest(name = "local: {0}")
     @ValueSource(booleans = {true, false})
-    void cancelComputeExecuteAsyncWithCancelHandle(boolean local) {
+    void cancelComputeExecuteAsync(boolean local) {
         Ignite executeNode = local ? node(0) : node(1);
 
         CancelHandle cancelHandle = CancelHandle.create();
@@ -511,12 +506,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+        assertThat(execution, willThrow(computeJobCancelledException()));
     }
 
     @ParameterizedTest(name = "local: {0}")
     @ValueSource(booleans = {true, false})
-    void cancelComputeExecuteWithCancelHandle(boolean local) {
+    void cancelComputeExecute(boolean local) {
         Ignite executeNode = local ? node(0) : node(1);
 
         CancelHandle cancelHandle = CancelHandle.create();
@@ -528,12 +523,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> runFut.get(10, TimeUnit.SECONDS));
+        assertThat(runFut, willThrow(computeJobCancelledException()));
     }
 
     @ParameterizedTest(name = "withLocal: {0}")
     @ValueSource(booleans = {true, false})
-    void cancelComputeExecuteBroadcastAsyncWithCancelHandle(boolean local) {
+    void cancelComputeExecuteBroadcastAsync(boolean local) {
         Ignite entryNode = node(0);
         Set<ClusterNode> executeNodes =
                 local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
@@ -547,12 +542,12 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        assertThat(resultsFut, willThrow(ComputeException.class));
+        assertThat(resultsFut, willThrow(computeJobCancelledException()));
     }
 
     @ParameterizedTest(name = "local: {0}")
     @ValueSource(booleans = {true, false})
-    void cancelComputeExecuteBroadcastWithCancelHandle(boolean local) {
+    void cancelComputeExecuteBroadcast(boolean local) {
         Ignite entryNode = node(0);
         Set<ClusterNode> executeNodes =
                 local ? Set.of(clusterNode(entryNode), clusterNode(node(2))) : Set.of(clusterNode(node(1)), clusterNode(node(2)));
@@ -566,11 +561,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        assertThat(runFut, willThrow(ComputeException.class));
+        assertThat(runFut, willThrow(computeJobCancelledException()));
     }
 
     @Test
-    void cancelComputeExecuteMapReduceAsyncWithCancelHandle() {
+    void cancelComputeExecuteMapReduceAsync() {
         CancelHandle cancelHandle = CancelHandle.create();
 
         CompletableFuture<Void> execution = compute()
@@ -578,7 +573,7 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
 
         cancelHandle.cancel();
 
-        assertThrows(ExecutionException.class, () -> execution.get(10, TimeUnit.SECONDS));
+        assertThat(execution, willThrow(computeJobCancelledException()));
     }
 
     static void createTestTableWithOneRow() {
@@ -918,18 +913,23 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         return MapReduce.class;
     }
 
-    static void assertComputeException(Exception ex, Throwable cause) {
-        assertComputeException(ex, cause.getClass().getName(), cause.getMessage());
+    static Matcher<Exception> computeJobFailedException(String causeClass, String causeMsgSubstring) {
+        return traceableException(ComputeException.class)
+                .withCode(is(COMPUTE_JOB_FAILED_ERR))
+                .withMessage(both(containsString("Job execution failed:"))
+                        .and(containsString(causeClass)))
+                .withCause(hasMessage(containsString(causeMsgSubstring)));
     }
 
-    static void assertComputeException(Exception ex, Class<?> cause, String causeMsgSubstring) {
-        assertComputeException(ex, cause.getName(), causeMsgSubstring);
-    }
-
-    private static void assertComputeException(Exception ex, String causeClass, String causeMsgSubstring) {
-        assertTraceableException(ex, ComputeException.class, COMPUTE_JOB_FAILED_ERR, "Job execution failed:");
-        Throwable cause = ExceptionUtils.unwrapCause(ex);
-        assertThat(cause.toString(), containsString(causeClass));
-        assertThat(cause.getCause().getMessage(), containsString(causeMsgSubstring));
+    private static Matcher<Exception> computeJobCancelledException() {
+        return traceableException(ComputeException.class)
+                .withCode(is(COMPUTE_JOB_CANCELLED_ERR))
+                .withMessage(containsString("Job execution cancelled"))
+                .withCause(
+                        // Thin client exception transfers the class name in a message of the cause,
+                        // embedded exception are instances in the cause chain
+                        either(hasMessage(containsString(CancellationException.class.getName())))
+                                .or(instanceOf(CancellationException.class))
+                );
     }
 }

@@ -38,6 +38,15 @@ class ProgressSpeedCalculation {
     }
 
     /**
+     * Sets the value which was reached by the progress.
+     *
+     * @see IntervalBasedMeasurement#forceCounter(long, long)
+     */
+    void forceProgress(long progress, long nanoTime) {
+        measurement.forceCounter(progress, nanoTime);
+    }
+
+    /**
      * Returns speed of progress in operations per second calculated from the current value and 3 latest historical intervals. This method
      * may change internal state (namely, initialize the current interval).
      *

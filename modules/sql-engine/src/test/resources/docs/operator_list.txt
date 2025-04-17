@@ -323,9 +323,6 @@ DATE(<timestamp with local time zone>) ***
 DATE(<timestamp with local time zone>, <string>) ***
 #12a077f0ee4d24aaebf5d047d833d5cfd8f70b22
 
-CURRENT_TIME
-#bc364c4a100683b9ba3b303b547f61db976bf44e
-
 CURRENT_TIMESTAMP
 #5c99b1be6d38a4133eb93b31f2d96552e0367780
 

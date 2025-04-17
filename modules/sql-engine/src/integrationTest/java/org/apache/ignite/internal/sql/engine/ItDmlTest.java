@@ -80,6 +80,38 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    void subqueryInUpdateAndMerge() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript("" 
+                + "CREATE TABLE t0(ID INT PRIMARY KEY, A INT);" 
+                + "CREATE TABLE t1(ID INT PRIMARY KEY, B INT);" 
+                + "INSERT INTO t0 VALUES (1, 0), (2, 0);" 
+                + "INSERT INTO t1 VALUES (1, -100), (3, 3);");
+
+        sql("MERGE INTO t0 USING t1 ON t0.id = t1.id "
+                + "WHEN MATCHED THEN UPDATE SET A = (SELECT B FROM t1 WHERE id = 1)");
+
+        assertQuery("SELECT * FROM t0")
+                .returns(1, -100)
+                .returns(2, 0)
+                .check();
+
+        sql("UPDATE t0 SET A = (SELECT id::BIGINT FROM t1 ORDER BY b DESC LIMIT 1)");
+
+        assertQuery("SELECT * FROM t0")
+                .returns(1, 3)
+                .returns(2, 3)
+                .check();
+
+        sql("UPDATE t0 SET a = a + (SELECT 1)");
+
+        assertQuery("SELECT * FROM t0")
+                .returns(1, 4)
+                .returns(2, 4)
+                .check();
+    }
+
+    @Test
     public void pkConstraintConsistencyTest() {
         sql("CREATE TABLE my (id INT PRIMARY KEY, val INT)");
         assertQuery("INSERT INTO my VALUES (?, ?)")

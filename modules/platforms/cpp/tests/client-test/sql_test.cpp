@@ -497,13 +497,13 @@ TEST_F(sql_test, timezone_passed) {
     sql_statement statement{"SELECT CURRENT_TIMESTAMP"};
     statement.timezone_id("UTC+8");
     auto ts0 = execute_statement_one_result(statement);
-    EXPECT_EQ(ignite_type::DATETIME, ts0.get_type());
+    EXPECT_EQ(ignite_type::TIMESTAMP, ts0.get_type());
 
     statement.timezone_id("UTC-2");
     auto ts1 = execute_statement_one_result(statement);
-    EXPECT_EQ(ignite_type::DATETIME, ts1.get_type());
+    EXPECT_EQ(ignite_type::TIMESTAMP, ts1.get_type());
 
-    EXPECT_NE(ts0.get<ignite_date_time>(), ts1.get<ignite_date_time>());
+    EXPECT_NE(ts0.get<ignite_timestamp>(), ts1.get<ignite_timestamp>());
 }
 
 /**

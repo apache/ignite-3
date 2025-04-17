@@ -351,14 +351,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
                         .sql("UPDATE t1 SET c1 = (SELECT ?)", 1)
-                        .ok()
+                        .ok(),
 
-        //        TODO https://issues.apache.org/jira/browse/IGNITE-23183
-        //         Assertion is caused by incorrect subquery handling
-        //         checkStatement()
-        //                .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
-        //                .sql("UPDATE t1 SET c1 = (SELECT ?)", Unspecified.UNKNOWN)
-        //                .fails("Unable to determine type of a dynamic parameter")
+                checkStatement()
+                        .table("t1", "c1", NativeTypes.INT32, "c2", NativeTypes.INT64)
+                        .sql("UPDATE t1 SET c1 = (SELECT ?)", Unspecified.UNKNOWN)
+                        .fails("Unable to determine type of a dynamic parameter")
         );
     }
 
