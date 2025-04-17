@@ -133,6 +133,7 @@ import org.apache.ignite.internal.placementdriver.wrappers.ExecutorInclinedPlace
 import org.apache.ignite.internal.raft.ExecutorInclinedRaftCommandRunner;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.Replica;
@@ -551,13 +552,13 @@ public class PartitionReplicaLifecycleManager extends
             for (int partId = 0; partId < assignments.size(); partId++) {
                 Assignments zoneAssignment = assignments.get(partId);
 
-                Assignment localMemberAssignment = localMemberAssignment(zoneAssignment);
+                Assignment localAssignment = localAssignment(zoneAssignment);
 
                 var zonePartitionId = new ZonePartitionId(zoneId, partId);
 
                 partitionsStartFutures[partId] = createZonePartitionReplicationNode(
                         zonePartitionId,
-                        localMemberAssignment,
+                        localAssignment,
                         zoneAssignment,
                         causalityToken,
                         partitionCount,
@@ -606,11 +607,11 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localMemberAssignment} is not
+     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localAssignment} is not
      * null, meaning that the local node is part of the assignment.
      *
      * @param zonePartitionId Zone Partition ID.
-     * @param localMemberAssignment Assignment of the local member, or null if local member is not part of the assignment.
+     * @param localAssignment Assignment of the local member, or null if local member is not part of the assignment.
      * @param stableAssignments Stable assignments.
      * @param revision Event's revision.
      * @param partitionCount Number of partitions on the zone.
@@ -618,14 +619,14 @@ public class PartitionReplicaLifecycleManager extends
      */
     private CompletableFuture<?> createZonePartitionReplicationNode(
             ZonePartitionId zonePartitionId,
-            @Nullable Assignment localMemberAssignment,
+            @Nullable Assignment localAssignment,
             Assignments stableAssignments,
             long revision,
             int partitionCount,
             boolean isVolatileZone,
             boolean holdingZoneWriteLock
     ) {
-        if (localMemberAssignment == null) {
+        if (localAssignment == null) {
             return nullCompletedFuture();
         }
 
@@ -635,16 +636,9 @@ public class PartitionReplicaLifecycleManager extends
 
         PeersAndLearners stablePeersAndLearners = fromAssignments(stableAssignments.nodes());
 
-        ZoneRebalanceRaftGroupEventsListener raftGroupEventsListener = new ZoneRebalanceRaftGroupEventsListener(
-                metaStorageMgr,
-                failureProcessor,
-                zonePartitionId,
-                busyLock,
-                createPartitionMover(zonePartitionId),
-                rebalanceScheduler,
-                this::calculateZoneAssignments,
-                rebalanceRetryDelayConfiguration
-        );
+        RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
+                ? createRaftGroupEventsListener(zonePartitionId)
+                : RaftGroupEventsListener.noopLsnr;
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
@@ -753,6 +747,19 @@ public class PartitionReplicaLifecycleManager extends
             }
             return replicaFut.thenApply(Replica::raftClient);
         });
+    }
+
+    private RaftGroupEventsListener createRaftGroupEventsListener(ZonePartitionId zonePartitionId) {
+        return new ZoneRebalanceRaftGroupEventsListener(
+                metaStorageMgr,
+                failureProcessor,
+                zonePartitionId,
+                busyLock,
+                createPartitionMover(zonePartitionId),
+                rebalanceScheduler,
+                this::calculateZoneAssignments,
+                rebalanceRetryDelayConfiguration
+        );
     }
 
     private ClusterNode localNode() {
@@ -1203,10 +1210,10 @@ public class PartitionReplicaLifecycleManager extends
         Set<Assignment> pendingAssignmentsNodes = pendingAssignments.nodes();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        Assignment localMemberAssignment = localMemberAssignment(pendingAssignments);
+        Assignment localAssignment = localAssignment(pendingAssignments);
 
-        boolean shouldStartLocalGroupNode = localMemberAssignment != null
-                && (stableAssignments == null || !stableAssignments.nodes().contains(localMemberAssignment));
+        boolean shouldStartLocalGroupNode = localAssignment != null
+                && (stableAssignments == null || !stableAssignments.nodes().contains(localAssignment));
 
         // This is a set of assignments for nodes that are not the part of stable assignments, i.e. unstable part of the distribution.
         // For regular pending assignments we use (old) stable set, so that none of new nodes would be able to propose itself as a leader.
@@ -1241,14 +1248,14 @@ public class PartitionReplicaLifecycleManager extends
 
             localServicesStartFuture = createZonePartitionReplicationNode(
                     replicaGrpId,
-                    localMemberAssignment,
+                    localAssignment,
                     computedStableAssignments,
                     revision,
                     zoneDescriptor.partitions(),
                     isVolatileZone(zoneDescriptor),
                     false
             );
-        } else if (pendingAssignmentsAreForced && localMemberAssignment != null) {
+        } else if (pendingAssignmentsAreForced && localAssignment != null) {
             localServicesStartFuture = runAsync(() -> {
                 inBusyLock(busyLock, () -> replicaMgr.resetPeers(replicaGrpId, fromAssignments(computedStableAssignments.nodes())));
             }, ioExecutor);
@@ -1433,10 +1440,15 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     @Nullable
-    private Assignment localMemberAssignment(Assignments assignments) {
-        Assignment localMemberAssignment = Assignment.forPeer(localNode().name());
-
-        return assignments.nodes().contains(localMemberAssignment) ? localMemberAssignment : null;
+    private Assignment localAssignment(@Nullable Assignments assignments) {
+        if (assignments != null) {
+            for (Assignment assignment : assignments.nodes()) {
+                if (isLocalNodeAssignment.test(assignment)) {
+                    return assignment;
+                }
+            }
+        }
+        return null;
     }
 
     @Override
@@ -1613,9 +1625,9 @@ public class PartitionReplicaLifecycleManager extends
             assert stableAssignments != null : "zonePartitionId=" + zonePartitionId + ", revision=" + revision;
 
             return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
-                Assignment localMemberAssignment = localMemberAssignment(stableAssignments);
+                Assignment localAssignment = localAssignment(stableAssignments);
 
-                if (localMemberAssignment == null) {
+                if (localAssignment == null) {
                     // (0) in case if node not in the assignments
                     return nullCompletedFuture();
                 }
@@ -1624,7 +1636,7 @@ public class PartitionReplicaLifecycleManager extends
 
                 return createZonePartitionReplicationNode(
                         zonePartitionId,
-                        localMemberAssignment,
+                        localAssignment,
                         stableAssignments,
                         revision,
                         zoneDescriptor.partitions(),
@@ -1702,5 +1714,10 @@ public class PartitionReplicaLifecycleManager extends
     public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
         return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId))).raftListener()
                 .currentSafeTime();
+    }
+
+    @TestOnly
+    public ZonePartitionResources zonePartitionResources(ZonePartitionId zonePartitionId) {
+        return requireNonNull(zoneResourcesManager.getZonePartitionResources(zonePartitionId));
     }
 }

@@ -31,6 +31,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -112,6 +113,9 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      */
     protected @Nullable TreeSet<NotifyWatchProcessorEvent> notifyWatchProcessorEventsBeforeStartingWatches = new TreeSet<>();
 
+    /** Metastorage compaction revision update listeners. */
+    private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
+
     /**
      * Constructor.
      *
@@ -128,8 +132,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
 
         watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
-
-        watchProcessor.registerCompactionRevisionUpdateListener(this::setCompactionRevision);
     }
 
     /** Returns the key revisions for operation, an empty array if not found. */
@@ -272,20 +274,16 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
-            } else if (areWatchesStarted()) {
-                if (compactionRevision > planedUpdateCompactionRevision) {
-                    planedUpdateCompactionRevision = compactionRevision;
-
-                    watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
-                } else {
-                    watchProcessor.advanceSafeTime(context.timestamp);
-                }
             } else if (compactionRevision > planedUpdateCompactionRevision) {
                 planedUpdateCompactionRevision = compactionRevision;
 
-                var notifyWatchesEvent = new UpdateCompactionRevisionEvent(compactionRevision, context.timestamp);
+                notifyWatchProcessor(new AdvanceSafeTimeEvent(() -> {
+                    setCompactionRevision(compactionRevision);
 
-                addToNotifyWatchProcessorEventsBeforeStartingWatches(notifyWatchesEvent);
+                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
+                }, context.timestamp));
+            } else if (areWatchesStarted()) {
+                watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -320,13 +318,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     /** Registers a metastorage compaction revision update listener. */
     @Override
     public void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        watchProcessor.registerCompactionRevisionUpdateListener(listener);
+        compactionRevisionUpdateListeners.add(listener);
     }
 
     /** Unregisters a metastorage compaction revision update listener. */
     @Override
     public void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        watchProcessor.unregisterCompactionRevisionUpdateListener(listener);
+        compactionRevisionUpdateListeners.remove(listener);
     }
 
     @Override
@@ -480,7 +478,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             setIndexAndTerm(context.index, context.term);
 
             if (areWatchesStarted()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
+                watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -502,12 +500,14 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return new Revisions(rev, compactionRevision);
     }
 
-    protected void addToNotifyWatchProcessorEventsBeforeStartingWatches(NotifyWatchProcessorEvent event) {
-        assert !areWatchesStarted();
+    protected void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
+        if (areWatchesStarted()) {
+            event.notify(watchProcessor);
+        } else {
+            boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
 
-        boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
-
-        assert added : event;
+            assert added : event;
+        }
     }
 
     protected void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
