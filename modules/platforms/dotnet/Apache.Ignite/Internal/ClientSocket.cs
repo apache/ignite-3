@@ -294,11 +294,8 @@ namespace Apache.Ignite.Internal
         /// <returns>Task.</returns>
         public async Task SendServerOpResponseAsync(
             long requestId,
-            PooledArrayBuffer? response)
-        {
-            // TODO: What about errors? We need another flags enum?
+            PooledArrayBuffer? response) =>
             await SendRequestAsync(response, ClientOp.ServerOpResponse, requestId).ConfigureAwait(false);
-        }
 
         /// <inheritdoc/>
         public void Dispose()

@@ -116,6 +116,7 @@ internal static class ComputeJobExecutor
             w.Write(className);
             w.Write(message);
             w.Write(stackTrace);
+            w.Write(0); // Extensions count.
         }
     }
 
