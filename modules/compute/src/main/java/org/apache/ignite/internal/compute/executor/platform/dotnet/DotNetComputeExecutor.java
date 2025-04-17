@@ -95,6 +95,7 @@ public class DotNetComputeExecutor {
             CompletableFuture<PlatformComputeConnection> fut, @Nullable List<Throwable> errors) {
         DotNetExecutorProcess proc = ensureProcessStarted();
 
+        // TODO proc.process().onExit()
         proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .handle((res, e) -> {
