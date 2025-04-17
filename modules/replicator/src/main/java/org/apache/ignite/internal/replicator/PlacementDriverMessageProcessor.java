@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -142,6 +143,7 @@ public class PlacementDriverMessageProcessor {
                     .handle((v, e) -> {
                         if (e != null) {
                             if (!hasCause(e, NodeStoppingException.class)
+                                    && !hasCause(e, CancellationException.class)
                                     && !hasCause(e, TrackerClosedException.class)
                                     && !hasCause(e, RejectedExecutionException.class)) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
