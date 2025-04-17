@@ -71,7 +71,7 @@ public final class ClientComputeJobUnpacker {
 
         if (enablePlatformJobs) {
             // TODO: IGNITE-25116 propagate executor type.
-            int executorType = in.unpackInt();
+            in.unpackInt();
         }
 
         ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
