@@ -20,6 +20,7 @@ package org.apache.ignite.internal.compute.executor.platform.dotnet;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
@@ -177,7 +178,7 @@ public class DotNetComputeExecutor {
 
     private static String getProcessOutputTail(Process proc, int tail) {
         try {
-            String output = new String(proc.getInputStream().readAllBytes());
+            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
 
             return output.substring(Math.max(0, output.length() - tail));
         } catch (IOException e) {
@@ -254,6 +255,6 @@ public class DotNetComputeExecutor {
         byte[] randomBytes = new byte[64];
         SECURE_RANDOM.nextBytes(randomBytes);
 
-        return new String(Base64.getEncoder().encode(randomBytes));
+        return new String(Base64.getEncoder().encode(randomBytes), StandardCharsets.UTF_8);
     }
 }
