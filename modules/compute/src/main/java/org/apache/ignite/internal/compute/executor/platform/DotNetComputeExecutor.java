@@ -25,8 +25,6 @@ import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.List;
-import java.util.Map;
-import java.util.Map.Entry;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
@@ -44,11 +42,7 @@ public class DotNetComputeExecutor {
 
     private final PlatformComputeTransport transport;
 
-    /** Single-use secret to match the connection to the process. */
-    private String computeExecutorId;
-
-    /** .NET process. Uses computeExecutorId above. */
-    private Process process;
+    private DotNetExecutorProcess process;
 
     public DotNetComputeExecutor(PlatformComputeTransport transport) {
         this.transport = transport;
@@ -64,7 +58,7 @@ public class DotNetComputeExecutor {
 
     public synchronized void stop() {
         if (process != null) {
-            process.destroy();
+            process.process().destroy();
         }
     }
 
@@ -78,19 +72,16 @@ public class DotNetComputeExecutor {
             return CompletableFuture.failedFuture(new CancellationException("Job was cancelled"));
         }
 
-        Entry<Process, String> procEntry = ensureProcessStarted();
-        Process proc = procEntry.getKey();
-        String executorId = procEntry.getValue();
+        DotNetExecutorProcess proc = ensureProcessStarted();
 
         // TODO: Refactor:
         // 1. Register a single-use ID once
         // 2. On timeout or process crash, try again a few times.
         // 3. In handshake, validate executor id against registered ids, and remove immediately (single use).
-        return transport
-                .registerComputeExecutorId(executorId)
+        return proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .exceptionally(e -> {
-                    throw handleTransportError(e, proc);
+                    throw handleTransportError(e, proc.process());
                 })
                 .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
     }
@@ -116,14 +107,17 @@ public class DotNetComputeExecutor {
         }
     }
 
-    private synchronized Map.Entry<Process, String> ensureProcessStarted() {
-        if (process == null || !process.isAlive()) {
+    private synchronized DotNetExecutorProcess ensureProcessStarted() {
+        if (process == null || !process.process().isAlive()) {
             // Generate a new id for every new process to prevent replay attacks.
-            computeExecutorId = generateSecureRandomId();
-            process = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), computeExecutorId);
+            String executorId = generateSecureRandomId();
+            CompletableFuture<PlatformComputeConnection> fut = transport.registerComputeExecutorId(executorId);
+            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId);
+
+            process = new DotNetExecutorProcess(executorId, proc, fut);
         }
 
-        return Map.entry(process, computeExecutorId);
+        return process;
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
