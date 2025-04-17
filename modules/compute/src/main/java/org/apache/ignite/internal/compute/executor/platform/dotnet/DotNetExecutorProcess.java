@@ -15,31 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.executor.platform;
+package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 
 /**
  * Represents a .NET executor process.
  */
 class DotNetExecutorProcess {
-    /** Single-use secret to match the connection to the process. */
-    private final String computeExecutorId;
-
     /** .NET process. Uses computeExecutorId above. */
     private final Process process;
 
     /** .NET process connection future. Uses computeExecutorId above. */
     private final CompletableFuture<PlatformComputeConnection> connectionFut;
 
-    DotNetExecutorProcess(String computeExecutorId, Process process, CompletableFuture<PlatformComputeConnection> connectionFut) {
-        this.computeExecutorId = computeExecutorId;
+    DotNetExecutorProcess(Process process, CompletableFuture<PlatformComputeConnection> connectionFut) {
         this.process = process;
         this.connectionFut = connectionFut;
-    }
-
-    String computeExecutorId() {
-        return computeExecutorId;
     }
 
     Process process() {

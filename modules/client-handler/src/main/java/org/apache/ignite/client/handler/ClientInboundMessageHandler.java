@@ -166,7 +166,7 @@ import org.jetbrains.annotations.TestOnly;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler
         extends ChannelInboundHandlerAdapter
-        implements EventListener<AuthenticationEventParameters>, PlatformComputeConnection {
+        implements EventListener<AuthenticationEventParameters> {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientInboundMessageHandler.class);
 
@@ -432,7 +432,7 @@ public class ClientInboundMessageHandler
                 handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
 
                 // Ready to handle compute requests now.
-                computeConnFut.complete(this);
+                computeConnFut.complete(this::executeJobAsync);
 
                 return;
             }
@@ -1219,8 +1219,7 @@ public class ClientInboundMessageHandler
         return cancelHandles.size();
     }
 
-    @Override
-    public CompletableFuture<ComputeJobDataHolder> executeJobAsync(
+    private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
             List<String> deploymentUnitPaths,
             String jobClassName,
             ComputeJobDataHolder arg) {

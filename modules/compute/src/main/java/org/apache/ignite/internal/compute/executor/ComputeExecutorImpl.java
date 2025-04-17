@@ -40,7 +40,7 @@ import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.JobExecutorType;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
-import org.apache.ignite.internal.compute.executor.platform.DotNetComputeExecutor;
+import org.apache.ignite.internal.compute.executor.platform.dotnet.DotNetComputeExecutor;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;

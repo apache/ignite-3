@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute.executor.platform;
+package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import java.io.IOException;
 import java.net.URISyntaxException;
@@ -31,11 +31,15 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 
 public class DotNetComputeExecutor {
-    static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
+    private static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
 
     private static final int PROCESS_START_TIMEOUT_MS = 5000;
+
+    private static final int PROCESS_START_MAX_RETRIES = 2;
 
     /** Thread-safe secure random */
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -68,22 +72,31 @@ public class DotNetComputeExecutor {
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         if (context.isCancelled()) {
-            // TODO IGNITE-25153 Platform job cancellation.
             return CompletableFuture.failedFuture(new CancellationException("Job was cancelled"));
         }
 
+        return getPlatformComputeConnectionWithRetryAsync()
+                .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
+    }
+
+    private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnectionWithRetryAsync() {
         DotNetExecutorProcess proc = ensureProcessStarted();
 
-        // TODO: Refactor:
-        // 1. Register a single-use ID once
-        // 2. On timeout or process crash, try again a few times.
-        // 3. In handshake, validate executor id against registered ids, and remove immediately (single use).
+        // TODO: Retry on fail.
         return proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .exceptionally(e -> {
-                    throw handleTransportError(e, proc.process());
-                })
-                .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
+                    throw  handleTransportError(e, proc.process());
+//                    List<Throwable> errors0 = errors == null ? new ArrayList<>() : errors;
+//                    errors0.add(err);
+//
+//                    if (errors0.size() < PROCESS_START_MAX_RETRIES) {
+//                        executeJobAsync(deploymentUnitPaths, jobClassName, input, context, resFut, errors0);
+//                        return
+//                    } else {
+//                        throw err;
+//                    }
+                });
     }
 
     private static RuntimeException handleTransportError(Throwable e, Process proc) {
@@ -109,12 +122,16 @@ public class DotNetComputeExecutor {
 
     private synchronized DotNetExecutorProcess ensureProcessStarted() {
         if (process == null || !process.process().isAlive()) {
-            // Generate a new id for every new process to prevent replay attacks.
+            // 0. Generate a new secure id for every new process to prevent replay attacks.
             String executorId = generateSecureRandomId();
+
+            // 1. Register the executor id with the server. Server waits for the "special client connection".
             CompletableFuture<PlatformComputeConnection> fut = transport.registerComputeExecutorId(executorId);
+
+            // 2. Start the process. It connects to the server, passes the id, and the server knows it is the right one.
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, DOTNET_BINARY_PATH);
 
-            process = new DotNetExecutorProcess(executorId, proc, fut);
+            process = new DotNetExecutorProcess(proc, fut);
         }
 
         return process;
