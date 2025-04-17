@@ -103,6 +103,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -112,6 +113,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -332,9 +334,17 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         doReturn(nullCompletedFuture())
                 .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
-        doReturn(nullCompletedFuture())
-                .when(replicaMgr)
-                .startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+
+        ZonePartitionReplicaListener zonePartitionReplicaListener = mock(ZonePartitionReplicaListener.class);
+        Replica replica = mock(Replica.class);
+        doAnswer(invocation -> {
+            partitionReplicaLifecycleManager
+                    .zonePartitionResourcesReplicaFuture(invocation.getArgument(0))
+                    .complete(zonePartitionReplicaListener);
+
+            return completedFuture(replica);
+        }).when(replicaMgr).startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+
         doReturn(trueCompletedFuture()).when(replicaMgr).stopReplica(any());
         doAnswer(invocation -> {
             Supplier<CompletableFuture<Boolean>> startSupplier = invocation.getArgument(1);

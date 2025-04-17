@@ -1703,4 +1703,9 @@ public class PartitionReplicaLifecycleManager extends
         return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId))).raftListener()
                 .currentSafeTime();
     }
+
+    @TestOnly
+    public CompletableFuture<ZonePartitionReplicaListener> zonePartitionResourcesReplicaFuture(ZonePartitionId zonePartitionId) {
+        return zoneResourcesManager.getZonePartitionResources(zonePartitionId).replicaListenerFuture();
+    }
 }
