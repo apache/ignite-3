@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import java.util.List;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -42,7 +43,7 @@ public class UpdateOnlyRevisionEvent implements NotifyWatchProcessorEvent {
 
     @Override
     public void notify(WatchProcessor watchProcessor) {
-        watchProcessor.updateOnlyRevision(newRevision, timestamp);
+        watchProcessor.notifyWatches(newRevision, List.of(), timestamp);
     }
 
     @Override

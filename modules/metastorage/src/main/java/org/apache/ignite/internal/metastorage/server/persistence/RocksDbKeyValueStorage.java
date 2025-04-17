@@ -1001,6 +1001,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             compactKeys(revision);
 
             compactAuxiliaryMappings(revision);
+
+            // Compaction might have created a lot of tombstones in column families, which affect scan speed. Removing them makes next
+            // compaction faster, as well as other scans in general.
+            db.compactRange();
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -1143,20 +1147,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Adds modified entries to the watch event queue.
      */
     private void queueWatchEvent() {
-        switch (recoveryStatus.get()) {
-            case INITIAL:
-                // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
-                updatedEntries.clear();
-
-                break;
-            case IN_PROGRESS:
-                addToNotifyWatchProcessorEventsBeforeStartingWatches(updatedEntries.toNotifyWatchProcessorEvent(rev));
-
-                break;
-            default:
-                updatedEntries.toNotifyWatchProcessorEvent(rev).notify(watchProcessor);
-
-                break;
+        if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
+            // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
+            updatedEntries.clear();
+        } else {
+            notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
         }
     }
 
@@ -1369,7 +1364,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             db.write(writeOptions, batch);
 
             if (advanceSafeTime && areWatchesStarted()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
+                watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
             }
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error saving compaction revision: " + revision, t);
