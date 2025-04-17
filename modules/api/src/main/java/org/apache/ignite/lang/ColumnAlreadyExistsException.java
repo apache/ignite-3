@@ -24,7 +24,10 @@ import java.util.UUID;
 
 /**
  * This exception is thrown when a column creation has failed because a column with the specified name already existed.
+ *
+ * @deprecated No longer used. Use {@link org.apache.ignite.sql.SqlException} with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR} error code.
  */
+@Deprecated
 public class ColumnAlreadyExistsException extends IgniteException {
     /**
      * Creates a new exception with a given column name.
