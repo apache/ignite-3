@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.TestInfo;
@@ -141,15 +142,15 @@ public class ClusterConfiguration {
 
     private static List<ConfigOverride> annotations(TestInfo testInfo) {
         Class<?> cls = testInfo.getTestClass().orElseThrow();
-        Method method = testInfo.getTestMethod().orElseThrow();
+        Optional<Method> method = testInfo.getTestMethod();
 
         List<ConfigOverride> annotations = new ArrayList<>();
 
         ConfigOverride clsOverride = cls.getAnnotation(ConfigOverride.class);
-        ConfigOverride methodOverride = method.getAnnotation(ConfigOverride.class);
+        ConfigOverride methodOverride = method.map(m -> m.getAnnotation(ConfigOverride.class)).orElse(null);
 
         ConfigOverrides clsOverrideMultiple = cls.getAnnotation(ConfigOverrides.class);
-        ConfigOverrides methodOverrideMultiple = method.getAnnotation(ConfigOverrides.class);
+        ConfigOverrides methodOverrideMultiple = method.map(m -> m.getAnnotation(ConfigOverrides.class)).orElse(null);
 
         if (clsOverride != null) {
             annotations.add(clsOverride);
