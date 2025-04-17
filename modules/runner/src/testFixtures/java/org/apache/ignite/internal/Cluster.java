@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.ClusterConfiguration.assembleConfig;
 import static org.apache.ignite.internal.ClusterConfiguration.configWithOverrides;
+import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
@@ -66,6 +67,7 @@ import org.apache.ignite.internal.ClusterConfiguration.NodeAttributesValueInject
 import org.apache.ignite.internal.ClusterConfiguration.RestValueInjector;
 import org.apache.ignite.internal.ClusterConfiguration.ValueInjector;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -298,9 +300,24 @@ public class Cluster {
     ) {
         String nodeName = nodeName(nodeIndex);
 
-        List<ValueInjector> injectors = configValueInjectors(nodeIndex, clusterConfiguration);
-        Map<String, String> configWithOverrides = configWithOverrides(testInfo, nodeIndex, injectors);
-        String config = assembleConfig(configWithOverrides);
+        String config;
+
+        if (testInfo != null && containsOverrides(testInfo, nodeIndex)) {
+            List<ValueInjector> injectors = configValueInjectors(nodeIndex, clusterConfiguration);
+            Map<String, String> configWithOverrides = configWithOverrides(testInfo, nodeIndex, injectors);
+            config = assembleConfig(configWithOverrides);
+        } else {
+            config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
+                    nodeBootstrapConfigTemplate,
+                    port(nodeIndex),
+                    seedAddressesString(),
+                    clusterConfiguration.baseClientPort() + nodeIndex,
+                    httpPort(nodeIndex),
+                    clusterConfiguration.baseHttpsPort() + nodeIndex,
+                    clusterConfiguration.nodeAttributesProvider().apply(nodeIndex),
+                    false
+            ));
+        }
 
         IgniteServer node = TestIgnitionManager.start(
                 nodeName,
