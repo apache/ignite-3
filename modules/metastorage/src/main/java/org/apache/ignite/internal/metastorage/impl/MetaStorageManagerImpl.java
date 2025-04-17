@@ -1278,25 +1278,29 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             long operationRevision,
             Supplier<CompletableFuture<T>> readFromLeader
     ) {
+        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
+
         long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
 
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, operationRevision);
+        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
 
         try {
             return readFromLeader.get().whenComplete(
-                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, operationRevision)
+                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision)
             );
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, operationRevision);
+            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
             throw t;
         }
     }
 
     private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(long operationRevision, Supplier<Publisher<Entry>> readFromLeader) {
+        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
+
         long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
 
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, operationRevision);
+        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
 
         try {
             Publisher<Entry> publisherFromLeader = readFromLeader.get();
@@ -1312,7 +1316,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                         @Override
                         public void cancel() {
-                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, operationRevision);
+                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                             subscription.cancel();
                         }
@@ -1326,20 +1330,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 @Override
                 public void onError(Throwable throwable) {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, operationRevision);
+                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                     subscriber.onError(throwable);
                 }
 
                 @Override
                 public void onComplete() {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, operationRevision);
+                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                     subscriber.onComplete();
                 }
             });
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, operationRevision);
+            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
             throw t;
         }

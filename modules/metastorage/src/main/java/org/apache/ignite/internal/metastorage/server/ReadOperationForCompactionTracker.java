@@ -120,6 +120,8 @@ public class ReadOperationForCompactionTracker {
         private final long operationRevision;
 
         private ReadOperationKey(Object readOperationId, long operationRevision) {
+            assert operationRevision > 0 : operationRevision;
+
             this.readOperationId = readOperationId;
             this.operationRevision = operationRevision;
         }
