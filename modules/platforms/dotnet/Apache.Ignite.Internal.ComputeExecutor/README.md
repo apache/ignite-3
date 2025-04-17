@@ -11,5 +11,5 @@ More details: https://cwiki.apache.org/confluence/display/IGNITE/IEP-136+Platfor
 To build the project, use the following command:
 
 ```bash
-dotnet publish -c Release
+dotnet publish -c Release -p:UseAppHost=false
 ```
