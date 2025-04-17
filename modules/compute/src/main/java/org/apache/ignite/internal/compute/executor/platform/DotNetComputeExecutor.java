@@ -112,7 +112,7 @@ public class DotNetComputeExecutor {
             // Generate a new id for every new process to prevent replay attacks.
             String executorId = generateSecureRandomId();
             CompletableFuture<PlatformComputeConnection> fut = transport.registerComputeExecutorId(executorId);
-            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId);
+            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, DOTNET_BINARY_PATH);
 
             process = new DotNetExecutorProcess(executorId, proc, fut);
         }
@@ -121,8 +121,8 @@ public class DotNetComputeExecutor {
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
-    static Process startDotNetProcess(String address, boolean ssl, String executorId) {
-        ProcessBuilder processBuilder = new ProcessBuilder("dotnet", DOTNET_BINARY_PATH);
+    static Process startDotNetProcess(String address, boolean ssl, String executorId, String binaryPath) {
+        ProcessBuilder processBuilder = new ProcessBuilder("dotnet", binaryPath);
 
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS", address);
         processBuilder.environment().put("IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_ENABLED", Boolean.toString(ssl));

@@ -20,35 +20,25 @@ package org.apache.ignite.internal.compute.executor.platform;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.util.concurrent.TimeUnit;
 import org.junit.jupiter.api.Test;
 
-// TODO: Move those tests to .NET to avoid Java -> .NET dependency?
+/**
+ * Tests for {@link DotNetComputeExecutor}.
+ */
 public class DotNetComputeExecutorTest {
     @Test
-    public void dotNetBinaryPathExists() {
-        // Check if the DotNet binary path exists.
-        String dotNetBinaryPath = DotNetComputeExecutor.DOTNET_BINARY_PATH;
-        assert dotNetBinaryPath != null : "DotNet binary path is null";
-        assert !dotNetBinaryPath.isEmpty() : "DotNet binary path is empty";
-
-        assertTrue(new File(dotNetBinaryPath).exists(), "File does not exist: " + dotNetBinaryPath);
-    }
-
-    @Test
-    public void startDotNetProcessThrowsOnWrongAddress() throws Exception {
+    public void startDotNetProcessThrowsOnBadPath() throws Exception {
         Process proc = DotNetComputeExecutor
-                .startDotNetProcess("foobar", false, "123")
+                .startDotNetProcess("127.0.0.1:12345", false, "123", "my.dll")
                 .onExit()
                 .orTimeout(9, TimeUnit.SECONDS)
                 .join();
 
-        assertEquals(134, proc.exitValue());
+        assertEquals(1, proc.exitValue());
 
         String result = new String(proc.getErrorStream().readAllBytes());
-        assertThat(result, containsString("SocketException"));
+        assertThat(result, containsString("file was not found"));
     }
 }
