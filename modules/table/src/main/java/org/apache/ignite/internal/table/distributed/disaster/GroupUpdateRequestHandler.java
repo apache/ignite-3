@@ -414,6 +414,27 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Set<Assignment> partAssignments
     );
 
+    static Iif executeInvoke(
+            byte[] timestampBytes,
+            byte[] pendingAssignmentsBytes,
+            byte @Nullable [] plannedAssignmentsBytes,
+            ByteArray pendingChangeTriggerKey,
+            ByteArray partAssignmentsPendingKey,
+            ByteArray partAssignmentsPlannedKey
+    ) {
+        return iif(
+                notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(timestampBytes)),
+                ops(
+                        put(pendingChangeTriggerKey, timestampBytes),
+                        put(partAssignmentsPendingKey, pendingAssignmentsBytes),
+                        plannedAssignmentsBytes == null
+                                ? remove(partAssignmentsPlannedKey)
+                                : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
+                ).yield(PENDING_KEY_UPDATED.ordinal()),
+                ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
+        );
+    }
+
     static class TableGroupUpdateRequestHandler extends GroupUpdateRequestHandler<TablePartitionId> {
 
         TableGroupUpdateRequestHandler(GroupUpdateRequest request) {
@@ -449,6 +470,20 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             return new TablePartitionId(id, partitionId);
         }
 
+        /**
+         * Executes meta-storage's {@link MetaStorageManager#invoke(Iif)} call.
+         *
+         * <p>The internal {@link Iif} is:
+         * <ul>
+         *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
+         *     <li>Adds additional guard with comparison of real and proposed values of
+         *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
+         *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
+         *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
+         *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
+         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
+         * </ul>
+         */
         @Override
         CompletableFuture<Integer> invoke(
                 TablePartitionId partId,
@@ -460,14 +495,16 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 boolean isProposedPendingEqualsProposedPlanned,
                 Set<Assignment> partAssignments
         ) {
-            Iif invokeClosure = prepareMsInvokeClosure(
-                    partId,
+            // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
+            Iif invokeClosure = executeInvoke(
                     longToBytesKeepingOrder(timestamp.longValue()),
                     assignmentsQueue.toBytes(),
-                    // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                     isProposedPendingEqualsProposedPlanned
                             ? null
-                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true)
+                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true),
+                    RebalanceUtil.pendingChangeTriggerKey(partId),
+                    RebalanceUtil.pendingPartAssignmentsQueueKey(partId),
+                    RebalanceUtil.plannedPartAssignmentsKey(partId)
             );
 
             return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
@@ -499,47 +536,6 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             });
         }
 
-        /**
-         * Creates an {@link Iif} instance for meta-storage's {@link MetaStorageManager#invoke(Iif)} call. Does the following:
-         * <ul>
-         *     <li>Guards the condition with a standard {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)} check.</li>
-         *     <li>Adds additional guard with comparison of real and proposed values of
-         *          {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}, just in case.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#pendingChangeTriggerKey(TablePartitionId)}.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.</li>
-         *     <li>Updates the value of {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or removes it, if
-         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
-         * </ul>
-         *
-         * @param partId Partition ID.
-         * @param timestampBytes Properly serialized current meta-storage timestamp.
-         * @param pendingAssignmentsBytes Value for {@link RebalanceUtil#pendingPartAssignmentsQueueKey(TablePartitionId)}.
-         * @param plannedAssignmentsBytes Value for {@link RebalanceUtil#plannedPartAssignmentsKey(TablePartitionId)} or
-         *         {@code null}.
-         * @return {@link Iif} instance.
-         */
-        static Iif prepareMsInvokeClosure(
-                TablePartitionId partId,
-                byte[] timestampBytes,
-                byte[] pendingAssignmentsBytes,
-                byte @Nullable [] plannedAssignmentsBytes
-        ) {
-            ByteArray pendingChangeTriggerKey = RebalanceUtil.pendingChangeTriggerKey(partId);
-            ByteArray partAssignmentsPendingKey = RebalanceUtil.pendingPartAssignmentsQueueKey(partId);
-            ByteArray partAssignmentsPlannedKey = RebalanceUtil.plannedPartAssignmentsKey(partId);
-
-            return iif(
-                    notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(timestampBytes)),
-                    ops(
-                            put(pendingChangeTriggerKey, timestampBytes),
-                            put(partAssignmentsPendingKey, pendingAssignmentsBytes),
-                            plannedAssignmentsBytes == null
-                                    ? remove(partAssignmentsPlannedKey)
-                                    : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
-                    ).yield(PENDING_KEY_UPDATED.ordinal()),
-                    ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
-            );
-        }
     }
 
     private static class ZoneGroupUpdateRequestHandler extends GroupUpdateRequestHandler<ZonePartitionId> {
@@ -577,6 +573,20 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             return new ZonePartitionId(id, partitionId);
         }
 
+        /**
+         * Executes meta-storage's {@link MetaStorageManager#invoke(Iif)} call.
+         *
+         * <p>The internal {@link Iif} is:
+         * <ul>
+         *     <li>Guards the condition with a standard {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)} check.</li>
+         *     <li>Adds additional guard with comparison of real and proposed values of
+         *          {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}, just in case.</li>
+         *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)}.</li>
+         *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.</li>
+         *     <li>Updates the value of {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or removes it, if
+         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
+         * </ul>
+         */
         @Override
         CompletableFuture<Integer> invoke(
                 ZonePartitionId partId,
@@ -588,14 +598,16 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 boolean isProposedPendingEqualsProposedPlanned,
                 Set<Assignment> partAssignments
         ) {
-            Iif invokeClosure = prepareMsInvokeClosure(
-                    partId,
+            // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
+            Iif invokeClosure = executeInvoke(
                     longToBytesKeepingOrder(timestamp.longValue()),
                     assignmentsQueue.toBytes(),
-                    // If planned nodes set consists of reset node assignment only then we shouldn't schedule the same planned rebalance.
                     isProposedPendingEqualsProposedPlanned
                             ? null
-                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true)
+                            : Assignments.toBytes(partAssignments, assignmentsTimestamp, true),
+                    ZoneRebalanceUtil.pendingChangeTriggerKey(partId),
+                    ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId),
+                    ZoneRebalanceUtil.plannedPartAssignmentsKey(partId)
             );
 
             return metaStorageMgr.invoke(invokeClosure).thenApply(sr -> {
@@ -625,48 +637,6 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
 
                 return sr.getAsInt();
             });
-        }
-
-        /**
-         * Creates an {@link Iif} instance for meta-storage's {@link MetaStorageManager#invoke(Iif)} call. Does the following:
-         * <ul>
-         *     <li>Guards the condition with a standard {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)} check.</li>
-         *     <li>Adds additional guard with comparison of real and proposed values of
-         *          {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}, just in case.</li>
-         *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingChangeTriggerKey(ZonePartitionId)}.</li>
-         *     <li>Updates the value of {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.</li>
-         *     <li>Updates the value of {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or removes it, if
-         *          {@code plannedAssignmentsBytes} is {@code null}.</li>
-         * </ul>
-         *
-         * @param partId Partition ID.
-         * @param timestampBytes Properly serialized current meta-storage timestamp.
-         * @param pendingAssignmentsBytes Value for {@link ZoneRebalanceUtil#pendingPartAssignmentsQueueKey(ZonePartitionId)}.
-         * @param plannedAssignmentsBytes Value for {@link ZoneRebalanceUtil#plannedPartAssignmentsKey(ZonePartitionId)} or
-         *         {@code null}.
-         * @return {@link Iif} instance.
-         */
-        static Iif prepareMsInvokeClosure(
-                ZonePartitionId partId,
-                byte[] timestampBytes,
-                byte[] pendingAssignmentsBytes,
-                byte @Nullable [] plannedAssignmentsBytes
-        ) {
-            ByteArray pendingChangeTriggerKey = ZoneRebalanceUtil.pendingChangeTriggerKey(partId);
-            ByteArray partAssignmentsPendingKey = ZoneRebalanceUtil.pendingPartAssignmentsQueueKey(partId);
-            ByteArray partAssignmentsPlannedKey = ZoneRebalanceUtil.plannedPartAssignmentsKey(partId);
-
-            return iif(
-                    notExists(pendingChangeTriggerKey).or(value(pendingChangeTriggerKey).lt(timestampBytes)),
-                    ops(
-                            put(pendingChangeTriggerKey, timestampBytes),
-                            put(partAssignmentsPendingKey, pendingAssignmentsBytes),
-                            plannedAssignmentsBytes == null
-                                    ? remove(partAssignmentsPlannedKey)
-                                    : put(partAssignmentsPlannedKey, plannedAssignmentsBytes)
-                    ).yield(PENDING_KEY_UPDATED.ordinal()),
-                    ops().yield(OUTDATED_UPDATE_RECEIVED.ordinal())
-            );
         }
     }
 }
