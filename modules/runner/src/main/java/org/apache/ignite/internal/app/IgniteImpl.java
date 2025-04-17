@@ -1606,11 +1606,17 @@ public class IgniteImpl implements Ignite {
 
         var igniteException = new IgniteException(extractCodeFrom(e), errMsg, e);
 
+        // We log the exception as soon as possible to minimize the probability that it gets lost due to something like an OOM later.
+        LOG.error(errMsg, igniteException);
+
         ExecutorService lifecycleExecutor = stopExecutor();
 
         try {
             lifecycleManager.stopNode(new ComponentContext(lifecycleExecutor)).get();
-        } catch (Exception ex) {
+        } catch (Throwable ex) {
+            // We add ex as a suppressed subexception, but we don't know how the caller will handle it, so we also log it ourselves.
+            LOG.error("Node stop failed after node start failure", ex);
+
             igniteException.addSuppressed(ex);
         } finally {
             lifecycleExecutor.shutdownNow();

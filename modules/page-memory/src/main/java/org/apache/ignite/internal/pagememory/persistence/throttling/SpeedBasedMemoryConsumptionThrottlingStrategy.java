@@ -119,9 +119,9 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
             return PagesWriteSpeedBasedThrottle.NO_THROTTLING_MARKER;
         }
 
-        int writtenPages = progress.writtenPages();
-
         threadIds.add(Thread.currentThread().getId());
+
+        int writtenPages = progress.writtenPages() + progress.evictedPagesCounter().get();
 
         return computeParkTime(writtenPages, curNanoTime);
     }
@@ -481,7 +481,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * @param dirtyPagesRatio Current percent of dirty pages.
      */
     private void detectCpPagesWriteStart(int cpWrittenPages, double dirtyPagesRatio) {
-        if (cpWrittenPages > 0 && lastObservedWritten.compareAndSet(0, cpWrittenPages)) {
+        if (cpWrittenPages > 0 && lastObservedWritten.get() == 0 && lastObservedWritten.compareAndSet(0, cpWrittenPages)) {
             double newMinRatio = dirtyPagesRatio;
 
             if (newMinRatio < minDirtyPages) {
@@ -501,7 +501,7 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Resets the throttle to its initial state (for example, in the beginning of a checkpoint).
      */
     void reset() {
-        cpWriteSpeed.setProgress(0L, System.nanoTime());
+        cpWriteSpeed.forceProgress(0L, System.nanoTime());
         initDirtyRatioAtCpBegin = minDirtyPages;
         lastObservedWritten.set(0);
     }
@@ -510,6 +510,10 @@ class SpeedBasedMemoryConsumptionThrottlingStrategy {
      * Moves the throttle to its finalized state (for example, when a checkpoint ends).
      */
     void finish() {
+        CheckpointProgress checkpointProgress = cpProgress.get();
+        assert checkpointProgress != null : "Checkpoint progress is already null while checkpoint is finishing";
+
+        cpWriteSpeed.forceProgress(checkpointProgress.currentCheckpointPagesCount(), System.nanoTime());
         cpWriteSpeed.closeInterval();
         threadIds.clear();
 

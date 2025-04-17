@@ -233,7 +233,7 @@ public class PartitionPruningTest extends AbstractPlannerTest {
 
         PartitionPruningColumns cols = actual.get(2);
         assertNotNull(cols, "No metadata for source=2");
-        assertEquals("[[0=$cor0.C1], [0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
+        assertEquals("[[0=$cor1.C1], [0=42]]", PartitionPruningColumns.canonicalForm(cols).toString());
     }
 
     private PartitionPruningMetadata extractMetadata(String query, IgniteTable... table) throws Exception {

@@ -33,7 +33,7 @@ public class ProgressSpeedCalculationTest {
 
     @Test
     public void getOpsPerSecondCalculatesCorrectSpeed() {
-        calculation.setProgress(1000, 0);
+        calculation.forceProgress(1000, 0);
 
         assertThat(calculation.getOpsPerSecond(1_000_000_000), is(1000L));
     }
@@ -56,7 +56,7 @@ public class ProgressSpeedCalculationTest {
     }
 
     private void putNonZeroProgressToHistory() throws InterruptedException {
-        calculation.setProgress(1000, System.nanoTime());
+        calculation.forceProgress(1000, System.nanoTime());
         Thread.sleep(10);
         calculation.closeInterval();
     }
