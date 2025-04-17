@@ -1002,6 +1002,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             compactAuxiliaryMappings(revision);
 
+            // Compaction might have created a lot of tombstones in column families, which affect scan speed. Removing them makes next
+            // compaction faster, as well as other scans in general.
             db.compactRange();
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
