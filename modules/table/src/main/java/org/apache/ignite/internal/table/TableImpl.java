@@ -231,15 +231,18 @@ public class TableImpl implements TableViewInternal {
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
-    public TableIndexStoragesSupplier indexStorageAdapters(int partId) {
+    public TableIndexStoragesSupplier indexStorageAdapters(int partitionId) {
         return () -> {
-            List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
+            var factories = new ArrayList<>(indexWrapperById.values());
 
-            Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
+            var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
 
-            for (IndexWrapper factory : factories) {
-                TableSchemaAwareIndexStorage storage = factory.getStorage(partId);
-                adapters.put(storage.id(), storage);
+            for (int i = 0; i < factories.size(); i++) {
+                TableSchemaAwareIndexStorage storage = factories.get(i).getStorage(partitionId);
+
+                if (storage != null) {
+                    adapters.put(storage.id(), storage);
+                }
             }
 
             return adapters;
