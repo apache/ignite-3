@@ -620,6 +620,9 @@ public class ErrorGroups {
          * but on the client side they have passed Type B.
          */
         public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Compute job cancelled. */
+        public static final int COMPUTE_JOB_CANCELLED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Catalog error group. */

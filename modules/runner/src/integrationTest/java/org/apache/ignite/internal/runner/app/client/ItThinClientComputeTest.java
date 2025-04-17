@@ -24,7 +24,7 @@ import static org.apache.ignite.compute.JobStatus.COMPLETED;
 import static org.apache.ignite.compute.JobStatus.EXECUTING;
 import static org.apache.ignite.compute.JobStatus.FAILED;
 import static org.apache.ignite.compute.JobStatus.QUEUED;
-import static org.apache.ignite.internal.IgniteExceptionTestUtils.assertTraceableException;
+import static org.apache.ignite.internal.IgniteExceptionTestUtils.traceableException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
@@ -646,7 +646,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static void assertComputeExceptionWithClassAndMessage(IgniteException cause) {
         String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
-        assertTraceableException(cause, ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage);
+        assertThat(cause, is(traceableException(ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage)));
 
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
@@ -656,7 +656,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
     private static void assertComputeExceptionWithStackTrace(IgniteException cause) {
         String expectedMessage = "Job execution failed: java.lang.ArithmeticException: math err";
-        assertTraceableException(cause, ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage);
+        assertThat(cause, is(traceableException(ComputeException.class, COMPUTE_JOB_FAILED_ERR, expectedMessage)));
 
         assertNotNull(cause.getCause());
 
