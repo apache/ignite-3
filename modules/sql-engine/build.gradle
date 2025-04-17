@@ -130,7 +130,6 @@ dependencies {
     integrationTestImplementation project(':ignite-catalog')
     integrationTestImplementation project(':ignite-transactions')
     integrationTestImplementation project(':ignite-storage-api')
-    integrationTestImplementation project(':ignite-compute')
     integrationTestImplementation project(':ignite-cluster-management')
     integrationTestImplementation project(':ignite-system-view-api')
     integrationTestImplementation project(':ignite-system-view')
