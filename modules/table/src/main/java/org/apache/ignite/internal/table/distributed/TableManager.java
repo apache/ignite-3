@@ -1157,7 +1157,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 Assignments pendingAssignments = pendingAssignmentsForPartitions.get(i);
 
-                Assignment localMemberAssignmentInStable = localMemberAssignment(stableAssignments);
+                Assignment localAssignmentInStable = localAssignment(stableAssignments);
 
                 boolean shouldStartPartition;
 
@@ -1170,24 +1170,24 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         // However we check only the right part of this condition here
                         // since after `startTables` we have a call to `processAssignmentsOnRecovery`,
                         // which executes pending assignments update and will start required partitions there.
-                        shouldStartPartition = localMemberAssignmentInStable != null
+                        shouldStartPartition = localAssignmentInStable != null
                                 && (pendingAssignments == null || !pendingAssignments.force());
                     } else {
                         // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874
                         LOG.warn("Recovery after a forced rebalance for table is not supported yet [tableId={}, partitionId={}].",
                                 tableId, partId);
-                        shouldStartPartition = localMemberAssignmentInStable != null
+                        shouldStartPartition = localAssignmentInStable != null
                                 && (pendingAssignments == null || !pendingAssignments.force());
                     }
                 } else {
-                    shouldStartPartition = localMemberAssignmentInStable != null;
+                    shouldStartPartition = localAssignmentInStable != null;
                 }
 
                 if (shouldStartPartition) {
                     futures[i] = startPartitionAndStartClient(
                             table,
                             partId,
-                            localMemberAssignmentInStable,
+                            localAssignmentInStable,
                             stableAssignments,
                             isRecovery,
                             assignmentsTimestamp
@@ -1213,7 +1213,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private CompletableFuture<Void> startPartitionAndStartClient(
             TableImpl table,
             int partId,
-            Assignment localMemberAssignment,
+            Assignment localAssignment,
             Assignments stableAssignments,
             boolean isRecovery,
             long assignmentsTimestamp
@@ -1235,7 +1235,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         replicaGrpId,
                         internalTbl,
                         stablePeersAndLearners,
-                        localMemberAssignment,
+                        localAssignment,
                         assignmentsTimestamp
                 )
                 : trueCompletedFuture();
@@ -1307,7 +1307,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             partitionUpdateHandlers,
                             raftClient);
 
-                    RaftGroupEventsListener raftGroupEventsListener = createRaftGroupEventsListener(replicaGrpId);
+                    RaftGroupEventsListener raftGroupEventsListener = localAssignment.isPeer()
+                            ? createRaftGroupEventsListener(replicaGrpId)
+                            : RaftGroupEventsListener.noopLsnr;
 
                     MvTableStorage mvTableStorage = internalTbl.storage();
 
@@ -1344,10 +1346,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     @Nullable
-    private Assignment localMemberAssignment(@Nullable Assignments assignments) {
-        Assignment localMemberAssignment = Assignment.forPeer(localNode().name());
-
-        return assignments != null && assignments.nodes().contains(localMemberAssignment) ? localMemberAssignment : null;
+    private Assignment localAssignment(@Nullable Assignments assignments) {
+        if (assignments != null) {
+            for (Assignment assignment : assignments.nodes()) {
+                if (isLocalNodeAssignment.test(assignment)) {
+                    return assignment;
+                }
+            }
+        }
+        return null;
     }
 
     private PartitionMover createPartitionMover(TablePartitionId replicaGrpId) {
@@ -1787,7 +1794,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                     for (int i = 0; i < newAssignments.size(); i++) {
                         Assignments partitionAssignments = newAssignments.get(i);
-                        if (localMemberAssignment(partitionAssignments) != null) {
+                        if (localAssignment(partitionAssignments) != null) {
                             parts.set(i);
                         }
                     }
@@ -2251,8 +2258,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         long assignmentsTimestamp = pendingAssignments.timestamp();
 
         // Start a new Raft node and Replica if this node has appeared in the new assignments.
-        Assignment localMemberAssignmentInPending = localMemberAssignment(pendingAssignments);
-        Assignment localMemberAssignmentInStable = localMemberAssignment(stableAssignments);
+        Assignment localAssignmentInPending = localAssignment(pendingAssignments);
+        Assignment localAssignmentInStable = localAssignment(stableAssignments);
 
         boolean shouldStartLocalGroupNode;
         if (isRecovery) {
@@ -2261,15 +2268,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             // This condition covers the left part of the OR expression.
             // The right part of it is covered in `startLocalPartitionsAndClients`.
             if (lastRebalanceWasGraceful(assignmentsChain)) {
-                shouldStartLocalGroupNode = localMemberAssignmentInPending != null;
+                shouldStartLocalGroupNode = localAssignmentInPending != null;
             } else {
                 // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874.
                 LOG.warn("Recovery after a forced rebalance for table is not supported yet [tablePartitionId={}].",
                         replicaGrpId);
-                shouldStartLocalGroupNode = localMemberAssignmentInPending != null;
+                shouldStartLocalGroupNode = localAssignmentInPending != null;
             }
         } else {
-            shouldStartLocalGroupNode = localMemberAssignmentInPending != null && localMemberAssignmentInStable == null;
+            shouldStartLocalGroupNode = localAssignmentInPending != null && localAssignmentInStable == null;
         }
 
         // This is a set of assignments for nodes that are not the part of stable assignments, i.e. unstable part of the distribution.
@@ -2319,19 +2326,19 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         );
 
                         return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(ignored -> inBusyLock(busyLock, () -> {
-                            assert localMemberAssignmentInPending != null : "Local member assignment";
+                            assert localAssignmentInPending != null : "Local member assignment";
 
                             return startPartitionAndStartClient(
                                     tbl,
                                     replicaGrpId.partitionId(),
-                                    localMemberAssignmentInPending,
+                                    localAssignmentInPending,
                                     computedStableAssignments,
                                     isRecovery,
                                     assignmentsTimestamp
                             );
                         }));
                     }), ioExecutor);
-        } else if (pendingAssignmentsAreForced && localMemberAssignmentInPending != null) {
+        } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
             localServicesStartFuture = runAsync(() -> inBusyLock(busyLock, () -> {
                 assert replicaMgr.isReplicaStarted(replicaGrpId) : "The local node is outside of the replication group: " + replicaGrpId;
 
@@ -3107,9 +3114,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 assert stableAssignments != null : "tablePartitionId=" + tablePartitionId + ", revision=" + revision;
 
                 return waitForMetadataCompleteness(assignmentsTimestamp).thenCompose(unused2 -> inBusyLockAsync(busyLock, () -> {
-                    Assignment localMemberAssignment = localMemberAssignment(stableAssignments);
+                    Assignment localAssignment = localAssignment(stableAssignments);
 
-                    if (localMemberAssignment == null) {
+                    if (localAssignment == null) {
                         // (0) in case if node not in the assignments
                         return nullCompletedFuture();
                     }
@@ -3117,7 +3124,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     return startPartitionAndStartClient(
                             table,
                             tablePartitionId.partitionId(),
-                            localMemberAssignment,
+                            localAssignment,
                             stableAssignments,
                             false,
                             assignmentsTimestamp

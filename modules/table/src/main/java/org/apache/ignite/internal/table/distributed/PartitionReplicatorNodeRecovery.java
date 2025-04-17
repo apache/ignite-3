@@ -160,20 +160,23 @@ class PartitionReplicatorNodeRecovery {
      * @param tablePartitionId ID of the table partition.
      * @param internalTable Table we are working with.
      * @param newConfiguration New configuration that is going to be applied if we'll start the group.
-     * @param localMemberAssignment Assignment of this node in this group.
+     * @param localAssignment Assignment of this node in this group.
      * @return A future that completes with a decision: should we start the corresponding group locally or not.
      */
     CompletableFuture<Boolean> initiateGroupReentryIfNeeded(
             TablePartitionId tablePartitionId,
             InternalTable internalTable,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment,
+            Assignment localAssignment,
             long assignmentsTimestamp
     ) {
+        if (!localAssignment.isPeer()) {
+            return trueCompletedFuture();
+        }
         // If Raft is running in in-memory mode or the PDS has been cleared, we need to remove the current node
         // from the Raft group in order to avoid the double vote problem.
         if (mightNeedGroupRecovery(internalTable)) {
-            return performGroupRecovery(tablePartitionId, newConfiguration, localMemberAssignment, assignmentsTimestamp);
+            return performGroupRecovery(tablePartitionId, newConfiguration, localAssignment, assignmentsTimestamp);
         }
 
         return trueCompletedFuture();
@@ -188,7 +191,7 @@ class PartitionReplicatorNodeRecovery {
     private CompletableFuture<Boolean> performGroupRecovery(
             TablePartitionId tablePartitionId,
             PeersAndLearners newConfiguration,
-            Assignment localMemberAssignment,
+            Assignment localPeerAssignment,
             long assignmentsTimestamp
     ) {
         int tableId = tablePartitionId.tableId();
@@ -207,7 +210,7 @@ class PartitionReplicatorNodeRecovery {
                     boolean majorityAvailable = dataNodesCounts.nonEmptyNodes >= (newConfiguration.peers().size() / 2) + 1;
 
                     if (majorityAvailable) {
-                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localMemberAssignment, metaStorageManager, assignmentsTimestamp);
+                        RebalanceUtilEx.startPeerRemoval(tablePartitionId, localPeerAssignment, metaStorageManager, assignmentsTimestamp);
 
                         return false;
                     } else {
