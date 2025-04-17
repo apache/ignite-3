@@ -45,10 +45,12 @@ internal sealed partial class ClientSocket
 
             case ServerOp.ComputeJobCancel:
                 // TODO IGNITE-25153: Add cancellation support for platform jobs.
+                response.MessageWriter.Write(false);
                 break;
 
-            case ServerOp.DeploymentUnitUndeploy:
+            case ServerOp.DeploymentUnitsUndeploy:
                 // TODO IGNITE-25115 Implement platform job executor.
+                response.MessageWriter.Write(false);
                 break;
 
             default:

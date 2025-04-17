@@ -33,6 +33,7 @@ import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
@@ -54,6 +55,8 @@ public class DotNetComputeExecutor {
     private static final int PROCESS_START_MAX_ATTEMPTS = 2;
 
     private final PlatformComputeTransport transport;
+
+    private final AtomicLong jobIdGen = new AtomicLong();
 
     private DotNetExecutorProcess process;
 
@@ -103,8 +106,11 @@ public class DotNetComputeExecutor {
             return CompletableFuture.failedFuture(new CancellationException("Job was cancelled"));
         }
 
+        // TODO IGNITE-25153 Add cancellation support for platform jobs - use jobId to cancel the job.
+        long jobId = jobIdGen.incrementAndGet();
+
         return getPlatformComputeConnectionWithRetryAsync()
-                .thenCompose(conn -> conn.executeJobAsync(deploymentUnitPaths, jobClassName, input));
+                .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input));
     }
 
     private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnectionWithRetryAsync() {

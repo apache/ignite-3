@@ -438,7 +438,7 @@ public class ClientInboundMessageHandler
                 handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
 
                 // Ready to handle compute requests now.
-                computeConnFut.complete(this::executeJobAsync);
+                computeConnFut.complete(new ComputeConnection());
 
                 return;
             }
@@ -1225,24 +1225,6 @@ public class ClientInboundMessageHandler
         return cancelHandles.size();
     }
 
-    private CompletableFuture<ComputeJobDataHolder> executeJobAsync(
-            List<String> deploymentUnitPaths,
-            String jobClassName,
-            ComputeJobDataHolder arg) {
-        return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
-                packer -> {
-                    packer.packString(jobClassName);
-
-                    packer.packInt(deploymentUnitPaths.size());
-                    for (String path : deploymentUnitPaths) {
-                        packer.packString(path);
-                    }
-
-                    ClientComputeJobPacker.packJobArgument(arg, null, packer);
-                })
-                .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);
-    }
-
     private CompletableFuture<ClientMessageUnpacker> sendServerToClientRequest(int serverOp, Consumer<ClientMessagePacker> writer) {
         // Server and client request ids do not clash, but we use negative to simplify the debugging.
         var requestId = serverToClientRequestId.decrementAndGet();
@@ -1319,5 +1301,41 @@ public class ClientInboundMessageHandler
         Throwable cause = new RuntimeException(className + ": " + message + System.lineSeparator() + stackTrace);
 
         return new IgniteException(traceId, code, message, cause);
+    }
+
+    private class ComputeConnection implements PlatformComputeConnection {
+        @Override
+        public CompletableFuture<ComputeJobDataHolder> executeJobAsync(long jobId, List<String> deploymentUnitPaths, String jobClassName,
+                ComputeJobDataHolder arg) {
+            return sendServerToClientRequest(ServerOp.COMPUTE_JOB_EXEC,
+                    packer -> {
+                        packer.packLong(jobId);
+                        packer.packString(jobClassName);
+                        packDeploymentUnitPaths(deploymentUnitPaths, packer);
+                        ClientComputeJobPacker.packJobArgument(arg, null, packer);
+                    })
+                    .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);
+        }
+
+        @Override
+        public CompletableFuture<Boolean> cancelJobAsync(long jobId) {
+            return sendServerToClientRequest(ServerOp.COMPUTE_JOB_CANCEL,
+                    packer -> packer.packLong(jobId))
+                    .thenApply(ClientMessageUnpacker::unpackBoolean);
+        }
+
+        @Override
+        public CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths) {
+            return sendServerToClientRequest(ServerOp.DEPLOYMENT_UNITS_UNDEPLOY,
+                    packer -> packDeploymentUnitPaths(deploymentUnitPaths, packer))
+                    .thenApply(ClientMessageUnpacker::unpackBoolean);
+        }
+
+        private void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
+            packer.packInt(deploymentUnitPaths.size());
+            for (String path : deploymentUnitPaths) {
+                packer.packString(path);
+            }
+        }
     }
 }

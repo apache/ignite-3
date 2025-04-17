@@ -35,5 +35,5 @@ internal enum ServerOp
     ComputeJobCancel = 3,
 
     /** Unload and remove deployment unit. */
-    DeploymentUnitUndeploy = 4
+    DeploymentUnitsUndeploy = 4
 }

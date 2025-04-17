@@ -24,16 +24,35 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 /**
  * Interface for executing platform (non-Java) jobs.
  */
-@FunctionalInterface
 public interface PlatformComputeConnection {
     /**
      * Executes a job asynchronously.
      *
+     * @param jobId Job id (for cancellation).
      * @param deploymentUnitPaths Paths to deployment units.
      * @param jobClassName Name of the job class.
      * @param arg Arguments for the job.
      * @return A CompletableFuture that will be completed with the result of the job execution.
      */
     CompletableFuture<ComputeJobDataHolder> executeJobAsync(
-            List<String> deploymentUnitPaths, String jobClassName, ComputeJobDataHolder arg);
+            long jobId,
+            List<String> deploymentUnitPaths,
+            String jobClassName,
+            ComputeJobDataHolder arg);
+
+    /**
+     * Cancels a job started by {@link #executeJobAsync}.
+     *
+     * @param jobId Job id.
+     * @return True if the job was cancelled, false if it was already completed or cancelled.
+     */
+    CompletableFuture<Boolean> cancelJobAsync(long jobId);
+
+    /**
+     * Un-deploys deployment units asynchronously.
+     *
+     * @param deploymentUnitPaths Paths to deployment units.
+     * @return True if the undeployment was successful, false if the units were not deployed or already undeployed.
+     */
+    CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths);
 }

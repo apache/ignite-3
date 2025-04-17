@@ -28,5 +28,5 @@ public class ServerOp {
 
     public static final int COMPUTE_JOB_CANCEL = 3;
 
-    public static final int DEPLOYMENT_UNIT_UNDEPLOY = 4;
+    public static final int DEPLOYMENT_UNITS_UNDEPLOY = 4;
 }

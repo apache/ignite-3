@@ -50,6 +50,7 @@ internal static class ComputeJobExecutor
 
         static JobExecuteRequest Read(MsgPackReader r)
         {
+            long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
 
             int cnt = r.ReadInt32();
@@ -61,7 +62,7 @@ internal static class ComputeJobExecutor
 
             object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
 
-            return new JobExecuteRequest(deploymentUnitPaths, jobClassName, arg);
+            return new JobExecuteRequest(jobId, deploymentUnitPaths, jobClassName, arg);
         }
 
         static void Write(MsgPackWriter w, object? res)
@@ -81,5 +82,5 @@ internal static class ComputeJobExecutor
         throw new NotImplementedException("Platform jobs are not supported yet.");
     }
 
-    private record JobExecuteRequest(IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
+    private record JobExecuteRequest(long JobId, IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
 }
