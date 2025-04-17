@@ -157,8 +157,8 @@ public class DotNetComputeExecutor {
             return basePath.getParent().resolve(Path.of("..", "..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
         } else {
-            // Release mode - dll is next to jars.
-            return basePath.getParent();
+            // Release mode - dlls are in dotnet dir next to jars.
+            return basePath.getParent().resolve("dotnet");
         }
     }
 
