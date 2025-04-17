@@ -46,7 +46,6 @@ import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -151,7 +150,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             new SqlFunction(
                     "RAND_UUID",
                     SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(new UuidType(false)),
+                    ReturnTypes.explicit(SqlTypeName.UUID),
                     null,
                     OperandTypes.NILADIC,
                     SqlFunctionCategory.SYSTEM

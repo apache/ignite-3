@@ -18,13 +18,13 @@
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseSetOpDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 
 /**
- * Tests for set operators for {@link UuidType UUID data type}.
+ * Tests for set operators for {@link SqlTypeName#UUID UUID data type}.
  */
 public class ItUuidSetOpTest extends BaseSetOpDataTypeTest<UUID> {
 

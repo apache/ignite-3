@@ -21,16 +21,16 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 
 import java.util.UUID;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseExpressionDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
- * Tests for expressions for {@link UuidType UUID data type}.
+ * Tests for expressions for {@link SqlTypeName#UUID UUID data type}.
  */
 public class ItUuidExpressionTest extends BaseExpressionDataTypeTest<UUID> {
 

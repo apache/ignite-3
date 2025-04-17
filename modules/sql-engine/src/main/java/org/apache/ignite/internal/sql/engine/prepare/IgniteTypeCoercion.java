@@ -36,6 +36,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
@@ -645,6 +646,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             var nameSpec = customType.createTypeNameSpec();
 
             targetDataType = new SqlDataTypeSpec(nameSpec, SqlParserPos.ZERO);
+        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+            targetDataType = new SqlDataTypeSpec(
+                    new SqlBasicTypeNameSpec(SqlTypeName.UUID, SqlParserPos.ZERO), null, type.isNullable(), SqlParserPos.ZERO
+            );
         } else {
             targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
         }

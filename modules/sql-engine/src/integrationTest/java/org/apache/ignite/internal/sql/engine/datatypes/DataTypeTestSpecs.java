@@ -27,7 +27,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.TestDataSamples;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.VarBinary;
 import org.apache.ignite.sql.ColumnType;
 
@@ -37,24 +36,24 @@ import org.apache.ignite.sql.ColumnType;
 public final class DataTypeTestSpecs {
 
     /**
-     * Test type spec for {@link UuidType UUID} data type.
+     * Test type spec for {@link SqlTypeName#UUID} data type.
      */
     public static final DataTypeTestSpec<UUID> UUID_TYPE = new DataTypeTestSpec<>(
-            ColumnType.UUID, UuidType.NAME, UUID.class) {
+            ColumnType.UUID, ColumnType.UUID.name(), UUID.class) {
 
         @Override
         public boolean hasLiterals() {
-            return false;
+            return true;
         }
 
         @Override
         public String toLiteral(UUID value) {
-            throw new UnsupportedOperationException();
+            return "uuid '" + value + "'";
         }
 
         @Override
         public String toValueExpr(UUID value) {
-            return format("'{}'::UUID", value);
+            return toLiteral(value);
         }
 
         @Override
