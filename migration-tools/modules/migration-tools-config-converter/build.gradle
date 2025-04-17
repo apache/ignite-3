@@ -52,3 +52,5 @@ dependencies {
     testFixturesImplementation libs.commons.lang3
     testFixturesImplementation libs.typesafe.config
 }
+
+tasks.integrationTest.dependsOn += ":packaging:docker"
