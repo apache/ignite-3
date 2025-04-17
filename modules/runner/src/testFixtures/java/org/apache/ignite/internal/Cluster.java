@@ -314,7 +314,8 @@ public class Cluster {
                     clusterConfiguration.baseClientPort() + nodeIndex,
                     httpPort(nodeIndex),
                     clusterConfiguration.baseHttpsPort() + nodeIndex,
-                    clusterConfiguration.nodeAttributesProvider().apply(nodeIndex)
+                    clusterConfiguration.nodeAttributesProvider().apply(nodeIndex),
+                    false
             ));
         }
 

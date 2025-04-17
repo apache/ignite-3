@@ -25,6 +25,7 @@ import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -44,13 +45,7 @@ public class ClusterConfiguration {
 
     public static final int DEFAULT_BASE_HTTPS_PORT = 10400;
 
-    private static final Map<String, String> DEFAULT_NODE_BOOTSTRAP_CFG_MAP = Map.of(
-            "network", NetworkValueInjector.BASE_CONFIG,
-            "clientConnector", ClientConnectorValueInjector.BASE_CONFIG,
-            "rest", RestValueInjector.BASE_CONFIG,
-            "nodeAttributes", NodeAttributesValueInjector.BASE_CONFIG,
-            "failureHandler", FailureHandlerValueInjector.BASE_CONFIG
-    );
+    private static final Map<String, String> DEFAULT_NODE_BOOTSTRAP_CFG_MAP;
 
     private final TestInfo testInfo;
 
@@ -71,6 +66,15 @@ public class ClusterConfiguration {
     private final NodeNamingStrategy nodeNamingStrategy;
 
     private final Function<Integer, String> nodeAttributesProvider;
+
+    static {
+        DEFAULT_NODE_BOOTSTRAP_CFG_MAP = new LinkedHashMap<>();
+        DEFAULT_NODE_BOOTSTRAP_CFG_MAP.put("network", NetworkValueInjector.BASE_CONFIG);
+        DEFAULT_NODE_BOOTSTRAP_CFG_MAP.put("clientConnector", ClientConnectorValueInjector.BASE_CONFIG);
+        DEFAULT_NODE_BOOTSTRAP_CFG_MAP.put("rest", RestValueInjector.BASE_CONFIG);
+        DEFAULT_NODE_BOOTSTRAP_CFG_MAP.put("nodeAttributes", NodeAttributesValueInjector.BASE_CONFIG);
+        DEFAULT_NODE_BOOTSTRAP_CFG_MAP.put("failureHandler", FailureHandlerValueInjector.BASE_CONFIG);
+    }
 
     private ClusterConfiguration(
             TestInfo testInfo,
