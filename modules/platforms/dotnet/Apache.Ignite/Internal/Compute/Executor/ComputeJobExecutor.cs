@@ -47,34 +47,31 @@ internal static class ComputeJobExecutor
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
     internal static async Task ExecuteJobAsync(long requestId, PooledBuffer request, ClientSocket socket, ILogger logger)
     {
-        using (request)
-        {
-            JobExecuteRequest? jobReq = null;
+        JobExecuteRequest? jobReq = null;
 
+        try
+        {
+            jobReq = Read(request.GetReader());
+            var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
+
+            using var responseBuf = ProtoCommon.GetMessageWriter();
+            Write(responseBuf.MessageWriter, jobRes);
+
+            await socket.SendServerOpResponseAsync(requestId, responseBuf).ConfigureAwait(false);
+        }
+        catch (Exception jobEx)
+        {
             try
             {
-                jobReq = Read(request.GetReader());
-                var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
+                using var errResponseBuf = ProtoCommon.GetMessageWriter();
+                WriteError(errResponseBuf.MessageWriter, jobEx);
 
-                using var responseBuf = ProtoCommon.GetMessageWriter();
-                Write(responseBuf.MessageWriter, jobRes);
-
-                await socket.SendServerOpResponseAsync(requestId, responseBuf).ConfigureAwait(false);
+                await socket.SendServerOpResponseAsync(requestId, errResponseBuf).ConfigureAwait(false);
             }
-            catch (Exception jobEx)
+            catch (Exception resultSendEx)
             {
-                try
-                {
-                    using var errResponseBuf = ProtoCommon.GetMessageWriter();
-                    WriteError(errResponseBuf.MessageWriter, jobEx);
-
-                    await socket.SendServerOpResponseAsync(requestId, errResponseBuf).ConfigureAwait(false);
-                }
-                catch (Exception resultSendEx)
-                {
-                    var aggregateEx = new AggregateException(jobEx, resultSendEx);
-                    logger.LogComputeJobResponseError(aggregateEx, requestId, jobEx.Message, jobReq?.JobClassName);
-                }
+                var aggregateEx = new AggregateException(jobEx, resultSendEx);
+                logger.LogComputeJobResponseError(aggregateEx, requestId, jobEx.Message, jobReq?.JobClassName);
             }
         }
 

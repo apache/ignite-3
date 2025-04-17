@@ -942,23 +942,40 @@ namespace Apache.Ignite.Internal
 
         private bool HandleServerOp(long requestId, ServerOp op, PooledBuffer request)
         {
-            if (op != ServerOp.ComputeJobExec)
-            {
-                // TODO:
-            }
-
-            // Invoke compute handler in another thread to continue the receive loop.
-            // Response buffer should be disposed by the task handler.
-            ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long JobId)>(
+            ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long RequestId, ServerOp Op)>(
                 callBack: static state =>
                 {
                     // Ignore the returned task.
-                    _ = ComputeJobExecutor.ExecuteJobAsync(state.JobId, state.Buf, state.Socket, state.Socket._logger);
+                    _ = state.Socket.HandleServerOpAsync(state.Buf, state.RequestId, state.Op);
                 },
-                state: (this, request, requestId),
+                state: (this, request, requestId, op),
                 preferLocal: true);
 
             return true;
+        }
+
+        private async Task HandleServerOpAsync(PooledBuffer request, long requestId, ServerOp op)
+        {
+            using var buf = request;
+
+            switch (op)
+            {
+                case ServerOp.Ping:
+                    break;
+
+                case ServerOp.ComputeJobExec:
+                    await ComputeJobExecutor.ExecuteJobAsync(requestId, buf, this, _logger).ConfigureAwait(false);
+                    break;
+
+                case ServerOp.ComputeJobCancel:
+                    break;
+
+                case ServerOp.DeploymentUnitUndeploy:
+                    break;
+
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(op), op, null);
+            }
         }
 
         private void HandleObservableTimestamp(ref MsgPackReader reader)
