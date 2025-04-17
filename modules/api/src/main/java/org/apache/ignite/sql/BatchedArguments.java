@@ -76,7 +76,8 @@ public final class BatchedArguments implements Iterable<List<Object>> {
     public BatchedArguments add(Object... args) {
         Objects.requireNonNull(args, "args");
 
-        return addArguments(Arrays.asList(args));
+        //noinspection Java9CollectionFactory List.copyOf doesn't support null-values.
+        return addArguments(Collections.unmodifiableList(Arrays.asList(args)));
     }
 
     /**
@@ -142,7 +143,7 @@ public final class BatchedArguments implements Iterable<List<Object>> {
                 ensureRowLength(requiredLength, arguments.size());
             }
 
-            //noinspection Java9CollectionFactory
+            //noinspection Java9CollectionFactory List.copyOf doesn't support null-values.
             resultList.add(Collections.unmodifiableList(new ArrayList<>(arguments)));
 
             ++pos;
