@@ -141,15 +141,15 @@ public class ClusterConfiguration {
     }
 
     private static List<ConfigOverride> annotations(TestInfo testInfo) {
-        Class<?> cls = testInfo.getTestClass().orElseThrow();
+        Optional<Class<?>> cls = testInfo.getTestClass();
         Optional<Method> method = testInfo.getTestMethod();
 
         List<ConfigOverride> annotations = new ArrayList<>();
 
-        ConfigOverride clsOverride = cls.getAnnotation(ConfigOverride.class);
+        ConfigOverride clsOverride = cls.map(c -> c.getAnnotation(ConfigOverride.class)).orElse(null);
         ConfigOverride methodOverride = method.map(m -> m.getAnnotation(ConfigOverride.class)).orElse(null);
 
-        ConfigOverrides clsOverrideMultiple = cls.getAnnotation(ConfigOverrides.class);
+        ConfigOverrides clsOverrideMultiple = cls.map(c -> c.getAnnotation(ConfigOverrides.class)).orElse(null);
         ConfigOverrides methodOverrideMultiple = method.map(m -> m.getAnnotation(ConfigOverrides.class)).orElse(null);
 
         if (clsOverride != null) {
