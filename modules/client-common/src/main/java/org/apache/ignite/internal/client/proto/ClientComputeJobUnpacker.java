@@ -64,21 +64,23 @@ public final class ClientComputeJobUnpacker {
         return new ComputeJobDataHolder(type, unpacker.readBinary());
     }
 
-    public static Job unpackJob(ClientMessageUnpacker in, boolean enablePlatformJobs) {
-        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
-        String jobClassName = in.unpackString();
-        var options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt());
+    /** Unpacks compute job info. */
+    public static Job unpackJob(ClientMessageUnpacker unpacker, boolean enablePlatformJobs) {
+        List<DeploymentUnit> deploymentUnits = unpacker.unpackDeploymentUnits();
+        String jobClassName = unpacker.unpackString();
+        var options = JobExecutionOptions.builder().priority(unpacker.unpackInt()).maxRetries(unpacker.unpackInt());
 
         if (enablePlatformJobs) {
             // TODO: IGNITE-25116 propagate executor type.
-            in.unpackInt();
+            unpacker.unpackInt();
         }
 
-        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
+        ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker);
 
         return new Job(deploymentUnits, jobClassName, options.build(), args);
     }
 
+    /** Job info. */
     public static class Job {
         private final List<DeploymentUnit> deploymentUnits;
         private final String jobClassName;

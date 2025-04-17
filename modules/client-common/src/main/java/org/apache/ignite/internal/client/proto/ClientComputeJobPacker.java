@@ -51,7 +51,17 @@ public final class ClientComputeJobPacker {
         pack(res, marshaller, packer);
     }
 
-    public static <T, R> void packJob(JobDescriptor<T, R> descriptor, T arg, ClientMessagePacker w, boolean platformComputeSupported) {
+    /**
+     * Packs job descriptor and argument.
+     *
+     * @param <T> Job argument type.
+     * @param <R> Job result type.
+     * @param descriptor Job descriptor.
+     * @param arg Job argument.
+     * @param platformComputeSupported Whether platform compute is supported.
+     * @param w Packer.
+     */
+    public static <T, R> void packJob(JobDescriptor<T, R> descriptor, T arg, boolean platformComputeSupported, ClientMessagePacker w) {
         w.packDeploymentUnits(descriptor.units());
 
         w.packString(descriptor.jobClassName());

@@ -513,7 +513,7 @@ public class ClientCompute implements IgniteCompute {
         boolean platformComputeSupported = out.clientChannel().protocolContext()
                 .isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB);
 
-        ClientComputeJobPacker.packJob(descriptor, arg, out.out(), platformComputeSupported);
+        ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out());
     }
 
     private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
