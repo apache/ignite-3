@@ -51,6 +51,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
+        // TODO IGNITE-25181 Support client certs with .NET compute executor.
         StringAssert.Contains("Could not start .NET executor process", ex.Message);
         StringAssert.Contains("Connection reset by peer", ex.ToString());
     }
