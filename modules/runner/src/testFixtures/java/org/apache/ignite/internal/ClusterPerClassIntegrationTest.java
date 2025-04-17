@@ -118,7 +118,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CLUSTER = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0 && needInitializeCluster()) {
-            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
+            CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
     }
 

@@ -1,17 +1,32 @@
 /*
- *  Copyright (C) GridGain Systems. All Rights Reserved.
- *  _________        _____ __________________        _____
- *  __  ____/___________(_)______  /__  ____/______ ____(_)_______
- *  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
- *  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
- *  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.ignite.internal;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.function.Function;
 import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.TestInfo;
@@ -28,22 +43,13 @@ public class ClusterConfiguration {
 
     public static final int DEFAULT_BASE_HTTPS_PORT = 10400;
 
-    /** Default nodes bootstrap configuration pattern. */
-    @Language("HOCON")
-    private static final String DEFAULT_NODE_BOOTSTRAP_CFG = "ignite {\n"
-            + "  network: {\n"
-            + "    port: {},\n"
-            + "    nodeFinder: {\n"
-            + "      netClusterNodes: [ {} ]\n"
-            + "    }\n"
-            + "  },\n"
-            + "  clientConnector: { port:{} }\n"
-            + "  rest: {\n"
-            + "    port: {},\n"
-            + "    ssl.port: {}\n"
-            + "  }\n"
-            + "  nodeAttributes.nodeAttributes: {}\n"
-            + "}";
+    private static final Map<String, String> DEFAULT_NODE_BOOTSTRAP_CFG_MAP = Map.of(
+            "network", NetworkValueInjector.BASE_CONFIG,
+            "clientConnector", ClientConnectorValueInjector.BASE_CONFIG,
+            "rest", RestValueInjector.BASE_CONFIG,
+            "nodeAttributes", NodeAttributesValueInjector.BASE_CONFIG,
+            "failureHandler", FailureHandlerValueInjector.BASE_CONFIG
+    );
 
     private final TestInfo testInfo;
 
@@ -133,6 +139,89 @@ public class ClusterConfiguration {
         return new Builder(testInfo, workDir);
     }
 
+    private static List<ConfigOverride> annotations(TestInfo testInfo) {
+        Class<?> cls = testInfo.getTestClass().orElseThrow();
+        Method method = testInfo.getTestMethod().orElseThrow();
+
+        List<ConfigOverride> annotations = new ArrayList<>();
+
+        ConfigOverride clsOverride = cls.getAnnotation(ConfigOverride.class);
+        ConfigOverride methodOverride = method.getAnnotation(ConfigOverride.class);
+
+        ConfigOverrides clsOverrideMultiple = cls.getAnnotation(ConfigOverrides.class);
+        ConfigOverrides methodOverrideMultiple = method.getAnnotation(ConfigOverrides.class);
+
+        if (clsOverride != null) {
+            annotations.add(clsOverride);
+        }
+
+        if (methodOverride != null) {
+            annotations.add(methodOverride);
+        }
+
+        if (clsOverrideMultiple != null) {
+            annotations.addAll(List.of(clsOverrideMultiple.value()));
+        }
+
+        if (methodOverrideMultiple != null) {
+            annotations.addAll(List.of(methodOverrideMultiple.value()));
+        }
+
+        return annotations;
+    }
+
+    static boolean containsOverrides(TestInfo testInfo, int nodeIndex) {
+        List<ConfigOverride> annotations = annotations(testInfo);
+
+        return annotations.stream()
+                .anyMatch(a -> a.nodeIndex() == -1 || a.nodeIndex() == nodeIndex);
+    }
+
+    static Map<String, String> configWithOverrides(TestInfo testInfo, int nodeIndex, List<ValueInjector> injectors) {
+        List<ConfigOverride> annotations = annotations(testInfo);
+
+        Map<String, String> cfg = baseConfig(injectors);
+
+        for (ConfigOverride co : annotations) {
+            if (co.nodeIndex() == -1 || co.nodeIndex() == nodeIndex) {
+                cfg.put(co.name(), co.value());
+            }
+        }
+
+        return cfg;
+    }
+
+    private static Map<String, String> baseConfig(List<ValueInjector> injectors) {
+        Map<String, String> cfg = new HashMap<>(DEFAULT_NODE_BOOTSTRAP_CFG_MAP);
+
+        for (ValueInjector injector : injectors) {
+            cfg.put(injector.name(), injector.config());
+        }
+
+        return cfg;
+    }
+
+    static String assembleConfig(Map<String, String> cfgMap) {
+        StringBuilder configBuilder = new StringBuilder();
+
+        configBuilder.append("ignite {\n");
+
+        for (Map.Entry<String, String> e : cfgMap.entrySet()) {
+            assertNotNull(e.getValue());
+
+            configBuilder
+                    .append("  ")
+                    .append(e.getKey())
+                    .append(": ")
+                    .append(e.getValue())
+                    .append("\n");
+        }
+
+        configBuilder.append("}");
+
+        return configBuilder.toString();
+    }
+
     /**
      * Builder for {@link ClusterConfiguration}.
      */
@@ -141,7 +230,7 @@ public class ClusterConfiguration {
 
         private final Path workDir;
 
-        private String defaultNodeBootstrapConfigTemplate = DEFAULT_NODE_BOOTSTRAP_CFG;
+        private String defaultNodeBootstrapConfigTemplate = assembleConfig(DEFAULT_NODE_BOOTSTRAP_CFG_MAP);
 
         private String clusterName = "cluster";
 
@@ -225,6 +314,132 @@ public class ClusterConfiguration {
         @Override
         public String nodeName(ClusterConfiguration clusterConfiguration, int nodeIndex) {
             return testNodeName(clusterConfiguration.testInfo(), clusterConfiguration.basePort + nodeIndex);
+        }
+    }
+
+    interface ValueInjector {
+        String name();
+        String config();
+    }
+
+    static class NetworkValueInjector implements ValueInjector {
+        @Language("HOCON")
+        static final String BASE_CONFIG = "{\n"
+                + "    port: {},\n"
+                + "    nodeFinder: {\n"
+                + "      netClusterNodes: [ {} ]\n"
+                + "    }\n"
+                + "  }\n";
+
+        final int port;
+        final String netClusterNodes;
+
+        public NetworkValueInjector(int port, String netClusterNodes) {
+            this.port = port;
+            this.netClusterNodes = netClusterNodes;
+        }
+
+        @Override
+        public String name() {
+            return "network";
+        }
+
+        @Override
+        public String config() {
+            return format(BASE_CONFIG, port, netClusterNodes);
+        }
+    }
+
+    static class ClientConnectorValueInjector implements ValueInjector {
+        @Language("HOCON")
+        static final String BASE_CONFIG = "{ port:{} }\n";
+
+        final int port;
+
+        public ClientConnectorValueInjector(int port) {
+            this.port = port;
+        }
+
+        @Override
+        public String name() {
+            return "clientConnector";
+        }
+
+        @Override
+        public String config() {
+            return format(BASE_CONFIG, port);
+        }
+    }
+
+    static class RestValueInjector implements ValueInjector {
+        @Language("HOCON")
+        static final String BASE_CONFIG = "{\n"
+                + "    port: {},\n"
+                + "    ssl.port: {}\n"
+                + "  }\n";
+
+        final int port;
+        final int sslPort;
+
+        public RestValueInjector(int port, int sslPort) {
+            this.port = port;
+            this.sslPort = sslPort;
+        }
+
+        @Override
+        public String name() {
+            return "rest";
+        }
+
+        @Override
+        public String config() {
+            return format(BASE_CONFIG, port, sslPort);
+        }
+    }
+
+    static class NodeAttributesValueInjector implements ValueInjector {
+        @Language("HOCON")
+        static final String BASE_CONFIG = "{\n"
+                + "    nodeAttributes: {} "
+                + "  }\n";
+
+        final String nodeAttributes;
+
+        public NodeAttributesValueInjector(String nodeAttributes) {
+            this.nodeAttributes = nodeAttributes;
+        }
+
+        @Override
+        public String name() {
+            return "nodeAttributes";
+        }
+
+        @Override
+        public String config() {
+            return format(BASE_CONFIG, nodeAttributes);
+        }
+    }
+
+    static class FailureHandlerValueInjector implements ValueInjector {
+        @Language("HOCON")
+        static final String BASE_CONFIG = "{\n"
+                + "    dumpThreadsOnFailure: {}\n "
+                + "  }\n";
+
+        final boolean dumpThreadsOnFailure;
+
+        public FailureHandlerValueInjector(boolean dumpThreadsOnFailure) {
+            this.dumpThreadsOnFailure = dumpThreadsOnFailure;
+        }
+
+        @Override
+        public String name() {
+            return "failureHandler";
+        }
+
+        @Override
+        public String config() {
+            return format(BASE_CONFIG, dumpThreadsOnFailure);
         }
     }
 }

@@ -35,38 +35,44 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.ConfigOverride;
+import org.apache.ignite.internal.ConfigOverrides;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
-import org.intellij.lang.annotations.Language;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
- * Integration test for data nodes' filters functionality.
+ * Checks that the data is not lost when the partition is moved to another node and then moved back.
  */
-public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTest {
+public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegrationTest {
     /** URL. */
-    protected static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
+    private static final String URL = "jdbc:ignite:thin://127.0.0.1:10800";
+
     /** Connection. */
-    protected static Connection conn;
+    private static Connection conn;
+
     /** Default schema. */
-    protected static final String DEFAULT_SCHEMA = "PUBLIC";
+    private static final String DEFAULT_SCHEMA = "PUBLIC";
+
     /** Statement. */
-    protected Statement stmt;
+    private Statement stmt;
+
     private static final String ZONE_NAME = "TEST_ZONE";
+
     private static final String TABLE_NAME = "table1";
+
     private static final String STORAGE_PROFILES = String.format("'%s'", DEFAULT_AIPERSIST_PROFILE_NAME);
 
-    @Language("HOCON")
-    private static final String NODE_ATTRIBUTES = "{region = US, storage = SSD}";
+    private static final String COLUMN_KEY = "key";
+
+    private static final String COLUMN_VAL = "val";
 
     @Override
     protected int initialNodes() {
@@ -94,70 +100,6 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
         conn = null;
     }
 
-    @Language("HOCON")
-    private static final String STORAGE_PROFILES_CONFIGS = String.format(
-            "{%s.engine = aipersist}",
-            DEFAULT_AIPERSIST_PROFILE_NAME
-    );
-
-    private static final String COLUMN_KEY = "key";
-    private static final String COLUMN_VAL = "val";
-    private int node = 0;
-
-    @Language("HOCON")
-    private static String createStartConfig(@Language("HOCON") String nodeAttributes, @Language("HOCON") String storageProfiles) {
-        return "ignite {\n"
-                + "  network: {\n"
-                + "    port: {},\n"
-                + "    nodeFinder.netClusterNodes: [ {} ]\n"
-                + "  },\n"
-                + "  storage.profiles: " + storageProfiles + ",\n"
-                + "  clientConnector.port: {},\n"
-                + "  rest: {\n"
-                + "    port: {},\n"
-                + "    ssl.port: {} \n"
-                + "  },\n"
-                + "  failureHandler.dumpThreadsOnFailure: false,\n"
-                + "  nodeAttributes.nodeAttributes: {}\n"
-                + "}";
-    }
-
-    protected String updateStartupConfiguration() {
-        String filter = "{}";
-        if (node == 0) {
-            filter = "{region = EU}";
-        } else if (node == 1) {
-            filter = "{region = US}";
-        } else if (node == 2) {
-            filter = "{region = US}";
-        }
-        String cfg = createStartConfig(filter, STORAGE_PROFILES_CONFIGS);
-        node++;
-        return cfg;
-    }
-
-    /**
-     * Inheritors should override this method to change configuration of the test cluster before its creation.
-     */
-    @Override
-    protected void customizeConfiguration(ClusterConfiguration.Builder clusterConfigurationBuilder) {
-        clusterConfigurationBuilder.nodeAttributesProvider(nodeIndex ->
-                nodeIndex == 0
-                        ? "{region = EU, storage = SSD}"
-                        : NODE_ATTRIBUTES
-        );
-    }
-
-    @Override
-    protected void customizeInitParameters(InitParametersBuilder builder) {
-        super.customizeInitParameters(builder);
-    }
-
-    @Override
-    protected String getNodeBootstrapConfigTemplate() {
-        return createStartConfig(NODE_ATTRIBUTES, STORAGE_PROFILES_CONFIGS);
-    }
-
     private void countThroughJdbc(int rowCount) throws SQLException {
         int actualCount = 0;
         try (Statement stmt = conn.createStatement()) {
@@ -172,7 +114,18 @@ public class ItDistributionZonesFiltersTest3 extends ClusterPerTestIntegrationTe
     }
 
     @Test
-    public void testChangingFilter2() throws Exception {
+    @ConfigOverrides({
+            @ConfigOverride(
+                    name = "nodeAttributes",
+                    value = "{ nodeAttributes: {region = US, storage = SSD}}"
+            ),
+            @ConfigOverride(
+                    name = "nodeAttributes",
+                    value = "{ nodeAttributes: {region = EU, storage = SSD}}",
+                    nodeIndex = 0
+            )
+    })
+    public void test() throws Exception {
         String filter = DEFAULT_FILTER;
         int partCount = 24;
         int rowCount = 400;
