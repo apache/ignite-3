@@ -38,15 +38,17 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * .NET compute executor.
+ */
 public class DotNetComputeExecutor {
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
     private static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
 
     private static final int PROCESS_START_TIMEOUT_MS = 5000;
 
     private static final int PROCESS_START_MAX_ATTEMPTS = 2;
-
-    /** Thread-safe secure random */
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private final PlatformComputeTransport transport;
 

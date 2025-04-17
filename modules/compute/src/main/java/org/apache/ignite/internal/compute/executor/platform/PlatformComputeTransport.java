@@ -21,8 +21,8 @@ import java.util.concurrent.CompletableFuture;
 
 /**
  * Interface for the transport layer of the platform compute executor.
- * <p>
- * This interface is responsible for managing connections to external executors
+ *
+ * <p>This interface is responsible for managing connections to external executors
  * and providing the necessary methods to send and receive messages.
  */
 public interface PlatformComputeTransport {

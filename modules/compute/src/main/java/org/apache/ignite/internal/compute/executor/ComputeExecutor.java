@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.compute.executor;
 
-import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ExecutionOptions;
