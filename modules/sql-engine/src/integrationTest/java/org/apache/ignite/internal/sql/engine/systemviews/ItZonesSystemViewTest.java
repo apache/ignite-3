@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import java.util.Objects;
@@ -59,7 +59,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
-                IMMEDIATE_TIMER_VALUE,
+                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(),
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,
