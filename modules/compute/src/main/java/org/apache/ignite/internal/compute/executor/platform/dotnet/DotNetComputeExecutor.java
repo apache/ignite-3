@@ -241,9 +241,9 @@ public class DotNetComputeExecutor {
             // Dev mode, class file.
             return basePath.resolve(Path.of("..", "..", "..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
-        } else if (basePath.endsWith("SNAPSHOT.jar")) {
+        } else if (basePath.toString().endsWith("-SNAPSHOT.jar")) {
             // Dev mode, jar file.
-            return basePath.getParent().resolve(Path.of("..", "..", "..", "..", "platforms", "dotnet",
+            return basePath.getParent().resolve(Path.of("..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
         } else {
             // Release mode - dlls are in dotnet dir next to jars.
