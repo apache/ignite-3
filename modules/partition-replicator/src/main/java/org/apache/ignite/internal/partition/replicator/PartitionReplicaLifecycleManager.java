@@ -1705,7 +1705,7 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     @TestOnly
-    public CompletableFuture<ZonePartitionReplicaListener> zonePartitionResourcesReplicaFuture(ZonePartitionId zonePartitionId) {
-        return zoneResourcesManager.getZonePartitionResources(zonePartitionId).replicaListenerFuture();
+    public ZonePartitionResources zonePartitionResources(ZonePartitionId zonePartitionId) {
+        return requireNonNull(zoneResourcesManager.getZonePartitionResources(zonePartitionId));
     }
 }

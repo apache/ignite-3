@@ -337,13 +337,15 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         ZonePartitionReplicaListener zonePartitionReplicaListener = mock(ZonePartitionReplicaListener.class);
         Replica replica = mock(Replica.class);
-        doAnswer(invocation -> {
-            partitionReplicaLifecycleManager
-                    .zonePartitionResourcesReplicaFuture(invocation.getArgument(0))
-                    .complete(zonePartitionReplicaListener);
+        when(replicaMgr.startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any()))
+                .then(invocation -> {
+                    partitionReplicaLifecycleManager
+                            .zonePartitionResources(invocation.getArgument(0))
+                            .replicaListenerFuture()
+                            .complete(zonePartitionReplicaListener);
 
-            return completedFuture(replica);
-        }).when(replicaMgr).startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+                    return completedFuture(replica);
+                });
 
         doReturn(trueCompletedFuture()).when(replicaMgr).stopReplica(any());
         doAnswer(invocation -> {
