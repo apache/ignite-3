@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -1203,6 +1204,12 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
             runRace(
                     () -> {
                         storage.setCompactionRevision(revision);
+
+                        AbstractKeyValueStorage abstractStorage = (AbstractKeyValueStorage) storage;
+
+                        CompletableFuture<Void> fut = abstractStorage.readOperationForCompactionTracker.collect(revision);
+                        fut.get(1, TimeUnit.SECONDS);
+
                         storage.compact(revision);
                     },
                     () -> {
