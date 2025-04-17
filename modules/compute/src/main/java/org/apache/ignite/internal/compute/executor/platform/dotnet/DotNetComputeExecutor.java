@@ -23,6 +23,7 @@ import java.net.URL;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -33,13 +34,16 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.IgniteException;
+import org.jetbrains.annotations.Nullable;
 
 public class DotNetComputeExecutor {
     private static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
 
     private static final int PROCESS_START_TIMEOUT_MS = 5000;
 
-    private static final int PROCESS_START_MAX_RETRIES = 2;
+    private static final int PROCESS_START_MAX_ATTEMPTS = 2;
 
     /** Thread-safe secure random */
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
@@ -80,26 +84,48 @@ public class DotNetComputeExecutor {
     }
 
     private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnectionWithRetryAsync() {
+        CompletableFuture<PlatformComputeConnection> fut = new CompletableFuture<>();
+
+        getPlatformComputeConnectionWithRetryAsync(fut, null);
+
+        return fut;
+    }
+
+    private void getPlatformComputeConnectionWithRetryAsync(
+            CompletableFuture<PlatformComputeConnection> fut, @Nullable List<Throwable> errors) {
         DotNetExecutorProcess proc = ensureProcessStarted();
 
-        // TODO: Retry on fail.
-        return proc.connectionFut()
+        proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
-                .exceptionally(e -> {
-                    throw  handleTransportError(e, proc.process());
-//                    List<Throwable> errors0 = errors == null ? new ArrayList<>() : errors;
-//                    errors0.add(err);
-//
-//                    if (errors0.size() < PROCESS_START_MAX_RETRIES) {
-//                        executeJobAsync(deploymentUnitPaths, jobClassName, input, context, resFut, errors0);
-//                        return
-//                    } else {
-//                        throw err;
-//                    }
+                .handle((res, e) -> {
+                    if (e == null) {
+                        fut.complete(res);
+                        return null;
+                    }
+
+                    Throwable transportErr = handleTransportError(e, proc.process());
+
+                    List<Throwable> errors0 = errors == null ? new ArrayList<>() : errors;
+                    errors0.add(transportErr);
+
+                    if (errors0.size() < PROCESS_START_MAX_ATTEMPTS) {
+                        getPlatformComputeConnectionWithRetryAsync(fut, errors0);
+                    } else {
+                        var finalErr = new IgniteException(Common.INTERNAL_ERR, "Could not start .NET executor process in "
+                                + PROCESS_START_MAX_ATTEMPTS + " attempts");
+
+                        for (Throwable t : errors0) {
+                            finalErr.addSuppressed(t);
+                        }
+
+                        fut.completeExceptionally(finalErr);
+                    }
+
+                    return null;
                 });
     }
 
-    private static RuntimeException handleTransportError(Throwable e, Process proc) {
+    private static Throwable handleTransportError(Throwable e, Process proc) {
         if (proc.isAlive()) {
             // Process is alive but did not communicate back to the server.
             proc.destroyForcibly();
