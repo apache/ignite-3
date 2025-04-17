@@ -217,7 +217,6 @@ public class FragmentMappingTest extends AbstractPlannerTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25093")
     public void testCorrelated() {
         addNodes("N0", "N1", "N2");
 
