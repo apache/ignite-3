@@ -15,26 +15,42 @@
  * limitations under the License.
  */
 
+using System.Net.Security;
 using Apache.Ignite;
 using Microsoft.Extensions.Logging;
 
 const string envServerAddr = "IGNITE_COMPUTE_EXECUTOR_SERVER_ADDRESS";
 const string envServerSslEnabled = "IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_ENABLED";
+const string envServerSslSkipValidation = "IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_SKIP_CERTIFICATE_VALIDATION";
 
 string? serverAddr = Environment.GetEnvironmentVariable(envServerAddr);
 bool serverSslEnabled = string.Equals("true", Environment.GetEnvironmentVariable(envServerSslEnabled), StringComparison.OrdinalIgnoreCase);
+bool serverSslSkipCertValidation = string.Equals("true", Environment.GetEnvironmentVariable(envServerSslSkipValidation), StringComparison.OrdinalIgnoreCase);
 
 if (string.IsNullOrWhiteSpace(serverAddr))
 {
     throw new InvalidOperationException($"Environment variable {envServerAddr} is not set.");
 }
 
+ISslStreamFactory? sslStreamFactory = (serverSslEnabled, serverSslSkipCertValidation) switch
+{
+    (true, true) => new SslStreamFactory
+    {
+        SslClientAuthenticationOptions = new SslClientAuthenticationOptions
+        {
+#pragma warning disable CA5359 // Configured to disable cert validation.
+            RemoteCertificateValidationCallback = (_, _, _, _) => true
+#pragma warning restore CA5359
+        }
+    },
+    (true, false) => new SslStreamFactory(),
+    _ => null
+};
+
 var clientCfg = new IgniteClientConfiguration(serverAddr)
 {
     RetryPolicy = RetryNonePolicy.Instance, // No reconnect.
-    SslStreamFactory = serverSslEnabled
-        ? new SslStreamFactory()
-        : null,
+    SslStreamFactory = sslStreamFactory,
     LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning))
 };
 

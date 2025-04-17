@@ -28,11 +28,13 @@ using NUnit.Framework;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
+    private const string TestOnlyDotnetJobEcho = "TEST_ONLY_DOTNET_JOB:ECHO";
+
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
-        var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_2" : string.Empty));
-        var desc = new JobDescriptor<string, string>("TEST_ONLY_DOTNET_JOB:ECHO");
+        var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
+        var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobEcho);
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var result = await jobExec.GetResultAsync();
@@ -43,8 +45,13 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
+        var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobEcho);
+
+        var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
+        var result = await jobExec.GetResultAsync();
+
+        Assert.AreEqual("Hello world!", result);
     }
 
     private async Task<IClusterNode> GetClusterNodeAsync(string suffix)
