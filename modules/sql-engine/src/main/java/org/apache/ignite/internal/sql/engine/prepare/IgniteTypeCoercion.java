@@ -36,6 +36,7 @@ import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rel.type.RelDataTypeFactoryImpl;
 import org.apache.calcite.rel.type.RelDataTypeField;
+import org.apache.calcite.sql.SqlBasicTypeNameSpec;
 import org.apache.calcite.sql.SqlCall;
 import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlCollation;
@@ -64,6 +65,7 @@ import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.jetbrains.annotations.Nullable;
@@ -446,8 +448,11 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             return false;
         }
 
-        // No need to cast between binary types.
-        if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
+        if (SqlTypeUtil.equalSansNullability(typeFactory, fromType, toType)) {
+            // Implicit type coercion does not handle nullability.
+            return false;
+        } else if (SqlTypeUtil.isBinary(toType) && SqlTypeUtil.isBinary(fromType)) {
+            // No need to cast between binary types.
             return false;
         } else if (SqlTypeUtil.isInterval(toType)) {
             if (SqlTypeUtil.isInterval(fromType)) {
@@ -455,9 +460,6 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 return fromType.getSqlTypeName().getFamily() != toType.getSqlTypeName().getFamily();
             }
         } else if (SqlTypeUtil.isIntType(toType)) {
-            if (fromType == null) {
-                return false;
-            }
             // The following checks ensure that there no ClassCastException when casting from one
             // integer type to another (e.g. int to smallint, int to bigint)
             if (SqlTypeUtil.isIntType(fromType) && fromType.getSqlTypeName() != toType.getSqlTypeName()) {
@@ -466,9 +468,13 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
         } else if (toType.getSqlTypeName() == SqlTypeName.ANY || fromType.getSqlTypeName() == SqlTypeName.ANY) {
             // IgniteCustomType: whether we need implicit cast from one type to another.
             return TypeUtils.customDataTypeNeedCast(typeFactory, fromType, toType);
+        } else if (SqlTypeUtil.isNull(fromType)) {
+            // Need to cast NULL literal because type-checkers of built-in function cannot properly handle explicit NULL
+            // since it belongs to a particular type family.
+            return true;
         }
 
-        return super.needToCast(scope, node, toType);
+        return IgniteCustomAssignmentsRules.instance().canApplyFrom(toType.getSqlTypeName(), fromType.getSqlTypeName());
     }
 
     /** {@inheritDoc} */
@@ -645,6 +651,10 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             var nameSpec = customType.createTypeNameSpec();
 
             targetDataType = new SqlDataTypeSpec(nameSpec, SqlParserPos.ZERO);
+        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+            targetDataType = new SqlDataTypeSpec(
+                    new SqlBasicTypeNameSpec(SqlTypeName.UUID, SqlParserPos.ZERO), null, type.isNullable(), SqlParserPos.ZERO
+            );
         } else {
             targetDataType = SqlTypeUtil.convertTypeToSpec(type).withNullable(type.isNullable());
         }

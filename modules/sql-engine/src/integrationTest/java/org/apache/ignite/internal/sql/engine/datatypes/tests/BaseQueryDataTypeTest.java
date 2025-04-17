@@ -51,6 +51,17 @@ public abstract class BaseQueryDataTypeTest<T extends Comparable<T>> extends Bas
                 .check();
     }
 
+    @Test
+    public void testSelectLiteral() {
+        T expected = values.get(0);
+
+        String literal = testTypeSpec.toLiteral(expected);
+
+        checkQuery("SELECT " + literal)
+                .returns(expected)
+                .check();
+    }
+
     /** Test for equality predicate. */
     @ParameterizedTest
     @MethodSource("eq")
