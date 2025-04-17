@@ -31,7 +31,32 @@ using Proto.MsgPack;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    private bool HandleServerOp(long requestId, ServerOp op, PooledBuffer request)
+    private static async Task HandleServerOpInnerAsync(ServerOp op, PooledBuffer request, PooledArrayBuffer response)
+    {
+        switch (op)
+        {
+            case ServerOp.Ping:
+                // No-op.
+                break;
+
+            case ServerOp.ComputeJobExec:
+                await ComputeJobExecutor.ExecuteJobAsync(request, response).ConfigureAwait(false);
+                break;
+
+            case ServerOp.ComputeJobCancel:
+                // TODO IGNITE-25153: Add cancellation support for platform jobs.
+                break;
+
+            case ServerOp.DeploymentUnitUndeploy:
+                // TODO IGNITE-25115 Implement platform job executor.
+                break;
+
+            default:
+                throw new InvalidOperationException("Unsupported ServerOp code: " + op);
+        }
+    }
+
+    private bool QueueServerOp(long requestId, ServerOp op, PooledBuffer request)
     {
         ThreadPool.QueueUserWorkItem<(ClientSocket Socket, PooledBuffer Buf, long RequestId, ServerOp Op)>(
             callBack: static state =>
@@ -48,50 +73,31 @@ internal sealed partial class ClientSocket
     [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Thread root.")]
     private async Task HandleServerOpAsync(PooledBuffer buf, long requestId, ServerOp op)
     {
+        _logger.LogServerOpTrace(requestId, (int)op, op, ConnectionContext.ClusterNode.Address);
+
         using var request = buf;
         using var response = ProtoCommon.GetMessageWriter();
 
         try
         {
-            switch (op)
-            {
-                case ServerOp.Ping:
-                    // No-op.
-                    break;
-
-                case ServerOp.ComputeJobExec:
-                    await ComputeJobExecutor.ExecuteJobAsync(request, response).ConfigureAwait(false);
-                    break;
-
-                case ServerOp.ComputeJobCancel:
-                    // TODO IGNITE-25153: Add cancellation support for platform jobs.
-                    break;
-
-                case ServerOp.DeploymentUnitUndeploy:
-                    // TODO IGNITE-25115 Implement platform job executor.
-                    break;
-
-                default:
-                    throw new InvalidOperationException("Unsupported ServerOp code: " + op);
-            }
+            await HandleServerOpInnerAsync(op, request, response).ConfigureAwait(false);
 
             await SendServerOpResponseAsync(requestId, response).ConfigureAwait(false);
         }
-        catch (Exception e)
+        catch (Exception serverOpEx)
         {
             try
             {
                 using var errResponse = ProtoCommon.GetMessageWriter();
-                WriteError(errResponse.MessageWriter, e);
+                WriteError(errResponse.MessageWriter, serverOpEx);
 
                 await SendServerOpResponseAsync(requestId, errResponse).ConfigureAwait(false);
             }
             catch (Exception resultSendEx)
             {
-                var aggregateEx = new AggregateException(e, resultSendEx);
+                var aggregateEx = new AggregateException(serverOpEx, resultSendEx);
 
-                // TODO
-                // _logger.LogComputeJobResponseError(aggregateEx, requestId, e.Message, jobReq?.JobClassName);
+                _logger.LogServerOpResponseError(aggregateEx, requestId, serverOpEx.Message);
             }
         }
 

@@ -865,7 +865,7 @@ namespace Apache.Ignite.Internal
                 var serverOp = (ServerOp)reader.ReadInt32();
                 response.Position += reader.Consumed;
 
-                return HandleServerOp(requestId, serverOp, response);
+                return QueueServerOp(requestId, serverOp, response);
             }
 
             var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
