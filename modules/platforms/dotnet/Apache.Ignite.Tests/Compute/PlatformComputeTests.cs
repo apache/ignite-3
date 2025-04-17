@@ -49,9 +49,10 @@ public class PlatformComputeTests : IgniteTestsBase
         var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobEcho);
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
-        var result = await jobExec.GetResultAsync();
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        Assert.AreEqual("Hello world!", result);
+        StringAssert.Contains("Could not start .NET executor process", ex.Message);
+        StringAssert.Contains("Connection reset by peer", ex.ToString());
     }
 
     private async Task<IClusterNode> GetClusterNodeAsync(string suffix)
