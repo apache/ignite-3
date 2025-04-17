@@ -92,22 +92,17 @@ public class DotNetComputeExecutor {
     }
 
     private void getPlatformComputeConnectionWithRetryAsync(
-            CompletableFuture<PlatformComputeConnection> fut, @Nullable List<Throwable> errors) {
-        DotNetExecutorProcess proc = ensureProcessStarted();
-
-        // TODO proc.process().onExit()
-        proc.connectionFut()
-                .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+            CompletableFuture<PlatformComputeConnection> fut,
+            @Nullable List<Throwable> errors) {
+        getPlatformComputeConnection()
                 .handle((res, e) -> {
                     if (e == null) {
                         fut.complete(res);
                         return null;
                     }
 
-                    Throwable transportErr = handleTransportError(e, proc.process());
-
                     List<Throwable> errors0 = errors == null ? new ArrayList<>() : errors;
-                    errors0.add(transportErr);
+                    errors0.add(e);
 
                     if (errors0.size() < PROCESS_START_MAX_ATTEMPTS) {
                         getPlatformComputeConnectionWithRetryAsync(fut, errors0);
@@ -126,24 +121,44 @@ public class DotNetComputeExecutor {
                 });
     }
 
-    private static Throwable handleTransportError(Throwable e, Process proc) {
+    private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnection() {
+        CompletableFuture<PlatformComputeConnection> fut = new CompletableFuture<>();
+
+        DotNetExecutorProcess proc = ensureProcessStarted();
+
+        proc.process().onExit().thenRun(() -> fut.completeExceptionally(handleTransportError(proc.process(), null)));
+
+        proc.connectionFut()
+                .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
+                .handle((res, e) -> {
+                    if (e == null) {
+                        fut.complete(res);
+                    } else {
+                        fut.completeExceptionally(handleTransportError(proc.process(), e));
+                    }
+
+                    return null;
+                });
+
+        return fut;
+    }
+
+    private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
+        String output = getProcessOutput(proc);
+
         if (proc.isAlive()) {
             // Process is alive but did not communicate back to the server.
             proc.destroyForcibly();
-            return new RuntimeException(".NET executor process failed to establish connection with the server" , e);
-        } else {
-            try {
-                var output = new String(proc.getErrorStream().readAllBytes());
+        }
 
-                throw new RuntimeException(".NET executor process failed to start: " + output, e);
-            } catch (IOException ex) {
-                RuntimeException err = new RuntimeException(
-                        ".NET executor process failed to start, could not read process output: " + e.getMessage(), e);
+        return new RuntimeException(".NET executor process failed to establish connection with the server: " + output, cause);
+    }
 
-                err.addSuppressed(ex);
-
-                return err;
-            }
+    private static String getProcessOutput(Process proc) {
+        try {
+            return new String(proc.getInputStream().readAllBytes());
+        } catch (IOException e) {
+            return "Failed to read process output: " + e.getMessage();
         }
     }
 
