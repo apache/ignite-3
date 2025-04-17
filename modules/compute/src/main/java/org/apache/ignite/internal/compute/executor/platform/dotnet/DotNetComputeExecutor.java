@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.SecureRandom;
@@ -166,21 +168,28 @@ public class DotNetComputeExecutor {
     }
 
     private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
-        String output = getProcessOutputTail(proc, 500);
-
         if (proc.isAlive()) {
             // Process is alive but did not communicate back to the server.
             proc.destroyForcibly();
         }
+
+        String output = getProcessOutputTail(proc, 500);
 
         return new RuntimeException(".NET executor process failed to establish connection with the server: " + output, cause);
     }
 
     private static String getProcessOutputTail(Process proc, int tail) {
         try {
-            String output = new String(proc.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+            InputStream procInputStream = proc.getInputStream();
 
-            return output.substring(Math.max(0, output.length() - tail));
+            while (procInputStream.available() > tail) {
+                int toSkip = procInputStream.available() - tail;
+                long skipped = procInputStream.skip(toSkip);
+
+                assert skipped == toSkip : skipped + " != " + toSkip;
+            }
+
+            return new String(procInputStream.readAllBytes(), UTF_8);
         } catch (IOException e) {
             return "Failed to read process output: " + e.getMessage();
         }
@@ -255,6 +264,6 @@ public class DotNetComputeExecutor {
         byte[] randomBytes = new byte[64];
         SECURE_RANDOM.nextBytes(randomBytes);
 
-        return new String(Base64.getEncoder().encode(randomBytes), StandardCharsets.UTF_8);
+        return new String(Base64.getEncoder().encode(randomBytes), UTF_8);
     }
 }
