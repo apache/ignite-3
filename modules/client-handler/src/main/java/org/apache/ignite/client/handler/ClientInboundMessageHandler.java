@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLA
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
+import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
@@ -394,8 +395,10 @@ public class ClientInboundMessageHandler
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         resources.close();
 
-        // TODO: Cancel all pending requests, stop accepting more.
-        serverToClientRequests
+        // Cancel all pending requests. New requests will fail due to closed connection.
+        for (var fut : serverToClientRequests.values()) {
+            fut.completeExceptionally(new IgniteException(CONNECTION_ERR, "Connection closed"));
+        }
 
         super.channelInactive(ctx);
 
