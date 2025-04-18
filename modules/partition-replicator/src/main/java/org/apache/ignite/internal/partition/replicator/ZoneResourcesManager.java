@@ -131,14 +131,14 @@ class ZoneResourcesManager implements ManuallyCloseable {
         return zonePartitionResources;
     }
 
-    ZonePartitionResources getZonePartitionResources(ZonePartitionId zonePartitionId) {
+    @Nullable ZonePartitionResources getZonePartitionResources(ZonePartitionId zonePartitionId) {
         ZoneResources zoneResources = resourcesByZoneId.get(zonePartitionId.zoneId());
 
-        assert zoneResources != null : "Missing resources for zone " + zonePartitionId.zoneId();
+        if (zoneResources == null) {
+            return null;
+        }
 
         ZonePartitionResources zonePartitionResources = zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
-
-        assert zonePartitionResources != null : "Missing resources for partition " + zonePartitionId;
 
         return zonePartitionResources;
     }
@@ -181,6 +181,10 @@ class ZoneResourcesManager implements ManuallyCloseable {
 
     CompletableFuture<Void> removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
+
+        if (resources == null) {
+            return CompletableFuture.completedFuture(null);
+        }
 
         return resources.replicaListenerFuture
                 .thenCompose(zoneReplicaListener -> {
