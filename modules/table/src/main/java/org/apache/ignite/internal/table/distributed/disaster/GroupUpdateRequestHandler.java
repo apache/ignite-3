@@ -129,13 +129,13 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                     .map(NodeWithAttributes::nodeName)
                     .collect(toSet());
 
-            List<CompletableFuture<Void>> assignmentsUpdateFut = new ArrayList<>(request.partitionIds().size());
+            List<CompletableFuture<Void>> assignmentsUpdateFuts = new ArrayList<>(request.partitionIds().size());
 
             for (Entry<Integer, Set<Integer>> partitionEntry : request.partitionIds().entrySet()) {
 
                 int[] partitionIdsArray = AssignmentUtil.partitionIds(partitionEntry.getValue(), zoneDescriptor.partitions());
 
-                assignmentsUpdateFut.add(forceAssignmentsUpdate(
+                assignmentsUpdateFuts.add(forceAssignmentsUpdate(
                         partitionEntry.getKey(),
                         zoneDescriptor,
                         dataNodes,
@@ -150,7 +150,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 ));
             }
 
-            return allOf(assignmentsUpdateFut.toArray(new CompletableFuture[]{}));
+            return allOf(assignmentsUpdateFuts.toArray(new CompletableFuture[]{}));
         })
         .thenCompose(Function.identity())
         .whenComplete((unused, throwable) -> {
