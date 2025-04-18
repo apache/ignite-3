@@ -42,7 +42,7 @@ import org.junit.jupiter.api.Test;
 
 /** Test for disaster recovery reset partitions command, positive cases. */
 @MicronautTest
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+// TODO https://issues.apache.org/jira/browse/IGNITE-24230
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;

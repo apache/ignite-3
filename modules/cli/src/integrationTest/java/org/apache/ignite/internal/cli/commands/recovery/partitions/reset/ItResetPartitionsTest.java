@@ -31,7 +31,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Base test class for Cluster Recovery reset partitions commands. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+// TODO https://issues.apache.org/jira/browse/IGNITE-25104
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     private static final String ZONE = "first_ZONE";

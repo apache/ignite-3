@@ -86,7 +86,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     @Override
     public CompletableFuture<Void> resetPartitions(@Body ResetPartitionsRequest command) {
         QualifiedName tableName = QualifiedName.parse(command.tableName());
-        return disasterRecoveryManager.resetPartitions(
+        return disasterRecoveryManager.resetTablePartitions(
                 command.zoneName(),
                 tableName.schemaName(),
                 tableName.objectName(),

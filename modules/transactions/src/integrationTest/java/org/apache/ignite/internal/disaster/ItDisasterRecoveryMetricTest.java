@@ -45,7 +45,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery metrics. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+// TODO https://issues.apache.org/jira/browse/IGNITE-25123
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryMetricTest extends BaseSqlIntegrationTest {
     public static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
