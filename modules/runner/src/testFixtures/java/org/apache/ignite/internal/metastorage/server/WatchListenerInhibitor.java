@@ -72,7 +72,7 @@ public class WatchListenerInhibitor {
      * Starts inhibiting events.
      */
     public void startInhibit() {
-        watchProcessor.enqueue(() -> inhibitFuture);
+        watchProcessor.enqueue(() -> inhibitFuture, "<inhibiting>");
     }
 
     /**
