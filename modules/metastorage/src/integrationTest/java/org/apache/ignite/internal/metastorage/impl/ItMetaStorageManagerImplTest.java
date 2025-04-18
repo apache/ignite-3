@@ -48,7 +48,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -71,6 +70,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
@@ -271,7 +271,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         CompletableFuture<Entry> fut = svc.get(FOO_KEY);
 
-        assertThat(fut, willThrowFast(CancellationException.class));
+        assertThat(fut, willThrowFast(ComponentStoppingException.class));
     }
 
     @Test

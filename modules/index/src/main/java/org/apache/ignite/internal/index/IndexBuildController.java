@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -56,6 +55,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -336,7 +336,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                if (!hasCause(ex, NodeStoppingException.class, CancellationException.class)) {
+                if (!hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class)) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
                 }
             }
