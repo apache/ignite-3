@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuccess;
 
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.RejectedExecutionException;
@@ -35,6 +34,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -145,7 +145,7 @@ public class PlacementDriverMessageProcessor {
                             if (!hasCause(
                                     e,
                                     NodeStoppingException.class,
-                                    CancellationException.class,
+                                    ComponentStoppingException.class,
                                     TrackerClosedException.class,
                                     RejectedExecutionException.class
                             )) {

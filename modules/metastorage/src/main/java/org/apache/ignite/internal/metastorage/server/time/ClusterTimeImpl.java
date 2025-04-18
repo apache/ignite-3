@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.server.time;
 
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
@@ -35,6 +34,7 @@ import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -261,7 +261,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                                 if (!hasCause(
                                         e,
                                         NodeStoppingException.class,
-                                        CancellationException.class,
+                                        ComponentStoppingException.class,
                                         RejectedExecutionException.class
                                 )) {
                                     failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
