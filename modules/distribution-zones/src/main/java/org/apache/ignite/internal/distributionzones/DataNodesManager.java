@@ -1100,7 +1100,7 @@ public class DataNodesManager {
     }
 
     private static boolean relatesToNodeStopping(Throwable e) {
-        return hasCause(e, NodeStoppingException.class) || hasCause(e, CancellationException.class);
+        return hasCause(e, NodeStoppingException.class, CancellationException.class);
     }
 
     /**

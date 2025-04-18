@@ -502,7 +502,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .whenComplete((response, ex) -> {
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                        } else if (!hasCause(ex, NodeStoppingException.class) && !hasCause(ex, ReplicaStoppingException.class)) {
+                        } else if (!hasCause(ex, NodeStoppingException.class, ReplicaStoppingException.class)) {
                             String errorMessage = String.format("Failed to process placement driver message [msg=%s].", msg);
                             failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
@@ -1112,14 +1112,18 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null
-                    && !hasCause(ex, NodeStoppingException.class)
-                    && !hasCause(ex, CancellationException.class)
-                    && !hasCause(ex, RejectedExecutionException.class)
-                    // Not a problem, there will be a retry.
-                    && !hasCause(ex, TimeoutException.class)
-            ) {
-                failureProcessor.process(new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
+            if (ex != null) {
+                if (!hasCause(
+                        ex,
+                        NodeStoppingException.class,
+                        CancellationException.class,
+                        RejectedExecutionException.class,
+                        // Not a problem, there will be a retry.
+                        TimeoutException.class
+                )) {
+                    failureProcessor.process(
+                            new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
+                }
             }
         });
     }

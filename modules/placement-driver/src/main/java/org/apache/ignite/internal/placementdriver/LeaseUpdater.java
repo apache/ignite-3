@@ -588,8 +588,7 @@ public class LeaseUpdater {
                     noop()
             ).whenComplete((success, e) -> {
                 if (e != null) {
-                    if (!hasCause(e, NodeStoppingException.class)
-                            && !hasCause(e, CancellationException.class)) {
+                    if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
                         failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));
                     }
 

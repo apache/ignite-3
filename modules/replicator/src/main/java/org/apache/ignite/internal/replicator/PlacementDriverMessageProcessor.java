@@ -142,10 +142,13 @@ public class PlacementDriverMessageProcessor {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(e, NodeStoppingException.class)
-                                    && !hasCause(e, CancellationException.class)
-                                    && !hasCause(e, TrackerClosedException.class)
-                                    && !hasCause(e, RejectedExecutionException.class)) {
+                            if (!hasCause(
+                                    e,
+                                    NodeStoppingException.class,
+                                    CancellationException.class,
+                                    TrackerClosedException.class,
+                                    RejectedExecutionException.class
+                            )) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }

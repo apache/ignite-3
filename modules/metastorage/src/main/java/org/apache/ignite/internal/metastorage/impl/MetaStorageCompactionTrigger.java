@@ -207,8 +207,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 metaStorageManager.sendCompactionCommand(newCompactionRevision)
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
-                                if (!hasCause(throwable, NodeStoppingException.class)
-                                        && !hasCause(throwable, CancellationException.class)) {
+                                if (!hasCause(throwable, NodeStoppingException.class, CancellationException.class)) {
                                     String errorMessage = String.format(
                                             "Unknown error occurred while sending the metastorage compaction command: "
                                                     + "[newCompactionRevision=%s]",

@@ -181,7 +181,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, CancellationException.class)) {
+                        if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
                             failureProcessor.process(new FailureContext(e, "Unable to start Idle Safe Time scheduler"));
                         }
                     }

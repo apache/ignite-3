@@ -26,6 +26,7 @@ import static org.hamcrest.Matchers.isA;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.IOException;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
@@ -304,6 +305,26 @@ public class ExceptionUtilsTest {
 
         assertTrue(hasCause(ex1, Exception.class));
         assertTrue(hasCause(ex1, RuntimeException.class));
+    }
+
+    @Test
+    void hasCauseWithoutMessageIgnoresSuppressed() {
+        var ex0 = new IOException();
+        var ex1 = new RuntimeException();
+
+        ex1.addSuppressed(ex0);
+
+        assertFalse(hasCause(ex1, IOException.class));
+    }
+
+    @Test
+    void hasCauseWithMessageIgnoresSuppressed() {
+        var ex0 = new IOException("Suppressed");
+        var ex1 = new RuntimeException();
+
+        ex1.addSuppressed(ex0);
+
+        assertFalse(hasCause(ex1, "Suppressed", IOException.class));
     }
 
     /** Test exception class. */

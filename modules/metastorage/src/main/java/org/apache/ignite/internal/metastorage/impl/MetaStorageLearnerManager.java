@@ -130,7 +130,7 @@ class MetaStorageLearnerManager {
             return action.get()
                     .whenComplete((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, CancellationException.class)) {
+                            if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
                                 failureProcessor.process(new FailureContext(e, "Unable to change peers on topology update"));
                             }
                         }

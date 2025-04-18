@@ -666,8 +666,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                                 if (unwrapped instanceof RaftException && ((RaftException) unwrapped).raftError() == RaftError.ECATCHUP) {
                                     // Some node has left, it's not a reason to fail our node; just log the error.
                                     LOG.error("Error while changing voting set to {}", ex, currentState.targetPeers);
-                                } else if (!hasCause(ex, NodeStoppingException.class)
-                                        && !hasCause(ex, CancellationException.class)) {
+                                } else if (!hasCause(ex, NodeStoppingException.class, CancellationException.class)) {
                                     String errorMessage = IgniteStringFormatter.format(
                                             "Error while changing voting set to {}",
                                             currentState.targetPeers

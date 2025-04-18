@@ -591,7 +591,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         }))
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (hasCause(e, NodeStoppingException.class) || hasCause(e, CancellationException.class)) {
+                                if (hasCause(e, NodeStoppingException.class, CancellationException.class)) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(

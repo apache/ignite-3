@@ -258,9 +258,12 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                 syncTimeAction.syncTime(clock.now())
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (!hasCause(e, NodeStoppingException.class)
-                                        && !hasCause(e, CancellationException.class)
-                                        && !hasCause(e, RejectedExecutionException.class)) {
+                                if (!hasCause(
+                                        e,
+                                        NodeStoppingException.class,
+                                        CancellationException.class,
+                                        RejectedExecutionException.class
+                                )) {
                                     failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
                                 }
                             }

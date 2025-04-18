@@ -541,7 +541,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, CancellationException.class)) {
+            if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
                 String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
                 failureProcessor.process(new FailureContext(e, errorMessage));
             }

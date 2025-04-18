@@ -336,7 +336,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                if (!hasCause(ex, NodeStoppingException.class) && !hasCause(ex, CancellationException.class)) {
+                if (!hasCause(ex, NodeStoppingException.class, CancellationException.class)) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
                 }
             }
