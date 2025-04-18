@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.raft.server;
 
+import static org.mockito.Mockito.mock;
+
 import java.util.Map;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.server.impl.GroupStoragesContextResolver;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
@@ -95,7 +97,7 @@ public class TestJraftServerFactory {
                 service,
                 opts,
                 raftGroupEventsClientListener,
-                new NoOpFailureManager(),
+                mock(FailureManager.class),
                 groupStoragesDestructionIntents,
                 groupStoragesContextResolver
         );

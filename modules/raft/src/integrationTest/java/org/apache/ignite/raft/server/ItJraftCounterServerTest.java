@@ -62,7 +62,6 @@ import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.raft.server.impl.NonFatal;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
@@ -319,7 +318,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         listenerFactory = () -> new CounterListener() {
             @Override
             public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-                doneClo.accept(new FailureProcessorEvadingException("Very bad"));
+                doneClo.accept(new IgniteInternalException("Very bad"));
             }
         };
 
@@ -353,7 +352,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         listenerFactory = () -> new CounterListener() {
             @Override
             public void onSnapshotSave(Path path, Consumer<Throwable> doneClo) {
-                doneClo.accept(new FailureProcessorEvadingException("Very bad"));
+                doneClo.accept(new IgniteInternalException("Very bad"));
             }
         };
 
@@ -399,7 +398,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
                         IncrementAndGetCommand command = (IncrementAndGetCommand) cmd.command();
 
                         if (command.delta() == 10) {
-                            throw new FailureProcessorEvadingException("Very bad");
+                            throw new IgniteInternalException("Very bad");
                         }
 
                         return cmd;
@@ -552,7 +551,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         doTestFollowerCatchUp(true, false);
     }
 
-    /** Tests if a starting a new group in shared pools mode doesn't increases timer threads count. */
+    /** Tests if a starting a new group in shared pools mode doesn't increase timer threads count. */
     @Test
     public void testTimerThreadsCount() {
         JraftServerImpl srv0 = startServer(0, x -> {
@@ -987,11 +986,5 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
 
     private static RaftGroupOptions groupOptions(RaftServer raftServer) {
         return defaults().commandsMarshaller(new ThreadLocalOptimizedMarshaller(raftServer.clusterService().serializationRegistry()));
-    }
-
-    private static class FailureProcessorEvadingException extends IgniteInternalException implements NonFatal {
-        public FailureProcessorEvadingException(String msg) {
-            super(msg);
-        }
     }
 }

@@ -805,9 +805,7 @@ public class JraftServerImpl implements RaftServer {
 
                 iter.setErrorAndRollback(1, st);
 
-                if (!(err instanceof NonFatal)) {
-                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
-                }
+                failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, err));
             }
         }
 
