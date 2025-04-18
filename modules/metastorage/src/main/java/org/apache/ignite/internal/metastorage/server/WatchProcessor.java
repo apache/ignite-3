@@ -20,6 +20,8 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
@@ -35,9 +37,13 @@ import java.util.OptionalLong;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
@@ -53,6 +59,7 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
+import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -114,6 +121,9 @@ public class WatchProcessor implements ManuallyCloseable {
      */
     private final AtomicBoolean firedFailureOnChain = new AtomicBoolean(false);
 
+    private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
+    private final AtomicBoolean stopped = new AtomicBoolean(false);
+
     /**
      * Creates a new instance.
      *
@@ -122,9 +132,17 @@ public class WatchProcessor implements ManuallyCloseable {
     public WatchProcessor(String nodeName, EntryReader entryReader, FailureProcessor failureProcessor) {
         this.entryReader = entryReader;
 
-        this.watchExecutor = Executors.newFixedThreadPool(
+        ThreadFactory threadFactory = IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED);
+        this.watchExecutor = new ThreadPoolExecutor(
                 4,
-                IgniteThreadFactory.create(nodeName, "metastorage-watch-executor", LOG, NOTHING_ALLOWED)
+                4,
+                0L,
+                MILLISECONDS,
+                new LinkedBlockingQueue<>(),
+                threadFactory,
+                // This executor gets shut down during node stop, so we don't care about its tasks being discarded; we would have to
+                // filter those RejectedExecutionExeptions by hand anyway.
+                new DiscardPolicy()
         );
 
         this.failureProcessor = failureProcessor;
@@ -156,6 +174,18 @@ public class WatchProcessor implements ManuallyCloseable {
         this.watchEventHandlingCallback = callback;
     }
 
+    private <T> CompletableFuture<T> inBusyLockAsync(Supplier<CompletableFuture<T>> fn) {
+        return IgniteUtils.inBusyLockAsync(busyLock, fn);
+    }
+
+    private void inBusyLock(Runnable fn) {
+        IgniteUtils.inBusyLock(busyLock, fn);
+    }
+
+    private void inBusyLockSafe(Runnable fn) {
+        IgniteUtils.inBusyLockSafe(busyLock, fn);
+    }
+
     /**
      * Queues the following set of actions that will be executed after the previous invocation of this method completes:
      *
@@ -173,10 +203,14 @@ public class WatchProcessor implements ManuallyCloseable {
      * @return Future that gets completed when all registered watches have been notified of the given event.
      */
     public CompletableFuture<Void> notifyWatches(long newRevision, List<Entry> updatedEntries, HybridTimestamp time) {
+        return inBusyLockAsync(() -> notifyWatchesInternal(newRevision, updatedEntries, time));
+    }
+
+    private CompletableFuture<Void> notifyWatchesInternal(long newRevision, List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
         CompletableFuture<Void> newFuture = notificationFuture
-                .thenComposeAsync(v -> {
+                .thenComposeAsync(v -> inBusyLockAsync(() -> {
                     List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
                             .filter(WatchProcessor::isNotIdempotentCacheCommand)
                             .collect(toList());
@@ -191,12 +225,12 @@ public class WatchProcessor implements ManuallyCloseable {
                     CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
                     CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
-                            .thenRunAsync(() -> invokeOnRevisionCallback(newRevision, time), watchExecutor);
+                            .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
 
                     notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
 
                     return notificationFuture;
-                }, watchExecutor)
+                }), watchExecutor)
                 .whenComplete((unused, e) -> {
                     if (e != null) {
                         notifyFailureHandlerOnFirstFailureInNotificationChain(e);
@@ -307,15 +341,19 @@ public class WatchProcessor implements ManuallyCloseable {
      * @param time Timestamp value for advancing.
      */
     public void advanceSafeTime(Runnable callback, HybridTimestamp time) {
+        inBusyLockSafe(() -> advanceSafeTimeInternal(callback, time));
+    }
+
+    private void advanceSafeTimeInternal(Runnable callback, HybridTimestamp time) {
         assert time != null;
 
         //noinspection NonAtomicOperationOnVolatileField
         notificationFuture = notificationFuture
-                .thenRunAsync(() -> {
+                .thenRunAsync(() -> inBusyLockSafe(() -> {
                     callback.run();
 
                     watchEventHandlingCallback.onSafeTimeAdvanced(time);
-                }, watchExecutor)
+                }), watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
                         notifyFailureHandlerOnFirstFailureInNotificationChain(e);
@@ -341,9 +379,15 @@ public class WatchProcessor implements ManuallyCloseable {
 
     @Override
     public void close() {
+        if (!stopped.compareAndSet(false, true)) {
+            return;
+        }
+
+        busyLock.block();
+
         notificationFuture.completeExceptionally(new NodeStoppingException());
 
-        IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
+        IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, SECONDS);
     }
 
     /** Registers a Meta Storage revision update listener. */
