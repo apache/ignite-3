@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -42,6 +43,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -77,7 +79,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
@@ -587,7 +588,7 @@ public class LeaseUpdater {
                     noop()
             ).whenComplete((success, e) -> {
                 if (e != null) {
-                    if (!(ExceptionUtils.unwrapCause(e) instanceof NodeStoppingException)) {
+                    if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
                         failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));
                     }
 

@@ -58,6 +58,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -71,6 +72,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -1089,12 +1091,16 @@ public class DataNodesManager {
                                     }
                                 })
                                 .whenComplete((v, e) -> {
-                                    if (e != null) {
+                                    if (e != null && !relatesToNodeStopping(e)) {
                                         failureProcessor.process(new FailureContext(e, metaStorageOperation.failureLogMessage()));
                                     }
                                 });
                     }
                 });
+    }
+
+    private static boolean relatesToNodeStopping(Throwable e) {
+        return hasCause(e, NodeStoppingException.class, CancellationException.class);
     }
 
     /**
@@ -1136,13 +1142,15 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            String errorMessage = String.format(
-                                    "Failed to initialize zone's dataNodes history [zoneId = %s, timestamp = %s, dataNodes = %s]",
-                                    zoneId,
-                                    timestamp,
-                                    nodeNames(dataNodes)
-                            );
-                            failureProcessor.process(new FailureContext(e, errorMessage));
+                            if (!relatesToNodeStopping(e)) {
+                                String errorMessage = String.format(
+                                        "Failed to initialize zone's dataNodes history [zoneId = %s, timestamp = %s, dataNodes = %s]",
+                                        zoneId,
+                                        timestamp,
+                                        nodeNames(dataNodes)
+                                );
+                                failureProcessor.process(new FailureContext(e, errorMessage));
+                            }
                         } else if (invokeResult) {
                             LOG.info("Initialized zone's dataNodes history [zoneId = {}, timestamp = {}, dataNodes = {}]",
                                     zoneId,
@@ -1200,12 +1208,14 @@ public class DataNodesManager {
                     .thenApply(StatementResult::getAsBoolean)
                     .whenComplete((invokeResult, e) -> {
                         if (e != null) {
-                            String errorMessage = String.format(
-                                    "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
-                                    zoneId,
-                                    timestamp
-                            );
-                            failureProcessor.process(new FailureContext(e, errorMessage));
+                            if (!relatesToNodeStopping(e)) {
+                                String errorMessage = String.format(
+                                        "Failed to delete zone's dataNodes keys [zoneId = %s, timestamp = %s]",
+                                        zoneId,
+                                        timestamp
+                                );
+                                failureProcessor.process(new FailureContext(e, errorMessage));
+                            }
                         } else if (invokeResult) {
                             LOG.info("Delete zone's dataNodes keys [zoneId = {}, timestamp = {}]", zoneId, timestamp);
                         } else {

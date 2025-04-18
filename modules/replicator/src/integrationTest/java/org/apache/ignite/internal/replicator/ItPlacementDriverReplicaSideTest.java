@@ -64,7 +64,7 @@ import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.RaftGroupOptionsConfigHelper;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -222,7 +222,7 @@ public class ItPlacementDriverReplicaSideTest extends IgniteAbstractTest {
                     new TestPlacementDriver(primaryReplicaSupplier),
                     partitionOperationsExecutor,
                     () -> DEFAULT_IDLE_SAFE_TIME_PROPAGATION_PERIOD_MILLISECONDS,
-                    new NoOpFailureManager(),
+                    mock(FailureProcessor.class),
                     // TODO: IGNITE-22222 can't pass ThreadLocalPartitionCommandsMarshaller there due to dependency loop
                     null,
                     topologyAwareRaftGroupServiceFactory,

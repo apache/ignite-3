@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -52,7 +53,6 @@ import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteUtils;
 
 /**
@@ -325,7 +325,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
     private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
         if (firedFailureOnChain.compareAndSet(false, true)) {
-            boolean nodeStopping = ExceptionUtils.hasCauseOrSuppressed(e, NodeStoppingException.class);
+            boolean nodeStopping = hasCause(e, NodeStoppingException.class);
 
             if (!nodeStopping) {
                 LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
@@ -341,7 +341,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
     @Override
     public void close() {
-        notificationFuture.cancel(true);
+        notificationFuture.completeExceptionally(new NodeStoppingException());
 
         IgniteUtils.shutdownAndAwaitTermination(watchExecutor, 10, TimeUnit.SECONDS);
     }
