@@ -92,6 +92,7 @@ public class ReadOperationForCompactionTracker {
         long operationId = longOperationIdGenerator.getAndIncrement();
 
         while (true) {
+            // TODO Comment, this code is not trivial.
             long currentOperationRevision = operationRevision == MetaStorageManager.LATEST_REVISION
                     ? latestRevision.getAsLong()
                     : operationRevision;

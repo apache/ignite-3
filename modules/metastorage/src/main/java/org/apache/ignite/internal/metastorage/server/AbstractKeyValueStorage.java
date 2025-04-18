@@ -411,7 +411,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return new Revisions(rev, compactionRevision);
     }
 
-    protected void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
+    protected synchronized void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
+        // Race here, use a proper lock for synchronization, not "this".
         if (areWatchesStarted()) {
             event.notify(watchProcessor);
         } else {
@@ -421,7 +422,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    protected void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
+    protected synchronized void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
         assert !areWatchesStarted();
 
         notifyWatchProcessorEventsBeforeStartingWatches.forEach(event -> event.notify(watchProcessor));

@@ -196,6 +196,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     private final LongSupplier compactedRevSupplier = () -> compactionRevision;
 
+    /**
+     * Only read or modifying while being synchronized on itself.
+     *
+     * @see #writeBatch(WriteBatch)
+     * @see #writeCompactedBatch(List, WriteBatch)
+     */
+    private final WriteBatchProtector writeBatchProtector = new WriteBatchProtector();
+
     /** Executor for storage operations. */
     private final ExecutorService executor;
 
@@ -913,13 +921,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             Set<UpdateEntriesEvent> updateEntriesEvents = collectUpdateEntriesEventsFromStorage(startRevision, currentRevision);
             Set<UpdateOnlyRevisionEvent> updateOnlyRevisionEvents = collectUpdateRevisionEventsFromStorage(startRevision, currentRevision);
 
-            notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateEntriesEvents);
-            // Adds events for which there were no entries updates but the revision was updated.
-            notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateOnlyRevisionEvents);
+            synchronized (this) {
+                notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateEntriesEvents);
+                // Adds events for which there were no entries updates but the revision was updated.
+                notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateOnlyRevisionEvents);
 
-            drainNotifyWatchProcessorEventsBeforeStartingWatches();
+                drainNotifyWatchProcessorEventsBeforeStartingWatches();
 
-            recoveryStatus.set(RecoveryStatus.DONE);
+                recoveryStatus.set(RecoveryStatus.DONE);
+            }
         }
     }
 
@@ -1223,13 +1233,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             rocksIterator.status();
 
-            byte[] tsValue = rocksIterator.value();
-
-            if (tsValue.length == 0) { // TODO The fuck? How can it be empty?
+            if (!rocksIterator.isValid()) {
+                // No previous value means that it got deleted, or never existed in the first place.
                 throw new CompactedException("Revisions less than or equal to the requested one are already compacted: " + timestamp);
             }
 
-            return bytesToLong(tsValue);
+            return bytesToLong(rocksIterator.value());
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
@@ -1400,9 +1409,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                     if (!writeCompactedBatch(batchKeys, batch)) {
                         key = retryPositionKey;
 
-                        if (!refreshIterator(iterator, key)) {
-                            break;
-                        }
+                        refreshIterator(iterator, key);
                     }
                 }
             }
@@ -1413,11 +1420,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     private boolean writeCompactedBatch(List<byte[]> batchKeys, WriteBatch batch) throws RocksDBException {
         synchronized (writeBatchProtector) {
-            for (byte[] batchKey : batchKeys) {
-                if (writeBatchProtector.maybeUpdated(batchKey)) {
+            for (byte[] key : batchKeys) {
+                if (writeBatchProtector.maybeUpdated(key)) {
                     writeBatchProtector.clear();
 
-                    System.out.println("Abort");
                     return false;
                 }
             }
@@ -1498,8 +1504,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private final WriteBatchProtector writeBatchProtector = new WriteBatchProtector();
-
     private void writeBatch(WriteBatch batch) throws RocksDBException {
         synchronized (writeBatchProtector) {
             for (Entry updatedEntry : updatedEntries.updatedEntries) {
@@ -1510,7 +1514,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private static boolean refreshIterator(RocksIterator iterator, byte @Nullable [] key) throws RocksDBException {
+    private static void refreshIterator(RocksIterator iterator, byte @Nullable [] key) throws RocksDBException {
         iterator.refresh();
 
         if (key == null) {
@@ -1530,8 +1534,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         // Check for errors.
         iterator.status();
-
-        return iterator.isValid();
     }
 
     private boolean isTombstone(byte[] key, long revision) throws RocksDBException {
