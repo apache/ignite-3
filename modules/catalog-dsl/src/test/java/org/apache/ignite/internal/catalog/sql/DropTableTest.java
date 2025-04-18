@@ -25,13 +25,17 @@ import org.junit.jupiter.api.Test;
 class DropTableTest {
     @Test
     void testDropTable() {
-        Query query2 = dropTable().name("table1");
-        String sql = query2.toString();
-        assertThat(sql, is("DROP TABLE table1;"));
+        Query query1 = dropTable().name("table1");
+        String sql = query1.toString();
+        assertThat(sql, is("DROP TABLE TABLE1;"));
 
-        Query query1 = dropTable().ifExists().name("table1");
-        sql = query1.toString();
-        assertThat(sql, is("DROP TABLE IF EXISTS table1;"));
+        Query query2 = dropTable().ifExists().name("table1");
+        sql = query2.toString();
+        assertThat(sql, is("DROP TABLE IF EXISTS TABLE1;"));
+
+        Query query3 = dropTable().ifExists().name("a b");
+        sql = query3.toString();
+        assertThat(sql, is("DROP TABLE IF EXISTS \"a b\";"));
     }
 
     private static DropTableImpl dropTable() {

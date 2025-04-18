@@ -87,7 +87,7 @@ class IndexColumnImpl extends QueryPart {
 
     @Override
     protected void accept(QueryContext ctx) {
-        ctx.visit(new Name(wrapped.columnName()));
+        ctx.visit(Name.simple(wrapped.columnName()));
         SortOrder sortOrder = wrapped.sortOrder();
         if (sortOrder != null && sortOrder != SortOrder.DEFAULT) {
             ctx.sql(" ").sql(sortOrder.sql());

@@ -45,10 +45,10 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return zoneName;
     }
 
-    CreateZoneImpl name(String... names) {
-        Objects.requireNonNull(names, "Zone name must not be null.");
+    CreateZoneImpl name(String name) {
+        Objects.requireNonNull(name, "Zone name must not be null.");
 
-        this.zoneName = new Name(names);
+        this.zoneName = Name.simple(name);
         return this;
     }
 

@@ -42,7 +42,7 @@ class CreateFromDefinitionTest {
     void createFromZoneBuilderSimple() {
         ZoneDefinition zone = ZoneDefinition.builder("zone_test").storageProfiles("default").build();
 
-        assertThat(createZone(zone), is("CREATE ZONE zone_test WITH STORAGE_PROFILES='default';"));
+        assertThat(createZone(zone), is("CREATE ZONE ZONE_TEST WITH STORAGE_PROFILES='default';"));
     }
 
     @Test
@@ -62,7 +62,7 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS zone_test WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
+                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';")
@@ -100,7 +100,7 @@ class CreateFromDefinitionTest {
                 .columns(column("id", INTEGER))
                 .build();
 
-        assertThat(createTable(table), is("CREATE TABLE PUBLIC.builder_test (id int);"));
+        assertThat(createTable(table), is("CREATE TABLE PUBLIC.BUILDER_TEST (ID INT);"));
     }
 
     @Test
@@ -121,13 +121,44 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createTable(table),
-                is("CREATE TABLE IF NOT EXISTS PUBLIC.builder_test"
-                        + " (id int, id_str varchar, f_name varchar(20) NOT NULL DEFAULT 'a', PRIMARY KEY (id, id_str))"
-                        + " COLOCATE BY (id, id_str) ZONE ZONE_TEST;"
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.BUILDER_TEST"
+                        + " (ID INT, ID_STR VARCHAR, F_NAME VARCHAR(20) NOT NULL DEFAULT 'a', PRIMARY KEY (ID, ID_STR))"
+                        + " COLOCATE BY (ID, ID_STR) ZONE ZONE_TEST;"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS ix_id_str_f_name ON PUBLIC.builder_test (id_str, f_name);"
+                        + "CREATE INDEX IF NOT EXISTS IX_ID_STR_F_NAME ON PUBLIC.BUILDER_TEST (ID_STR, F_NAME);"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS ix_test ON PUBLIC.builder_test USING SORTED (id_str asc, f_name desc nulls last);")
+                        + "CREATE INDEX IF NOT EXISTS IX_TEST ON PUBLIC.BUILDER_TEST USING SORTED (ID_STR ASC, F_NAME DESC NULLS LAST);")
+        );
+    }
+
+
+    @Test
+    void createFromTableBuilderQuoteNames() {
+        TableDefinition table = TableDefinition.builder("builder test")
+                .ifNotExists()
+                .schema("sche ma")
+                .colocateBy("id", "id str")
+                .zone("zone test")
+                .columns(
+                        column("id", INTEGER),
+                        column("id str", VARCHAR),
+                        column("f name", ColumnType.varchar(20).notNull().defaultValue("a"))
+                )
+                .primaryKey("id", "id str")
+                .index("id str", "f name")
+                .index("ix test", IndexType.SORTED, column("id str").asc(), column("f name").sort(DESC_NULLS_LAST))
+                .build();
+
+        assertThat(
+                createTable(table),
+                is("CREATE TABLE IF NOT EXISTS \"sche ma\".\"builder test\""
+                        + " (ID INT, \"id str\" VARCHAR, \"f name\" VARCHAR(20) NOT NULL DEFAULT 'a', PRIMARY KEY (ID, \"id str\"))"
+                        + " COLOCATE BY (ID, \"id str\") ZONE \"zone test\";"
+                        + System.lineSeparator()
+                        + "CREATE INDEX IF NOT EXISTS \"ix_id str_f name\" ON \"sche ma\".\"builder test\" (\"id str\", \"f name\");"
+                        + System.lineSeparator()
+                        + "CREATE INDEX IF NOT EXISTS \"ix test\" ON \"sche ma\".\"builder test\" USING SORTED"
+                        + " (\"id str\" ASC, \"f name\" DESC NULLS LAST);")
         );
     }
 
@@ -141,7 +172,7 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createTable(tableDefinition),
-                is("CREATE TABLE PUBLIC.primitive_test (id int, val int, PRIMARY KEY (id));")
+                is("CREATE TABLE PUBLIC.PRIMITIVE_TEST (ID INT, VAL INT, PRIMARY KEY (ID));")
         );
     }
 
@@ -155,7 +186,7 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createTable(tableDefinition),
-                is("CREATE TABLE PUBLIC.pojo_value_test (id int, f_name varchar, l_name varchar, str varchar, PRIMARY KEY (id));")
+                is("CREATE TABLE PUBLIC.POJO_VALUE_TEST (ID INT, F_NAME VARCHAR, L_NAME VARCHAR, STR VARCHAR, PRIMARY KEY (ID));")
         );
     }
 
@@ -171,9 +202,9 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createTable(tableDefinition),
-                is("CREATE TABLE PUBLIC.pojo_value_test"
-                        + " (id int, id_str varchar(20), f_name varchar, l_name varchar, str varchar, PRIMARY KEY (id, id_str))"
-                        + " COLOCATE BY (id, id_str) ZONE ZONE_TEST;")
+                is("CREATE TABLE PUBLIC.POJO_VALUE_TEST"
+                        + " (ID INT, ID_STR VARCHAR(20), F_NAME VARCHAR, L_NAME VARCHAR, STR VARCHAR, PRIMARY KEY (ID, ID_STR))"
+                        + " COLOCATE BY (ID, ID_STR) ZONE ZONE_TEST;")
         );
     }
 
@@ -188,9 +219,9 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createTable(tableDefinition),
-                is("CREATE TABLE IF NOT EXISTS PUBLIC.pojo_test (id int, id_str varchar(20),"
-                        + " f_name varchar(20) not null default 'a', l_name varchar, str varchar,"
-                        + " PRIMARY KEY (id, id_str)) COLOCATE BY (id, id_str) ZONE ZONE_TEST;")
+                is("CREATE TABLE IF NOT EXISTS PUBLIC.POJO_TEST (ID INT, ID_STR VARCHAR(20),"
+                        + " F_NAME varchar(20) not null default 'a', L_NAME VARCHAR, STR VARCHAR,"
+                        + " PRIMARY KEY (ID, ID_STR)) COLOCATE BY (ID, ID_STR) ZONE ZONE_TEST;")
         );
     }
 
@@ -202,7 +233,7 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createTable(tableDefinition),
-                is("CREATE TABLE PUBLIC.primitive_test (id int, PRIMARY KEY (id));")
+                is("CREATE TABLE PUBLIC.PRIMITIVE_TEST (ID INT, PRIMARY KEY (ID));")
         );
     }
 

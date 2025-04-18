@@ -32,7 +32,7 @@ class Colocate extends QueryPart {
     }
 
     Colocate(List<String> columnNames) {
-        names = columnNames.stream().map(Name::new).collect(Collectors.toList());
+        names = columnNames.stream().map(Name::simple).collect(Collectors.toList());
     }
 
     @Override

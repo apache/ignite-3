@@ -41,6 +41,7 @@ import static org.apache.ignite.internal.catalog.sql.ColumnTypeImpl.wrap;
 import static org.apache.ignite.internal.catalog.sql.IndexColumnImpl.parseColumn;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -51,107 +52,140 @@ import org.junit.jupiter.api.Test;
 
 class QueryPartTest {
     @Test
-    void namePart() {
-        Name name = new Name("a");
-        assertThat(sql(name), is("a"));
+    void simpleNamePart() {
+        assertThat(sql(Name.simple("a")), is("A"));
+        assertThat(sql(Name.simple("A")), is("A"));
+        assertThat(sql(Name.simple("aBCd")), is("ABCD"));
+        assertThat(sql(Name.simple("\"aBcD\"")), is("\"aBcD\""));
 
-        name = new Name("a", "b", "c");
-        assertThat(sql(name), is("a.b.c"));
+        assertThat(sql(Name.simple("a.b")), is("\"a.b\""));
+        assertThat(sql(Name.simple(".a.b")), is("\".a.b\""));
+
+        // whitespace
+        assertThat(sql(Name.simple("a b")), is("\"a b\""));
+        assertThat(sql(Name.simple("a ")), is("\"a \""));
+        assertThat(sql(Name.simple(" a")), is("\" a\""));
+        assertThat(sql(Name.simple("a b ")), is("\"a b \""));
+        assertThat(sql(Name.simple(" a b ")), is("\" a b \""));
+        assertThat(sql(Name.simple(" aXb ")), is("\" aXb \""));
+
+        // underscore
+        assertThat(sql(Name.simple("_a")), is("_A"));
+        assertThat(sql(Name.simple("_aB")), is("_AB"));
+        assertThat(sql(Name.simple("_a_B_c")), is("_A_B_C"));
+        assertThat(sql(Name.simple("_a B")), is("\"_a B\""));
+        assertThat(sql(Name.simple("_a b")), is("\"_a b\""));
+    }
+
+    @Test
+    void compoundNamePart() {
+        assertThat(sql(Name.compound("a")), is("A"));
+        assertThat(sql(Name.compound("A")), is("A"));
+        assertThat(sql(Name.compound(null, "a")), is("A"));
+        assertThat(sql(Name.compound("", "a")), is("A"));
+        assertThat(sql(Name.compound("a", "b", "c")), is("A.B.C"));
+        assertThat(sql(Name.compound("a", "aB Cd")), is("A.\"aB Cd\""));
+
+        assertThrows(IllegalArgumentException.class, () -> Name.compound("", "", "a"));
+        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", ""));
+        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", "", "b"));
+        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", null));
+        assertThrows(IllegalArgumentException.class, () -> Name.compound("a", null, "b"));
     }
 
     @Test
     void colocatePart() {
         Colocate colocate = new Colocate("a");
-        assertThat(sql(colocate), is("COLOCATE BY (a)"));
+        assertThat(sql(colocate), is("COLOCATE BY (A)"));
 
         colocate = new Colocate("a", "b");
-        assertThat(sql(colocate), is("COLOCATE BY (a, b)"));
+        assertThat(sql(colocate), is("COLOCATE BY (A, B)"));
     }
 
     @Test
     void columnPart() {
         Column column = new Column("a", wrap(VARCHAR));
-        assertThat(sql(column), is("a varchar"));
+        assertThat(sql(column), is("A VARCHAR"));
 
         column = new Column("a", wrap(ColumnType.varchar(3)));
-        assertThat(sql(column), is("a varchar(3)"));
+        assertThat(sql(column), is("A VARCHAR(3)"));
 
         column = new Column("a", wrap(ColumnType.decimal(2, 3)));
-        assertThat(sql(column), is("a decimal(2, 3)"));
+        assertThat(sql(column), is("A DECIMAL(2, 3)"));
     }
 
     @Test
     void columnTypePart() {
-        assertThat(sql(wrap(BOOLEAN)), is("boolean"));
-        assertThat(sql(wrap(TINYINT)), is("tinyint"));
-        assertThat(sql(wrap(SMALLINT)), is("smallint"));
-        assertThat(sql(wrap(INT8)), is("tinyint"));
-        assertThat(sql(wrap(INT16)), is("smallint"));
-        assertThat(sql(wrap(INT32)), is("int"));
-        assertThat(sql(wrap(INT64)), is("bigint"));
-        assertThat(sql(wrap(INTEGER)), is("int"));
-        assertThat(sql(wrap(BIGINT)), is("bigint"));
-        assertThat(sql(wrap(REAL)), is("real"));
-        assertThat(sql(wrap(FLOAT)), is("real"));
-        assertThat(sql(wrap(DOUBLE)), is("double"));
-        assertThat(sql(wrap(VARCHAR)), is("varchar"));
-        assertThat(sql(wrap(ColumnType.varchar(1))), is("varchar(1)"));
-        assertThat(sql(wrap(VARBINARY)), is("varbinary"));
-        assertThat(sql(wrap(ColumnType.varbinary(1))), is("varbinary(1)"));
-        assertThat(sql(wrap(TIME)), is("time"));
-        assertThat(sql(wrap(ColumnType.time(1))), is("time(1)"));
-        assertThat(sql(wrap(TIMESTAMP)), is("timestamp"));
-        assertThat(sql(wrap(ColumnType.timestamp(1))), is("timestamp(1)"));
-        assertThat(sql(wrap(DATE)), is("date"));
-        assertThat(sql(wrap(DECIMAL)), is("decimal"));
-        assertThat(sql(wrap(ColumnType.decimal(1, 2))), is("decimal(1, 2)"));
-        assertThat(sql(wrap(UUID)), is("uuid"));
+        assertThat(sql(wrap(BOOLEAN)), is("BOOLEAN"));
+        assertThat(sql(wrap(TINYINT)), is("TINYINT"));
+        assertThat(sql(wrap(SMALLINT)), is("SMALLINT"));
+        assertThat(sql(wrap(INT8)), is("TINYINT"));
+        assertThat(sql(wrap(INT16)), is("SMALLINT"));
+        assertThat(sql(wrap(INT32)), is("INT"));
+        assertThat(sql(wrap(INT64)), is("BIGINT"));
+        assertThat(sql(wrap(INTEGER)), is("INT"));
+        assertThat(sql(wrap(BIGINT)), is("BIGINT"));
+        assertThat(sql(wrap(REAL)), is("REAL"));
+        assertThat(sql(wrap(FLOAT)), is("REAL"));
+        assertThat(sql(wrap(DOUBLE)), is("DOUBLE"));
+        assertThat(sql(wrap(VARCHAR)), is("VARCHAR"));
+        assertThat(sql(wrap(ColumnType.varchar(1))), is("VARCHAR(1)"));
+        assertThat(sql(wrap(VARBINARY)), is("VARBINARY"));
+        assertThat(sql(wrap(ColumnType.varbinary(1))), is("VARBINARY(1)"));
+        assertThat(sql(wrap(TIME)), is("TIME"));
+        assertThat(sql(wrap(ColumnType.time(1))), is("TIME(1)"));
+        assertThat(sql(wrap(TIMESTAMP)), is("TIMESTAMP"));
+        assertThat(sql(wrap(ColumnType.timestamp(1))), is("TIMESTAMP(1)"));
+        assertThat(sql(wrap(DATE)), is("DATE"));
+        assertThat(sql(wrap(DECIMAL)), is("DECIMAL"));
+        assertThat(sql(wrap(ColumnType.decimal(1, 2))), is("DECIMAL(1, 2)"));
+        assertThat(sql(wrap(UUID)), is("UUID"));
     }
 
     @Test
     void columnTypeOptionsPart() {
-        assertThat(sql(wrap(INTEGER)), is("int"));
-        assertThat(sql(wrap(INTEGER.notNull())), is("int NOT NULL"));
-        assertThat(sql(wrap(INTEGER.defaultValue(1))), is("int DEFAULT 1"));
-        assertThat(sql(wrap(VARCHAR.defaultValue("s"))), is("varchar DEFAULT 's'")); // default in single quotes
-        assertThat(sql(wrap(INTEGER.defaultExpression("gen_expr"))), is("int DEFAULT gen_expr"));
-        assertThat(sql(wrap(INTEGER.notNull().defaultValue(1))), is("int NOT NULL DEFAULT 1"));
-        assertThat(sql(wrap(ColumnType.decimal(2, 3).defaultValue(BigDecimal.ONE).notNull())), is("decimal(2, 3) NOT NULL DEFAULT 1"));
-        assertThat(sql(wrap(INTEGER.defaultValue(1).defaultExpression("gen_expr"))), is("int DEFAULT 1"));
+        assertThat(sql(wrap(INTEGER)), is("INT"));
+        assertThat(sql(wrap(INTEGER.notNull())), is("INT NOT NULL"));
+        assertThat(sql(wrap(INTEGER.defaultValue(1))), is("INT DEFAULT 1"));
+        assertThat(sql(wrap(VARCHAR.defaultValue("s"))), is("VARCHAR DEFAULT 's'")); // default in single quotes
+        assertThat(sql(wrap(INTEGER.defaultExpression("gen_expr"))), is("INT DEFAULT gen_expr"));
+        assertThat(sql(wrap(INTEGER.notNull().defaultValue(1))), is("INT NOT NULL DEFAULT 1"));
+        assertThat(sql(wrap(ColumnType.decimal(2, 3).defaultValue(BigDecimal.ONE).notNull())), is("DECIMAL(2, 3) NOT NULL DEFAULT 1"));
+        assertThat(sql(wrap(INTEGER.defaultValue(1).defaultExpression("gen_expr"))), is("INT DEFAULT 1"));
     }
 
     @Test
     void constraintPart() {
         Constraint constraint = new Constraint().primaryKey(column("a"));
-        assertThat(sql(constraint), is("PRIMARY KEY (a)"));
+        assertThat(sql(constraint), is("PRIMARY KEY (A)"));
 
         constraint = new Constraint().primaryKey(IndexType.SORTED, List.of(column("a")));
-        assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (a)"));
+        assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (A)"));
 
         constraint = new Constraint().primaryKey(column("a"), column("b"));
-        assertThat(sql(constraint), is("PRIMARY KEY (a, b)"));
+        assertThat(sql(constraint), is("PRIMARY KEY (A, B)"));
 
         constraint = new Constraint().primaryKey(IndexType.SORTED, List.of(column("a"), column("b")));
-        assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (a, b)"));
+        assertThat(sql(constraint), is("PRIMARY KEY USING SORTED (A, B)"));
     }
 
     @Test
     void queryPartCollection() {
-        QueryPartCollection<Name> collection = QueryPartCollection.partsList(new Name("a"), new Name("b"));
+        QueryPartCollection<Name> collection = QueryPartCollection.partsList(Name.simple("a"), Name.simple("b"));
 
-        assertThat(sql(collection), is("a, b"));
+        assertThat(sql(collection), is("A, B"));
     }
 
     @Test
     void indexColumnPart() {
         IndexColumnImpl column = IndexColumnImpl.wrap(column("col1"));
-        assertThat(sql(column), is("col1"));
+        assertThat(sql(column), is("COL1"));
 
         column = IndexColumnImpl.wrap(column("col1", SortOrder.ASC_NULLS_FIRST));
-        assertThat(sql(column), is("col1 asc nulls first"));
+        assertThat(sql(column), is("COL1 ASC NULLS FIRST"));
 
         column = IndexColumnImpl.wrap(column("col1", SortOrder.DESC_NULLS_LAST));
-        assertThat(sql(column), is("col1 desc nulls last"));
+        assertThat(sql(column), is("COL1 DESC NULLS LAST"));
     }
 
     @Test

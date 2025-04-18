@@ -52,10 +52,10 @@ class CreateIndexImpl extends AbstractCatalogQuery<Name> {
         return indexName;
     }
 
-    CreateIndexImpl name(String... names) {
-        Objects.requireNonNull(names, "Index name must not be null.");
+    CreateIndexImpl name(String name) {
+        Objects.requireNonNull(name, "Index name must not be null.");
 
-        indexName = new Name(names);
+        indexName = Name.simple(name);
         return this;
     }
 
