@@ -390,13 +390,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         listenReadActionRequest(startSendReadActionRequestFuture, continueSendReadActionRequestFuture);
 
         CompletableFuture<?> readFromLeaderOperationFuture = readFromLeaderAction.read(metaStorageManager, FOO_KEY);
-        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 5);
+        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 2);
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
         storage.setCompactionRevision(1);
 
-        CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(1);
+        CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(2);
         assertFalse(readOperationsFuture.isDone());
 
         getLocallyCursor.close();
@@ -427,7 +427,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         listenReadActionRequest(startSendReadActionRequestFuture, continueSendReadActionRequestFuture);
 
         CompletableFuture<?> readFromLeaderOperationFuture = readFromLeaderAction.read(metaStorageManager, FOO_KEY);
-        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 5);
+        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 2);
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
@@ -468,7 +468,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 )),
                 Arguments.of(Named.named(
                         "prefixBounded",
-                        ReadFromLeaderAction.readAsync((metastore, key) -> subscribeToList(metastore.prefix(key, 3)))
+                        ReadFromLeaderAction.readAsync((metastore, key) -> subscribeToList(metastore.prefix(key, 2)))
                 ))
         );
     }

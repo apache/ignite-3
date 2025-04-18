@@ -886,7 +886,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Entry> get(ByteArray key) {
         return inBusyLockAsync(
                 busyLock,
-                () -> withTrackReadOperationFromLeaderFuture(() -> metaStorageSvcFut.thenCompose(svc -> svc.get(key)))
+                () -> withTrackReadOperationFromLeaderFuture(
+                        storage.revision(),
+                        () -> metaStorageSvcFut.thenCompose(svc -> svc.get(key))
+                )
         );
     }
 
@@ -894,7 +897,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         return inBusyLockAsync(
                 busyLock,
-                () -> withTrackReadOperationFromLeaderFuture(() -> metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound)))
+                () -> withTrackReadOperationFromLeaderFuture(
+                        revUpperBound,
+                        () -> metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound))
+                )
         );
     }
 
@@ -948,7 +954,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         return inBusyLock(
                 busyLock,
-                () -> withTrackReadOperationFromLeaderFuture(() -> metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys)))
+                () -> withTrackReadOperationFromLeaderFuture(
+                        storage.revision(),
+                        () -> metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys))
+                )
         );
     }
 
@@ -1064,6 +1073,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             return withTrackReadOperationFromLeaderPublisher(
+                    storage.revision(),
                     () -> new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, false)))
             );
         } finally {
@@ -1084,6 +1094,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             return withTrackReadOperationFromLeaderPublisher(
+                    revUpperBound,
                     () -> new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.prefix(keyPrefix, revUpperBound)))
             );
         } finally {
@@ -1294,28 +1305,33 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return storage;
     }
 
-    private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-        long compactionRevision = storage.getCompactionRevision();
+    private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(
+            long operationRevision,
+            Supplier<CompletableFuture<T>> readFromLeader
+    ) {
+        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
 
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
+        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
+
+        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
 
         try {
             return readFromLeader.get().whenComplete(
-                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision)
+                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision)
             );
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
             throw t;
         }
     }
 
-    private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(Supplier<Publisher<Entry>> readFromLeader) {
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-        long compactionRevision = storage.getCompactionRevision();
+    private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(long operationRevision, Supplier<Publisher<Entry>> readFromLeader) {
+        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
 
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
+        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
+
+        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
 
         try {
             Publisher<Entry> publisherFromLeader = readFromLeader.get();
@@ -1331,7 +1347,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                         @Override
                         public void cancel() {
-                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                             subscription.cancel();
                         }
@@ -1345,20 +1361,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 @Override
                 public void onError(Throwable throwable) {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                     subscriber.onError(throwable);
                 }
 
                 @Override
                 public void onComplete() {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                     subscriber.onComplete();
                 }
             });
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
             throw t;
         }
