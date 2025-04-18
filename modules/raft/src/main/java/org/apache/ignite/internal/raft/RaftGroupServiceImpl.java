@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
@@ -48,12 +49,14 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -566,7 +569,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      */
     private <R extends NetworkMessage> void sendWithRetry(CompletableFuture<R> fut, RetryContext retryContext) {
         if (!busyLock.enterBusy()) {
-            fut.cancel(true);
+            fut.completeExceptionally(new ComponentStoppingException("Raft client is stopping [" + groupId + "]."));
 
             return;
         }
@@ -611,7 +614,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                 fut.complete((R) resp);
                             }
                         } catch (Throwable e) {
-                            fut.completeExceptionally(e);
+                            if (hasCause(e, RejectedExecutionException.class)) {
+                                fut.completeExceptionally(wrapInComponentStoppingException(e));
+                            } else {
+                                fut.completeExceptionally(e);
+                            }
                         }
                     });
         } finally {
@@ -619,11 +626,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
+    private ComponentStoppingException wrapInComponentStoppingException(Throwable e) {
+        return new ComponentStoppingException("Raft client is stopping [" + groupId + "].", e);
+    }
+
     private void handleThrowable(CompletableFuture<? extends NetworkMessage> fut, Throwable err, RetryContext retryContext) {
         err = unwrapCause(err);
 
         if (!recoverable(err)) {
-            fut.completeExceptionally(err);
+            if (hasCause(err, RejectedExecutionException.class)) {
+                fut.completeExceptionally(wrapInComponentStoppingException(err));
+            } else {
+                fut.completeExceptionally(err);
+            }
 
             return;
         }
