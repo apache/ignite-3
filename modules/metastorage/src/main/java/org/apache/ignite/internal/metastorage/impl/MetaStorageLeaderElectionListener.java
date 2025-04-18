@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.List;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BooleanSupplier;
 import java.util.function.Function;
@@ -181,7 +180,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
+                        if (!hasCause(e, NodeStoppingException.class)) {
                             failureProcessor.process(new FailureContext(e, "Unable to start Idle Safe Time scheduler"));
                         }
                     }
