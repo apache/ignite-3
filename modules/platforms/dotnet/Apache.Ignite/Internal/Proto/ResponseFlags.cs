@@ -40,5 +40,10 @@ internal enum ResponseFlags
     /// <summary>
     /// Indicates error response.
     /// </summary>
-    Error = 4
+    Error = 4,
+
+    /// <summary>
+    /// Indicates that a server-to-client operation (server sends request, client returns response).
+    /// </summary>
+    ServerOp = 8
 }

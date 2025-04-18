@@ -20,14 +20,12 @@ package org.apache.ignite.client.handler.requests.compute;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.packSubmitResult;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeExecuteRequest.sendResultAndState;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
-import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
-import org.apache.ignite.deployment.DeploymentUnit;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -47,6 +45,8 @@ public class ClientComputeExecutePartitionedRequest {
      * @param compute Compute.
      * @param tables Tables.
      * @param cluster Cluster service
+     * @param notificationSender Notification sender.
+     * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -55,26 +55,23 @@ public class ClientComputeExecutePartitionedRequest {
             IgniteComputeInternal compute,
             IgniteTables tables,
             ClusterService cluster,
-            NotificationSender notificationSender
+            NotificationSender notificationSender,
+            boolean enablePlatformJobs
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             out.packInt(table.schemaView().lastKnownSchemaVersion());
 
             int partitionId = in.unpackInt();
 
-            // Unpack job
-            List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
-            String jobClassName = in.unpackString();
-            JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-            ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(in);
+            Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
                     table,
                     partitionId,
-                    deploymentUnits,
-                    jobClassName,
-                    options,
-                    args,
+                    job.deploymentUnits(),
+                    job.jobClassName(),
+                    job.options(),
+                    job.arg(),
                     null
             );
 

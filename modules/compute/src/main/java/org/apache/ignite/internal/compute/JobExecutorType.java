@@ -15,38 +15,12 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+package org.apache.ignite.internal.compute;
 
-using System;
-
-/// <summary>
-/// Protocol bitmask features.
-/// </summary>
-[Flags]
-internal enum ProtocolBitmaskFeature
-{
-    /// <summary>
-    /// User attributes in handshake.
-    /// </summary>
-    UserAttributes = 1,
-
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
-
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
-
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
-
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16
+/**
+ * Job executor type.
+ */
+public enum JobExecutorType { // TODO IGNITE-25116: Move to public API
+    JavaEmbedded,
+    DotNetSidecar
 }

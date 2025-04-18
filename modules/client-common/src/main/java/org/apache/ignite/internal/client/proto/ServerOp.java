@@ -15,38 +15,18 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+package org.apache.ignite.internal.client.proto;
 
-using System;
+/**
+ * Server -> client operation codes.
+ */
+public class ServerOp {
+    public static final int PING = 1;
 
-/// <summary>
-/// Protocol bitmask features.
-/// </summary>
-[Flags]
-internal enum ProtocolBitmaskFeature
-{
-    /// <summary>
-    /// User attributes in handshake.
-    /// </summary>
-    UserAttributes = 1,
+    /** Execute platform compute job. */
+    public static final int COMPUTE_JOB_EXEC = 2;
 
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
+    public static final int COMPUTE_JOB_CANCEL = 3;
 
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
-
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
-
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16
+    public static final int DEPLOYMENT_UNITS_UNDEPLOY = 4;
 }

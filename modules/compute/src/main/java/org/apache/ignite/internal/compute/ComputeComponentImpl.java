@@ -20,7 +20,6 @@ package org.apache.ignite.internal.compute;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ClassLoaderExceptionsMapper.mapClassLoaderExceptions;
-import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.taskClass;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -341,7 +340,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
             @Nullable ComputeJobDataHolder arg
     ) {
         try {
-            return executor.executeJob(options, jobClass(context.classLoader(), jobClassName), context.classLoader(), arg);
+            return executor.executeJob(options, jobClassName, context.classLoader(), arg);
         } catch (Throwable e) {
             context.close();
             throw e;

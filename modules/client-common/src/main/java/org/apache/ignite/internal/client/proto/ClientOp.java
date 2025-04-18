@@ -195,6 +195,9 @@ public class ClientOp {
     /** Get table by qualified names (returns Qualified names). */
     public static final int TABLE_GET_QUALIFIED = 72;
 
+    /** Response to a server->client operation. */
+    public static final int SERVER_OP_RESPONSE = 73;
+
     /** Reserved for extensions: min. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_START = 1000;

@@ -204,6 +204,9 @@ public class ClientUtils {
                 // and these requests are terminated when the connection is lost.
                 return null;
 
+            case ClientOp.SERVER_OP_RESPONSE:
+                return null;
+
             // Do not return null from default arm intentionally, so we don't forget to update this when new ClientOp values are added.
             default:
                 throw new UnsupportedOperationException("Invalid op code: " + opCode);

@@ -18,35 +18,17 @@
 namespace Apache.Ignite.Internal.Proto;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 
 /// <summary>
-/// Protocol bitmask features.
+/// Response flags for server -> client operations (see <see cref="ServerOp"/>, <see cref="ClientOp.ServerOpResponse"/>).
 /// </summary>
 [Flags]
-internal enum ProtocolBitmaskFeature
+[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
+internal enum ServerOpResponseFlags
 {
     /// <summary>
-    /// User attributes in handshake.
+    /// Indicates error response.
     /// </summary>
-    UserAttributes = 1,
-
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
-
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
-
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
-
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16
+    Error = 4
 }

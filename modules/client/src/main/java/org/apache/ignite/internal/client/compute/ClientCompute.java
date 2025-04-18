@@ -56,6 +56,7 @@ import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientOp;
+import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.client.table.ClientRecordSerializer;
 import org.apache.ignite.internal.client.table.ClientSchema;
@@ -330,7 +331,7 @@ public class ClientCompute implements IgniteCompute {
                 ClientOp.COMPUTE_EXECUTE,
                 w -> {
                     packNodeNames(w.out(), nodes);
-                    packJob(w.out(), descriptor, arg);
+                    packJob(w, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 node.name(),
@@ -404,7 +405,7 @@ public class ClientCompute implements IgniteCompute {
 
                     keyWriter.accept(outputChannel, schema);
 
-                    packJob(w, descriptor, arg);
+                    packJob(outputChannel, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 partitionAwarenessProvider,
@@ -444,7 +445,7 @@ public class ClientCompute implements IgniteCompute {
 
                     w.packInt(partitionId);
 
-                    packJob(w, descriptor, arg);
+                    packJob(outputChannel, descriptor, arg);
                 },
                 ClientCompute::unpackSubmitResult,
                 PartitionAwarenessProvider.of(partitionId),
@@ -508,13 +509,11 @@ public class ClientCompute implements IgniteCompute {
         }
     }
 
-    private static <T, R> void packJob(ClientMessagePacker w, JobDescriptor<T, R> descriptor, T arg) {
-        w.packDeploymentUnits(descriptor.units());
+    private static <T, R> void packJob(PayloadOutputChannel out, JobDescriptor<T, R> descriptor, T arg) {
+        boolean platformComputeSupported = out.clientChannel().protocolContext()
+                .isFeatureSupported(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB);
 
-        w.packString(descriptor.jobClassName());
-        w.packInt(descriptor.options().priority());
-        w.packInt(descriptor.options().maxRetries());
-        ClientComputeJobPacker.packJobArgument(arg, descriptor.argumentMarshaller(), w);
+        ClientComputeJobPacker.packJob(descriptor, arg, platformComputeSupported, out.out());
     }
 
     private static <T, R> void packTask(ClientMessagePacker w, TaskDescriptor<T, R> taskDescriptor, @Nullable T arg) {
