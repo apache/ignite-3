@@ -226,7 +226,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
             Map<T, LocalPartitionStateMessageByNode> localStatesMap,
             long assignmentsTimestamp,
             int[] partitionIds,
-            Map<Integer, Assignments> tableAssignments,
+            Map<Integer, Assignments> stableAssignments,
             boolean manualUpdate
     ) {
         Set<String> aliveDataNodes = CollectionUtils.intersect(dataNodes, aliveNodesConsistentIds);
@@ -248,7 +248,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                     revision,
                     timestamp,
                     metaStorageManager,
-                    tableAssignments.get(replicaGrpId.partitionId()).nodes(),
+                    stableAssignments.get(replicaGrpId.partitionId()).nodes(),
                     localStatesByNode,
                     assignmentsTimestamp,
                     manualUpdate
@@ -397,7 +397,7 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
 
     abstract CompletableFuture<Map<Integer, Assignments>> stableAssignments(
             MetaStorageManager metaStorageManager,
-            int zoneId,
+            int replicationId,
             int[] partitionIds
     );
 
