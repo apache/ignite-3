@@ -39,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -264,7 +265,8 @@ class RelJson {
         if (value == null
                 || value instanceof Number
                 || value instanceof String
-                || value instanceof Boolean) {
+                || value instanceof Boolean
+                || value instanceof UUID) {
             return value;
         } else if (value instanceof Enum) {
             return toJson((Enum) value);
@@ -897,6 +899,10 @@ class RelJson {
                     literal = toByteString(literal);
                 } else if (type.getSqlTypeName().getFamily() == SqlTypeFamily.TIMESTAMP && literal instanceof Integer) {
                     literal = ((Integer) literal).longValue();
+                } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
+                    assert literal instanceof String : literal;
+
+                    literal = UUID.fromString((String) literal);
                 }
 
                 return rexBuilder.makeLiteral(literal, type, true);

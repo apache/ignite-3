@@ -3402,7 +3402,7 @@ public class RexImpTable {
     /** Returns whether any of a call's operands have ANY type. */
     private static boolean anyAnyOperands(RexCall call) {
       for (RexNode operand : call.operands) {
-        if (operand.getType().getSqlTypeName() == SqlTypeName.ANY) {
+        if (operand.getType().getSqlTypeName() == SqlTypeName.ANY || operand.getType().getSqlTypeName() == SqlTypeName.UUID) {
           return true;
         }
       }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rex;
 
+import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -87,6 +88,10 @@ public class IgniteRexBuilder extends RexBuilder {
                     value = Float.parseFloat((String) value);
                 }
             }
+        }
+
+        if (value instanceof UUID && type.getSqlTypeName() == SqlTypeName.UUID) {
+            return makeUuidLiteral((UUID) value);
         }
 
         return super.makeLiteral(value, type, allowCast, trim);

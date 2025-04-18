@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
@@ -114,22 +115,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             charset = StandardCharsets.UTF_8;
         }
 
-        // IgniteCustomType: all custom data types are registered here
-        NewCustomType uuidType = new NewCustomType(UuidType.SPEC, (nullable, precision) -> new UuidType(nullable));
-        // UUID type can be converted from character types.
-        uuidType.addCoercionRules(SqlTypeName.CHAR_TYPES);
-
-        customDataTypes = new CustomDataTypes(Set.of(uuidType));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType createSqlType(SqlTypeName typeName) {
-        if (typeName == SqlTypeName.UUID) {
-            return createCustomType(UuidType.NAME);
-        } else {
-            return super.createSqlType(typeName);
-        }
+        customDataTypes = new CustomDataTypes(Set.of());
     }
 
     /** {@inheritDoc} */
@@ -243,6 +229,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                     return Object.class;
                 case NULL:
                     return Void.class;
+                case UUID:
+                    return UUID.class;
                 default:
                     break;
             }
@@ -327,6 +315,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
                         ? NativeTypes.blobOf(DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.blobOf(relType.getPrecision());
+            case UUID:
+                return NativeTypes.UUID;
             case ANY:
                 if (relType instanceof IgniteCustomType) {
                     var customType = (IgniteCustomType) relType;
@@ -446,10 +436,20 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return first(types);
         }
 
-        RelDataType resultType = super.leastRestrictive(types);
+        List<RelDataType> typesWithoutNulls = types.stream()
+                .filter(type -> !SqlTypeUtil.isNull(type))
+                .collect(Collectors.toList());
+
+        RelDataType resultType = super.leastRestrictive(typesWithoutNulls);
 
         if (resultType == null) {
             return null;
+        }
+
+        // If we've filtered out some NULLs, then we have to adjust return type to make sure it
+        // allows nulls.
+        if (types.size() != typesWithoutNulls.size() && !resultType.isNullable()) {
+            resultType = createTypeWithNullability(resultType, true);
         }
 
         if (resultType.getSqlTypeName() != SqlTypeName.ANY) {
@@ -558,8 +558,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     public RelDataType createTypeWithNullability(RelDataType type, boolean nullable) {
         if (type instanceof IgniteCustomType) {
             return canonize(((IgniteCustomType) type).createWithNullability(nullable));
-        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
-            return canonize(createCustomType(UuidType.NAME).createWithNullability(nullable));
         } else {
             return super.createTypeWithNullability(type, nullable);
         }

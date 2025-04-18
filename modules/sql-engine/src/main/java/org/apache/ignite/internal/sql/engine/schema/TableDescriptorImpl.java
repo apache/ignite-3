@@ -24,7 +24,6 @@ import java.util.Arrays;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeFactory;
@@ -32,14 +31,12 @@ import org.apache.calcite.rel.type.RelDataTypeFactory.Builder;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.schema.ColumnStrategy;
-import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.NullInitializerExpressionFactory;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
@@ -135,17 +132,6 @@ public class TableDescriptorImpl extends NullInitializerExpressionFactory implem
                 Object defaultVal = descriptor.defaultValue();
                 Object internalValue = defaultVal == null ? defaultVal : TypeUtils.toInternal(defaultVal, nativeType.spec());
                 RelDataType relDataType = deriveLogicalType(rexBuilder.getTypeFactory(), descriptor);
-
-                // UUID literals are not supported, so we replace it with CAST(uuid.toString() AS UUID)
-                if (internalValue != null && relDataType instanceof UuidType) {
-                    assert internalValue instanceof UUID;
-
-                    RelDataType charType = rexBuilder.getTypeFactory().createSqlType(SqlTypeName.VARCHAR);
-
-                    RexNode literal = rexBuilder.makeLiteral(internalValue.toString(), charType, false);
-
-                    return rexBuilder.makeCast(relDataType, literal);
-                }
 
                 return rexBuilder.makeLiteral(internalValue, relDataType, false);
             }

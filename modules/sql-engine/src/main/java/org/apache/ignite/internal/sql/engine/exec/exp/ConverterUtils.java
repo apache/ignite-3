@@ -21,6 +21,7 @@ import java.lang.reflect.Type;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import org.apache.calcite.adapter.enumerable.EnumUtils;
 import org.apache.calcite.adapter.enumerable.RexImpTable;
 import org.apache.calcite.linq4j.tree.ConstantUntypedNull;
@@ -308,6 +309,10 @@ public class ConverterUtils {
                                 "toString",
                                 operand));
             }
+        }
+
+        if (toType == UUID.class && fromType == String.class) {
+            return Expressions.call(UUID.class, "fromString", operand);
         }
 
         var toCustomType = CustomTypesConversion.INSTANCE.tryConvert(operand, toType);

@@ -18,15 +18,15 @@
 package org.apache.ignite.internal.sql.engine.datatypes.uuid;
 
 import java.util.UUID;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.engine.datatypes.DataTypeTestSpecs;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.BaseJoinDataTypeTest;
 import org.apache.ignite.internal.sql.engine.datatypes.tests.DataTypeTestSpec;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 
 /**
- * Tests for {@code JOIN} operator for {@link UuidType UUID data type}.
+ * Tests for {@code JOIN} operator for {@link SqlTypeName#UUID UUID data type}.
  */
 public class ItUuidJoinTest extends BaseJoinDataTypeTest<UUID> {
     /** {@inheritDoc} */
