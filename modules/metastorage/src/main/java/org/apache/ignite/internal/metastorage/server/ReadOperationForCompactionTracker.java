@@ -25,6 +25,9 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -48,9 +51,18 @@ public class ReadOperationForCompactionTracker {
 
     private final AtomicLong longOperationIdGenerator = new AtomicLong();
 
-    /** Generates the next read operation ID. Thread-safe. */
-    public long generateReadOperationId() {
-        return longOperationIdGenerator.getAndIncrement();
+    /**
+     * Stops tracking the read operation. {@code operationRevision} must match the corresponding value from {@link #track}.
+     *
+     * <p>Method is expected not to be called more than once for the same arguments, and {@link #track} was previously called for same
+     * arguments.</p>
+     *
+     * @see #track(Object, long)
+     */
+    @FunctionalInterface
+    public interface TrackingToken extends AutoCloseable {
+        @Override
+        void close();
     }
 
     /**
@@ -74,30 +86,51 @@ public class ReadOperationForCompactionTracker {
      *
      * @see #untrack(Object, long)
      */
-    public void track(Object readOperationId, long operationRevision) {
-        var key = new ReadOperationKey(readOperationId, operationRevision);
+    public TrackingToken track(
+            long operationRevision, LongSupplier latestRevision, LongSupplier compactedRevision
+    ) throws CompactedException {
+        long operationId = longOperationIdGenerator.getAndIncrement();
 
-        CompletableFuture<Void> previous = readOperationFutureByKey.putIfAbsent(key, new CompletableFuture<>());
+        while (true) {
+            long currentOperationRevision = operationRevision == MetaStorageManager.LATEST_REVISION
+                    ? latestRevision.getAsLong()
+                    : operationRevision;
 
-        assert previous == null : key;
-    }
+            long currentCompactedRevision = compactedRevision.getAsLong();
+            if (currentOperationRevision <= currentCompactedRevision) {
+                if (operationRevision == MetaStorageManager.LATEST_REVISION) {
+                    continue;
+                }
 
-    /**
-     * Stops tracking the read operation. {@code operationRevision} must match the corresponding value from {@link #track}.
-     *
-     * <p>Method is expected not to be called more than once for the same arguments, and {@link #track} was previously called for same
-     * arguments.</p>
-     *
-     * @see #track(Object, long)
-     */
-    public void untrack(Object readOperationId, long operationRevision) {
-        var key = new ReadOperationKey(readOperationId, operationRevision);
+                throw new CompactedException(currentOperationRevision, currentCompactedRevision);
+            }
 
-        CompletableFuture<Void> removed = readOperationFutureByKey.remove(key);
+            var key = new ReadOperationKey(operationId, currentOperationRevision);
 
-        assert removed != null : key;
+            TrackingToken trackingToken = () -> {
+                CompletableFuture<Void> removed = readOperationFutureByKey.remove(key);
 
-        removed.complete(null);
+                assert removed != null : key;
+
+                removed.complete(null);
+            };
+
+            CompletableFuture<Void> operationFuture = new CompletableFuture<>();
+            readOperationFutureByKey.put(key, operationFuture);
+
+            currentCompactedRevision = compactedRevision.getAsLong();
+            if (currentOperationRevision <= currentCompactedRevision) {
+                trackingToken.close();
+
+                if (operationRevision == MetaStorageManager.LATEST_REVISION) {
+                    continue;
+                }
+
+                throw new CompactedException(currentOperationRevision, currentCompactedRevision);
+            }
+
+            return trackingToken;
+        }
     }
 
     /**

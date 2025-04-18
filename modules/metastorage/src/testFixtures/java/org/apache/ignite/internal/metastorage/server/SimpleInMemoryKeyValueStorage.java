@@ -50,6 +50,8 @@ import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.metastorage.CommandId;
@@ -60,6 +62,7 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.exceptions.MetaStorageException;
 import org.apache.ignite.internal.metastorage.impl.EntryImpl;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
 import org.apache.ignite.internal.raft.IndexWithTerm;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
@@ -70,6 +73,8 @@ import org.jetbrains.annotations.Nullable;
  * Simple in-memory key/value storage for tests.
  */
 public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
+    private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
+
     /**
      * Keys index. Value is the list of all revisions under which entry corresponding to the key was modified.
      *
@@ -197,6 +202,72 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
             return configuration;
         } finally {
             rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public Entry get(byte[] key) {
+        rwLock.readLock().lock();
+
+        try {
+            return super.get(key);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public Entry get(byte[] key, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return super.get(key, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return super.get(key, revLowerBound, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> getAll(List<byte[]> keys) {
+        rwLock.readLock().lock();
+
+        try {
+            return super.getAll(keys);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public List<Entry> getAll(List<byte[]> keys, long revUpperBound) {
+        rwLock.readLock().lock();
+
+        try {
+            return super.getAll(keys, revUpperBound);
+        } finally {
+            rwLock.readLock().unlock();
+        }
+    }
+
+    @Override
+    public long revision() {
+        rwLock.readLock().lock();
+
+        try {
+            return rev;
+        } finally {
+            rwLock.readLock().unlock();
         }
     }
 
@@ -796,6 +867,17 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
+    public void saveCompactionRevision(long revision, KeyValueUpdateContext context) {
+        rwLock.writeLock().lock();
+
+        try {
+            super.saveCompactionRevision(revision, context);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
     public void saveCompactionRevision(long revision, KeyValueUpdateContext context, boolean advanceSafeTime) {
         savedCompactionRevision = revision;
 
@@ -803,6 +885,28 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         if (advanceSafeTime && areWatchesStarted()) {
             watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
+        }
+    }
+
+    @Override
+    public void setCompactionRevision(long revision) {
+        rwLock.writeLock().lock();
+
+        try {
+            super.setCompactionRevision(revision);
+        } finally {
+            rwLock.writeLock().unlock();
+        }
+    }
+
+    @Override
+    public void updateCompactionRevision(long compactionRevision, KeyValueUpdateContext context) {
+        rwLock.writeLock().lock();
+
+        try {
+            super.updateCompactionRevision(compactionRevision, context);
+        } finally {
+            rwLock.writeLock().unlock();
         }
     }
 
@@ -927,13 +1031,13 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         Iterator<Entry> iterator = entries.iterator();
 
-        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
-        readOperationForCompactionTracker.track(readOperationId, revUpperBound);
+        //noinspection resource
+        TrackingToken token = readOperationForCompactionTracker.track(revUpperBound, this::revision, this::getCompactionRevision);
 
         return new Cursor<>() {
             @Override
             public void close() {
-                readOperationForCompactionTracker.untrack(readOperationId, revUpperBound);
+                token.close();
             }
 
             @Override
