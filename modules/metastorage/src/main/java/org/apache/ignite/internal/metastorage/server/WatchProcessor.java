@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptyList;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
@@ -29,7 +31,6 @@ import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -44,7 +45,6 @@ import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
-import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -141,7 +141,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 new LinkedBlockingQueue<>(),
                 threadFactory,
                 // This executor gets shut down during node stop, so we don't care about its tasks being discarded; we would have to
-                // filter those RejectedExecutionExeptions by hand anyway.
+                // filter those RejectedExecutionExceptions by hand anyway.
                 new DiscardPolicy()
         );
 
@@ -233,13 +233,20 @@ public class WatchProcessor implements ManuallyCloseable {
                 }), watchExecutor)
                 .whenComplete((unused, e) -> {
                     if (e != null) {
-                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(e, updatedEntriesKeysInfo(updatedEntries));
                     }
                 });
 
         notificationFuture = newFuture;
 
         return newFuture;
+    }
+
+    private static String updatedEntriesKeysInfo(List<Entry> updatedEntries) {
+        String joinedKeys = updatedEntries.stream()
+                .map(entry -> new String(entry.key(), UTF_8))
+                .collect(joining(","));
+        return "Keys of updated entries: " + joinedKeys;
     }
 
     private static CompletableFuture<Void> performWatchesNotifications(
@@ -282,8 +289,8 @@ public class WatchProcessor implements ManuallyCloseable {
         if (durationMillis > WATCH_EVENT_PROCESSING_LOG_THRESHOLD_MILLIS) {
             String keysHead = updatedEntries.stream()
                     .limit(WATCH_EVENT_PROCESSING_LOG_KEYS)
-                    .map(entry -> new String(entry.key(), StandardCharsets.UTF_8))
-                    .collect(Collectors.joining(", "));
+                    .map(entry -> new String(entry.key(), UTF_8))
+                    .collect(joining(", "));
 
             String keysTail = updatedEntries.size() > WATCH_EVENT_PROCESSING_LOG_KEYS ? ", ..." : "";
 
@@ -360,18 +367,18 @@ public class WatchProcessor implements ManuallyCloseable {
                 }), watchExecutor)
                 .whenComplete((ignored, e) -> {
                     if (e != null) {
-                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
+                        notifyFailureHandlerOnFirstFailureInNotificationChain(e, "<nothing>");
                     }
                 });
     }
 
-    private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
+    private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e, String additionalInfo) {
         if (firedFailureOnChain.compareAndSet(false, true)) {
             boolean nodeStopping = hasCause(e, NodeStoppingException.class);
 
             if (!nodeStopping) {
                 LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
-                        + "until a restart. Notifying the FailureManager");
+                        + "until a restart. Notifying the FailureManager. Additional info: '{}'", additionalInfo);
 
                 failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
             } else {
