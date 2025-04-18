@@ -70,5 +70,10 @@
     <Logger name="EventLog" level="INFO">
       <AppenderRef ref="EVENTLOG_FILE"/>
     </Logger>
+    <!-- This is used to make it possible to wait for 'reconfiguration complete' before doing programmatic configuration so that
+         the standard reconfiguration made by log4j in background does not rewrite configuration changes made by our code programmatically.
+    -->
+    <Logger name="InitComplete" level="OFF">
+    </Logger>
   </Loggers>
 </Configuration>
