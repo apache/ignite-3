@@ -51,7 +51,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -63,6 +63,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
@@ -434,12 +435,14 @@ public class DistributionZoneManager extends
 
             metaStorageManager.invoke(iff).whenComplete((res, e) -> {
                 if (e != null) {
-                    String errorMessage = String.format(
-                            "Failed to update distribution zones' logical topology and version keys [topology = %s, version = %s]",
-                            Arrays.toString(logicalTopology.toArray()),
-                            newTopology.version()
-                    );
-                    failureProcessor.process(new FailureContext(e, errorMessage));
+                    if (!relatesToNodeStopping(e)) {
+                        String errorMessage = String.format(
+                                "Failed to update distribution zones' logical topology and version keys [topology = %s, version = %s]",
+                                Arrays.toString(logicalTopology.toArray()),
+                                newTopology.version()
+                        );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
+                    }
                 } else if (res.getAsBoolean()) {
                     LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
@@ -458,6 +461,10 @@ public class DistributionZoneManager extends
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private static boolean relatesToNodeStopping(Throwable e) {
+        return hasCause(e, NodeStoppingException.class) || hasCause(e, CancellationException.class);
     }
 
     /**
@@ -630,7 +637,7 @@ public class DistributionZoneManager extends
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
+                        if (!relatesToNodeStopping(e)) {
                             String errorMessage = String.format(
                                     "Failed to update recoverable state for distribution zone manager [revision = %s]",
                                     revision

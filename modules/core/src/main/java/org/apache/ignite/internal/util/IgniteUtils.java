@@ -990,6 +990,25 @@ public class IgniteUtils {
     public static <T> void cancelOrConsume(CompletableFuture<T> future, Consumer<T> consumer) {
         future.cancel(true);
 
+        consumeIfFinishedSuccessfully(future, consumer);
+    }
+
+    /**
+     * Fails the future and runs a consumer on future's result if it was completed before being failed. Does nothing if future is
+     * cancelled or completed exceptionally.
+     *
+     * @param future Future.
+     * @param failure With what to fail the future.
+     * @param consumer Consumer that accepts future's result.
+     * @param <T> Future's result type.
+     */
+    public static <T> void failOrConsume(CompletableFuture<T> future, Throwable failure, Consumer<T> consumer) {
+        future.completeExceptionally(failure);
+
+        consumeIfFinishedSuccessfully(future, consumer);
+    }
+
+    private static <T> void consumeIfFinishedSuccessfully(CompletableFuture<T> future, Consumer<T> consumer) {
         if (future.isCancelled() || future.isCompletedExceptionally()) {
             return;
         }

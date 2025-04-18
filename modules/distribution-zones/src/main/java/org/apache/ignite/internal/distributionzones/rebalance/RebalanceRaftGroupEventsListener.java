@@ -33,9 +33,11 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.dsl.Statements.iif;
 import static org.apache.ignite.internal.util.CollectionUtils.difference;
 import static org.apache.ignite.internal.util.CollectionUtils.intersect;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -501,8 +504,10 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", tablePartitionId);
-            failureProcessor.process(new FailureContext(e, errorMessage));
+            if (!hasCause(e, NodeStoppingException.class) && !hasCause(e, CancellationException.class)) {
+                String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", tablePartitionId);
+                failureProcessor.process(new FailureContext(e, errorMessage));
+            }
         }
     }
 
