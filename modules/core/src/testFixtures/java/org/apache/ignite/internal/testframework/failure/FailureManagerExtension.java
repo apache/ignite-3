@@ -47,7 +47,6 @@ public class FailureManagerExtension implements
 
     private static final String FAILURE_MANAGER_CLASS_NAME = "org.apache.ignite.internal.failure.FailureManager";
 
-    /** {@inheritDoc} */
     @Override
     public void beforeAll(ExtensionContext context) {
         boolean annotated = false;
@@ -77,7 +76,6 @@ public class FailureManagerExtension implements
         return LogManager.getLogger(FAILURE_MANAGER_CLASS_NAME);
     }
 
-    /** {@inheritDoc} */
     @Override
     public void afterAll(ExtensionContext context) {
         restoreOldLevelIfSaved(context);
@@ -91,7 +89,6 @@ public class FailureManagerExtension implements
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void beforeEach(ExtensionContext context) {
         if (context.getRequiredTestMethod().isAnnotationPresent(MuteFailureManagerLogging.class)) {
@@ -99,7 +96,6 @@ public class FailureManagerExtension implements
         }
     }
 
-    /** {@inheritDoc} */
     @Override
     public void afterEach(ExtensionContext context) {
         restoreOldLevelIfSaved(context);
