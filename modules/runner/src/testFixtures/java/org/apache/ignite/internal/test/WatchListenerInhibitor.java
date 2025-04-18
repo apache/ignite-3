@@ -17,13 +17,14 @@
 
 package org.apache.ignite.internal.test;
 
+import static java.lang.invoke.MethodHandles.lookup;
+import static java.lang.invoke.MethodHandles.privateLookupIn;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getField;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
-import java.lang.reflect.Field;
+import java.lang.invoke.VarHandle;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.ReadWriteLock;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -39,11 +40,7 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
 public class WatchListenerInhibitor {
     private final WatchProcessor watchProcessor;
 
-    private final RocksDbKeyValueStorage storage;
-
-    private final Field processorNotificationFutureField;
-
-    private final Field storageRwLockField;
+    private final VarHandle processorNotificationFuture;
 
     /** Future used to block the watch notification thread. */
     private final CompletableFuture<Void> inhibitFuture = new CompletableFuture<>();
@@ -72,37 +69,33 @@ public class WatchListenerInhibitor {
 
         var watchProcessor = (WatchProcessor) getFieldValue(storage, AbstractKeyValueStorage.class, "watchProcessor");
 
-        return new WatchListenerInhibitor(watchProcessor, storage);
+        return new WatchListenerInhibitor(watchProcessor);
     }
 
-    private WatchListenerInhibitor(WatchProcessor watchProcessor, RocksDbKeyValueStorage storage) {
+    private WatchListenerInhibitor(WatchProcessor watchProcessor) {
         this.watchProcessor = watchProcessor;
-        this.storage = storage;
 
-        processorNotificationFutureField = getField(watchProcessor, WatchProcessor.class, "notificationFuture");
-        storageRwLockField = getField(storage, AbstractKeyValueStorage.class, "rwLock");
+        try {
+            processorNotificationFuture = privateLookupIn(WatchProcessor.class, lookup())
+                    .unreflectVarHandle(getField(watchProcessor, WatchProcessor.class, "notificationFuture"));
+        } catch (IllegalAccessException e) {
+            // Should not be possible.
+            throw new AssertionError(e);
+        }
     }
 
     /**
      * Starts inhibiting events.
      */
     public void startInhibit() {
-        try {
-            // We take this lock because it's actually used by RocksDbKeyValueStorage, among other things, to make future chaining
-            // correct wrt concurrency.
-            ReadWriteLock rwLock = (ReadWriteLock) storageRwLockField.get(storage);
+        while (true) {
+            CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) processorNotificationFuture.get(watchProcessor);
 
-            rwLock.writeLock().lock();
+            CompletableFuture<Void> newValue = notificationFuture.thenCompose(v -> inhibitFuture);
 
-            try {
-                CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) processorNotificationFutureField.get(watchProcessor);
-
-                processorNotificationFutureField.set(watchProcessor, notificationFuture.thenCompose(v -> inhibitFuture));
-            } finally {
-                rwLock.writeLock().unlock();
+            if (processorNotificationFuture.compareAndSet(watchProcessor, notificationFuture, newValue)) {
+                return;
             }
-        } catch (IllegalAccessException e) {
-            throw new RuntimeException(e);
         }
     }
 
