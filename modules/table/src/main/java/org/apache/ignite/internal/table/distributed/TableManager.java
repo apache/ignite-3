@@ -189,6 +189,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
@@ -2843,8 +2844,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         List<CompletableFuture<?>> destroyFutures = new ArrayList<>();
 
-        if (internalTable.storage().getMvPartition(partitionId) != null) {
-            destroyFutures.add(internalTable.storage().destroyPartition(partitionId));
+        try {
+            if (internalTable.storage().getMvPartition(partitionId) != null) {
+                destroyFutures.add(internalTable.storage().destroyPartition(partitionId));
+            }
+        } catch (StorageDestroyedException ignored) {
+            // Ignore as the storage is already destroyed, no need to destroy it again.
         }
 
         if (!enabledColocation) {
