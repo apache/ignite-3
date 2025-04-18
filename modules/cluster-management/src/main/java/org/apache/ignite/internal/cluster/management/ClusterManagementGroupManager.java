@@ -34,7 +34,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.Executors;
@@ -73,6 +72,7 @@ import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -591,7 +591,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         }))
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (hasCause(e, NodeStoppingException.class, CancellationException.class)) {
+                                if (hasCause(e, NodeStoppingException.class, ComponentStoppingException.class)) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(
