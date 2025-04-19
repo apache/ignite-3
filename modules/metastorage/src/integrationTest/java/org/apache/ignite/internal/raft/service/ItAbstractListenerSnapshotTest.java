@@ -232,6 +232,7 @@ public abstract class ItAbstractListenerSnapshotTest<T extends RaftGroupListener
      */
     @ParameterizedTest
     @MethodSource("testSnapshotData")
+    // TODO This stupid test reads from meta-storage before it installed its snapshot. I believe it is the only such place.
     public void testSnapshot(TestData testData, TestInfo testInfo) throws Exception {
         // Set up a raft group service
         RaftGroupService service = prepareRaftGroup(testInfo);
