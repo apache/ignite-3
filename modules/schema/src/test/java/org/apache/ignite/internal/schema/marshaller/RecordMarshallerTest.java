@@ -47,6 +47,7 @@ import com.facebook.presto.bytecode.MethodDefinition;
 import com.facebook.presto.bytecode.ParameterizedType;
 import com.facebook.presto.bytecode.Variable;
 import com.facebook.presto.bytecode.expression.BytecodeExpressions;
+import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.util.Arrays;
@@ -313,6 +314,52 @@ public class RecordMarshallerTest {
         }
     }
 
+    @Test
+    public void testTypesMismatch() {
+        SchemaDescriptor schema = new SchemaDescriptor(
+                schemaVersion.incrementAndGet(),
+                new Column[]{new Column("KEY", INT64, false)},
+                new Column[]{new Column("VAL", NativeTypes.stringOf(255), true),
+                });
+
+        TypeConverter<Object, Object> converter = new TypeConverter<>() {
+            @Override
+            public Object toColumnType(Object obj) {
+                return obj;
+            }
+
+            @Override
+            public Object toObjectType(Object data) {
+                return data;
+            }
+        };
+
+        RecordMarshaller<TestPojo> intFieldMarshaller = new ReflectionMarshallerFactory().create(
+                schema,
+                Mapper.builder(TestPojo.class)
+                        .map("id", "key")
+                        .map("intField", "val", converter)
+                        .build()
+        );
+        RecordMarshaller<TestPojo> stringFieldMarshaller = new ReflectionMarshallerFactory().create(
+                schema,
+                Mapper.builder(TestPojo.class)
+                        .map("id", "key")
+                        .map("strField", "val", converter)
+                        .build()
+        );
+
+        TestPojo pojo = new TestPojo(1L, 42, "43");
+        Row row = stringFieldMarshaller.marshal(pojo);
+
+        assertEquals(new TestPojo(1L, 0, "43"), stringFieldMarshaller.unmarshal(row));
+
+        assertThrows(MarshallerException.class, () -> intFieldMarshaller.marshal(pojo),
+                "Value type does not match [column='VAL', expected=STRING(255), actual=INT32]");
+        assertThrows(MarshallerException.class, () -> intFieldMarshaller.unmarshal(row),
+                "Value type does not match [column='VAL', expected=STRING(255), actual=INT32]");
+    }
+
     /**
      * Validate all types are tested.
      */
@@ -520,6 +567,40 @@ public class RecordMarshallerTest {
         @Override
         public int hashCode() {
             return 42;
+        }
+    }
+
+    /**
+     * Test object represents a user object of arbitrary type.
+     */
+    static class TestPojo implements Serializable {
+        private static final long serialVersionUID = -1L;
+
+        long id;
+        int intField;
+        String strField;
+
+        TestPojo() {
+        }
+
+        TestPojo(long id, int intVal, String strVal) {
+            this.id = id;
+            this.intField = intVal;
+            this.strField = strVal;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            TestPojo testPojo = (TestPojo) o;
+            return id == testPojo.id && intField == testPojo.intField && Objects.equals(strField, testPojo.strField);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(id, intField, strField);
         }
     }
 
