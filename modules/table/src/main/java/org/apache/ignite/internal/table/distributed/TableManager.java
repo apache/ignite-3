@@ -966,7 +966,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     indexMetaStorage,
                     topologyService.localMember().id(),
                     minTimeCollectorService,
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    executorInclinedPlacementDriver,
+                    clockService
             );
 
             var partitionStorageAccess = new PartitionMvStorageAccessImpl(
@@ -1291,7 +1293,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             indexMetaStorage,
                             topologyService.localMember().id(),
                             minTimeCollectorService,
-                            partitionOperationsExecutor
+                            partitionOperationsExecutor,
+                            executorInclinedPlacementDriver,
+                            clockService
                     );
 
                     minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
