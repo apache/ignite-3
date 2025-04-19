@@ -89,6 +89,7 @@ public class WatchListenerInhibitor {
      */
     public void startInhibit() {
         while (true) {
+            // TODO There's actually a race here. I should probably fix it in a separate ticket.
             CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) processorNotificationFuture.get(watchProcessor);
 
             CompletableFuture<Void> newValue = notificationFuture.thenCompose(v -> inhibitFuture);

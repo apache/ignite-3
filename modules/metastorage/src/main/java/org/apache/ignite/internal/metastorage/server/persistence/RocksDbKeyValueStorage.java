@@ -75,8 +75,6 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -217,13 +215,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /** Path to the rocksdb database. */
     private final Path dbPath;
 
-    // TODO Do it for the rest of operations, even though it is kind of useless outside of tests tbh.
-    // TODO Use striped lock? We don't need any additional contention here. Would be cool to have a dedicated stripe for FSM thread.
-    // TODO It's kind' test-only code, which is a shame. Maybe we should get rid of it, and just ban snapshot installation on a working
-    //  state machine.
-    private final Lock sharedLock;
-    private final Lock exclusiveLock;
-
     /** RockDB options. */
     private volatile DBOptions options;
 
@@ -314,9 +305,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 readOperationForCompactionTracker
         );
 
-        ReentrantReadWriteLock rwLock = new ReentrantReadWriteLock();
-        this.sharedLock = rwLock.readLock();
-        this.exclusiveLock = rwLock.writeLock();
         this.dbPath = dbPath;
         this.scheduledExecutor = scheduledExecutor;
 
@@ -513,21 +501,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public CompletableFuture<Void> snapshot(Path snapshotPath) {
-        sharedLock.lock();
-
-        try {
-            return snapshotManager
-                    .createSnapshot(snapshotPath)
-                    .thenCompose(unused -> flush());
-        } finally {
-            sharedLock.unlock();
-        }
+        return snapshotManager
+                .createSnapshot(snapshotPath)
+                .thenCompose(unused -> flush());
     }
 
     @Override
     public void restoreSnapshot(Path path) {
-        exclusiveLock.lock();
-
         try {
             clear();
 
@@ -546,37 +526,25 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             throw e;
         } catch (Exception e) {
             throw new MetaStorageException(RESTORING_STORAGE_ERR, "Failed to restore snapshot", e);
-        } finally {
-            exclusiveLock.unlock();
         }
     }
 
     @Override
     public Entry get(byte[] key) {
-        sharedLock.lock();
-
         try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.get(key);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public List<Entry> getAll(List<byte[]> keys) {
-        sharedLock.lock();
-
         try (TrackingToken token = readOperationForCompactionTracker.track(LATEST_REVISION, revSupplier, compactedRevSupplier)) {
             return super.getAll(keys);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public void put(byte[] key, byte[] value, KeyValueUpdateContext context) {
-        sharedLock.lock();
-
         try (WriteBatch batch = new WriteBatch()) {
             long newChecksum = checksum.wholePut(key, value);
 
@@ -589,21 +557,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public void setIndexAndTerm(long index, long term) {
-        sharedLock.lock();
-
         try {
             db.put(data.handle(), WRITE_OPTIONS, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
@@ -730,8 +692,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public void putAll(List<byte[]> keys, List<byte[]> values, KeyValueUpdateContext context) {
-        sharedLock.lock();
-
         try (WriteBatch batch = new WriteBatch()) {
             long newChecksum = checksum.wholePutAll(keys, values);
 
@@ -746,15 +706,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public void remove(byte[] key, KeyValueUpdateContext context) {
-        sharedLock.lock();
-
         try (WriteBatch batch = new WriteBatch()) {
             long newChecksum = checksum.wholeRemove(key);
 
@@ -767,15 +723,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public void removeAll(List<byte[]> keys, KeyValueUpdateContext context) {
-        sharedLock.lock();
-
         try (WriteBatch batch = new WriteBatch()) {
             long newChecksum = checksum.wholeRemoveAll(keys);
 
@@ -796,15 +748,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             completeAndWriteBatch(batch, curRev, context, newChecksum);
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public void removeByPrefix(byte[] prefix, KeyValueUpdateContext context) {
-        sharedLock.lock();
-
         try (
                 WriteBatch batch = new WriteBatch();
                 Cursor<Entry> entryCursor = range(prefix, nextKey(prefix))
@@ -822,8 +770,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             completeAndWriteBatch(batch, curRev, context, checksum.wholeRemoveByPrefix(prefix));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
@@ -835,8 +781,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             KeyValueUpdateContext context,
             CommandId commandId
     ) {
-        sharedLock.lock();
-
         try {
             Entry[] entries = getAll(Arrays.asList(condition.keys())).toArray(new Entry[]{});
 
@@ -852,15 +796,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             return branch;
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
     @Override
     public StatementResult invoke(If iif, KeyValueUpdateContext context, CommandId commandId) {
-        sharedLock.lock();
-
         try {
             If currIf = iif;
 
@@ -894,8 +834,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             }
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
@@ -954,24 +892,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo) {
-        sharedLock.lock();
-
-        try {
-            return doRange(keyFrom, keyTo, rev);
-        } finally {
-            sharedLock.unlock();
-        }
+        return doRange(keyFrom, keyTo, rev);
     }
 
     @Override
     public Cursor<Entry> range(byte[] keyFrom, byte @Nullable [] keyTo, long revUpperBound) {
-        sharedLock.lock();
-
-        try {
-            return doRange(keyFrom, keyTo, revUpperBound);
-        } finally {
-            sharedLock.unlock();
-        }
+        return doRange(keyFrom, keyTo, revUpperBound);
     }
 
     @Override
@@ -1011,8 +937,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     public void compact(long revision) {
         assert revision >= 0 : revision;
 
-        sharedLock.lock();
-
         try {
             compactKeys(revision);
 
@@ -1023,8 +947,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             compactColumnFamilies();
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
@@ -1404,8 +1326,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     public ChecksumAndRevisions checksumAndRevisions(long revision) {
-        sharedLock.lock();
-
         try {
             return new ChecksumAndRevisions(
                     checksumByRevisionOrZero(revision),
@@ -1414,8 +1334,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             );
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);
-        } finally {
-            sharedLock.unlock();
         }
     }
 
