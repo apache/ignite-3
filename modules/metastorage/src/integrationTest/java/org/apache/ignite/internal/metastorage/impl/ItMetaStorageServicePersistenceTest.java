@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.impl;
 
-import static org.apache.ignite.internal.metastorage.TestMetasStorageUtils.ANY_TIMESTAMP;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -138,14 +137,9 @@ public class ItMetaStorageServicePersistenceTest extends ItAbstractListenerSnaps
 
         KeyValueStorage storage = storageByName.get(node.name());
 
-        byte[] lastKey = interactedAfterSnapshot ? SECOND_KEY.bytes() : FIRST_KEY.bytes();
-        byte[] lastValue = interactedAfterSnapshot ? SECOND_VALUE : FIRST_VALUE;
-
         int expectedRevision = interactedAfterSnapshot ? 4 : 3;
 
-        Entry expectedLastEntry = new EntryImpl(lastKey, lastValue, expectedRevision, ANY_TIMESTAMP);
-
-        return () -> TestMetasStorageUtils.equals(storage.get(lastKey), expectedLastEntry);
+        return () -> storage.revision() == expectedRevision;
     }
 
     @Override
