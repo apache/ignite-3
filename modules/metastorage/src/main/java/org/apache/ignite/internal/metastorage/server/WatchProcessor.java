@@ -225,7 +225,8 @@ public class WatchProcessor implements ManuallyCloseable {
         while (true) {
             CompletableFuture<Void> chainingFuture = new CompletableFuture<>();
 
-            CompletableFuture<Void> newNotificationFuture = chainingFuture.thenComposeAsync(v -> inBusyLockAsync(asyncAction), watchExecutor)
+            CompletableFuture<Void> newNotificationFuture = chainingFuture
+                    .thenComposeAsync(v -> inBusyLockAsync(asyncAction), watchExecutor)
                     .whenComplete((unused, e) -> {
                         if (e != null) {
                             notifyFailureHandlerOnFirstFailureInNotificationChain(e);
