@@ -20,11 +20,12 @@ package org.apache.ignite.internal.failure;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 class StackTraceCapturingException extends IgniteInternalException {
     private static final long serialVersionUID = 0L;
 
-    StackTraceCapturingException(String message, Throwable cause) {
+    StackTraceCapturingException(String message, @Nullable Throwable cause) {
         super(INTERNAL_ERR, message, cause);
     }
 }
