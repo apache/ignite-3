@@ -906,11 +906,6 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     }
 
     @Override
-    public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
-        return inBusyLock(busyLock, () -> storage.get(key, revLowerBound, revUpperBound));
-    }
-
-    @Override
     public Entry getLocally(ByteArray key) {
         return inBusyLock(busyLock, () -> storage.get(key.bytes()));
     }
