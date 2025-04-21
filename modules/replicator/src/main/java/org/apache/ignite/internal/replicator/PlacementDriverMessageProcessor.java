@@ -33,6 +33,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -140,8 +141,14 @@ public class PlacementDriverMessageProcessor {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
                         if (e != null) {
-                            // TODO: IGNITE-25206 - why is it safe to ignore TimeoutException here?
-                            if (!hasCause(e, NodeStoppingException.class, TrackerClosedException.class, TimeoutException.class)) {
+                            if (!hasCause(
+                                    e,
+                                    NodeStoppingException.class,
+                                    ComponentStoppingException.class,
+                                    TrackerClosedException.class,
+                                    // TODO: IGNITE-25206 - is it safe to ignore TimeoutException here?
+                                    TimeoutException.class
+                            )) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }
