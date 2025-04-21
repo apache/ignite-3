@@ -218,10 +218,11 @@ public class WatchProcessor implements ManuallyCloseable {
      * Composes passed action with {@link #notificationFuture} and handles any exceptions that might have occurred.
      *
      * @param asyncAction Action to compose.
+     * @param additionalInfoSupplier Supplier of additional information that will be used for logging and/or invoking the FailureProcessor.
      * @return Updated value of {@link #notificationFuture}.
      */
     @VisibleForTesting
-    CompletableFuture<Void> enqueue(Supplier<CompletableFuture<Void>> asyncAction, String additionalInfo) {
+    CompletableFuture<Void> enqueue(Supplier<CompletableFuture<Void>> asyncAction, Supplier<String> additionalInfoSupplier) {
         while (true) {
             CompletableFuture<Void> chainingFuture = new CompletableFuture<>();
 
@@ -229,7 +230,7 @@ public class WatchProcessor implements ManuallyCloseable {
                     .thenComposeAsync(v -> inBusyLockAsync(asyncAction), watchExecutor)
                     .whenComplete((unused, e) -> {
                         if (e != null) {
-                            notifyFailureHandlerOnFirstFailureInNotificationChain(e, additionalInfo);
+                            notifyFailureHandlerOnFirstFailureInNotificationChain(e, additionalInfoSupplier);
                         }
                     });
 
@@ -269,8 +270,8 @@ public class WatchProcessor implements ManuallyCloseable {
         }, updatedEntriesKeysInfo(updatedEntries));
     }
 
-    private static String updatedEntriesKeysInfo(List<Entry> updatedEntries) {
-        return updatedEntries.stream()
+    private static Supplier<String> updatedEntriesKeysInfo(List<Entry> updatedEntries) {
+        return () -> updatedEntries.stream()
                 .map(entry -> new String(entry.key(), UTF_8))
                 .collect(joining(",", "Keys of updated entries: ", ""));
     }
@@ -390,16 +391,16 @@ public class WatchProcessor implements ManuallyCloseable {
             watchEventHandlingCallback.onSafeTimeAdvanced(time);
 
             return nullCompletedFuture();
-        }, "<nothing>");
+        }, () -> "<nothing>");
     }
 
-    private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e, String additionalInfo) {
+    private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e, Supplier<String> additionalInfoSupplier) {
         if (firedFailureOnChain.compareAndSet(false, true)) {
             boolean nodeStopping = hasCause(e, NodeStoppingException.class);
 
             if (!nodeStopping) {
                 LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
-                        + "until a restart. Notifying the FailureManager. Additional info: '{}'", additionalInfo);
+                        + "until a restart. Notifying the FailureManager. Additional info: '{}'", additionalInfoSupplier.get(), e);
 
                 failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
             } else {
