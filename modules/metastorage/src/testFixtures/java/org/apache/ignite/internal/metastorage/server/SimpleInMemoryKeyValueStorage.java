@@ -228,17 +228,6 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
-        rwLock.readLock().lock();
-
-        try {
-            return super.get(key, revLowerBound, revUpperBound);
-        } finally {
-            rwLock.readLock().unlock();
-        }
-    }
-
-    @Override
     public List<Entry> getAll(List<byte[]> keys) {
         rwLock.readLock().lock();
 
