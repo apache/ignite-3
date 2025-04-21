@@ -28,10 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
