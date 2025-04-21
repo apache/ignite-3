@@ -140,7 +140,8 @@ public class PlacementDriverMessageProcessor {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(e, NodeStoppingException.class, TrackerClosedException.class)) {
+                            // TODO: IGNITE-25206 - why is it safe to ignore TimeoutException here?
+                            if (!hasCause(e, NodeStoppingException.class, TrackerClosedException.class, TimeoutException.class)) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }
