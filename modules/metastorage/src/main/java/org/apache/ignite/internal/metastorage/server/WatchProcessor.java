@@ -260,12 +260,12 @@ public class WatchProcessor implements ManuallyCloseable {
             // Revision update is triggered strictly after all watch listeners have been notified.
             CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
-            CompletableFuture<Void> notificationFuture1 = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
+            CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
                     .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
 
-            notificationFuture1.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
+            notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
 
-            return notificationFuture1;
+            return notificationFuture;
         });
     }
 
