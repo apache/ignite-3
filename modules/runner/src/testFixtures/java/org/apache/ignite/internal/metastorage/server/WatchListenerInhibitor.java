@@ -15,23 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.test;
+package org.apache.ignite.internal.metastorage.server;
 
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodHandles.privateLookupIn;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
-import static org.apache.ignite.internal.testframework.IgniteTestUtils.getField;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
-import java.lang.invoke.VarHandle;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
-import org.apache.ignite.internal.metastorage.server.AbstractKeyValueStorage;
-import org.apache.ignite.internal.metastorage.server.WatchProcessor;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 
 /**
@@ -39,8 +35,6 @@ import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValue
  */
 public class WatchListenerInhibitor {
     private final WatchProcessor watchProcessor;
-
-    private final VarHandle processorNotificationFuture;
 
     /** Future used to block the watch notification thread. */
     private final CompletableFuture<Void> inhibitFuture = new CompletableFuture<>();
@@ -74,30 +68,13 @@ public class WatchListenerInhibitor {
 
     private WatchListenerInhibitor(WatchProcessor watchProcessor) {
         this.watchProcessor = watchProcessor;
-
-        try {
-            processorNotificationFuture = privateLookupIn(WatchProcessor.class, lookup())
-                    .unreflectVarHandle(getField(watchProcessor, WatchProcessor.class, "notificationFuture"));
-        } catch (IllegalAccessException e) {
-            // Should not be possible.
-            throw new AssertionError(e);
-        }
     }
 
     /**
      * Starts inhibiting events.
      */
     public void startInhibit() {
-        while (true) {
-            // TODO There's actually a race here. I should probably fix it in a separate ticket.
-            CompletableFuture<Void> notificationFuture = (CompletableFuture<Void>) processorNotificationFuture.get(watchProcessor);
-
-            CompletableFuture<Void> newValue = notificationFuture.thenCompose(v -> inhibitFuture);
-
-            if (processorNotificationFuture.compareAndSet(watchProcessor, notificationFuture, newValue)) {
-                return;
-            }
-        }
+        watchProcessor.enqueue(() -> inhibitFuture);
     }
 
     /**

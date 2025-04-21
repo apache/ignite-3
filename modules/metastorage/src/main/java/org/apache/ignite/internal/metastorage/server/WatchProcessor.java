@@ -26,6 +26,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler.IDEMPOTENT_COMMAND_PREFIX_BYTES;
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
+import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
@@ -43,6 +44,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor.DiscardPolicy;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -61,6 +63,7 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Class for storing and notifying Meta Storage Watches.
@@ -89,6 +92,11 @@ public class WatchProcessor implements ManuallyCloseable {
      * @see #WATCH_EVENT_PROCESSING_LOG_THRESHOLD_MILLIS
      */
     private static final int WATCH_EVENT_PROCESSING_LOG_KEYS = 10;
+
+    @SuppressWarnings({"unchecked", "rawtypes"}) // Have to do it because field type is generic. This is safe, trust me bro.
+    private static final AtomicReferenceFieldUpdater<WatchProcessor, CompletableFuture<Void>> NOTIFICATION_FUTURE_UPDATER =
+            (AtomicReferenceFieldUpdater)
+            AtomicReferenceFieldUpdater.newUpdater(WatchProcessor.class, CompletableFuture.class, "notificationFuture");
 
     /** Map that contains Watches and corresponding Watch notification process (represented as a CompletableFuture). */
     private final List<Watch> watches = new CopyOnWriteArrayList<>();
@@ -141,7 +149,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 new LinkedBlockingQueue<>(),
                 threadFactory,
                 // This executor gets shut down during node stop, so we don't care about its tasks being discarded; we would have to
-                // filter those RejectedExecutionExeptions by hand anyway.
+                // filter those RejectedExecutionExceptions by hand anyway.
                 new DiscardPolicy()
         );
 
@@ -206,40 +214,59 @@ public class WatchProcessor implements ManuallyCloseable {
         return inBusyLockAsync(() -> notifyWatchesInternal(newRevision, updatedEntries, time));
     }
 
+    /**
+     * Composes passed action with {@link #notificationFuture} and handles any exceptions that might have occurred.
+     *
+     * @param asyncAction Action to compose.
+     * @return Updated value of {@link #notificationFuture}.
+     */
+    @VisibleForTesting
+    CompletableFuture<Void> enqueue(Supplier<CompletableFuture<Void>> asyncAction) {
+        while (true) {
+            CompletableFuture<Void> chainingFuture = new CompletableFuture<>();
+
+            CompletableFuture<Void> newNotificationFuture = chainingFuture
+                    .thenComposeAsync(v -> inBusyLockAsync(asyncAction), watchExecutor)
+                    .whenComplete((unused, e) -> {
+                        if (e != null) {
+                            notifyFailureHandlerOnFirstFailureInNotificationChain(e);
+                        }
+                    });
+
+            CompletableFuture<Void> oldNotificationFuture = notificationFuture;
+
+            if (NOTIFICATION_FUTURE_UPDATER.compareAndSet(this, oldNotificationFuture, newNotificationFuture)) {
+                oldNotificationFuture.whenComplete(copyStateTo(chainingFuture));
+
+                return newNotificationFuture;
+            }
+        }
+    }
+
     private CompletableFuture<Void> notifyWatchesInternal(long newRevision, List<Entry> updatedEntries, HybridTimestamp time) {
         assert time != null;
 
-        CompletableFuture<Void> newFuture = notificationFuture
-                .thenComposeAsync(v -> inBusyLockAsync(() -> {
-                    List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
-                            .filter(WatchProcessor::isNotIdempotentCacheCommand)
-                            .collect(toList());
+        return enqueue(() -> {
+            List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
+                    .filter(WatchProcessor::isNotIdempotentCacheCommand)
+                    .collect(toList());
 
-                    List<WatchAndEvents> watchAndEvents = collectWatchesAndEvents(filteredUpdatedEntries, newRevision);
+            List<WatchAndEvents> watchAndEvents = collectWatchesAndEvents(filteredUpdatedEntries, newRevision);
 
-                    long startTimeNanos = System.nanoTime();
+            long startTimeNanos = System.nanoTime();
 
-                    CompletableFuture<Void> notifyWatchesFuture = performWatchesNotifications(watchAndEvents, newRevision, time);
+            CompletableFuture<Void> notifyWatchesFuture = performWatchesNotifications(watchAndEvents, newRevision, time);
 
-                    // Revision update is triggered strictly after all watch listeners have been notified.
-                    CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
+            // Revision update is triggered strictly after all watch listeners have been notified.
+            CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
-                    CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
-                            .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
+            CompletableFuture<Void> newNotificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
+                    .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
 
-                    notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
+            newNotificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
 
-                    return notificationFuture;
-                }), watchExecutor)
-                .whenComplete((unused, e) -> {
-                    if (e != null) {
-                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
-                    }
-                });
-
-        notificationFuture = newFuture;
-
-        return newFuture;
+            return newNotificationFuture;
+        });
     }
 
     private static CompletableFuture<Void> performWatchesNotifications(
@@ -351,18 +378,13 @@ public class WatchProcessor implements ManuallyCloseable {
     private void advanceSafeTimeInternal(Runnable callback, HybridTimestamp time) {
         assert time != null;
 
-        //noinspection NonAtomicOperationOnVolatileField
-        notificationFuture = notificationFuture
-                .thenRunAsync(() -> inBusyLockSafe(() -> {
-                    callback.run();
+        enqueue(() -> {
+            callback.run();
 
-                    watchEventHandlingCallback.onSafeTimeAdvanced(time);
-                }), watchExecutor)
-                .whenComplete((ignored, e) -> {
-                    if (e != null) {
-                        notifyFailureHandlerOnFirstFailureInNotificationChain(e);
-                    }
-                });
+            watchEventHandlingCallback.onSafeTimeAdvanced(time);
+
+            return nullCompletedFuture();
+        });
     }
 
     private void notifyFailureHandlerOnFirstFailureInNotificationChain(Throwable e) {
