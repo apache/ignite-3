@@ -32,7 +32,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -181,7 +180,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
                 })
                 .whenComplete((v, e) -> {
                     if (e != null) {
-                        if (!hasCause(e, NodeStoppingException.class, ComponentStoppingException.class)) {
+                        if (!hasCause(e, NodeStoppingException.class)) {
                             failureProcessor.process(new FailureContext(e, "Unable to start Idle Safe Time scheduler"));
                         }
                     }

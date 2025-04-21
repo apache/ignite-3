@@ -49,7 +49,6 @@ import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigura
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -504,7 +503,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            if (!hasCause(e, NodeStoppingException.class, ComponentStoppingException.class)) {
+            if (!hasCause(e, NodeStoppingException.class)) {
                 String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", tablePartitionId);
                 failureProcessor.process(new FailureContext(e, errorMessage));
             }

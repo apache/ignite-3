@@ -40,7 +40,6 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -207,7 +206,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 metaStorageManager.sendCompactionCommand(newCompactionRevision)
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
-                                if (!hasCause(throwable, NodeStoppingException.class, ComponentStoppingException.class)) {
+                                if (!hasCause(throwable, NodeStoppingException.class)) {
                                     String errorMessage = String.format(
                                             "Unknown error occurred while sending the metastorage compaction command: "
                                                     + "[newCompactionRevision=%s]",

@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuc
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
@@ -34,7 +33,6 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -142,13 +140,7 @@ public class PlacementDriverMessageProcessor {
             return processLeaseGrantedMessage((LeaseGrantedMessage) msg)
                     .handle((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(
-                                    e,
-                                    NodeStoppingException.class,
-                                    ComponentStoppingException.class,
-                                    TrackerClosedException.class,
-                                    RejectedExecutionException.class
-                            )) {
+                            if (!hasCause(e, NodeStoppingException.class, TrackerClosedException.class)) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }

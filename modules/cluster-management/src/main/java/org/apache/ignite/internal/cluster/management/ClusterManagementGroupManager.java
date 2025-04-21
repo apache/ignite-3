@@ -72,7 +72,6 @@ import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -591,7 +590,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         }))
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (hasCause(e, NodeStoppingException.class, ComponentStoppingException.class)) {
+                                if (hasCause(e, NodeStoppingException.class)) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(

@@ -58,7 +58,6 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -506,7 +505,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
-                        if (err != null && !hasCause(err, NodeStoppingException.class, ComponentStoppingException.class)) {
+                        if (err != null && !hasCause(err, NodeStoppingException.class)) {
                             failureProcessor.process(new FailureContext(err, "Failed to apply catalog update."));
                         }
 

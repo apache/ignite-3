@@ -55,7 +55,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -336,7 +335,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                if (!hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class)) {
+                if (!hasCause(ex, NodeStoppingException.class)) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
                 }
             }

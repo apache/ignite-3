@@ -63,7 +63,6 @@ import org.apache.ignite.internal.future.OrderingFuture;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -666,7 +665,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                                 if (unwrapped instanceof RaftException && ((RaftException) unwrapped).raftError() == RaftError.ECATCHUP) {
                                     // Some node has left, it's not a reason to fail our node; just log the error.
                                     LOG.error("Error while changing voting set to {}", ex, currentState.targetPeers);
-                                } else if (!hasCause(ex, NodeStoppingException.class, ComponentStoppingException.class)) {
+                                } else if (!hasCause(ex, NodeStoppingException.class)) {
                                     String errorMessage = IgniteStringFormatter.format(
                                             "Error while changing voting set to {}",
                                             currentState.targetPeers

@@ -51,7 +51,6 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.IgniteTuple3;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -588,7 +587,7 @@ public class LeaseUpdater {
                     noop()
             ).whenComplete((success, e) -> {
                 if (e != null) {
-                    if (!hasCause(e, NodeStoppingException.class, ComponentStoppingException.class)) {
+                    if (!hasCause(e, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));
                     }
 

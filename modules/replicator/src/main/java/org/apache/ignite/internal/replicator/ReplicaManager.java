@@ -54,7 +54,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -1117,7 +1116,6 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         ex,
                         NodeStoppingException.class,
                         ComponentStoppingException.class,
-                        RejectedExecutionException.class,
                         // Not a problem, there will be a retry.
                         TimeoutException.class
                 )) {
