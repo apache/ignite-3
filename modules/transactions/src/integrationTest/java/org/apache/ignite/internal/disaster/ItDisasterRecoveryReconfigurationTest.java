@@ -114,6 +114,8 @@ import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStat
 import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -134,6 +136,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for scenarios where majority of peers is not available. In this class we frequently assert partition distributions, this means that
@@ -143,6 +146,7 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(120)
 // TODO https://issues.apache.org/jira/browse/IGNITE-24332
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+@ExtendWith(FailureManagerExtension.class)
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
@@ -393,6 +397,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testManualRebalanceRecovery() throws Exception {
         int partId = 0;
         // Disable scale down to avoid unwanted rebalance.
@@ -473,6 +478,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 4, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testManualRebalanceRecoveryNoPending() throws Exception {
         int partId = 0;
 
@@ -645,6 +651,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     public void testNewResetOverwritesFlags() throws Exception {
         int partId = 0;
 
@@ -879,6 +886,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     public void testIncompleteRebalanceBeforeAutomaticResetPartitions() throws Exception {
         int partId = 0;
 
@@ -1217,6 +1225,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testTwoPhaseResetOnEmptyNodes() throws Exception {
         int partId = 0;
 
