@@ -61,7 +61,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -120,6 +119,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.message.ExecutionContextAwareMessage;
 import org.apache.ignite.internal.sql.engine.message.MessageListener;
 import org.apache.ignite.internal.sql.engine.message.MessageService;
+import org.apache.ignite.internal.sql.engine.message.QueryBatchMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryBatchRequestMessage;
 import org.apache.ignite.internal.sql.engine.message.QueryStartRequest;
 import org.apache.ignite.internal.sql.engine.message.QueryStartResponse;
@@ -740,39 +740,48 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
         CountDownLatch startResponseLatch = new CountDownLatch(4);
-        CountDownLatch continueLatch = new CountDownLatch(1);
+
+        CompletableFuture<Void> messageUnblockFuture = new CompletableFuture<>();
 
         nodeNames.stream().map(testCluster::node).forEach(node -> node.interceptor((senderNodeName, msg, original) -> {
-            if (msg instanceof QueryStartResponseImpl) {
+            if (msg instanceof QueryStartResponse) {
                 startResponseLatch.countDown();
 
-                ForkJoinPool.commonPool().execute(() -> {
-                    try {
-                        continueLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
-                    } catch (InterruptedException ignore) {
-                        // No-op.
-                    }
-
-                    original.onMessage(senderNodeName, msg);
-                });
-
-                return nullCompletedFuture();
+                // Postpone message processing.
+                messageUnblockFuture.thenRun(() ->
+                        node.taskExecutor.execute(
+                                ((QueryStartResponse) msg).queryId(),
+                                ((QueryStartResponseImpl) msg).fragmentId(),
+                                () -> original.onMessage(senderNodeName, msg)));
+            } else if (msg instanceof QueryBatchMessage) {
+                // Postpone prefetch responses processing.
+                messageUnblockFuture.thenRun(() ->
+                        node.taskExecutor.execute(
+                                ((QueryBatchMessage) msg).queryId(),
+                                ((QueryBatchMessage) msg).fragmentId(),
+                                () -> original.onMessage(senderNodeName, msg)));
             } else {
                 original.onMessage(senderNodeName, msg);
-
-                return nullCompletedFuture();
             }
+
+            return nullCompletedFuture();
         }));
 
         AsyncCursor<InternalSqlRow> cursor = await(execService.executePlan(plan, ctx));
 
         startResponseLatch.await(TIMEOUT_IN_MS, TimeUnit.MILLISECONDS);
 
+        // Wait for all data prefetched from Outbox to get stable debug info results.
+        assertTrue(waitForCondition(
+                () -> executionServices.stream().flatMap(es -> es.localFragments(ctx.queryId()).stream())
+                        .filter(Outbox.class::isInstance)
+                        .allMatch(f -> ((Outbox<?>) f).isDone()), TIMEOUT_IN_MS));
+
         String debugInfoCoordinator = executionServices.get(0).dumpDebugInfo();
         String debugInfo2 = executionServices.get(1).dumpDebugInfo();
         String debugInfo3 = executionServices.get(2).dumpDebugInfo();
 
-        continueLatch.countDown();
+        messageUnblockFuture.completeAsync(() -> null);
 
         await(cursor.closeAsync());
 
@@ -782,8 +791,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         String nl = System.lineSeparator();
 
-        String expectedOnCoordinator = format(nl
-                + "Debug info for query: {} (canceled=false, stopped=false)" + nl
+        String expectedOnCoordinator = format(
+                "Debug info for query: {} (canceled=false, stopped=false)" + nl
                 + "  Coordinator node: node_1 (current node)" + nl
                 + "  Root node state: opened" + nl
                 + nl
@@ -794,17 +803,35 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
                 + "    id=1, node=node_3" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=0, state=opened, canceled=false, class=Inbox  (root)" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, new ExecutionId(ctx.queryId(), 0));
+                + "    id=0, state=opened, canceled=false, class=Inbox (root)" + nl
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl
+                + nl
+                + "  Fragment#0 tree:" + nl
+                + "    class=Inbox, requested=512" + nl
+                + "      class=RemoteSource, nodeName=node_1, state=WAITING" + nl
+                + "      class=RemoteSource, nodeName=node_2, state=WAITING" + nl
+                + "      class=RemoteSource, nodeName=node_3, state=WAITING" + nl
+                + nl
+                + "  Fragment#1 tree:" + nl
+                + "    class=Outbox, waiting=-1" + nl
+                + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
+                + "      class=, requested=0" + nl
+                + nl, new ExecutionId(ctx.queryId(), 0));
 
         assertThat(debugInfoCoordinator, equalTo(expectedOnCoordinator));
 
-        String expectedOnNonCoordinator = format(nl
-                + "Debug info for query: {} (canceled=false, stopped=false)" + nl
+        String expectedOnNonCoordinator = format(
+                "Debug info for query: {} (canceled=false, stopped=false)" + nl
                 + "  Coordinator node: node_1" + nl
                 + nl
                 + "  Local fragments:" + nl
-                + "    id=1, state=opened, canceled=false, class=Outbox" + nl, new ExecutionId(ctx.queryId(), 0));
+                + "    id=1, state=opened, canceled=false, class=Outbox" + nl
+                + nl
+                + "  Fragment#1 tree:" + nl
+                + "    class=Outbox, waiting=-1" + nl
+                + "      class=RemoteDownstream, nodeName=node_1, state=END" + nl
+                + "      class=, requested=0" + nl
+                + nl, new ExecutionId(ctx.queryId(), 0));
 
         assertThat(debugInfo2, equalTo(expectedOnNonCoordinator));
         assertThat(debugInfo3, equalTo(expectedOnNonCoordinator));

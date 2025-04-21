@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -88,6 +89,13 @@ public class UnionAllNode<RowT> extends AbstractNode<RowT> implements Downstream
     protected void rewindInternal() {
         curSrc = 0;
         waiting = 0;
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", waiting=").app(waiting)
+                .app(", currentSource=").app(curSrc);
     }
 
     private Node<RowT> source() {
