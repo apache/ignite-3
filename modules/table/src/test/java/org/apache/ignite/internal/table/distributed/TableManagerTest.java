@@ -142,6 +142,8 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -168,7 +170,7 @@ import org.mockito.quality.Strictness;
 
 /** Tests scenarios for table manager. */
 // TODO: test demands for reworking https://issues.apache.org/jira/browse/IGNITE-22388
-@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
+@ExtendWith({MockitoExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class, FailureManagerExtension.class})
 @MockitoSettings(strictness = Strictness.LENIENT)
 public class TableManagerTest extends IgniteAbstractTest {
     /** The name of the table which is preconfigured. */
@@ -406,6 +408,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @throws Exception if something goes wrong on mocks creation.
      */
     @Test
+    @MuteFailureManagerLogging
     public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_NAME, tblManagerFut);
         int tableId = table.tableId();
@@ -588,6 +591,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @MuteFailureManagerLogging
     // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest3() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
@@ -610,6 +614,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @MuteFailureManagerLogging
     // TODO: IGNITE-24783 - remove this test after porting it to PartitionReplicaLifecycleManager tests.
     public void tableManagerStopTest4() throws Exception {
         IgniteBiTuple<TableViewInternal, TableManager> tblAndMnr = startTableManagerStopTest();
@@ -716,7 +721,7 @@ public class TableManagerTest extends IgniteAbstractTest {
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
 
-        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(new byte[0]);
+        when(mvPartitionStorage.committedGroupConfiguration()).thenReturn(null);
 
         doReturn(mock(PartitionTimestampCursor.class)).when(mvPartitionStorage).scan(any());
         when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
