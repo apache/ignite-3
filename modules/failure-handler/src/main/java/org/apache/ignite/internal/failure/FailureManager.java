@@ -160,7 +160,7 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             return false;
         }
 
-        var exceptionForLogging = new StackTraceCapturingException(failureCtx.error());
+        var exceptionForLogging = new StackTraceCapturingException(failureCtx.message(), failureCtx.error());
         if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
             LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
         } else {
@@ -302,10 +302,12 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
 
         return throttle;
     }
+}
 
-    private static class StackTraceCapturingException extends IgniteInternalException {
-        private StackTraceCapturingException(Throwable cause) {
-            super(INTERNAL_ERR, cause);
-        }
+class StackTraceCapturingException extends IgniteInternalException {
+    private static final long serialVersionUID = 0L;
+
+    StackTraceCapturingException(String message, Throwable cause) {
+        super(INTERNAL_ERR, message, cause);
     }
 }
