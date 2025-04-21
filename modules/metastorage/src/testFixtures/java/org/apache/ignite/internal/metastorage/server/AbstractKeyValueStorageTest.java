@@ -20,6 +20,9 @@ package org.apache.ignite.internal.metastorage.server;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.ArrayList;
+import java.util.List;
+import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,5 +72,19 @@ public abstract class AbstractKeyValueStorageTest extends BaseIgniteAbstractTest
 
     protected static byte[] keyValue(int k, int v) {
         return (PREFIX + k + '_' + "val" + v).getBytes(UTF_8);
+    }
+
+    protected List<Integer> collectRevisions(byte[] key) {
+        var revisions = new ArrayList<Integer>();
+
+        for (int revision = 0; revision <= storage.revision(); revision++) {
+            Entry entry = storage.get(key, revision);
+
+            if (!entry.empty() && entry.revision() == revision) {
+                revisions.add(revision);
+            }
+        }
+
+        return revisions;
     }
 }
