@@ -56,7 +56,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -117,6 +116,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private final Marshaller commandsMarshaller;
 
+    private final ExceptionFactory stoppingExceptionFactory;
+
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -142,7 +143,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             PeersAndLearners membersConfiguration,
             @Nullable Peer leader,
             ScheduledExecutorService executor,
-            Marshaller commandsMarshaller
+            Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
@@ -154,6 +156,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.leader = leader;
         this.executor = executor;
         this.commandsMarshaller = commandsMarshaller;
+        this.stoppingExceptionFactory = stoppingExceptionFactory;
     }
 
     /**
@@ -176,6 +179,40 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
+        return start(
+                groupId,
+                cluster,
+                factory,
+                configuration,
+                membersConfiguration,
+                executor,
+                commandsMarshaller,
+                StoppingExceptionFactories.indicateComponentStop()
+        );
+    }
+
+    /**
+     * Starts raft group service.
+     *
+     * @param groupId Raft group id.
+     * @param cluster Cluster service.
+     * @param factory Message factory.
+     * @param configuration Raft configuration.
+     * @param membersConfiguration Raft members configuration.
+     * @param executor Executor for retrying requests
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
+     * @return A new Raft group service.
+     */
+    public static RaftGroupService start(
+            ReplicationGroupId groupId,
+            ClusterService cluster,
+            RaftMessagesFactory factory,
+            RaftConfiguration configuration,
+            PeersAndLearners membersConfiguration,
+            ScheduledExecutorService executor,
+            Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
+    ) {
         boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
 
         RaftGroupServiceImpl service;
@@ -188,7 +225,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     membersConfiguration,
                     null,
                     executor,
-                    commandsMarshaller
+                    commandsMarshaller,
+                    stoppingExceptionFactory
             ) {
                 @Override
                 public <R> CompletableFuture<R> run(Command cmd) {
@@ -204,7 +242,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     membersConfiguration,
                     null,
                     executor,
-                    commandsMarshaller
+                    commandsMarshaller,
+                    stoppingExceptionFactory
             );
         }
 
@@ -569,7 +608,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      */
     private <R extends NetworkMessage> void sendWithRetry(CompletableFuture<R> fut, RetryContext retryContext) {
         if (!busyLock.enterBusy()) {
-            fut.completeExceptionally(new ComponentStoppingException("Raft client is stopping [" + groupId + "]."));
+            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
 
             return;
         }
@@ -626,8 +665,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
-    private ComponentStoppingException wrapInComponentStoppingException(Throwable e) {
-        return new ComponentStoppingException("Raft client is stopping [" + groupId + "].", e);
+    private Exception wrapInComponentStoppingException(Throwable e) {
+        return stoppingExceptionFactory.wrap("Raft client is stopping [" + groupId + "].", e);
     }
 
     private void handleThrowable(CompletableFuture<? extends NetworkMessage> fut, Throwable err, RetryContext retryContext) {
