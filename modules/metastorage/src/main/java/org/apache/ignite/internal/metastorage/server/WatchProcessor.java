@@ -270,10 +270,9 @@ public class WatchProcessor implements ManuallyCloseable {
     }
 
     private static String updatedEntriesKeysInfo(List<Entry> updatedEntries) {
-        String joinedKeys = updatedEntries.stream()
+        return updatedEntries.stream()
                 .map(entry -> new String(entry.key(), UTF_8))
-                .collect(joining(","));
-        return "Keys of updated entries: " + joinedKeys;
+                .collect(joining(",", "Keys of updated entries: ", ""));
     }
 
     private static CompletableFuture<Void> performWatchesNotifications(
