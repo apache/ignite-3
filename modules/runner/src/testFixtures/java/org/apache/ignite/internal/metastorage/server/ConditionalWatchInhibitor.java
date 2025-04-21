@@ -66,7 +66,7 @@ public class ConditionalWatchInhibitor {
      */
     public void stopInhibit() {
         inhibitFuture.complete(null);
-        
+
         metaStorageManager.unregisterRevisionUpdateListener(listener);
     }
 }
