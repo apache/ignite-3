@@ -149,7 +149,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 new LinkedBlockingQueue<>(),
                 threadFactory,
                 // This executor gets shut down during node stop, so we don't care about its tasks being discarded; we would have to
-                // filter those RejectedExecutionExeptions by hand anyway.
+                // filter those RejectedExecutionExceptions by hand anyway.
                 new DiscardPolicy()
         );
 
@@ -260,12 +260,12 @@ public class WatchProcessor implements ManuallyCloseable {
             // Revision update is triggered strictly after all watch listeners have been notified.
             CompletableFuture<Void> notifyUpdateRevisionFuture = notifyUpdateRevisionListeners(newRevision);
 
-            CompletableFuture<Void> notificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
+            CompletableFuture<Void> newNotificationFuture = allOf(notifyWatchesFuture, notifyUpdateRevisionFuture)
                     .thenRunAsync(() -> inBusyLock(() -> invokeOnRevisionCallback(newRevision, time)), watchExecutor);
 
-            notificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
+            newNotificationFuture.whenComplete((unused, e) -> maybeLogLongProcessing(filteredUpdatedEntries, startTimeNanos));
 
-            return notificationFuture;
+            return newNotificationFuture;
         });
     }
 
