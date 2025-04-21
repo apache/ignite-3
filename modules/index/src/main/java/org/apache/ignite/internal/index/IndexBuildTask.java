@@ -50,6 +50,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -167,10 +168,14 @@ class IndexBuildTask {
     private static boolean ignorable(Throwable throwable) {
         Throwable unwrapped = unwrapCause(throwable);
 
-        // Any of these exceptions can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
+        // Following exception can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
         // build continuation. We just don't want to fill our logs with garbage.
         return unwrapped instanceof PrimaryReplicaMissException
+                // Following two can be ignored as they mean that replica is closed (either node is stopping or replica is not needed
+                // on this node anymore).
                 || unwrapped instanceof TrackerClosedException
+                || unwrapped instanceof StorageClosedException
+                // Node is stopping, it's ok.
                 || unwrapped instanceof NodeStoppingException;
     }
 

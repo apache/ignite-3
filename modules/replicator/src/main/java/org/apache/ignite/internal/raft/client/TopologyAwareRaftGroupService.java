@@ -19,6 +19,7 @@ package org.apache.ignite.internal.raft.client;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -40,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -188,6 +190,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
      * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
      * @return New Raft client.
      */
     public static TopologyAwareRaftGroupService start(
@@ -200,14 +203,24 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             LogicalTopologyService logicalTopologyService,
             RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription,
-            Marshaller cmdMarshaller
+            Marshaller cmdMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         return new TopologyAwareRaftGroupService(
                 cluster,
                 factory,
                 executor,
                 raftConfiguration,
-                RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, executor, cmdMarshaller),
+                RaftGroupServiceImpl.start(
+                        groupId,
+                        cluster,
+                        factory,
+                        raftConfiguration,
+                        configuration,
+                        executor,
+                        cmdMarshaller,
+                        stoppingExceptionFactory
+                ),
                 logicalTopologyService,
                 eventsClientListener,
                 notifyOnSubscription
@@ -239,8 +252,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      */
     private void sendWithRetry(ClusterNode node, SubscriptionLeaderChangeRequest msg, CompletableFuture<Boolean> msgSendFut) {
         Long responseTimeout = raftConfiguration.responseTimeoutMillis().value();
-        clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, th) -> {
-            if (th == null) {
+
+        clusterService.messagingService().invoke(node, msg, responseTimeout).whenCompleteAsync((unused, invokeThrowable) -> {
+            if (invokeThrowable == null) {
                 msgSendFut.complete(true);
 
                 return;
@@ -248,20 +262,19 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
             if (!msg.subscribe()) {
                 // We don't want to propagate exceptions when unsubscribing (if it's not an Error!).
-
-                if (th instanceof Error) {
-                    msgSendFut.completeExceptionally(th);
+                if (unwrapCause(invokeThrowable) instanceof Error) {
+                    msgSendFut.completeExceptionally(invokeThrowable);
                 } else {
-                    LOG.debug("An exception while trying to unsubscribe", th);
+                    LOG.debug("An exception while trying to unsubscribe", invokeThrowable);
 
                     msgSendFut.complete(false);
                 }
-            } else if (recoverable(th)) {
-                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetIssue) -> {
-                    if (topologyGetIssue != null) {
-                        LOG.error("Actual logical topology snapshot was not got.", topologyGetIssue);
+            } else if (recoverable(invokeThrowable)) {
+                logicalTopologyService.logicalTopologyOnLeader().whenCompleteAsync((logicalTopologySnapshot, topologyGetThrowable) -> {
+                    if (topologyGetThrowable != null) {
+                        LOG.error("Actual logical topology snapshot was not got.", topologyGetThrowable);
 
-                        msgSendFut.completeExceptionally(topologyGetIssue);
+                        msgSendFut.completeExceptionally(topologyGetThrowable);
 
                         return;
                     }
@@ -270,17 +283,17 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                         sendWithRetry(node, msg, msgSendFut);
                     } else {
                         LOG.info("Could not subscribe to leader update from a specific node, because the node had left from the"
-                                + " cluster [node={}]", node);
+                                + " cluster: [node={}]", node);
 
                         msgSendFut.complete(false);
                     }
                 }, executor);
             } else {
-                if (!(th instanceof NodeStoppingException)) {
-                    LOG.error("Could not send the subscribe message to the node [node={}, msg={}]", th, node, msg);
+                if (!(unwrapCause(invokeThrowable) instanceof NodeStoppingException)) {
+                    LOG.error("Could not send the subscribe message to the node: [node={}, msg={}]", invokeThrowable, node, msg);
                 }
 
-                msgSendFut.completeExceptionally(th);
+                msgSendFut.completeExceptionally(invokeThrowable);
             }
         }, executor);
     }

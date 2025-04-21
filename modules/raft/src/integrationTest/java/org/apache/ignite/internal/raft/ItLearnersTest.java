@@ -103,8 +103,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
     private static final int AWAIT_TIMEOUT_SECONDS = 10;
 
-    @InjectConfiguration("mock.retryTimeoutMillis=3000")
-    private static RaftConfiguration raftConfiguration;
+    @InjectConfiguration
+    private RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
 
@@ -291,6 +291,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
         ));
 
         nodes.set(0, null).close();
+
+        // Reduce the retry timeout to make the next check faster.
+        assertThat(
+                raftConfiguration.retryTimeoutMillis().update(1000L),
+                willCompleteSuccessfully()
+        );
 
         assertThat(services.get(1).run(createWriteCommand("foo")), willThrow(TimeoutException.class));
     }

@@ -26,7 +26,7 @@ import static org.hamcrest.Matchers.startsWith;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Supplier;
 import org.apache.ignite.Ignite;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.hamcrest.Matcher;

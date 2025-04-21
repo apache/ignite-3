@@ -51,7 +51,7 @@ protected:
 
         client.get_sql().execute(nullptr, nullptr,
             {"INSERT INTO TBL_ALL_COLUMNS_SQL("
-             R"(STR, INT8, KEY, INT16, INT32, INT64, FLOAT, DOUBLE, UUID, "DATE", "TIME", TIME2, "DATETIME", DATETIME2, )"
+             R"(STR, INT8, KEY, INT16, INT32, INT64, FLOAT, DOUBLE, "UUID", "DATE", "TIME", TIME2, "DATETIME", DATETIME2, )"
              R"("TIMESTAMP", TIMESTAMP2, "BLOB", "DECIMAL", "BOOLEAN"))"
              " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"},
             {std::string("test"), std::int8_t(1), std::int64_t(42), std::int16_t(2), std::int32_t(3), std::int64_t(4),
@@ -497,13 +497,13 @@ TEST_F(sql_test, timezone_passed) {
     sql_statement statement{"SELECT CURRENT_TIMESTAMP"};
     statement.timezone_id("UTC+8");
     auto ts0 = execute_statement_one_result(statement);
-    EXPECT_EQ(ignite_type::DATETIME, ts0.get_type());
+    EXPECT_EQ(ignite_type::TIMESTAMP, ts0.get_type());
 
     statement.timezone_id("UTC-2");
     auto ts1 = execute_statement_one_result(statement);
-    EXPECT_EQ(ignite_type::DATETIME, ts1.get_type());
+    EXPECT_EQ(ignite_type::TIMESTAMP, ts1.get_type());
 
-    EXPECT_NE(ts0.get<ignite_date_time>(), ts1.get<ignite_date_time>());
+    EXPECT_NE(ts0.get<ignite_timestamp>(), ts1.get<ignite_timestamp>());
 }
 
 /**

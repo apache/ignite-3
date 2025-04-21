@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_F
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_VARLEN_LENGTH;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 
 import java.util.Objects;
@@ -59,7 +59,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 catalog.defaultZone().name(),
                 DEFAULT_PARTITION_COUNT,
                 DEFAULT_REPLICA_COUNT,
-                IMMEDIATE_TIMER_VALUE,
+                defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds(),
                 INFINITE_TIMER_VALUE,
                 DEFAULT_FILTER,
                 true,
@@ -266,13 +266,13 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
     }
 
     private static String createZoneSql(String zoneName, int partitions, int replicas, int scaleUp, int scaleDown, String filter) {
-        String sqlFormat = "CREATE ZONE \"%s\" WITH "
-                + "\"PARTITIONS\" = %d, "
-                + "\"REPLICAS\" = %d, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %d, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %d,"
-                + "\"DATA_NODES_FILTER\" = '%s',"
-                + "\"STORAGE_PROFILES\" = '%s'";
+        String sqlFormat = "CREATE ZONE %s ("
+                + "PARTITIONS %d, "
+                + "REPLICAS %d, "
+                + "AUTO SCALE UP %d, "
+                + "AUTO SCALE DOWN %d,"
+                + "NODES FILTER '%s') "
+                + "STORAGE PROFILES ['%s']";
 
         return String.format(sqlFormat, zoneName, partitions, replicas, scaleUp, scaleDown, filter, DEFAULT_STORAGE_PROFILE);
     }
@@ -286,14 +286,14 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
             String filter,
             ConsistencyMode consistencyMode
     ) {
-        String sqlFormat = "CREATE ZONE \"%s\" WITH "
-                + "\"PARTITIONS\" = %d, "
-                + "\"REPLICAS\" = %d, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = %d, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = %d,"
-                + "\"DATA_NODES_FILTER\" = '%s',"
-                + "\"STORAGE_PROFILES\" = '%s',"
-                + "\"CONSISTENCY_MODE\" = '%s'";
+        String sqlFormat = "CREATE ZONE %s ("
+                + "PARTITIONS %d, "
+                + "REPLICAS %d, "
+                + "AUTO SCALE UP %d, "
+                + "AUTO SCALE DOWN %d, "
+                + "NODES FILTER '%s', "
+                + "CONSISTENCY MODE '%s') "
+                + "STORAGE PROFILES ['%s']";
 
         return String.format(
                 sqlFormat,
@@ -303,8 +303,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 scaleUp,
                 scaleDown,
                 filter,
-                DEFAULT_STORAGE_PROFILE,
-                consistencyMode
+                consistencyMode,
+                DEFAULT_STORAGE_PROFILE
         );
     }
 

@@ -35,6 +35,7 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, Connect
 
     private final ClusterConfigShowCall clusterConfigShowCall;
 
+    @Nullable
     private LazyObjectRef<Config> configRef;
 
     public ClusterConfigRegistryImpl(ClusterConfigShowCall clusterConfigShowCall) {
@@ -61,7 +62,7 @@ public class ClusterConfigRegistryImpl implements ClusterConfigRegistry, Connect
         configRef = null;
     }
 
-    /** {@inheritDoc} */
+    @Nullable
     @Override
     public Config config() {
         return configRef == null ? null : configRef.get();

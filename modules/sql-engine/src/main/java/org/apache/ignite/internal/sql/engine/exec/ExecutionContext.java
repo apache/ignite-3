@@ -87,10 +87,16 @@ public class ExecutionContext<RowT> implements DataContext {
     private final AtomicBoolean cancelFlag = new AtomicBoolean();
 
     /**
-     * Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value throughout the
-     * query.
+     * Current timestamp. Need to store timestamp, since SQL standard says that functions such as CURRENT_TIMESTAMP return the same value
+     * throughout the query.
      */
     private final long startTs;
+
+    /**
+     * Current timestamp that includes offset an offset of {@code timeZoneId}. Need to store timestamp, since SQL standard says that
+     * functions such as CURRENT_TIMESTAMP return the same value throughout the query.
+     */
+    private final long startTsWithTzOffset;
 
     private final TxAttributes txAttributes;
 
@@ -142,7 +148,8 @@ public class ExecutionContext<RowT> implements DataContext {
         assert this.inBufSize > 0 : this.inBufSize;
 
         Instant nowUtc = Instant.now();
-        startTs = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
+        startTs = nowUtc.toEpochMilli();
+        startTsWithTzOffset = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 
         if (LOG.isTraceEnabled()) {
             LOG.trace("Context created [executionId={}, fragmentId={}]", executionId, fragmentId());
@@ -266,7 +273,7 @@ public class ExecutionContext<RowT> implements DataContext {
             return startTs;
         }
         if (Variable.LOCAL_TIMESTAMP.camelName.equals(name)) {
-            return startTs;
+            return startTsWithTzOffset;
         }
 
         if (Variable.LOCALE.camelName.equals(name)) {

@@ -120,6 +120,8 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -140,6 +142,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for scenarios where majority of peers is not available. In this class we frequently assert partition distributions, this means that
@@ -147,6 +150,7 @@ import org.junit.jupiter.api.Timeout;
  * partitions.
  */
 @Timeout(120)
+@ExtendWith(FailureManagerExtension.class)
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
@@ -194,11 +198,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // TODO: IGNITE-22818 Fails with "Race operations took too long"
         // startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
-        executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
-                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d, storage_profiles='%s',"
-                        + " consistency_mode='%s'",
-                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1, DEFAULT_STORAGE_PROFILE,
-                zoneParams.consistencyMode().name()
+        executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
+                        + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
+                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1,
+                zoneParams.consistencyMode().name(), DEFAULT_STORAGE_PROFILE
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
@@ -408,6 +411,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     // TODO https://issues.apache.org/jira/browse/IGNITE-24338
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testManualRebalanceRecovery() throws Exception {
         int partId = 0;
         // Disable scale down to avoid unwanted rebalance.
@@ -491,6 +495,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 4, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testManualRebalanceRecoveryNoPending() throws Exception {
         int partId = 0;
 
@@ -673,6 +678,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     public void testNewResetOverwritesFlags() throws Exception {
         int partId = 0;
 
@@ -901,6 +907,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     public void testIncompleteRebalanceBeforeAutomaticResetPartitions() throws Exception {
         int partId = 0;
 
@@ -1232,6 +1239,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testTwoPhaseResetOnEmptyNodes() throws Exception {
         int partId = 0;
 

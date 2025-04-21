@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHE
 import static org.apache.ignite.internal.catalog.CatalogService.SYSTEM_SCHEMA_NAME;
 import static org.apache.ignite.internal.catalog.commands.DefaultValue.Type.FUNCTION_CALL;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import java.util.Collection;
 import java.util.EnumMap;
@@ -793,5 +794,12 @@ public class CatalogUtils {
         if (columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
             throw new CatalogValidationException("Column of type '{}' cannot be persisted [col={}].", columnType, columnName);
         }
+    }
+
+    // In case of enabled colocation the start of each node triggers default zone rebalance. In order to eliminate such excessive rebalances
+    // default zone auto adjust scale up timeout is set to 5 seconds. If colocation is disabled tests usually create tables
+    // after all nodes already started meaning that tables are created on stable topology and usually doesn't assume any rebalances at all.
+    public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds() {
+        return enabledColocation() ? 5 : 0;
     }
 }
