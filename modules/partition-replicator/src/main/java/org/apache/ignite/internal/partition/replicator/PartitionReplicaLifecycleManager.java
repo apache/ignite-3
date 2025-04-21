@@ -71,7 +71,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -101,6 +100,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -1321,7 +1321,7 @@ public class PartitionReplicaLifecycleManager extends
 
                                 return LeaderWithTerm.NO_LEADER;
                             }
-                            if (hasCause(throwable, RejectedExecutionException.class)) {
+                            if (hasCause(throwable, ComponentStoppingException.class)) {
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
 
                                 return LeaderWithTerm.NO_LEADER;

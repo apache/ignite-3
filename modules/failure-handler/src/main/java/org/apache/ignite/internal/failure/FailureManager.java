@@ -20,7 +20,6 @@ package org.apache.ignite.internal.failure;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
 import static org.apache.ignite.lang.ErrorGroups.Common.COMPONENT_NOT_STARTED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.EnumMap;
 import java.util.EnumSet;
@@ -38,7 +37,6 @@ import org.apache.ignite.internal.failure.handlers.configuration.NoOpFailureHand
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerConfigurationSchema;
 import org.apache.ignite.internal.failure.handlers.configuration.StopNodeOrHaltFailureHandlerView;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -160,14 +158,14 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             return false;
         }
 
-        var exceptionForLogging = new StackTraceCapturingException(failureCtx.error());
+        var exceptionForLogging = new StackTraceCapturingException(failureCtx.message(), failureCtx.error());
         if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
             LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
         } else {
             LOG.error(FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
         }
 
-        if (reserveBuf != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
+        if (reserveBuf != null && failureCtx.error() != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 
@@ -301,11 +299,5 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         }
 
         return throttle;
-    }
-
-    private static class StackTraceCapturingException extends IgniteInternalException {
-        private StackTraceCapturingException(Throwable cause) {
-            super(INTERNAL_ERR, cause);
-        }
     }
 }

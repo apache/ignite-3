@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -504,7 +503,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
+            if (!hasCause(e, NodeStoppingException.class)) {
                 String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", tablePartitionId);
                 failureProcessor.process(new FailureContext(e, errorMessage));
             }

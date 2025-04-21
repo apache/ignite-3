@@ -35,7 +35,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
 import java.util.ArrayList;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -336,7 +335,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                if (!hasCause(ex, NodeStoppingException.class, CancellationException.class)) {
+                if (!hasCause(ex, NodeStoppingException.class)) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
                 }
             }
