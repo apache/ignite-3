@@ -164,12 +164,16 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
         int revisions = 0;
 
-        for (int revision = 0; revision <= storage.revision(); revision++) {
-            Entry entry = storage.get(RECOVERY_TRIGGER_KEY.bytes(), revision);
+        long nextUpperBound = storage.revision();
+        while (true) {
+            Entry entry = storage.get(RECOVERY_TRIGGER_KEY.bytes(), nextUpperBound);
 
-            if (!entry.empty() && entry.revision() == revision) {
-                revisions++;
+            if (entry.empty()) {
+                break;
             }
+
+            revisions++;
+            nextUpperBound = entry.revision() - 1;
         }
 
         assertEquals(count, revisions);
