@@ -1327,10 +1327,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     @Override
     public ChecksumAndRevisions checksumAndRevisions(long revision) {
         try {
+            // "rev" is the last thing that gets updated, so it has to be read first.
+            long currentRevision = rev;
+
             return new ChecksumAndRevisions(
                     checksumByRevisionOrZero(revision),
                     minChecksummedRevisionOrZero(),
-                    rev // TODO might be a lie, have to check.
+                    currentRevision
             );
         } catch (RocksDBException e) {
             throw new MetaStorageException(INTERNAL_ERR, "Cannot get checksum by revision: " + revision, e);

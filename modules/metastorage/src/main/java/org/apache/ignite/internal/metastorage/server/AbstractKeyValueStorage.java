@@ -318,14 +318,14 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         Value value = valueForOperation(key, revision);
 
-        if (revUpperBound <= compactionRevision && (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone())) {
-            throw new CompactedException(revUpperBound, compactionRevision);
+        if (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone()) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
         }
 
         return EntryImpl.toEntry(key, revision, value);
     }
 
-    protected List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
+    private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
         assert !keys.isEmpty();
         assert revUpperBound >= 0 : revUpperBound;
 
