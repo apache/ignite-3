@@ -535,7 +535,6 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 return sr.getAsInt();
             });
         }
-
     }
 
     private static class ZoneGroupUpdateRequestHandler extends GroupUpdateRequestHandler<ZonePartitionId> {

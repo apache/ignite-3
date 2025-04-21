@@ -405,6 +405,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     @Test
+    // TODO https://issues.apache.org/jira/browse/IGNITE-24338
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     void testManualRebalanceRecovery() throws Exception {
         int partId = 0;
@@ -633,7 +635,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        resetFuture = disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+        resetFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
         assertThat(resetFuture, willCompleteSuccessfully());
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
@@ -2060,6 +2070,8 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(pendingFut, willCompleteSuccessfully());
 
         Entry pending = pendingFut.join();
+
+        logger().info("Pending is {}", pending);
 
         return pending.empty() ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
