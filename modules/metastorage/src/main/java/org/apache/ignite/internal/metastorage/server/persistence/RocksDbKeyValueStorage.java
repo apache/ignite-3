@@ -1421,23 +1421,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private boolean writeCompactedBatch(List<byte[]> batchKeys, WriteBatch batch) throws RocksDBException {
-        synchronized (writeBatchProtector) {
-            for (byte[] key : batchKeys) {
-                if (writeBatchProtector.maybeUpdated(key)) {
-                    writeBatchProtector.clear();
-
-                    return false;
-                }
-            }
-
-            //noinspection AccessToStaticFieldLockedOnInstance
-            db.write(WRITE_OPTIONS, batch);
-        }
-
-        return true;
-    }
-
     private void compactAuxiliaryMappings(long compactionRevision) throws RocksDBException {
         assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
 
@@ -1507,14 +1490,79 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
+    /**
+     * Writes the batch to the database in the {@code FSM} thread. By the time this method is called, {@link #updatedEntries} must be in a
+     * state that corresponds to the current batch. This collection will be used to mark the entries as updated in
+     * {@link #writeBatchProtector}.
+     *
+     * <p>No other actions besides calling {@link WriteBatchProtector#onUpdate(byte[])} and {@link RocksDB#write(WriteOptions, WriteBatch)}
+     * are performed here. They're both executed while holding {@link #writeBatchProtector}'s monitor in order to synchronise
+     * {@link #writeBatchProtector} modifications.
+     *
+     * <p>Since there's a gap between reading the data and writing batch into the storage, it is possible that compaction thread had
+     * concurrently updated the data that we're modifying. The only real side effect of such a race will be a presence of already deleted
+     * revisions in revisions list, associated with any particular key (see {@link RocksDbKeyValueStorage#keyRevisionsForOperation(byte[])}.
+     *
+     * <p>We ignore this side effect, because retrying the operation in {@code FSM} thread is too expensive, and because there's really no
+     * harm in having some obsolete revisions there. We always keep in mind that a particular revision might already be compacted when we
+     * read data.
+     *
+     * @param batch RockDB's {@link WriteBatch}.
+     * @throws RocksDBException If {@link RocksDB#write(WriteOptions, WriteBatch)} threw an exception.
+     * @see #writeCompactedBatch(List, WriteBatch)
+     */
     private void writeBatch(WriteBatch batch) throws RocksDBException {
         synchronized (writeBatchProtector) {
             for (Entry updatedEntry : updatedEntries.updatedEntries) {
                 writeBatchProtector.onUpdate(updatedEntry.key());
             }
 
+            //noinspection AccessToStaticFieldLockedOnInstance
             db.write(WRITE_OPTIONS, batch);
         }
+    }
+
+    /**
+     * Writes the batch to the database in the compaction thread.
+     *
+     * <p>No other actions besides accessing {@link #writeBatchProtector} and calling {@link RocksDB#write(WriteOptions, WriteBatch)}
+     * are performed here. They're both executed while holding {@link #writeBatchProtector}'s monitor in order to synchronise potential
+     * {@link #writeBatchProtector} modifications.
+     *
+     * <p>Since there's a gap between reading the data and writing batch into the storage, it is possible that {@code FSM} thread had
+     * concurrently updated the data that we're compacting. Such a race would mean that there are unaccounted revisions in revisions list,
+     * associated with keys from {@code batchKeys} (see {@link RocksDbKeyValueStorage#keyRevisionsForOperation(byte[])}.
+     *
+     * <p>For that reason, unlike {@link #writeBatch(WriteBatch)}, here we don't have a privilege of just writing the batch in case of race.
+     * It would lead to data loss. In order to avoid it, we probabilistically check if data that we're compacting has been modified
+     * concurrently. If it certainly wasn't, we proceed and return {@code true}. If we're not sure, we abort this batch and return
+     * {@code false}.
+     *
+     * <p>If we return {@code false}, we also clear the {@link #writeBatchProtector} to avoid blocking the next batch. It is important to
+     * remember that we'll get false-negative results sometimes if we have hash collisions. That's fine.
+     *
+     * @param batchKeys Meta-storage keys that have been compacted in this batch.
+     * @param batch RockDB's {@link WriteBatch}.
+     * @return {@code true} if writing succeeded, {@code false} if compaction round must be retried doe to concurrent storage update.
+     * @throws RocksDBException If {@link RocksDB#write(WriteOptions, WriteBatch)} threw an exception.
+     *
+     * @see #writeBatch(WriteBatch)
+     */
+    private boolean writeCompactedBatch(List<byte[]> batchKeys, WriteBatch batch) throws RocksDBException {
+        synchronized (writeBatchProtector) {
+            for (byte[] key : batchKeys) {
+                if (writeBatchProtector.maybeUpdated(key)) {
+                    writeBatchProtector.clear();
+
+                    return false;
+                }
+            }
+
+            //noinspection AccessToStaticFieldLockedOnInstance
+            db.write(WRITE_OPTIONS, batch);
+        }
+
+        return true;
     }
 
     private static void refreshIterator(RocksIterator iterator, byte @Nullable [] key) throws RocksDBException {
