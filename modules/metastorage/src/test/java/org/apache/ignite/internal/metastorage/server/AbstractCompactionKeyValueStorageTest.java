@@ -1079,6 +1079,20 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         }
     }
 
+    private List<Integer> collectRevisions(byte[] key) {
+        var revisions = new ArrayList<Integer>();
+
+        for (int revision = 0; revision <= storage.revision(); revision++) {
+            Entry entry = storage.get(key, revision);
+
+            if (!entry.empty() && entry.revision() == revision) {
+                revisions.add(revision);
+            }
+        }
+
+        return revisions;
+    }
+
     private static List<Long> collectRevisions(Cursor<Entry> cursor) {
         return cursor.stream().map(Entry::revision).collect(toList());
     }
