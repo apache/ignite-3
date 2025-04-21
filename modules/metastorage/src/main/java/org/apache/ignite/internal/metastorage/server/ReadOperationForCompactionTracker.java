@@ -38,9 +38,8 @@ import org.apache.ignite.internal.util.CompletableFutures;
  *
  * <p>Expected usage:</p>
  * <ul>
- *     <li>Before starting execution, the reading command invoke {@link #track} with its ID and the lowest estimation for revision upper
- *     bound.
- *     <li>After completion, the reading command will invoke {@link #untrack} with the same arguments as when calling {@link #track},
+ *     <li>Before starting execution, the reading command invokes {@link #track} with the lowest estimation for revision upper bound.
+ *     <li>After completion, the reading command will invoke {@link TrackingToken#close()} on an instance returned by {@link #track},
  *     regardless of whether the operation was successful or not.</li>
  *     <li>{@link #collect} will be invoked only after a new compaction revision has been set
  *     ({@link KeyValueStorage#setCompactionRevision}) for a new compaction revision.</li>
@@ -52,12 +51,9 @@ public class ReadOperationForCompactionTracker {
     private final AtomicLong longOperationIdGenerator = new AtomicLong();
 
     /**
-     * Stops tracking the read operation. {@code operationRevision} must match the corresponding value from {@link #track}.
+     * Token to stop tracking the read operation.
      *
-     * <p>Method is expected not to be called more than once for the same arguments, and {@link #track} was previously called for same
-     * arguments.</p>
-     *
-     * @see #track(Object, long)
+     * @see #track(long, LongSupplier, LongSupplier)
      */
     @FunctionalInterface
     public interface TrackingToken extends AutoCloseable {
@@ -68,23 +64,16 @@ public class ReadOperationForCompactionTracker {
     /**
      * Starts tracking the completion of a read operation on its lowest estimation for revision upper bound.
      *
-     * <p>Method is expected not to be called more than once for the same arguments.</p>
-     *
      * <p>Expected usage pattern:</p>
      * <pre><code>
-     *     Object readOperationId = ...;
      *     int operationRevision = ...;
      *
-     *     tracker.track(readOperationId, operationRevision);
-     *
-     *     try {
+     *     try (var token = tracker.track(operationRevision, storage::revision, storage::getCompactionRevision)) {
      *         doReadOperation(...);
-     *     } finally {
-     *         tracker.untrack(readOperationId, operationRevision);
      *     }
      * </code></pre>
      *
-     * @see #untrack(Object, long)
+     * @see TrackingToken
      */
     public TrackingToken track(
             long operationRevision, LongSupplier latestRevision, LongSupplier compactedRevision
@@ -92,18 +81,21 @@ public class ReadOperationForCompactionTracker {
         long operationId = longOperationIdGenerator.getAndIncrement();
 
         while (true) {
-            // TODO Comment, this code is not trivial.
+            // "operationRevision" parameter is immutable, because we might need it on a next iteration.
+            // If it is asked to track the latest revision, we receive it right here from the corresponding supplier.
             long currentOperationRevision = operationRevision == MetaStorageManager.LATEST_REVISION
                     ? latestRevision.getAsLong()
                     : operationRevision;
 
-            long currentCompactedRevision = compactedRevision.getAsLong();
-            if (currentOperationRevision <= currentCompactedRevision) {
+            // Value from compacted revision supplier can only grow. We only use it for upper bound checks., so it's safe to read it every
+            // time instead of caching it. It applies to all usages of the supplier.
+            if (currentOperationRevision <= compactedRevision.getAsLong()) {
+                // Latest revision can never be compacted. If for some reason it already is, we should retry until it is not.
                 if (operationRevision == MetaStorageManager.LATEST_REVISION) {
                     continue;
                 }
 
-                throw new CompactedException(currentOperationRevision, currentCompactedRevision);
+                throw new CompactedException(currentOperationRevision, compactedRevision.getAsLong());
             }
 
             var key = new ReadOperationKey(operationId, currentOperationRevision);
@@ -111,23 +103,25 @@ public class ReadOperationForCompactionTracker {
             TrackingToken trackingToken = () -> {
                 CompletableFuture<Void> removed = readOperationFutureByKey.remove(key);
 
-                assert removed != null : key;
-
-                removed.complete(null);
+                // Might be null, that's fine, "close" can be called multiple times.
+                if (removed != null) {
+                    removed.complete(null);
+                }
             };
 
             CompletableFuture<Void> operationFuture = new CompletableFuture<>();
             readOperationFutureByKey.put(key, operationFuture);
 
-            currentCompactedRevision = compactedRevision.getAsLong();
-            if (currentOperationRevision <= currentCompactedRevision) {
+            // If this condition passes, it is possible that a future returned by "collect" in a compaction thread is already completed.
+            // It is not safe to proceed with tracking, we have to invalidate current token and either retry, or throw an exception.
+            if (currentOperationRevision <= compactedRevision.getAsLong()) {
                 trackingToken.close();
 
                 if (operationRevision == MetaStorageManager.LATEST_REVISION) {
                     continue;
                 }
 
-                throw new CompactedException(currentOperationRevision, currentCompactedRevision);
+                throw new CompactedException(currentOperationRevision, compactedRevision.getAsLong());
             }
 
             return trackingToken;

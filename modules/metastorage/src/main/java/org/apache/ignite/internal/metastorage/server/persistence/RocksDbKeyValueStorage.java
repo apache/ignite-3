@@ -1619,11 +1619,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         TrackingToken token;
         try {
-            // TODO Explain why I moved the code here.
-            //  It is easier to catch this exception, otherwise "try" block would have been much larger, I don't want that.
             token = readOperationForCompactionTracker.track(revUpperBound, this::revision, this::getCompactionRevision);
         } catch (Throwable e) {
-            // Revision might have been compacted already.
+            // Revision might have been compacted already, in which case we must free the resources.
             RocksUtils.closeAll(iterator, upperBound, readOpts);
 
             throw e;
