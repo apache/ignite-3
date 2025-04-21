@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static java.lang.invoke.MethodHandles.lookup;
-import static java.lang.invoke.MethodHandles.privateLookupIn;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
 
