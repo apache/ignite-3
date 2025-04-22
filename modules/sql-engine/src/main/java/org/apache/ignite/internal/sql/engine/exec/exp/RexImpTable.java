@@ -282,7 +282,6 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_DATE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_PATH;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_ROLE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_TIME;
-import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_TIMESTAMP;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_USER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.CURRENT_VALUE;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.DATETIME_PLUS;
@@ -406,6 +405,7 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.calcite.util.ReflectUtil.isStatic;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.CURRENT_TIMESTAMP;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LEAST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LENGTH;
@@ -526,6 +526,7 @@ import org.checkerframework.checker.nullness.qual.Nullable;
  *    Expressions.add        -> IgniteExpressions.addExact
  *    Expressions.subtract   -> IgniteExpressions.subtractExact
  * 6. Custom LogImplementor
+ * 7. Uses Ignite's CURRENT_TIMESTAMP that returns TIMESTAMP WITH LOCAL TIME ZONE instead of TIMESTAMP.
  *
  * <p>Immutable.
  */
@@ -1235,7 +1236,7 @@ public class RexImpTable {
       defineQuantify(ALL_NE, NOT_EQUALS);*/
 
       // Current time functions
-      define(CURRENT_TIME, systemFunctionImplementor);
+      //define(CURRENT_TIME, systemFunctionImplementor);
       define(CURRENT_TIMESTAMP, systemFunctionImplementor);
       define(CURRENT_DATE, systemFunctionImplementor);
       define(CURRENT_DATETIME, systemFunctionImplementor);

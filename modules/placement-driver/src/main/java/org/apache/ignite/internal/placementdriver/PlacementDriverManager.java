@@ -49,6 +49,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -180,7 +181,8 @@ public class PlacementDriverManager implements IgniteComponent {
                                     replicationGroupId,
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
                                     topologyAwareRaftGroupServiceFactory,
-                                    null // Use default commands marshaller.
+                                    null, // Use default commands marshaller.
+                                    StoppingExceptionFactories.indicateNodeStop()
                             );
 
                             return raftClient.subscribeLeader(this::onLeaderChange).thenApply(v -> raftClient);

@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
@@ -48,26 +47,28 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     @Test
     public void createZoneNoOptions() {
         // Simple name.
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone");
+        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone storage profiles['p']");
 
         assertThat(createZone.name().names, is(List.of("TEST_ZONE")));
         assertFalse(createZone.ifNotExists());
-        assertNull(createZone.createOptionList());
-        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\"");
+        assertNotNull(createZone.createOptionList());
+        assertTrue(createZone.createOptionList().isEmpty());
+        assertNotNull(createZone.storageProfiles());
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" STORAGE PROFILES['p']");
 
         // Fully qualified name.
-        createZone = parseCreateZone("create zone public.test_zone");
+        createZone = parseCreateZone("create zone public.test_zone storage profiles['p']");
         assertThat(createZone.name().names, is(List.of("PUBLIC", "TEST_ZONE")));
-        expectUnparsed(createZone, "CREATE ZONE \"PUBLIC\".\"TEST_ZONE\"");
+        expectUnparsed(createZone, "CREATE ZONE \"PUBLIC\".\"TEST_ZONE\" STORAGE PROFILES['p']");
 
         // Quoted identifier.
-        createZone = parseCreateZone("create zone \"public\".\"test_Zone\"");
+        createZone = parseCreateZone("create zone \"public\".\"test_Zone\" storage profiles['p']");
         assertThat(createZone.name().names, is(List.of("public", "test_Zone")));
-        expectUnparsed(createZone, "CREATE ZONE \"public\".\"test_Zone\"");
+        expectUnparsed(createZone, "CREATE ZONE \"public\".\"test_Zone\" STORAGE PROFILES['p']");
 
-        createZone = parseCreateZone("create zone \"public-test_Zone\"");
+        createZone = parseCreateZone("create zone \"public-test_Zone\" storage profiles['p']");
         assertThat(createZone.name().names, is(List.of("public-test_Zone")));
-        expectUnparsed(createZone, "CREATE ZONE \"public-test_Zone\"");
+        expectUnparsed(createZone, "CREATE ZONE \"public-test_Zone\" STORAGE PROFILES['p']");
     }
 
     /**
@@ -75,29 +76,30 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void createZoneIfNotExists() {
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone");
+        IgniteSqlCreateZone createZone = parseCreateZone("create zone if not exists test_zone storage profiles['p']");
 
         assertTrue(createZone.ifNotExists());
-        assertNull(createZone.createOptionList());
+        assertNotNull(createZone.createOptionList());
+        assertTrue(createZone.createOptionList().isEmpty());
+        assertNotNull(createZone.storageProfiles());
 
-        expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\"");
+        expectUnparsed(createZone, "CREATE ZONE IF NOT EXISTS \"TEST_ZONE\" STORAGE PROFILES['p']");
     }
 
-    /**
-     * Parse CREATE ZONE WITH ... statement.
-     */
+    /** Parse CREATE ZONE ... statement. */
     @Test
     public void createZoneWithOptions() {
         IgniteSqlCreateZone createZone = parseCreateZone(
-                "create zone test_zone with "
-                        + "replicas=2, "
-                        + "partitions=3, "
-                        + "data_nodes_filter='(\"US\" || \"EU\") && \"SSD\"', "
-                        + "distribution_algorithm='test_Distribution', "
-                        + "data_nodes_auto_adjust=1, "
-                        + "data_nodes_auto_adjust_scale_up=2, "
-                        + "data_nodes_auto_adjust_scale_down=3,"
-                        + "consistency_mode='HIGH_AVAILABILITY'"
+                "create zone test_zone "
+                        + "(replicas 2, "
+                        + "partitions 3, "
+                        + "nodes filter '(\"US\" || \"EU\") && \"SSD\"', "
+                        + "distribution algorithm 'test_Distribution', "
+                        + "auto adjust 1, "
+                        + "auto scale up 2, "
+                        + "auto scale down 3, "
+                        + "consistency mode 'HIGH_AVAILABILITY') "
+                        + "storage profiles ['default', 'new']"
         );
 
         assertNotNull(createZone.createOptionList());
@@ -109,17 +111,20 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
+        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_DOWN, 3);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.CONSISTENCY_MODE, "HIGH_AVAILABILITY");
 
-        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" WITH "
-                + "\"REPLICAS\" = 2, "
-                + "\"PARTITIONS\" = 3, "
-                + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
-                + "\"DISTRIBUTION_ALGORITHM\" = 'test_Distribution', "
-                + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3, "
-                + "\"CONSISTENCY_MODE\" = 'HIGH_AVAILABILITY'");
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" ("
+                + "REPLICAS 2, "
+                + "PARTITIONS 3, "
+                + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
+                + "DISTRIBUTION ALGORITHM 'test_Distribution', "
+                + "AUTO ADJUST 1, "
+                + "AUTO SCALE UP 2, "
+                + "AUTO SCALE DOWN 3, "
+                + "CONSISTENCY MODE 'HIGH_AVAILABILITY') "
+                + "STORAGE PROFILES['default', 'new']");
     }
 
     /**
@@ -127,7 +132,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void createZoneWithAllReplicas() {
-        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone with replicas=ALL");
+        IgniteSqlCreateZone createZone = parseCreateZone("create zone test_zone (replicas ALL) STORAGE PROFILES['p']");
 
         assertNotNull(createZone.createOptionList());
 
@@ -135,7 +140,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
 
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, IgniteSqlZoneOptionMode.ALL);
 
-        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" WITH \"REPLICAS\" = ALL");
+        expectUnparsed(createZone, "CREATE ZONE \"TEST_ZONE\" (REPLICAS ALL) STORAGE PROFILES['p']");
     }
 
     /**
@@ -265,7 +270,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone a.test_zone set replicas=2");
         assertFalse(alterZoneSet.ifExists());
 
-        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET \"REPLICAS\" = 2";
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET REPLICAS 2";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -277,7 +282,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone if exists a.test_zone set replicas=2");
         assertTrue(alterZoneSet.ifExists());
 
-        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET \"REPLICAS\" = 2";
+        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET REPLICAS 2";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -306,11 +311,11 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET "
-                + "\"REPLICAS\" = 2, "
-                + "\"DATA_NODES_FILTER\" = '(\"US\" || \"EU\") && \"SSD\"', "
-                + "\"DATA_NODES_AUTO_ADJUST\" = 1, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_UP\" = 2, "
-                + "\"DATA_NODES_AUTO_ADJUST_SCALE_DOWN\" = 3";
+                + "REPLICAS 2, "
+                + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
+                + "AUTO ADJUST 1, "
+                + "AUTO SCALE UP 2, "
+                + "AUTO SCALE DOWN 3";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -352,7 +357,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         return assertInstanceOf(IgniteSqlAlterZoneRenameTo.class, node);
     }
 
-    private static void assertThatZoneOptionPresent(List<SqlNode> optionList, ZoneOptionEnum name, Object expVal) {
+    static void assertThatZoneOptionPresent(List<SqlNode> optionList, ZoneOptionEnum name, Object expVal) {
         assertThat(optionList, Matchers.hasItem(ofTypeMatching(
                 name + "=" + expVal,
                 IgniteSqlZoneOption.class,

@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft.client;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftServiceFactory;
@@ -67,7 +68,8 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
             PeersAndLearners peersAndLearners,
             RaftConfiguration raftConfiguration,
             ScheduledExecutorService raftClientExecutor,
-            Marshaller commandsMarshaller
+            Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         return TopologyAwareRaftGroupService.start(
                 groupId,
@@ -79,7 +81,8 @@ public class TopologyAwareRaftGroupServiceFactory implements RaftServiceFactory<
                 logicalTopologyService,
                 eventsClientListener,
                 true,
-                commandsMarshaller
+                commandsMarshaller,
+                stoppingExceptionFactory
         );
     }
 }

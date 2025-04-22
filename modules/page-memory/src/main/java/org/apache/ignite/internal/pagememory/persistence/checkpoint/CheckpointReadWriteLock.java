@@ -19,6 +19,7 @@ package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper of the classic read write lock with checkpoint features.
@@ -35,6 +36,9 @@ public class CheckpointReadWriteLock {
 
     /** Checkpoint lock. */
     private final ReentrantReadWriteLockWithTracking checkpointLock;
+
+    /** Current write lock holder thread. */
+    private volatile @Nullable Thread currentWriteLockHolder;
 
     /**
      * Constructor.
@@ -104,7 +108,7 @@ public class CheckpointReadWriteLock {
      * Returns {@code true} if checkpoint lock is held by current thread.
      */
     public boolean checkpointLockIsHeldByThread() {
-        return checkpointLock.isWriteLockedByCurrentThread()
+        return isWriteLockHeldByCurrentThread()
                 || checkpointReadLockHoldCount.get() > 0
                 || Thread.currentThread().getName().startsWith(CHECKPOINT_RUNNER_THREAD_PREFIX);
     }
@@ -127,12 +131,16 @@ public class CheckpointReadWriteLock {
      */
     public void writeLock() {
         checkpointLock.writeLock().lock();
+
+        this.currentWriteLockHolder = Thread.currentThread();
     }
 
     /**
      * Releases the checkpoint write lock.
      */
     public void writeUnlock() {
+        this.currentWriteLockHolder = null;
+
         checkpointLock.writeLock().unlock();
     }
 
@@ -140,7 +148,7 @@ public class CheckpointReadWriteLock {
      * Returns {@code true} if current thread hold write lock.
      */
     public boolean isWriteLockHeldByCurrentThread() {
-        return checkpointLock.isWriteLockedByCurrentThread();
+        return currentWriteLockHolder == Thread.currentThread();
     }
 
     /**

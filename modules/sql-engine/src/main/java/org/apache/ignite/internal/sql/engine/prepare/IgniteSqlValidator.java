@@ -248,13 +248,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateUpdateFields(call);
 
         super.validateUpdate(call);
-
-        SqlSelect select = call.getSourceSelect();
-        assert select != null : "Update: SourceSelect has not been set";
-
-        // Update creates a source expression list which is not updated
-        // after type coercion adds CASTs to source expressions.
-        syncSelectList(select, call);
     }
 
     @Override
@@ -274,16 +267,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public void validateMerge(SqlMerge call) {
         super.validateMerge(call);
 
-        SqlSelect select = call.getSourceSelect();
-        SqlUpdate update = call.getUpdateCall();
-
-        if (update != null) {
-            assert select != null : "Merge: SourceSelect has not been set";
-
-            // Merge creates a source expression list which is not updated after type coercion adds CASTs
-            // to source expressions in Update.
-            syncSelectList(select, update);
-        }
+        syncSelectList(call);
     }
 
     @Override
@@ -365,6 +349,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
 
             if (!canAssign) {
+                // Throws proper exception if assignment is not possible due to
+                // problem with dynamic parameter type inference.
+                validateInferredDynamicParameters();
+
                 String targetTypeString;
                 String sourceTypeString;
                 if (SqlTypeUtil.areCharacterSetsMismatched(
@@ -522,14 +510,34 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
-    private static void syncSelectList(SqlSelect select, SqlUpdate update) {
+    private static void syncSelectList(SqlMerge call) {
+        // Merge creates a source expression list which is not updated after type coercion adds CASTs
+        // to source expressions in Update.
+
+        SqlUpdate update = call.getUpdateCall();
+
+        if (update == null) {
+            return;
+        }
+
+        SqlSelect selectFromUpdate = update.getSourceSelect();
+
+        assert selectFromUpdate != null;
+
+        SqlSelect selectFromMerge = call.getSourceSelect();
+
+        assert selectFromMerge != null : "Merge: SourceSelect has not been set";
+
         //
-        // If a table has N columns and update::SourceExpressionList has size = M
+        // If a table has N columns and update::TargetColumnList has size = M
         // then select::SelectList has size = N + M:
         // col1, ... colN, value_expr1, ..., value_exprM
         //
-        SqlNodeList sourceExpressionList = update.getSourceExpressionList();
-        SqlNodeList selectList = select.getSelectList();
+
+        int selectListSize = selectFromUpdate.getSelectList().size();
+        int columnsToUpdateSize = update.getTargetColumnList().size(); 
+        List<SqlNode> sourceExpressionList = selectFromUpdate.getSelectList().subList(selectListSize - columnsToUpdateSize, selectListSize);
+        SqlNodeList selectList = selectFromMerge.getSelectList();
         int sourceExprListSize = sourceExpressionList.size();
         int startPosition = selectList.size() - sourceExprListSize;
 
@@ -849,12 +857,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // in SQL tree.
         List<RelDataType> types = new ArrayList<>();
         IntSet alreadyVisited = new IntArraySet(dynamicParameters.size());
+        RelDataType any = typeFactory.createSqlType(SqlTypeName.ANY);
         sqlQuery.accept(
                 new SqlShuttle() {
                     @Override public SqlNode visit(SqlDynamicParam param) {
                         if (alreadyVisited.add(param.getIndex())) {
                             RelDataType type = getValidatedNodeType(param);
-                            types.add(type);
+
+                            int index = param.getIndex();
+                            while (types.size() <= index) {
+                                // Pad type list with type representing ANY value.
+                                types.add(any);
+                            }
+
+                            types.set(index, type);
                         }
                         return param;
                     }
@@ -1083,7 +1099,22 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         }
 
-        return super.performUnconditionalRewrites(node, underFrom);
+        node = super.performUnconditionalRewrites(node, underFrom);
+
+        if (node instanceof SqlUpdate) {
+            SqlUpdate update = (SqlUpdate) node;
+
+            for (int i = 0; i < update.getTargetColumnList().size(); i++) {
+                // All expressions from SourceExpressionList were inlined into source select
+                // during UnconditionalRewrite phase, therefore we don't care about the former list.
+                // To avoid problems with this list (for instance, subqueries are not processed well:
+                // they are neither transformed to joins nor converted to physical relations causing
+                // json serializer to throw an assertion) we rewrite it with some dummy values.
+                update.getSourceExpressionList().set(i, update.getTargetColumnList().get(i));
+            }
+        }
+
+        return node;
     }
 
     @Override

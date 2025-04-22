@@ -24,7 +24,10 @@ import org.apache.ignite.table.QualifiedName;
 
 /**
  * This exception is thrown when a table creation has failed because a table with the specified name already existed.
+ *
+ * @deprecated No longer used. Use {@link org.apache.ignite.sql.SqlException} with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR} error code.
  */
+@Deprecated
 public class TableAlreadyExistsException extends IgniteException {
     /**
      * Creates an exception with the given table name.

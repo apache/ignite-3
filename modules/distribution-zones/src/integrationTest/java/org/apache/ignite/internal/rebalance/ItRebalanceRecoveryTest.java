@@ -28,10 +28,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterConfiguration.Builder;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.table.QualifiedName;
 import org.junit.jupiter.api.Test;
 
@@ -55,8 +55,8 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
     @Test
     void testPendingAssignmentsRecovery() throws InterruptedException {
         cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=1, STORAGE_PROFILES='"
-                    + DEFAULT_STORAGE_PROFILE + "'");
+            session.execute(null, "CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS 1) STORAGE PROFILES ['"
+                    + DEFAULT_STORAGE_PROFILE + "']");
             session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
             session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
         });

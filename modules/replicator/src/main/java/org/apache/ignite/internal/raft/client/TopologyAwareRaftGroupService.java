@@ -41,6 +41,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
@@ -189,6 +190,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @param notifyOnSubscription Whether to notify callback after subscription to pass the current leader and term into it, even
      *         if the leader did not change in that moment (see {@link #subscribeLeader}).
      * @param cmdMarshaller Marshaller that should be used to serialize/deserialize commands.
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
      * @return New Raft client.
      */
     public static TopologyAwareRaftGroupService start(
@@ -201,14 +203,24 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             LogicalTopologyService logicalTopologyService,
             RaftGroupEventsClientListener eventsClientListener,
             boolean notifyOnSubscription,
-            Marshaller cmdMarshaller
+            Marshaller cmdMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         return new TopologyAwareRaftGroupService(
                 cluster,
                 factory,
                 executor,
                 raftConfiguration,
-                RaftGroupServiceImpl.start(groupId, cluster, factory, raftConfiguration, configuration, executor, cmdMarshaller),
+                RaftGroupServiceImpl.start(
+                        groupId,
+                        cluster,
+                        factory,
+                        raftConfiguration,
+                        configuration,
+                        executor,
+                        cmdMarshaller,
+                        stoppingExceptionFactory
+                ),
                 logicalTopologyService,
                 eventsClientListener,
                 notifyOnSubscription

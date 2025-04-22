@@ -73,6 +73,9 @@ public class PagePool {
     /** Instance of RW Lock Updater. */
     private final OffheapReadWriteLock rwLock;
 
+    /** Max number of pages in this pool. */
+    private final int pages;
+
     /**
      * Constructor.
      *
@@ -107,6 +110,8 @@ public class PagePool {
 
         putLong(freePageListPtr, INVALID_REL_PTR);
         putLong(lastAllocatedIdxPtr, 0L);
+
+        pages = (int) ((region.size() - (pagesBase - region.address())) / sysPageSize);
     }
 
     /**
@@ -122,7 +127,7 @@ public class PagePool {
             relPtr = allocateFreePage(tag);
         }
 
-        if (relPtr != INVALID_REL_PTR && pagesCntr != null) {
+        if (relPtr != INVALID_REL_PTR) {
             pagesCntr.incrementAndGet();
         }
 
@@ -265,7 +270,7 @@ public class PagePool {
      * Returns max number of pages in the pool.
      */
     public int pages() {
-        return (int) ((region.size() - (pagesBase - region.address())) / sysPageSize);
+        return pages;
     }
 
     /**

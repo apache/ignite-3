@@ -25,8 +25,9 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.internal.util.IgniteUtils.failOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
@@ -589,7 +590,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         }))
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (unwrapCause(e) instanceof NodeStoppingException) {
+                                if (hasCause(e, NodeStoppingException.class)) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(
@@ -989,7 +990,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         CompletableFuture<CmgRaftService> serviceFuture = raftService;
         if (serviceFuture != null) {
-            cancelOrConsume(serviceFuture, CmgRaftService::close);
+            failOrConsume(serviceFuture, new NodeStoppingException(), CmgRaftService::close);
         }
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);

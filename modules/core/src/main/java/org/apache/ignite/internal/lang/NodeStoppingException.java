@@ -23,7 +23,7 @@ import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * This exception is used in order to indicate that Ignite node is stopping (already stopped) for some reason.
+ * This exception is used to indicate that Ignite node is stopping (already stopped) for some reason.
  */
 public class NodeStoppingException extends IgniteInternalCheckedException {
     /** Serial version UID. */

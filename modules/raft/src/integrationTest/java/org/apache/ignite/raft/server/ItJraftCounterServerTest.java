@@ -551,7 +551,7 @@ class ItJraftCounterServerTest extends JraftAbstractTest {
         doTestFollowerCatchUp(true, false);
     }
 
-    /** Tests if a starting a new group in shared pools mode doesn't increases timer threads count. */
+    /** Tests if a starting a new group in shared pools mode doesn't increase timer threads count. */
     @Test
     public void testTimerThreadsCount() {
         JraftServerImpl srv0 = startServer(0, x -> {

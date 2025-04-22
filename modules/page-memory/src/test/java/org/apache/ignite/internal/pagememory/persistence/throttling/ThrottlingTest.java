@@ -34,6 +34,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.LockSupport;
 import java.util.function.Supplier;
@@ -65,6 +66,9 @@ public class ThrottlingTest extends IgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
+        AtomicInteger evictedPagesCounter = new AtomicInteger();
+        when(progress.evictedPagesCounter()).thenReturn(evictedPagesCounter);
+
         when(pageMemory2g.totalPages()).thenReturn((2L * Constants.GiB) / 4096);
     }
 
@@ -141,7 +145,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
         IntervalBasedMeasurement measurement = new IntervalBasedMeasurement(100, 1);
 
         for (int i = 0; i < 1000; i++) {
-            measurement.setCounter(i, System.nanoTime());
+            measurement.forceCounter(i, System.nanoTime());
         }
 
         long speed = measurement.getSpeedOpsPerSec(System.nanoTime());
@@ -161,7 +165,7 @@ public class ThrottlingTest extends IgniteAbstractTest {
         int nanosPark = 100;
         int multiplier = 100000;
         for (int i = 0; i < runs; i++) {
-            measurement.setCounter(i * multiplier, System.nanoTime());
+            measurement.forceCounter(i * multiplier, System.nanoTime());
 
             LockSupport.parkNanos(nanosPark);
         }
@@ -221,11 +225,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
     @Test
     public void wakeupSpeedBaseThrottledThreadOnCheckpointFinish() throws Exception {
         // Given: Enabled throttling with EXPONENTIAL level.
-        CheckpointProgress cl0 = mock(CheckpointProgress.class);
-        when(cl0.writtenPages()).thenReturn(200);
+        when(progress.writtenPages()).thenReturn(200);
 
         Supplier<CheckpointProgress> cpProgress = mock(Supplier.class);
-        when(cpProgress.get()).thenReturn(cl0);
+        when(cpProgress.get()).thenReturn(progress);
 
         var plc = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProgress, stateChecker, metricSource) {
             @Override protected void doPark(long throttleParkTimeNs) {
@@ -404,6 +407,8 @@ public class ThrottlingTest extends IgniteAbstractTest {
     @Test
     public void speedBasedThrottleShouldReportCpWriteSpeedWhenThePageIsNotInCheckpointAndProgressIsReported() throws InterruptedException {
         var throttle = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProvider, stateChecker, metricSource);
+
+        throttle.onBeginCheckpoint();
 
         simulateCheckpointProgressIsStarted();
         allowSomeTimeToPass();
