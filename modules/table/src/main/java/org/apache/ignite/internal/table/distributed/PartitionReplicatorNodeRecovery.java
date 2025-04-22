@@ -37,7 +37,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.IntFunction;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyEventHandler;
@@ -51,6 +50,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.TransientReplicaStartException;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
@@ -216,9 +216,9 @@ class PartitionReplicatorNodeRecovery {
                     } else {
                         // No majority and not a full partition restart - need to restart nodes
                         // with current partition.
-                        String msg = "Unable to start partition " + partId + ". Majority not available.";
+                        String msg = "Unable to start partition " + tablePartitionId + ". Majority not available.";
 
-                        throw new IgniteInternalException(msg);
+                        throw new TransientReplicaStartException(msg);
                     }
                 });
     }

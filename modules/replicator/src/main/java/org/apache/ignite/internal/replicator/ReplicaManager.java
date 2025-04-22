@@ -34,7 +34,7 @@ import static org.apache.ignite.internal.thread.ThreadOperation.TX_STATE_STORAGE
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.isCompletedSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.shouldSwitchToRequestsExecutor;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
@@ -46,7 +46,6 @@ import java.util.List;
 import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -55,7 +54,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -70,6 +68,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.IgniteThrottledLogger;
@@ -502,7 +501,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     .whenComplete((response, ex) -> {
                         if (ex == null) {
                             clusterNetSvc.messagingService().respond(senderConsistentId, response, correlationId);
-                        } else if (!(unwrapCause(ex) instanceof NodeStoppingException)) {
+                        } else if (!hasCause(ex, NodeStoppingException.class, ReplicaStoppingException.class)) {
                             String errorMessage = String.format("Failed to process placement driver message [msg=%s].", msg);
                             failureProcessor.process(new FailureContext(ex, errorMessage));
                         }
@@ -1112,12 +1111,17 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 .build();
 
         replica.processRequest(req, localNodeId).whenComplete((res, ex) -> {
-            if (ex != null
-                    && !hasCauseOrSuppressed(ex, NodeStoppingException.class)
-                    && !hasCauseOrSuppressed(ex, CancellationException.class)
-                    && !hasCauseOrSuppressed(ex, RejectedExecutionException.class)
-            ) {
-                failureProcessor.process(new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
+            if (ex != null) {
+                if (!hasCause(
+                        ex,
+                        NodeStoppingException.class,
+                        ComponentStoppingException.class,
+                        // Not a problem, there will be a retry.
+                        TimeoutException.class
+                )) {
+                    failureProcessor.process(
+                            new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));
+                }
             }
         });
     }

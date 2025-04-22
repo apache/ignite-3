@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.failure;
 
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Failure context contains information about failure type and exception if applicable.
@@ -28,7 +29,7 @@ public class FailureContext {
     private final FailureType type;
 
     /** Error. */
-    private final Throwable err;
+    private final @Nullable Throwable err;
 
     /** Message describing the failure. */
     private final String message;
@@ -66,10 +67,10 @@ public class FailureContext {
      * Creates instance of {@link FailureContext}.
      *
      * @param type Failure type.
-     * @param err Exception.
+     * @param err Exception. Might be {@code null} if no exception is available.
      * @param message Message describing the failure.
      */
-    public FailureContext(FailureType type, Throwable err, String message) {
+    public FailureContext(FailureType type, @Nullable Throwable err, String message) {
         this.type = type;
         this.err = err;
         this.message = message;
@@ -89,6 +90,7 @@ public class FailureContext {
      *
      * @return Exception or {@code null}.
      */
+    @Nullable
     public Throwable error() {
         return err;
     }

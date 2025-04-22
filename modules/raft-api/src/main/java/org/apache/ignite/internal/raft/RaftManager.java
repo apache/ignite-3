@@ -63,6 +63,8 @@ public interface RaftManager extends IgniteComponent {
      *
      * <p>Synchronously waits for the Raft log to be applied.
      *
+     * <p>The started RaftGroupService will indicate that it is being stopped (when it's stopped) with {@link NodeStoppingException}s.
+     *
      * @param nodeId Raft node ID.
      * @param configuration Peers and Learners of the Raft group.
      * @param lsnr Raft group listener.
@@ -121,6 +123,7 @@ public interface RaftManager extends IgniteComponent {
      * @param factory Factory that should be used to create raft service.
      * @param commandsMarshaller Marshaller that should be used to serialize commands. {@code null} if default marshaller should be
      *         used.
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
      * @return Raft group service.
      * @throws NodeStoppingException If node stopping intention was detected.
      */
@@ -128,7 +131,8 @@ public interface RaftManager extends IgniteComponent {
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory,
-            @Nullable Marshaller commandsMarshaller
+            @Nullable Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) throws NodeStoppingException;
 
     /**

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageM
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.clusterService;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runAsync;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -47,7 +48,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -70,6 +70,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -269,7 +270,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         CompletableFuture<Entry> fut = svc.get(FOO_KEY);
 
-        assertThat(fut, willThrowFast(CancellationException.class));
+        assertThat(fut, willThrowFast(NodeStoppingException.class));
     }
 
     @Test
@@ -307,7 +308,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         // stop method.
         cmgFut.complete(msNodes);
 
-        assertThat(metaStorageManager.metaStorageService(), willThrowFast(CancellationException.class));
+        assertThat(metaStorageManager.metaStorageService(), willThrow(NodeStoppingException.class));
     }
 
     @Test
@@ -388,13 +389,13 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         listenReadActionRequest(startSendReadActionRequestFuture, continueSendReadActionRequestFuture);
 
         CompletableFuture<?> readFromLeaderOperationFuture = readFromLeaderAction.read(metaStorageManager, FOO_KEY);
-        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 5);
+        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 2);
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
         storage.setCompactionRevision(1);
 
-        CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(1);
+        CompletableFuture<Void> readOperationsFuture = readOperationForCompactionTracker.collect(2);
         assertFalse(readOperationsFuture.isDone());
 
         getLocallyCursor.close();
@@ -425,7 +426,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
         listenReadActionRequest(startSendReadActionRequestFuture, continueSendReadActionRequestFuture);
 
         CompletableFuture<?> readFromLeaderOperationFuture = readFromLeaderAction.read(metaStorageManager, FOO_KEY);
-        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 5);
+        Cursor<Entry> getLocallyCursor = metaStorageManager.getLocally(FOO_KEY, FOO_KEY, 2);
 
         assertThat(startSendReadActionRequestFuture, willCompleteSuccessfully());
 
@@ -466,7 +467,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
                 )),
                 Arguments.of(Named.named(
                         "prefixBounded",
-                        ReadFromLeaderAction.readAsync((metastore, key) -> subscribeToList(metastore.prefix(key, 3)))
+                        ReadFromLeaderAction.readAsync((metastore, key) -> subscribeToList(metastore.prefix(key, 2)))
                 ))
         );
     }

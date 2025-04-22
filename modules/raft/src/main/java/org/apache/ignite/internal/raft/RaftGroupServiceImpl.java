@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.AddLearnersRequest;
@@ -48,6 +49,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -114,6 +116,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private final Marshaller commandsMarshaller;
 
+    private final ExceptionFactory stoppingExceptionFactory;
+
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
@@ -139,7 +143,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             PeersAndLearners membersConfiguration,
             @Nullable Peer leader,
             ScheduledExecutorService executor,
-            Marshaller commandsMarshaller
+            Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
@@ -151,6 +156,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.leader = leader;
         this.executor = executor;
         this.commandsMarshaller = commandsMarshaller;
+        this.stoppingExceptionFactory = stoppingExceptionFactory;
     }
 
     /**
@@ -173,6 +179,40 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller
     ) {
+        return start(
+                groupId,
+                cluster,
+                factory,
+                configuration,
+                membersConfiguration,
+                executor,
+                commandsMarshaller,
+                StoppingExceptionFactories.indicateComponentStop()
+        );
+    }
+
+    /**
+     * Starts raft group service.
+     *
+     * @param groupId Raft group id.
+     * @param cluster Cluster service.
+     * @param factory Message factory.
+     * @param configuration Raft configuration.
+     * @param membersConfiguration Raft members configuration.
+     * @param executor Executor for retrying requests
+     * @param stoppingExceptionFactory Exception factory used to create exceptions thrown to indicate that the object is being stopped.
+     * @return A new Raft group service.
+     */
+    public static RaftGroupService start(
+            ReplicationGroupId groupId,
+            ClusterService cluster,
+            RaftMessagesFactory factory,
+            RaftConfiguration configuration,
+            PeersAndLearners membersConfiguration,
+            ScheduledExecutorService executor,
+            Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
+    ) {
         boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
 
         RaftGroupServiceImpl service;
@@ -185,7 +225,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     membersConfiguration,
                     null,
                     executor,
-                    commandsMarshaller
+                    commandsMarshaller,
+                    stoppingExceptionFactory
             ) {
                 @Override
                 public <R> CompletableFuture<R> run(Command cmd) {
@@ -201,7 +242,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     membersConfiguration,
                     null,
                     executor,
-                    commandsMarshaller
+                    commandsMarshaller,
+                    stoppingExceptionFactory
             );
         }
 
@@ -566,7 +608,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
      */
     private <R extends NetworkMessage> void sendWithRetry(CompletableFuture<R> fut, RetryContext retryContext) {
         if (!busyLock.enterBusy()) {
-            fut.cancel(true);
+            fut.completeExceptionally(stoppingExceptionFactory.create("Raft client is stopping [" + groupId + "]."));
 
             return;
         }
@@ -611,7 +653,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                 fut.complete((R) resp);
                             }
                         } catch (Throwable e) {
-                            fut.completeExceptionally(e);
+                            if (hasCause(e, RejectedExecutionException.class)) {
+                                fut.completeExceptionally(wrapInComponentStoppingException(e));
+                            } else {
+                                fut.completeExceptionally(e);
+                            }
                         }
                     });
         } finally {
@@ -619,11 +665,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
     }
 
+    private Exception wrapInComponentStoppingException(Throwable e) {
+        return stoppingExceptionFactory.wrap("Raft client is stopping [" + groupId + "].", e);
+    }
+
     private void handleThrowable(CompletableFuture<? extends NetworkMessage> fut, Throwable err, RetryContext retryContext) {
         err = unwrapCause(err);
 
         if (!recoverable(err)) {
-            fut.completeExceptionally(err);
+            if (hasCause(err, RejectedExecutionException.class)) {
+                fut.completeExceptionally(wrapInComponentStoppingException(err));
+            } else {
+                fut.completeExceptionally(err);
+            }
 
             return;
         }

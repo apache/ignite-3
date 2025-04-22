@@ -1608,6 +1608,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
 
+        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
+        readOperationForCompactionTracker.track(readOperationId, revUpperBound);
+
         var readOpts = new ReadOptions();
 
         Slice upperBound = keyTo == null ? null : new Slice(keyTo);
@@ -1617,11 +1620,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         RocksIterator iterator = index.newIterator(readOpts);
 
         iterator.seek(keyFrom);
-
-        long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
-        long compactionRevisionBeforeCreateCursor = compactionRevision;
-
-        readOperationForCompactionTracker.track(readOperationId, compactionRevision);
 
         return new RocksIteratorAdapter<>(iterator) {
             /** Cached entry used to filter "empty" values. */
@@ -1677,7 +1675,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 Value value = getValueForOperationNullable(key, revision);
 
                 // Value may be null if the compaction has removed it in parallel.
-                if (value == null || (revision <= compactionRevisionBeforeCreateCursor && value.tombstone())) {
+                if (value == null || value.tombstone()) {
                     return EntryImpl.empty(key);
                 }
 
@@ -1686,7 +1684,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             @Override
             public void close() {
-                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionBeforeCreateCursor);
+                readOperationForCompactionTracker.untrack(readOperationId, revUpperBound);
 
                 super.close();
 

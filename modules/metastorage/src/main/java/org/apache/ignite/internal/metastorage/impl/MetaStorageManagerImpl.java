@@ -22,7 +22,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.IgniteUtils.failOrConsume;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -63,6 +64,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -108,6 +110,8 @@ import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
+import org.apache.ignite.raft.jraft.error.RaftError;
+import org.apache.ignite.raft.jraft.rpc.impl.RaftException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -656,8 +660,18 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                 raftService.changePeersAndLearners(newConfig, configuration.term())
                         .whenComplete((res, ex) -> {
                             if (ex != null) {
-                                String errorMessage = String.format("Error while changing voting set to %s", currentState.targetPeers);
-                                failureProcessor.process(new FailureContext(ex, errorMessage));
+                                Throwable unwrapped = ExceptionUtils.unwrapCause(ex);
+
+                                if (unwrapped instanceof RaftException && ((RaftException) unwrapped).raftError() == RaftError.ECATCHUP) {
+                                    // Some node has left, it's not a reason to fail our node; just log the error.
+                                    LOG.error("Error while changing voting set to {}", ex, currentState.targetPeers);
+                                } else if (!hasCause(ex, NodeStoppingException.class)) {
+                                    String errorMessage = IgniteStringFormatter.format(
+                                            "Error while changing voting set to {}",
+                                            currentState.targetPeers
+                                    );
+                                    failureProcessor.process(new FailureContext(ex, errorMessage));
+                                }
                             } else {
                                 LOG.info("Changed voting set successfully to {}", currentState.targetPeers);
                             }
@@ -774,15 +788,15 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         busyLock.block();
 
-        deployWatchesFuture.cancel(true);
+        deployWatchesFuture.completeExceptionally(new NodeStoppingException());
 
-        recoveryFinishedFuture.cancel(true);
+        recoveryFinishedFuture.completeExceptionally(new NodeStoppingException());
 
         try {
             IgniteUtils.closeAllManually(
                     () -> metricManager.unregisterSource(metaStorageMetricSource),
                     clusterTime,
-                    () -> cancelOrConsume(metaStorageSvcFut, MetaStorageServiceImpl::close),
+                    () -> failOrConsume(metaStorageSvcFut, new NodeStoppingException(), MetaStorageServiceImpl::close),
                     () -> raftMgr.stopRaftNodes(MetastorageGroupId.INSTANCE),
                     storage
             );
@@ -791,6 +805,22 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         }
 
         return nullCompletedFuture();
+    }
+
+    private static void cleanupMetaStorageServiceFuture(CompletableFuture<MetaStorageServiceImpl> future) {
+        future.completeExceptionally(new NodeStoppingException());
+
+        if (future.isCancelled() || future.isCompletedExceptionally()) {
+            return;
+        }
+
+        assert future.isDone();
+
+        MetaStorageServiceImpl res = future.join();
+
+        assert res != null;
+
+        res.close();
     }
 
     @Override
@@ -855,7 +885,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Entry> get(ByteArray key) {
         return inBusyLockAsync(
                 busyLock,
-                () -> withTrackReadOperationFromLeaderFuture(() -> metaStorageSvcFut.thenCompose(svc -> svc.get(key)))
+                () -> withTrackReadOperationFromLeaderFuture(
+                        storage.revision(),
+                        () -> metaStorageSvcFut.thenCompose(svc -> svc.get(key))
+                )
         );
     }
 
@@ -863,13 +896,11 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Entry> get(ByteArray key, long revUpperBound) {
         return inBusyLockAsync(
                 busyLock,
-                () -> withTrackReadOperationFromLeaderFuture(() -> metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound)))
+                () -> withTrackReadOperationFromLeaderFuture(
+                        revUpperBound,
+                        () -> metaStorageSvcFut.thenCompose(svc -> svc.get(key, revUpperBound))
+                )
         );
-    }
-
-    @Override
-    public List<Entry> getLocally(byte[] key, long revLowerBound, long revUpperBound) {
-        return inBusyLock(busyLock, () -> storage.get(key, revLowerBound, revUpperBound));
     }
 
     @Override
@@ -917,7 +948,10 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
     public CompletableFuture<Map<ByteArray, Entry>> getAll(Set<ByteArray> keys) {
         return inBusyLock(
                 busyLock,
-                () -> withTrackReadOperationFromLeaderFuture(() -> metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys)))
+                () -> withTrackReadOperationFromLeaderFuture(
+                        storage.revision(),
+                        () -> metaStorageSvcFut.thenCompose(svc -> svc.getAll(keys))
+                )
         );
     }
 
@@ -1033,6 +1067,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             return withTrackReadOperationFromLeaderPublisher(
+                    storage.revision(),
                     () -> new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.range(keyFrom, keyTo, false)))
             );
         } finally {
@@ -1053,6 +1088,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
         try {
             return withTrackReadOperationFromLeaderPublisher(
+                    revUpperBound,
                     () -> new CompletableFuturePublisher<>(metaStorageSvcFut.thenApply(svc -> svc.prefix(keyPrefix, revUpperBound)))
             );
         } finally {
@@ -1263,28 +1299,33 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
         return storage;
     }
 
-    private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(Supplier<CompletableFuture<T>> readFromLeader) {
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-        long compactionRevision = storage.getCompactionRevision();
+    private <T> CompletableFuture<T> withTrackReadOperationFromLeaderFuture(
+            long operationRevision,
+            Supplier<CompletableFuture<T>> readFromLeader
+    ) {
+        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
 
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
+        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
+
+        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
 
         try {
             return readFromLeader.get().whenComplete(
-                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision)
+                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision)
             );
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
             throw t;
         }
     }
 
-    private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(Supplier<Publisher<Entry>> readFromLeader) {
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-        long compactionRevision = storage.getCompactionRevision();
+    private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(long operationRevision, Supplier<Publisher<Entry>> readFromLeader) {
+        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
 
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, compactionRevision);
+        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
+
+        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
 
         try {
             Publisher<Entry> publisherFromLeader = readFromLeader.get();
@@ -1300,7 +1341,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                         @Override
                         public void cancel() {
-                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                             subscription.cancel();
                         }
@@ -1314,20 +1355,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 @Override
                 public void onError(Throwable throwable) {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                     subscriber.onError(throwable);
                 }
 
                 @Override
                 public void onComplete() {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
                     subscriber.onComplete();
                 }
             });
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, compactionRevision);
+            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
 
             throw t;
         }

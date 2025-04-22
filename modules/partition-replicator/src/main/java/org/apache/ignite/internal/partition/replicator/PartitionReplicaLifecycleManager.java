@@ -53,7 +53,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
@@ -100,6 +100,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -1312,11 +1313,16 @@ public class PartitionReplicaLifecycleManager extends
                 .thenApply(Replica::raftClient)
                 .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
                         .exceptionally(throwable -> {
-                            throwable = unwrapCause(throwable);
+                            if (hasCause(throwable, TimeoutException.class)) {
+                                LOG.info(
+                                        "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
+                                        replicaGrpId
+                                );
 
-                            if (throwable instanceof TimeoutException) {
-                                LOG.info("Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
-                                        replicaGrpId);
+                                return LeaderWithTerm.NO_LEADER;
+                            }
+                            if (hasCause(throwable, ComponentStoppingException.class)) {
+                                LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
 
                                 return LeaderWithTerm.NO_LEADER;
                             }

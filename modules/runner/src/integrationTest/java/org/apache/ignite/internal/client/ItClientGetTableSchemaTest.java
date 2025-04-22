@@ -28,7 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.client.table.ClientTable;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.junit.jupiter.api.Test;
 
 class ItClientGetTableSchemaTest extends ClusterPerTestIntegrationTest {

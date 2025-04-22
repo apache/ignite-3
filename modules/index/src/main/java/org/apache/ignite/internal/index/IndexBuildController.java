@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryRep
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
@@ -333,7 +335,9 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+                if (!hasCause(ex, NodeStoppingException.class)) {
+                    failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
+                }
             }
         });
     }
