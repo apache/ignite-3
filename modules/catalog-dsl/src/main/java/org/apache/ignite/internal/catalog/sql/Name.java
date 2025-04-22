@@ -84,15 +84,13 @@ class Name extends QueryPart {
         String separator = "";
         for (String name : names) {
             // If a name is quoted, we must preserve case sensitivity -> write it as is
-            // If a name UPPER(name) = QUOTED(UPPER(name)), then this is a case insensitive name, write it in uppercase for consistency.
-            // Otherwise UPPER(name) != QUOTED(UPPER(name)) and we must quote it.
+            // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name, write it in uppercase for consistency.
+            // Otherwise we must quote it.
             if (name.startsWith("\"")) {
                 ctx.sql(separator).sql(name);
             } else  {
                 String upperCase = name.toUpperCase();
-                String quoted = IgniteNameUtils.quoteIfNeeded(upperCase);
-
-                if (quoted.equals(upperCase)) {
+                if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
                     ctx.sql(separator).sql(upperCase);
                 } else {
                     ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
