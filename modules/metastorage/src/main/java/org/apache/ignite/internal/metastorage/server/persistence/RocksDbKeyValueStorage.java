@@ -1379,6 +1379,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     private void compactKeys(long compactionRevision) throws RocksDBException {
         assertCompactionRevisionLessThanCurrent(this.compactionRevision, rev);
 
+        // Clear bloom filter before opening iterator, so that we don't have collisions right from the start.
         synchronized (writeBatchProtector) {
             writeBatchProtector.clear();
         }
@@ -1412,6 +1413,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                     if (!writeCompactedBatch(batchKeys, batch)) {
                         key = retryPositionKey;
 
+                        // Refreshing the iterator is absolutely crucial. We have determined that data has been modified externally,
+                        // current snapshot in the iterator is invalid.
                         refreshIterator(iterator, key);
                     }
                 }
@@ -1639,8 +1642,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         try {
             byte[] valueBytes = data.get(keyToRocksKey(revision, key));
 
-            assert valueBytes != null && valueBytes.length != 0
-                    : "key=" + toUtf8String(key) + ", revision=" + revision + ", value=" + Arrays.toString(valueBytes);
+            if (valueBytes == null) {
+                assert revision <= compactionRevision
+                        : "key=" + toUtf8String(key) + ", revision=" + revision + ", compactionRevision=" + compactionRevision;
+
+                throw new CompactedException(revision, compactionRevision);
+            }
 
             return ArrayUtils.nullOrEmpty(valueBytes) ? null : bytesToValue(valueBytes);
         } catch (RocksDBException e) {
@@ -1728,8 +1735,9 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 long revision = keyRevisions[maxRevisionIndex];
                 Value value = getValueForOperationNullable(key, revision);
 
-                // Value may be null if the compaction has removed it in parallel.
-                if (value == null || value.tombstone()) {
+                assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision + ", compactionRevision=" + compactionRevision;
+
+                if (value.tombstone()) {
                     return EntryImpl.empty(key);
                 }
 

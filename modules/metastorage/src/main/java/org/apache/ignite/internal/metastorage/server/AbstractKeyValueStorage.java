@@ -124,8 +124,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     /** Returns the key revisions for operation, an empty array if not found. */
     protected abstract long[] keyRevisionsForOperation(byte[] key);
 
-    /** Returns key values by revision for operation. */
-    protected abstract Value valueForOperation(byte[] key, long revision);
+    /**
+     * Returns key values by revision for operation.
+     *
+     * @throws CompactedException If value is compacted for this particular revision.
+     */
+    protected abstract Value valueForOperation(byte[] key, long revision) throws CompactedException;
 
     /**
      * Returns {@code true} if the metastorage is in the recovery state.
