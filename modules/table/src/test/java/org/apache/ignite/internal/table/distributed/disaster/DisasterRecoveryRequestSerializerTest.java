@@ -30,7 +30,7 @@ import org.junit.jupiter.api.Test;
 
 class DisasterRecoveryRequestSerializerTest {
     private static final String GROUP_UPDATE_REQUEST_V1_BASE64 = "Ae++QwEB775D782rkHhWNBIhQ2WHCbrc/ukH0Q8DoR8EICoXuRcEFiAMAQ==";
-    private static final String GROUP_UPDATE_REQUEST_V2_BASE64 = "Ae++QwEC775DAe/Nq5B4VjQSIUNlhwm63P7pB9EPA6EfBCoXILkXBAwWIAE=";
+    private static final String GROUP_UPDATE_REQUEST_V2_BASE64 = "Ae++QwEC775D782rkHhWNBIhQ2WHCbrc/ukH0Q8DuRcEIBYMoR8EIBcqAQE=";
     private static final String MANUAL_GROUP_RESTART_REQUEST_V1_BASE64 = "Ae++QwIB775D782rkHhWNBIhQ2WHCbrc/tEPuRcEIBYMAwJiAmH///9///+AgAQ=";
 
     private final DisasterRecoveryRequestSerializer serializer = new DisasterRecoveryRequestSerializer();
