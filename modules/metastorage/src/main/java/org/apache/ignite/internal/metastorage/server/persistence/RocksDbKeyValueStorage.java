@@ -509,6 +509,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     @Override
     public void restoreSnapshot(Path path) {
         try {
+            // TODO IGNITE-25213 Ensure that this doesn't happen on a running node.
             clear();
 
             snapshotManager.restoreSnapshot(path);
