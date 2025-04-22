@@ -991,6 +991,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
                 assertEquals(revision, entry.revision());
                 assertArrayEquals(value, entry.value());
             } catch (CompactedException ignore) {
+                // This is expected.
             }
 
             storage.remove(key, context);
