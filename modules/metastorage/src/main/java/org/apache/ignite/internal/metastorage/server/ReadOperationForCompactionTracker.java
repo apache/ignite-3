@@ -90,7 +90,8 @@ public class ReadOperationForCompactionTracker {
             // Value from compacted revision supplier can only grow. We only use it for upper bound checks, so it's safe to read it every
             // time instead of caching it. It applies to all usages of the supplier.
             if (currentOperationRevision <= compactedRevision.getAsLong()) {
-                // Latest revision can never be compacted. If for some reason it already is, we should retry until it is not.
+                // Latest revision can never be compacted. If for some reason latest revision is updated and this revision is already
+                // compacted, we should retry until we succeed. That's quite a lag, but it's possible in theory.
                 if (operationRevision == MetaStorageManager.LATEST_REVISION) {
                     continue;
                 }

@@ -88,7 +88,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      * process the update of the compaction revision from the previous leader. This is necessary to cover corner cases with a sufficiently
      * small compaction revision update interval.</p>
      */
-    private volatile long planedUpdateCompactionRevision = -1;
+    private volatile long plannedUpdateCompactionRevision = -1;
 
     protected final AtomicBoolean stopCompaction = new AtomicBoolean();
 
@@ -206,8 +206,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         if (isInRecoveryState()) {
             setCompactionRevision(compactionRevision);
-        } else if (compactionRevision > planedUpdateCompactionRevision) {
-            planedUpdateCompactionRevision = compactionRevision;
+        } else if (compactionRevision > plannedUpdateCompactionRevision) {
+            plannedUpdateCompactionRevision = compactionRevision;
 
             notifyWatchProcessor(new AdvanceSafeTimeEvent(() -> {
                 setCompactionRevision(compactionRevision);

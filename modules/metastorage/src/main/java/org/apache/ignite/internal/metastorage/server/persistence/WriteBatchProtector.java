@@ -44,9 +44,9 @@ class WriteBatchProtector {
     public void onUpdate(byte[] key) {
         int h = hash(key);
 
-        int msb = h >>> LSB_BITS;
-        int lsb = h & LSB_MASK;
-        bloom[msb] |= 1L << lsb;
+        int msb = indexInsideArray(h);
+        int lsb = indexInsideLongValue(h);
+        bloom[msb] |= singleBitInLong(lsb);
     }
 
     /**
@@ -56,9 +56,21 @@ class WriteBatchProtector {
     public boolean maybeUpdated(byte[] key) {
         int h = hash(key);
 
-        int msb = h >>> LSB_BITS;
-        int lsb = h & LSB_MASK;
-        return (bloom[msb] & (1L << lsb)) != 0L;
+        int msb = indexInsideArray(h);
+        int lsb = indexInsideLongValue(h);
+        return (bloom[msb] & singleBitInLong(lsb)) != 0L;
+    }
+
+    private static int indexInsideArray(int h) {
+        return h >>> LSB_BITS;
+    }
+
+    private static int indexInsideLongValue(int h) {
+        return h & LSB_MASK;
+    }
+
+    private static long singleBitInLong(int lsb) {
+        return 1L << lsb;
     }
 
     /**

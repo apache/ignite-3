@@ -244,7 +244,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /**
      * Facility to work with checksums.
      */
-    private MetastorageChecksum checksum;
+    private volatile MetastorageChecksum checksum;
 
     /** Status of the watch recovery process. */
     private enum RecoveryStatus {
@@ -946,10 +946,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             compactKeys(revision);
 
             compactAuxiliaryMappings(revision);
-
-            // Compaction might have created a lot of tombstones in column families, which affect scan speed. Removing them makes next
-            // compaction faster, as well as other scans in general.
-            compactColumnFamilies();
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -1012,6 +1008,21 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             } else {
                 index.put(batch, key, longsToBytes(indexToCompact + 1, revs));
             }
+
+            /*
+             * for (i == 1 ... n)
+             *      put    i             |  key i -> [revision]
+             *      remove i             |  key i -> [revision1, revision2]
+             *      compact              |  key i -> {} // tombstone
+             *          compact does a foreach over keys.
+             *
+             *      scan ==== read everything & filter out tombstones
+             *      each iteration used to be O(i) before I started compacting CFs on each MS compaction
+             *
+             *
+             * entire loop is O(n*n)
+
+             */
         } catch (Throwable t) {
             throw new MetaStorageException(
                     COMPACTION_ERR,
@@ -1408,6 +1419,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                             return;
                         }
 
+                        // Throw an exception if something went wrong.
                         iterator.status();
 
                         key = iterator.key();
@@ -1447,6 +1459,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                             return;
                         }
 
+                        // Throw an exception if something went wrong.
                         iterator.status();
 
                         if (!deleteAuxiliaryMapping(compactionRevision, iterator, batch)) {
@@ -1478,24 +1491,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         revisionToChecksum.delete(batch, key);
 
         return true;
-    }
-
-    private volatile long lastCompactRangeStart = System.nanoTime();
-
-    private void compactColumnFamilies() throws RocksDBException {
-        if (TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - lastCompactRangeStart) >= 1) {
-            lastCompactRangeStart = System.nanoTime();
-
-            if (!busyLock.enterBusy()) {
-                return;
-            }
-
-            try {
-                db.compactRange();
-            } finally {
-                busyLock.leaveBusy();
-            }
-        }
     }
 
     /**
@@ -1551,7 +1546,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @param batchKeys Meta-storage keys that have been compacted in this batch.
      * @param batch RockDB's {@link WriteBatch}.
-     * @return {@code true} if writing succeeded, {@code false} if compaction round must be retried doe to concurrent storage update.
+     * @return {@code true} if writing succeeded, {@code false} if compaction round must be retried due to concurrent storage update.
      * @throws RocksDBException If {@link RocksDB#write(WriteOptions, WriteBatch)} threw an exception.
      *
      * @see #writeBatch(WriteBatch)
