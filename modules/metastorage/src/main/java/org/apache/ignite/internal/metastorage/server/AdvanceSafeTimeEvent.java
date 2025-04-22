@@ -22,15 +22,15 @@ import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 
 /** Notifier of {@link WatchProcessor} about updating the metastorage compaction revision. */
-public class UpdateCompactionRevisionEvent implements NotifyWatchProcessorEvent {
-    private final long compactionRevision;
+class AdvanceSafeTimeEvent implements NotifyWatchProcessorEvent {
+    private final Runnable callback;
 
     @IgniteToStringInclude
     private final HybridTimestamp timestamp;
 
     /** Constructor. */
-    public UpdateCompactionRevisionEvent(long revision, HybridTimestamp timestamp) {
-        compactionRevision = revision;
+    AdvanceSafeTimeEvent(Runnable callback, HybridTimestamp timestamp) {
+        this.callback = callback;
         this.timestamp = timestamp;
     }
 
@@ -41,7 +41,7 @@ public class UpdateCompactionRevisionEvent implements NotifyWatchProcessorEvent 
 
     @Override
     public void notify(WatchProcessor watchProcessor) {
-        watchProcessor.updateCompactionRevision(compactionRevision, timestamp);
+        watchProcessor.advanceSafeTime(callback, timestamp);
     }
 
     @Override

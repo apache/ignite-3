@@ -55,7 +55,10 @@ public class TestPlacementDriver extends AbstractEventProducer<PrimaryReplicaEve
      * start of the components/node. Will use {@link TestReplicaMetaImpl#TestReplicaMetaImpl(ClusterNode)}.
      */
     public TestPlacementDriver(Supplier<ClusterNode> leaseholderSupplier) {
-        primaryReplicaSupplier = () -> new TestReplicaMetaImpl(leaseholderSupplier.get());
+        primaryReplicaSupplier = () -> {
+            ClusterNode leaseholder = leaseholderSupplier.get();
+            return leaseholder == null ? null : new TestReplicaMetaImpl(leaseholder);
+        };
     }
 
     public TestPlacementDriver(String leaseholder, UUID leaseholderId) {

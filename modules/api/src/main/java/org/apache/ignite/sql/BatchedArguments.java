@@ -18,6 +18,8 @@
 package org.apache.ignite.sql;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -74,7 +76,8 @@ public final class BatchedArguments implements Iterable<List<Object>> {
     public BatchedArguments add(Object... args) {
         Objects.requireNonNull(args, "args");
 
-        return addArguments(List.of(args));
+        //noinspection Java9CollectionFactory List.copyOf doesn't support null-values.
+        return addArguments(Collections.unmodifiableList(Arrays.asList(args)));
     }
 
     /**
@@ -140,7 +143,8 @@ public final class BatchedArguments implements Iterable<List<Object>> {
                 ensureRowLength(requiredLength, arguments.size());
             }
 
-            resultList.add(List.copyOf(arguments));
+            //noinspection Java9CollectionFactory List.copyOf doesn't support null-values.
+            resultList.add(Collections.unmodifiableList(new ArrayList<>(arguments)));
 
             ++pos;
         }

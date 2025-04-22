@@ -33,6 +33,8 @@ public class UpdateEntriesEvent implements NotifyWatchProcessorEvent {
 
     /** Constructor. */
     public UpdateEntriesEvent(List<Entry> updatedEntries, HybridTimestamp timestamp) {
+        assert !updatedEntries.isEmpty();
+
         this.updatedEntries = updatedEntries;
         this.timestamp = timestamp;
     }
@@ -44,7 +46,7 @@ public class UpdateEntriesEvent implements NotifyWatchProcessorEvent {
 
     @Override
     public void notify(WatchProcessor watchProcessor) {
-        watchProcessor.notifyWatches(updatedEntries, timestamp);
+        watchProcessor.notifyWatches(updatedEntries.get(0).revision(), updatedEntries, timestamp);
     }
 
     @Override

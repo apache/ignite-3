@@ -36,7 +36,7 @@ import static org.apache.ignite.internal.testframework.matchers.JobStateMatcher.
 import static org.apache.ignite.internal.testframework.matchers.TaskStateMatcher.taskStateWithStatus;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Compute.COMPUTE_JOB_FAILED_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_ALREADY_EXISTS_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Table.COLUMN_NOT_FOUND_ERR;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.allOf;
@@ -426,7 +426,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
@@ -442,7 +442,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
@@ -878,7 +878,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         assertThat(cause.getMessage(), containsString("Custom job error"));
         assertEquals(TRACE_ID, cause.traceId());
-        assertEquals(COLUMN_ALREADY_EXISTS_ERR, cause.code());
+        assertEquals(COLUMN_NOT_FOUND_ERR, cause.code());
         assertInstanceOf(CustomException.class, cause);
         assertNotNull(cause.getCause());
         String hint = cause.getCause().getMessage();
@@ -923,7 +923,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class IgniteExceptionJob implements ComputeJob<Object, String> {
         @Override
         public CompletableFuture<String> executeAsync(JobExecutionContext context, Object args) {
-            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
         }
     }
 
@@ -1044,7 +1044,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceExceptionOnSplitTask implements MapReduceTask<Object, Object, Object, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<Object, Object>>> splitAsync(TaskExecutionContext context, Object args) {
-            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
         }
 
         @Override
@@ -1068,7 +1068,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         @Override
         public CompletableFuture<String> reduceAsync(TaskExecutionContext context, Map<UUID, String> results) {
-            throw new CustomException(TRACE_ID, COLUMN_ALREADY_EXISTS_ERR, "Custom job error", null);
+            throw new CustomException(TRACE_ID, COLUMN_NOT_FOUND_ERR, "Custom job error", null);
         }
     }
 

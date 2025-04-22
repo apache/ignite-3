@@ -225,11 +225,10 @@ public class ThrottlingTest extends IgniteAbstractTest {
     @Test
     public void wakeupSpeedBaseThrottledThreadOnCheckpointFinish() throws Exception {
         // Given: Enabled throttling with EXPONENTIAL level.
-        CheckpointProgress cl0 = mock(CheckpointProgress.class);
-        when(cl0.writtenPages()).thenReturn(200);
+        when(progress.writtenPages()).thenReturn(200);
 
         Supplier<CheckpointProgress> cpProgress = mock(Supplier.class);
-        when(cpProgress.get()).thenReturn(cl0);
+        when(cpProgress.get()).thenReturn(progress);
 
         var plc = new PagesWriteSpeedBasedThrottle(pageMemory2g, cpProgress, stateChecker, metricSource) {
             @Override protected void doPark(long throttleParkTimeNs) {

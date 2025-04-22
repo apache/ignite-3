@@ -47,6 +47,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
+import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.client.AbstractTopologyAwareGroupServiceTest;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -108,13 +109,14 @@ public class ActiveActorTest extends AbstractTopologyAwareGroupServiceTest {
         var mockRaftMgr = mock(Loza.class);
 
         try {
-            when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any())).then(invocation ->
+            when(mockRaftMgr.startRaftGroupService(any(), any(), any(), any(), any())).then(invocation ->
                     raftGroupServiceFactory.startRaftGroupService(
                             GROUP_ID,
                             peersAndLearners,
                             raftConfiguration,
                             executor,
-                            null
+                            null,
+                            StoppingExceptionFactories.indicateComponentStop()
                     )
             );
         } catch (NodeStoppingException e) {

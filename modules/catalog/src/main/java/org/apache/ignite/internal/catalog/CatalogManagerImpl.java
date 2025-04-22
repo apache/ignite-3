@@ -23,12 +23,13 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
@@ -264,7 +265,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
                         .replicas(DEFAULT_REPLICA_COUNT)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds())
                         .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .filter(DEFAULT_FILTER)
                         .storageProfilesParams(
@@ -504,7 +505,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
-                        if (err != null) {
+                        if (err != null && !hasCause(err, NodeStoppingException.class)) {
                             failureProcessor.process(new FailureContext(err, "Failed to apply catalog update."));
                         }
 

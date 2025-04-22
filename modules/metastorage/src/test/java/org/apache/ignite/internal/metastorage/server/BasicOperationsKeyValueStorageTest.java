@@ -28,6 +28,7 @@ import static org.apache.ignite.internal.metastorage.dsl.Operations.ops;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.remove;
 import static org.apache.ignite.internal.metastorage.server.KeyValueUpdateContext.kvContext;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
@@ -76,7 +77,6 @@ import org.apache.ignite.internal.metastorage.dsl.StatementResult;
 import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.ByteUtils;
@@ -203,85 +203,6 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
         assertTrue(key3EntryBounded5.tombstone());
         assertNull(key3EntryBounded5.value());
         assertFalse(key3EntryBounded5.empty());
-    }
-
-    @Test
-    void getWithRevisionLowerUpperBound() {
-        byte[] key1 = key(1);
-        byte[] key2 = key(2);
-
-        byte[] val1 = keyValue(1, 1);
-        byte[] val2 = keyValue(1, 2);
-        byte[] val3 = keyValue(2, 3);
-        byte[] val4 = keyValue(1, 4);
-        byte[] val5 = keyValue(1, 5);
-        byte[] val6 = keyValue(2, 6);
-        byte[] val7 = keyValue(2, 7);
-        byte[] val8 = keyValue(1, 8);
-        byte[] val9 = keyValue(1, 9);
-
-        assertEquals(0, storage.revision());
-
-        putToMs(key1, val1);
-        putToMs(key1, val2);
-        putToMs(key2, val3);
-        putToMs(key1, val4);
-        putToMs(key1, val5);
-        putToMs(key2, val6);
-        putToMs(key2, val7);
-        putToMs(key1, val8);
-        putToMs(key1, val9);
-
-        removeFromMs(key1);
-
-        assertEquals(10, storage.revision());
-
-        // Check that a lower revision and an upper revision are inclusive.
-        // Check that entry with another key is not included in a result list.
-        List<Entry> entries1 = storage.get(key1, 2, 5);
-        List<byte[]> values1 = entries1.stream().map(entry -> entry.value()).collect(toList());
-
-        assertEquals(3, entries1.size());
-        assertArrayEquals(val2, values1.get(0));
-        assertArrayEquals(val4, values1.get(1));
-        assertArrayEquals(val5, values1.get(2));
-
-        // Check that entries with another key and revision equals to lower revision and to the upper revision are not inclusive.
-        List<Entry> entries2 = storage.get(key1, 3, 6);
-        List<byte[]> values2 = entries2.stream().map(entry -> entry.value()).collect(toList());
-
-        assertEquals(2, entries2.size());
-        assertArrayEquals(val4, values2.get(0));
-        assertArrayEquals(val5, values2.get(1));
-
-        // Get one entry. The lower and the upper revision are equal.
-        List<Entry> entries3 = storage.get(key1, 8, 8);
-        List<byte[]> values3 = entries3.stream().map(entry -> entry.value()).collect(toList());
-
-        assertEquals(1, entries3.size());
-        assertArrayEquals(val8, values3.get(0));
-
-        // Try to get entries when the revision range doesn't contain entries with the key.
-        List<Entry> entries4 = storage.get(key1, 6, 7);
-
-        assertTrue(entries4.isEmpty());
-
-        // Try to get entries when the storage doesn't contain entries with specified revisions.
-        List<Entry> entries5 = storage.get(key1, 20, 30);
-
-        assertTrue(entries5.isEmpty());
-
-        // Get a tombstone.
-        List<Entry> entries6 = storage.get(key1, 10, 10);
-
-        assertEquals(1, entries6.size());
-        assertTrue(entries6.get(0).tombstone());
-        assertNull(entries6.get(0).value());
-
-        // Check validation asserts.
-        assertThrows(AssertionError.class, () -> storage.get(key1, -1, 1));
-        assertThrows(AssertionError.class, () -> storage.get(key1, 1, -1));
-        assertThrows(AssertionError.class, () -> storage.get(key1, 2, 1));
     }
 
     @Test
@@ -2300,7 +2221,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
 
         var invokesFinished = new AtomicBoolean();
 
-        IgniteTestUtils.runRace(
+        runRace(
                 () -> {
                     try {
                         // Sufficiently large number of iterations. 10 used to be enough to reproduce the issue, but 1000 is better.
@@ -2333,7 +2254,9 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
                             continue;
                         }
 
-                        storage.compact(storage.revision() - 1);
+                        long compactedRevision = storage.revision() - 1;
+                        storage.setCompactionRevision(compactedRevision);
+                        storage.compact(compactedRevision);
                     }
                 }
         );
