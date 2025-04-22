@@ -535,7 +535,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 5);
 
         storage.setCompactionRevision(5);
-        // TODO But why? We can read that tombstone. I should fix that in a separate issue.
+        // TODO IGNITE-25212 Consider expecting a tombstone here.
         assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 5);
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 6);
 

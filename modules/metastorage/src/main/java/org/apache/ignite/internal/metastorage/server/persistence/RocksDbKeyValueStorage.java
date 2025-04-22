@@ -904,24 +904,28 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
         assert startRevision > 0 : startRevision;
 
-        watchProcessor.setWatchEventHandlingCallback(callback);
+        long currentRevision;
 
-        long currentRevision = rev;
+        synchronized (watchProcessorMutex) {
+            watchProcessor.setWatchEventHandlingCallback(callback);
 
-        // We update the recovery status under the read lock in order to avoid races between starting watches and applying a snapshot
-        // or concurrent writes. Replay of events can be done outside of the read lock relying on RocksDB snapshot isolation.
-        if (currentRevision == 0) {
-            recoveryStatus.set(RecoveryStatus.DONE);
-        } else {
-            // If revision is not 0, we need to replay updates that match the existing data.
-            recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
+            currentRevision = rev;
+
+            // We update the recovery status under the read lock in order to avoid races between starting watches and applying a snapshot
+            // or concurrent writes. Replay of events can be done outside of the read lock relying on RocksDB snapshot isolation.
+            if (currentRevision == 0) {
+                recoveryStatus.set(RecoveryStatus.DONE);
+            } else {
+                // If revision is not 0, we need to replay updates that match the existing data.
+                recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
+            }
         }
 
         if (currentRevision != 0) {
             Set<UpdateEntriesEvent> updateEntriesEvents = collectUpdateEntriesEventsFromStorage(startRevision, currentRevision);
             Set<UpdateOnlyRevisionEvent> updateOnlyRevisionEvents = collectUpdateRevisionEventsFromStorage(startRevision, currentRevision);
 
-            synchronized (this) {
+            synchronized (watchProcessorMutex) {
                 notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateEntriesEvents);
                 // Adds events for which there were no entries updates but the revision was updated.
                 notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateOnlyRevisionEvents);

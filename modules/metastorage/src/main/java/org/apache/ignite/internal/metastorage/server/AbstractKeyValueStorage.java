@@ -56,6 +56,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     protected final WatchProcessor watchProcessor;
 
+    protected final Object watchProcessorMutex = new Object();
+
     /**
      * Revision listener for recovery only. Notifies {@link MetaStorageManagerImpl} of current revisions update, {@code null} if recovery
      * is complete.
@@ -360,22 +362,25 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return new Revisions(rev, compactionRevision);
     }
 
-    protected synchronized void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
-        // Race here, use a proper lock for synchronization, not "this".
-        if (areWatchesStarted()) {
-            event.notify(watchProcessor);
-        } else {
-            boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
+    protected void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
+        synchronized (watchProcessorMutex) {
+            if (areWatchesStarted()) {
+                event.notify(watchProcessor);
+            } else {
+                boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
 
-            assert added : event;
+                assert added : event;
+            }
         }
     }
 
     protected synchronized void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
-        assert !areWatchesStarted();
+        synchronized (watchProcessorMutex) {
+            assert !areWatchesStarted();
 
-        notifyWatchProcessorEventsBeforeStartingWatches.forEach(event -> event.notify(watchProcessor));
+            notifyWatchProcessorEventsBeforeStartingWatches.forEach(event -> event.notify(watchProcessor));
 
-        notifyWatchProcessorEventsBeforeStartingWatches = null;
+            notifyWatchProcessorEventsBeforeStartingWatches = null;
+        }
     }
 }
