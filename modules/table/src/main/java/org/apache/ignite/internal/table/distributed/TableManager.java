@@ -56,6 +56,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.emptyListComple
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -177,6 +178,7 @@ import org.apache.ignite.internal.replicator.ReplicaManager.WeakReplicaStopReaso
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.TransientReplicaStartException;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.replicator.listener.ReplicaListener;
@@ -189,6 +191,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -1334,7 +1337,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 startReplicaSupplier,
                 forcedAssignments
         ).handle((res, ex) -> {
-            if (ex != null) {
+            if (ex != null && !(hasCause(ex, TransientReplicaStartException.class))) {
                 String errorMessage = String.format(
                         "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
                         tableId,
@@ -2850,6 +2853,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
         } catch (StorageDestroyedException ignored) {
             // Ignore as the storage is already destroyed, no need to destroy it again.
+        } catch (StorageClosedException ignored) {
+            // The storage is closed, so the node is being stopped. We'll destroy the partition on node recovery.
         }
 
         if (!enabledColocation) {

@@ -97,6 +97,10 @@ public class LogInspector {
     /** Logger configuration. */
     private Configuration config;
 
+    static {
+        Log4jUtils.waitTillConfigured();
+    }
+
     /**
      * Creates a new instance of {@link LogInspector} for the given {@code loggerName}.
      *

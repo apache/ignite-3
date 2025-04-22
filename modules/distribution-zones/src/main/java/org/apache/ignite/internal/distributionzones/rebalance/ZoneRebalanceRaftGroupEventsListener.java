@@ -42,7 +42,6 @@ import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -541,7 +540,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
-            if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
+            if (!hasCause(e, NodeStoppingException.class)) {
                 String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
                 failureProcessor.process(new FailureContext(e, errorMessage));
             }

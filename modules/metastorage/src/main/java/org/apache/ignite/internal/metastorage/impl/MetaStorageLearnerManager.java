@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
@@ -130,7 +129,7 @@ class MetaStorageLearnerManager {
             return action.get()
                     .whenComplete((v, e) -> {
                         if (e != null) {
-                            if (!hasCause(e, NodeStoppingException.class, CancellationException.class)) {
+                            if (!hasCause(e, NodeStoppingException.class)) {
                                 failureProcessor.process(new FailureContext(e, "Unable to change peers on topology update"));
                             }
                         }

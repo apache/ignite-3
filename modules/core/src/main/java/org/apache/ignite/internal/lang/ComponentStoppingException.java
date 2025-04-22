@@ -17,23 +17,25 @@
 
 package org.apache.ignite.internal.lang;
 
-import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * This exception is used to indicate that Ignite node is stopping (already stopped) for some reason.
+ * This exception is used to indicate that a component (like replication group client) is stopping (already stopped) for some reason.
+ * This is different from {@link NodeStoppingException} as {@link ComponentStoppingException} might mean that just the component is stopped,
+ * not the whole node.
  */
-public class NodeStoppingException extends IgniteInternalCheckedException {
+public class ComponentStoppingException extends IgniteInternalCheckedException {
     /** Serial version UID. */
     private static final long serialVersionUID = 0L;
 
     /**
-     * Creates an empty node stopping exception.
+     * Creates an empty component stopping exception.
      */
-    public NodeStoppingException() {
-        super(NODE_STOPPING_ERR, "Operation has been cancelled (node is stopping).");
+    public ComponentStoppingException() {
+        super(INTERNAL_ERR, "Operation has been cancelled (component is stopping).");
     }
 
     /**
@@ -41,37 +43,37 @@ public class NodeStoppingException extends IgniteInternalCheckedException {
      *
      * @param msg Error message.
      */
-    public NodeStoppingException(String msg) {
-        super(NODE_STOPPING_ERR, msg);
+    public ComponentStoppingException(String msg) {
+        super(INTERNAL_ERR, msg);
     }
 
     /**
-     * Creates a new node stopping exception with the given throwable as a cause and source of error message.
+     * Creates a new component stopping exception with the given throwable as a cause and source of error message.
      *
      * @param cause Non-null throwable cause.
      */
-    public NodeStoppingException(Throwable cause) {
-        super(NODE_STOPPING_ERR, cause);
+    public ComponentStoppingException(Throwable cause) {
+        super(INTERNAL_ERR, cause);
     }
 
     /**
-     * Creates a new node stopping exception with the given error message and optional nested exception.
+     * Creates a new component stopping exception with the given error message and optional nested exception.
      *
      * @param msg                Error message.
      * @param cause              Optional nested exception (can be {@code null}).
      * @param writableStackTrace Whether or not the stack trace should be writable.
      */
-    public NodeStoppingException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
-        super(UUID.randomUUID(), NODE_STOPPING_ERR, msg, cause, writableStackTrace);
+    public ComponentStoppingException(String msg, @Nullable Throwable cause, boolean writableStackTrace) {
+        super(UUID.randomUUID(), INTERNAL_ERR, msg, cause, writableStackTrace);
     }
 
     /**
-     * Creates a new node stopping exception with the given error message and optional nested exception.
+     * Creates a new component stopping exception with the given error message and optional nested exception.
      *
      * @param msg   Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public NodeStoppingException(String msg, @Nullable Throwable cause) {
-        super(NODE_STOPPING_ERR, msg, cause);
+    public ComponentStoppingException(String msg, @Nullable Throwable cause) {
+        super(INTERNAL_ERR, msg, cause);
     }
 }

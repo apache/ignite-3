@@ -45,6 +45,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -87,6 +88,11 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         );
 
         assignmentsTimestamp = clock.now().longValue();
+    }
+
+    @AfterEach
+    public void cleanup() {
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
     }
 
     @ParameterizedTest

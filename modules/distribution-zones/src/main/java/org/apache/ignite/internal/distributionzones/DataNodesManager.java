@@ -72,7 +72,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
@@ -1100,7 +1099,7 @@ public class DataNodesManager {
     }
 
     private static boolean relatesToNodeStopping(Throwable e) {
-        return hasCause(e, NodeStoppingException.class, CancellationException.class);
+        return hasCause(e, NodeStoppingException.class);
     }
 
     /**

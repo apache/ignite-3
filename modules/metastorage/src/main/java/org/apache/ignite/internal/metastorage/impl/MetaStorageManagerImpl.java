@@ -34,7 +34,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -667,7 +666,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
                                 if (unwrapped instanceof RaftException && ((RaftException) unwrapped).raftError() == RaftError.ECATCHUP) {
                                     // Some node has left, it's not a reason to fail our node; just log the error.
                                     LOG.error("Error while changing voting set to {}", ex, currentState.targetPeers);
-                                } else if (!hasCause(ex, NodeStoppingException.class, CancellationException.class)) {
+                                } else if (!hasCause(ex, NodeStoppingException.class)) {
                                     String errorMessage = IgniteStringFormatter.format(
                                             "Error while changing voting set to {}",
                                             currentState.targetPeers

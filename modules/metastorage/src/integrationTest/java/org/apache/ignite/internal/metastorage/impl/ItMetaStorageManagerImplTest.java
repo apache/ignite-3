@@ -48,7 +48,6 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
@@ -271,7 +270,7 @@ public class ItMetaStorageManagerImplTest extends IgniteAbstractTest {
 
         CompletableFuture<Entry> fut = svc.get(FOO_KEY);
 
-        assertThat(fut, willThrowFast(CancellationException.class));
+        assertThat(fut, willThrowFast(NodeStoppingException.class));
     }
 
     @Test
