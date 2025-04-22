@@ -17,18 +17,19 @@
 
 package org.apache.ignite.internal.replicator;
 
-import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -70,7 +71,7 @@ public class ReplicaImpl implements Replica {
 
     private LeaderElectionListener onLeaderElectedFailoverCallback;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final PlacementDriverMessageProcessor placementDriverMessageProcessor;
 
@@ -86,7 +87,7 @@ public class ReplicaImpl implements Replica {
      * @param localNode Instance of the local node.
      * @param placementDriver Placement driver.
      * @param getPendingAssignmentsSupplier The supplier of pending assignments for rebalance failover purposes.
-     * @param failureManager Failure manager in case if we couldn't subscribe failover callback on raft client.
+     * @param failureProcessor Failure processor in case if we couldn't subscribe failover callback on raft client.
      *
      */
     public ReplicaImpl(
@@ -95,7 +96,7 @@ public class ReplicaImpl implements Replica {
             ClusterNode localNode,
             PlacementDriver placementDriver,
             Function<ReplicationGroupId, CompletableFuture<byte[]>> getPendingAssignmentsSupplier,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             PlacementDriverMessageProcessor placementDriverMessageProcessor
     ) {
         this.replicaGrpId = replicaGrpId;
@@ -104,7 +105,7 @@ public class ReplicaImpl implements Replica {
         this.localNode = localNode;
         this.placementDriver = placementDriver;
         this.getPendingAssignmentsSupplier = getPendingAssignmentsSupplier;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.placementDriverMessageProcessor = placementDriverMessageProcessor;
 
         placementDriver.listen(PrimaryReplicaEvent.PRIMARY_REPLICA_ELECTED, onPrimaryReplicaElected);
@@ -188,9 +189,11 @@ public class ReplicaImpl implements Replica {
         return raftClient
                 .subscribeLeader(onLeaderElectedFailoverCallback)
                 .exceptionally(e -> {
-                    LOG.error("Rebalance failover subscription on elected primary replica failed [groupId=" + replicaGrpId + "].", e);
-
-                    failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                    if (!hasCause(e, NodeStoppingException.class)) {
+                        String errorMessage = "Rebalance failover subscription on elected primary replica failed [groupId="
+                                + replicaGrpId + "].";
+                        failureProcessor.process(new FailureContext(e, errorMessage));
+                    }
 
                     return null;
                 })

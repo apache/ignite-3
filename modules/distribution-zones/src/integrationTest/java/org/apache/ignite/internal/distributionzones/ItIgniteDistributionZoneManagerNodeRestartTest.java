@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.createZone;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.deserializeLatestDataNodesHistoryEntry;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.setZoneAutoAdjustScaleUpToImmediate;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_DOWN_TIMER_PREFIX;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_SCALE_UP_TIMER_PREFIX;
@@ -38,6 +39,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesLastHandledTopology;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zonesRecoverableStateRevision;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.OperationType.NO_OP;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultChannelTypeRegistry;
 import static org.apache.ignite.internal.network.utils.ClusterServiceTestUtils.defaultSerializationRegistry;
@@ -102,8 +104,7 @@ import org.apache.ignite.internal.configuration.validation.ConfigurationValidato
 import org.apache.ignite.internal.disaster.system.ClusterIdService;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DataNodesManager.ZoneTimers;
-import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.failure.NoOpFailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -228,6 +229,8 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         var nettyBootstrapFactory = new NettyBootstrapFactory(networkConfiguration, name);
 
+        var failureProcessor = mock(FailureProcessor.class);
+
         var clusterSvc = new TestScaleCubeClusterServiceFactory().createClusterService(
                 name,
                 networkConfiguration,
@@ -236,12 +239,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
                 new VaultStaleIds(vault),
                 clusterIdService,
                 new NoOpCriticalWorkerRegistry(),
-                mock(FailureManager.class),
+                failureProcessor,
                 defaultChannelTypeRegistry(),
                 new DefaultIgniteProductVersionSource()
         );
 
-        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+        var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureProcessor);
 
         var cmgManager = mock(ClusterManagementGroupManager.class);
 
@@ -255,7 +258,7 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         var storage = new RocksDbKeyValueStorage(
                 name,
                 workDir.resolve("metastorage"),
-                new NoOpFailureManager(),
+                failureProcessor,
                 readOperationForCompactionTracker,
                 commonScheduledExecutorService
         );
@@ -297,9 +300,9 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
         ClockService clockService = new TestClockService(clock, clockWaiter);
 
         var catalogManager = new CatalogManagerImpl(
-                new UpdateLogImpl(metastore),
+                new UpdateLogImpl(metastore, failureProcessor),
                 clockService,
-                new NoOpFailureManager(),
+                failureProcessor,
                 () -> TEST_DELAY_DURATION
         );
 
@@ -920,6 +923,12 @@ public class ItIgniteDistributionZoneManagerNodeRestartTest extends BaseIgniteRe
 
         assert manager != null;
 
-        CatalogTestUtils.awaitDefaultZoneCreation(manager);
+        if (enabledColocation()) {
+            CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(manager);
+
+            // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
+            // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
+            setZoneAutoAdjustScaleUpToImmediate(getCatalogManager(node), defaultZone.name());
+        }
     }
 }

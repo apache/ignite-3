@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.deployunit.DeploymentStatus.DEPLOYED;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.OBSOLETE;
 import static org.apache.ignite.internal.deployunit.DeploymentStatus.UPLOADING;
 import static org.apache.ignite.internal.deployunit.InitialDeployMode.MAJORITY;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.will;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -32,7 +33,6 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.everyItem;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.oneOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +40,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
@@ -134,13 +133,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
                 null
         );
 
-        CompletionException ex0 = assertThrows(CompletionException.class, result::join);
-
-        assertComputeException(
-                ex0,
-                ClassNotFoundException.class,
+        assertThat(result, willThrow(computeJobFailedException(
+                ClassNotFoundException.class.getName(),
                 "org.apache.ignite.internal.compute.ToStringJob. Deployment unit non-existing:1.0.0 doesn't exist"
-        );
+        )));
     }
 
     @Test
@@ -216,12 +212,10 @@ class ItComputeTestStandalone extends ItComputeBaseTest {
 
         CompletableFuture<Void> failedJob = entryNode.compute().executeAsync(JobTarget.node(clusterNode(entryNode)), job, 2L);
 
-        CompletionException ex0 = assertThrows(CompletionException.class, failedJob::join);
-        assertComputeException(
-                ex0,
-                ClassNotFoundException.class,
+        assertThat(failedJob, willThrow(computeJobFailedException(
+                ClassNotFoundException.class.getName(),
                 "Deployment unit jobs:1.0.0 can't be used: [clusterStatus = OBSOLETE, nodeStatus = OBSOLETE]"
-        );
+        )));
 
         assertThat(successJob, willCompleteSuccessfully());
     }

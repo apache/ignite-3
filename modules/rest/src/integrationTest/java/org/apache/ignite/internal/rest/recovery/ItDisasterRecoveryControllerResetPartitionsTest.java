@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.rest.recovery;
 
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.rest.recovery.ItDisasterRecoveryControllerTest.RESET_PARTITIONS_ENDPOINT;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
@@ -35,11 +36,14 @@ import java.util.Set;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Test for disaster recovery reset partitions command, positive cases. */
 @MicronautTest
+// TODO https://issues.apache.org/jira/browse/IGNITE-24332
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
@@ -55,7 +59,7 @@ public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerC
 
     @BeforeAll
     public void setUp() {
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", FIRST_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
         sql(String.format("CREATE TABLE PUBLIC.\"%s\" (id INT PRIMARY KEY, val INT) ZONE \"%s\"", TABLE_NAME, FIRST_ZONE));
     }
 

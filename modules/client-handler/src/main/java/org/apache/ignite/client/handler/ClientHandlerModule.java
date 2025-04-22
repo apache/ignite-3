@@ -138,8 +138,6 @@ public class ClientHandlerModule implements IgniteComponent {
 
     private final Executor partitionOperationsExecutor;
 
-    private final Executor commonExecutor;
-
     @TestOnly
     @SuppressWarnings("unused")
     private volatile ClientInboundMessageHandler handler;
@@ -160,7 +158,6 @@ public class ClientHandlerModule implements IgniteComponent {
      * @param clientConnectorConfiguration Configuration of the connector.
      * @param lowWatermark Low watermark.
      * @param partitionOperationsExecutor Executor for a partition operation.
-     * @param commonExecutor Common executor used by SQL script handler.
      */
     public ClientHandlerModule(
             QueryProcessor queryProcessor,
@@ -179,8 +176,7 @@ public class ClientHandlerModule implements IgniteComponent {
             PlacementDriver placementDriver,
             ClientConnectorConfiguration clientConnectorConfiguration,
             LowWatermark lowWatermark,
-            Executor partitionOperationsExecutor,
-            Executor commonExecutor
+            Executor partitionOperationsExecutor
     ) {
         assert igniteTables != null;
         assert queryProcessor != null;
@@ -199,7 +195,6 @@ public class ClientHandlerModule implements IgniteComponent {
         assert clientConnectorConfiguration != null;
         assert lowWatermark != null;
         assert partitionOperationsExecutor != null;
-        assert commonExecutor != null;
 
         this.queryProcessor = queryProcessor;
         this.igniteTables = igniteTables;
@@ -218,7 +213,6 @@ public class ClientHandlerModule implements IgniteComponent {
                 lowWatermark);
         this.clientConnectorConfiguration = clientConnectorConfiguration;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
-        this.commonExecutor = commonExecutor;
     }
 
     /** {@inheritDoc} */
@@ -324,12 +318,12 @@ public class ClientHandlerModule implements IgniteComponent {
                                         + ", remoteAddress=" + ch.remoteAddress() + ']');
                             }
 
-                            if (configuration.idleTimeout() > 0) {
+                            if (configuration.idleTimeoutMillis() > 0) {
                                 IdleStateHandler idleStateHandler = new IdleStateHandler(
-                                        configuration.idleTimeout(), 0, 0, TimeUnit.MILLISECONDS);
+                                        configuration.idleTimeoutMillis(), 0, 0, TimeUnit.MILLISECONDS);
 
                                 ch.pipeline().addLast(idleStateHandler);
-                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeout(), metrics, connectionId));
+                                ch.pipeline().addLast(new IdleChannelHandler(configuration.idleTimeoutMillis(), metrics, connectionId));
                             }
 
                             if (sslContext != null) {
@@ -357,7 +351,7 @@ public class ClientHandlerModule implements IgniteComponent {
                         }
                     }
                 })
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeout())
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, configuration.connectTimeoutMillis())
                 .option(ChannelOption.AUTO_READ, false);
 
         int port = configuration.port();
@@ -430,8 +424,7 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
-                Map.of(),
-                commonExecutor
+                Map.of()
         );
     }
 

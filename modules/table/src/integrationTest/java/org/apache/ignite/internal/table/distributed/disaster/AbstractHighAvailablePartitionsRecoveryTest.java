@@ -79,6 +79,9 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
@@ -146,7 +149,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
         assertEquals(zoneId, request.zoneId());
-        assertEquals(Map.of(tableId, PARTITION_IDS), request.partitionIds());
+        assertEquals(of(tableId, PARTITION_IDS), request.partitionIds());
         assertFalse(request.manualUpdate());
     }
 
@@ -155,12 +158,25 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     static void assertRecoveryRequestCount(IgniteImpl node, int count) {
-        assertEquals(
-                count,
-                node
-                        .metaStorageManager()
-                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
-        );
+        MetaStorageManager metaStorageManager = node.metaStorageManager();
+
+        KeyValueStorage storage = ((MetaStorageManagerImpl) metaStorageManager).storage();
+
+        int revisions = 0;
+
+        long nextUpperBound = storage.revision();
+        while (true) {
+            Entry entry = storage.get(RECOVERY_TRIGGER_KEY.bytes(), nextUpperBound);
+
+            if (entry.empty()) {
+                break;
+            }
+
+            revisions++;
+            nextUpperBound = entry.revision() - 1;
+        }
+
+        assertEquals(count, revisions);
     }
 
     final void waitAndAssertStableAssignmentsOfPartitionEqualTo(
@@ -304,9 +320,9 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             String zoneName, List<String> tableNames, String filter, String storageProfiles, Set<String> targetNodes
     ) throws InterruptedException {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', "
-                        + "CONSISTENCY_MODE='HIGH_AVAILABILITY', DATA_NODES_FILTER='%s'",
-                zoneName, targetNodes.size(), PARTITIONS_NUMBER, storageProfiles, filter
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE 'HIGH_AVAILABILITY', NODES FILTER '%s') "
+                        + "STORAGE PROFILES ['%s']",
+                zoneName, targetNodes.size(), PARTITIONS_NUMBER, filter, storageProfiles
         ));
 
         Set<Integer> tableIds = new HashSet<>();
@@ -360,7 +376,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
     final void createScZoneWithTable() {
         executeSql(String.format(
-                "CREATE ZONE %s WITH REPLICAS=%s, PARTITIONS=%s, STORAGE_PROFILES='%s', CONSISTENCY_MODE='STRONG_CONSISTENCY'",
+                "CREATE ZONE %s (REPLICAS %s, PARTITIONS %s, CONSISTENCY MODE 'STRONG_CONSISTENCY') STORAGE PROFILES ['%s']",
                 SC_ZONE_NAME, initialNodes(), PARTITIONS_NUMBER, DEFAULT_STORAGE_PROFILE
         ));
 

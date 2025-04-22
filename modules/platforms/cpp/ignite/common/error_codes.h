@@ -132,6 +132,7 @@ enum class code : underlying_t {
     TX_ALREADY_FINISHED = 0x7000d,
     TX_STALE_OPERATION = 0x7000e,
     TX_STALE_READ_ONLY_OPERATION = 0x7000f,
+    TX_ALREADY_FINISHED_WITH_TIMEOUT = 0x70010,
 
     // Replicator group. Group code: 8
     REPLICA_COMMON = 0x80001,
@@ -192,6 +193,7 @@ enum class code : underlying_t {
     CHANGE_JOB_PRIORITY = 0x10000b,
     NODE_NOT_FOUND = 0x10000c,
     MARSHALLING_TYPE_MISMATCH = 0x10000d,
+    COMPUTE_JOB_CANCELLED = 0x10000e,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

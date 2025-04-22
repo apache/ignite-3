@@ -49,6 +49,7 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopologySer
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockWaiter;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -114,7 +115,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
         components.add(clusterStateStorage);
 
-        topology = new LogicalTopologyImpl(clusterStateStorage);
+        topology = new LogicalTopologyImpl(clusterStateStorage, new NoOpFailureManager());
 
         ClusterManagementGroupManager cmgManager = mock(ClusterManagementGroupManager.class);
 

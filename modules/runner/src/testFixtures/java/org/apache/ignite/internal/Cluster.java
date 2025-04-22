@@ -20,7 +20,10 @@ package org.apache.ignite.internal;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
+import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
@@ -39,6 +42,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -52,6 +56,10 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
+import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.catalog.Catalog;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -60,14 +68,13 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.raft.jraft.RaftGroupService;
 import org.apache.ignite.raft.jraft.Status;
 import org.apache.ignite.raft.jraft.core.NodeImpl;
 import org.apache.ignite.raft.jraft.entity.PeerId;
 import org.apache.ignite.raft.jraft.error.RaftError;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -98,7 +105,7 @@ public class Cluster {
     private volatile int seedCountOverride = -1;
 
     /** Indices of nodes that have been knocked out. */
-    private final Set<Integer> knockedOutNodesIndices = new ConcurrentHashSet<>();
+    private final Set<Integer> knockedOutNodesIndices = ConcurrentHashMap.newKeySet();
 
     /**
      * Creates a new cluster.
@@ -709,15 +716,24 @@ public class Cluster {
     }
 
     /**
-     * Returns the ID of the sole table partition that exists in the cluster or throws if there are less than one
+     * Returns the ID of the sole partition that exists in the cluster or throws if there are less than one
      * or more than one partitions.
      */
-    public TablePartitionId solePartitionId() {
-        List<TablePartitionId> tablePartitionIds = ReplicationGroupsUtils.tablePartitionIds(unwrapIgniteImpl(aliveNode()));
+    public ReplicationGroupId solePartitionId(String zoneName, String tableName) {
+        IgniteImpl node = unwrapIgniteImpl(aliveNode());
 
-        assertThat(tablePartitionIds.size(), is(1));
+        Catalog catalog = node.catalogManager().catalog(node.catalogManager().latestCatalogVersion());
 
-        return tablePartitionIds.get(0);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneName.toUpperCase());
+        CatalogTableDescriptor tableDescriptor = catalog.table(SqlCommon.DEFAULT_SCHEMA_NAME, tableName.toUpperCase());
+
+        List<? extends ReplicationGroupId> replicationGroupIds = enabledColocation()
+                ? zonePartitionIds(unwrapIgniteImpl(aliveNode()), zoneDescriptor.id())
+                : tablePartitionIds(unwrapIgniteImpl(aliveNode()), tableDescriptor.id());
+
+        assertThat(replicationGroupIds.size(), is(1));
+
+        return replicationGroupIds.get(0);
     }
 
     /**

@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.minRevisionIndex;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 
 import java.util.ArrayList;
@@ -31,11 +30,12 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Predicate;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CompactionRevisionUpdateListener;
@@ -56,7 +56,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     protected final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
-    protected final FailureManager failureManager;
+    protected final FailureProcessor failureProcessor;
 
     protected final WatchProcessor watchProcessor;
 
@@ -70,10 +70,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     /**
      * Revision. Will be incremented for each single-entry or multi-entry update operation.
-     *
-     * <p>Multi-threaded access is guarded by {@link #rwLock}.</p>
      */
-    protected long rev;
+    protected volatile long rev;
 
     /**
      * Last compaction revision that was set or restored from a snapshot.
@@ -114,24 +112,25 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
      */
     protected @Nullable TreeSet<NotifyWatchProcessorEvent> notifyWatchProcessorEventsBeforeStartingWatches = new TreeSet<>();
 
+    /** Metastorage compaction revision update listeners. */
+    private final List<CompactionRevisionUpdateListener> compactionRevisionUpdateListeners = new CopyOnWriteArrayList<>();
+
     /**
      * Constructor.
      *
      * @param nodeName Node name.
-     * @param failureManager Failure processor that is used to handle critical errors.
+     * @param failureProcessor Failure processor that is used to handle critical errors.
      * @param readOperationForCompactionTracker Read operation tracker for metastorage compaction.
      */
     protected AbstractKeyValueStorage(
             String nodeName,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ReadOperationForCompactionTracker readOperationForCompactionTracker
     ) {
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
 
-        watchProcessor = new WatchProcessor(nodeName, this::get, failureManager);
-
-        watchProcessor.registerCompactionRevisionUpdateListener(this::setCompactionRevision);
+        watchProcessor = new WatchProcessor(nodeName, this::get, failureProcessor);
     }
 
     /** Returns the key revisions for operation, an empty array if not found. */
@@ -173,17 +172,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         try {
             return doGet(key, revUpperBound);
-        } finally {
-            rwLock.readLock().unlock();
-        }
-    }
-
-    @Override
-    public List<Entry> get(byte[] key, long revLowerBound, long revUpperBound) {
-        rwLock.readLock().lock();
-
-        try {
-            return doGet(key, revLowerBound, revUpperBound);
         } finally {
             rwLock.readLock().unlock();
         }
@@ -274,20 +262,16 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             if (isInRecoveryState()) {
                 setCompactionRevision(compactionRevision);
-            } else if (areWatchesStarted()) {
-                if (compactionRevision > planedUpdateCompactionRevision) {
-                    planedUpdateCompactionRevision = compactionRevision;
-
-                    watchProcessor.updateCompactionRevision(compactionRevision, context.timestamp);
-                } else {
-                    watchProcessor.advanceSafeTime(context.timestamp);
-                }
             } else if (compactionRevision > planedUpdateCompactionRevision) {
                 planedUpdateCompactionRevision = compactionRevision;
 
-                var notifyWatchesEvent = new UpdateCompactionRevisionEvent(compactionRevision, context.timestamp);
+                notifyWatchProcessor(new AdvanceSafeTimeEvent(() -> {
+                    setCompactionRevision(compactionRevision);
 
-                addToNotifyWatchProcessorEventsBeforeStartingWatches(notifyWatchesEvent);
+                    compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
+                }, context.timestamp));
+            } else if (areWatchesStarted()) {
+                watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -322,13 +306,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
     /** Registers a metastorage compaction revision update listener. */
     @Override
     public void registerCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        watchProcessor.registerCompactionRevisionUpdateListener(listener);
+        compactionRevisionUpdateListeners.add(listener);
     }
 
     /** Unregisters a metastorage compaction revision update listener. */
     @Override
     public void unregisterCompactionRevisionUpdateListener(CompactionRevisionUpdateListener listener) {
-        watchProcessor.unregisterCompactionRevisionUpdateListener(listener);
+        compactionRevisionUpdateListeners.remove(listener);
     }
 
     @Override
@@ -412,55 +396,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return EntryImpl.toEntry(key, revision, value);
     }
 
-    private List<Entry> doGet(byte[] key, long revLowerBound, long revUpperBound) {
-        assert revLowerBound >= 0 : revLowerBound;
-        assert revUpperBound >= 0 : revUpperBound;
-        assert revUpperBound >= revLowerBound : "revLowerBound=" + revLowerBound + ", revUpperBound=" + revUpperBound;
-
-        long[] keyRevisions = keyRevisionsForOperation(key);
-
-        int minRevisionIndex = minRevisionIndex(keyRevisions, revLowerBound);
-        int maxRevisionIndex = maxRevisionIndex(keyRevisions, revUpperBound);
-
-        if (minRevisionIndex == NOT_FOUND || maxRevisionIndex == NOT_FOUND) {
-            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
-
-            return List.of();
-        }
-
-        var entries = new ArrayList<Entry>();
-
-        for (int i = minRevisionIndex; i <= maxRevisionIndex; i++) {
-            long revision = keyRevisions[i];
-
-            Value value;
-
-            // More complex check to read less from disk.
-            // Optimization for persistent storage.
-            if (revision <= compactionRevision) {
-                if (!isLastIndex(keyRevisions, i)) {
-                    continue;
-                }
-
-                value = valueForOperation(key, revision);
-
-                if (value.tombstone()) {
-                    continue;
-                }
-            } else {
-                value = valueForOperation(key, revision);
-            }
-
-            entries.add(EntryImpl.toEntry(key, revision, value));
-        }
-
-        if (entries.isEmpty()) {
-            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revLowerBound, compactionRevision);
-        }
-
-        return entries;
-    }
-
     private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
         assert !keys.isEmpty();
         assert revUpperBound >= 0 : revUpperBound;
@@ -482,7 +417,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
             setIndexAndTerm(context.index, context.term);
 
             if (areWatchesStarted()) {
-                watchProcessor.advanceSafeTime(context.timestamp);
+                watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
             }
         } finally {
             rwLock.writeLock().unlock();
@@ -504,12 +439,14 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         return new Revisions(rev, compactionRevision);
     }
 
-    protected void addToNotifyWatchProcessorEventsBeforeStartingWatches(NotifyWatchProcessorEvent event) {
-        assert !areWatchesStarted();
+    protected void notifyWatchProcessor(NotifyWatchProcessorEvent event) {
+        if (areWatchesStarted()) {
+            event.notify(watchProcessor);
+        } else {
+            boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
 
-        boolean added = notifyWatchProcessorEventsBeforeStartingWatches.add(event);
-
-        assert added : event;
+            assert added : event;
+        }
     }
 
     protected void drainNotifyWatchProcessorEventsBeforeStartingWatches() {

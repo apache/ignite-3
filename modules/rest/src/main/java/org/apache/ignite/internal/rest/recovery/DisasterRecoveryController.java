@@ -40,9 +40,9 @@ import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
-import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
-import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.table.QualifiedName;
 
 /**
@@ -63,7 +63,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> nodeNames,
             Optional<Set<Integer>> partitionIds
     ) {
-        return disasterRecoveryManager.localPartitionStates(
+        return disasterRecoveryManager.localTablePartitionStates(
                         zoneNames.orElse(Set.of()),
                         nodeNames.orElse(Set.of()),
                         partitionIds.orElse(Set.of())
@@ -76,7 +76,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> zoneNames,
             Optional<Set<Integer>> partitionIds
     ) {
-        return disasterRecoveryManager.globalPartitionStates(
+        return disasterRecoveryManager.globalTablePartitionStates(
                         zoneNames.orElse(Set.of()),
                         partitionIds.orElse(Set.of())
                 )
@@ -106,13 +106,13 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         );
     }
 
-    private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, LocalPartitionStateByNode> localStates) {
+    private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, LocalTablePartitionStateByNode> localStates) {
         List<LocalPartitionStateResponse> states = new ArrayList<>();
 
-        for (LocalPartitionStateByNode map : localStates.values()) {
-            for (Entry<String, LocalPartitionState> entry : map.entrySet()) {
+        for (LocalTablePartitionStateByNode map : localStates.values()) {
+            for (Entry<String, LocalTablePartitionState> entry : map.entrySet()) {
                 String nodeName = entry.getKey();
-                LocalPartitionState state = entry.getValue();
+                LocalTablePartitionState state = entry.getValue();
 
                 states.add(new LocalPartitionStateResponse(
                         nodeName,
@@ -136,10 +136,10 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return new LocalPartitionStatesResponse(states);
     }
 
-    private static GlobalPartitionStatesResponse convertGlobalStates(Map<TablePartitionId, GlobalPartitionState> globalStates) {
+    private static GlobalPartitionStatesResponse convertGlobalStates(Map<TablePartitionId, GlobalTablePartitionState> globalStates) {
         List<GlobalPartitionStateResponse> states = new ArrayList<>();
 
-        for (GlobalPartitionState state : globalStates.values()) {
+        for (GlobalTablePartitionState state : globalStates.values()) {
             states.add(new GlobalPartitionStateResponse(
                     state.zoneName,
                     state.schemaName,

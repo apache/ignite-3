@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.metastorage.server.time;
 
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
-import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -29,6 +29,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -56,7 +57,7 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
 
     private final HybridClock clock;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final PendingComparableValuesTracker<HybridTimestamp, Void> safeTime =
             new PendingComparableValuesTracker<>(HybridTimestamp.MIN_VALUE);
@@ -108,13 +109,13 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
      * @param nodeName Node name.
      * @param busyLock Busy lock.
      * @param clock Node's hybrid clock.
-     * @param failureManager Failure manager to use when reporting failures.
+     * @param failureProcessor Failure processor to use when reporting failures.
      */
-    public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock, FailureManager failureManager) {
+    public ClusterTimeImpl(String nodeName, IgniteSpinBusyLock busyLock, HybridClock clock, FailureProcessor failureProcessor) {
         this.nodeName = nodeName;
         this.busyLock = busyLock;
         this.clock = clock;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
     }
 
     /**
@@ -235,14 +236,16 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
             currentTask = executorService.schedule(() -> {
                 try {
                     tryToSyncTimeAndReschedule();
+                } catch (RejectedExecutionException ignored) {
+                    // Ignore, the node is stopping.
                 } catch (Throwable t) {
-                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, t));
+                    failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, t));
 
                     if (t instanceof Error) {
                         throw t;
                     }
                 }
-            }, configuration.idleSafeTimeSyncInterval().value(), TimeUnit.MILLISECONDS);
+            }, configuration.idleSafeTimeSyncIntervalMillis().value(), TimeUnit.MILLISECONDS);
         }
 
         private void tryToSyncTimeAndReschedule() {
@@ -254,12 +257,8 @@ public class ClusterTimeImpl implements ClusterTime, MetaStorageMetrics, Manuall
                 syncTimeAction.syncTime(clock.now())
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                Throwable cause = unwrapCause(e);
-
-                                if (!(cause instanceof CancellationException) && !(cause instanceof NodeStoppingException)) {
-                                    LOG.error("Unable to perform idle time sync", e);
-
-                                    failureManager.process(new FailureContext(FailureType.CRITICAL_ERROR, e));
+                                if (!hasCause(e, NodeStoppingException.class)) {
+                                    failureProcessor.process(new FailureContext(e, "Unable to perform idle time sync"));
                                 }
                             }
                         });

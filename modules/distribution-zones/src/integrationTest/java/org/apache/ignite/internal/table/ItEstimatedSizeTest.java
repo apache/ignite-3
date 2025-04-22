@@ -23,9 +23,12 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_ROCKSDB_PROFILE_NAME;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX;
+import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.flow.TestFlowUtils.subscribeToList;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
@@ -38,6 +41,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
@@ -68,18 +72,18 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
     @BeforeEach
     void setUp() {
         executeSql(String.format(
-                "CREATE ZONE %s WITH "
-                        + "REPLICAS=%d, "
-                        + "PARTITIONS=%d, "
-                        + "DATA_NODES_AUTO_ADJUST_SCALE_UP=%d, "
-                        + "DATA_NODES_AUTO_ADJUST_SCALE_DOWN=%d, "
-                        + "STORAGE_PROFILES='%s'",
+                "CREATE ZONE %s "
+                        + "(REPLICAS %d, "
+                        + "PARTITIONS %d, "
+                        + "AUTO SCALE UP %d, "
+                        + "AUTO SCALE DOWN %d) "
+                        + "STORAGE PROFILES ['%s']",
                 TEST_ZONE_NAME,
                 initialNodes(),
                 5,
                 IMMEDIATE_TIMER_VALUE,
                 IMMEDIATE_TIMER_VALUE,
-                String.join(", ", ALL_STORAGE_PROFILES)
+                String.join("', '", ALL_STORAGE_PROFILES)
         ));
     }
 
@@ -113,7 +117,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         cluster.startNode(initialNodes());
 
         for (String profile : ALL_STORAGE_PROFILES) {
-            waitForRebalance(initialNodes() + 1);
+            waitForRebalance(initialNodes() + 1, zoneId(profile));
 
             assertThat(tableSize(tableName(profile)), willBe(NUM_ROWS));
         }
@@ -130,7 +134,7 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         cluster.stopNode(initialNodes() - 1);
 
         for (String profile : ALL_STORAGE_PROFILES) {
-            waitForRebalance(initialNodes() - 1);
+            waitForRebalance(initialNodes() - 1, zoneId(profile));
 
             assertThat(tableSize(tableName(profile)), willBe(NUM_ROWS));
         }
@@ -161,11 +165,11 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         return tableViewInternal(tableName).internalTable().estimatedSize();
     }
 
-    private void waitForRebalance(int numNodes) throws InterruptedException {
-        boolean success = waitForCondition(() -> stableAssignmentNodes().size() == numNodes, 10_000);
+    private void waitForRebalance(int numNodes, int zoneId) throws InterruptedException {
+        boolean success = waitForCondition(() -> stableAssignmentNodes(zoneId).size() == numNodes, 10_000);
 
         if (!success) {
-            Set<String> stableAssignmentNodes = stableAssignmentNodes();
+            Set<String> stableAssignmentNodes = stableAssignmentNodes(zoneId);
 
             fail(String.format(
                     "Expected %d nodes in stable assignments, but got %d. They are: %s",
@@ -176,24 +180,41 @@ public class ItEstimatedSizeTest extends ClusterPerTestIntegrationTest {
         }
     }
 
-    private Set<String> stableAssignmentNodes() {
+    private Set<String> stableAssignmentNodes(int zoneId) {
         MetaStorageManager metaStorageManager = unwrapIgniteImpl(cluster.aliveNode()).metaStorageManager();
 
-        var stableAssignmentsPrefix = new ByteArray(STABLE_ASSIGNMENTS_PREFIX);
+        var stableAssignmentsPrefix = enabledColocation()
+                ? new ByteArray(ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
+                : new ByteArray(STABLE_ASSIGNMENTS_PREFIX_BYTES);
 
         CompletableFuture<List<Entry>> entriesFuture = subscribeToList(metaStorageManager.prefix(stableAssignmentsPrefix));
 
         assertThat(entriesFuture, willCompleteSuccessfully());
 
-        return entriesFuture.join().stream()
-                .map(entry -> Assignments.fromBytes(entry.value()))
-                .filter(Objects::nonNull)
-                .flatMap(assignments -> assignments.nodes().stream())
-                .map(Assignment::consistentId)
-                .collect(toSet());
+        if (enabledColocation()) {
+            return entriesFuture.join().stream()
+                    .filter(entry -> extractZonePartitionId(entry.key(), ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES)
+                                    .zoneId() == zoneId)
+                    .map(entry -> Assignments.fromBytes(entry.value()))
+                    .filter(Objects::nonNull)
+                    .flatMap(assignments -> assignments.nodes().stream())
+                    .map(Assignment::consistentId)
+                    .collect(toSet());
+        } else {
+            return entriesFuture.join().stream()
+                    .map(entry -> Assignments.fromBytes(entry.value()))
+                    .filter(Objects::nonNull)
+                    .flatMap(assignments -> assignments.nodes().stream())
+                    .map(Assignment::consistentId)
+                    .collect(toSet());
+        }
     }
 
     private TableViewInternal tableViewInternal(String tableName) {
         return unwrapTableViewInternal(cluster.aliveNode().tables().table(tableName));
+    }
+
+    private int zoneId(String profile) {
+        return unwrapTableImpl(unwrapIgniteImpl(cluster.aliveNode()).tables().table(tableName(profile))).zoneId();
     }
 }

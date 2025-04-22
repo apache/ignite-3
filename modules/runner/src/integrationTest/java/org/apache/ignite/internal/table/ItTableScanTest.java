@@ -125,7 +125,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
     protected void configureInitParameters(InitParametersBuilder builder) {
         // Set a short timeout for the test because it uses defaultTimeouts for implicit transactions,
         // It is too long to wait for 30 seconds (default value for Read-Write Transactions).
-        builder.clusterConfiguration("{ignite.transaction.readWriteTimeout: 5000}");
+        builder.clusterConfiguration("{ignite.transaction.readWriteTimeoutMillis: 5000}");
     }
 
     @BeforeEach
@@ -985,7 +985,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
      * @return Ignite table.
      */
     private static TableViewInternal getOrCreateTable() {
-        sql("CREATE ZONE IF NOT EXISTS ZONE1 WITH REPLICAS=1, PARTITIONS=1, STORAGE_PROFILES='test'");
+        sql("CREATE ZONE IF NOT EXISTS ZONE1 (REPLICAS 1, PARTITIONS 1) STORAGE PROFILES ['test']");
 
         sql("CREATE TABLE IF NOT EXISTS " + TABLE_NAME
                 + " (key INTEGER PRIMARY KEY, valInt INTEGER NOT NULL, valStr VARCHAR NOT NULL) ZONE ZONE1;");

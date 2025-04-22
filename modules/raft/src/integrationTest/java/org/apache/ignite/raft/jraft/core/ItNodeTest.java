@@ -73,6 +73,7 @@ import java.util.NavigableSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.CountDownLatch;
@@ -158,7 +159,6 @@ import org.apache.ignite.raft.jraft.util.Bits;
 import org.apache.ignite.raft.jraft.util.ExecutorServiceHelper;
 import org.apache.ignite.raft.jraft.util.ExponentialBackoffTimeoutStrategy;
 import org.apache.ignite.raft.jraft.util.Utils;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.raft.jraft.util.concurrent.FixedThreadsExecutorGroup;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterAll;
@@ -4450,7 +4450,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         NavigableSet<Integer> successfullyExecuted = new ConcurrentSkipListSet<>();
         NavigableMap<Integer, Throwable> exceptions = new ConcurrentSkipListMap<>();
         NavigableMap<Integer, String> statusErrors = new ConcurrentSkipListMap<>();
-        Set<Integer> resultOrRunCalled = new ConcurrentHashSet<>();
+        Set<Integer> resultOrRunCalled = ConcurrentHashMap.newKeySet();
         CompletableFuture<Void> tasksFuture = new CompletableFuture<>();
 
         try {

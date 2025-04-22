@@ -30,6 +30,8 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.event.EventListener;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -47,6 +49,7 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParam
 import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftManager;
+import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -98,6 +101,8 @@ public class PlacementDriverManager implements IgniteComponent {
     /** Meta Storage manager. */
     private final MetaStorageManager metastore;
 
+    private final FailureProcessor failureProcessor;
+
     private final AssignmentsTracker assignmentsTracker;
 
     private final PlacementDriver placementDriver;
@@ -114,6 +119,7 @@ public class PlacementDriverManager implements IgniteComponent {
      * @param raftManager Raft manager.
      * @param topologyAwareRaftGroupServiceFactory Raft client factory.
      * @param clockService Clock service.
+     * @param failureProcessor Failure processor.
      */
     public PlacementDriverManager(
             String nodeName,
@@ -125,6 +131,7 @@ public class PlacementDriverManager implements IgniteComponent {
             RaftManager raftManager,
             TopologyAwareRaftGroupServiceFactory topologyAwareRaftGroupServiceFactory,
             ClockService clockService,
+            FailureProcessor failureProcessor,
             ReplicationConfiguration replicationConfiguration
     ) {
         this.replicationGroupId = replicationGroupId;
@@ -133,17 +140,19 @@ public class PlacementDriverManager implements IgniteComponent {
         this.raftManager = raftManager;
         this.topologyAwareRaftGroupServiceFactory = topologyAwareRaftGroupServiceFactory;
         this.metastore = metastore;
+        this.failureProcessor = failureProcessor;
 
         this.raftClientFuture = new CompletableFuture<>();
 
         this.leaseTracker = new LeaseTracker(metastore, clusterService.topologyService(), clockService);
 
-        this.assignmentsTracker = new AssignmentsTracker(metastore);
+        this.assignmentsTracker = new AssignmentsTracker(metastore, failureProcessor);
 
         this.leaseUpdater = new LeaseUpdater(
                 nodeName,
                 clusterService,
                 metastore,
+                failureProcessor,
                 logicalTopologyService,
                 leaseTracker,
                 clockService,
@@ -172,7 +181,8 @@ public class PlacementDriverManager implements IgniteComponent {
                                     replicationGroupId,
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
                                     topologyAwareRaftGroupServiceFactory,
-                                    null // Use default commands marshaller.
+                                    null, // Use default commands marshaller.
+                                    StoppingExceptionFactories.indicateNodeStop()
                             );
 
                             return raftClient.subscribeLeader(this::onLeaderChange).thenApply(v -> raftClient);
@@ -184,7 +194,7 @@ public class PlacementDriverManager implements IgniteComponent {
                         if (ex == null) {
                             raftClientFuture.complete(client);
                         } else {
-                            LOG.error("Placement driver initialization exception", ex);
+                            failureProcessor.process(new FailureContext(ex, "Placement driver initialization exception"));
 
                             raftClientFuture.completeExceptionally(ex);
                         }

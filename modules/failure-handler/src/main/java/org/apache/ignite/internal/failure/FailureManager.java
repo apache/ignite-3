@@ -158,13 +158,14 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             return false;
         }
 
+        var exceptionForLogging = new StackTraceCapturingException(failureCtx.message(), failureCtx.error());
         if (handler.ignoredFailureTypes().contains(failureCtx.type())) {
-            LOG.warn(IGNORED_FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
+            LOG.warn(IGNORED_FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
         } else {
-            LOG.error(FAILURE_LOG_MSG, failureCtx.error(), handler, failureCtx.type());
+            LOG.error(FAILURE_LOG_MSG, exceptionForLogging, handler, failureCtx.type());
         }
 
-        if (reserveBuf != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
+        if (reserveBuf != null && failureCtx.error() != null && hasCauseOrSuppressed(failureCtx.error(), OutOfMemoryError.class)) {
             reserveBuf = null;
         }
 

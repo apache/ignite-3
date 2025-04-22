@@ -42,12 +42,15 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lowwatermark.TestLowWatermark;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.lang.ErrorGroups.GarbageCollector;
 import org.jetbrains.annotations.Nullable;
@@ -60,7 +63,7 @@ import org.junit.jupiter.api.function.Executable;
 /**
  * For testing {@link MvGc}.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, FailureManagerExtension.class})
 public class MvGcTest extends BaseIgniteAbstractTest {
     private static final int PARTITION_ID = 0;
 
@@ -75,7 +78,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
     @BeforeEach
     void setUp() {
-        gc = new MvGc("test", gcConfig, lowWatermark);
+        gc = new MvGc("test", gcConfig, lowWatermark, new NoOpFailureManager());
 
         gc.start();
     }
@@ -254,6 +257,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging
     void testRemoveStorageWithError() {
         CompletableFuture<Void> startInvokeVacuumMethodFuture = new CompletableFuture<>();
         CompletableFuture<Void> finishInvokeVacuumMethodFuture = new CompletableFuture<>();
@@ -315,7 +319,7 @@ public class MvGcTest extends BaseIgniteAbstractTest {
 
         gc.close();
 
-        gc = new MvGc("test", gcConfig, lowWatermark);
+        gc = new MvGc("test", gcConfig, lowWatermark, new NoOpFailureManager());
 
         gc.start();
 

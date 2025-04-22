@@ -21,8 +21,16 @@ import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
+import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignments;
+import static org.apache.ignite.internal.TestRebalanceUtil.pendingPartitionAssignmentsKey;
+import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssignments;
+import static org.apache.ignite.internal.TestRebalanceUtil.plannedPartitionAssignmentsKey;
+import static org.apache.ignite.internal.TestRebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
 import static org.apache.ignite.internal.configuration.IgnitePaths.metastoragePath;
@@ -33,10 +41,11 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractTablePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
+import static org.apache.ignite.internal.table.TableTestUtils.getTableIdStrict;
+import static org.apache.ignite.internal.table.TableTestUtils.getZoneIdByTableNameStrict;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.TestIgnitionManager.DEFAULT_MAX_CLOCK_SKEW_MS;
@@ -50,6 +59,7 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -97,6 +107,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -140,6 +151,7 @@ import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceRaftGroupEventsListener;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceRaftGroupEventsListener;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -188,6 +200,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -196,6 +209,7 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.raft.storage.LogStorageFactory;
 import org.apache.ignite.internal.raft.storage.impl.LocalLogStorageFactory;
 import org.apache.ignite.internal.raft.util.SharedLogStorageFactoryUtils;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -236,6 +250,7 @@ import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
@@ -275,6 +290,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith({WorkDirectoryExtension.class, ConfigurationExtension.class, ExecutorServiceExtension.class})
 @Timeout(120)
+// TODO https://issues.apache.org/jira/browse/IGNITE-25074
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItRebalanceDistributedTest.class);
 
@@ -290,7 +307,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     /** Filter to determine a primary node identically on any cluster node. */
     private static final Function<Collection<ClusterNode>, ClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
-            .filter(n -> n.address().port() == BASE_PORT).findFirst().get();
+            .filter(n -> n.address().port() == BASE_PORT).findFirst().orElse(null);
 
     private static final String HOST = "localhost";
 
@@ -400,7 +417,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionStableAssignments(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         electPrimaryReplica(node);
 
@@ -421,7 +438,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         createTable(node, ZONE_NAME, TABLE_NAME_2);
         createTable(node, ZONE_NAME, TABLE_NAME_3);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionStableAssignments(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         electPrimaryReplica(node);
 
@@ -444,7 +461,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionStableAssignments(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         electPrimaryReplica(node);
 
@@ -456,7 +473,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkPartitionNodes(0, 3);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24674")
     @Test
     void testThreeQueuedRebalances() throws Exception {
         Node node = getNode(0);
@@ -465,7 +481,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionStableAssignments(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         electPrimaryReplica(node);
 
@@ -496,7 +512,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         electPrimaryReplica(node0);
 
-        Set<String> partitionNodesConsistentIds = getPartitionClusterNodes(node0, 0).stream()
+        Set<String> partitionNodesConsistentIds = getPartitionStableAssignments(node0, 0).stream()
                 .map(Assignment::consistentId)
                 .collect(toSet());
 
@@ -544,7 +560,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(countDownLatch.await(10, SECONDS));
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId
-        int tableOrZoneId = enabledColocation() ? nonLeaderTable.internalTable().zoneId() : nonLeaderTable.tableId();
+        int tableOrZoneId = enabledColocation() ? nonLeaderTable.zoneId() : nonLeaderTable.tableId();
         assertThat(
                 ReplicaTestUtils.getRaftClient(nonLeaderNode.replicaManager, tableOrZoneId, 0)
                         .map(raftClient -> raftClient.transferLeadership(new Peer(nonLeaderNodeConsistentId)))
@@ -567,7 +583,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionStableAssignments(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         alterZone(node, ZONE_NAME, 1);
 
@@ -611,7 +627,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTableWithOnePartition(node, TABLE_NAME, ZONE_NAME, 3, true);
 
-        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(node, 0);
+        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionStableAssignments(node, 0);
 
         changeTableReplicasForSinglePartition(node, ZONE_NAME, 2);
 
@@ -619,7 +635,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         electPrimaryReplica(node);
 
-        Set<Assignment> assignmentsAfterChangeReplicas = getPartitionClusterNodes(node, 0);
+        Set<Assignment> assignmentsAfterChangeReplicas = getPartitionStableAssignments(node, 0);
 
         Set<Assignment> evictedAssignments = getEvictedAssignments(assignmentsBeforeChangeReplicas, assignmentsAfterChangeReplicas);
 
@@ -645,7 +661,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTableWithOnePartition(node, TABLE_NAME, ZONE_NAME, 3, true);
 
-        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionClusterNodes(node, 0);
+        Set<Assignment> assignmentsBeforeChangeReplicas = getPartitionStableAssignments(node, 0);
 
         nodes.forEach(n -> {
             prepareFinishHandleChangeStableAssignmentEventFuture(n, TABLE_NAME, 0);
@@ -657,7 +673,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         waitPartitionAssignmentsSyncedToExpected(0, 2);
 
-        Assignment evictedAssignment = first(getEvictedAssignments(assignmentsBeforeChangeReplicas, getPartitionClusterNodes(node, 0)));
+        Assignment evictedAssignment = first(getEvictedAssignments(
+                assignmentsBeforeChangeReplicas,
+                getPartitionStableAssignments(node, 0)));
 
         Node evictedNode = findNodeByConsistentId(evictedAssignment.consistentId());
 
@@ -667,9 +685,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
-        TablePartitionId tablePartitionId = evictedNode.getTablePartitionId(TABLE_NAME, 0);
+        PartitionGroupId partitionGroupId = evictedNode.getPartitionGroupId(TABLE_NAME, 0);
 
-        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willThrowFast(Exception.class));
+        assertThat(evictedNode.finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId), willThrowFast(Exception.class));
 
         // Restart evicted node.
         int evictedNodeIndex = findNodeIndexByConsistentId(evictedAssignment.consistentId());
@@ -678,7 +696,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Node newNode = new Node(testInfo, evictedNode.networkAddress);
 
-        newNode.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+        newNode.finishHandleChangeStableAssignmentEventFutures.put(partitionGroupId, new CompletableFuture<>());
 
         newNode.start();
 
@@ -687,7 +705,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         nodes.set(evictedNodeIndex, newNode);
 
         // Let's make sure that we will destroy the partition again.
-        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId), willSucceedIn(1, TimeUnit.MINUTES));
+        assertThat(newNode.finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId), willSucceedIn(1, TimeUnit.MINUTES));
 
         checkInvokeDestroyedPartitionStorages(newNode, TABLE_NAME, 0);
     }
@@ -744,26 +762,23 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
+
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         electPrimaryReplica(node);
 
-        Set<Assignment> assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
+        Set<Assignment> assignmentsBeforeRebalance = getPartitionStableAssignments(node, 0);
 
-        String newNodeNameForAssignment = nodes.stream()
-                .map(n -> Assignment.forPeer(n.clusterService.nodeName()))
-                .filter(assignment -> !assignmentsBeforeRebalance.contains(assignment))
-                .findFirst()
-                .orElseThrow()
-                .consistentId();
+        List<String> newNodeNames = getNodeNames(notIn(assignmentsBeforeRebalance))
+                .collect(toList());
 
-        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNames.get(0)));
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, 0);
 
         // Write the new assignments to metastore as a pending assignments.
         {
-            TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
-
-            ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
+            ByteArray partAssignmentsPendingKey = pendingPartitionAssignmentsKey(partitionGroupId);
 
             int catalogVersion = node.catalogManager.latestCatalogVersion();
             long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -776,13 +791,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         }
 
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
+                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, 0).equals(newAssignment)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
         // Wait for rebalance to complete.
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, 0).equals(newAssignment)),
+                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, 0).equals(newAssignment)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -791,17 +806,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeInReplicationGroup)
-                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(newAssignment))),
+                        .allMatch(isNodeUpdatesPeersAndLearnersOnGroupService(newAssignment)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
         // Checks that there no any replicas outside replication group
-        var replGrpId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
         Predicate<Node> isNodeOutsideReplicationGroup = n -> !isNodeInAssignments(n, newAssignment);
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeOutsideReplicationGroup)
-                        .noneMatch(n -> isReplicationGroupStarted(n, replGrpId)),
+                        .noneMatch(n -> isReplicationGroupStarted(n, partitionGroupId)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
@@ -815,28 +829,24 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
+
         waitPartitionAssignmentsSyncedToExpected(0, 1);
 
         electPrimaryReplica(node);
 
-        var assignmentsBeforeRebalance = getPartitionClusterNodes(node, 0);
-        String nodeNameAssignedBeforeRebalance = assignmentsBeforeRebalance.stream()
-                .findFirst()
-                .orElseThrow()
-                .consistentId();
+        Set<Assignment> assignmentsBeforeRebalance = getPartitionStableAssignments(node, 0);
 
-        String newNodeNameForAssignment = nodes.stream()
-                .filter(n -> !nodeNameAssignedBeforeRebalance.equals(n.clusterService.nodeName()))
-                .findFirst()
-                .orElseThrow()
-                .name;
+        List<String> newNodeNames = getNodeNames(notIn(assignmentsBeforeRebalance))
+                .collect(toList());
 
-        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+        assertThat(newNodeNames, hasSize(greaterThanOrEqualTo(2)));
+
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNames.get(0)), Assignment.forLearner(newNodeNames.get(1)));
+        PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         // Write the new assignments to metastore as a pending assignments.
-        TablePartitionId partId = new TablePartitionId(getTableId(node, TABLE_NAME), 0);
-
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartitionAssignmentsKey(partId);
 
         int catalogVersion = node.catalogManager.latestCatalogVersion();
         long timestamp = node.catalogManager.catalog(catalogVersion).time();
@@ -859,12 +869,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeInReplicationGroup)
-                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(union))),
+                        .allMatch(isNodeUpdatesPeersAndLearnersOnGroupService(union)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
         // Checks that there no any replicas outside replication group
         Predicate<Node> isNodeOutsideReplicationGroup = n -> !isNodeInAssignments(n, union);
+
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeOutsideReplicationGroup)
@@ -883,7 +894,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         createTable(node, ZONE_NAME, TABLE_NAME);
 
-        assertTrue(waitForCondition(() -> getPartitionClusterNodes(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
+        assertTrue(waitForCondition(() -> getPartitionStableAssignments(node, 0).size() == 1, AWAIT_TIMEOUT_MILLIS));
 
         // Check default value
         checkRebalanceRetryDelay(1, REBALANCE_RETRY_DELAY_DEFAULT);
@@ -917,9 +928,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return node.replicaManager.isReplicaStarted(replicationGroupId);
     }
 
-    private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
-        return ReplicaTestUtils.getRaftClient(node.replicaManager, getTableOrZoneId(node, TABLE_NAME), 0)
-                .map(raftClient -> raftClient.peers().stream().collect(toSet()).equals(desiredPeers))
+    private static Predicate<Node> isNodeUpdatesPeersAndLearnersOnGroupService(Set<Assignment> desiredAssignments) {
+        PeersAndLearners desired = PeersAndLearners.fromAssignments(desiredAssignments);
+        return node -> ReplicaTestUtils.getRaftClient(node.replicaManager, getTableOrZoneId(node, TABLE_NAME), 0)
+                .map(raftClient -> desired.peers().equals(new HashSet<>(raftClient.peers()))
+                        && desired.learners().equals(new HashSet<>(raftClient.learners())))
                 .orElse(false);
     }
 
@@ -952,6 +965,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3);
 
         Node node0 = getNode(0);
+        TableViewInternal table = unwrapTableViewInternal(node0.tableManager.table(TABLE_NAME));
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, 0);
 
         int catalogVersion = node0.catalogManager.latestCatalogVersion();
         long timestamp = node0.catalogManager.catalog(catalogVersion).time();
@@ -959,10 +974,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         byte[] bytesPendingAssignments = AssignmentsQueue.toBytes(Assignments.of(pendingAssignments, timestamp));
         byte[] bytesPlannedAssignments = Assignments.toBytes(plannedAssignments, timestamp);
 
-        TablePartitionId partId = new TablePartitionId(getTableId(node0, TABLE_NAME), 0);
-
-        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(partId);
-        ByteArray partAssignmentsPlannedKey = plannedPartAssignmentsKey(partId);
+        ByteArray partAssignmentsPendingKey = pendingPartitionAssignmentsKey(partitionGroupId);
+        ByteArray partAssignmentsPlannedKey = plannedPartitionAssignmentsKey(partitionGroupId);
 
         Map<ByteArray, byte[]> msEntries = new HashMap<>();
 
@@ -987,12 +1000,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void waitPartitionAssignmentsSyncedToExpected(String tableName, int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionClusterNodes(n, tableName, partNum).size() == replicasNum),
+                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, tableName, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
         Node anyNode = nodes.get(0);
-        Set<Assignment> assignments = getPartitionClusterNodes(anyNode, tableName, replicasNum);
+        Set<Assignment> assignments = getPartitionStableAssignments(anyNode, tableName, replicasNum);
 
         assertTrue(waitForCondition(
                 () -> nodes.stream()
@@ -1005,20 +1018,20 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 tableOrZoneId -> zoneId, remove.
     private static int getTableOrZoneId(Node node, String tableName) {
-        return enabledColocation() ? TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong())
-                : getTableId(node, tableName);
+        return enabledColocation() ? getZoneIdByTableNameStrict(node.catalogManager, tableName, node.hybridClock.nowLong())
+                : getTableIdStrict(node.catalogManager, tableName, node.hybridClock.nowLong());
     }
 
     private void waitPartitionPendingAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionPendingClusterNodes(n, partNum).size() == replicasNum),
+                () -> nodes.stream().allMatch(n -> getPartitionPendingAssignments(n, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
 
     private void waitPartitionPlannedAssignmentsSyncedToExpected(int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionPlannedClusterNodes(n, partNum).size() == replicasNum),
+                () -> nodes.stream().allMatch(n -> getPartitionPlannedAssignments(n, partNum).size() == replicasNum),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
     }
@@ -1034,9 +1047,9 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private void electPrimaryReplica(Node primaryReplicaNode) throws InterruptedException {
         Node leaseholderNode = getLeaseholderNodeForPartition(primaryReplicaNode, 0);
 
-        int tableId = getTableId(primaryReplicaNode, TABLE_NAME);
+        TableViewInternal table = unwrapTableViewInternal(leaseholderNode.tableManager.table(TABLE_NAME));
 
-        TablePartitionId groupId = new TablePartitionId(tableId, 0);
+        PartitionGroupId groupId = partitionReplicationGroupId(table, 0);
 
         assertTrue(waitForCondition(() -> isReplicationGroupStarted(leaseholderNode, groupId), AWAIT_TIMEOUT_MILLIS));
 
@@ -1047,12 +1060,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         nodes.forEach(node -> node.placementDriver.setPrimaryReplicaSupplier(() -> new TestReplicaMetaImpl(
                 leaseholder.name(),
                 leaseholder.id(),
-                new TablePartitionId(getTableId(node, TABLE_NAME), 0)
+                groupId
         )));
     }
 
     private Node getLeaseholderNodeForPartition(Node node, int partId) {
-        Set<Assignment> assignments = getPartitionClusterNodes(node, partId);
+        Set<Assignment> assignments = getPartitionStableAssignments(node, partId);
 
         String leaseholderConsistentId = assignments.stream().findFirst().get().consistentId();
 
@@ -1062,46 +1075,32 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .get();
     }
 
-    private static Set<Assignment> getPartitionClusterNodes(Node node, int partNum) {
-        return getPartitionClusterNodes(node, TABLE_NAME, partNum);
+    private static Set<Assignment> getPartitionStableAssignments(Node node, int partNum) {
+        return getPartitionStableAssignments(node, TABLE_NAME, partNum);
     }
 
-    private static Set<Assignment> getPartitionClusterNodes(Node node, String tableName, int partNum) {
-        return Optional.ofNullable(getTableId(node, tableName))
-                .map(tableId -> stablePartitionAssignments(node.metaStorageManager, tableId, partNum).join())
+    private static Set<Assignment> getPartitionStableAssignments(Node node, String tableName, int partNum) {
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
+
+        return Optional
+                .ofNullable(stablePartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
     }
 
-    private static Set<Assignment> getPartitionPendingClusterNodes(Node node, int partNum) {
-        return Optional.ofNullable(getTableId(node, TABLE_NAME))
-                .map(tableId -> partitionPendingAssignments(node.metaStorageManager, tableId, partNum).join())
+    private static Set<Assignment> getPartitionPendingAssignments(Node node, int partNum) {
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
+
+        return Optional
+                .ofNullable(pendingPartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
     }
 
-    private static Set<Assignment> getPartitionPlannedClusterNodes(Node node, int partNum) {
-        return Optional.ofNullable(getTableId(node, TABLE_NAME))
-                .map(tableId -> partitionPlannedAssignments(node.metaStorageManager, tableId, partNum).join())
+    private static Set<Assignment> getPartitionPlannedAssignments(Node node, int partNum) {
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
+
+        return Optional
+                .ofNullable(plannedPartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
-    }
-
-    private static CompletableFuture<Set<Assignment>> partitionPendingAssignments(
-            MetaStorageManager metaStorageManager,
-            int tableId,
-            int partitionNumber
-    ) {
-        return metaStorageManager
-                .get(pendingPartAssignmentsQueueKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : AssignmentsQueue.fromBytes(e.value()).poll().nodes());
-    }
-
-    private static CompletableFuture<Set<Assignment>> partitionPlannedAssignments(
-            MetaStorageManager metaStorageManager,
-            int tableId,
-            int partitionNumber
-    ) {
-        return metaStorageManager
-                .get(plannedPartAssignmentsKey(new TablePartitionId(tableId, partitionNumber)))
-                .thenApply(e -> (e.value() == null) ? null : Assignments.fromBytes(e.value()).nodes());
     }
 
     private class Node {
@@ -1153,7 +1152,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         private final ConfigurationTreeGenerator clusterCfgGenerator;
 
-        private final Map<TablePartitionId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
+        private final Map<PartitionGroupId, CompletableFuture<Void>> finishHandleChangeStableAssignmentEventFutures
                 = new ConcurrentHashMap<>();
 
         private final NetworkAddress networkAddress;
@@ -1257,16 +1256,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new NoOpFailureManager()
             ));
 
+            failureManager = new NoOpFailureManager();
+
             var clusterStateStorage = new TestClusterStateStorage();
-            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage);
+            var logicalTopology = new LogicalTopologyImpl(clusterStateStorage, failureManager);
 
             var clusterInitializer = new ClusterInitializer(
                     clusterService,
                     hocon -> hocon,
                     new TestConfigurationValidator()
             );
-
-            failureManager = new NoOpFailureManager();
 
             ComponentWorkingDir cmgWorkDir = cmgPath(systemConfiguration, dir);
 
@@ -1420,6 +1419,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
             txManager = new TxManagerImpl(
                     txConfiguration,
+                    systemDistributedConfiguration,
                     clusterService,
                     replicaSvc,
                     lockManager,
@@ -1460,7 +1460,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             LongSupplier delayDurationMsSupplier = () -> 10L;
 
             catalogManager = new CatalogManagerImpl(
-                    new UpdateLogImpl(metaStorageManager),
+                    new UpdateLogImpl(metaStorageManager, failureManager),
                     clockService,
                     failureManager,
                     delayDurationMsSupplier
@@ -1491,10 +1491,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     storagePath.resolve("tx-state"),
                     threadPoolsManager.commonScheduler(),
                     threadPoolsManager.tableIoExecutor(),
-                    logStorageFactory
+                    logStorageFactory,
+                    failureManager
             );
 
-            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService());
+            var outgoingSnapshotManager = new OutgoingSnapshotsManager(name, clusterService.messagingService(), failureManager);
 
             var replicaLifecycleManager = new PartitionReplicaLifecycleManager(
                     catalogManager,
@@ -1503,6 +1504,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     metaStorageManager,
                     clusterService.topologyService(),
                     lowWatermark,
+                    failureManager,
                     threadPoolsManager.tableIoExecutor(),
                     rebalanceScheduler,
                     threadPoolsManager.partitionOperationsExecutor(),
@@ -1543,6 +1545,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     distributionZoneManager,
                     schemaSyncService,
                     catalogManager,
+                    failureManager,
                     HybridTimestampTracker.atomicTracker(null),
                     placementDriver,
                     () -> mock(IgniteSql.class),
@@ -1567,15 +1570,15 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
                 @Override
                 protected CompletableFuture<Void> handleChangeStableAssignmentEvent(WatchEvent evt) {
-                    TablePartitionId tablePartitionId = getTablePartitionId(evt);
+                    PartitionGroupId partitionGroupId = getPartitionGroupId(evt);
 
                     return super.handleChangeStableAssignmentEvent(evt)
                             .whenComplete((v, e) -> {
-                                if (tablePartitionId == null) {
+                                if (partitionGroupId == null) {
                                     return;
                                 }
 
-                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
+                                CompletableFuture<Void> finishFuture = finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId);
 
                                 if (finishFuture == null) {
                                     return;
@@ -1699,7 +1702,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             clusterCfgGenerator.close();
         }
 
-        @Nullable TablePartitionId getTablePartitionId(WatchEvent event) {
+        @Nullable PartitionGroupId getPartitionGroupId(WatchEvent event) {
             assertTrue(event.single(), event.toString());
 
             Entry stableAssignmentsWatchEvent = event.entryEvent().newEntry();
@@ -1708,13 +1711,19 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 return null;
             }
 
-            return extractTablePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
+            if (enabledColocation()) {
+                return ZoneRebalanceUtil.extractZonePartitionId(
+                        stableAssignmentsWatchEvent.key(),
+                        ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES);
+            } else {
+                return extractTablePartitionId(stableAssignmentsWatchEvent.key(), STABLE_ASSIGNMENTS_PREFIX_BYTES);
+            }
         }
 
-        TablePartitionId getTablePartitionId(String tableName, int partitionId) {
+        PartitionGroupId getPartitionGroupId(String tableName, int partitionId) {
             InternalTable internalTable = getInternalTable(this, tableName);
 
-            return new TablePartitionId(internalTable.tableId(), partitionId);
+            return partitionReplicationGroupId(internalTable, partitionId);
         }
     }
 
@@ -1797,9 +1806,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     }
 
     private void prepareFinishHandleChangeStableAssignmentEventFuture(Node node, String tableName, int partitionId) {
-        TablePartitionId tablePartitionId = new TablePartitionId(getInternalTable(node, tableName).tableId(), partitionId);
+        InternalTable table = getInternalTable(node, tableName);
 
-        node.finishHandleChangeStableAssignmentEventFutures.put(tablePartitionId, new CompletableFuture<>());
+        PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, partitionId);
+
+        node.finishHandleChangeStableAssignmentEventFutures.put(partitionGroupId, new CompletableFuture<>());
     }
 
     private CompletableFuture<?> collectFinishHandleChangeStableAssignmentEventFuture(
@@ -1814,9 +1825,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 continue;
             }
 
-            TablePartitionId tablePartitionId = new TablePartitionId(getInternalTable(node, tableName).tableId(), partitionId);
+            InternalTable table = getInternalTable(node, tableName);
 
-            CompletableFuture<Void> future = node.finishHandleChangeStableAssignmentEventFutures.get(tablePartitionId);
+            PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, partitionId);
+
+            CompletableFuture<Void> future = node.finishHandleChangeStableAssignmentEventFutures.get(partitionGroupId);
 
             assertNotNull(future, String.format("node=%s, table=%s, partitionId=%s", node.name, tableName, partitionId));
 
@@ -1872,15 +1885,35 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return nodes.get(nodeIndex);
     }
 
+    private Stream<String> getNodeNames(Predicate<Node> filter) {
+        return getNodes(filter)
+                .map(n -> n.clusterService.nodeName());
+    }
+
+    private Stream<Node> getNodes(Predicate<Node> filter) {
+        return nodes.stream().filter(filter).distinct();
+    }
+
+    private Predicate<Node> notIn(Set<Assignment> assignments) {
+        return in(assignments).negate();
+    }
+
+    private Predicate<Node> in(Set<Assignment> assignments) {
+        return node -> {
+            String nodeName = node.clusterService.nodeName();
+            return assignments.stream().anyMatch(a -> a.consistentId().equals(nodeName));
+        };
+    }
+
     private void checkPartitionNodes(int partitionId, int expNodeCount) {
         for (Node node : nodes) {
-            assertEquals(expNodeCount, getPartitionClusterNodes(node, partitionId).size(), node.name);
+            assertEquals(expNodeCount, getPartitionStableAssignments(node, partitionId).size(), node.name);
         }
     }
 
     private void checkPartitionNodes(String tableName, int partitionId, int expNodeCount) {
         for (Node node : nodes) {
-            assertEquals(expNodeCount, getPartitionClusterNodes(node, tableName, partitionId).size(), node.name);
+            assertEquals(expNodeCount, getPartitionStableAssignments(node, tableName, partitionId).size(), node.name);
         }
     }
 

@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -54,6 +55,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
@@ -166,8 +168,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         dropIndex(INDEX_NAME);
         assertThat(fireDestroyEvent(), willCompleteSuccessfully());
 
-        verify(tableViewInternal).unregisterIndex(indexId);
-        verify(tableViewInternal.internalTable().storage()).destroyIndex(indexId);
+        verify(tableViewInternal, timeout(1000)).unregisterIndex(indexId);
+        verify(tableViewInternal.internalTable().storage(), timeout(1000)).destroyIndex(indexId);
     }
 
     @Test
@@ -217,6 +219,7 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                 new ConstantSchemaVersions(1),
                 marshallers,
                 mock(IgniteSql.class),
+                mock(FailureProcessor.class),
                 table.primaryKeyIndexId()
         ));
     }

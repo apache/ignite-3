@@ -24,8 +24,10 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.marshaller.MarshallersProvider;
 import org.apache.ignite.internal.marshaller.ReflectionMarshallersProvider;
 import org.apache.ignite.internal.schema.BinaryRowEx;
@@ -58,8 +60,6 @@ import org.jetbrains.annotations.TestOnly;
  * Table view implementation for binary objects.
  */
 public class TableImpl implements TableViewInternal {
-    private static final IgniteLogger LOG = Loggers.forClass(TableImpl.class);
-
     /** Internal table. */
     private final InternalTable tbl;
 
@@ -69,6 +69,8 @@ public class TableImpl implements TableViewInternal {
 
     /** Ignite SQL facade. */
     private final IgniteSql sql;
+
+    private final FailureProcessor failureProcessor;
 
     /** Schema registry. Should be set either in constructor or via {@link #schemaView(SchemaRegistry)} before start of using the table. */
     private volatile SchemaRegistry schemaReg;
@@ -87,6 +89,7 @@ public class TableImpl implements TableViewInternal {
      * @param schemaVersions Schema versions access.
      * @param marshallers Marshallers provider.
      * @param sql Ignite SQL facade.
+     * @param failureProcessor Failure processor.
      * @param pkId ID of a primary index.
      */
     public TableImpl(
@@ -95,6 +98,7 @@ public class TableImpl implements TableViewInternal {
             SchemaVersions schemaVersions,
             MarshallersProvider marshallers,
             IgniteSql sql,
+            FailureProcessor failureProcessor,
             int pkId
     ) {
         this.tbl = tbl;
@@ -102,6 +106,7 @@ public class TableImpl implements TableViewInternal {
         this.schemaVersions = schemaVersions;
         this.marshallers = marshallers;
         this.sql = sql;
+        this.failureProcessor = failureProcessor;
         this.pkId = pkId;
     }
 
@@ -124,7 +129,15 @@ public class TableImpl implements TableViewInternal {
             IgniteSql sql,
             int pkId
     ) {
-        this(tbl, lockManager, schemaVersions, new ReflectionMarshallersProvider(), sql, pkId);
+        this(
+                tbl,
+                lockManager,
+                schemaVersions,
+                new ReflectionMarshallersProvider(),
+                sql,
+                new FailureManager(new NoOpFailureHandler()),
+                pkId
+        );
 
         this.schemaReg = schemaReg;
     }
@@ -218,15 +231,18 @@ public class TableImpl implements TableViewInternal {
     }
 
     /** Returns a supplier of index storage wrapper factories for given partition. */
-    public TableIndexStoragesSupplier indexStorageAdapters(int partId) {
+    public TableIndexStoragesSupplier indexStorageAdapters(int partitionId) {
         return () -> {
-            List<IndexWrapper> factories = new ArrayList<>(indexWrapperById.values());
+            var factories = new ArrayList<>(indexWrapperById.values());
 
-            Map<Integer, TableSchemaAwareIndexStorage> adapters = new HashMap<>();
+            var adapters = new HashMap<Integer, TableSchemaAwareIndexStorage>();
 
-            for (IndexWrapper factory : factories) {
-                TableSchemaAwareIndexStorage storage = factory.getStorage(partId);
-                adapters.put(storage.id(), storage);
+            for (int i = 0; i < factories.size(); i++) {
+                TableSchemaAwareIndexStorage storage = factories.get(i).getStorage(partitionId);
+
+                if (storage != null) {
+                    adapters.put(storage.id(), storage);
+                }
             }
 
             return adapters;
@@ -290,7 +306,7 @@ public class TableImpl implements TableViewInternal {
         tbl.storage().destroyIndex(indexId)
                 .whenComplete((res, e) -> {
                     if (e != null) {
-                        LOG.error("Unable to destroy index {}", e, indexId);
+                        failureProcessor.process(new FailureContext(e, String.format("Unable to destroy index %s", indexId)));
                     }
                 });
     }

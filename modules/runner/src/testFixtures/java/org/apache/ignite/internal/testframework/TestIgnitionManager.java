@@ -60,23 +60,23 @@ public class TestIgnitionManager {
 
     /** Map with default node configuration values. */
     private static final Map<String, String> DEFAULT_NODE_CONFIG = Map.of(
-            "ignite.network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
+            "ignite.network.membership.scaleCube.metadataTimeoutMillis", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
             "ignite.storage.profiles.default_aipersist.engine", "aipersist",
-            "ignite.storage.profiles.default_aipersist.size", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default_aipersist.sizeBytes", Integer.toString(256 * MiB),
             "ignite.storage.profiles.default_aimem.engine", "aimem",
-            "ignite.storage.profiles.default_aimem.initSize", Integer.toString(256 * MiB),
-            "ignite.storage.profiles.default_aimem.maxSize", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default_aimem.initSizeBytes", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default_aimem.maxSizeBytes", Integer.toString(256 * MiB),
             "ignite.storage.profiles.default.engine", "aipersist",
-            "ignite.storage.profiles.default.size", Integer.toString(256 * MiB),
+            "ignite.storage.profiles.default.sizeBytes", Integer.toString(256 * MiB),
             "ignite.system.properties.aipersistThrottling", "disabled"
     );
 
     /** Map with default cluster configuration values. */
     private static final Map<String, String> DEFAULT_CLUSTER_CONFIG = Map.of(
-            "ignite.schemaSync.delayDuration", Integer.toString(DEFAULT_DELAY_DURATION_MS),
-            "ignite.schemaSync.maxClockSkew", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
-            "ignite.system.idleSafeTimeSyncInterval", Integer.toString(DEFAULT_METASTORAGE_IDLE_SAFE_TIME_SYNC_INTERVAL_MS),
-            "ignite.replication.idleSafeTimePropagationDuration", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
+            "ignite.schemaSync.delayDurationMillis", Integer.toString(DEFAULT_DELAY_DURATION_MS),
+            "ignite.schemaSync.maxClockSkewMillis", Long.toString(DEFAULT_MAX_CLOCK_SKEW_MS),
+            "ignite.system.idleSafeTimeSyncIntervalMillis", Integer.toString(DEFAULT_METASTORAGE_IDLE_SAFE_TIME_SYNC_INTERVAL_MS),
+            "ignite.replication.idleSafeTimePropagationDurationMillis", Integer.toString(DEFAULT_PARTITION_IDLE_SYNC_TIME_INTERVAL_MS)
     );
 
     /**

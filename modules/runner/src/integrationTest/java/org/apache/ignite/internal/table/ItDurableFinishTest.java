@@ -86,7 +86,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
     private final Collection<CompletableFuture<?>> futures = new ArrayList<>();
 
     private void createTestTableWith3Replicas() {
-        String zoneSql = "create zone " + ZONE_NAME + " with partitions=1, replicas=3, storage_profiles='" + DEFAULT_STORAGE_PROFILE + "'";
+        String zoneSql = "create zone " + ZONE_NAME + " (partitions 1, replicas 3) storage profiles ['" + DEFAULT_STORAGE_PROFILE + "']";
         String sql = "create table " + TABLE_NAME + " (key int primary key, val varchar(20))"
                 + " zone " + ZONE_NAME;
 
@@ -267,7 +267,7 @@ public class ItDurableFinishTest extends ClusterPerTestIntegrationTest {
                 .getConfiguration(ReplicationExtensionConfiguration.KEY);
 
         replicationExtensionConfiguration.replication().change(replicationChange ->
-                replicationChange.changeRpcTimeout(3000));
+                replicationChange.changeRpcTimeoutMillis(3000));
 
         Context context = prepareTransactionData();
 

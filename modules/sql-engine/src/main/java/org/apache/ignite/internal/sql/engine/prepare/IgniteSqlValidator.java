@@ -79,6 +79,7 @@ import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
+import org.apache.calcite.sql.SqlUuidLiteral;
 import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -99,6 +100,8 @@ import org.apache.calcite.sql.validate.SqlValidatorNamespace;
 import org.apache.calcite.sql.validate.SqlValidatorScope;
 import org.apache.calcite.sql.validate.SqlValidatorTable;
 import org.apache.calcite.sql.validate.SqlValidatorUtil;
+import org.apache.calcite.util.TimestampString;
+import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
@@ -118,8 +121,8 @@ import org.jetbrains.annotations.Nullable;
 
 /** Validator. */
 public class IgniteSqlValidator extends SqlValidatorImpl {
-    /** Decimal of Integer.MAX_VALUE for fetch/offset bounding. */
-    private static final BigDecimal DEC_INT_MAX = BigDecimal.valueOf(Integer.MAX_VALUE);
+    /** Decimal of Long.MAX_VALUE for fetch/offset bounding. */
+    public static final BigDecimal LIMIT_UPPER = BigDecimal.valueOf(Long.MAX_VALUE);
 
     public static final int MAX_LENGTH_OF_ALIASES = 256;
     public static final int DECIMAL_DYNAMIC_PARAM_PRECISION = 28;
@@ -245,13 +248,6 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         validateUpdateFields(call);
 
         super.validateUpdate(call);
-
-        SqlSelect select = call.getSourceSelect();
-        assert select != null : "Update: SourceSelect has not been set";
-
-        // Update creates a source expression list which is not updated
-        // after type coercion adds CASTs to source expressions.
-        syncSelectList(select, call);
     }
 
     @Override
@@ -271,16 +267,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     public void validateMerge(SqlMerge call) {
         super.validateMerge(call);
 
-        SqlSelect select = call.getSourceSelect();
-        SqlUpdate update = call.getUpdateCall();
-
-        if (update != null) {
-            assert select != null : "Merge: SourceSelect has not been set";
-
-            // Merge creates a source expression list which is not updated after type coercion adds CASTs
-            // to source expressions in Update.
-            syncSelectList(select, update);
-        }
+        syncSelectList(call);
     }
 
     @Override
@@ -362,6 +349,10 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
 
             if (!canAssign) {
+                // Throws proper exception if assignment is not possible due to
+                // problem with dynamic parameter type inference.
+                validateInferredDynamicParameters();
+
                 String targetTypeString;
                 String sourceTypeString;
                 if (SqlTypeUtil.areCharacterSetsMismatched(
@@ -519,14 +510,34 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         }
     }
 
-    private static void syncSelectList(SqlSelect select, SqlUpdate update) {
+    private static void syncSelectList(SqlMerge call) {
+        // Merge creates a source expression list which is not updated after type coercion adds CASTs
+        // to source expressions in Update.
+
+        SqlUpdate update = call.getUpdateCall();
+
+        if (update == null) {
+            return;
+        }
+
+        SqlSelect selectFromUpdate = update.getSourceSelect();
+
+        assert selectFromUpdate != null;
+
+        SqlSelect selectFromMerge = call.getSourceSelect();
+
+        assert selectFromMerge != null : "Merge: SourceSelect has not been set";
+
         //
-        // If a table has N columns and update::SourceExpressionList has size = M
+        // If a table has N columns and update::TargetColumnList has size = M
         // then select::SelectList has size = N + M:
         // col1, ... colN, value_expr1, ..., value_exprM
         //
-        SqlNodeList sourceExpressionList = update.getSourceExpressionList();
-        SqlNodeList selectList = select.getSelectList();
+
+        int selectListSize = selectFromUpdate.getSelectList().size();
+        int columnsToUpdateSize = update.getTargetColumnList().size(); 
+        List<SqlNode> sourceExpressionList = selectFromUpdate.getSelectList().subList(selectListSize - columnsToUpdateSize, selectListSize);
+        SqlNodeList selectList = selectFromMerge.getSelectList();
         int sourceExprListSize = sourceExpressionList.size();
         int startPosition = selectList.size() - sourceExprListSize;
 
@@ -567,6 +578,24 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
         RelDataType dataType = literal.createSqlType(typeFactory);
         validatePrecisionScale(literal, dataType, dataType.getPrecision(), dataType.getScale());
+    }
+
+    @Override
+    public SqlLiteral resolveLiteral(SqlLiteral literal) {
+        SqlLiteral resolved = super.resolveLiteral(literal);
+        SqlTypeName typeName = resolved.getTypeName();
+
+        if (resolved instanceof SqlUuidLiteral) {
+            throw newValidationError(resolved, IgniteResource.INSTANCE.unsupportedExpression("UUID literal"));
+        } else if (typeName == SqlTypeName.TIMESTAMP) {
+            long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
+
+            if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
+                throw newValidationError(literal, IgniteResource.INSTANCE.timestampLiteralOutOfRange(literal.toString()));
+            }
+        }
+
+        return resolved;
     }
 
     @Override
@@ -683,51 +712,55 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     protected void validateSelect(SqlSelect select, RelDataType targetRowType) {
         super.validateSelect(select, targetRowType);
 
-        checkIntegerLimit(select.getFetch(), "fetch / limit");
-        checkIntegerLimit(select.getOffset(), "offset");
+        invalidateFetchOffset(select.getFetch(), "fetch / limit");
+        invalidateFetchOffset(select.getOffset(), "offset");
     }
 
     /**
-     * Check integer limit.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
+     * Invalidate fetch/offset params restrictions.
      *
      * @param n        Node to check limit.
      * @param nodeName Node name.
      */
-    private void checkIntegerLimit(@Nullable SqlNode n, String nodeName) {
+    private void invalidateFetchOffset(@Nullable SqlNode n, String nodeName) {
         if (n == null) {
             return;
         }
 
         if (n instanceof SqlLiteral) {
-            BigDecimal offFetchLimit = ((SqlLiteral) n).bigDecimalValue();
+            BigDecimal offsetFetchLimit = ((SqlLiteral) n).bigDecimalValue();
 
-            if (offFetchLimit.compareTo(DEC_INT_MAX) > 0 || offFetchLimit.compareTo(BigDecimal.ZERO) < 0) {
-                throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-            }
+            checkLimitOffset(offsetFetchLimit, n, nodeName);
         } else if (n instanceof SqlDynamicParam) {
             SqlDynamicParam dynamicParam = (SqlDynamicParam) n;
-            RelDataType intType = typeFactory.createSqlType(INTEGER);
+            SqlTypeName expectType = SqlTypeName.BIGINT;
+            RelDataType dynParamType = typeFactory.createSqlType(expectType);
 
             // Validate value, if present.
             if (!isUnspecified(dynamicParam)) {
                 Object param = getDynamicParamValue(dynamicParam);
 
-                if (param instanceof Integer) {
-                    if ((Integer) param < 0) {
-                        throw newValidationError(n, IgniteResource.INSTANCE.correctIntegerLimit(nodeName));
-                    }
-                } else {
-                    String actualType = deriveDynamicParamType(dynamicParam).toString();
-                    String expectedType = intType.toString();
+                if (param == null) {
+                    throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
+                }
 
-                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectedType, actualType);
+                dynParamType = deriveDynamicParamType(dynamicParam);
+
+                if (!SqlTypeUtil.isNumeric(dynParamType)) {
+                    var err = IgniteResource.INSTANCE.incorrectDynamicParameterType(expectType.toString(),
+                            dynParamType.getSqlTypeName().toString());
                     throw newValidationError(n, err);
                 }
             }
 
             // Dynamic parameters are nullable.
-            setDynamicParamType(dynamicParam, typeFactory.createTypeWithNullability(intType, true));
+            setDynamicParamType(dynamicParam, typeFactory.createTypeWithNullability(dynParamType, true));
+        }
+    }
+
+    private void checkLimitOffset(BigDecimal offsetFetchLimit, @Nullable SqlNode n, String nodeName) {
+        if (offsetFetchLimit.compareTo(LIMIT_UPPER) > 0 || offsetFetchLimit.signum() == -1) {
+            throw newValidationError(n, IgniteResource.INSTANCE.illegalFetchLimit(nodeName));
         }
     }
 
@@ -824,12 +857,20 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // in SQL tree.
         List<RelDataType> types = new ArrayList<>();
         IntSet alreadyVisited = new IntArraySet(dynamicParameters.size());
+        RelDataType any = typeFactory.createSqlType(SqlTypeName.ANY);
         sqlQuery.accept(
                 new SqlShuttle() {
                     @Override public SqlNode visit(SqlDynamicParam param) {
                         if (alreadyVisited.add(param.getIndex())) {
                             RelDataType type = getValidatedNodeType(param);
-                            types.add(type);
+
+                            int index = param.getIndex();
+                            while (types.size() <= index) {
+                                // Pad type list with type representing ANY value.
+                                types.add(any);
+                            }
+
+                            types.set(index, type);
                         }
                         return param;
                     }
@@ -978,7 +1019,13 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Negative values are rejected by the parser so we need to check only max values.
 
         SqlTypeName typeName = type.getSqlTypeName();
-        ColumnType columnType = TypeUtils.columnType(type);
+        ColumnType columnType;
+        // Report a standard validation error when the given SQL type is not supported.
+        try {
+            columnType = TypeUtils.columnType(type);
+        } catch (Exception ignore) {
+            throw newValidationError(typeNode, IgniteResource.INSTANCE.dataTypeIsNotSupported(typeName.getName()));
+        }
         boolean allowsLength = columnType.lengthAllowed();
         boolean allowsScale = columnType.scaleAllowed();
         boolean allowsPrecision = columnType.precisionAllowed();
@@ -1052,7 +1099,22 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             }
         }
 
-        return super.performUnconditionalRewrites(node, underFrom);
+        node = super.performUnconditionalRewrites(node, underFrom);
+
+        if (node instanceof SqlUpdate) {
+            SqlUpdate update = (SqlUpdate) node;
+
+            for (int i = 0; i < update.getTargetColumnList().size(); i++) {
+                // All expressions from SourceExpressionList were inlined into source select
+                // during UnconditionalRewrite phase, therefore we don't care about the former list.
+                // To avoid problems with this list (for instance, subqueries are not processed well:
+                // they are neither transformed to joins nor converted to physical relations causing
+                // json serializer to throw an assertion) we rewrite it with some dummy values.
+                update.getSourceExpressionList().set(i, update.getTargetColumnList().get(i));
+            }
+        }
+
+        return node;
     }
 
     @Override

@@ -51,7 +51,7 @@ import static org.apache.ignite.internal.util.ByteUtils.bytesToLongKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.longToBytesKeepingOrder;
 import static org.apache.ignite.internal.util.ByteUtils.uuidToBytes;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.hasCauseOrSuppressed;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
@@ -85,6 +85,10 @@ import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNo
 import org.apache.ignite.internal.distributionzones.rebalance.DistributionZoneRebalanceEngine;
 import org.apache.ignite.internal.distributionzones.utils.CatalogAlterZoneEventListener;
 import org.apache.ignite.internal.event.AbstractEventProducer;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -127,6 +131,8 @@ public class DistributionZoneManager extends
     /** Logical topology service to track topology changes. */
     private final LogicalTopologyService logicalTopologyService;
 
+    private final FailureProcessor failureProcessor;
+
     private final DataNodesManager dataNodesManager;
 
     /** Listener for a topology events. */
@@ -160,16 +166,9 @@ public class DistributionZoneManager extends
     private final SystemDistributedConfigurationPropertyHolder<Integer> partitionDistributionResetTimeoutConfiguration;
 
     /**
-     * Creates a new distribution zone manager.
-     *
-     * @param nodeName Node name.
-     * @param registry Registry for versioned values.
-     * @param metaStorageManager Meta Storage manager.
-     * @param logicalTopologyService Logical topology service.
-     * @param catalogManager Catalog manager.
-     * @param systemDistributedConfiguration System distributed configuration.
-     * @param clockService Clock service.
+     * Constructor.
      */
+    @TestOnly
     public DistributionZoneManager(
             String nodeName,
             RevisionListenerRegistry registry,
@@ -179,8 +178,43 @@ public class DistributionZoneManager extends
             SystemDistributedConfiguration systemDistributedConfiguration,
             ClockService clockService
     ) {
+        this(
+                nodeName,
+                registry,
+                metaStorageManager,
+                logicalTopologyService,
+                new FailureManager(new NoOpFailureHandler()),
+                catalogManager,
+                systemDistributedConfiguration,
+                clockService
+        );
+    }
+
+    /**
+     * Creates a new distribution zone manager.
+     *
+     * @param nodeName Node name.
+     * @param registry Registry for versioned values.
+     * @param metaStorageManager Meta Storage manager.
+     * @param logicalTopologyService Logical topology service.
+     * @param failureProcessor Failure processor.
+     * @param catalogManager Catalog manager.
+     * @param systemDistributedConfiguration System distributed configuration.
+     * @param clockService Clock service.
+     */
+    public DistributionZoneManager(
+            String nodeName,
+            RevisionListenerRegistry registry,
+            MetaStorageManager metaStorageManager,
+            LogicalTopologyService logicalTopologyService,
+            FailureProcessor failureProcessor,
+            CatalogManager catalogManager,
+            SystemDistributedConfiguration systemDistributedConfiguration,
+            ClockService clockService
+    ) {
         this.metaStorageManager = metaStorageManager;
         this.logicalTopologyService = logicalTopologyService;
+        this.failureProcessor = failureProcessor;
         this.catalogManager = catalogManager;
 
         this.topologyWatchListener = createMetastorageTopologyListener();
@@ -209,6 +243,7 @@ public class DistributionZoneManager extends
                 metaStorageManager,
                 catalogManager,
                 clockService,
+                failureProcessor,
                 this::fireTopologyReduceLocalEvent,
                 partitionDistributionResetTimeoutConfiguration::currentValue
         );
@@ -399,12 +434,14 @@ public class DistributionZoneManager extends
 
             metaStorageManager.invoke(iff).whenComplete((res, e) -> {
                 if (e != null) {
-                    LOG.error(
-                            "Failed to update distribution zones' logical topology and version keys [topology = {}, version = {}]",
-                            e,
-                            Arrays.toString(logicalTopology.toArray()),
-                            newTopology.version()
-                    );
+                    if (!relatesToNodeStopping(e)) {
+                        String errorMessage = String.format(
+                                "Failed to update distribution zones' logical topology and version keys [topology = %s, version = %s]",
+                                Arrays.toString(logicalTopology.toArray()),
+                                newTopology.version()
+                        );
+                        failureProcessor.process(new FailureContext(e, errorMessage));
+                    }
                 } else if (res.getAsBoolean()) {
                     LOG.info(
                             "Distribution zones' logical topology and version keys were updated [topology = {}, version = {}]",
@@ -423,6 +460,10 @@ public class DistributionZoneManager extends
         } finally {
             busyLock.leaveBusy();
         }
+    }
+
+    private static boolean relatesToNodeStopping(Throwable e) {
+        return hasCause(e, NodeStoppingException.class);
     }
 
     /**
@@ -595,8 +636,12 @@ public class DistributionZoneManager extends
                 .thenApply(StatementResult::getAsBoolean)
                 .whenComplete((invokeResult, e) -> {
                     if (e != null) {
-                        if (!hasCauseOrSuppressed(e, NodeStoppingException.class)) {
-                            LOG.error("Failed to update recoverable state for distribution zone manager [revision = {}]", e, revision);
+                        if (!relatesToNodeStopping(e)) {
+                            String errorMessage = String.format(
+                                    "Failed to update recoverable state for distribution zone manager [revision = %s]",
+                                    revision
+                            );
+                            failureProcessor.process(new FailureContext(e, errorMessage));
                         }
                     } else if (invokeResult) {
                         LOG.info("Update recoverable state for distribution zone manager [revision = {}]", revision);

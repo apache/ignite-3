@@ -264,7 +264,7 @@ public class ClientSql implements IgniteSql {
             w.out().packLong(ch.observableTimestamp().get().longValue());
 
             if (cancellationToken != null) {
-                addCancelAction(cancellationToken, w.requestId());
+                addCancelAction(cancellationToken, w);
             }
         };
 
@@ -351,21 +351,24 @@ public class ClientSql implements IgniteSql {
             w.out().packLong(ch.observableTimestamp().get().longValue());
 
             if (cancellationToken != null) {
-                addCancelAction(cancellationToken, w.requestId());
+                addCancelAction(cancellationToken, w);
             }
         };
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_SCRIPT, payloadWriter, null);
     }
 
-    private void addCancelAction(CancellationToken cancellationToken, long correlationToken) {
+    private static void addCancelAction(CancellationToken cancellationToken, PayloadOutputChannel ch) {
         CompletableFuture<Void> cancelFuture = new CompletableFuture<>();
 
         if (CancelHandleHelper.isCancelled(cancellationToken)) {
             throw new SqlException(Sql.EXECUTION_CANCELLED_ERR, "The query was cancelled while executing.");
         }
 
-        Runnable cancelAction = () -> ch.serviceAsync(ClientOp.SQL_CANCEL_EXEC, w -> w.out().packLong(correlationToken), null)
+        long correlationToken = ch.requestId();
+
+        Runnable cancelAction = () -> ch.clientChannel()
+                .serviceAsync(ClientOp.SQL_CANCEL_EXEC, w -> w.out().packLong(correlationToken), null)
                 .whenComplete((r, e) -> {
                     if (e != null) {
                         cancelFuture.completeExceptionally(e);
@@ -374,7 +377,7 @@ public class ClientSql implements IgniteSql {
                     }
                 });
 
-        CancelHandleHelper.addCancelAction(cancellationToken, cancelAction, cancelFuture);
+        ch.onSent(() -> CancelHandleHelper.addCancelAction(cancellationToken, cancelAction, cancelFuture));
     }
 
     private static void packProperties(

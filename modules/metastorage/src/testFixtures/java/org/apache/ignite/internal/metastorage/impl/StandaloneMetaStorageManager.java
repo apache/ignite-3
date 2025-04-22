@@ -84,7 +84,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
 
     private static final UUID TEST_NODE_ID = UUID.randomUUID();
 
-    private static final ClusterNode TEST_NODE = new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, mock(NetworkAddress.class));
+    private static final ClusterNode TEST_NODE = new ClusterNodeImpl(TEST_NODE_ID, TEST_NODE_NAME, new NetworkAddress("host", 3000));
 
     private static final MockSettings LENIENT_SETTINGS = withSettings().strictness(Strictness.LENIENT);
 
@@ -311,7 +311,7 @@ public class StandaloneMetaStorageManager extends MetaStorageManagerImpl {
         SystemDistributedConfiguration configuration = mock(SystemDistributedConfiguration.class, LENIENT_SETTINGS);
         ConfigurationValue<Long> value = mock(ConfigurationValue.class, LENIENT_SETTINGS);
 
-        when(configuration.idleSafeTimeSyncInterval()).thenReturn(value);
+        when(configuration.idleSafeTimeSyncIntervalMillis()).thenReturn(value);
         when(value.value()).thenReturn(50L);
 
         return configuration;

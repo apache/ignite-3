@@ -40,6 +40,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.hlc.HybridClock;
@@ -92,6 +93,9 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
     @InjectConfiguration
     private ReplicationConfiguration replicationConfiguration;
 
+    @InjectConfiguration
+    private SystemDistributedConfiguration systemDistributedConfiguration;
+
     private static final HybridClock CLOCK = new HybridClockImpl();
 
     private static final Row ROW_1 = createKeyValueRow(1, 1001);
@@ -132,6 +136,7 @@ public class ItInternalTableReadOnlyOperationsTest extends IgniteAbstractTest {
                 mockStorage,
                 SCHEMA,
                 txConfiguration,
+                systemDistributedConfiguration,
                 replicationConfiguration
         );
 

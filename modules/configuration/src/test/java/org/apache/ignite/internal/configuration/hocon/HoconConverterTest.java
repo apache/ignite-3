@@ -453,6 +453,9 @@ public class HoconConverterTest {
         change("root.primitivesList.name.char = p");
         assertThat(primitives.charVal().value(), is('p'));
 
+        change("root.primitivesList.name.char = 1");
+        assertThat(primitives.charVal().value(), is('1'));
+
         change("root.primitivesList.name.float = 2.5");
         assertThat(primitives.floatVal().value(), is(2.5f));
 
@@ -461,6 +464,9 @@ public class HoconConverterTest {
 
         change("root.primitivesList.name.string = foo");
         assertThat(primitives.string().value(), is("foo"));
+
+        change("root.primitivesList.name.string = 10");
+        assertThat(primitives.string().value(), is("10"));
 
         UUID newUuid0 = UUID.randomUUID();
         UUID newUuid1 = UUID.randomUUID();
@@ -530,11 +536,6 @@ public class HoconConverterTest {
         assertThrowsIllegalArgException(
                 () -> change("root.primitivesList.name.double = []"),
                 "'double' is expected as a type for the 'root.primitivesList.name.double' configuration value"
-        );
-
-        assertThrowsIllegalArgException(
-                () -> change("root.primitivesList.name.string = 10"),
-                "'String' is expected as a type for the 'root.primitivesList.name.string' configuration value"
         );
 
         assertThrowsIllegalArgException(

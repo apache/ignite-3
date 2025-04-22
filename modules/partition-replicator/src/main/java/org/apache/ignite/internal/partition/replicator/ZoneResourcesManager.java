@@ -25,10 +25,11 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.close.ManuallyCloseable;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.raft.ZonePartitionRaftListener;
-import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
+import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
@@ -60,6 +62,8 @@ class ZoneResourcesManager implements ManuallyCloseable {
 
     private final CatalogService catalogService;
 
+    private final FailureProcessor failureProcessor;
+
     private final Executor partitionOperationsExecutor;
 
     /** Map from zone IDs to their resource holders. */
@@ -73,6 +77,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
             OutgoingSnapshotsManager outgoingSnapshotsManager,
             TopologyService topologyService,
             CatalogService catalogService,
+            FailureProcessor failureProcessor,
             Executor partitionOperationsExecutor
     ) {
         this.sharedTxStateStorage = sharedTxStateStorage;
@@ -80,6 +85,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
         this.outgoingSnapshotsManager = outgoingSnapshotsManager;
         this.topologyService = topologyService;
         this.catalogService = catalogService;
+        this.failureProcessor = failureProcessor;
         this.partitionOperationsExecutor = partitionOperationsExecutor;
     }
 
@@ -108,16 +114,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 partitionOperationsExecutor
         );
 
-        var snapshotStorageFactory = new PartitionSnapshotStorageFactory(
+        var snapshotStorage = new PartitionSnapshotStorage(
                 new ZonePartitionKey(zonePartitionId.zoneId(), zonePartitionId.partitionId()),
                 topologyService,
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStatePartitionStorage),
                 catalogService,
+                failureProcessor,
                 partitionOperationsExecutor
         );
 
-        var zonePartitionResources = new ZonePartitionResources(txStatePartitionStorage, raftGroupListener, snapshotStorageFactory);
+        var zonePartitionResources = new ZonePartitionResources(txStatePartitionStorage, raftGroupListener, snapshotStorage);
 
         zoneResources.resourcesByPartitionId.put(zonePartitionId.partitionId(), zonePartitionResources);
 
@@ -172,15 +179,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
         });
     }
 
-    void removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
+    CompletableFuture<Void> removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
 
-        resources.replicaListenerFuture()
-                .thenAccept(zoneReplicaListener -> zoneReplicaListener.removeTableReplicaProcessor(tableId));
+        return resources.replicaListenerFuture
+                .thenCompose(zoneReplicaListener -> {
+                    zoneReplicaListener.removeTableReplicaProcessor(tableId);
 
-        resources.raftListener().removeTableProcessor(tableId);
+                    resources.raftListener().removeTableProcessor(tableId);
 
-        resources.snapshotStorageFactory().removeMvPartition(tableId);
+                    return resources.snapshotStorage().removeMvPartition(tableId);
+                });
     }
 
     @TestOnly
@@ -206,10 +215,11 @@ class ZoneResourcesManager implements ManuallyCloseable {
         }
     }
 
-    static class ZonePartitionResources {
+    @VisibleForTesting
+    public static class ZonePartitionResources {
         private final TxStatePartitionStorage txStatePartitionStorage;
         private final ZonePartitionRaftListener raftListener;
-        private final PartitionSnapshotStorageFactory snapshotStorageFactory;
+        private final PartitionSnapshotStorage snapshotStorage;
 
         /**
          * Future that completes when the zone-wide replica listener is created.
@@ -224,11 +234,11 @@ class ZoneResourcesManager implements ManuallyCloseable {
         ZonePartitionResources(
                 TxStatePartitionStorage txStatePartitionStorage,
                 ZonePartitionRaftListener raftListener,
-                PartitionSnapshotStorageFactory snapshotStorageFactory
+                PartitionSnapshotStorage snapshotStorage
         ) {
             this.txStatePartitionStorage = txStatePartitionStorage;
             this.raftListener = raftListener;
-            this.snapshotStorageFactory = snapshotStorageFactory;
+            this.snapshotStorage = snapshotStorage;
         }
 
         TxStatePartitionStorage txStatePartitionStorage() {
@@ -239,11 +249,11 @@ class ZoneResourcesManager implements ManuallyCloseable {
             return raftListener;
         }
 
-        PartitionSnapshotStorageFactory snapshotStorageFactory() {
-            return snapshotStorageFactory;
+        PartitionSnapshotStorage snapshotStorage() {
+            return snapshotStorage;
         }
 
-        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
+        public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
             return replicaListenerFuture;
         }
     }

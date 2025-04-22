@@ -75,6 +75,7 @@ import org.apache.ignite.internal.partition.replicator.network.PartitionReplicat
 import org.apache.ignite.internal.partition.replicator.network.command.TimedBinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.network.command.UpdateCommand;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionMvStorageAccess;
+import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionSnapshotStorageFactory;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionTxStateAccessImpl;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
@@ -148,7 +149,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
     private LogStorageFactory logStorageFactory;
 
-    private PartitionSnapshotStorageFactory partitionSnapshotStorageFactory;
+    private PartitionSnapshotStorage partitionSnapshotStorage;
 
     private ZonePartitionRaftListener currentRaftListener;
 
@@ -251,13 +252,15 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         components.add(clusterService);
 
+        var failureProcessor = new NoOpFailureManager();
+
         raftManager = new Loza(
                 clusterService,
                 new NoOpMetricManager(),
                 raftConfiguration,
                 clock,
                 new RaftGroupEventsClientListener(),
-                new NoOpFailureManager()
+                failureProcessor
         );
 
         components.add(raftManager);
@@ -266,12 +269,17 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 workDir.resolve("tx"),
                 scheduledExecutorService,
                 executor,
-                new NoOpLogSyncer()
+                new NoOpLogSyncer(),
+                failureProcessor
         );
 
         components.add(sharedRockDbStorage);
 
-        outgoingSnapshotsManager = new OutgoingSnapshotsManager(clusterService.nodeName(), clusterService.messagingService());
+        outgoingSnapshotsManager = new OutgoingSnapshotsManager(
+                clusterService.nodeName(),
+                clusterService.messagingService(),
+                failureProcessor
+        );
 
         components.add(outgoingSnapshotsManager);
 
@@ -288,12 +296,13 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         txStateStorage = new TxStateRocksDbStorage(PARTITION_ID.zoneId(), 10, sharedRockDbStorage);
 
-        partitionSnapshotStorageFactory = new PartitionSnapshotStorageFactory(
+        partitionSnapshotStorage = new PartitionSnapshotStorage(
                 new ZonePartitionKey(PARTITION_ID.zoneId(), PARTITION_ID.partitionId()),
                 clusterService.topologyService(),
                 outgoingSnapshotsManager,
                 new PartitionTxStateAccessImpl(txStateStorage.getOrCreatePartitionStorage(PARTITION_ID.partitionId())),
                 catalogService,
+                failureProcessor,
                 executor
         );
     }
@@ -323,9 +332,9 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
         for (int tableId : tableIds) {
             // We need to remove the storage, because this method can be called multiple times with the same ids and there's an assertion
             // inside.
-            partitionSnapshotStorageFactory.removeMvPartition(tableId);
+            partitionSnapshotStorage.removeMvPartition(tableId);
 
-            partitionSnapshotStorageFactory.addMvPartition(tableId, mockStorage(tableId).storageAccess);
+            partitionSnapshotStorage.addMvPartition(tableId, mockStorage(tableId).storageAccess);
 
             currentRaftListener.addTableProcessorOnRecovery(tableId, createTableProcessor(tableId));
         }
@@ -334,7 +343,7 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
 
         RaftGroupOptions options = RaftGroupOptions.forPersistentStores();
 
-        options.snapshotStorageFactory(partitionSnapshotStorageFactory);
+        options.snapshotStorageFactory(new PartitionSnapshotStorageFactory(partitionSnapshotStorage));
 
         RaftGroupOptionsConfigurer raftGroupOptionsConfigurer = configureProperties(
                 logStorageFactory,

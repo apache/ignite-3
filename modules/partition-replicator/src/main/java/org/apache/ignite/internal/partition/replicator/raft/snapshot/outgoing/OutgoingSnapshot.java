@@ -35,9 +35,7 @@ import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.locks.ReentrantLock;
-import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -184,7 +182,7 @@ public class OutgoingSnapshot {
         try {
             int catalogVersion = catalogService.latestCatalogVersion();
 
-            List<PartitionMvStorageAccess> partitionStorages = freezePartitionStorages(catalogVersion);
+            List<PartitionMvStorageAccess> partitionStorages = freezePartitionStorages();
 
             frozenMeta = takeSnapshotMeta(catalogVersion, partitionStorages);
 
@@ -240,18 +238,9 @@ public class OutgoingSnapshot {
         }
     }
 
-    private List<PartitionMvStorageAccess> freezePartitionStorages(int catalogVersion) {
-        Catalog catalog = catalogService.catalog(catalogVersion);
-
+    private List<PartitionMvStorageAccess> freezePartitionStorages() {
         if (partitionKey instanceof ZonePartitionKey) {
-            int zoneId = ((ZonePartitionKey) partitionKey).zoneId();
-
             return partitionsByTableId.values().stream()
-                    .filter(storage -> {
-                        CatalogTableDescriptor tableDescriptor = catalog.table(storage.tableId());
-
-                        return tableDescriptor != null && tableDescriptor.zoneId() == zoneId;
-                    })
                     .sorted(comparingInt(PartitionMvStorageAccess::tableId))
                     .collect(toList());
         } else {
@@ -488,21 +477,13 @@ public class OutgoingSnapshot {
                 rows.add(txDataCursor.next());
             } else {
                 finishedTxData = true;
-                closeLoggingProblems(txDataCursor);
+                txDataCursor.close();
             }
         }
 
         this.finishedTxData = finishedTxData;
 
         return buildTxDataResponse(rows, finishedTxData);
-    }
-
-    private static void closeLoggingProblems(Cursor<?> cursor) {
-        try {
-            cursor.close();
-        } catch (RuntimeException e) {
-            LOG.error("Problem while closing a cursor", e);
-        }
     }
 
     private static SnapshotTxDataResponse buildTxDataResponse(List<IgniteBiTuple<UUID, TxMeta>> rows, boolean finished) {
@@ -629,7 +610,7 @@ public class OutgoingSnapshot {
             Cursor<IgniteBiTuple<UUID, TxMeta>> txCursor = txDataCursor;
 
             if (txCursor != null) {
-                closeLoggingProblems(txCursor);
+                txCursor.close();
                 finishedTxData = true;
             }
         }

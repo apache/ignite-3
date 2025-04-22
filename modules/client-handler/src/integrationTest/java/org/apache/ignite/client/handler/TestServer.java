@@ -116,7 +116,7 @@ public class TestServer {
         clientConnectorConfiguration.change(
                 local -> local
                         .changePort(10800)
-                        .changeIdleTimeout(idleTimeout)
+                        .changeIdleTimeoutMillis(idleTimeout)
         ).join();
 
         if (testSslConfig != null) {
@@ -152,7 +152,6 @@ public class TestServer {
                 mock(PlacementDriver.class),
                 clientConnectorConfiguration,
                 new TestLowWatermark(),
-                Runnable::run,
                 Runnable::run
         );
 

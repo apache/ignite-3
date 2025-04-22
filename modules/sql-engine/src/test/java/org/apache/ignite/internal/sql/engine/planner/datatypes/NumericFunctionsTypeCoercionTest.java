@@ -1140,8 +1140,7 @@ public class NumericFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         RelDataType char1 = Commons.typeFactory().createSqlType(SqlTypeName.CHAR, 1);
 
         List<Matcher<RexNode>> args = List.of(ofTypeWithoutCast(type));
-        // CHR(n) returns non-nullable char.
-        Matcher<RelNode> matcher = new FunctionCallMatcher(args).returnTypeNullability(false).resultWillBe(char1);
+        Matcher<RelNode> matcher = new FunctionCallMatcher(args).resultWillBe(char1);
 
         assertPlan("SELECT CHR(C1) FROM T", schema, matcher::matches, List.of());
     }

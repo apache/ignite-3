@@ -68,8 +68,7 @@ import org.junit.jupiter.api.Test;
  * Test for disaster recovery REST commands.
  */
 @MicronautTest
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+// TODO https://issues.apache.org/jira/browse/IGNITE-25104
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
@@ -104,11 +103,11 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     @BeforeAll
     public static void setUp() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
-            sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", name, DEFAULT_AIPERSIST_PROFILE_NAME));
             sql(String.format("CREATE TABLE PUBLIC.\"%s_table\" (id INT PRIMARY KEY, val INT) ZONE \"%1$s\"", name));
         });
 
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
 
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
 

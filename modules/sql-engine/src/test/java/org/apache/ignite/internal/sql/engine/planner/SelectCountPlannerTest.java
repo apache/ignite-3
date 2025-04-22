@@ -213,7 +213,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     public void doNotOptimizeCountFunc() {
         node.initSchema("CREATE TABLE test (id INT PRIMARY KEY, val INT)");
 
-        QueryPlan plan = node.prepare("SELECT count(CURRENT_TIME) FROM test");
+        QueryPlan plan = node.prepare("SELECT count(CURRENT_TIMESTAMP) FROM test");
 
         assertThat(plan, not(instanceOf(SelectCountPlan.class)));
     }

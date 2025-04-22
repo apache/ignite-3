@@ -18,6 +18,20 @@ SELECT b FROM test ORDER BY b DESC OFFSET 1
 7
 2
 
+# decimal offset
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1.4
+----
+7
+2
+
+# decimal offset
+query I
+SELECT b FROM test ORDER BY b DESC OFFSET 1.6
+----
+7
+2
+
 query I
 SELECT b FROM test ORDER BY b OFFSET 2
 ----

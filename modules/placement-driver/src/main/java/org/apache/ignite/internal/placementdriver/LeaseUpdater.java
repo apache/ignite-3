@@ -31,6 +31,7 @@ import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.
 import static org.apache.ignite.internal.placementdriver.leases.Lease.emptyLease;
 import static org.apache.ignite.internal.util.CollectionUtils.union;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -45,6 +46,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
@@ -75,7 +78,6 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.thread.IgniteThread;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.network.ClusterNode;
@@ -108,6 +110,8 @@ public class LeaseUpdater {
 
     /** Meta storage manager. */
     private final MetaStorageManager msManager;
+
+    private final FailureProcessor failureProcessor;
 
     /** Assignments tracker. */
     private final AssignmentsTracker assignmentsTracker;
@@ -150,6 +154,7 @@ public class LeaseUpdater {
             String nodeName,
             ClusterService clusterService,
             MetaStorageManager msManager,
+            FailureProcessor failureProcessor,
             LogicalTopologyService topologyService,
             LeaseTracker leaseTracker,
             ClockService clockService,
@@ -159,6 +164,7 @@ public class LeaseUpdater {
         this.nodeName = nodeName;
         this.clusterService = clusterService;
         this.msManager = msManager;
+        this.failureProcessor = failureProcessor;
         this.leaseTracker = leaseTracker;
         this.clockService = clockService;
         this.replicationConfiguration = replicationConfiguration;
@@ -385,7 +391,7 @@ public class LeaseUpdater {
                         updateLeaseBatchInternal();
                     }
                 } catch (Throwable e) {
-                    LOG.error("Error occurred when updating the leases.", e);
+                    failureProcessor.process(new FailureContext(e, "Error occurred when updating the leases."));
 
                     if (e instanceof Error) {
                         // TODO IGNITE-20368 The node should be halted in case of an error here.
@@ -409,7 +415,7 @@ public class LeaseUpdater {
 
             leaseUpdateStatistics = new LeaseStats();
 
-            long leaseExpirationInterval = replicationConfiguration.leaseExpirationInterval().value();
+            long leaseExpirationInterval = replicationConfiguration.leaseExpirationIntervalMillis().value();
 
             long outdatedLeaseThreshold = currentTime.getPhysical() + leaseExpirationInterval / 2;
 
@@ -581,8 +587,8 @@ public class LeaseUpdater {
                     noop()
             ).whenComplete((success, e) -> {
                 if (e != null) {
-                    if (!(ExceptionUtils.unwrapCause(e) instanceof NodeStoppingException)) {
-                        LOG.error("Lease update invocation failed", e);
+                    if (!hasCause(e, NodeStoppingException.class)) {
+                        failureProcessor.process(new FailureContext(e, "Lease update invocation failed"));
                     }
 
                     return;
@@ -650,7 +656,7 @@ public class LeaseUpdater {
         ) {
             HybridTimestamp startTs = clockService.now();
 
-            long interval = replicationConfiguration.leaseAgreementAcceptanceTimeLimit().value();
+            long interval = replicationConfiguration.leaseAgreementAcceptanceTimeLimitMillis().value();
 
             var expirationTs = new HybridTimestamp(startTs.getPhysical() + interval, 0);
 

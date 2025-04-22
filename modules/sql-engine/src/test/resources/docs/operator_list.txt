@@ -214,8 +214,8 @@ TRUNCATE(<numeric>)
 TRUNCATE(<numeric>, <integer>)
 #87e27c45e666c2cb0b783ee2fa03509d1eee54aa
 
-PI
-#920dd92d06ed99b0327a5bd9bb0ae95b206d656d
+PI()
+#530ef2ad5c026f404c4c565d1c9b7b3acc943952
 
 
 === Date/time Functions
@@ -323,9 +323,6 @@ DATE(<timestamp with local time zone>) ***
 DATE(<timestamp with local time zone>, <string>) ***
 #12a077f0ee4d24aaebf5d047d833d5cfd8f70b22
 
-CURRENT_TIME
-#bc364c4a100683b9ba3b303b547f61db976bf44e
-
 CURRENT_TIMESTAMP
 #5c99b1be6d38a4133eb93b31f2d96552e0367780
 
@@ -416,10 +413,10 @@ DECODE(...)
 #831832ff682eb07a1d3434faba909aa6d3fc0dc6
 
 LEAST(<equivalent_type>, <equivalent_type>, <...>)
-#fb5699de297c26d70990a7f64644eaaaeb891777
+#db412c9e953bb629115588b098acc39c76d444e3
 
 GREATEST(<equivalent_type>, <equivalent_type>, <...>)
-#9a8c36ac02cded8bf16aa8ba9ce2ca81dc9a3af3
+#3de295eb8730d4a7a883fa8c2996df5f0a6c078a
 
 COMPRESS(<string>)
 #94758a84173af269b9e6121bda73e756fba6d38f
@@ -598,7 +595,7 @@ ARRAY(...)
 array[<integer>] ***
 map[<character>] ***
 struct[<integer> | <character>] ***
-#702eab786394012f5d7ac2ed966bf1e47700c444
+#05dc76969524f84acdb6a082b50be9f7bbeeaf66
 
 CARDINALITY(<multiset>)
 CARDINALITY(<array>)

@@ -20,7 +20,6 @@ package org.apache.ignite.internal.worker;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_BLOCKED;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.lang.ErrorGroups.CriticalWorkers.SYSTEM_WORKER_BLOCKED_ERR;
 
 import it.unimi.dsi.fastutil.longs.Long2LongMap;
 import it.unimi.dsi.fastutil.longs.Long2LongOpenHashMap;
@@ -42,7 +41,6 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfiguration;
-import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -101,7 +99,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        long livenessCheckIntervalMs = configuration.livenessCheckInterval().value();
+        long livenessCheckIntervalMs = configuration.livenessCheckIntervalMillis().value();
 
         livenessProbeTaskFuture = scheduler.scheduleAtFixedRate(
                 this::probeLiveness,
@@ -124,7 +122,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
     }
 
     private void doProbeLiveness() {
-        long maxAllowedLag = configuration.maxAllowedLag().value();
+        long maxAllowedLag = configuration.maxAllowedLagMillis().value();
 
         Long2LongMap delayedThreadIdsToDelays = getDelayedThreadIdsAndDelays(maxAllowedLag);
 
@@ -148,10 +146,7 @@ public class CriticalWorkerWatchdog implements CriticalWorkerRegistry, IgniteCom
 
                 appendThreadInfo(message, threadInfo);
 
-                failureManager.process(
-                        new FailureContext(
-                                SYSTEM_WORKER_BLOCKED,
-                                new IgniteException(SYSTEM_WORKER_BLOCKED_ERR, message.toString(), false)));
+                failureManager.process(new FailureContext(SYSTEM_WORKER_BLOCKED, null, message.toString()));
             }
         }
     }

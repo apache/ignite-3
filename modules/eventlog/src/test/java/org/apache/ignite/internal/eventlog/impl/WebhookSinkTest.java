@@ -43,6 +43,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -100,6 +101,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                         VerificationTimes.exactly(1));
     }
 
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24226")
     @Test
     void shouldSendEventsByTimeout() {
         clientAndServer
@@ -110,7 +112,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 )
                 .respond(response(null));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSendFrequency(200L));
+        WebhookSink sink = createSink(c -> c.changeBatchSendFrequencyMillis(200L));
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
@@ -188,7 +190,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 )
                 .respond(response().withStatusCode(statusCode));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoff(100L));
+        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 
@@ -221,7 +223,7 @@ class WebhookSinkTest extends BaseIgniteAbstractTest {
                 )
                 .respond(response().withStatusCode(statusCode));
 
-        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoff(100L));
+        WebhookSink sink = createSink(c -> c.changeBatchSize(1).changeRetryPolicy().changeInitBackoffMillis(100L));
 
         sink.write(IgniteEvents.USER_AUTHENTICATION_SUCCESS.create(EventUser.of("user1", "basicProvider")));
 

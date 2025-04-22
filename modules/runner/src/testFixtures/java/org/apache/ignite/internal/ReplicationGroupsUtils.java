@@ -23,6 +23,7 @@ import java.util.List;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 
 /**
  * Utilities used to obtain replication groups from a running Ignite instance.
@@ -31,11 +32,24 @@ public class ReplicationGroupsUtils {
     /**
      * Returns the IDs of all table partitions that exist on the given node.
      */
-    public static List<TablePartitionId> tablePartitionIds(IgniteImpl node) {
+    public static List<TablePartitionId> tablePartitionIds(IgniteImpl node, int tableId) {
         return node.raftManager().localNodes().stream()
                 .map(RaftNodeId::groupId)
                 .filter(TablePartitionId.class::isInstance)
                 .map(TablePartitionId.class::cast)
+                .filter(tablePartitionId -> tablePartitionId.tableId() == tableId)
+                .collect(toList());
+    }
+
+    /**
+     * Returns the IDs of all zone partitions that exist on the given node.
+     */
+    public static List<ZonePartitionId> zonePartitionIds(IgniteImpl node, int zoneId) {
+        return node.raftManager().localNodes().stream()
+                .map(RaftNodeId::groupId)
+                .filter(ZonePartitionId.class::isInstance)
+                .map(ZonePartitionId.class::cast)
+                .filter(zonePartitionId -> zonePartitionId.zoneId() == zoneId)
                 .collect(toList());
     }
 }

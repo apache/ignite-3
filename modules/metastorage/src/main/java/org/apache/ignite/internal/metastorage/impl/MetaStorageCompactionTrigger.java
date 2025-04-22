@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
@@ -36,6 +37,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -86,6 +89,8 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
 
     private final MetaStorageManagerImpl metaStorageManager;
 
+    private final FailureProcessor failureProcessor;
+
     private final ReadOperationForCompactionTracker readOperationForCompactionTracker;
 
     private final MetaStorageCompactionTriggerConfiguration config;
@@ -118,6 +123,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
      * @param localNodeName Local node name.
      * @param storage Storage.
      * @param metaStorageManager Metastorage manager.
+     * @param failureProcessor Failure processor.
      * @param readOperationForCompactionTracker Tracker of read operations, both local and from the leader.
      * @param systemDistributedConfig Distributed system configuration.
      */
@@ -125,12 +131,14 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
             String localNodeName,
             KeyValueStorage storage,
             MetaStorageManagerImpl metaStorageManager,
+            FailureProcessor failureProcessor,
             ReadOperationForCompactionTracker readOperationForCompactionTracker,
             SystemDistributedConfiguration systemDistributedConfig
     ) {
         this.localNodeName = localNodeName;
         this.storage = storage;
         this.metaStorageManager = metaStorageManager;
+        this.failureProcessor = failureProcessor;
         this.readOperationForCompactionTracker = readOperationForCompactionTracker;
 
         config = new MetaStorageCompactionTriggerConfiguration(systemDistributedConfig);
@@ -198,15 +206,13 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 metaStorageManager.sendCompactionCommand(newCompactionRevision)
                         .whenComplete((unused, throwable) -> {
                             if (throwable != null) {
-                                Throwable cause = unwrapCause(throwable);
-
-                                if (!(cause instanceof NodeStoppingException)) {
-                                    LOG.error(
+                                if (!hasCause(throwable, NodeStoppingException.class)) {
+                                    String errorMessage = String.format(
                                             "Unknown error occurred while sending the metastorage compaction command: "
-                                                    + "[newCompactionRevision={}]",
-                                            cause,
+                                                    + "[newCompactionRevision=%s]",
                                             newCompactionRevision
                                     );
+                                    failureProcessor.process(new FailureContext(throwable, errorMessage));
 
                                     inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
                                 }
@@ -214,7 +220,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                         });
             }
         } catch (Throwable t) {
-            LOG.error("Unknown error on new metastorage compaction revision scheduling", t);
+            failureProcessor.process(new FailureContext(t, "Unknown error on new metastorage compaction revision scheduling"));
 
             inBusyLockSafe(busyLock, this::scheduleNextCompactionBusy);
         } finally {
@@ -305,11 +311,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                         Throwable cause = unwrapCause(throwable);
 
                         if (!(cause instanceof NodeStoppingException)) {
-                            LOG.error(
-                                    "Unknown error on new metastorage compaction revision: {}",
-                                    cause,
+                            String errorMessage = String.format(
+                                    "Unknown error on new metastorage compaction revision: %s",
                                     compactionRevision
                             );
+                            failureProcessor.process(new FailureContext(throwable, errorMessage));
                         }
                     }
 
@@ -370,11 +376,11 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                             Throwable cause = unwrapCause(throwable);
 
                             if (!(cause instanceof NodeStoppingException)) {
-                                LOG.error(
-                                        "Unknown error during metastore compaction launched on node recovery: [compactionRevision={}]",
-                                        cause,
+                                String errorMessage = String.format(
+                                        "Unknown error during metastore compaction launched on node recovery: [compactionRevision=%s]",
                                         recoveredCompactionRevision
                                 );
+                                failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
                         } else {
                             LOG.info(

@@ -215,13 +215,23 @@ public class ErrorGroups {
         /** Table error group. */
         public static final ErrorGroup TABLE_ERR_GROUP = registerGroup("TBL", (short) 2);
 
-        /** Table already exists. */
+        /**
+         * Table already exists.
+         *
+         * @deprecated Unused. Replaced with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR}.
+         */
+        @Deprecated
         public static final int TABLE_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Table not found. */
         public static final int TABLE_NOT_FOUND_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 2);
 
-        /** Column already exists. */
+        /**
+         * Column already exists.
+         *
+         * @deprecated Unused. Replaced with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR}.
+         */
+        @Deprecated
         public static final int COLUMN_ALREADY_EXISTS_ERR = TABLE_ERR_GROUP.registerErrorCode((short) 3);
 
         /** Column not found. */
@@ -274,7 +284,12 @@ public class ErrorGroups {
         /** Query without a result set error. */
         public static final int QUERY_NO_RESULT_SET_ERR = SQL_ERR_GROUP.registerErrorCode((short) 1);
 
-        /** Schema not found. */
+        /**
+         * Schema not found.
+         *
+         * @deprecated Unused. Replaced with {@link ErrorGroups.Sql#STMT_VALIDATION_ERR}.
+         */
+        @Deprecated
         public static final int SCHEMA_NOT_FOUND_ERR = SQL_ERR_GROUP.registerErrorCode((short) 2);
 
         /** Statement parsing error. This error is returned when an SQL statement string is not valid according to syntax rules. */
@@ -352,16 +367,24 @@ public class ErrorGroups {
         public static final int DIVERGED_ERR = META_STORAGE_ERR_GROUP.registerErrorCode((short) 7);
     }
 
-    /** Index error group. */
+    /**
+     * Index error group.
+     *
+     * @deprecated The whole group is unused.
+     */
     @ErrorCodeGroup
+    @Deprecated
     public static class Index {
         /** Index error group. */
+        @Deprecated
         public static final ErrorGroup INDEX_ERR_GROUP = registerGroup("IDX", (short) 6);
 
         /** Index not found. */
+        @Deprecated
         public static final int INDEX_NOT_FOUND_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 1);
 
         /** Index already exists. */
+        @Deprecated
         public static final int INDEX_ALREADY_EXISTS_ERR = INDEX_ERR_GROUP.registerErrorCode((short) 2);
     }
 
@@ -620,6 +643,9 @@ public class ErrorGroups {
          * but on the client side they have passed Type B.
          */
         public static final int MARSHALLING_TYPE_MISMATCH_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 13);
+
+        /** Compute job cancelled. */
+        public static final int COMPUTE_JOB_CANCELLED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
     }
 
     /** Catalog error group. */

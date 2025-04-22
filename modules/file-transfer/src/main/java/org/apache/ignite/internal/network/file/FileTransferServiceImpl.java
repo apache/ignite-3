@@ -180,14 +180,14 @@ public class FileTransferServiceImpl implements FileTransferService {
             ExecutorService executorService
     ) {
         this(
-                configuration.value().responseTimeout(),
+                configuration.value().responseTimeoutMillis(),
                 topologyService,
                 messagingService,
                 transferDirectory,
                 new FileSender(
-                        configuration.value().chunkSize(),
+                        configuration.value().chunkSizeBytes(),
                         new Semaphore(configuration.value().maxConcurrentRequests()),
-                        configuration.value().responseTimeout(),
+                        configuration.value().responseTimeoutMillis(),
                         messagingService,
                         executorService
                 ),

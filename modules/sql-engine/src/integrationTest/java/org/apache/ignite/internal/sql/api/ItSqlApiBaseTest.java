@@ -39,7 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
 import java.util.List;
@@ -903,17 +903,19 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .query("SELECT CURRENT_TIMESTAMP")
                 .timeZoneId(zoneId);
 
+        long momentBefore = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
         ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
         SqlRow row = resultSet.next();
 
-        LocalDateTime ts = row.value(0);
+        long momentAfter = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        Instant ts = row.value(0);
         assertNotNull(ts);
 
-        float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float nowMillis = LocalDateTime.now(zoneId).atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float deltaMillis = 5000;
+        long tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-        assertEquals(nowMillis, tsMillis, deltaMillis);
+        assertTrue(momentBefore <= tsMillis && momentAfter >= tsMillis);
     }
 
     @Test
@@ -1286,21 +1288,17 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
             startBarrier.await();
 
-            ResultSet<SqlRow> rs;
-
-            try {
-                rs = executeLazy(sql, token, query);
+            try (ResultSet<SqlRow> rs = executeLazy(sql, token, query)) {
+                expectQueryCancelled(() -> {
+                    while (rs.hasNext()) {
+                        rs.next();
+                    }
+                });
             } catch (SqlException e) {
                 assertEquals(Sql.EXECUTION_CANCELLED_ERR, e.code());
 
                 continue;
             }
-
-            expectQueryCancelled(() -> {
-                while (rs.hasNext()) {
-                    rs.next();
-                }
-            });
 
             await(cancelFut);
 

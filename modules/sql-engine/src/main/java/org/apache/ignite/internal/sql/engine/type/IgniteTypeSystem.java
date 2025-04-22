@@ -38,12 +38,24 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
 
     /** {@inheritDoc} */
     @Override
+    public int getMaxScale(SqlTypeName typeName) {
+        if (typeName == SqlTypeName.DECIMAL) {
+            return CatalogUtils.MAX_DECIMAL_SCALE;
+        } else {
+            return super.getMaxScale(typeName);
+        }
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    @Deprecated
     public int getMaxNumericScale() {
         return CatalogUtils.MAX_DECIMAL_SCALE;
     }
 
     /** {@inheritDoc} */
     @Override
+    @Deprecated
     public int getMaxNumericPrecision() {
         return CatalogUtils.MAX_DECIMAL_PRECISION;
     }
@@ -72,6 +84,8 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
             case BINARY:
             case VARBINARY:
                 return CatalogUtils.MAX_VARLEN_LENGTH;
+            case DECIMAL:
+                return CatalogUtils.MAX_DECIMAL_PRECISION;
             case TIME:
             case TIME_WITH_LOCAL_TIME_ZONE:
             case TIMESTAMP:
@@ -226,7 +240,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
                 int s1 = type1.getScale();
                 int s2 = type2.getScale();
 
-                final int maxNumericPrecision = getMaxNumericPrecision();
+                final int maxNumericPrecision = getMaxPrecision(SqlTypeName.DECIMAL);
                 int dout =
                         Math.min(
                                 p1 - s1 + s2,
@@ -237,7 +251,7 @@ public class IgniteTypeSystem extends RelDataTypeSystemImpl {
                         Math.min(
                                 scale,
                                 maxNumericPrecision - dout);
-                scale = Math.min(scale, getMaxNumericScale());
+                scale = Math.min(scale, getMaxScale(SqlTypeName.DECIMAL));
 
                 int precision = dout + scale;
                 assert precision <= maxNumericPrecision;

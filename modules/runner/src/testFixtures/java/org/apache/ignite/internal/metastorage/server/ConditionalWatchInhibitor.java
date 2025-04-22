@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.test;
+package org.apache.ignite.internal.metastorage.server;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 
@@ -24,6 +24,7 @@ import java.util.function.Predicate;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.RevisionUpdateListener;
 
 /**
  * Watch inhibitor that starts inhibiting on certain condition.
@@ -33,7 +34,9 @@ public class ConditionalWatchInhibitor {
 
     private final MetaStorageManager metaStorageManager;
 
-    private CompletableFuture inhibitFuture;
+    private CompletableFuture<Void> inhibitFuture;
+
+    private RevisionUpdateListener listener;
 
     public ConditionalWatchInhibitor(MetaStorageManager metaStorageManager) {
         this.metaStorageManager = metaStorageManager;
@@ -46,15 +49,16 @@ public class ConditionalWatchInhibitor {
      */
     public void startInhibit(Predicate<Long> pred) {
         inhibitFuture = new CompletableFuture<>();
-        metaStorageManager.registerRevisionUpdateListener(rev -> {
-                    if (pred.test(rev)) {
-                        LOG.info("Started inhibiting, rev=" + rev);
-                        return inhibitFuture;
-                    } else {
-                        return completedFuture(null);
-                    }
-                }
-        );
+        listener = rev -> {
+            if (pred.test(rev)) {
+                LOG.info("Started inhibiting, rev=" + rev);
+                return inhibitFuture;
+            } else {
+                return completedFuture(null);
+            }
+        };
+
+        metaStorageManager.registerRevisionUpdateListener(listener);
     }
 
     /**
@@ -62,5 +66,7 @@ public class ConditionalWatchInhibitor {
      */
     public void stopInhibit() {
         inhibitFuture.complete(null);
+
+        metaStorageManager.unregisterRevisionUpdateListener(listener);
     }
 }

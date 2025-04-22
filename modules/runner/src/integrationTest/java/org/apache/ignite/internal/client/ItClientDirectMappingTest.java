@@ -53,7 +53,7 @@ public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
             + "  },\n"
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
-            + "  raft: { responseTimeout: 30000 },"
+            + "  raft: { responseTimeoutMillis: 30000 },"
             + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
@@ -75,12 +75,11 @@ public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
 
         builder.clusterConfiguration("ignite {"
                 + "  transaction: {"
-                + "      readOnlyTimeout: 30000,"
-                + "      readWriteTimeout: 30000,"
-                + "      txnResourceTtl: 2"
+                + "      readOnlyTimeoutMillis: 30000,"
+                + "      readWriteTimeoutMillis: 30000"
                 + "  },"
                 + "  replication: {"
-                + "      rpcTimeout: 30000"
+                + "      rpcTimeoutMillis: 30000"
                 + "  },"
                 + "}");
     }
@@ -144,6 +143,7 @@ public class ItClientDirectMappingTest extends ClusterPerTestIntegrationTest {
         return findNode(0, initialNodes(), n -> leaseholder.equals(n.name()));
     }
 
+    @Override
     protected int initialNodes() {
         return 2;
     }

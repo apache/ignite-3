@@ -25,8 +25,9 @@ import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.cluster.management.ClusterTag.clusterTag;
 import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
-import static org.apache.ignite.internal.util.IgniteUtils.cancelOrConsume;
+import static org.apache.ignite.internal.util.IgniteUtils.failOrConsume;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import java.util.Collection;
@@ -70,7 +71,7 @@ import org.apache.ignite.internal.disaster.system.storage.ClusterResetStorage;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.event.EventParameters;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -155,7 +156,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
     private final NodeAttributes nodeAttributes;
 
     /** Failure processor that is used to handle critical errors. */
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final ClusterIdStore clusterIdStore;
 
@@ -179,7 +180,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             LogicalTopology logicalTopology,
             ValidationManager validationManager,
             NodeAttributes nodeAttributes,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
@@ -192,7 +193,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.validationManager = validationManager;
         this.localStateStorage = new LocalStateStorage(vault);
         this.nodeAttributes = nodeAttributes;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.clusterIdStore = clusterIdStore;
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
 
@@ -232,7 +233,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             }
         };
 
-        return new CmgMessageHandler(busyLock, msgFactory, clusterService, messageCallback);
+        return new CmgMessageHandler(busyLock, msgFactory, clusterService, failureProcessor, messageCallback);
     }
 
     /** Constructor. */
@@ -246,7 +247,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             ClusterStateStorage clusterStateStorage,
             LogicalTopology logicalTopology,
             NodeAttributes nodeAttributes,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
             RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
     ) {
@@ -260,7 +261,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 logicalTopology,
                 new ValidationManager(new ClusterStateStorageManager(clusterStateStorage), logicalTopology),
                 nodeAttributes,
-                failureManager,
+                failureProcessor,
                 clusterIdStore,
                 raftGroupOptionsConfigurer
         );
@@ -589,10 +590,13 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         }))
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                if (unwrapCause(e) instanceof NodeStoppingException) {
+                                if (hasCause(e, NodeStoppingException.class)) {
                                     LOG.info("Unable to execute onLeaderElected callback, because the node is stopping", e);
                                 } else {
-                                    LOG.error("Error when executing onLeaderElected callback", e);
+                                    failureProcessor.process(new FailureContext(
+                                            e,
+                                            "Error when executing onLeaderElected callback"
+                                    ));
                                 }
                             } else {
                                 LOG.info("onLeaderElected callback executed successfully");
@@ -651,7 +655,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                         .thenRunAsync(this::destroyCmg, this.scheduledExecutor)
                         .whenComplete((v, e) -> {
                             if (e != null) {
-                                failureManager.process(new FailureContext(CRITICAL_ERROR, e));
+                                failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
                             }
                         })
         );
@@ -807,7 +811,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                             logicalTopology,
                             validationManager,
                             this::onLogicalTopologyChanged,
-                            clusterIdStore
+                            clusterIdStore,
+                            failureProcessor
                     ),
                     this::onElectedAsLeader,
                     null,
@@ -985,7 +990,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
         CompletableFuture<CmgRaftService> serviceFuture = raftService;
         if (serviceFuture != null) {
-            cancelOrConsume(serviceFuture, CmgRaftService::close);
+            failOrConsume(serviceFuture, new NodeStoppingException(), CmgRaftService::close);
         }
 
         IgniteUtils.shutdownAndAwaitTermination(scheduledExecutor, 10, TimeUnit.SECONDS);

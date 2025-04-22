@@ -43,8 +43,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /** Base test class for Cluster Recovery partition states commands. */
 // TODO IGNITE-23617 refactor to use more flexible output matching.
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-24332
-// TODO https://issues.apache.org/jira/browse/IGNITE-24335
+// TODO https://issues.apache.org/jira/browse/IGNITE-25104
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     private static final int DEFAULT_PARTITION_COUNT = 25;
@@ -72,11 +71,11 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
     @BeforeAll
     public static void createTables() {
         ZONES_CONTAINING_TABLES.forEach(name -> {
-            sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", name, DEFAULT_AIPERSIST_PROFILE_NAME));
+            sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", name, DEFAULT_AIPERSIST_PROFILE_NAME));
             sql(String.format("CREATE TABLE \"%s_table\" (id INT PRIMARY KEY, val INT) ZONE \"%1$s\"", name));
         });
 
-        sql(String.format("CREATE ZONE \"%s\" WITH storage_profiles='%s'", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
+        sql(String.format("CREATE ZONE \"%s\" storage profiles ['%s']", EMPTY_ZONE, DEFAULT_AIPERSIST_PROFILE_NAME));
 
         nodeNames = CLUSTER.runningNodes().map(Ignite::name).collect(toSet());
     }

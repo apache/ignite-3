@@ -96,7 +96,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteIndexScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSystemViewScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
@@ -408,7 +407,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         try {
             return PlannerHelper.optimize(sqlNode, planner);
         } catch (Throwable ex) {
-            System.err.println(planner.dump());
+            // no need to trigger TC with inner NPE
+            System.err.println(planner.dump().replace("java.lang.NullPointerException", "RedefinedNullPointerException"));
 
             throw ex;
         }
@@ -770,6 +770,24 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
                 });
     }
 
+    /**
+     * Predicate builder for any "Index scan" condition.
+     */
+    protected <T extends RelNode> Predicate<IgniteIndexScan> isAnyIndexScan(String tableName) {
+        return isInstanceOf(IgniteIndexScan.class).and(
+                n -> {
+                    String scanTableName = Util.last(n.getTable().getQualifiedName());
+
+                    if (!tableName.equalsIgnoreCase(scanTableName)) {
+                        lastErrorMsg = "Unexpected table name [exp=" + tableName + ", act=" + scanTableName + ']';
+
+                        return false;
+                    }
+
+                    return true;
+                });
+    }
+
     protected void clearTraits(RelNode rel) {
         IgniteTestUtils.setFieldValue(rel, AbstractRelNode.class, "traitSet", RelTraitSet.createEmpty());
         rel.getInputs().forEach(this::clearTraits);
@@ -783,15 +801,14 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
         rel.getInputs().forEach(this::clearHints);
     }
 
-    protected Predicate<? extends RelNode> projectFromTable(String tableName, String... exprs) {
-        return nodeOrAnyChild(
-                isInstanceOf(IgniteProject.class)
-                        .and(projection -> {
-                            String actualProjStr = projection.getProjects().toString();
-                            String expectedProjStr = Arrays.asList(exprs).toString();
-                            return actualProjStr.equals(expectedProjStr);
-                        })
-                        .and(input(isTableScan(tableName)))
+    protected Predicate<? extends RelNode> tableWithProjection(String tableName, String... exprs) {
+        return nodeOrAnyChild(isTableScan(tableName)
+                .and(scan -> scan.projects() != null)
+                .and(table -> {
+                    String actualProjStr = table.projects().toString();
+                    String expectedProjStr = Arrays.asList(exprs).toString();
+                    return actualProjStr.equals(expectedProjStr);
+                })
         );
     }
 

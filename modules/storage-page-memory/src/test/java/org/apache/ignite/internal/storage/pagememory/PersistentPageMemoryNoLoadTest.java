@@ -35,6 +35,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.fail;
 import static org.mockito.ArgumentMatchers.any;
@@ -110,7 +111,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
     @BeforeEach
     void setUp() throws Exception {
-        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(MAX_MEMORY_SIZE)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSizeBytes(MAX_MEMORY_SIZE)).get(1, SECONDS);
     }
 
     @AfterAll
@@ -219,7 +220,7 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
 
         long systemPageSize = PAGE_SIZE + PAGE_OVERHEAD;
 
-        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSize(128 * systemPageSize)).get(1, SECONDS);
+        dataRegionCfg.change(c -> ((PersistentPageMemoryProfileChange) c).changeSizeBytes(128 * systemPageSize)).get(1, SECONDS);
 
         PersistentPageMemory pageMemory = createPageMemory(
                 new long[]{100 * systemPageSize},
@@ -577,6 +578,25 @@ public class PersistentPageMemoryNoLoadTest extends AbstractPageMemoryNoLoadSelf
                     bufferToClose == null ? null : () -> freeBuffer(bufferToClose),
                     () -> checkpointManager.checkpointTimeoutLock().checkpointReadUnlock()
             );
+        }
+    }
+
+    @Test
+    public void testLoadedPagesCount() {
+        PageMemory mem = memory();
+
+        mem.start();
+
+        int expPages = MAX_MEMORY_SIZE / mem.systemPageSize();
+
+        try {
+            assertDoesNotThrow(() -> {
+                for (int i = 0; i < expPages * 2; i++) {
+                    allocatePage(mem);
+                }
+            });
+        } finally {
+            mem.stop(true);
         }
     }
 }

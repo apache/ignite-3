@@ -135,7 +135,7 @@ public class IgniteClientAutoConfigurationTest extends BaseIgniteAbstractTest {
 
         ApplicationContextRunner contextRunner = new ApplicationContextRunner()
                 .withConfiguration(AutoConfigurations.of(IgniteClientAutoConfiguration.class))
-                .withPropertyValues("ignite.client.addresses=127.0.0.1:10800", "ignite.client.connectTimeout=99999")
+                .withPropertyValues("ignite.client.addresses=127.0.0.1:10800", "ignite.client.connectTimeoutMillis=99999")
                 .withBean(IgniteClientPropertiesCustomizer.class, () -> (c) -> c.setConnectTimeout(connectTimeout));
 
         contextRunner.run((ctx) -> {

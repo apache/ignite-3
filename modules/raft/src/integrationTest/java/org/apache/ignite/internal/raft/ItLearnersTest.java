@@ -101,8 +101,10 @@ public class ItLearnersTest extends IgniteAbstractTest {
             new NetworkAddress("localhost", 5003)
     );
 
+    private static final int AWAIT_TIMEOUT_SECONDS = 10;
+
     @InjectConfiguration
-    private static RaftConfiguration raftConfiguration;
+    private RaftConfiguration raftConfiguration;
 
     private final List<RaftNode> nodes = new ArrayList<>(ADDRS.size());
 
@@ -216,8 +218,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(writeFuture, willCompleteSuccessfully());
 
         for (TestRaftGroupListener listener : listeners) {
-            assertThat(listener.storage.poll(1, TimeUnit.SECONDS), is("foo"));
-            assertThat(listener.storage.poll(1, TimeUnit.SECONDS), is("bar"));
+            assertThat(listener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("foo"));
+            assertThat(listener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("bar"));
         }
     }
 
@@ -290,6 +292,12 @@ public class ItLearnersTest extends IgniteAbstractTest {
 
         nodes.set(0, null).close();
 
+        // Reduce the retry timeout to make the next check faster.
+        assertThat(
+                raftConfiguration.retryTimeoutMillis().update(1000L),
+                willCompleteSuccessfully()
+        );
+
         assertThat(services.get(1).run(createWriteCommand("foo")), willThrow(TimeoutException.class));
     }
 
@@ -354,8 +362,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
         assertThat(writeFuture, willCompleteSuccessfully());
 
         for (TestRaftGroupListener listener : Arrays.asList(peerListener, learnerListener)) {
-            assertThat(listener.storage.poll(1, TimeUnit.SECONDS), is("foo"));
-            assertThat(listener.storage.poll(1, TimeUnit.SECONDS), is("bar"));
+            assertThat(listener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("foo"));
+            assertThat(listener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("bar"));
         }
     }
 
@@ -384,8 +392,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
                 .thenCompose(v -> learnerService.run(createWriteCommand("bar")));
 
         assertThat(writeFuture, willCompleteSuccessfully());
-        assertThat(learnerListener.storage.poll(1, TimeUnit.SECONDS), is("foo"));
-        assertThat(learnerListener.storage.poll(1, TimeUnit.SECONDS), is("bar"));
+        assertThat(learnerListener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("foo"));
+        assertThat(learnerListener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("bar"));
 
         // Create a new learner on the second node.
         RaftNode newLearner = nodes.get(1);
@@ -406,8 +414,8 @@ public class ItLearnersTest extends IgniteAbstractTest {
                 newLearnerListener
         );
 
-        assertThat(newLearnerListener.storage.poll(10, TimeUnit.SECONDS), is("foo"));
-        assertThat(newLearnerListener.storage.poll(10, TimeUnit.SECONDS), is("bar"));
+        assertThat(newLearnerListener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("foo"));
+        assertThat(newLearnerListener.storage.poll(AWAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS), is("bar"));
     }
 
     private PeersAndLearners createConfiguration(Collection<RaftNode> peers, Collection<RaftNode> learners) {

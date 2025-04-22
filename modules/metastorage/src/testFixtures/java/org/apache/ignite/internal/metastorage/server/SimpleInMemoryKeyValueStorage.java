@@ -536,7 +536,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
 
         var event = new UpdateEntriesEvent(List.copyOf(updatedEntries), ts);
 
-        addToNotifyWatchProcessorEventsBeforeStartingWatches(event);
+        notifyWatchProcessor(event);
 
         updatedEntries.clear();
     }
@@ -553,13 +553,8 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         HybridTimestamp ts = revToTsMap.get(newRevision);
         assert ts != null : newRevision;
 
-        if (updatedEntries.isEmpty()) {
-            watchProcessor.updateOnlyRevision(newRevision, ts);
-        } else {
-            watchProcessor.notifyWatches(List.copyOf(updatedEntries), ts);
-
-            updatedEntries.clear();
-        }
+        watchProcessor.notifyWatches(newRevision, List.copyOf(updatedEntries), ts);
+        updatedEntries.clear();
     }
 
     @Override
@@ -807,7 +802,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         setIndexAndTerm(context.index, context.term);
 
         if (advanceSafeTime && areWatchesStarted()) {
-            watchProcessor.advanceSafeTime(context.timestamp);
+            watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
         }
     }
 
@@ -921,7 +916,7 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
                     Value value = getValueNullable(key, revision);
 
                     // Value may be null if the compaction has removed it in parallel.
-                    if (value == null || (revision <= compactionRevision && value.tombstone())) {
+                    if (value == null || value.tombstone()) {
                         return EntryImpl.empty(key);
                     }
 
@@ -933,14 +928,12 @@ public class SimpleInMemoryKeyValueStorage extends AbstractKeyValueStorage {
         Iterator<Entry> iterator = entries.iterator();
 
         long readOperationId = readOperationForCompactionTracker.generateReadOperationId();
-        long compactionRevisionOnCreateIterator = compactionRevision;
-
-        readOperationForCompactionTracker.track(readOperationId, compactionRevisionOnCreateIterator);
+        readOperationForCompactionTracker.track(readOperationId, revUpperBound);
 
         return new Cursor<>() {
             @Override
             public void close() {
-                readOperationForCompactionTracker.untrack(readOperationId, compactionRevisionOnCreateIterator);
+                readOperationForCompactionTracker.untrack(readOperationId, revUpperBound);
             }
 
             @Override

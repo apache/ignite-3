@@ -32,6 +32,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.apache.ignite.internal.failure.FailureContext;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -48,6 +50,7 @@ import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -70,6 +73,8 @@ class IndexBuildTask {
     private final MvPartitionStorage partitionStorage;
 
     private final ReplicaService replicaService;
+
+    private final FailureProcessor failureProcessor;
 
     private final Executor executor;
 
@@ -98,6 +103,7 @@ class IndexBuildTask {
             IndexStorage indexStorage,
             MvPartitionStorage partitionStorage,
             ReplicaService replicaService,
+            FailureProcessor failureProcessor,
             Executor executor,
             IgniteSpinBusyLock busyLock,
             int batchSize,
@@ -111,6 +117,7 @@ class IndexBuildTask {
         this.indexStorage = indexStorage;
         this.partitionStorage = partitionStorage;
         this.replicaService = replicaService;
+        this.failureProcessor = failureProcessor;
         this.executor = executor;
         this.busyLock = busyLock;
         this.batchSize = batchSize;
@@ -140,7 +147,8 @@ class IndexBuildTask {
                             if (ignorable(throwable)) {
                                 LOG.debug("Index build error: [{}]", throwable, createCommonIndexInfo());
                             } else {
-                                LOG.error("Index build error: [{}]", throwable, createCommonIndexInfo());
+                                String errorMessage = String.format("Index build error: [%s]", createCommonIndexInfo());
+                                failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
 
                             taskFuture.completeExceptionally(throwable);
@@ -160,10 +168,14 @@ class IndexBuildTask {
     private static boolean ignorable(Throwable throwable) {
         Throwable unwrapped = unwrapCause(throwable);
 
-        // Any of these exceptions can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
+        // Following exception can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
         // build continuation. We just don't want to fill our logs with garbage.
         return unwrapped instanceof PrimaryReplicaMissException
+                // Following two can be ignored as they mean that replica is closed (either node is stopping or replica is not needed
+                // on this node anymore).
                 || unwrapped instanceof TrackerClosedException
+                || unwrapped instanceof StorageClosedException
+                // Node is stopping, it's ok.
                 || unwrapped instanceof NodeStoppingException;
     }
 

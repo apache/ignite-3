@@ -209,7 +209,7 @@ public class Loza implements RaftManager {
         metricManager.enable(stripeSource);
 
         opts.setRaftMetrics(stripeSource);
-        opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeout());
+        opts.setRpcInstallSnapshotTimeout(raftConfig.installSnapshotTimeoutMillis());
         opts.setStripes(raftConfig.stripes());
         opts.setLogStripesCount(raftConfig.logStripesCount());
         opts.setLogYieldStrategy(raftConfig.logYieldStrategy());
@@ -293,7 +293,15 @@ public class Loza implements RaftManager {
         }
 
         try {
-            return startRaftGroupNodeInternal(nodeId, configuration, lsnr, eventsLsnr, groupOptions, raftServiceFactory);
+            return startRaftGroupNodeInternal(
+                    nodeId,
+                    configuration,
+                    lsnr,
+                    eventsLsnr,
+                    groupOptions,
+                    raftServiceFactory,
+                    StoppingExceptionFactories.indicateComponentStop()
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -325,7 +333,8 @@ public class Loza implements RaftManager {
                     eventsLsnr,
                     // Use default marshaller here, because this particular method is used in very specific circumstances.
                     raftGroupOptions,
-                    factory
+                    factory,
+                    StoppingExceptionFactories.indicateNodeStop()
             );
         } finally {
             busyLock.leaveBusy();
@@ -341,7 +350,12 @@ public class Loza implements RaftManager {
 
         try {
             // Use default command marshaller here.
-            return startRaftGroupServiceInternal(groupId, configuration, opts.getCommandsMarshaller());
+            return startRaftGroupServiceInternal(
+                    groupId,
+                    configuration,
+                    opts.getCommandsMarshaller(),
+                    StoppingExceptionFactories.indicateComponentStop()
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -352,7 +366,8 @@ public class Loza implements RaftManager {
             ReplicationGroupId groupId,
             PeersAndLearners configuration,
             RaftServiceFactory<T> factory,
-            @Nullable Marshaller commandsMarshaller
+            @Nullable Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) throws NodeStoppingException {
         if (!busyLock.enterBusy()) {
             throw new NodeStoppingException();
@@ -363,7 +378,14 @@ public class Loza implements RaftManager {
                 commandsMarshaller = opts.getCommandsMarshaller();
             }
 
-            return factory.startRaftGroupService(groupId, configuration, raftConfiguration, executor, commandsMarshaller);
+            return factory.startRaftGroupService(
+                    groupId,
+                    configuration,
+                    raftConfiguration,
+                    executor,
+                    commandsMarshaller,
+                    stoppingExceptionFactory
+            );
         } finally {
             busyLock.leaveBusy();
         }
@@ -424,15 +446,25 @@ public class Loza implements RaftManager {
             RaftGroupListener lsnr,
             RaftGroupEventsListener raftGrpEvtsLsnr,
             RaftGroupOptions groupOptions,
-            @Nullable RaftServiceFactory<T> raftServiceFactory
+            @Nullable RaftServiceFactory<T> raftServiceFactory,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         startRaftGroupNodeInternalWithoutService(nodeId, configuration, lsnr, raftGrpEvtsLsnr, groupOptions);
 
         Marshaller cmdMarshaller = requireNonNullElse(groupOptions.commandsMarshaller(), opts.getCommandsMarshaller());
 
-        return raftServiceFactory == null
-                ? (T) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller)
-                : raftServiceFactory.startRaftGroupService(nodeId.groupId(), configuration, raftConfiguration, executor, cmdMarshaller);
+        if (raftServiceFactory == null) {
+            return (T) startRaftGroupServiceInternal(nodeId.groupId(), configuration, cmdMarshaller, stoppingExceptionFactory);
+        } else {
+            return raftServiceFactory.startRaftGroupService(
+                    nodeId.groupId(),
+                    configuration,
+                    raftConfiguration,
+                    executor,
+                    cmdMarshaller,
+                    stoppingExceptionFactory
+            );
+        }
     }
 
     private void startRaftGroupNodeInternalWithoutService(
@@ -459,7 +491,8 @@ public class Loza implements RaftManager {
     private RaftGroupService startRaftGroupServiceInternal(
             ReplicationGroupId grpId,
             PeersAndLearners membersConfiguration,
-            Marshaller commandsMarshaller
+            Marshaller commandsMarshaller,
+            ExceptionFactory stoppingExceptionFactory
     ) {
         return RaftGroupServiceImpl.start(
                 grpId,
@@ -468,7 +501,8 @@ public class Loza implements RaftManager {
                 raftConfiguration,
                 membersConfiguration,
                 executor,
-                commandsMarshaller
+                commandsMarshaller,
+                stoppingExceptionFactory
         );
     }
 

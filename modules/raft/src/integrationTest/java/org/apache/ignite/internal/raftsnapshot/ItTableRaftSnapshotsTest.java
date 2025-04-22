@@ -64,6 +64,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.metastorage.server.WatchListenerInhibitor;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
@@ -72,7 +73,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.incoming.In
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.server.RaftServer;
 import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
-import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
@@ -81,7 +82,6 @@ import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.NodeUtils;
 import org.apache.ignite.internal.table.distributed.schema.PartitionCommandsMarshallerImpl;
-import org.apache.ignite.internal.test.WatchListenerInhibitor;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector.Handler;
@@ -127,10 +127,14 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
     private static final int PARTITION_ID = 0;
 
+    private static final String TEST_ZONE_NAME = "test_zone";
+
+    private static final String TEST_TABLE_NAME = "test";
+
     /**
      * Nodes bootstrap configuration pattern.
      *
-     * <p>installSnapshotTimeout is changed to 10 seconds so that sporadic snapshot installation failures still
+     * <p>installSnapshotTimeoutMillis is changed to 10 seconds so that sporadic snapshot installation failures still
      * allow tests pass thanks to retries.
      */
     private static final String NODE_BOOTSTRAP_CFG = "ignite {\n"
@@ -138,7 +142,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
             + "    port: {},\n"
             + "    nodeFinder.netClusterNodes: [ {} ]\n"
             + "  },\n"
-            + "  raft.installSnapshotTimeout: 10000,\n"
+            + "  raft.installSnapshotTimeoutMillis: 10000,\n"
             + "  storage.profiles: {"
             + "        " + DEFAULT_AIPERSIST_PROFILE_NAME + ".engine: aipersist, "
             + "        " + DEFAULT_AIMEM_PROFILE_NAME + ".engine: aimem, "
@@ -311,7 +315,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
 
         CompletableFuture<ReplicaMeta> primary = node.placementDriver().awaitPrimaryReplica(
-                cluster.solePartitionId(),
+                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
                 node.clockService().now(),
                 AWAIT_PRIMARY_REPLICA_SECONDS,
                 TimeUnit.SECONDS);
@@ -325,7 +329,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         IgniteImpl node = unwrapIgniteImpl(cluster.node(0));
 
         CompletableFuture<ReplicaMeta> primary = node.placementDriver().getPrimaryReplica(
-                cluster.solePartitionId(),
+                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
                 node.clockService().now()
         );
 
@@ -361,10 +365,10 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         String storageProfile =
                 DEFAULT_STORAGE_ENGINE.equals(storageEngine) ? DEFAULT_STORAGE_PROFILE : "default_" + storageEngine.toLowerCase();
 
-        String zoneSql = "create zone test_zone with partitions=1, replicas=3, storage_profiles='" + storageProfile + "';";
+        String zoneSql = "create zone " + TEST_ZONE_NAME + " (partitions 1, replicas 3) storage profiles ['" + storageProfile + "'];";
 
-        String sql = "create table test (key int primary key, val varchar(20))"
-                + " zone TEST_ZONE storage profile '" + storageProfile + "';";
+        String sql = "create table " + TEST_TABLE_NAME + " (key int primary key, val varchar(20))"
+                + " zone " + TEST_ZONE_NAME + " storage profile '" + storageProfile + "';";
 
         cluster.doInSession(0, session -> {
             executeUpdate(zoneSql, session);
@@ -388,19 +392,19 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
      * Causes a RAFT snapshot to be taken on the RAFT leader of the sole table partition that exists in the cluster.
      */
     private void doSnapshotOnSolePartitionLeader(int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        TablePartitionId tablePartitionId = cluster.solePartitionId();
+        ReplicationGroupId replicationGroupId = cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME);
 
-        doSnapshotOn(tablePartitionId, expectedLeaderNodeIndex, forced);
+        doSnapshotOn(replicationGroupId, expectedLeaderNodeIndex, forced);
     }
 
     /**
      * Takes a RAFT snapshot on the leader of the RAFT group corresponding to the given table partition.
      */
-    private void doSnapshotOn(TablePartitionId tablePartitionId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
-        RaftGroupService raftGroupService = cluster.leaderServiceFor(tablePartitionId);
+    private void doSnapshotOn(ReplicationGroupId replicationGroupId, int expectedLeaderNodeIndex, boolean forced) throws Exception {
+        RaftGroupService raftGroupService = cluster.leaderServiceFor(replicationGroupId);
 
         assertThat(
-                "Unexpected leadership change on group: " + tablePartitionId,
+                "Unexpected leadership change on group: " + replicationGroupId,
                 raftGroupService.getServerId().getConsistentId(), is(cluster.node(expectedLeaderNodeIndex).name())
         );
 
@@ -448,7 +452,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     }
 
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId());
+        cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
     }
 
     private void transferPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
@@ -458,7 +462,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
             String newPrimaryName = NodeUtils.transferPrimary(
                     cluster.runningNodes().map(TestWrappers::unwrapIgniteImpl).collect(toList()),
-                    cluster.solePartitionId(),
+                    cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME),
                     proposedPrimaryName
             );
 
@@ -894,7 +898,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         BlockingAppendEntriesRequestProcessor blockingProcessor = new BlockingAppendEntriesRequestProcessor(
                 appenderExecutor,
                 raftMessagesFactory,
-                cluster.solePartitionId().toString()
+                cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME).toString()
         );
 
         rpcServer.registerProcessor(blockingProcessor);

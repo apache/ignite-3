@@ -66,6 +66,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -109,10 +110,12 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum;
-import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -123,7 +126,6 @@ import org.apache.ignite.raft.jraft.entity.LogId;
 import org.apache.ignite.raft.jraft.error.RaftError;
 import org.apache.ignite.raft.jraft.rpc.RpcRequests.AppendEntriesRequest;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
-import org.apache.ignite.raft.jraft.util.concurrent.ConcurrentHashSet;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
@@ -134,6 +136,7 @@ import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Tests for scenarios where majority of peers is not available. In this class we frequently assert partition distributions, this means that
@@ -143,6 +146,7 @@ import org.junit.jupiter.api.Timeout;
 @Timeout(120)
 // TODO https://issues.apache.org/jira/browse/IGNITE-24332
 @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+@ExtendWith(FailureManagerExtension.class)
 public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegrationTest {
     /** Scale-down timeout. */
     private static final int SCALE_DOWN_TIMEOUT_SECONDS = 2;
@@ -190,11 +194,10 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // TODO: IGNITE-22818 Fails with "Race operations took too long"
         // startNodesInParallel(IntStream.range(INITIAL_NODES, zoneParams.nodes()).toArray());
 
-        executeSql(format("CREATE ZONE %s with replicas=%d, partitions=%d,"
-                        + " data_nodes_auto_adjust_scale_down=%d, data_nodes_auto_adjust_scale_up=%d, storage_profiles='%s',"
-                        + " consistency_mode='%s'",
-                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1, DEFAULT_STORAGE_PROFILE,
-                zoneParams.consistencyMode().name()
+        executeSql(format("CREATE ZONE %s (replicas %d, partitions %d, "
+                        + "auto scale down %d, auto scale up %d, consistency mode '%s') storage profiles ['%s']",
+                zoneName, zoneParams.replicas(), zoneParams.partitions(), SCALE_DOWN_TIMEOUT_SECONDS, 1,
+                zoneParams.consistencyMode().name(), DEFAULT_STORAGE_PROFILE
         ));
 
         CatalogZoneDescriptor zone = node0.catalogManager().activeCatalog(node0.clock().nowLong()).zone(zoneName);
@@ -394,6 +397,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testManualRebalanceRecovery() throws Exception {
         int partId = 0;
         // Disable scale down to avoid unwanted rebalance.
@@ -474,6 +478,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 4, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testManualRebalanceRecoveryNoPending() throws Exception {
         int partId = 0;
 
@@ -594,12 +599,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.DEGRADED);
 
-        var localStatesFut = node0.disasterRecoveryManager().localPartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
+        var localStatesFut = node0.disasterRecoveryManager().localTablePartitionStates(emptySet(), Set.of(node(3).name()), emptySet());
         assertThat(localStatesFut, willCompleteSuccessfully());
 
-        Map<TablePartitionId, LocalPartitionStateByNode> localStates = localStatesFut.join();
+        Map<TablePartitionId, LocalTablePartitionStateByNode> localStates = localStatesFut.join();
         assertThat(localStates, is(not(anEmptyMap())));
-        LocalPartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
+        LocalTablePartitionStateByNode localPartitionStateByNode = localStates.get(new TablePartitionId(tableId, partId));
 
         assertEquals(LocalPartitionStateEnum.INSTALLING_SNAPSHOT, localPartitionStateByNode.values().iterator().next().state);
 
@@ -646,6 +651,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     public void testNewResetOverwritesFlags() throws Exception {
         int partId = 0;
 
@@ -880,6 +886,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      */
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     public void testIncompleteRebalanceBeforeAutomaticResetPartitions() throws Exception {
         int partId = 0;
 
@@ -1001,7 +1008,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new ConcurrentHashSet<>();
+        Set<String> blockedNodes = ConcurrentHashMap.newKeySet();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -1140,7 +1147,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         followerNodes.remove(leaderName);
 
         // The nodes that we block AppendEntriesRequest to.
-        Set<String> blockedNodes = new ConcurrentHashSet<>();
+        Set<String> blockedNodes = ConcurrentHashMap.newKeySet();
 
         // Exclude one of the nodes from data(2).
         int node0IndexInFollowers = followerNodes.indexOf(node0.name());
@@ -1218,6 +1225,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1)
+    @MuteFailureManagerLogging
     void testTwoPhaseResetOnEmptyNodes() throws Exception {
         int partId = 0;
 
@@ -1753,19 +1761,19 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
-            CompletableFuture<Map<TablePartitionId, GlobalPartitionState>> statesFuture = node0.disasterRecoveryManager()
-                    .globalPartitionStates(Set.of(zoneName), emptySet());
+            CompletableFuture<Map<TablePartitionId, GlobalTablePartitionState>> statesFuture = node0.disasterRecoveryManager()
+                    .globalTablePartitionStates(Set.of(zoneName), emptySet());
 
             assertThat(statesFuture, willCompleteSuccessfully());
 
-            Map<TablePartitionId, GlobalPartitionState> map = statesFuture.join();
+            Map<TablePartitionId, GlobalTablePartitionState> map = statesFuture.join();
 
-            GlobalPartitionState state = map.get(new TablePartitionId(tableId, partId));
+            GlobalTablePartitionState state = map.get(new TablePartitionId(tableId, partId));
 
             return state != null && state.state == expectedState;
         }, 500, 20_000),
                 () -> "Expected state: " + expectedState
-                        + ", actual: " + node0.disasterRecoveryManager().globalPartitionStates(Set.of(zoneName), emptySet()).join()
+                        + ", actual: " + node0.disasterRecoveryManager().globalTablePartitionStates(Set.of(zoneName), emptySet()).join()
         );
     }
 
@@ -1975,11 +1983,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
      * from stable and pending, for example, when rebalance is in progress.
      */
     private List<Integer> getRealAssignments(IgniteImpl node0, int partId) {
-        CompletableFuture<Map<TablePartitionId, LocalPartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
-                .localPartitionStates(Set.of(zoneName), Set.of(), Set.of());
+        CompletableFuture<Map<TablePartitionId, LocalTablePartitionStateByNode>> partitionStatesFut = node0.disasterRecoveryManager()
+                .localTablePartitionStates(Set.of(zoneName), Set.of(), Set.of());
         assertThat(partitionStatesFut, willCompleteSuccessfully());
 
-        LocalPartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
+        LocalTablePartitionStateByNode partitionStates = partitionStatesFut.join().get(new TablePartitionId(tableId, partId));
 
         if (partitionStates == null) {
             return emptyList();

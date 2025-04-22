@@ -75,6 +75,10 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     public static final String THROTTLING_LOG_THRESHOLD_SYSTEM_PROPERTY = "aipersistThrottlingLogThresholdMillis";
 
+    public static final String THROTTLING_MAX_DIRTY_PAGES_SYSTEM_PROPERTY = "aipersistThrottlingMaxDirtyPages";
+
+    public static final String THROTTLING_MIN_DIRTY_PAGES_SYSTEM_PROPERTY = "aipersistThrottlingMinDirtyPages";
+
     private static final IgniteLogger LOG = Loggers.forClass(PersistentPageMemoryStorageEngine.class);
 
     private final String igniteInstanceName;
@@ -164,7 +168,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     @Override
     public void start() throws StorageException {
-        int pageSize = engineConfig.pageSize().value();
+        int pageSize = engineConfig.pageSizeBytes().value();
 
         try {
             FileIoFactory fileIoFactory = engineConfig.checkpoint().useAsyncFileIoFactory().value()
@@ -257,7 +261,14 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         assert dataRegion != null : "tableId=" + tableDescriptor.getId() + ", dataRegion=" + tableDescriptor.getStorageProfile();
 
-        return new PersistentPageMemoryTableStorage(tableDescriptor, indexDescriptorSupplier, this, dataRegion, destructionExecutor);
+        return new PersistentPageMemoryTableStorage(
+                tableDescriptor,
+                indexDescriptorSupplier,
+                this,
+                dataRegion,
+                destructionExecutor,
+                failureManager
+        );
     }
 
     @Override
@@ -310,7 +321,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
                 (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
-        int pageSize = engineConfig.pageSize().value();
+        int pageSize = engineConfig.pageSizeBytes().value();
 
         PersistentPageMemoryDataRegion dataRegion = new PersistentPageMemoryDataRegion(
                 metricManager,

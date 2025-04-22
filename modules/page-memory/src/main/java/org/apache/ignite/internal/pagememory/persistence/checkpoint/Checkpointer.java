@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointReadWriteLock.CHECKPOINT_RUNNER_THREAD_PREFIX;
 import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.LOCK_TAKEN;
+import static org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointState.PAGES_SNAPSHOT_TAKEN;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
@@ -332,7 +333,7 @@ public class Checkpointer extends IgniteWorker {
 
             tracker.onCheckpointStart();
 
-            startCheckpointProgress();
+            CheckpointProgressImpl currentCheckpointProgress = startCheckpointProgress();
 
             try {
                 chp = checkpointWorkflow.markCheckpointBegin(
@@ -393,6 +394,11 @@ public class Checkpointer extends IgniteWorker {
                     );
                 }
             }
+
+            currentCheckpointProgress.setPagesWriteTimeMillis(
+                    tracker.pagesWriteDuration(MILLISECONDS) + tracker.splitAndSortCheckpointPagesDuration(MILLISECONDS)
+            );
+            currentCheckpointProgress.setFsyncTimeMillis(tracker.fsyncDuration(MILLISECONDS));
 
             // Must mark successful checkpoint only if there are no exceptions or interrupts.
             checkpointWorkflow.markCheckpointEnd(chp);
@@ -672,7 +678,7 @@ public class Checkpointer extends IgniteWorker {
     /**
      * Update the current checkpoint info from the scheduled one.
      */
-    void startCheckpointProgress() {
+    CheckpointProgressImpl startCheckpointProgress() {
         long checkpointStartTimestamp = coarseCurrentTimeMillis();
 
         // This can happen in an unlikely event of two checkpoints happening within a currentTimeMillis() granularity window.
@@ -694,9 +700,9 @@ public class Checkpointer extends IgniteWorker {
 
             currentCheckpointProgress = curr;
 
-            curr.futureFor(LOCK_TAKEN).thenRun(() -> {
-                currentCheckpointProgressForThrottling = curr;
-            });
+            curr.futureFor(PAGES_SNAPSHOT_TAKEN).thenRun(() -> currentCheckpointProgressForThrottling = curr);
+
+            return curr;
         }
     }
 
@@ -826,8 +832,8 @@ public class Checkpointer extends IgniteWorker {
     long nextCheckpointInterval() {
         PageMemoryCheckpointView checkpointConfigView = checkpointConfig.value();
 
-        long interval = checkpointConfigView.interval();
-        int deviation = checkpointConfigView.intervalDeviation();
+        long interval = checkpointConfigView.intervalMillis();
+        int deviation = checkpointConfigView.intervalDeviationPercent();
 
         if (deviation == 0) {
             return interval;

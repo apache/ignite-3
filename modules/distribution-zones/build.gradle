@@ -36,6 +36,7 @@ dependencies {
     implementation project(':ignite-partition-distribution')
     implementation project(':ignite-catalog')
     implementation project(':ignite-raft-api')
+    implementation project(':ignite-failure-handler')
 
     implementation libs.auto.service.annotations
     implementation libs.fastutil.core
@@ -57,7 +58,6 @@ dependencies {
     testImplementation project(':ignite-configuration-system')
 
     testImplementation(testFixtures(project(':ignite-core')))
-    testImplementation(testFixtures(project(':ignite-catalog')))
     testImplementation(testFixtures(project(':ignite-configuration')))
     testImplementation(testFixtures(project(':ignite-configuration-system')))
     testImplementation(testFixtures(project(':ignite-metastorage')))
@@ -69,6 +69,7 @@ dependencies {
     testImplementation(testFixtures(project(':ignite-table')))
     testImplementation(testFixtures(project(':ignite-network')))
     testImplementation(testFixtures(project(':ignite-network')))
+    testImplementation(testFixtures(project(':ignite-failure-handler')))
 
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.mockito.core

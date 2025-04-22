@@ -382,6 +382,7 @@ public class PersistentPageMemory implements PageMemory {
 
             LOG.debug("Stopping page memory");
 
+            Segment[] segments = this.segments;
             if (segments != null) {
                 for (Segment seg : segments) {
                     seg.close();
@@ -537,6 +538,7 @@ public class PersistentPageMemory implements PageMemory {
         assert started;
         assert checkpointTimeoutLock.checkpointLockIsHeldByThread();
 
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
         if (writeThrottle != null) {
             writeThrottle.onMarkDirty(false);
         }
@@ -598,7 +600,7 @@ public class PersistentPageMemory implements PageMemory {
         } catch (IgniteOutOfMemoryException oom) {
             IgniteOutOfMemoryException e = new IgniteOutOfMemoryException("Out of memory in data region ["
                     + "name=" + storageProfileView.name()
-                    + ", size=" + readableSize(storageProfileView.size(), false)
+                    + ", size=" + readableSize(storageProfileView.sizeBytes(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase maximum off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)"
                     + lineSeparator()
@@ -856,6 +858,7 @@ public class PersistentPageMemory implements PageMemory {
      * Returns total pages can be placed in all segments.
      */
     public long totalPages() {
+        Segment[] segments = this.segments;
         if (segments == null) {
             return 0;
         }
@@ -1007,6 +1010,7 @@ public class PersistentPageMemory implements PageMemory {
      * Returns total number of acquired pages.
      */
     public long acquiredPages() {
+        Segment[] segments = this.segments;
         if (segments == null) {
             return 0L;
         }
@@ -1186,6 +1190,7 @@ public class PersistentPageMemory implements PageMemory {
                 assert getVersion(page + PAGE_OVERHEAD) != 0 : dumpPage(pageId, fullId.groupId());
                 assert getType(page + PAGE_OVERHEAD) != 0 : hexLong(pageId);
 
+                PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
                 if (writeThrottle != null && !restore && !wasDirty && markDirty) {
                     writeThrottle.onMarkDirty(isInCheckpoint(fullId));
                 }
@@ -1234,6 +1239,7 @@ public class PersistentPageMemory implements PageMemory {
      * Returns the number of active pages across all segments. Used for test purposes only.
      */
     public int activePagesCount() {
+        Segment[] segments = this.segments;
         if (segments == null) {
             return 0;
         }
@@ -1318,6 +1324,7 @@ public class PersistentPageMemory implements PageMemory {
      */
     @TestOnly
     public Set<FullPageId> dirtyPages() {
+        Segment[] segments = this.segments;
         if (segments == null) {
             return Set.of();
         }
@@ -1335,17 +1342,18 @@ public class PersistentPageMemory implements PageMemory {
      * Returns max dirty pages ratio among all segments.
      */
     public double dirtyPagesRatio() {
+        Segment[] segments = this.segments;
         if (segments == null) {
             return 0;
         }
 
-        double res = 0;
+        long res = 0;
 
         for (Segment segment : segments) {
             res = Math.max(res, segment.dirtyPagesRatio());
         }
 
-        return res;
+        return res * 1.0e-4d;
     }
 
     /**
@@ -1458,8 +1466,9 @@ public class PersistentPageMemory implements PageMemory {
             }
         }
 
-        private double dirtyPagesRatio() {
-            return dirtyPagesCntr.doubleValue() / pages();
+        /** Times a long value of dirty pages ratio multiplied by 10k. Here we avoid double division, while still having some precision. */
+        private long dirtyPagesRatio() {
+            return dirtyPagesCntr.longValue() * 10_000L / pages();
         }
 
         /**
@@ -1670,7 +1679,7 @@ public class PersistentPageMemory implements PageMemory {
                     + ", pinned=" + acquiredPages()
                     + ']' + lineSeparator() + "Out of memory in data region ["
                     + "name=" + storageProfileView.name()
-                    + ", size=" + readableSize(storageProfileView.size(), false)
+                    + ", size=" + readableSize(storageProfileView.sizeBytes(), false)
                     + ", persistence=true] Try the following:" + lineSeparator()
                     + "  ^-- Increase off-heap memory size (PersistentPageMemoryProfileConfigurationSchema.size)" + lineSeparator()
             );
@@ -1854,8 +1863,12 @@ public class PersistentPageMemory implements PageMemory {
     }
 
     private void releaseCheckpointBufferPage(long tmpBufPtr) {
+        PagePool checkpointPool = this.checkpointPool;
+        assert checkpointPool != null;
+
         int resultCounter = checkpointPool.releaseFreePage(tmpBufPtr);
 
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
         if (writeThrottle != null && resultCounter == checkpointPool.pages() / 2) {
             writeThrottle.wakeupThrottledThreads();
         }
@@ -2147,6 +2160,7 @@ public class PersistentPageMemory implements PageMemory {
 
         checkpointUrgency.set(NOT_REQUIRED);
 
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
         if (writeThrottle != null) {
             writeThrottle.onBeginCheckpoint();
         }
@@ -2158,6 +2172,7 @@ public class PersistentPageMemory implements PageMemory {
      * Finishes checkpoint operation.
      */
     public void finishCheckpoint() {
+        Segment[] segments = this.segments;
         if (segments == null) {
             return;
         }
@@ -2168,6 +2183,7 @@ public class PersistentPageMemory implements PageMemory {
             }
         }
 
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
         if (writeThrottle != null) {
             writeThrottle.onFinishCheckpoint();
         }
@@ -2177,6 +2193,7 @@ public class PersistentPageMemory implements PageMemory {
      * Checks if the Checkpoint Buffer is currently close to exhaustion.
      */
     public boolean isCpBufferOverflowThresholdExceeded() {
+        PagesWriteThrottlePolicy writeThrottle = this.writeThrottle;
         if (writeThrottle != null) {
             return writeThrottle.isCpBufferOverflowThresholdExceeded();
         }

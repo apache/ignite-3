@@ -23,13 +23,13 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.clusterWideEnsuredActivationTimestamp;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZoneIdOpt;
-import static org.apache.ignite.internal.failure.FailureType.CRITICAL_ERROR;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
@@ -55,7 +55,7 @@ import org.apache.ignite.internal.catalog.storage.UpdateLogEvent;
 import org.apache.ignite.internal.catalog.storage.VersionedUpdate;
 import org.apache.ignite.internal.event.AbstractEventProducer;
 import org.apache.ignite.internal.failure.FailureContext;
-import org.apache.ignite.internal.failure.FailureManager;
+import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -98,7 +98,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     private final ClockService clockService;
 
-    private final FailureManager failureManager;
+    private final FailureProcessor failureProcessor;
 
     private final LongSupplier delayDurationMsSupplier;
 
@@ -126,12 +126,12 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     public CatalogManagerImpl(
             UpdateLog updateLog,
             ClockService clockService,
-            FailureManager failureManager,
+            FailureProcessor failureProcessor,
             LongSupplier delayDurationMsSupplier
     ) {
         this.updateLog = updateLog;
         this.clockService = clockService;
-        this.failureManager = failureManager;
+        this.failureProcessor = failureProcessor;
         this.delayDurationMsSupplier = delayDurationMsSupplier;
         this.catalogSystemViewProvider = new CatalogSystemViewRegistry(() -> catalogAt(clockService.nowLong()));
     }
@@ -179,6 +179,11 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
     @Override
     public int earliestCatalogVersion() {
         return catalogByVer.firstEntry().getKey();
+    }
+
+    @Override
+    public Catalog earliestCatalog() {
+        return catalogByVer.firstEntry().getValue();
     }
 
     @Override
@@ -260,7 +265,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                         .zoneName(DEFAULT_ZONE_NAME)
                         .partitions(DEFAULT_PARTITION_COUNT)
                         .replicas(DEFAULT_REPLICA_COUNT)
-                        .dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE)
+                        .dataNodesAutoAdjustScaleUp(defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds())
                         .dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE)
                         .filter(DEFAULT_FILTER)
                         .storageProfilesParams(
@@ -280,9 +285,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
         return updateLog.append(new VersionedUpdate(emptyCatalog.version() + 1, 0L, entries))
                 .handle((result, error) -> {
                     if (error != null) {
-                        failureManager.process(new FailureContext(CRITICAL_ERROR,
-                                new IgniteInternalException(INTERNAL_ERR, "Unable to create default zone.", error)
-                        ));
+                        failureProcessor.process(new FailureContext(error, "Unable to create default zone."));
                     }
 
                     return null;
@@ -502,10 +505,8 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return allOf(eventFutures.toArray(CompletableFuture[]::new))
                     .whenComplete((ignore, err) -> {
-                        if (err != null) {
-                            failureManager.process(new FailureContext(CRITICAL_ERROR,
-                                    new IgniteInternalException(INTERNAL_ERR, "Failed to apply catalog update.", err)
-                            ));
+                        if (err != null && !hasCause(err, NodeStoppingException.class)) {
+                            failureProcessor.process(new FailureContext(err, "Failed to apply catalog update."));
                         }
 
                         versionTracker.update(version, null);

@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.StringUtils.nullOrEmpty;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -33,6 +34,8 @@ import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
+import org.apache.ignite.sql.Statement;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ScriptContext maintains the state of a script execution and provides access
@@ -57,6 +60,9 @@ final class ScriptContext {
 
     /** String presentation of null's. */
     String nullLbl = NULL;
+
+    /** Time zone to use. */
+    @Nullable ZoneId timeZone;
 
     /** Equivalent results store. */
     final Map<String, Collection<String>> eqResStorage = new HashMap<>();
@@ -83,7 +89,12 @@ final class ScriptContext {
 
         long startNanos = System.nanoTime();
 
-        try (ResultSet<SqlRow> rs = ignSql.execute(null, sql)) {
+        Statement.StatementBuilder statement = ignSql.statementBuilder().query(sql);
+        if (timeZone != null) {
+            statement = statement.timeZoneId(timeZone);
+        }
+
+        try (ResultSet<SqlRow> rs = ignSql.execute(null, statement.build())) {
             if (rs.hasRowSet()) {
                 List<List<?>> out = new ArrayList<>();
 
