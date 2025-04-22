@@ -574,7 +574,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     public void testQuotedZoneName() {
         IgniteCatalog catalog = CLUSTER.node(0).catalog();
 
-        sql("CREATE ZONE \"Some Zone\" WITH STORAGE_PROFILES='" + DEFAULT_AIPERSIST_PROFILE_NAME + "'");
+        sql("CREATE ZONE \"Some Zone\" STORAGE PROFILES ['" + DEFAULT_AIPERSIST_PROFILE_NAME + "']");
 
         ZoneDefinition zone = catalog.zoneDefinition("Some Zone");
         assertNotNull(zone);
