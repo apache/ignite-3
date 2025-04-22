@@ -36,12 +36,18 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
     static final GroupUpdateRequestSerializer INSTANCE = new GroupUpdateRequestSerializer();
 
     @Override
+    protected byte getProtocolVersion() {
+        return 2;
+    }
+
+    @Override
     protected void writeExternalData(GroupUpdateRequest request, IgniteDataOutput out) throws IOException {
         out.writeUuid(request.operationId());
         out.writeVarInt(request.catalogVersion());
         out.writeVarInt(request.zoneId());
         writeVarIntMap(request.partitionIds(), out);
         out.writeBoolean(request.manualUpdate());
+        out.writeBoolean(request.colocationEnabled());
     }
 
     @Override
@@ -51,7 +57,13 @@ class GroupUpdateRequestSerializer extends VersionedSerializer<GroupUpdateReques
         int zoneId = in.readVarIntAsInt();
         Map<Integer, Set<Integer>> partitionIds = readVarIntMap(in);
         boolean manualUpdate = in.readBoolean();
-
-        return new GroupUpdateRequest(operationId, catalogVersion, zoneId, partitionIds, manualUpdate);
+        boolean usesZonePartitionIds;
+        if (protoVer >= 2) {
+            usesZonePartitionIds = in.readBoolean();
+        } else {
+            usesZonePartitionIds = false;
+        }
+        return GroupUpdateRequest
+                .create(operationId, catalogVersion, zoneId, partitionIds, manualUpdate, usesZonePartitionIds);
     }
 }
