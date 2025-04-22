@@ -40,6 +40,8 @@ import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -76,11 +78,12 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Executor which accepts requests for query execution and returns cursor to the result of execution.
  */
-public class QueryExecutor implements LifecycleAware {
+public class QueryExecutor implements LifecycleAware, Debuggable {
     private final Cache<String, ParsedResult> queryToParsedResultCache;
     private final ParserService parserService;
     private final Executor executor;
@@ -618,6 +621,14 @@ public class QueryExecutor implements LifecycleAware {
         ) {
             this.parsedQuery = parsedQuery;
             this.nextCursorFuture = nextCursorFuture;
+        }
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        if (executionService instanceof Debuggable) {
+            ((Debuggable) executionService).dumpState(writer, indent);
         }
     }
 }

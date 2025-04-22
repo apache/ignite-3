@@ -675,7 +675,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      *
      * @return String containing debugging information.
      */
-    String dumpDebugInfo() {
+    @TestOnly
+    public String dumpDebugInfo() {
         IgniteStringBuilder writer = new IgniteStringBuilder();
 
         dumpState(writer, "");
@@ -773,6 +774,14 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 }
             }
         }
+    }
+
+    /**
+     * Dumps component state. This method is used for debugging purposes only.
+     */
+    @TestOnly
+    public void dumpComponentState() {
+        System.out.println("SqlExecutionService state: " + dumpDebugInfo());
     }
 
     private static String dumpThreads() {

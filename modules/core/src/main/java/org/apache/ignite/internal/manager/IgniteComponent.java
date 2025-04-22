@@ -19,12 +19,13 @@ package org.apache.ignite.internal.manager;
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ForkJoinPool;
+import org.apache.ignite.internal.lang.Debuggable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
  * Common interface for ignite components that provides entry points for component lifecycle flow.
  */
-public interface IgniteComponent {
+public interface IgniteComponent extends Debuggable {
     /**
      * Starts the component. Depending on component flow both configuration properties listeners, meta storage watch registration, starting
      * thread pools and threads goes here.
