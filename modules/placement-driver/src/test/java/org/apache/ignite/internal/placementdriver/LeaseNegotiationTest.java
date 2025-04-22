@@ -154,6 +154,9 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     public void tearDown() {
         leaseUpdater.deactivate();
         assignmentsTracker.stopTrack();
+
+        metaStorageManager.beforeNodeStop();
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
     }
 
     private LeaseUpdater createLeaseUpdater() {

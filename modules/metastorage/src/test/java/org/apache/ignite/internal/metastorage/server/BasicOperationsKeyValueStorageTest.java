@@ -79,6 +79,8 @@ import org.apache.ignite.internal.metastorage.impl.CommandIdGenerator;
 import org.apache.ignite.internal.metastorage.server.ValueCondition.Type;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -90,7 +92,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 /**
  * Tests for key-value storage implementations.
  */
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, FailureManagerExtension.class})
 public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValueStorageTest {
     @WorkDirectory
     Path workDir;
@@ -1878,6 +1880,7 @@ public abstract class BasicOperationsKeyValueStorageTest extends AbstractKeyValu
      * Tests that, if a watch throws an exception, its {@code onError} method is invoked.
      */
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void testWatchErrorHandling() {
         byte[] value = "value".getBytes(UTF_8);
 
