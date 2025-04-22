@@ -191,6 +191,7 @@ import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.configuration.GcConfiguration;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
@@ -2852,6 +2853,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
         } catch (StorageDestroyedException ignored) {
             // Ignore as the storage is already destroyed, no need to destroy it again.
+        } catch (StorageClosedException ignored) {
+            // The storage is closed, so the node is being stopped. We'll destroy the partition on node recovery.
         }
 
         if (!enabledColocation) {
