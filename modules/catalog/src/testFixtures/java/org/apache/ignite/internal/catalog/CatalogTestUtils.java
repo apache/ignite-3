@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFu
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 import java.util.List;
 import java.util.Set;
@@ -152,7 +153,7 @@ public class CatalogTestUtils {
     public static CatalogManager createTestCatalogManager(String nodeName, ClockWaiter clockWaiter, HybridClock clock) {
         StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
 
-        var failureProcessor = new NoOpFailureManager();
+        FailureProcessor failureProcessor = mock(FailureProcessor.class);
         return new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
                 new TestClockService(clock, clockWaiter),
