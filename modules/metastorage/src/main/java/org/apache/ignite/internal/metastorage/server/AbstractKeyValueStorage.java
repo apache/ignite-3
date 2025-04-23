@@ -374,7 +374,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    protected synchronized void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
+    protected void drainNotifyWatchProcessorEventsBeforeStartingWatches() {
         synchronized (watchProcessorMutex) {
             assert !areWatchesStarted();
 

@@ -73,6 +73,9 @@ public class ReadOperationForCompactionTracker {
      *     }
      * </code></pre>
      *
+     * <p>Or you can use an explicit {@link TrackingToken#close()} call if execution context requires that, for example if your operation is
+     * asynchronous.
+     *
      * @see TrackingToken
      */
     public TrackingToken track(
@@ -90,8 +93,8 @@ public class ReadOperationForCompactionTracker {
             // Value from compacted revision supplier can only grow. We only use it for upper bound checks, so it's safe to read it every
             // time instead of caching it. It applies to all usages of the supplier.
             if (currentOperationRevision <= compactedRevision.getAsLong()) {
-                // Latest revision can never be compacted. If for some reason latest revision is updated and this revision is already
-                // compacted, we should retry until we succeed. That's quite a lag, but it's possible in theory.
+                // Latest revision can never be compacted. If for some reason latest revision is concurrently updated and this revision is
+                // already compacted, we should retry until we succeed. That's quite a lag, but it is possible in theory and in tests.
                 if (operationRevision == MetaStorageManager.LATEST_REVISION) {
                     continue;
                 }
@@ -144,11 +147,11 @@ public class ReadOperationForCompactionTracker {
 
     private static class ReadOperationKey {
         @IgniteToStringInclude
-        private final Object readOperationId;
+        private final long readOperationId;
 
         private final long operationRevision;
 
-        private ReadOperationKey(Object readOperationId, long operationRevision) {
+        private ReadOperationKey(long readOperationId, long operationRevision) {
             assert operationRevision >= 0 : operationRevision;
 
             this.readOperationId = readOperationId;
@@ -166,12 +169,12 @@ public class ReadOperationForCompactionTracker {
 
             ReadOperationKey that = (ReadOperationKey) o;
 
-            return operationRevision == that.operationRevision && readOperationId.equals(that.readOperationId);
+            return operationRevision == that.operationRevision && readOperationId == that.readOperationId;
         }
 
         @Override
         public int hashCode() {
-            int result = readOperationId.hashCode();
+            int result = Long.hashCode(readOperationId);
             result = 31 * result + Long.hashCode(operationRevision);
             return result;
         }
