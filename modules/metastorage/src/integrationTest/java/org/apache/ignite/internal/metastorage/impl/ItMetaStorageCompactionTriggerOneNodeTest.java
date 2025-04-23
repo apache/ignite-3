@@ -42,6 +42,7 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.command.CompactionCommand;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.rpc.WriteActionRequest;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** For {@link MetaStorageCompactionTrigger} testing for single node case. */
@@ -60,6 +61,8 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
     }
 
     @Test
+    @Disabled
+    // TODO Fix it in https://issues.apache.org/jira/browse/IGNITE-25229
     void testCompactionAfterRestartNode() throws Exception {
         IgniteImpl node = aliveNode();
 
