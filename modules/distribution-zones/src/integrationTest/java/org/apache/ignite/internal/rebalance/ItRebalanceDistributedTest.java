@@ -961,8 +961,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataNodes.add(getNode(i).name);
         }
 
-        Set<Assignment> pendingAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 2);
-        Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3);
+        Set<Assignment> pendingAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 2, 2);
+        Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3, 3);
 
         Node node0 = getNode(0);
         TableViewInternal table = unwrapTableViewInternal(node0.tableManager.table(TABLE_NAME));

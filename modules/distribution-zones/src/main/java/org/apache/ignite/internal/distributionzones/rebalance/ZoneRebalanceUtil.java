@@ -159,6 +159,7 @@ public class ZoneRebalanceUtil {
      * @param dataNodes Data nodes.
      * @param partitions Number of partitions in a zone.
      * @param replicas Number of replicas for a zone.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param timestamp Timestamp of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
@@ -173,6 +174,7 @@ public class ZoneRebalanceUtil {
             Collection<String> dataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
@@ -190,7 +192,13 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                dataNodes,
+                partNum,
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         Set<Assignment> targetAssignmentSet;
 
@@ -395,6 +403,7 @@ public class ZoneRebalanceUtil {
                         dataNodes,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         storageRevision,
                         storageTimestamp,
                         metaStorageManager,

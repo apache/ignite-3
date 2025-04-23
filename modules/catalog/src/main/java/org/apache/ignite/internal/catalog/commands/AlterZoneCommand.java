@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateQuorum;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -26,7 +28,6 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.fromParam
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.zone;
 
 import java.util.List;
-import java.util.Objects;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -51,6 +52,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
 
     private final @Nullable Integer replicas;
 
+    private final @Nullable Integer quorumSize;
+
     private final @Nullable Integer dataNodesAutoAdjust;
 
     private final @Nullable Integer dataNodesAutoAdjustScaleUp;
@@ -68,6 +71,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
      * @param ifExists Flag indicating whether the {@code IF EXISTS} was specified.
      * @param partitions Number of partitions.
      * @param replicas Number of replicas.
+     * @param quorumSize Quorum size.
      * @param dataNodesAutoAdjust Timeout in seconds between node added or node left topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleUp Timeout in seconds between node added topology event itself and data nodes switch.
      * @param dataNodesAutoAdjustScaleDown Timeout in seconds between node left topology event itself and data nodes switch.
@@ -80,6 +84,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
             boolean ifExists,
             @Nullable Integer partitions,
             @Nullable Integer replicas,
+            @Nullable Integer quorumSize,
             @Nullable Integer dataNodesAutoAdjust,
             @Nullable Integer dataNodesAutoAdjustScaleUp,
             @Nullable Integer dataNodesAutoAdjustScaleDown,
@@ -91,6 +96,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         this.ifExists = ifExists;
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
@@ -136,15 +142,20 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         CatalogStorageProfilesDescriptor storageProfiles = storageProfileParams != null
                 ? fromParams(storageProfileParams) : previous.storageProfiles();
 
+        // Validate quorum size here since its boundaries depend on the current number of replicas
+        int replicas = requireNonNullElse(this.replicas, previous.replicas());
+        validateQuorum(quorumSize, replicas);
+
         return new CatalogZoneDescriptor(
                 previous.id(),
                 previous.name(),
-                Objects.requireNonNullElse(partitions, previous.partitions()),
-                Objects.requireNonNullElse(replicas, previous.replicas()),
-                Objects.requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
-                Objects.requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
-                Objects.requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
-                Objects.requireNonNullElse(filter, previous.filter()),
+                requireNonNullElse(partitions, previous.partitions()),
+                replicas,
+                requireNonNullElse(quorumSize, previous.quorumSize()),
+                requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
+                requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
+                requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
+                requireNonNullElse(filter, previous.filter()),
                 storageProfiles,
                 previous.consistencyMode()
         );
@@ -177,6 +188,8 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         private @Nullable Integer partitions;
 
         private @Nullable Integer replicas;
+
+        private @Nullable Integer quorumSize;
 
         private @Nullable Integer dataNodesAutoAdjust;
 
@@ -212,6 +225,13 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         @Override
         public AlterZoneCommandBuilder replicas(Integer replicas) {
             this.replicas = replicas;
+
+            return this;
+        }
+
+        @Override
+        public AlterZoneCommandBuilder quorumSize(Integer quorumSize) {
+            this.quorumSize = quorumSize;
 
             return this;
         }
@@ -258,6 +278,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                     ifExists,
                     partitions,
                     replicas,
+                    quorumSize,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,

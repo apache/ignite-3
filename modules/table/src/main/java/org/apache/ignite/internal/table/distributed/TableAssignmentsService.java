@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.tableAssignmentsGetLocally;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_INDEX;
 import static org.apache.ignite.internal.raft.RaftGroupConfiguration.UNKNOWN_TERM;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
@@ -57,7 +58,6 @@ import org.apache.ignite.internal.metastorage.dsl.Operation;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
-import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 
 /** Manages table partitions assignments (excluding rebalance, see {@link DistributionZoneRebalanceEngine}). */
@@ -163,12 +163,12 @@ public class TableAssignmentsService {
             long assignmentsTimestamp = catalog.time();
 
             assignmentsFuture = distributionZoneManager.dataNodes(tableDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes ->
-                            PartitionDistributionUtils.calculateAssignments(
-                                            dataNodes,
-                                            zoneDescriptor.partitions(),
-                                            zoneDescriptor.replicas()
-                                    )
+                    .thenApply(dataNodes -> calculateAssignments(
+                                    dataNodes,
+                                    zoneDescriptor.partitions(),
+                                    zoneDescriptor.replicas(),
+                                    zoneDescriptor.consensusGroupSize()
+                            )
                                     .stream()
                                     .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
                                     .collect(toList())

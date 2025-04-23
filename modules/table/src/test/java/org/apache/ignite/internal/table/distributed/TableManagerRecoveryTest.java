@@ -367,7 +367,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 assignment.add(new ArrayList<>(Collections.singleton(node)));
             }
 
-            partitionDistributionServiceMock.when(() -> calculateAssignments(any(), anyInt(), anyInt()))
+            partitionDistributionServiceMock.when(() -> calculateAssignments(any(), anyInt(), anyInt(), anyInt()))
                     .thenReturn(assignment);
         }
 

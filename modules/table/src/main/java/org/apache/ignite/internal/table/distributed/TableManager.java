@@ -1449,7 +1449,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         dataNodes,
                         tablePartitionId.partitionId(),
                         zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas()
+                        zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize()
                 ));
     }
 
@@ -2564,6 +2565,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         dataNodes,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         replicaGrpId,
                         evt,
                         assignmentsTimestamp

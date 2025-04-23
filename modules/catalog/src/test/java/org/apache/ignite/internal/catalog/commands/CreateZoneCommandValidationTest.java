@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
-import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.createZoneBuilder;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
@@ -26,13 +24,18 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 
 import java.util.List;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
+import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
 import org.apache.ignite.internal.catalog.UpdateContext;
+import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
+import org.apache.ignite.internal.catalog.storage.NewZoneEntry;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -57,89 +60,119 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     void zonePartitions() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).partitions(-1).build(),
+                () -> createZoneBuilder().partitions(-1).build(),
                 "Invalid number of partitions"
         );
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).partitions(0).build(),
+                () -> createZoneBuilder().partitions(0).build(),
                 "Invalid number of partitions"
         );
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).partitions(MAX_PARTITION_COUNT + 1).build(),
+                () -> createZoneBuilder().partitions(MAX_PARTITION_COUNT + 1).build(),
                 "Invalid number of partitions"
         );
 
         // Let's check the success cases.
-        createZoneBuilder(ZONE_NAME + 0).partitions(1).build();
-        createZoneBuilder(ZONE_NAME + 1).partitions(MAX_PARTITION_COUNT).build();
-        createZoneBuilder(ZONE_NAME + 2).partitions(10).build();
-        createZoneBuilder(ZONE_NAME + 3).partitions(DEFAULT_PARTITION_COUNT).build();
+        createZoneBuilder().partitions(1).build();
+        createZoneBuilder().partitions(MAX_PARTITION_COUNT).build();
+        createZoneBuilder().partitions(10).build();
+        createZoneBuilder().partitions(DEFAULT_PARTITION_COUNT).build();
     }
 
     @Test
     void zoneReplicas() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).replicas(-1).build(),
+                () -> createZoneBuilder().replicas(-1).build(),
                 "Invalid number of replicas"
         );
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).replicas(0).build(),
+                () -> createZoneBuilder().replicas(0).build(),
                 "Invalid number of replicas"
         );
 
         // Let's check the success cases.
-        createZoneBuilder(ZONE_NAME + 0).replicas(1).build();
-        createZoneBuilder(ZONE_NAME + 1).replicas(Integer.MAX_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 2).replicas(DEFAULT_REPLICA_COUNT).build();
+        createZoneBuilder().replicas(1).build();
+        createZoneBuilder().replicas(Integer.MAX_VALUE).build();
+        createZoneBuilder().replicas(DEFAULT_REPLICA_COUNT).build();
+    }
+
+    @ParameterizedTest
+    @MethodSource("quorumTable")
+    void zoneQuorumSize(
+            @Nullable Integer replicas,
+            int defaultQuorumSize,
+            int defaultConsensusGroupSize,
+            int minQuorumSize,
+            int maxQuorumSize
+    ) {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(minQuorumSize - 1)),
+                "Invalid quorum size"
+        );
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)),
+                "Invalid quorum size"
+        );
+
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(createZoneBuilder().replicas(replicas));
+        assertThat(zoneDescriptor.quorumSize(), is(defaultQuorumSize));
+        assertThat(zoneDescriptor.consensusGroupSize(), is(defaultConsensusGroupSize));
+
+        for (int i = minQuorumSize; i <= maxQuorumSize; i++) {
+            getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(i));
+        }
     }
 
     @Test
     void zoneAutoAdjust() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).dataNodesAutoAdjust(-1).build(),
+                () -> createZoneBuilder().dataNodesAutoAdjust(-1).build(),
                 "Invalid data nodes auto adjust"
         );
 
         // Let's check the success cases.
-        createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjust(10).build();
+        createZoneBuilder().dataNodesAutoAdjust(INFINITE_TIMER_VALUE).build();
+        createZoneBuilder().dataNodesAutoAdjust(IMMEDIATE_TIMER_VALUE).build();
+        createZoneBuilder().dataNodesAutoAdjust(10).build();
     }
 
     @Test
     void zoneAutoAdjustScaleUp() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleUp(-1).build(),
+                () -> createZoneBuilder().dataNodesAutoAdjustScaleUp(-1).build(),
                 "Invalid data nodes auto adjust scale up"
         );
 
         // Let's check the success cases.
-        createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjustScaleUp(10).build();
+        createZoneBuilder().dataNodesAutoAdjustScaleUp(IMMEDIATE_TIMER_VALUE).build();
+        createZoneBuilder().dataNodesAutoAdjustScaleUp(INFINITE_TIMER_VALUE).build();
+        createZoneBuilder().dataNodesAutoAdjustScaleUp(10).build();
     }
 
     @Test
     void zoneAutoAdjustScaleDown() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).dataNodesAutoAdjustScaleDown(-1).build(),
+                () -> createZoneBuilder().dataNodesAutoAdjustScaleDown(-1).build(),
                 "Invalid data nodes auto adjust scale down"
         );
 
         // Let's check the success cases.
-        createZoneBuilder(ZONE_NAME + 0).dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 1).dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build();
-        createZoneBuilder(ZONE_NAME + 2).dataNodesAutoAdjustScaleDown(10).build();
+        createZoneBuilder().dataNodesAutoAdjustScaleDown(IMMEDIATE_TIMER_VALUE).build();
+        createZoneBuilder().dataNodesAutoAdjustScaleDown(INFINITE_TIMER_VALUE).build();
+        createZoneBuilder().dataNodesAutoAdjustScaleDown(10).build();
     }
 
     @Test
@@ -204,72 +237,67 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         // Let's check the success cases.
 
         // Auto adjust only.
-        createZoneParams(ZONE_NAME + 0, IMMEDIATE_TIMER_VALUE, null, null);
-        createZoneParams(ZONE_NAME + 1, INFINITE_TIMER_VALUE, null, null);
-        createZoneParams(ZONE_NAME + 2, 66, null, null);
-        createZoneParams(ZONE_NAME + 3, null, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
-        createZoneParams(ZONE_NAME + 4, null, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
-        createZoneParams(ZONE_NAME + 5, null, 77, 88);
+        createZoneParams(IMMEDIATE_TIMER_VALUE, null, null);
+        createZoneParams(INFINITE_TIMER_VALUE, null, null);
+        createZoneParams(66, null, null);
+        createZoneParams(null, IMMEDIATE_TIMER_VALUE, IMMEDIATE_TIMER_VALUE);
+        createZoneParams(null, INFINITE_TIMER_VALUE, INFINITE_TIMER_VALUE);
+        createZoneParams(null, 77, 88);
     }
 
     @Test
     void zoneFilter() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).filter("not a JsonPath").build(),
+                () -> createZoneBuilder().filter("not a JsonPath").build(),
                 "Invalid filter"
         );
 
         // Missing ']' after 'nodeAttributes'.
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).filter("['nodeAttributes'[?(@.['region'] == 'EU')]").build(),
+                () -> createZoneBuilder().filter("['nodeAttributes'[?(@.['region'] == 'EU')]").build(),
                 "Invalid filter"
         );
 
         // Let's check the success cases.
-        createZoneBuilder(ZONE_NAME + 0).filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
-        createZoneBuilder(ZONE_NAME + 1).filter(DEFAULT_FILTER).build();
+        createZoneBuilder().filter("['nodeAttributes'][?(@.['region'] == 'EU')]").build();
+        createZoneBuilder().filter(DEFAULT_FILTER).build();
     }
 
     @Test
     void zoneStorageProfiles() {
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).storageProfilesParams(List.of()).build(),
+                () -> createZoneBuilder().storageProfilesParams(List.of()).build(),
                 "Storage profile cannot be empty"
         );
 
         assertThrows(
                 CatalogValidationException.class,
-                () -> createZoneBuilder(ZONE_NAME).storageProfilesParams(null).build(),
+                () -> createZoneBuilder().storageProfilesParams(null).build(),
                 "Storage profile cannot be null"
         );
 
         // Let's check the success case.
-        createZoneBuilder(ZONE_NAME + 0).storageProfilesParams(
+        createZoneBuilder().storageProfilesParams(
                 List.of(StorageProfileParams.builder().storageProfile("lru_rocks").build())).build();
     }
 
     @Test
     void zoneConsistencyMode() {
         // Let's check the success case.
-        createZoneBuilder(ZONE_NAME).consistencyModeParams(ConsistencyMode.STRONG_CONSISTENCY).build();
-        createZoneBuilder(ZONE_NAME).consistencyModeParams(ConsistencyMode.HIGH_AVAILABILITY).build();
+        createZoneBuilder().consistencyModeParams(ConsistencyMode.STRONG_CONSISTENCY).build();
+        createZoneBuilder().consistencyModeParams(ConsistencyMode.HIGH_AVAILABILITY).build();
         // STRONG_CONSISTENCY is used in this case.
-        createZoneBuilder(ZONE_NAME).consistencyModeParams(null).build();
+        createZoneBuilder().consistencyModeParams(null).build();
     }
 
     @Test
     void exceptionIsThrownIfZoneAlreadyExist() {
-        CreateZoneCommandBuilder builder = CreateZoneCommand.builder();
-
         Catalog catalog = catalogWithZone("some_zone");
 
-        CatalogCommand command = builder
-                .zoneName("some_zone")
-                .storageProfilesParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build()))
-                .build();
+        CatalogCommand command = createZoneCommand("some_zone");
 
         assertThrows(
                 CatalogValidationException.class,
@@ -279,19 +307,25 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     private static CatalogCommand createZoneParams(@Nullable Integer autoAdjust, @Nullable Integer scaleUp, @Nullable Integer scaleDown) {
-        return createZoneParams(ZONE_NAME, autoAdjust, scaleUp, scaleDown);
-    }
-
-    private static CatalogCommand createZoneParams(
-            String zoneName,
-            @Nullable Integer autoAdjust,
-            @Nullable Integer scaleUp,
-            @Nullable Integer scaleDown
-    ) {
-        return createZoneBuilder(zoneName)
+        return createZoneBuilder()
                 .dataNodesAutoAdjust(autoAdjust)
                 .dataNodesAutoAdjustScaleUp(scaleUp)
                 .dataNodesAutoAdjustScaleDown(scaleDown)
                 .build();
+    }
+
+    private static CreateZoneCommandBuilder createZoneBuilder() {
+        return CatalogTestUtils.createZoneBuilder(ZONE_NAME);
+    }
+
+    /**
+     * Builds the command and gets update entries based on the catalog with the default zone. Needed because quorum size validation requires
+     * knowing a number of replicas.
+     *
+     * @param builder Create zone command builder.
+     * @return Catalog zone descriptor.
+     */
+    private static CatalogZoneDescriptor getZoneDescriptor(CreateZoneCommandBuilder builder) {
+        return ((NewZoneEntry) builder.build().get(new UpdateContext(emptyCatalog())).get(0)).descriptor();
     }
 }

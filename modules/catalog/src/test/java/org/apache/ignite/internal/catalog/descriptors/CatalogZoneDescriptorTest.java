@@ -48,9 +48,10 @@ class CatalogZoneDescriptorTest {
         assertThat(toString, containsString("name=zone1"));
         assertThat(toString, containsString("partitions=2"));
         assertThat(toString, containsString("replicas=3"));
-        assertThat(toString, containsString("dataNodesAutoAdjust=4"));
-        assertThat(toString, containsString("dataNodesAutoAdjustScaleUp=5"));
-        assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=6"));
+        assertThat(toString, containsString("quorumSize=4"));
+        assertThat(toString, containsString("dataNodesAutoAdjust=5"));
+        assertThat(toString, containsString("dataNodesAutoAdjustScaleUp=6"));
+        assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=7"));
         assertThat(toString, containsString("filter=the-filter"));
         assertThat(toString, containsString("storageProfiles=CatalogStorageProfilesDescriptor ["));
         assertThat(toString, containsString("consistencyMode=STRONG_CONSISTENCY"));
@@ -79,6 +80,11 @@ class CatalogZoneDescriptorTest {
     @Test
     void testUpdateRequiresAssignmentsRecalculationReplicas() {
         doTestUpdateRequiresAssignmentsRecalculation(builder -> builder.replicas(100500), true);
+    }
+
+    @Test
+    void testUpdateRequiresAssignmentsRecalculationQuorumSize() {
+        doTestUpdateRequiresAssignmentsRecalculation(builder -> builder.quorumSize(2), true);
     }
 
     @Test
@@ -115,6 +121,7 @@ class CatalogZoneDescriptorTest {
                 4,
                 5,
                 6,
+                7,
                 "the-filter",
                 fromParams(List.of(StorageProfileParams.builder().storageProfile(DEFAULT_STORAGE_PROFILE).build())),
                 ConsistencyMode.STRONG_CONSISTENCY

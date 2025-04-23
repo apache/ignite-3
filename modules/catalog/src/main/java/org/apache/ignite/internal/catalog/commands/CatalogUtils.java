@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.min;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFINITION_SCHEMA;
 import static org.apache.ignite.internal.catalog.CatalogService.INFORMATION_SCHEMA;
@@ -60,6 +61,9 @@ public class CatalogUtils {
 
     /** Default number of distribution zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
+
+    /** Default quorum size. */
+    public static final int DEFAULT_QUORUM_SIZE = 1;
 
     /**
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of
@@ -801,5 +805,18 @@ public class CatalogUtils {
     // after all nodes already started meaning that tables are created on stable topology and usually doesn't assume any rebalances at all.
     public static int defaultZoneDefaultAutoAdjustScaleUpTimeoutSeconds() {
         return enabledColocation() ? 5 : 0;
+    }
+
+    /**
+     * Calculates default quorum size based on the number of replicas.
+     *
+     * @param replicas Number of replicas.
+     * @return Quorum size.
+     */
+    public static int defaultQuorumSize(int replicas) {
+        if (replicas <= 4) {
+            return min(replicas, 2);
+        }
+        return 3;
     }
 }

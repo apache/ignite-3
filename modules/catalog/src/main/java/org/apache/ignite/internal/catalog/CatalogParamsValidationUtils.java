@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static java.lang.Math.floor;
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
@@ -140,6 +144,18 @@ public class CatalogParamsValidationUtils {
         if (partitions != null) {
             throw new CatalogValidationException("Partitions number cannot be altered.");
         }
+    }
+
+    /**
+     * Validates quorum size, taking number of replicas into consideration.
+     *
+     * @param quorumSize Quorum size to validate.
+     * @param replicas Current number of replicas.
+     */
+    public static void validateQuorum(@Nullable Integer quorumSize, int replicas) {
+        int minQuorum = min(replicas, 2);
+        int maxQuorum = max(minQuorum, (int) (floor(replicas / 2.0 + 0.5)));
+        validateField(quorumSize, minQuorum, maxQuorum, "Invalid quorum size");
     }
 
     /**
