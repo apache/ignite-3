@@ -1225,7 +1225,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
                 rebalanceMinimumRequiredTimeProvider
         );
 
-        await(runner.startAsync(mock(ComponentContext.class)));
+        await(runner.startAsync(new ComponentContext()));
 
         runner.updateCoordinator(coordinator);
 

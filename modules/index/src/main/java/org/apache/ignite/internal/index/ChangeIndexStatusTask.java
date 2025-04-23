@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.index.IndexManagementUtils.isPrimaryRep
 import static org.apache.ignite.internal.index.IndexManagementUtils.localNode;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Set;
@@ -43,6 +44,7 @@ import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogManager;
+import org.apache.ignite.internal.catalog.ChangeIndexStatusValidationException;
 import org.apache.ignite.internal.catalog.IndexNotFoundValidationException;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
@@ -64,6 +66,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitException;
 import org.apache.ignite.internal.placementdriver.PrimaryReplicaAwaitTimeoutException;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -181,23 +184,47 @@ abstract class ChangeIndexStatusTask {
                     .thenComposeAsync(unused -> inBusyLocks(() -> catalogManager.execute(switchIndexStatusCommand())), executor)
                     .whenComplete((unused, throwable) -> {
                         if (throwable != null) {
-                            Throwable cause = unwrapCause(throwable);
-
-                            if (!(cause instanceof IndexTaskStoppingException)
-                                    && !(cause instanceof NodeStoppingException)
-                                    // The index's table might have been dropped while we were waiting for the ability
-                                    // to switch the index status to a new state, so IndexNotFound is not a problem.
-                                    && !(cause instanceof IndexNotFoundValidationException)) {
-                                failureProcessor.process(new FailureContext(
-                                        throwable,
-                                        String.format("Error starting index task: %s", indexDescriptor.id())
-                                ));
-                            }
+                            handleStatusSwitchException(throwable);
                         }
                     })
                     .thenApply(unused -> null);
         } finally {
             leaveBusy();
+        }
+    }
+
+    private void handleStatusSwitchException(Throwable throwable) {
+        if (hasCause(
+                throwable,
+                IndexTaskStoppingException.class,
+                NodeStoppingException.class,
+                // The index's table might have been dropped while we were waiting for the ability
+                // to switch the index status to a new state, so IndexNotFound is not a problem.
+                IndexNotFoundValidationException.class,
+                // Someone could have already switched the index status, not a problem.
+                ChangeIndexStatusValidationException.class,
+                // No primary replica is not a reason to fail the node.
+                PrimaryReplicaAwaitException.class
+        )) {
+            if (LOG.isDebugEnabled()) {
+                LOG.debug(
+                        "Stop index operation due to an expected exception; index operation is either requested to be stopped "
+                                + "or it will be picked up later",
+                        throwable
+                );
+            } else {
+                LOG.info(
+                        "Stop index operation due to an expected exception; index operation is either requested to be stopped "
+                                + "or it will be picked up later [exceptionClass={}, message={}]",
+                        throwable.getClass().getName(),
+                        throwable.getMessage()
+                );
+            }
+        } else {
+            failureProcessor.process(new FailureContext(
+                    throwable,
+                    String.format("Error starting index task: %s", indexDescriptor.id())
+            ));
         }
     }
 
