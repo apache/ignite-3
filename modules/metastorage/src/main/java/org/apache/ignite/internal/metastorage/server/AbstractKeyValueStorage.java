@@ -183,7 +183,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        System.out.println(Thread.currentThread().getName() + " setCompactionRevision " + revision);
+        LOG.info("setCompactionRevision " + revision);
         assert revision >= 0 : revision;
 
         assertCompactionRevisionLessThanCurrent(revision, rev);
@@ -314,6 +314,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
     }
 
+    protected static final IgniteLogger LOG = Loggers.forClass(AbstractKeyValueStorage.class);
     protected Entry doGet(byte[] key, long revUpperBound) {
         assert revUpperBound >= 0 : revUpperBound;
 
@@ -337,7 +338,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
             return EntryImpl.toEntry(key, revision, value);
         } catch (CompactedException e) {
-            System.out.println(Thread.currentThread().getName() + " all revisions=" + Arrays.toString(keyRevisions) + ", key= " + toUtf8String(key));
+            LOG.info("all revisions=" + Arrays.toString(keyRevisions) + ", key= " + toUtf8String(key));
             throw e;
         }
     }

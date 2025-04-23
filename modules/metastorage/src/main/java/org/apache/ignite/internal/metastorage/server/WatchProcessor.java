@@ -253,6 +253,12 @@ public class WatchProcessor implements ManuallyCloseable {
                     .filter(WatchProcessor::isNotIdempotentCacheCommand)
                     .collect(toList());
 
+//            StringBuilder msg = new StringBuilder("Revision " + newRevision + "\n");
+//            for (Entry e : filteredUpdatedEntries) {
+//                msg.append(KeyValueStorageUtils.toUtf8String(e.key())).append(": ").append(e.tombstone() ? "tombstone" : "value").append("\n");
+//            }
+//            LOG.info(msg.toString());
+
             List<WatchAndEvents> watchAndEvents = collectWatchesAndEvents(filteredUpdatedEntries, newRevision);
 
             long startTimeNanos = System.nanoTime();

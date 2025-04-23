@@ -1005,6 +1005,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             }
 
             if (indexToCompact == revs.length - 1) {
+//                System.out.println("AAAAAAAAAAAAAAAAAAAAAAA??????????????? " + toUtf8String(key));
                 index.delete(batch, key);
             } else {
                 index.put(batch, key, longsToBytes(indexToCompact + 1, revs));
@@ -1579,6 +1580,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         byte[] valueBytes = data.get(rocksKey);
 
+        // true === yes
         assert valueBytes != null : "key=" + toUtf8String(key) + ", revision=" + revision;
 
         return bytesToValue(valueBytes).tombstone();
@@ -1626,7 +1628,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 assert revision <= compactionRevision
                         : "key=" + toUtf8String(key) + ", revision=" + revision + ", compactionRevision=" + compactionRevision;
 
-                System.out.println(Thread.currentThread().getName() + ": Ready to throw compacted exception. rev=" + rev);
+                LOG.info("Ready to throw compacted exception. rev=" + rev);
                 throw new CompactedException(revision, compactionRevision);
             }
 
