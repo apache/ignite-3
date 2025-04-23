@@ -75,58 +75,44 @@ abstract class FieldAccessor {
                 validateColumnType(col, field.getType());
             }
 
-            BinaryMode fieldAccessMode = BinaryMode.forClass(field.getType());
             MethodHandles.Lookup lookup = MethodHandles.privateLookupIn(type, MethodHandles.lookup());
-
             VarHandle varHandle = lookup.unreflectVarHandle(field);
 
-            assert fieldAccessMode != null : "Invalid fieldAccessMode for type: " + field.getType();
+            // Optimization for primitive types to avoid boxing/unboxing.
+            if (typeConverter == null && field.getType().isPrimitive()) {
+                BinaryMode fieldAccessMode = BinaryMode.forClass(field.getType());
+                assert fieldAccessMode != null : "Invalid fieldAccessMode for type: " + field.getType();
 
-            switch (fieldAccessMode) {
-                case P_BOOLEAN:
-                    return new BooleanPrimitiveAccessor(varHandle, colIdx);
+                switch (fieldAccessMode) {
+                    case P_BOOLEAN:
+                        return new BooleanPrimitiveAccessor(varHandle, colIdx);
 
-                case P_BYTE:
-                    return new BytePrimitiveAccessor(varHandle, colIdx);
+                    case P_BYTE:
+                        return new BytePrimitiveAccessor(varHandle, colIdx);
 
-                case P_SHORT:
-                    return new ShortPrimitiveAccessor(varHandle, colIdx);
+                    case P_SHORT:
+                        return new ShortPrimitiveAccessor(varHandle, colIdx);
 
-                case P_INT:
-                    return new IntPrimitiveAccessor(varHandle, colIdx);
+                    case P_INT:
+                        return new IntPrimitiveAccessor(varHandle, colIdx);
 
-                case P_LONG:
-                    return new LongPrimitiveAccessor(varHandle, colIdx);
+                    case P_LONG:
+                        return new LongPrimitiveAccessor(varHandle, colIdx);
 
-                case P_FLOAT:
-                    return new FloatPrimitiveAccessor(varHandle, colIdx);
+                    case P_FLOAT:
+                        return new FloatPrimitiveAccessor(varHandle, colIdx);
 
-                case P_DOUBLE:
-                    return new DoublePrimitiveAccessor(varHandle, colIdx);
+                    case P_DOUBLE:
+                        return new DoublePrimitiveAccessor(varHandle, colIdx);
 
-                case BOOLEAN:
-                case BYTE:
-                case SHORT:
-                case INT:
-                case LONG:
-                case FLOAT:
-                case DOUBLE:
-                case STRING:
-                case UUID:
-                case BYTE_ARR:
-                case DECIMAL:
-                case TIME:
-                case DATE:
-                case DATETIME:
-                case TIMESTAMP:
-                case POJO:
-                    return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
+                    default:
+                        assert false : "Invalid field access mode " + fieldAccessMode;
+                }
 
-                default:
-                    assert false : "Invalid field access mode " + fieldAccessMode;
+                throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
             }
 
-            throw new IllegalArgumentException("Failed to create accessor for field [name=" + field.getName() + ']');
+            return new ReferenceFieldAccessor(varHandle, colIdx, col.type(), col.scale(), typeConverter);
         } catch (NoSuchFieldException | SecurityException | IllegalAccessException ex) {
             throw new IllegalArgumentException(ex);
         }
