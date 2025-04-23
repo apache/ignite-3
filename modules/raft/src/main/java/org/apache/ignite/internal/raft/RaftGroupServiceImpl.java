@@ -20,7 +20,6 @@ package org.apache.ignite.internal.raft;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -592,7 +591,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         var future = new CompletableFuture<R>();
 
         long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
-        var context = new RetryContext(peer, originDescription, requestFactory, stopTime);
+        var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
 
         sendWithRetry(future, context);
 
@@ -615,14 +614,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         try {
             if (currentTimeMillis() >= retryContext.stopTime()) {
-                fut.completeExceptionally(new TimeoutException(format(
-                        "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}, request = {}, originCommand = {}].",
-                        retryContext.retryCount(),
-                        groupId,
-                        retryContext.errorTraceId(),
-                        retryContext.request().toStringForLightLogging(),
-                        retryContext.originCommandDescription()
-                )));
+                fut.completeExceptionally(retryContext.createTimeoutException());
 
                 return;
             }
@@ -704,7 +696,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             );
         }
 
-        scheduleRetry(fut, retryContext.nextAttempt(randomPeer));
+        String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " threw " + err.getClass().getSimpleName();
+        scheduleRetry(fut, retryContext.nextAttempt(randomPeer, shortReasonMessage));
     }
 
     private void handleErrorResponse(CompletableFuture<? extends NetworkMessage> fut, ErrorResponse resp, RetryContext retryContext) {
@@ -719,10 +712,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 break;
 
             case EBUSY:
-            case EAGAIN:
-                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer()));
+            case EAGAIN: {
+                String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " returned code " + error;
+                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer(), shortReasonMessage));
 
                 break;
+            }
 
             // TODO: IGNITE-15706
             case UNKNOWN:
@@ -740,7 +735,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     newTargetPeer = retryContext.targetPeer();
                 }
 
-                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer));
+                String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " returned code " + error;
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, shortReasonMessage));
 
                 break;
             }
@@ -750,7 +746,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             case ENODESHUTDOWN: {
                 Peer newTargetPeer = randomNode(retryContext);
 
-                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer));
+                String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " returned code " + error;
+                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer, shortReasonMessage));
 
                 break;
             }
@@ -768,7 +765,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     leader = newTargetPeer;
                 }
 
-                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer));
+                String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " returned code " + error;
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, shortReasonMessage));
 
                 break;
             }
@@ -778,6 +776,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
                 break;
         }
+    }
+
+    private static String shortPeerString(Peer peer) {
+        return peer.consistentId() + ":" + peer.idx();
     }
 
     private static void handleSmErrorResponse(

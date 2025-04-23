@@ -17,9 +17,14 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+
 import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -33,6 +38,10 @@ import org.jetbrains.annotations.Nullable;
  * calls.
  */
 class RetryContext {
+    private static final int MAX_RETRY_REASONS = 25;
+
+    private final String groupId;
+
     private Peer targetPeer;
 
     private final Supplier<String> originDescription;
@@ -61,6 +70,11 @@ class RetryContext {
     private final Set<Peer> unavailablePeers = new HashSet<>();
 
     /**
+     * List of last {@value MAX_RETRY_REASONS} retry reasons. {@link LinkedList} in order to allow fast head removal upon overflow.
+     */
+    private final List<RetryReason> retryReasons = new LinkedList<>();
+
+    /**
      * Trace ID that is used to track exceptions that happened during a particular chain of retries.
      *
      * <p>Will be generated on first access.
@@ -71,18 +85,21 @@ class RetryContext {
     /**
      * Creates a context.
      *
+     * @param groupId Replication group ID.
      * @param targetPeer Target peer to send the request to.
-     * @param originDescription Supplier describing the origin request from which this one depends, or returning {@code null}
-     *     if this request is independent.
+     * @param originDescription Supplier describing the origin request from which this one depends, or returning {@code null} if
+     *         this request is independent.
      * @param requestFactory Factory for creating requests to the target peer.
      * @param stopTime Timestamp that denotes the point in time up to which retry attempts will be made.
      */
     RetryContext(
+            String groupId,
             Peer targetPeer,
             Supplier<String> originDescription,
             Function<Peer, ? extends NetworkMessage> requestFactory,
             long stopTime
     ) {
+        this.groupId = groupId;
         this.targetPeer = targetPeer;
         this.originDescription = originDescription;
         this.requestFactory = requestFactory;
@@ -106,10 +123,6 @@ class RetryContext {
         return stopTime;
     }
 
-    int retryCount() {
-        return retryCount;
-    }
-
     Set<Peer> unavailablePeers() {
         return unavailablePeers;
     }
@@ -131,7 +144,12 @@ class RetryContext {
      *
      * @return {@code this}.
      */
-    RetryContext nextAttempt(Peer newTargetPeer) {
+    RetryContext nextAttempt(Peer newTargetPeer, String shortReasonMessage) {
+        retryReasons.add(new RetryReason(shortReasonMessage));
+        if (retryReasons.size() > MAX_RETRY_REASONS) {
+            retryReasons.remove(0);
+        }
+
         request = requestFactory.apply(newTargetPeer);
 
         targetPeer = newTargetPeer;
@@ -146,9 +164,37 @@ class RetryContext {
      *
      * @return {@code this}.
      */
-    RetryContext nextAttemptForUnavailablePeer(Peer newTargetPeer) {
+    RetryContext nextAttemptForUnavailablePeer(Peer newTargetPeer, String shortReasonMessage) {
         unavailablePeers.add(targetPeer);
 
-        return nextAttempt(newTargetPeer);
+        return nextAttempt(newTargetPeer, shortReasonMessage);
+    }
+
+    TimeoutException createTimeoutException() {
+        return new TimeoutException(format(
+                "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}, request = {}, originCommand = {},"
+                        + " retryReasons={}].",
+                retryCount,
+                groupId,
+                errorTraceId,
+                request.toStringForLightLogging(),
+                originDescription.get(),
+                retryReasons.toString()
+        ));
+    }
+
+    private static class RetryReason {
+        final long timestamp;
+        final String reason;
+
+        RetryReason(String reason) {
+            this.timestamp = System.currentTimeMillis();
+            this.reason = reason;
+        }
+
+        @Override
+        public String toString() {
+            return "[time=" + timestamp + ", msg=" + reason + "]";
+        }
     }
 }
