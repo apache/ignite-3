@@ -19,7 +19,6 @@ package org.apache.ignite.internal.partition.replicator;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
-import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
@@ -248,8 +247,8 @@ public class PartitionReplicaLifecycleManager extends
 
     /**
      * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
-     * TODO: https://issues.apache.org/jira/browse/IGNITE-17592
-     **/
+     */
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-17592
     private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
 
     /**
@@ -1584,9 +1583,7 @@ public class PartitionReplicaLifecycleManager extends
             PartitionMvStorageAccess partitionMvStorageAccess,
             boolean onNodeRecovery
     ) {
-        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
-
-        requireNonNull(resources, "Zone partition resources not found [zonePartitionId=" + zonePartitionId + ']');
+        ZonePartitionResources resources = zonePartitionResources(zonePartitionId);
 
         // Register an intent to register a table-wide replica listener. On recovery this method is called before the replica is started,
         // so the listeners will be registered by the thread completing the "replicaListenerFuture". On normal operation (where there is
@@ -1720,12 +1717,17 @@ public class PartitionReplicaLifecycleManager extends
 
     @TestOnly
     public HybridTimestamp currentSafeTimeForZonePartition(int zoneId, int partId) {
-        return requireNonNull(zoneResourcesManager.getZonePartitionResources(new ZonePartitionId(zoneId, partId))).raftListener()
-                .currentSafeTime();
+        return zonePartitionResources(new ZonePartitionId(zoneId, partId)).raftListener().currentSafeTime();
     }
 
-    @TestOnly
+    /**
+     * Returns resources for the given zone partition.
+     */
     public ZonePartitionResources zonePartitionResources(ZonePartitionId zonePartitionId) {
-        return requireNonNull(zoneResourcesManager.getZonePartitionResources(zonePartitionId));
+        ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
+
+        assert resources != null : "Missing resources for zone partition: " + zonePartitionId;
+
+        return resources;
     }
 }
