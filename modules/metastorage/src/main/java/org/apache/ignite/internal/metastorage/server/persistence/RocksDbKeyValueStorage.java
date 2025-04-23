@@ -1506,7 +1506,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 writeBatchProtector.onUpdate(updatedEntry.key());
             }
 
-            //noinspection AccessToStaticFieldLockedOnInstance
             db.write(writeOptions, batch);
         }
     }
@@ -1547,7 +1546,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 }
             }
 
-            //noinspection AccessToStaticFieldLockedOnInstance
             db.write(writeOptions, batch);
         }
 
