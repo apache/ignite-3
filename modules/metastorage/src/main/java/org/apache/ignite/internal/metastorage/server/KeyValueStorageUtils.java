@@ -43,14 +43,20 @@ public class KeyValueStorageUtils {
         int i = binarySearch(keyRevisions, compactionRevisionInclusive);
 
         if (i < 0) {
-            if (i == -1) {
+            i = ~i;
+
+            if (i == 0) {
                 return NOT_FOUND;
             }
 
-            i = -(i + 2);
+            i--;
         }
 
-        if (i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
+        if (!isTombstone.test(keyRevisions[i])) {
+            if (i != keyRevisions.length - 1 && keyRevisions[i + 1] == compactionRevisionInclusive + 1) {
+                return i;
+            }
+
             i = i == 0 ? NOT_FOUND : i - 1;
         }
 
