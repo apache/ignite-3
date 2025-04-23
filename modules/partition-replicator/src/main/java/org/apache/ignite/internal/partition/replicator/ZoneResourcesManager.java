@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
@@ -183,7 +184,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
 
         if (resources == null) {
-            return CompletableFuture.completedFuture(null);
+            return nullCompletedFuture();
         }
 
         return resources.replicaListenerFuture

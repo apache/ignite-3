@@ -1586,7 +1586,7 @@ public class PartitionReplicaLifecycleManager extends
     ) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
-        assert resources != null : "Zone partition resources not found [zonePartitionId=" + zonePartitionId + ']';
+        requireNonNull(resources, "Zone partition resources not found [zonePartitionId=" + zonePartitionId + ']');
 
         // Register an intent to register a table-wide replica listener. On recovery this method is called before the replica is started,
         // so the listeners will be registered by the thread completing the "replicaListenerFuture". On normal operation (where there is
