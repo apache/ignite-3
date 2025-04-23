@@ -270,10 +270,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     /**
      * Write options used to write to RocksDB.
-     *
-     * <p>Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
      */
-    private static final WriteOptions WRITE_OPTIONS = new WriteOptions().setDisableWAL(true);
+    private volatile WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
 
     private volatile RocksDbFlusher flusher;
 
@@ -386,6 +384,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     private void createDb() throws RocksDBException {
+        // Metastorage recovery is based on the snapshot & external log. WAL is never used for recovery, and can be safely disabled.
+        writeOptions = new WriteOptions().setDisableWAL(true);
+        rocksResources.add(writeOptions);
+
         List<ColumnFamilyDescriptor> descriptors = cfDescriptors();
 
         assert descriptors.size() == 5 : descriptors.size();
@@ -563,7 +565,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     @Override
     public void setIndexAndTerm(long index, long term) {
         try {
-            db.put(data.handle(), WRITE_OPTIONS, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
+            db.put(data.handle(), writeOptions, INDEX_AND_TERM_KEY, longsToBytes(0, index, term));
         } catch (RocksDBException e) {
             throw new MetaStorageException(OP_EXECUTION_ERR, e);
         }
@@ -1453,7 +1455,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                         }
                     }
 
-                    db.write(WRITE_OPTIONS, batch);
+                    db.write(writeOptions, batch);
                 }
             }
         } finally {
@@ -1505,7 +1507,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             }
 
             //noinspection AccessToStaticFieldLockedOnInstance
-            db.write(WRITE_OPTIONS, batch);
+            db.write(writeOptions, batch);
         }
     }
 
@@ -1546,7 +1548,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             }
 
             //noinspection AccessToStaticFieldLockedOnInstance
-            db.write(WRITE_OPTIONS, batch);
+            db.write(writeOptions, batch);
         }
 
         return true;
