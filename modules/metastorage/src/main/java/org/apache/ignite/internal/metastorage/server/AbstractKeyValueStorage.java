@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
+import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 
 import java.util.ArrayList;
@@ -216,11 +217,11 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
                 compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
             }, context.timestamp));
         } else {
-            synchronized (watchProcessorMutex) {
+//            synchronized (watchProcessorMutex) {
                 if (areWatchesStarted()) {
                     watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
                 }
-            }
+//            }
         }
     }
 
@@ -327,13 +328,18 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         long revision = keyRevisions[maxRevisionIndex];
 
-        Value value = valueForOperation(key, revision);
+        try {
+            Value value = valueForOperation(key, revision);
 
-        if (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone()) {
-            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+            if (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone()) {
+                CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
+            }
+
+            return EntryImpl.toEntry(key, revision, value);
+        } catch (CompactedException e) {
+            System.out.println(Thread.currentThread().getName() + " all revisions=" + Arrays.toString(keyRevisions) + ", key= " + toUtf8String(key));
+            throw e;
         }
-
-        return EntryImpl.toEntry(key, revision, value);
     }
 
     private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {

@@ -1626,6 +1626,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 assert revision <= compactionRevision
                         : "key=" + toUtf8String(key) + ", revision=" + revision + ", compactionRevision=" + compactionRevision;
 
+                System.out.println(Thread.currentThread().getName() + ": Ready to throw compacted exception. rev=" + rev);
                 throw new CompactedException(revision, compactionRevision);
             }
 
