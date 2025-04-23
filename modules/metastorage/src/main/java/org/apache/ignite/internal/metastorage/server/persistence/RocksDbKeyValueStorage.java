@@ -111,7 +111,6 @@ import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
 import org.apache.ignite.internal.rocksdb.snapshot.RocksSnapshotManager;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
-import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
@@ -1008,21 +1007,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             } else {
                 index.put(batch, key, longsToBytes(indexToCompact + 1, revs));
             }
-
-            /*
-             * for (i == 1 ... n)
-             *      put    i             |  key i -> [revision]
-             *      remove i             |  key i -> [revision1, revision2]
-             *      compact              |  key i -> {} // tombstone
-             *          compact does a foreach over keys.
-             *
-             *      scan ==== read everything & filter out tombstones
-             *      each iteration used to be O(i) before I started compacting CFs on each MS compaction
-             *
-             *
-             * entire loop is O(n*n)
-
-             */
         } catch (Throwable t) {
             throw new MetaStorageException(
                     COMPACTION_ERR,
@@ -1626,11 +1610,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
     @Override
     protected Value valueForOperation(byte[] key, long revision) {
-        Value value = getValueForOperationNullable(key, revision);
-
-        assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision;
-
-        return value;
+        return getValueForOperation(key, revision);
     }
 
     @Override
@@ -1638,7 +1618,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return recoveryStatus.get() == RecoveryStatus.DONE;
     }
 
-    private @Nullable Value getValueForOperationNullable(byte[] key, long revision) {
+    private Value getValueForOperation(byte[] key, long revision) {
         try {
             byte[] valueBytes = data.get(keyToRocksKey(revision, key));
 
@@ -1649,7 +1629,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 throw new CompactedException(revision, compactionRevision);
             }
 
-            return ArrayUtils.nullOrEmpty(valueBytes) ? null : bytesToValue(valueBytes);
+            return bytesToValue(valueBytes);
         } catch (RocksDBException e) {
             throw new MetaStorageException(
                     OP_EXECUTION_ERR,
@@ -1733,9 +1713,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 }
 
                 long revision = keyRevisions[maxRevisionIndex];
-                Value value = getValueForOperationNullable(key, revision);
-
-                assert value != null : "key=" + toUtf8String(key) + ", revision=" + revision + ", compactionRevision=" + compactionRevision;
+                Value value = getValueForOperation(key, revision);
 
                 if (value.tombstone()) {
                     return EntryImpl.empty(key);
