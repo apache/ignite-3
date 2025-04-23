@@ -636,7 +636,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService sender = testCluster.members.get(0);
         ClusterService receiver = testCluster.members.get(1);
 
-        List<String> receivedPayloads = new CopyOnWriteArrayList<>();
+        List<ReceivedPayload> receivedPayloads = new CopyOnWriteArrayList<>();
         collectReceivedPayloads(sender, receiver, receivedPayloads);
 
         establishConnection(sender, receiver);
@@ -664,8 +664,8 @@ class ItScaleCubeNetworkMessagingTest {
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second");
             // No assertion here on purpose.
-            waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
-            assertThat(receivedPayloads, equalTo(expectedPayloads));
+            waitForCondition(() -> receivedPayloads.stream().map(p -> p.message).collect(toList()).equals(expectedPayloads), 3_000);
+            assertThat(receivedPayloads.stream().map(p -> p.message).collect(toList()), equalTo(expectedPayloads));
 
             NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
             assertThatHasNoUnacknowledgedMessages(nettySender);
@@ -674,12 +674,15 @@ class ItScaleCubeNetworkMessagingTest {
         }
     }
 
-    private static void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<String> receivedPayloads) {
+    private static void collectReceivedPayloads(ClusterService sender, ClusterService receiver, List<ReceivedPayload> receivedPayloads) {
         receiver.messagingService().addMessageHandler(
                 TestMessageTypes.class,
                 (message, senderParam, correlationId) -> {
                     if (message instanceof TestMessage) {
-                        receivedPayloads.add(((TestMessage) message).msg());
+                        Thread currentThread = Thread.currentThread();
+                        receivedPayloads.add(
+                                new ReceivedPayload(((TestMessage) message).msg(), currentThread.getName(), currentThread.getId())
+                        );
                     }
 
                     if (correlationId != null) {
@@ -746,7 +749,7 @@ class ItScaleCubeNetworkMessagingTest {
      * <p>The expected outcome is that the messages get delivered without any more external sends/invokes and that they
      * are delivered in the right order.
      */
-    @RepeatedTest(10000)
+    @RepeatedTest(1)
     public void messagesQueuedOnFullyClosedOldChannelGetDeliveredAfterReconnection_other()
             throws Exception {
         boolean openNewChannelBeforeSendingToOld = true;
@@ -756,7 +759,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService sender = testCluster.members.get(0);
         ClusterService receiver = testCluster.members.get(1);
 
-        List<String> receivedPayloads = new CopyOnWriteArrayList<>();
+        List<ReceivedPayload> receivedPayloads = new CopyOnWriteArrayList<>();
         collectReceivedPayloads(sender, receiver, receivedPayloads);
 
         establishConnection(sender, receiver);
@@ -782,8 +785,8 @@ class ItScaleCubeNetworkMessagingTest {
 
         List<String> expectedPayloads = List.of("trailblazer", "first", "second");
         // No assertion here on purpose.
-        waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
-        assertThat(receivedPayloads, equalTo(expectedPayloads));
+        waitForCondition(() -> receivedPayloads.stream().map(p -> p.message).collect(toList()).equals(expectedPayloads), 3_000);
+        assertThat("Payloads: " + receivedPayloads, receivedPayloads.stream().map(p -> p.message).collect(toList()), equalTo(expectedPayloads));
 
         NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
         assertThatHasNoUnacknowledgedMessages(nettySender);
@@ -819,7 +822,7 @@ class ItScaleCubeNetworkMessagingTest {
         ClusterService sender = testCluster.members.get(0);
         ClusterService receiver = testCluster.members.get(1);
 
-        List<String> receivedPayloads = new CopyOnWriteArrayList<>();
+        List<ReceivedPayload> receivedPayloads = new CopyOnWriteArrayList<>();
         collectReceivedPayloads(sender, receiver, receivedPayloads);
 
         establishConnection(sender, receiver);
@@ -863,8 +866,8 @@ class ItScaleCubeNetworkMessagingTest {
 
             List<String> expectedPayloads = List.of("trailblazer", "first", "second", "third", "fourth");
             // No assertion here on purpose.
-            waitForCondition(() -> receivedPayloads.equals(expectedPayloads), 3_000);
-            assertThat(receivedPayloads, equalTo(expectedPayloads));
+            waitForCondition(() -> receivedPayloads.stream().map(p -> p.message).collect(toList()).equals(expectedPayloads), 3_000);
+            assertThat(receivedPayloads.stream().map(p -> p.message).collect(toList()), equalTo(expectedPayloads));
 
             NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
             assertThatHasNoUnacknowledgedMessages(nettySender);
@@ -1446,6 +1449,27 @@ class ItScaleCubeNetworkMessagingTest {
         @Override
         public @Nullable UUID clusterId() {
             return clusterId;
+        }
+    }
+
+    private static class ReceivedPayload {
+        private final @Nullable String message;
+        private final String receiverThreadName;
+        private final long receiverThreadId;
+
+        private ReceivedPayload(@Nullable String message, String receiverThreadName, long receiverThreadId) {
+            this.message = message;
+            this.receiverThreadName = receiverThreadName;
+            this.receiverThreadId = receiverThreadId;
+        }
+
+        @Override
+        public String toString() {
+            return "ReceivedPayload{" +
+                    "message='" + message + '\'' +
+                    ", receiverThreadName='" + receiverThreadName + '\'' +
+                    ", receiverThreadId=" + receiverThreadId +
+                    '}';
         }
     }
 }
