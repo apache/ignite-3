@@ -248,6 +248,7 @@ public class WatchProcessor implements ManuallyCloseable {
         assert time != null;
 
         return enqueue(() -> {
+            LOG.info("notifyWatchesInternal " + newRevision);
             List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
                     .filter(WatchProcessor::isNotIdempotentCacheCommand)
                     .collect(toList());
@@ -386,6 +387,7 @@ public class WatchProcessor implements ManuallyCloseable {
         assert time != null;
 
         enqueue(() -> {
+            LOG.info("advanceSafeTimeInternal " + time);
             callback.run();
 
             watchEventHandlingCallback.onSafeTimeAdvanced(time);

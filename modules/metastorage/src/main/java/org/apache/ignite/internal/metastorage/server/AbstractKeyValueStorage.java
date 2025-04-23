@@ -182,6 +182,7 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
+        System.out.println(Thread.currentThread().getName() + " setCompactionRevision " + revision);
         assert revision >= 0 : revision;
 
         assertCompactionRevisionLessThanCurrent(revision, rev);
@@ -214,8 +215,12 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
                 compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
             }, context.timestamp));
-        } else if (areWatchesStarted()) {
-            watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
+        } else {
+            synchronized (watchProcessorMutex) {
+                if (areWatchesStarted()) {
+                    watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
+                }
+            }
         }
     }
 
