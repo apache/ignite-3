@@ -234,18 +234,12 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
     }
 
     private void setLowWatermark(HybridTimestamp newLowWatermark) {
-        updateLowWatermarkLock.writeLock().lock();
+        HybridTimestamp lwm = lowWatermark;
 
-        try {
-            HybridTimestamp lwm = lowWatermark;
+        assert lwm == null || newLowWatermark.compareTo(lwm) > 0 :
+                "Low watermark should only grow: [cur=" + lwm + ", new=" + newLowWatermark + "]";
 
-            assert lwm == null || newLowWatermark.compareTo(lwm) > 0 :
-                    "Low watermark should only grow: [cur=" + lwm + ", new=" + newLowWatermark + "]";
-
-            lowWatermark = newLowWatermark;
-        } finally {
-            updateLowWatermarkLock.writeLock().unlock();
-        }
+        lowWatermark = newLowWatermark;
     }
 
     private void setLowWatermarkOnRecovery(@Nullable HybridTimestamp newLowWatermark) {
