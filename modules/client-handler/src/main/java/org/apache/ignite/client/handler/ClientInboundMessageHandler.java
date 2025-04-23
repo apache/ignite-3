@@ -860,7 +860,7 @@ public class ClientInboundMessageHandler extends ChannelInboundHandlerAdapter im
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, out, queryProcessor, resources
+                        partitionOperationsExecutor, in, out, queryProcessor, resources, requestId, cancelHandles
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:

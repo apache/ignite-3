@@ -20,6 +20,7 @@ package org.apache.ignite.client.handler.requests.sql;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTx;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.sql.BatchedArguments;
 
 /**
@@ -45,6 +47,9 @@ public class ClientSqlExecuteBatchRequest {
      * @param out Packer.
      * @param sql SQL API.
      * @param resources Resources.
+     * @param requestId
+     * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
+     *         thread.
      * @return Future representing result of operation.
      */
     public static CompletableFuture<Void> process(
@@ -52,9 +57,14 @@ public class ClientSqlExecuteBatchRequest {
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             QueryProcessor sql,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            long requestId,
+            Map<Long, CancelHandle> cancelHandleMap
     ) {
         return nullCompletedFuture().thenComposeAsync(none -> {
+            CancelHandle cancelHandle = CancelHandle.create();
+            cancelHandleMap.put(requestId, cancelHandle);
+
             InternalTransaction tx = readTx(in, out, resources, null);
             ClientSqlProperties props = new ClientSqlProperties(in);
             String statement = in.unpackString();
@@ -72,6 +82,7 @@ public class ClientSqlExecuteBatchRequest {
                             sql,
                             tsUpdater,
                             tx,
+                            cancelHandle.token(),
                             statement,
                             arguments,
                             props.toSqlProps(),
@@ -79,6 +90,9 @@ public class ClientSqlExecuteBatchRequest {
                             () -> {},
                             cursor -> 0,
                             cursorId -> {})
+                    .whenComplete((none2, error) -> {
+                        cancelHandleMap.remove(requestId);
+                    })
                     .thenApply((affectedRows) -> {
                         out.meta(tsUpdater.get());
 

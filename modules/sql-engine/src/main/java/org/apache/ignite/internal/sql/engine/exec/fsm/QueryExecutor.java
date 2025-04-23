@@ -554,6 +554,8 @@ public class QueryExecutor implements LifecycleAware {
 
     private void trackQuery(Query query, @Nullable CancellationToken cancellationToken) {
         Query old = runningQueries.put(query.id, query);
+        long started = System.currentTimeMillis();
+        System.out.println("Query started: " + started + ", " + query.sql);
 
         eventLog.log(IgniteEventType.QUERY_STARTED.name(),
                 () -> eventsFactory.makeStartEvent(new QueryInfo(query), EventUser.system()));
