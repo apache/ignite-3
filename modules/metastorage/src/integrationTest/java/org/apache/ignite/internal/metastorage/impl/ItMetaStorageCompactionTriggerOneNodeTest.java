@@ -61,8 +61,7 @@ public class ItMetaStorageCompactionTriggerOneNodeTest extends ClusterPerTestInt
     }
 
     @Test
-    @Disabled
-    // TODO Fix it in https://issues.apache.org/jira/browse/IGNITE-25229
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25229")
     void testCompactionAfterRestartNode() throws Exception {
         IgniteImpl node = aliveNode();
 
