@@ -271,7 +271,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     /**
      * Write options used to write to RocksDB.
      */
-    private volatile WriteOptions writeOptions = new WriteOptions().setDisableWAL(true);
+    private volatile WriteOptions writeOptions;
 
     private volatile RocksDbFlusher flusher;
 
