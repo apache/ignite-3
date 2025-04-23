@@ -24,21 +24,26 @@ import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFla
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
  *
- * <p>This comparator is used to compare BinaryTuples as well as {@link BinaryTuplePrefix}es. When comparing a tuple with a prefix,
- * the following logic is applied: if all N columns of the prefix match the first N columns of the tuple, they are considered equal.
- * Otherwise comparison result is determined by the first non-matching column.
+ * <p>This comparator is used to compare BinaryTuples. The first tuple has to be an ordinal tuple that is gotten from persistent.
+ * The second tuple can be {@link BinaryTuplePrefix} as well. The comparator assumes that the first tuple may have been written in the
+ * buffer partially. If the length of the tuple buffer is not enough to do a comparison, the comparator returns {@code 0}.
  */
 @SuppressWarnings("ComparatorNotSerializable")
-public class BinaryTupleComparator implements Comparator<ByteBuffer> {
+public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
     private final List<CatalogColumnCollation>  columnCollations;
     private final List<NativeType> columnTypes;
 
@@ -48,7 +53,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
      * @param columnCollations Columns collations.
      * @param columnTypes Column types in order, which is defined in BinaryTuple schema.
      */
-    public BinaryTupleComparator(
+    public PartialBinaryTupleComparator(
             List<CatalogColumnCollation> columnCollations,
             List<NativeType> columnTypes
     ) {
@@ -66,7 +71,10 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         int numElements = columnTypes.size();
 
-        BinaryTupleReader tuple1 = isBuffer1Prefix ? new BinaryTuplePrefix(numElements, buffer1) : new BinaryTuple(numElements, buffer1);
+        assert !isBuffer1Prefix : "An inline tuple must not contain a prefix.";
+
+        BinaryTupleReader tuple1 = new BinaryTuple(numElements, buffer1);
+
         BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
 
         int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
@@ -74,10 +82,20 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         assert columnsToCompare <= numElements;
 
         for (int i = 0; i < columnsToCompare; i++) {
-            int res = compareField(i, tuple1, tuple2);
+            Readability readability = tuple1.valueReadability(i);
+
+            if (readability == Readability.NOT_READABLE) {
+                return 0;
+            }
+
+            int res = compareField(i, tuple1, tuple2, readability);
 
             if (res != 0) {
                 return res;
+            }
+
+            if (readability == Readability.PARTIAL_READABLE) {
+                return  0;
             }
         }
 
@@ -96,7 +114,9 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
     /**
      * Compares two tuples by column using given column index.
      */
-    private int compareField(int colIdx, BinaryTupleReader tuple1, BinaryTupleReader tuple2) {
+    private int compareField(int colIdx, BinaryTupleReader tuple1, BinaryTupleReader tuple2, Readability readability) {
+        assert readability != Readability.NOT_READABLE : "The field is run out of inline size and cannot be compared.";
+
         CatalogColumnCollation collation = columnCollations.get(colIdx);
 
         boolean tuple1HasNull = tuple1.hasNullValue(colIdx);
@@ -110,8 +130,42 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         NativeType nativeType = columnTypes.get(colIdx);
 
-        int res = compareFieldValue(nativeType.spec(), tuple1, colIdx, tuple2, colIdx);
+        int res = readability == Readability.READABLE
+                ? compareFieldValue(nativeType.spec(), tuple1, colIdx, tuple2, colIdx)
+                : compareFieldValuePartially(nativeType.spec(), tuple1, colIdx, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
+    }
+
+    private static int compareFieldValuePartially(
+            NativeTypeSpec typeSpec,
+            BinaryTupleReader partialTuple,
+            int index1,
+            BinaryTupleReader tuple2,
+            int index2
+    ) {
+        switch (typeSpec) {
+            case BYTES: {
+                partialTuple.seek(index1);
+
+                byte[] part = partialTuple.bytesValue(partialTuple.begin(), partialTuple.byteBuffer().capacity());
+
+                byte[] cmp = ByteUtils.trimToSize(tuple2.bytesValue(index2), part.length);
+
+                return Arrays.compareUnsigned(part, cmp);
+            }
+            case STRING: {
+                partialTuple.seek(index1);
+
+                String part = partialTuple.stringValue(partialTuple.begin(), partialTuple.byteBuffer().capacity());
+
+                String cmp = StringUtils.trimToSize(tuple2.stringValue(index2), part.length());
+
+                return part.compareTo(cmp);
+            }
+            default: {
+                return 0;
+            }
+        }
     }
 }
