@@ -535,6 +535,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 5);
 
         storage.setCompactionRevision(5);
+        // TODO IGNITE-25212 Consider expecting a tombstone here.
         assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 5);
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 6);
 
@@ -960,11 +961,49 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
+    void testConcurrentUpdateAndCompaction() {
+        KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
+
+        for (int i = 0; i < 500; i++) {
+            byte[] key = key(i);
+            byte[] value = keyValue(i, i);
+
+            storage.put(key, value, context);
+            long revision = storage.revision();
+            storage.remove(key, context);
+
+            runRace(
+                    () -> {
+                        storage.setCompactionRevision(revision);
+                        storage.compact(revision);
+                    },
+                    () -> {
+                        // We update the same value in order to cause a race in "writeBatch" method, that would leave already compacted
+                        // revisions in a list of revisions associated with this key.
+                        storage.put(key, value, context);
+                    }
+            );
+
+            try {
+                Entry entry = storage.get(key, revision);
+
+                assertFalse(entry.empty());
+                assertEquals(revision, entry.revision());
+                assertArrayEquals(value, entry.value());
+            } catch (CompactedException ignore) {
+                // This is expected.
+            }
+
+            storage.remove(key, context);
+        }
+    }
+
+    @Test
     void testConcurrentReadAllAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
         int numberOfKeys = 15;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 800; i++) {
             List<byte[]> keys = new ArrayList<>();
             List<byte[]> values = new ArrayList<>();
             for (int j = 0; j < numberOfKeys; j++) {

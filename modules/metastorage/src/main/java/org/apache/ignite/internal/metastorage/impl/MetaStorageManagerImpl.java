@@ -84,6 +84,7 @@ import org.apache.ignite.internal.metastorage.impl.raft.MetaStorageSnapshotStora
 import org.apache.ignite.internal.metastorage.metrics.MetaStorageMetricSource;
 import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
 import org.apache.ignite.internal.metastorage.server.WatchEventHandlingCallback;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageListener;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -1303,29 +1304,27 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
             long operationRevision,
             Supplier<CompletableFuture<T>> readFromLeader
     ) {
-        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
-
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
+        TrackingToken token = readOperationFromLeaderForCompactionTracker.track(
+                operationRevision,
+                storage::revision,
+                storage::getCompactionRevision
+        );
 
         try {
-            return readFromLeader.get().whenComplete(
-                    (t, throwable) -> readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision)
-            );
+            return readFromLeader.get().whenComplete((t, throwable) -> token.close());
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
+            token.close();
 
             throw t;
         }
     }
 
     private Publisher<Entry> withTrackReadOperationFromLeaderPublisher(long operationRevision, Supplier<Publisher<Entry>> readFromLeader) {
-        long trackingRevision = operationRevision == LATEST_REVISION ? storage.revision() : operationRevision;
-
-        long readOperationId = readOperationFromLeaderForCompactionTracker.generateReadOperationId();
-
-        readOperationFromLeaderForCompactionTracker.track(readOperationId, trackingRevision);
+        TrackingToken token = readOperationFromLeaderForCompactionTracker.track(
+                operationRevision,
+                storage::revision,
+                storage::getCompactionRevision
+        );
 
         try {
             Publisher<Entry> publisherFromLeader = readFromLeader.get();
@@ -1341,7 +1340,7 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                         @Override
                         public void cancel() {
-                            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
+                            token.close();
 
                             subscription.cancel();
                         }
@@ -1355,20 +1354,20 @@ public class MetaStorageManagerImpl implements MetaStorageManager, MetastorageGr
 
                 @Override
                 public void onError(Throwable throwable) {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
+                    token.close();
 
                     subscriber.onError(throwable);
                 }
 
                 @Override
                 public void onComplete() {
-                    readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
+                    token.close();
 
                     subscriber.onComplete();
                 }
             });
         } catch (Throwable t) {
-            readOperationFromLeaderForCompactionTracker.untrack(readOperationId, trackingRevision);
+            token.close();
 
             throw t;
         }
