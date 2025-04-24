@@ -427,6 +427,15 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         }
     }
 
+
+    private static int getPrecision(RelDataType dataType) {
+        if (dataType.getPrecision() == PRECISION_NOT_SPECIFIED) {
+            return IgniteTypeSystem.INSTANCE.getDefaultPrecision(dataType.getSqlTypeName());
+        } else {
+            return dataType.getPrecision();
+        }
+    }
+
     /** {@inheritDoc} */
     @Override
     public @Nullable RelDataType leastRestrictive(List<RelDataType> types) {
@@ -500,6 +509,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return returnType;
         }
 
+        RelDataType resultTimestampType = leastRestrictiveBetweenTimestampTypes(types);
+
+        if (resultTimestampType != null) {
+            return resultTimestampType;
+        }
+
         RelDataType resultType = leastRestrictive(types, IgniteCustomAssignmentsRules.instance());
 
         if (resultType == null) {
@@ -535,6 +550,67 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return hasNullable ? firstNullable : firstCustomType;
         } else {
             return null;
+        }
+    }
+
+    private @Nullable RelDataType leastRestrictiveBetweenTimestampTypes(List<RelDataType> types) {
+        RelDataType firstType = null;
+        boolean nullable = false;
+
+        for (RelDataType t : types) {
+            if (t.getSqlTypeName() != SqlTypeName.TIMESTAMP && t.getSqlTypeName() != SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                return null;
+            }
+
+            if (firstType == null) {
+                firstType = t;
+                nullable = t.isNullable();
+            } else {
+                RelDataType leftType = firstType;
+                RelDataType rightType = t;
+
+                if (t.isNullable()) {
+                    nullable = true;
+                }
+
+                // TIMESTAMP vs TIMESTAMP_LTZ -> TIMESTAMP
+                if (leftType.getSqlTypeName() == SqlTypeName.TIMESTAMP
+                        && rightType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+
+                    int lp = getPrecision(leftType);
+                    int rp = getPrecision(rightType);
+
+                    if (lp != rp) {
+                        firstType = createSqlType(leftType.getSqlTypeName(), Math.max(lp, rp));
+                    }
+                } else if (rightType.getSqlTypeName() == SqlTypeName.TIMESTAMP
+                        && leftType.getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+
+                    int lp = getPrecision(leftType);
+                    int rp = getPrecision(rightType);
+
+                    if (lp != rp) {
+                        firstType = createSqlType(rightType.getSqlTypeName(), Math.max(lp, rp));
+                    } else {
+                        firstType = rightType;
+                    }
+                } else {
+                    int lp = getPrecision(leftType);
+                    int rp = getPrecision(rightType);
+
+                    if (rp > lp) {
+                        firstType = rightType;
+                    }
+                }
+            }
+        }
+
+        assert firstType != null;
+
+        if (firstType.isNullable() != nullable) {
+            return createTypeWithNullability(firstType, nullable);
+        } else {
+            return firstType;
         }
     }
 
