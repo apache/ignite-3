@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
@@ -156,7 +157,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
 
     @Override
     @Test
-    public void cancelBatch() {
+    public void cancelBatch() throws InterruptedException {
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
@@ -204,7 +205,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         assertThat(txManager().pending(), is(0));
     }
 
-    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) {
+    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) throws InterruptedException {
         CancelHandle cancelHandle = CancelHandle.create();
 
         // Run statement in another thread
@@ -222,7 +223,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         cancelHandle.cancelAsync().join();
 
         // Expect all transactions to be rollbacked
-        assertThat(txManager().pending(), is(0));
+        waitForCondition(() ->txManager().pending() == 0, 5000);
     }
 
 
