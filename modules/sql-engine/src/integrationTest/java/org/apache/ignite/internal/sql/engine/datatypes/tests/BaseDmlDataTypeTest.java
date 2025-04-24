@@ -54,6 +54,17 @@ public abstract class BaseDmlDataTypeTest<T extends Comparable<T>> extends BaseD
         checkQuery("SELECT id FROM t").returns(2).returns(3).check();
     }
 
+    @Test
+    public void testInsertDefaultLiteral() {
+        runSql("CREATE TABLE test_table (id INT PRIMARY KEY, val <type> DEFAULT $0)");
+        runSql("INSERT INTO test_table(id) VALUES (0)");
+
+        assertQuery("SELECT val FROM test_table WHERE id = ?")
+                .withParam(0)
+                .returns(values.get(0))
+                .check();
+    }
+
     /** {@code UPDATE} from a dynamic parameter. */
     @Test
     public void testUpdateFromDynamicParam() {

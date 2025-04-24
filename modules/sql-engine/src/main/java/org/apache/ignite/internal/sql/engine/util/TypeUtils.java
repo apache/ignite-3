@@ -69,7 +69,6 @@ import org.apache.ignite.internal.sql.engine.exec.row.TypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -497,6 +496,8 @@ public class TypeUtils {
                 return ColumnType.DURATION;
             case NULL:
                 return ColumnType.NULL;
+            case UUID:
+                return ColumnType.UUID;
             default:
                 throw new IllegalArgumentException("Unexpected type: " + type.getSqlTypeName());
         }
@@ -532,8 +533,7 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.DECIMAL, decimal.precision(), decimal.scale());
             case UUID:
-                IgniteTypeFactory concreteTypeFactory = (IgniteTypeFactory) factory;
-                return concreteTypeFactory.createCustomType(UuidType.NAME);
+                return factory.createSqlType(SqlTypeName.UUID);
             case STRING: {
                 assert nativeType instanceof VarlenNativeType;
 
@@ -964,18 +964,9 @@ public class TypeUtils {
      */
     // TODO this method can be removed after https://issues.apache.org/jira/browse/IGNITE-22295
     public static boolean typesRepresentTheSameColumnTypes(RelDataType lhs, RelDataType rhs) {
-        // IgniteCustomType: check for custom data type, otherwise this expression can fail when type is converted into column type.
-        if (isCustomType(lhs) && isCustomType(rhs) || SqlTypeUtil.isAtomic(lhs) && SqlTypeUtil.isAtomic(rhs)) {
-            ColumnType col1 = columnType(lhs);
-            ColumnType col2 = columnType(rhs);
+        ColumnType col1 = columnType(lhs);
+        ColumnType col2 = columnType(rhs);
 
-            return col1 == col2;
-        } else {
-            return false;
-        }
-    }
-
-    private static boolean isCustomType(RelDataType type) {
-        return type instanceof IgniteCustomType;
+        return col1 == col2;
     }
 }
