@@ -1726,7 +1726,7 @@ public class PartitionReplicaLifecycleManager extends
     public ZonePartitionResources zonePartitionResources(ZonePartitionId zonePartitionId) {
         ZonePartitionResources resources = zoneResourcesManager.getZonePartitionResources(zonePartitionId);
 
-        assert resources != null : "Missing resources for zone partition: " + zonePartitionId;
+        assert resources != null : String.format("Missing resources for zone partition [zonePartitionId=%s]", zonePartitionId);
 
         return resources;
     }
