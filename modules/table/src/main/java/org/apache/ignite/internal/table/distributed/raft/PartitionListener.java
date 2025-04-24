@@ -208,7 +208,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         }
     }
 
-    private boolean shouldApplyLog(boolean isFull, LeaseInfo storageLeaseInfo) {
+    private boolean shouldUpdateStorage(boolean isFull, LeaseInfo storageLeaseInfo) {
         if (isFull) {
             return true;
         }
@@ -220,9 +220,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             lastKnownLease = placementDriver.getCurrentPrimaryReplica(groupId, currentTime);
         }
 
-        if (lastKnownLease == null
-                || !lastKnownLease.getLeaseholderId().equals(localNodeId)
-                || lastKnownLease.getExpirationTime().compareTo(currentTime) < 0) {
+        if (lastKnownLease == null || !lastKnownLease.getLeaseholderId().equals(localNodeId)) {
             return true;
         } else {
             return !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId());
@@ -416,7 +414,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         assert storageLeaseInfo != null;
         assert localNodeId != null;
 
-        if (shouldApplyLog(cmd.full(), storageLeaseInfo)) {
+        if (shouldUpdateStorage(cmd.full(), storageLeaseInfo)) {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
@@ -482,7 +480,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         UUID txId = cmd.txId();
 
-        if (shouldApplyLog(cmd.full(), storageLeaseInfo)) {
+        if (shouldUpdateStorage(cmd.full(), storageLeaseInfo)) {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),
