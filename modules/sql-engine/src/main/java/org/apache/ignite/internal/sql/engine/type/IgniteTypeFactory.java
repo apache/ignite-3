@@ -41,6 +41,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.calcite.avatica.util.ByteString;
@@ -56,6 +57,7 @@ import org.apache.calcite.sql.type.IntervalSqlType;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.jetbrains.annotations.Nullable;
@@ -114,22 +116,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             charset = StandardCharsets.UTF_8;
         }
 
-        // IgniteCustomType: all custom data types are registered here
-        NewCustomType uuidType = new NewCustomType(UuidType.SPEC, (nullable, precision) -> new UuidType(nullable));
-        // UUID type can be converted from character types.
-        uuidType.addCoercionRules(SqlTypeName.CHAR_TYPES);
-
-        customDataTypes = new CustomDataTypes(Set.of(uuidType));
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public RelDataType createSqlType(SqlTypeName typeName) {
-        if (typeName == SqlTypeName.UUID) {
-            return createCustomType(UuidType.NAME);
-        } else {
-            return super.createSqlType(typeName);
-        }
+        customDataTypes = new CustomDataTypes(Set.of());
     }
 
     /** {@inheritDoc} */
@@ -243,6 +230,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                     return Object.class;
                 case NULL:
                     return Void.class;
+                case UUID:
+                    return UUID.class;
                 default:
                     break;
             }
@@ -327,6 +316,8 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
                 return relType.getPrecision() == PRECISION_NOT_SPECIFIED
                         ? NativeTypes.blobOf(DEFAULT_VARLEN_LENGTH)
                         : NativeTypes.blobOf(relType.getPrecision());
+            case UUID:
+                return NativeTypes.UUID;
             case ANY:
                 if (relType instanceof IgniteCustomType) {
                     var customType = (IgniteCustomType) relType;
@@ -446,28 +437,10 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return first(types);
         }
 
-        RelDataType resultType = super.leastRestrictive(types);
-
-        if (resultType == null) {
-            return null;
-        }
-
-        if (resultType.getSqlTypeName() != SqlTypeName.ANY) {
-            // leastRestrictive defined by calcite returns leas restrictive even among types of different families.
-            // We need to trim such variants.
-            if (!typeFamiliesAreCompatible(this, types)) {
-                return null;
-            }
-
-            return resultType;
-        }
-
-        // leastRestrictive defined by calcite returns an instance of BasicSqlType that represents an ANY type,
-        // when at least one of its arguments have sqlTypeName = ANY.
-        assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
-
         IgniteCustomType firstCustomType = null;
         boolean hasAnyType = false;
+        boolean hasNullOrNullable = false;
+        boolean hasUuidType = false;
         boolean hasBuiltInType = false;
         boolean hasNullable = false;
         IgniteCustomType firstNullable = null;
@@ -476,7 +449,12 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             SqlTypeName sqlTypeName = type.getSqlTypeName();
             // NULL types should be ignored when we are trying to determine the least restrictive type.
             if (sqlTypeName == SqlTypeName.NULL) {
+                hasNullOrNullable = true;
                 continue;
+            }
+
+            if (type.isNullable()) {
+                hasNullOrNullable = true;
             }
 
             if (type instanceof IgniteCustomType) {
@@ -498,9 +476,49 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             } else if (sqlTypeName == SqlTypeName.ANY) {
                 hasAnyType = true;
             } else {
+                if (sqlTypeName == SqlTypeName.UUID) {
+                    hasUuidType = true;
+                }
+
                 hasBuiltInType = true;
             }
         }
+
+        // Calcite's implementation of TypeFactory cannot derive least restrictive type between UUID and NULL.
+        if (hasUuidType) {
+            // UUID doesn't have any other types in the family, therefore it's safe to assume if all types are compatible,
+            // then there are either UUID or NULL types.
+            if (!typeFamiliesAreCompatible(this, types)) {
+                return null;
+            }
+
+            RelDataType returnType = createSqlType(SqlTypeName.UUID);
+            if (hasNullOrNullable) {
+                returnType = createTypeWithNullability(returnType, true);
+            }
+
+            return returnType;
+        }
+
+        RelDataType resultType = leastRestrictive(types, IgniteCustomAssignmentsRules.instance());
+
+        if (resultType == null) {
+            return null;
+        }
+
+        if (resultType.getSqlTypeName() != SqlTypeName.ANY) {
+            // leastRestrictive defined by calcite returns least restrictive even among types of different families.
+            // We need to trim such variants.
+            if (!typeFamiliesAreCompatible(this, types)) {
+                return null;
+            }
+
+            return resultType;
+        }
+
+        // leastRestrictive defined by calcite returns an instance of BasicSqlType that represents an ANY type,
+        // when at least one of its arguments have sqlTypeName = ANY.
+        assert resultType instanceof BasicSqlType : "leastRestrictive is expected to return a new instance of a type: " + resultType;
 
         if (hasAnyType && hasBuiltInType && firstCustomType != null) {
             // There is no least restrictive type between ANY, built-in type, and a custom data type.
@@ -558,8 +576,6 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
     public RelDataType createTypeWithNullability(RelDataType type, boolean nullable) {
         if (type instanceof IgniteCustomType) {
             return canonize(((IgniteCustomType) type).createWithNullability(nullable));
-        } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
-            return canonize(createCustomType(UuidType.NAME).createWithNullability(nullable));
         } else {
             return super.createTypeWithNullability(type, nullable);
         }
