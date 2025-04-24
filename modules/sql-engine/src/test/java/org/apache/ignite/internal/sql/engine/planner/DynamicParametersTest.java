@@ -880,12 +880,12 @@ public class DynamicParametersTest extends AbstractPlannerTest {
                 checkStatement()
                         .sql("SELECT COALESCE(?, 'UUID'::UUID)", new UUID(0, 0))
                         .parameterTypes(nullable(NativeTypes.UUID))
-                        .project("CASE(IS NOT NULL(?0), ?0, CAST(_UTF-8'UUID'):UUID NOT NULL)"),
+                        .project("CASE(IS NOT NULL(?0), CAST(?0):UUID NOT NULL, CAST(_UTF-8'UUID'):UUID NOT NULL)"),
 
                 checkStatement()
                         .sql("SELECT NULLIF(?, 'UUID'::UUID)", new UUID(0, 0))
                         .parameterTypes(nullable(NativeTypes.UUID))
-                        .project("CASE(=(?0, CAST(_UTF-8'UUID'):UUID NOT NULL), null:NULL, ?0)"),
+                        .project("CASE(=(?0, CAST(_UTF-8'UUID'):UUID NOT NULL), null:UUID, ?0)"),
 
                 // Set operations
 
