@@ -154,6 +154,7 @@ import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLoggin
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
@@ -172,6 +173,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.ArgumentMatchers;
 
 /**
  * Test class to verify {@link ExecutionServiceImplTest}.
@@ -952,7 +954,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(txWrapper.unwrap()).thenReturn(tx);
         when(txWrapper.implicit()).thenReturn(tx.implicit());
-        when(txWrapper.rollback(any())).thenReturn(nullCompletedFuture());
+        when(txWrapper.finalize(any())).thenReturn(nullCompletedFuture());
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
@@ -981,7 +983,8 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(expectedEx, actualException);
 
-        verify(txWrapper).rollback(any());
+        verify(txWrapper).finalize(ArgumentMatchers.<Exception>argThat(ex -> 
+                expectedEx.getMessage().equals(ExceptionUtils.unwrapCause(ex).getMessage())));
     }
 
     @Test

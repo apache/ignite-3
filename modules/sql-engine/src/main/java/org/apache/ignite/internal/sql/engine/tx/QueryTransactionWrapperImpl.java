@@ -21,8 +21,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
@@ -36,9 +37,9 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
 
     private final InternalTransaction transaction;
 
-    private final TransactionTracker txTracker;
+    private final TransactionalOperationTracker txTracker;
 
-    private final AtomicBoolean committedImplicit = new AtomicBoolean();
+    private final AtomicBoolean committed = new AtomicBoolean();
 
     /**
      * Constructor.
@@ -47,7 +48,7 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
      * @param implicit Whether tx is implicit.
      * @param txTracker Transaction tracker.
      */
-    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionTracker txTracker) {
+    public QueryTransactionWrapperImpl(InternalTransaction transaction, boolean implicit, TransactionalOperationTracker txTracker) {
         this.transaction = transaction;
         this.queryImplicit = implicit;
         this.txTracker = txTracker;
@@ -59,21 +60,18 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> commitImplicit() {
-        if (transaction.isReadOnly() && committedImplicit.compareAndSet(false, true)) {
-            txTracker.unregister(transaction.id());
+    public CompletableFuture<Void> finalize(@Nullable Throwable error) {
+        if (committed.compareAndSet(false, true)) {
+            txTracker.registerOperationFinish(transaction);
         }
 
-        if (queryImplicit) {
+        if (error != null) {
+            return transaction.rollbackAsync();
+        } else if (queryImplicit) {
             return transaction.commitAsync();
         }
 
         return nullCompletedFuture();
-    }
-
-    @Override
-    public CompletableFuture<Void> rollback(Throwable cause) {
-        return transaction.rollbackAsync();
     }
 
     @Override

@@ -38,7 +38,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
-import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionTracker;
+import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
@@ -213,7 +213,7 @@ public class QueryRecoveryTest extends BaseIgniteAbstractTest {
 
     private static QueryTransactionContext createTxContext(TxType type, boolean implicit) {
         InternalTransaction tx = type.create();
-        QueryTransactionWrapper wrapper = new QueryTransactionWrapperImpl(tx, implicit, NoOpTransactionTracker.INSTANCE);
+        QueryTransactionWrapper wrapper = new QueryTransactionWrapperImpl(tx, implicit, NoOpTransactionalOperationTracker.INSTANCE);
         return new PredefinedTxContext(wrapper);
     }
 

@@ -17,27 +17,41 @@
 
 package org.apache.ignite.internal.sql.engine;
 
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
+
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
+import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.tx.TransactionException;
 
 /**
  * Simple facade that propagates invocations to underlying {@link TransactionInflights} object.
  */
-class InflightTransactionTracker implements TransactionTracker {
+class InflightTransactionalOperationTracker implements TransactionalOperationTracker {
     private final TransactionInflights delegate;
 
-    InflightTransactionTracker(TransactionInflights delegate) {
+    InflightTransactionalOperationTracker(TransactionInflights delegate) {
         this.delegate = delegate;
     }
 
     @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return delegate.addInflight(txId, readOnly);
+    public void registerOperationStart(InternalTransaction tx) {
+        if (shouldBeTracked(tx)) {
+            if (!delegate.addInflight(tx.id(), tx.isReadOnly())) {
+                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}]", tx));
+            }
+        }
     }
 
     @Override
-    public void unregister(UUID txId) {
-        delegate.removeInflight(txId);
+    public void registerOperationFinish(InternalTransaction tx) {
+        if (shouldBeTracked(tx)) {
+            delegate.removeInflight(tx.id());
+        }
     }
+
+    private static boolean shouldBeTracked(InternalTransaction tx) {
+        return tx.isReadOnly() && !tx.implicit();
+    } 
 }

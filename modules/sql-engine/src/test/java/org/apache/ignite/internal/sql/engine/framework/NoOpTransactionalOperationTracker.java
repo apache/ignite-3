@@ -15,17 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.sql.engine.framework;
 
-import java.util.UUID;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Tracker of ongoing transactions.
+ * Dummy no-op tracker.
  */
-public interface TransactionTracker {
-    /** Registers given transaction within the tracker. */ 
-    boolean register(UUID txId, boolean readOnly);
+public final class NoOpTransactionalOperationTracker implements TransactionalOperationTracker {
+    public static final TransactionalOperationTracker INSTANCE = new NoOpTransactionalOperationTracker();
 
-    /** De-registers given transaction from the tracker. */
-    void unregister(UUID txId);
+    @Override
+    public void registerOperationStart(InternalTransaction tx) {
+        // NO-OP
+    }
+
+    @Override
+    public void registerOperationFinish(InternalTransaction tx) {
+        // NO-OP
+    }
 }
