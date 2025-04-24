@@ -47,12 +47,11 @@ import org.apache.ignite.internal.util.SafeTimeValuesTracker;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
-import org.jetbrains.annotations.VisibleForTesting;
 
 /**
  * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
  */
-class ZoneResourcesManager implements ManuallyCloseable {
+public class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
     private final TxManager txManager;
@@ -125,7 +124,12 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 partitionOperationsExecutor
         );
 
-        var zonePartitionResources = new ZonePartitionResources(txStatePartitionStorage, raftGroupListener, snapshotStorage);
+        var zonePartitionResources = new ZonePartitionResources(
+                txStatePartitionStorage,
+                raftGroupListener,
+                snapshotStorage,
+                storageIndexTracker
+        );
 
         zoneResources.resourcesByPartitionId.put(zonePartitionId.partitionId(), zonePartitionResources);
 
@@ -139,9 +143,7 @@ class ZoneResourcesManager implements ManuallyCloseable {
             return null;
         }
 
-        ZonePartitionResources zonePartitionResources = zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
-
-        return zonePartitionResources;
+        return zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
     }
 
     private TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
@@ -220,11 +222,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
         }
     }
 
-    @VisibleForTesting
+    /**
+     * Zone partition resources.
+     */
     public static class ZonePartitionResources {
         private final TxStatePartitionStorage txStatePartitionStorage;
+
         private final ZonePartitionRaftListener raftListener;
+
         private final PartitionSnapshotStorage snapshotStorage;
+
+        private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
         /**
          * Future that completes when the zone-wide replica listener is created.
@@ -239,23 +247,29 @@ class ZoneResourcesManager implements ManuallyCloseable {
         ZonePartitionResources(
                 TxStatePartitionStorage txStatePartitionStorage,
                 ZonePartitionRaftListener raftListener,
-                PartitionSnapshotStorage snapshotStorage
+                PartitionSnapshotStorage snapshotStorage,
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker
         ) {
             this.txStatePartitionStorage = txStatePartitionStorage;
             this.raftListener = raftListener;
             this.snapshotStorage = snapshotStorage;
+            this.storageIndexTracker = storageIndexTracker;
         }
 
-        TxStatePartitionStorage txStatePartitionStorage() {
+        public TxStatePartitionStorage txStatePartitionStorage() {
             return txStatePartitionStorage;
         }
 
-        ZonePartitionRaftListener raftListener() {
+        public ZonePartitionRaftListener raftListener() {
             return raftListener;
         }
 
-        PartitionSnapshotStorage snapshotStorage() {
+        public PartitionSnapshotStorage snapshotStorage() {
             return snapshotStorage;
+        }
+
+        public PendingComparableValuesTracker<Long, Void> storageIndexTracker() {
+            return storageIndexTracker;
         }
 
         public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
