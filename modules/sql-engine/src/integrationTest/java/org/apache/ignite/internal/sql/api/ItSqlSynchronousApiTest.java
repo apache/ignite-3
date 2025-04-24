@@ -173,7 +173,7 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         });
 
         // Wait until FIRST script statement is started to execute.
-        waitUntilRunningQueriesCount(greaterThan(1));
+        waitUntilRunningQueriesCount(greaterThan(0));
         assertThat(f.isDone(), is(false));
 
         cancelHandle.cancelAsync();

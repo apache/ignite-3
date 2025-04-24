@@ -47,7 +47,7 @@ public class ClientSqlExecuteBatchRequest {
      * @param out Packer.
      * @param sql SQL API.
      * @param resources Resources.
-     * @param requestId
+     * @param requestId Id of the request.
      * @param cancelHandleMap Registry of handlers. Request must register itself in this registry before switching to another
      *         thread.
      * @return Future representing result of operation.
