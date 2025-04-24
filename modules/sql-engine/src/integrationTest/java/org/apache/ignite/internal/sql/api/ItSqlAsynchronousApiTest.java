@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.api;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -39,6 +40,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 import org.apache.ignite.internal.sql.SyncResultSetAdapter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.wrapper.Wrappers;
 import org.apache.ignite.lang.CancelHandle;
 import org.apache.ignite.lang.CancellationToken;
@@ -153,6 +156,31 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         });
     }
 
+    @Override
+    @Test
+    public void cancelBatch() {
+        IgniteSql sql = igniteSql();
+
+        sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL INT)");
+
+        BatchedArguments args = BatchedArguments.of(0, 0);
+        for (int i = 1; i < ROW_COUNT; ++i) {
+            args.add(i, i);
+        }
+
+        String query = "UPDATE TEST SET val = ? + (SELECT COUNT(*) FROM system_range(?, 10000000000))";
+
+        // no transaction
+        executeBatchAndCancel((token) -> sql.executeBatchAsync(null, token, query, args));
+
+        // with transaction
+        executeBatchAndCancel((token) -> {
+            Transaction transaction = igniteTx().begin();
+
+            return sql.executeBatchAsync(transaction, token, query, args);
+        });
+    }
+
     private void executeAndCancel(
             Function<CancellationToken, CompletableFuture<AsyncResultSet<SqlRow>>> execute
     ) throws InterruptedException {
@@ -177,6 +205,28 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         // Expect all transactions to be rollbacked
         assertThat(txManager().pending(), is(0));
     }
+
+    private void executeBatchAndCancel(Function<CancellationToken, CompletableFuture<long[]>> execute) {
+        CancelHandle cancelHandle = CancelHandle.create();
+
+        // Run statement in another thread
+        CompletableFuture<long[]> f = execute.apply(cancelHandle.token());
+
+        waitUntilRunningQueriesCount(greaterThan(0));
+        assertThat(f.isDone(), is(false));
+
+        cancelHandle.cancelAsync();
+
+        CompletionException err = assertThrows(CompletionException.class, f::join);
+        SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
+        assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
+
+        cancelHandle.cancelAsync().join();
+
+        // Expect all transactions to be rollbacked
+        assertThat(txManager().pending(), is(0));
+    }
+
 
     private static class DrainResultSet implements Executable {
         CompletableFuture<? extends AsyncResultSet<SqlRow>> rs;
