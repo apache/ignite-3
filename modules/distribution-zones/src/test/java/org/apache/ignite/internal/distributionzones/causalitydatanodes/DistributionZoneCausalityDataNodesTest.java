@@ -105,7 +105,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.mockito.stubbing.Answer;
 
@@ -1031,7 +1030,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      *
      * @throws Exception If failed.
      */
-    @RepeatedTest(500)
+    @Test
     void checkDataNodesRepeatedOnNodeAdded() throws Exception {
         prepareZonesWithTwoDataNodes();
 
@@ -1603,7 +1602,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             if (topologyRevisions.containsKey(nodeNames)) {
                 topologyRevisions.remove(nodeNames).complete(new RevWithTimestamp(revision, timestamp));
-                log.info("qqq Topology update event, rev=" + revision);
+                log.info("Test: Topology update event, rev=" + revision);
             }
 
             return nullCompletedFuture();
