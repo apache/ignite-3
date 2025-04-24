@@ -97,7 +97,7 @@ void TableElement(List<SqlNode> list) :
     ]
     {
         list.add(
-            new IgniteSqlColumnDeclaration(s.add(id).end(this), id,
+            SqlDdlNodes.column(s.add(id).end(this), id,
                 type.withNullable(nullable), dflt, strategy));
     }
 |
@@ -411,7 +411,7 @@ SqlNode ColumnWithType() :
         }
     )
     {
-        return new IgniteSqlColumnDeclaration(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
+        return SqlDdlNodes.column(s.add(id).end(this), id, type.withNullable(nullable), dflt, strategy);
     }
 }
 

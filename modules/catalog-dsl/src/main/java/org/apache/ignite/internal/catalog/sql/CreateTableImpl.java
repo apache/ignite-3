@@ -61,7 +61,7 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
     CreateTableImpl name(String... names) {
         Objects.requireNonNull(names, "Table name must not be null.");
 
-        this.tableName = new Name(names);
+        this.tableName = Name.compound(names);
         return this;
     }
 
@@ -111,7 +111,7 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
     CreateTableImpl zone(String zone) {
         Objects.requireNonNull(zone, "Zone name must not be null.");
 
-        this.zone = new Zone(zone.toUpperCase());
+        this.zone = new Zone(zone);
         return this;
     }
 
