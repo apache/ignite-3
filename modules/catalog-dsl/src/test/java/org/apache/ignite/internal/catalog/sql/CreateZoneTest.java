@@ -27,25 +27,29 @@ class CreateZoneTest {
     void testIfNotExists() {
         Query query1 = createZone().ifNotExists().name("zone1");
         String sql = query1.toString();
-        assertThat(sql, is("CREATE ZONE IF NOT EXISTS zone1;"));
+        assertThat(sql, is("CREATE ZONE IF NOT EXISTS ZONE1;"));
     }
 
     @Test
     void testNames() {
-        Query query1 = createZone().name("public", "zone1");
+        Query query1 = createZone().name("zone1");
         String sql = query1.toString();
-        assertThat(sql, is("CREATE ZONE public.zone1;"));
+        assertThat(sql, is("CREATE ZONE ZONE1;"));
+
+        Query query2 = createZone().name("Zo Ne");
+        sql = query2.toString();
+        assertThat(sql, is("CREATE ZONE \"Zo Ne\";"));
     }
 
     @Test
     void testWithOptions() {
         Query query4 = createZone().name("zone1").partitions(1);
         String sql = query4.toString();
-        assertThat(sql, is("CREATE ZONE zone1 WITH PARTITIONS=1;"));
+        assertThat(sql, is("CREATE ZONE ZONE1 WITH PARTITIONS=1;"));
 
         Query query3 = createZone().name("zone1").partitions(1).replicas(1);
         sql = query3.toString();
-        assertThat(sql, is("CREATE ZONE zone1 WITH PARTITIONS=1, REPLICAS=1;"));
+        assertThat(sql, is("CREATE ZONE ZONE1 WITH PARTITIONS=1, REPLICAS=1;"));
     }
 
     private static CreateZoneImpl createZone() {
