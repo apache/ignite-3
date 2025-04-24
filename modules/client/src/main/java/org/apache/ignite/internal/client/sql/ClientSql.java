@@ -346,6 +346,18 @@ public class ClientSql implements IgniteSql {
             return unpacker.unpackLongArray(); // Update counters.
         };
 
+
+        if (transaction != null) {
+            try {
+                //noinspection resource
+                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                        .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader))
+                        .exceptionally(ClientSql::handleException);
+            } catch (TransactionException e) {
+                return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
+            }
+        }
+
         return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader);
     }
 

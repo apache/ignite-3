@@ -172,7 +172,6 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
             execute.apply(cancelHandle.token());
         });
 
-        // Wait until FIRST script statement is started to execute.
         waitUntilRunningQueriesCount(greaterThan(0));
         assertThat(f.isDone(), is(false));
 
