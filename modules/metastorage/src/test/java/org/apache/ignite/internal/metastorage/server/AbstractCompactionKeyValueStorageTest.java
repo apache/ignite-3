@@ -157,7 +157,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testCompactRevision1() {
         storage.compact(1);
 
-        assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
@@ -171,7 +171,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         storage.compact(2);
 
         assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
-        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
@@ -183,8 +183,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testCompactRevision3() {
         storage.compact(3);
 
-        assertEquals(List.of(5), collectRevisions(FOO_KEY));
-        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
@@ -198,7 +198,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(5), collectRevisions(BAR_KEY));
-        assertEquals(List.of(6), collectRevisions(SOME_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
     /**
@@ -510,6 +510,22 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 5);
     }
 
+    @Test
+    void testDoNotDeleteOnExactMatchCompaction() {
+        // FOO_KEY has revisions: [1, 3, 5].
+        storage.setCompactionRevision(3);
+
+        // Value is visible from the perspective of revision 4.
+        Entry entryBefore = storage.get(FOO_KEY, 4);
+        assertEquals(3, entryBefore.revision());
+
+        storage.compact(3);
+
+        // 4 is above 3, so reads from the perspective of revision 4 should keep working the same way.
+        Entry entryAfter = storage.get(FOO_KEY, 4);
+        assertEquals(entryBefore, entryAfter);
+    }
+
     /**
      * Tests {@link KeyValueStorage#get(byte[], long)} using examples from the description only for the {@link #BAR_KEY} for which the last
      * revision is tombstone. Only one key is considered so that the tests are not too long. Keys with their revisions are added in
@@ -535,6 +551,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 5);
 
         storage.setCompactionRevision(5);
+        // TODO IGNITE-25212 Consider expecting a tombstone here.
         assertThrowsCompactedExceptionForGetSingleValue(BAR_KEY, 5);
         assertDoesNotThrowCompactedExceptionForGetSingleValue(BAR_KEY, 6);
 
@@ -960,11 +977,49 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
+    void testConcurrentUpdateAndCompaction() {
+        KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
+
+        for (int i = 0; i < 500; i++) {
+            byte[] key = key(i);
+            byte[] value = keyValue(i, i);
+
+            storage.put(key, value, context);
+            long revision = storage.revision();
+            storage.remove(key, context);
+
+            runRace(
+                    () -> {
+                        storage.setCompactionRevision(revision);
+                        storage.compact(revision);
+                    },
+                    () -> {
+                        // We update the same value in order to cause a race in "writeBatch" method, that would leave already compacted
+                        // revisions in a list of revisions associated with this key.
+                        storage.put(key, value, context);
+                    }
+            );
+
+            try {
+                Entry entry = storage.get(key, revision);
+
+                assertFalse(entry.empty());
+                assertEquals(revision, entry.revision());
+                assertArrayEquals(value, entry.value());
+            } catch (CompactedException ignore) {
+                // This is expected.
+            }
+
+            storage.remove(key, context);
+        }
+    }
+
+    @Test
     void testConcurrentReadAllAndCompaction() {
         KeyValueUpdateContext context = kvContext(hybridTimestamp(10L));
 
         int numberOfKeys = 15;
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < 800; i++) {
             List<byte[]> keys = new ArrayList<>();
             List<byte[]> values = new ArrayList<>();
             for (int j = 0; j < numberOfKeys; j++) {

@@ -61,6 +61,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -70,7 +71,9 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -156,6 +159,12 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         createZone(ZONE_NAME_2, HIGH_AVAILABILITY);
 
         dataNodesManager.onZoneCreate(0, clock.now(), currentTopology);
+    }
+
+    @AfterEach
+    void cleanup() {
+        List.of(catalogManager, metaStorageManager).forEach(IgniteComponent::beforeNodeStop);
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
     }
 
     private void createZone(String name, ConsistencyMode consistencyMode) {

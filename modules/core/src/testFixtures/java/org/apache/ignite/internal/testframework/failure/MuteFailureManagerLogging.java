@@ -22,10 +22,12 @@ import java.lang.annotation.Inherited;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 
 /**
  * Marks a test class or method for FailureManager logging mute. That is, FailureManager will not write anything to logs
- * if the annotation is present.
+ * and stdout if the annotation is present. Appenders added by more specific configuration (like those of {@link LogInspector})
+ * are not affected.
  */
 @Retention(RetentionPolicy.RUNTIME)
 @Target({ElementType.TYPE, ElementType.METHOD})

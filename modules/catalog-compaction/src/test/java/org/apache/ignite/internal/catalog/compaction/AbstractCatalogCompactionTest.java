@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.spy;
 
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.storage.UpdateLogImpl;
@@ -35,10 +36,13 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.util.IgniteUtils;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -49,6 +53,8 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
     private ScheduledExecutorService scheduledExecutor;
 
     final HybridClock clock = new HybridClockImpl();
+
+    private StandaloneMetaStorageManager metastore;
 
     private ClockWaiter clockWaiter;
 
@@ -65,9 +71,15 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
         catalogManager = spy(createCatalogManager("test-node"));
     }
 
+    @AfterEach
+    void cleanup() {
+        List.of(catalogManager, clockWaiter, metastore).forEach(IgniteComponent::beforeNodeStop);
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), catalogManager, clockWaiter, metastore), willCompleteSuccessfully());
+    }
+
     /** Creates catalog manager. */
     private CatalogManagerImpl createCatalogManager(String nodeName) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
+        metastore = StandaloneMetaStorageManager.create(nodeName);
         FailureProcessor failureProcessor = new NoOpFailureManager();
         CatalogManagerImpl manager = new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),

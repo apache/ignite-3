@@ -96,6 +96,8 @@ import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.AfterEach;
@@ -108,6 +110,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 /** For {@link ChangeIndexStatusTask} testing. */
 @ExtendWith(ExecutorServiceExtension.class)
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(FailureManagerExtension.class)
 public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     private static final IndexMessagesFactory FACTORY = new IndexMessagesFactory();
 
@@ -336,6 +339,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void testFailedSendIsNodeFinishedRwTransactionsStartedBeforeRequest() {
         when(clusterService.messagingService().invoke(any(ClusterNode.class), any(), anyLong()))
                 .thenReturn(failedFuture(new Exception("test")));
