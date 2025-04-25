@@ -19,7 +19,6 @@ package org.apache.ignite.internal.metastorage.impl;
 
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
-import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -211,7 +210,7 @@ public class MetaStorageLeaderElectionListener implements LeaderElectionListener
             return nullCompletedFuture();
         }
 
-        return inBusyLock(busyLock, () -> service.syncTime(safeTime, term));
+        return service.syncTime(safeTime, term);
     }
 
     private class MetaStorageLogicalTopologyEventListener implements LogicalTopologyEventListener {

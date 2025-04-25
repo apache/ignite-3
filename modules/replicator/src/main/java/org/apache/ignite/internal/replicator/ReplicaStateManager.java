@@ -239,7 +239,7 @@ class ReplicaStateManager {
                     return partitionStarted;
                 }))
                 .whenComplete((res, ex) -> {
-                    if (ex != null && !hasCause(ex, TransientReplicaStartException.class)) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class)) {
                         failureProcessor.process(new FailureContext(ex, String.format("Replica start failed [groupId=%s]", groupId)));
                     }
                 });
@@ -331,7 +331,7 @@ class ReplicaStateManager {
                     return true;
                 }))
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(ex, String.format("Replica stop failed [groupId=%s]", groupId)));
                     }
                 });
