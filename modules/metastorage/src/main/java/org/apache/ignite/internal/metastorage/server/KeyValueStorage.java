@@ -314,22 +314,53 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Compacts outdated key versions and removes tombstones of metastorage locally.
      *
-     * <p>We do not compact the only and last version of the key unless it is a tombstone.</p>
+     * <p>We do not delete the only and last version of the key unless it is a tombstone.</p>
      *
      * <p>Let's look at some examples, let's say we have the following keys with their versions:</p>
      * <ul>
-     *     <li>Key "foo" with versions that have revisions (1, 3, 5) - "foo" [1, 3, 5].</li>
-     *     <li>Key "bar" with versions that have revisions (1, 2, 5) the last revision is a tombstone - "bar" [1, 2, 5 tomb].</li>
+     *     <li>Key {@code "foo"} with versions that have revisions {@code (1, 3, 5)} - {@code "foo" [1, 3, 5]}.</li>
+     *     <li>
+     *         Key {@code "bar"} with versions that have revisions {@code (1, 2, 5)} the last revision is a tombstone - {@code "bar" [1, 2, 5 tomb]}.
+     *     </li>
      * </ul>
      *
      * <p>Let's look at examples of invoking the current method and what will be in the storage after:</p>
      * <ul>
-     *     <li>Compaction revision is {@code 1}: "foo" [3, 5], "bar" [2, 5 tomb].</li>
-     *     <li>Compaction revision is {@code 2}: "foo" [3, 5], "bar" [5 tomb].</li>
-     *     <li>Compaction revision is {@code 3}: "foo" [5], "bar" [5 tomb].</li>
-     *     <li>Compaction revision is {@code 4}: "foo" [5], "bar" [5 tomb].</li>
-     *     <li>Compaction revision is {@code 5}: "foo" [5].</li>
-     *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
+     *     <li>
+     *         Compaction revision is {@code 1}: {@code "foo" [1, 3, 5]}, {@code "bar" [2, 5 tomb]}.<br>
+     *         Explanation:<br>
+     *         {@code "foo"[1]} can still be read from {@code get("foo", 2)}.<br>
+     *         {@code "bar"[2]} can still be read from {@code get("bar", 2)}.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 2}: {@code "foo" [3, 5]}, {@code "bar" [2, 5 tomb]}.
+     *         Explanation:<br>
+     *         {@code "foo"[1]} can not be read from {@code get("foo", 3)}, so it is deleted.<br>
+     *         {@code "bar"[2]} can still be read from {@code get("bar", 3)}.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 3}: {@code "foo" [3, 5]}, {@code "bar" [2, 5 tomb]}.
+     *         Explanation:<br>
+     *         {@code "foo"[3]} can still be read from {@code get("foo", 4)}, so it is deleted.<br>
+     *         {@code "bar"[2]} can still be read from {@code get("bar", 4)}.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 4}: {@code "foo" [5]}, {@code "bar" [5 tomb]}.
+     *         Explanation:<br>
+     *         {@code "foo"[3]} can not be read from {@code get("foo", 5)}, so it is deleted.<br>
+     *         {@code "bar"[2]} can not be read from {@code get("bar", 5)}, so it is deleted.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 5}: {@code "foo" [5]}.
+     *         Explanation:<br>
+     *         {@code "foo"[5]} can still be read from {@code get("foo", 6)}, it's the last revision.<br>
+     *         {@code "bar"[5]} is a tombstone and its revision is less than or equal compacted revision, so it is deleted.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 6}: {@code "foo" [5]}.
+     *         Explanation:<br>
+     *         {@code "foo"[5]} can still be read from {@code get("foo", 7)}, it's the last revision.<br>
+     *     </li>
      * </ul>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>

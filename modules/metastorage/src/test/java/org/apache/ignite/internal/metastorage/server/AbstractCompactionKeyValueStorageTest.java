@@ -511,13 +511,17 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     }
 
     @Test
-    void testDoNotCompactOnExactMatch() {
+    void testDoNotDeleteOnExactMatchCompaction() {
         // FOO_KEY has revisions: [1, 3, 5].
         storage.setCompactionRevision(3);
 
+        // Value is visible from the perspective of revision 4.
         Entry entryBefore = storage.get(FOO_KEY, 4);
+        assertEquals(3, entryBefore.revision());
+
         storage.compact(3);
 
+        // 4 is above 3, so reads from the perspective of revision 4 should keep working the same way.
         Entry entryAfter = storage.get(FOO_KEY, 4);
         assertEquals(entryBefore, entryAfter);
     }
