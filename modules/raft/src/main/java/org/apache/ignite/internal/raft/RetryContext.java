@@ -194,6 +194,7 @@ class RetryContext {
 
         @Override
         public String toString() {
+            // Purposefully make it shorter than "S.toString".
             return "[time=" + timestamp + ", msg=" + reason + "]";
         }
     }
