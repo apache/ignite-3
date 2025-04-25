@@ -160,14 +160,16 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
             return;
         }
 
-        if (skipEmptyValues && val instanceof Map) {
-            Map<?, ?> map = (Map<?, ?>) val;
-            if (map.isEmpty()) {
-                return;
+        if (parent != null) {
+            if (skipEmptyValues && val instanceof Map) {
+                Map<?, ?> map = (Map<?, ?>) val;
+                if (map.isEmpty()) {
+                    return;
+                }
             }
-        }
 
-        parent.put(key, val);
+            parent.put(key, val);
+        }
     }
 
     /**
