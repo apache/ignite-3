@@ -954,7 +954,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         when(txWrapper.unwrap()).thenReturn(tx);
         when(txWrapper.implicit()).thenReturn(tx.implicit());
-        when(txWrapper.finalize(any())).thenReturn(nullCompletedFuture());
+        when(txWrapper.finalise(any())).thenReturn(nullCompletedFuture());
 
         QueryPlan plan = prepare("SELECT * FROM test_tbl", ctx);
 
@@ -983,7 +983,7 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         assertEquals(expectedEx, actualException);
 
-        verify(txWrapper).finalize(ArgumentMatchers.<Exception>argThat(ex -> 
+        verify(txWrapper).finalise(ArgumentMatchers.<Exception>argThat(ex -> 
                 expectedEx.getMessage().equals(ExceptionUtils.unwrapCause(ex).getMessage())));
     }
 

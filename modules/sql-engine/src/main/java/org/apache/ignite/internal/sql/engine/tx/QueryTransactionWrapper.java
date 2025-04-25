@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.tx;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit/script-driven transaction.
@@ -29,16 +28,23 @@ public interface QueryTransactionWrapper {
     InternalTransaction unwrap();
 
     /**
-     * Finalizes related transaction.
-     *
-     * <p>That is, commits the sql-managed transaction, if any, in case provided error is null, otherwise rolls back any transaction.
+     * Finalizes related transaction as a result of successful execution.
      *
      * <p>Finalization must be called at the end of every transaction-related operation.
      *
-     * @param error An error occurred during operation processing, if any. 
      * @return A future representing result of operation.
      */
-    CompletableFuture<Void> finalize(@Nullable Throwable error);
+    CompletableFuture<Void> finalise();
+
+    /**
+     * Finalizes related transaction as a result of failed execution.
+     *
+     * <p>Finalization must be called at the end of every transaction-related operation.
+     *
+     * @param error An error occurred during operation processing. Must not be null. 
+     * @return A future representing result of operation.
+     */
+    CompletableFuture<Void> finalise(Throwable error);
 
     /**
      * Returns {@code true} if this transaction was implicitly started by query engine to

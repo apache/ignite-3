@@ -23,7 +23,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.tx.InternalTransaction;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Wrapper for the transaction that encapsulates the management of an implicit transaction.
@@ -60,18 +59,27 @@ public class QueryTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> finalize(@Nullable Throwable error) {
+    public CompletableFuture<Void> finalise() {
         if (committed.compareAndSet(false, true)) {
             txTracker.registerOperationFinish(transaction);
         }
 
-        if (error != null) {
-            return transaction.rollbackAsync();
-        } else if (queryImplicit) {
+        if (queryImplicit) {
             return transaction.commitAsync();
         }
 
         return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> finalise(Throwable error) {
+        assert error != null;
+
+        if (committed.compareAndSet(false, true)) {
+            txTracker.registerOperationFinish(transaction);
+        }
+
+        return transaction.rollbackAsync();
     }
 
     @Override

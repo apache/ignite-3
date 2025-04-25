@@ -337,7 +337,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
             // DML is supposed to have a single row response, so if the first page is ready, then all
             // inputs have been processed, all tables have been updated, and now it should be safe to
             // commit implicit transaction
-            firstPageReady = firstPageReady.thenCompose(none -> txWrapper.finalize(null));
+            firstPageReady = firstPageReady.thenCompose(none -> txWrapper.finalise());
         }
 
         CompletableFuture<Void> firstPageReady0 = firstPageReady;
@@ -355,7 +355,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         return f.whenComplete((r, t) -> {
             if (t != null) {
-                txWrapper.finalize(t);
+                txWrapper.finalise(t);
             }
         });
     }

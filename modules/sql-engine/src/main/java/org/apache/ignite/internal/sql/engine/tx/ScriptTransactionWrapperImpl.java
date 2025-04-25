@@ -79,10 +79,13 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
     }
 
     @Override
-    public CompletableFuture<Void> finalize(@Nullable Throwable error) {
-        if (error == null) {
-            return nullCompletedFuture();
-        }
+    public CompletableFuture<Void> finalise() {
+        return nullCompletedFuture();
+    }
+
+    @Override
+    public CompletableFuture<Void> finalise(Throwable error) {
+        assert error != null;
 
         synchronized (mux) {
             if (rollbackCause != null) {

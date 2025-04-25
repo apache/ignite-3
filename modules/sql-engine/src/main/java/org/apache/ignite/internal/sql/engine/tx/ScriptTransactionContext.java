@@ -148,6 +148,8 @@ public class ScriptTransactionContext implements QueryTransactionContext {
 
     /** Rolls back the script-driven transaction. */
     public void onError(Throwable t) {
+        assert t != null;
+
         QueryTransactionWrapper txWrapper = wrapper;
 
         if (txWrapper == null) {
@@ -155,7 +157,7 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
 
         if (txWrapper != null) {
-            txWrapper.finalize(t);
+            txWrapper.finalise(t);
         }
     }
 }
