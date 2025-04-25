@@ -21,6 +21,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.emptySet;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
@@ -66,6 +67,8 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
@@ -99,6 +102,7 @@ import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -189,6 +193,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     private final ConcurrentHashMap<Integer, CompletableFuture<HybridTimestamp>> dropZoneTimestamps = new ConcurrentHashMap<>();
 
+    private ExecutorService tempPool;
+
     @BeforeEach
     void beforeEach() {
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener());
@@ -202,6 +208,14 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         assertThat(distributionZoneManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
         assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
+    }
+
+    @AfterEach
+    void afterEach() throws InterruptedException {
+        if (tempPool != null) {
+            tempPool.shutdown();
+            tempPool.awaitTermination(1, SECONDS);
+        }
     }
 
     /**
@@ -1254,6 +1268,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
             log.info("Test: logical topology watch listener triggered, rev={}", evt.revision());
 
+            tempPool = Executors.newFixedThreadPool(1);
+
             return CompletableFuture.runAsync(() -> {
                 try {
                     // Check that data nodes values are changed according to scale up and down timers.
@@ -1269,11 +1285,11 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
                 } catch (Exception e) {
                     fail();
                 }
-            })
-            .thenRun(() -> {
+            }, tempPool)
+            .thenRunAsync(() -> {
                 latch.countDown();
                 log.info("Test: latch counted down.");
-            });
+            }, tempPool);
         };
     }
 
