@@ -49,7 +49,6 @@ import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -699,7 +698,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     private TestMessage testMessage(String message) {
-        return messageFactory.testMessage().msg(message).map(new HashMap<>()).build();
+        return messageFactory.testMessage().msg(message).map(new ConcurrentHashMap<>()).build();
     }
 
     private static CompletableFuture<Void> send(TestMessage message, ClusterService sender, ClusterService receiver) {

@@ -37,6 +37,7 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TestMessageUtils;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -402,6 +403,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
 
             for (int i = 0; i < networkMessages.size(); i++) {
                 OutNetworkObject networkMessage = networkMessages.get(i);
+                TestMessageUtils.extendHistory(networkMessage.networkMessage(), "Resending on handshake (server manager)");
                 futs[i + 1] = NettyUtils.toCompletableFuture(channel.write(networkMessage));
             }
 

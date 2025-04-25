@@ -29,6 +29,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TestMessageUtils;
 import org.apache.ignite.internal.network.direct.DirectMessageWriter;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
@@ -139,6 +140,8 @@ public class NettySender {
     private void recoverSendAfterChannelClosure(OutNetworkObject obj, Channel currentChannel, Runnable triggerChannelRecreation) {
         assert NettyBootstrapFactory.isInNetworkThread() : "In a non-netty thread " + Thread.currentThread();
 
+        TestMessageUtils.extendHistory(obj.networkMessage(), "recoverSendAfterChannelClosure");
+
         // As we are in the channel event loop and all channels of the same logical connection use the same event loop,
         // we can be sure that nothing related to our channel, recovery descriptor and possible new channel can change
         // concurrently.
@@ -146,6 +149,8 @@ public class NettySender {
         Channel holderChannel = recoveryDescriptor.holderChannel();
 
         if (holderChannel == null || holderChannel == currentChannel) {
+            TestMessageUtils.extendHistory(obj.networkMessage(), "Being closed or already closed");
+
             // Our channel is being closed or is already completely closed, its pipeline might be (or not be) destroyed.
             // But no new channel acquired the descriptor, so we are alone.
 
@@ -160,6 +165,8 @@ public class NettySender {
             // Triggering it explicitly, otherwise this would only happen when next message is sent.
             triggerChannelRecreation.run();
         } else {
+            TestMessageUtils.extendHistory(obj.networkMessage(), "Riding fresh channel");
+
             // This logical connection is already riding another Channel. We must resend this message using the new Channel.
             // Both channels share the same event loop (hence, same Netty thread), so, if we do the resend while staying
             // in the same thread, we will keep the message ordering.
@@ -171,6 +178,8 @@ public class NettySender {
     }
 
     private void writeWithRecovery(OutNetworkObject obj, Channel channel, Runnable triggerChannelRecreation) {
+        TestMessageUtils.extendHistory(obj.networkMessage(), "writeWithRecovery");
+
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
 
         chainRecoverSendAfterChannelClosure(writeFuture, obj, channel, triggerChannelRecreation);

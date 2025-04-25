@@ -41,6 +41,7 @@ import org.apache.ignite.internal.network.ClusterIdSupplier;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TestMessageUtils;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
@@ -235,6 +236,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             }
 
             for (OutNetworkObject networkMessage : networkMessages) {
+                TestMessageUtils.extendHistory(networkMessage.networkMessage(), "Resending on handshake (client manager)");
                 channel.write(networkMessage);
             }
 
