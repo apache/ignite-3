@@ -223,7 +223,7 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         cancelHandle.cancelAsync().join();
 
         // Expect all transactions to be rollbacked
-        waitForCondition(() ->txManager().pending() == 0, 5000);
+        waitForCondition(() -> txManager().pending() == 0, 5000);
     }
 
     private static class DrainResultSet implements Executable {
