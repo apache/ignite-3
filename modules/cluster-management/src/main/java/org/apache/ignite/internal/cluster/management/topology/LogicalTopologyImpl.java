@@ -22,6 +22,7 @@ import static java.util.Comparator.comparing;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshotSerializer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -229,7 +231,9 @@ public class LogicalTopologyImpl implements LogicalTopology {
     }
 
     private void notifyFailureHandlerAndRethrowIfError(Throwable e, String logMessage) {
-        failureProcessor.process(new FailureContext(e, logMessage));
+        if (!hasCause(e, NodeStoppingException.class)) {
+            failureProcessor.process(new FailureContext(e, logMessage));
+        }
 
         if (e instanceof Error) {
             throw (Error) e;

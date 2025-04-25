@@ -130,9 +130,13 @@ public class IgniteCustomAssignmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.TIME);
         rule.add(SqlTypeName.TIMESTAMP);
         rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+        rule.add(SqlTypeName.UUID);
 
         rules.add(SqlTypeName.CHAR, rule);
         rules.add(SqlTypeName.VARCHAR, rule);
+
+        // UUID is assignable from...
+        rules.add(SqlTypeName.UUID, EnumSet.of(SqlTypeName.UUID, SqlTypeName.CHAR, SqlTypeName.VARCHAR));
 
         // BOOLEAN is assignable from...
         rules.add(SqlTypeName.BOOLEAN, EnumSet.of(SqlTypeName.BOOLEAN, SqlTypeName.CHAR, SqlTypeName.VARCHAR));
@@ -243,6 +247,7 @@ public class IgniteCustomAssignmentsRules implements SqlTypeMappingRule {
         rule.add(SqlTypeName.DATE);
         rule.add(SqlTypeName.TIMESTAMP);
         rule.add(SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE);
+        rule.add(SqlTypeName.UUID);
         rules.add(SqlTypeName.ANY, rule);
 
         INSTANCE = new IgniteCustomAssignmentsRules(rules.map);

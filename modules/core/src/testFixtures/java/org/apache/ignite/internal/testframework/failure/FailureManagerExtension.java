@@ -22,8 +22,9 @@ import static org.junit.jupiter.api.extension.ExtensionContext.Namespace;
 import org.apache.ignite.internal.testframework.log4j2.Log4jUtils;
 import org.apache.logging.log4j.Level;
 import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
-import org.apache.logging.log4j.core.config.Configurator;
+import org.apache.logging.log4j.core.Logger;
+import org.apache.logging.log4j.core.LoggerContext;
+import org.apache.logging.log4j.core.config.LoggerConfig;
 import org.junit.jupiter.api.extension.AfterAllCallback;
 import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
@@ -58,46 +59,61 @@ public class FailureManagerExtension implements
         }
 
         if (annotated) {
-            rememberOldLevelAndMuteLogger(context);
+            muteLoggerAndMemorizeMute(context);
         }
     }
 
-    private static void rememberOldLevelAndMuteLogger(ExtensionContext context) {
+    private static void muteLoggerAndMemorizeMute(ExtensionContext context) {
         Log4jUtils.waitTillConfigured();
 
-        Logger logger = failureManagerLogger();
+        muteLogger();
 
-        context.getStore(NAMESPACE).put(context.getUniqueId(), logger.getLevel());
-
-        Configurator.setLevel(logger, Level.OFF);
+        context.getStore(NAMESPACE).put(context.getUniqueId(), Boolean.TRUE);
     }
 
-    private static Logger failureManagerLogger() {
-        return LogManager.getLogger(FAILURE_MANAGER_CLASS_NAME);
+    private static void muteLogger() {
+        LoggerContext rootLoggerContext = getRootLoggerContext();
+
+        // We add a non-additive logger to make sure that logging configuration inherited from root logger is not used here.
+        LoggerConfig loggerConfig = new LoggerConfig(FAILURE_MANAGER_CLASS_NAME, Level.INFO, false);
+        rootLoggerContext.getConfiguration().addLogger(FAILURE_MANAGER_CLASS_NAME, loggerConfig);
+
+        rootLoggerContext.updateLoggers();
+    }
+
+    private static LoggerContext getRootLoggerContext() {
+        Logger rootLogger = (Logger) LogManager.getRootLogger();
+        return rootLogger.getContext();
     }
 
     @Override
     public void afterAll(ExtensionContext context) {
-        restoreOldLevelIfSaved(context);
+        unmuteIfMuted(context);
     }
 
-    private static void restoreOldLevelIfSaved(ExtensionContext context) {
-        Level oldLevel = context.getStore(NAMESPACE).remove(context.getUniqueId(), Level.class);
-        if (oldLevel != null) {
-            Logger logger = failureManagerLogger();
-            Configurator.setLevel(logger, oldLevel);
+    private static void unmuteIfMuted(ExtensionContext context) {
+        Boolean wasMutedMarker = context.getStore(NAMESPACE).remove(context.getUniqueId(), Boolean.class);
+
+        if (wasMutedMarker != null && wasMutedMarker) {
+            unmute();
         }
+    }
+
+    private static void unmute() {
+        LoggerContext rootLoggerContext = getRootLoggerContext();
+        rootLoggerContext.getConfiguration().removeLogger(FAILURE_MANAGER_CLASS_NAME);
+        rootLoggerContext.updateLoggers();
     }
 
     @Override
     public void beforeEach(ExtensionContext context) {
         if (context.getRequiredTestMethod().isAnnotationPresent(MuteFailureManagerLogging.class)) {
-            rememberOldLevelAndMuteLogger(context);
+            muteLoggerAndMemorizeMute(context);
         }
     }
 
     @Override
     public void afterEach(ExtensionContext context) {
-        restoreOldLevelIfSaved(context);
+        unmuteIfMuted(context);
     }
 }

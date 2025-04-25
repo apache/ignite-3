@@ -157,7 +157,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testCompactRevision1() {
         storage.compact(1);
 
-        assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(1, 3, 5), collectRevisions(FOO_KEY));
         assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
@@ -171,7 +171,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         storage.compact(2);
 
         assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
-        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
@@ -183,8 +183,8 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
     void testCompactRevision3() {
         storage.compact(3);
 
-        assertEquals(List.of(5), collectRevisions(FOO_KEY));
-        assertEquals(List.of(5), collectRevisions(BAR_KEY));
+        assertEquals(List.of(3, 5), collectRevisions(FOO_KEY));
+        assertEquals(List.of(2, 5), collectRevisions(BAR_KEY));
         assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
@@ -198,7 +198,7 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
         assertEquals(List.of(5), collectRevisions(FOO_KEY));
         assertEquals(List.of(5), collectRevisions(BAR_KEY));
-        assertEquals(List.of(6), collectRevisions(SOME_KEY));
+        assertEquals(List.of(4, 6), collectRevisions(SOME_KEY));
     }
 
     /**
@@ -508,6 +508,22 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
         storage.setCompactionRevision(6);
         assertThrowsCompactedExceptionForGetSingleValue(FOO_KEY, 4);
         assertDoesNotThrowCompactedExceptionForGetSingleValue(FOO_KEY, 5);
+    }
+
+    @Test
+    void testDoNotDeleteOnExactMatchCompaction() {
+        // FOO_KEY has revisions: [1, 3, 5].
+        storage.setCompactionRevision(3);
+
+        // Value is visible from the perspective of revision 4.
+        Entry entryBefore = storage.get(FOO_KEY, 4);
+        assertEquals(3, entryBefore.revision());
+
+        storage.compact(3);
+
+        // 4 is above 3, so reads from the perspective of revision 4 should keep working the same way.
+        Entry entryAfter = storage.get(FOO_KEY, 4);
+        assertEquals(entryBefore, entryAfter);
     }
 
     /**
