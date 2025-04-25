@@ -1205,7 +1205,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
         // Above, we have waited for data nodes in meta storage to become the same as in expectedDataNodesAfterTimersAreExpired map,
         // so we use the applied revision and check the value of data nodes in data nodes manager.
-        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(metaStorageManager.appliedRevision());
+        HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(keyValueStorage.revision());
         checkDataNodes(timestamp, expectedDataNodesAfterTimersAreExpired);
     }
 
