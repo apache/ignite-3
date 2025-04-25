@@ -248,16 +248,9 @@ public class WatchProcessor implements ManuallyCloseable {
         assert time != null;
 
         return enqueue(() -> {
-//            LOG.info("notifyWatchesInternal " + newRevision);
             List<Entry> filteredUpdatedEntries = updatedEntries.isEmpty() ? emptyList() : updatedEntries.stream()
                     .filter(WatchProcessor::isNotIdempotentCacheCommand)
                     .collect(toList());
-
-//            StringBuilder msg = new StringBuilder("Revision " + newRevision + "\n");
-//            for (Entry e : filteredUpdatedEntries) {
-//                msg.append(KeyValueStorageUtils.toUtf8String(e.key())).append(": ").append(e.tombstone() ? "tombstone" : "value").append("\n");
-//            }
-//            LOG.info(msg.toString());
 
             List<WatchAndEvents> watchAndEvents = collectWatchesAndEvents(filteredUpdatedEntries, newRevision);
 
@@ -353,12 +346,7 @@ public class WatchProcessor implements ManuallyCloseable {
                 assert newEntry.revision() == revision;
 
                 if (watch.matches(newKey, revision)) {
-                    Entry oldEntry;
-//                    try {
-                        oldEntry = entryReader.get(newKey, revision - 1);
-//                    } catch (CompactedException e) {
-//                        oldEntry = EntryImpl.empty(newKey);
-//                    }
+                    Entry oldEntry = entryReader.get(newKey, revision - 1);
 
                     if (events.isEmpty()) {
                         events = new ArrayList<>();
@@ -398,7 +386,6 @@ public class WatchProcessor implements ManuallyCloseable {
         assert time != null;
 
         enqueue(() -> {
-//            LOG.info("advanceSafeTimeInternal " + time);
             callback.run();
 
             watchEventHandlingCallback.onSafeTimeAdvanced(time);

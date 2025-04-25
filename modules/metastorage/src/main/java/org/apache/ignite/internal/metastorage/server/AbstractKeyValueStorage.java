@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.assertCompactionRevisionLessThanCurrent;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.isLastIndex;
 import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.maxRevisionIndex;
-import static org.apache.ignite.internal.metastorage.server.KeyValueStorageUtils.toUtf8String;
 import static org.apache.ignite.internal.rocksdb.RocksUtils.incrementPrefix;
 
 import java.util.ArrayList;
@@ -183,7 +182,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
     @Override
     public void setCompactionRevision(long revision) {
-        LOG.info("setCompactionRevision " + revision);
         assert revision >= 0 : revision;
 
         assertCompactionRevisionLessThanCurrent(revision, rev);
@@ -216,12 +214,8 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
                 compactionRevisionUpdateListeners.forEach(listener -> listener.onUpdate(compactionRevision));
             }, context.timestamp));
-        } else {
-//            synchronized (watchProcessorMutex) {
-                if (areWatchesStarted()) {
-                    watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
-                }
-//            }
+        } else if (areWatchesStarted()) {
+            watchProcessor.advanceSafeTime(() -> {}, context.timestamp);
         }
     }
 
@@ -314,7 +308,6 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
         }
     }
 
-    protected static final IgniteLogger LOG = Loggers.forClass(AbstractKeyValueStorage.class);
     protected Entry doGet(byte[] key, long revUpperBound) {
         assert revUpperBound >= 0 : revUpperBound;
 
@@ -329,18 +322,13 @@ public abstract class AbstractKeyValueStorage implements KeyValueStorage {
 
         long revision = keyRevisions[maxRevisionIndex];
 
-        try {
-            Value value = valueForOperation(key, revision);
+        Value value = valueForOperation(key, revision);
 
-            if (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone()) {
-                CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
-            }
-
-            return EntryImpl.toEntry(key, revision, value);
-        } catch (CompactedException e) {
-            LOG.info("all revisions=" + Arrays.toString(keyRevisions) + ", key= " + toUtf8String(key));
-            throw e;
+        if (!isLastIndex(keyRevisions, maxRevisionIndex) || value.tombstone()) {
+            CompactedException.throwIfRequestedRevisionLessThanOrEqualToCompacted(revUpperBound, compactionRevision);
         }
+
+        return EntryImpl.toEntry(key, revision, value);
     }
 
     private List<Entry> doGetAll(List<byte[]> keys, long revUpperBound) {
