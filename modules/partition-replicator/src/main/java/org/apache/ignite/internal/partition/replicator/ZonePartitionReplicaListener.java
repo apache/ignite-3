@@ -256,18 +256,16 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
 
                     ReplicaTableProcessor replicaProcessor = replicaProcessors.get(tableId);
 
-                    // TODO: this code is commented out for debugging purposes, uncomment after
-                    //  https://issues.apache.org/jira/browse/IGNITE-24991
-                    // if (replicaProcessor == null) {
-                    //     // Most of the times this condition should be false. This logging message is added in case a request got stuck
-                    //     // somewhere while being replicated and arrived on this node after the target table had been removed.
-                    //     // In this case we ignore the command, which should be safe to do, because the underlying storage was destroyed
-                    //     // anyway.
-                    //     LOG.warn("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
-                    //             request.toStringForLightLogging());
+                    if (replicaProcessor == null) {
+                        // Most of the times this condition should be false. This logging message is added in case a request got stuck
+                        // somewhere while being replicated and arrived on this node after the target table had been removed.
+                        // In this case we ignore the command, which should be safe to do, because the underlying storage was destroyed
+                        // anyway.
+                        LOG.warn("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
+                                request.toStringForLightLogging());
 
-                    //     return completedFuture(new ReplicaResult(null, null));
-                    // }
+                        return completedFuture(new ReplicaResult(null, null));
+                    }
 
                     return replicaProcessor.process(request, replicaPrimacy, senderId);
                 });
