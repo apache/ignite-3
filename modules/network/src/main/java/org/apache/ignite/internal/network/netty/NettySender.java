@@ -107,6 +107,8 @@ public class NettySender {
             return toCompletableFuture(channel.writeAndFlush(obj));
         }
 
+        TestMessageUtils.extendHistory(obj.networkMessage(), "send() " + triggerChannelRecreation);
+
         // Write in event loop to make sure that, if a ClosedSocketException happens, we recover from it without exiting the event loop.
         // We need this to avoid message reordering due to switching from old channel to a new one.
         if (channel.eventLoop().inEventLoop()) {
