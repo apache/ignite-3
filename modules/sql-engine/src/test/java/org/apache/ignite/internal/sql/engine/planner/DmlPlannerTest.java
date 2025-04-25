@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.sql.engine.util.Commons.cast;
+
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Predicate;
@@ -297,6 +299,8 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 kvModifyNodeWithExpressionsOfExpectedTypes
         );
 
+        Predicate<IgniteValues> valuesNodeWithProjectionsOfExpectedTypes = isInstanceOf(IgniteValues.class)
+                .and(project -> expressionsAsOfExpectedType.test(cast(project.getTuples().get(0))));
         Predicate<IgniteProject> projectNodeWithProjectionsOfExpectedTypes = isInstanceOf(IgniteProject.class)
                 .and(project -> expressionsAsOfExpectedType.test(project.getProjects()));
 
@@ -305,7 +309,7 @@ public class DmlPlannerTest extends AbstractPlannerTest {
                 schema,
                 hasChildThat(
                         isInstanceOf(IgniteUnionAll.class)
-                                .and(input(0, projectNodeWithProjectionsOfExpectedTypes))
+                                .and(input(0, valuesNodeWithProjectionsOfExpectedTypes))
                                 .and(input(1, projectNodeWithProjectionsOfExpectedTypes))
                 )
         );

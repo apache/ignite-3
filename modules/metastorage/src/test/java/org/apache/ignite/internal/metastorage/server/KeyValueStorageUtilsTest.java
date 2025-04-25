@@ -61,7 +61,7 @@ public class KeyValueStorageUtilsTest {
         assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 1, revision -> false));
 
         assertEquals(0, indexToCompact(keyRevisions, 2, revision -> true));
-        assertEquals(0, indexToCompact(keyRevisions, 2, revision -> false));
+        assertEquals(NOT_FOUND, indexToCompact(keyRevisions, 2, revision -> false));
 
         assertEquals(0, indexToCompact(keyRevisions, 3, revision -> true));
         assertEquals(0, indexToCompact(keyRevisions, 3, revision -> false));

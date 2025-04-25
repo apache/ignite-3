@@ -726,19 +726,17 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
      * </ul>
      *
      * @param columnType Column type.
-     * @param literalsOnly Flag indicating that the list of input expressions should contain only literals.
      */
     @ParameterizedTest(name = "type={0}, literals={1}")
     @MethodSource("rowSourceTestArgs")
-    public void testRowSource(ColumnType columnType, boolean literalsOnly) {
+    public void testRowSource(ColumnType columnType) {
         Object val = SqlTestUtils.generateValueByTypeWithMaxScalePrecisionForSql(columnType);
 
-        RexNode expr1 = SqlTestUtils.generateLiteralOrValueExpr(columnType, val);
+        RexNode expr1 = SqlTestUtils.generateLiteral(columnType, val);
         assertInstanceOf(RexLiteral.class, expr1);
 
-        Object val2 = literalsOnly ? 1 : randomUUID();
-        RexNode expr2 = SqlTestUtils.generateLiteralOrValueExpr(literalsOnly ? ColumnType.INT32 : ColumnType.UUID, val2);
-        assertEquals(literalsOnly, expr2 instanceof RexLiteral);
+        Object val2 = randomUUID();
+        RexNode expr2 = SqlTestUtils.generateLiteral(ColumnType.UUID, val2);
 
         ExpressionFactoryImpl<Object[]> expFactorySpy = Mockito.spy(expFactory);
 
@@ -877,8 +875,6 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
 
     private static List<Arguments> rowSourceTestArgs() {
         EnumSet<ColumnType> ignoredTypes = EnumSet.of(
-                // UUID literal doesn't exists.
-                ColumnType.UUID,
                 // TODO https://issues.apache.org/jira/browse/IGNITE-17373
                 ColumnType.DURATION,
                 ColumnType.PERIOD
@@ -891,8 +887,7 @@ public class ExpressionFactoryImplTest extends BaseIgniteAbstractTest {
                 continue;
             }
 
-            arguments.add(Arguments.of(columnType, true));
-            arguments.add(Arguments.of(columnType, false));
+            arguments.add(Arguments.of(columnType));
         }
 
         return arguments;
