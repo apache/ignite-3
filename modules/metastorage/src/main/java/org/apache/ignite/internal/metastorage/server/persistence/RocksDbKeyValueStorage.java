@@ -79,8 +79,6 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.apache.ignite.internal.logger.IgniteLogger;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -904,11 +902,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return doRange(keyFrom, keyTo, revUpperBound);
     }
 
-    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
-
     @Override
     public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
-        LOG.info("<$> Start watches for revision " + startRevision);
         assert startRevision > 0 : startRevision;
 
         long currentRevision;
@@ -926,17 +921,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 // If revision is not 0, we need to replay updates that match the existing data.
                 recoveryStatus.set(RecoveryStatus.IN_PROGRESS);
             }
-            LOG.info("<$> Set recovery status " + recoveryStatus + " for current revision " + currentRevision);
         }
 
         if (currentRevision != 0) {
-            LOG.info("<$> Started reading data from storage");
             Set<UpdateEntriesEvent> updateEntriesEvents = collectUpdateEntriesEventsFromStorage(startRevision, currentRevision);
             Set<UpdateOnlyRevisionEvent> updateOnlyRevisionEvents = collectUpdateRevisionEventsFromStorage(startRevision, currentRevision);
-            LOG.info("<$> Finished reading data from storage");
 
             synchronized (watchProcessorMutex) {
-                LOG.info("<$> Acquired lock and ready to change status the final time");
                 notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateEntriesEvents);
                 // Adds events for which there were no entries updates but the revision was updated.
                 notifyWatchProcessorEventsBeforeStartingWatches.addAll(updateOnlyRevisionEvents);
@@ -944,7 +935,6 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 drainNotifyWatchProcessorEventsBeforeStartingWatches();
 
                 recoveryStatus.set(RecoveryStatus.DONE);
-                LOG.info("<$> Status is DONE");
             }
         }
     }
@@ -1102,21 +1092,14 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Adds modified entries to the watch event queue.
      */
     private void queueWatchEvent() {
-//        synchronized (watchProcessorMutex) {
+        synchronized (watchProcessorMutex) {
             if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
-                LOG.info("<$> Ignoring queueWatchEvent for revision " + rev + " because watches haven't been started yet.");
                 // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
                 updatedEntries.clear();
             } else {
-//                try {
-//                    Thread.sleep(100);
-//                } catch (InterruptedException e) {
-//                }
-
-                LOG.info("<$> Enqueueing watch event for revision " + rev);
                 notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
             }
-//        }
+        }
     }
 
     private Set<UpdateEntriesEvent> collectUpdateEntriesEventsFromStorage(long lowerRevision, long upperRevision) {
