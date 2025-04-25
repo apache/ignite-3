@@ -117,7 +117,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
             return injectedValue;
         } else {
-            // Otherwise, the rendered named list will be a list of maps.
+            // Otherwise, the rendered named list will be a regular map.
             addToParent(key, innerMap);
 
             return innerMap;
