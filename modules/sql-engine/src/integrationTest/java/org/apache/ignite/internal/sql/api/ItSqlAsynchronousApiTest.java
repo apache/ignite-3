@@ -226,7 +226,6 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         waitForCondition(() ->txManager().pending() == 0, 5000);
     }
 
-
     private static class DrainResultSet implements Executable {
         CompletableFuture<? extends AsyncResultSet<SqlRow>> rs;
 
