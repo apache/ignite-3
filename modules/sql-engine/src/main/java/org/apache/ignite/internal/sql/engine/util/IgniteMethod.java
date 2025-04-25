@@ -130,6 +130,13 @@ public enum IgniteMethod {
      * See {@link IgniteSqlFunctions#unixTimeToString(int, int)}.
      */
     UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimeToString", int.class, int.class),
+
+    /** See {@link IgniteSqlFunctions#timestampStringToUnixDate(String)}. */
+    STRING_TO_TIMESTAMP(IgniteSqlFunctions.class, "timestampStringToUnixDate", String.class),
+
+    /** See {@link IgniteSqlFunctions#timeStringToUnixDate(String)}. */
+    STRING_TO_TIME(IgniteSqlFunctions.class, "timeStringToUnixDate", String.class),
+
     ;
 
     private final Method method;
