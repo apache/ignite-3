@@ -49,6 +49,7 @@ import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -680,8 +681,9 @@ class ItScaleCubeNetworkMessagingTest {
                 (message, senderParam, correlationId) -> {
                     if (message instanceof TestMessage) {
                         Thread currentThread = Thread.currentThread();
+                        TestMessage testMessage = (TestMessage) message;
                         receivedPayloads.add(
-                                new ReceivedPayload(((TestMessage) message).msg(), currentThread.getName(), currentThread.getId())
+                                new ReceivedPayload(testMessage.msg(), currentThread.getName(), currentThread.getId(), testMessage.map())
                         );
                     }
 
@@ -697,7 +699,7 @@ class ItScaleCubeNetworkMessagingTest {
     }
 
     private TestMessage testMessage(String message) {
-        return messageFactory.testMessage().msg(message).build();
+        return messageFactory.testMessage().msg(message).map(new HashMap<>()).build();
     }
 
     private static CompletableFuture<Void> send(TestMessage message, ClusterService sender, ClusterService receiver) {
@@ -1456,11 +1458,13 @@ class ItScaleCubeNetworkMessagingTest {
         private final @Nullable String message;
         private final String receiverThreadName;
         private final long receiverThreadId;
+        private final @Nullable Map<Integer, String> map;
 
-        private ReceivedPayload(@Nullable String message, String receiverThreadName, long receiverThreadId) {
+        private ReceivedPayload(@Nullable String message, String receiverThreadName, long receiverThreadId, @Nullable Map<Integer, String> map) {
             this.message = message;
             this.receiverThreadName = receiverThreadName;
             this.receiverThreadId = receiverThreadId;
+            this.map = map;
         }
 
         @Override
@@ -1469,6 +1473,7 @@ class ItScaleCubeNetworkMessagingTest {
                     "message='" + message + '\'' +
                     ", receiverThreadName='" + receiverThreadName + '\'' +
                     ", receiverThreadId=" + receiverThreadId +
+                    ", map=" + map +
                     '}';
         }
     }

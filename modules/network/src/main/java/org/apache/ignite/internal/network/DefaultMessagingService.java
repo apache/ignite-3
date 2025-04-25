@@ -33,6 +33,8 @@ import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import it.unimi.dsi.fastutil.ints.IntSet;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -77,6 +79,31 @@ import org.jetbrains.annotations.TestOnly;
 
 /** Default messaging service implementation. */
 public class DefaultMessagingService extends AbstractMessagingService {
+    private static final Class<?> testMessageClass;
+    private static final Method mapMethod;
+
+    static {
+        Class<?> clazz;
+        try {
+            clazz = Class.forName("org.apache.ignite.internal.network.messages.TestMessage");
+        } catch (ClassNotFoundException e) {
+            clazz = null;
+        }
+        testMessageClass = clazz;
+
+        if (clazz != null) {
+            Method method;
+            try {
+                method = clazz.getMethod("map");
+            } catch (NoSuchMethodException e) {
+                method = null;
+            }
+            mapMethod = method;
+        } else {
+            mapMethod = null;
+        }
+    }
+
     private static final IgniteLogger LOG = Loggers.forClass(DefaultMessagingService.class);
 
     /** Network messages factory. */
@@ -433,6 +460,22 @@ public class DefaultMessagingService extends AbstractMessagingService {
 
         HandlerContext firstHandlerContext = handlerContexts.next();
         Executor firstHandlerExecutor = chooseExecutorFor(payload, inNetworkObject, firstHandlerContext.executorChooser());
+
+        if (testMessageClass != null) {
+            if (testMessageClass.isInstance(payload)) {
+                Map<Integer, String> map;
+                try {
+                    map = (Map<Integer, String>) mapMethod.invoke(payload);
+                } catch (IllegalAccessException | InvocationTargetException e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (map != null) {
+                    Thread currentThread = Thread.currentThread();
+                    map.put(444, currentThread.getName() + "/" + currentThread.getId());
+                }
+            }
+        }
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {
