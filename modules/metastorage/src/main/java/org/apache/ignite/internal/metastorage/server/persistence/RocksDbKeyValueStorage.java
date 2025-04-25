@@ -1092,11 +1092,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Adds modified entries to the watch event queue.
      */
     private void queueWatchEvent() {
-        if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
-            // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
-            updatedEntries.clear();
-        } else {
-            notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
+        synchronized (watchProcessorMutex) {
+            if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
+                // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
+                updatedEntries.clear();
+            } else {
+                notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
+            }
         }
     }
 
