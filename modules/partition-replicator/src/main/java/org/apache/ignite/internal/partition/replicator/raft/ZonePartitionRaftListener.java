@@ -304,7 +304,7 @@ public class ZonePartitionRaftListener implements RaftGroupListener {
             // while being replicated and arrived on this node after the target table had been removed. In this case we ignore the
             // command, which should be safe to do, because the underlying storage was destroyed anyway.
             LOG.warn("Table processor for table ID {} not found. Command will be ignored: {}",
-            tableId, command.toStringForLightLogging());
+                    tableId, command.toStringForLightLogging());
 
             return EMPTY_APPLIED_RESULT;
         }
