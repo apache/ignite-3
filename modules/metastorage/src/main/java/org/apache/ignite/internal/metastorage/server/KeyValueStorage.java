@@ -320,7 +320,8 @@ public interface KeyValueStorage extends ManuallyCloseable {
      * <ul>
      *     <li>Key {@code "foo"} with versions that have revisions {@code (1, 3, 5)} - {@code "foo" [1, 3, 5]}.</li>
      *     <li>
-     *         Key {@code "bar"} with versions that have revisions {@code (1, 2, 5)} the last revision is a tombstone - {@code "bar" [1, 2, 5 tomb]}.
+     *         Key {@code "bar"} with versions that have revisions {@code (1, 2, 5)} the last revision is a tombstone -
+     *         {@code "bar" [1, 2, 5 tomb]}.
      *     </li>
      * </ul>
      *
