@@ -59,6 +59,8 @@ import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -73,6 +75,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(MockitoExtension.class)
+@ExtendWith(FailureManagerExtension.class)
 class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     private final ClusterStateStorage storage = spy(TestClusterStateStorage.initializedClusterStateStorage());
 
@@ -361,6 +364,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void onAppearedListenersExceptionsDoNotBreakNotification() {
         LogicalTopologyEventListener secondListener = mock(LogicalTopologyEventListener.class);
 
@@ -375,6 +379,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void onAppearedListenerErrorIsRethrown() {
         doThrow(new TestError()).when(listener).onNodeJoined(any(), any());
 
@@ -385,6 +390,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void onDisappearedListenersExceptionsDoNotBreakNotification() {
         LogicalTopologyEventListener secondListener = mock(LogicalTopologyEventListener.class);
 
@@ -402,6 +408,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void onDisappearedListenerErrorIsRethrown() {
         doThrow(new TestError()).when(listener).onNodeLeft(any(), any());
 
@@ -413,6 +420,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void onTopologyLeapListenersExceptionsDoNotBreakNotification() {
         LogicalTopologyEventListener secondListener = mock(LogicalTopologyEventListener.class);
 
@@ -427,6 +435,7 @@ class LogicalTopologyImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     void onTopologyLeapListenerErrorIsRethrown() {
         doThrow(new TestError()).when(listener).onTopologyLeap(any());
 

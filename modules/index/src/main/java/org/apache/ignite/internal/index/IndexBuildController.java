@@ -236,7 +236,7 @@ class IndexBuildController implements ManuallyCloseable {
 
             return CompletableFutures.allOf(startBuildIndexFutures);
         }).whenComplete((res, ex) -> {
-            if (ex != null) {
+            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                 failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
             }
         });

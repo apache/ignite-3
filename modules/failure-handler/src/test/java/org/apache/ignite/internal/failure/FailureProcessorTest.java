@@ -37,6 +37,8 @@ import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -44,11 +46,13 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link FailureManager}.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(FailureManagerExtension.class)
 class FailureProcessorTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(value = "mock: { oomBufferSizeBytes=0, handler {type=noop} }")
     protected static FailureProcessorConfiguration failureProcessorConfiguration;
 
     @Test
+    @MuteFailureManagerLogging // Failure is expected.
     public void testFailureProcessing() {
         FailureHandler handler = mock(FailureHandler.class);
 

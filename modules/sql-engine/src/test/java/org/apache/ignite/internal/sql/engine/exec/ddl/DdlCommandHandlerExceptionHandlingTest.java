@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogCommand;
@@ -39,9 +40,12 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.hamcrest.core.Is;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +54,9 @@ import org.junit.jupiter.api.extension.ExtendWith;
 
 /** Tests distribution zone command exception handling. */
 @ExtendWith(ExecutorServiceExtension.class)
+@ExtendWith(FailureManagerExtension.class)
+// TODO: https://issues.apache.org/jira/browse/IGNITE-25222 - unmute.
+@MuteFailureManagerLogging
 public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     private DdlCommandHandler commandHandler;
 
@@ -75,7 +82,10 @@ public class DdlCommandHandlerExceptionHandlingTest extends IgniteAbstractTest {
     }
 
     @AfterEach
-    public void after() {
+    public void after() throws Exception {
+        commandHandler.stop();
+
+        List.of(clockWaiter, catalogManager).forEach(IgniteComponent::beforeNodeStop);
         assertThat(stopAsync(new ComponentContext(), clockWaiter, catalogManager), willCompleteSuccessfully());
     }
 

@@ -53,7 +53,6 @@ import org.apache.ignite.internal.sql.engine.framework.ArrayRowHandler;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
@@ -464,8 +463,7 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
             testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(dayTime), INT64));
         }
 
-        // IgniteCustomTypes
-        testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createCustomType(UuidType.NAME), UUID));
+        testCaseList.add(new RelToExecTestCase(SqlTypeName.UUID, UUID));
 
         // Add test cases for nullable variants
         for (RelToExecTestCase testCase : new ArrayList<>(testCaseList)) {

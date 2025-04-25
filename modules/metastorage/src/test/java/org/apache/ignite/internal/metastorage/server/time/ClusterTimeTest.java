@@ -54,7 +54,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ClusterTimeTest extends BaseIgniteAbstractTest {
     private final HybridClock clock = new HybridClockImpl();
 
-    private final ClusterTimeImpl clusterTime = new ClusterTimeImpl("foo", new IgniteSpinBusyLock(), clock);
+    private final ClusterTimeImpl clusterTime = new ClusterTimeImpl("ClusterTimeTest", new IgniteSpinBusyLock(), clock);
 
     @AfterEach
     void tearDown() {
