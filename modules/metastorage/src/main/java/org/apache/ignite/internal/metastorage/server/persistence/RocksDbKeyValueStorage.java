@@ -79,6 +79,8 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -902,8 +904,11 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return doRange(keyFrom, keyTo, revUpperBound);
     }
 
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
+
     @Override
     public void startWatches(long startRevision, WatchEventHandlingCallback callback) {
+        LOG.info("Start watches for revision " + startRevision);
         assert startRevision > 0 : startRevision;
 
         long currentRevision;
@@ -1092,12 +1097,16 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Adds modified entries to the watch event queue.
      */
     private void queueWatchEvent() {
-        if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
-            // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
-            updatedEntries.clear();
-        } else {
-            notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
-        }
+//        synchronized (watchProcessorMutex) {
+            if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
+                LOG.info("Ignoring queueWatchEvent for revision " + rev + " because watches haven't been started yet.");
+                // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
+                updatedEntries.clear();
+            } else {
+                LOG.info("Enqueueing watch event for revision " + rev);
+                notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
+            }
+//        }
     }
 
     private Set<UpdateEntriesEvent> collectUpdateEntriesEventsFromStorage(long lowerRevision, long upperRevision) {
