@@ -39,6 +39,7 @@ import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -56,6 +57,8 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
 
     CatalogManagerImpl catalogManager;
 
+    StandaloneMetaStorageManager metastore;
+
     @BeforeEach
     void setUp() {
         clockWaiter = new ClockWaiter("test-node", clock, scheduledExecutor);
@@ -65,9 +68,14 @@ abstract class AbstractCatalogCompactionTest extends BaseIgniteAbstractTest {
         catalogManager = spy(createCatalogManager("test-node"));
     }
 
+    @AfterEach
+    void tearDown() {
+        assertThat(metastore.stopAsync(), willCompleteSuccessfully());
+    }
+
     /** Creates catalog manager. */
     private CatalogManagerImpl createCatalogManager(String nodeName) {
-        StandaloneMetaStorageManager metastore = StandaloneMetaStorageManager.create(nodeName);
+        metastore = StandaloneMetaStorageManager.create(nodeName);
         FailureProcessor failureProcessor = new NoOpFailureManager();
         CatalogManagerImpl manager = new CatalogManagerImpl(
                 new UpdateLogImpl(metastore, failureProcessor),
