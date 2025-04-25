@@ -95,7 +95,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.metastorage.server.If;
 import org.apache.ignite.internal.metastorage.server.raft.MetaStorageWriteHandler;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
-import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
@@ -190,16 +189,9 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
      */
     private final ConcurrentHashMap<Integer, CompletableFuture<HybridTimestamp>> dropZoneTimestamps = new ConcurrentHashMap<>();
 
-    private PendingComparableValuesTracker<Long, Void> revisionsTracker;
-
     @BeforeEach
     void beforeEach() {
-        revisionsTracker = new PendingComparableValuesTracker<>(0L);
         metaStorageManager.registerPrefixWatch(zonesLogicalTopologyPrefix(), createMetastorageTopologyListener());
-        metaStorageManager.registerRevisionUpdateListener(rev -> {
-            revisionsTracker.update(rev, null);
-            return nullCompletedFuture();
-        });
         metaStorageManager.registerPrefixWatch(
                 new ByteArray(DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX.getBytes(UTF_8)),
                 createMetastorageDataNodesListener()
