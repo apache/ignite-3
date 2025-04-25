@@ -36,25 +36,37 @@ public class KeyValueStorageUtils {
      * decremented by 1.</p>
      *
      * @param keyRevisions Metastorage key revisions in ascending order.
-     * @param compactionRevisionInclusive Revision up to which you need to compact (inclusive).
+     * @param compactionRevision Revision up to which you need to compact (inclusive).
      * @param isTombstone Predicate to test whether a key revision is a tombstone.
      */
-    public static int indexToCompact(long[] keyRevisions, long compactionRevisionInclusive, LongPredicate isTombstone) {
-        int i = binarySearch(keyRevisions, compactionRevisionInclusive);
+    public static int indexToCompact(long[] keyRevisions, long compactionRevision, LongPredicate isTombstone) {
+        int i = binarySearch(keyRevisions, compactionRevision);
 
         if (i < 0) {
-            if (i == -1) {
+            i = ~i;
+
+            if (i == 0) {
                 return NOT_FOUND;
             }
 
-            i = -(i + 2);
+            i--;
         }
 
-        if (i == keyRevisions.length - 1 && !isTombstone.test(keyRevisions[i])) {
-            i = i == 0 ? NOT_FOUND : i - 1;
+        // If revision for "i" points to a tombstone, it can be safely deleted immediately.
+        if (isTombstone.test(keyRevisions[i])) {
+            return i;
         }
 
-        return i;
+        // Revision for "i" does not point to a tombstone. Next revision for the key is "compactionRevision + 1", which means that there are
+        // no revisions strictly between "next" and revision for "i". In that case "keyRevision[i]" can be deleted, because it can't
+        // possibly be read for any read with a revision above "compactionRevision".
+        if (i != keyRevisions.length - 1 && keyRevisions[i + 1] == compactionRevision + 1) {
+            return i;
+        }
+
+        // In this case, revision "keyRevision[i]" can be read from a point of view of revision "keyRevision[i] + 1", and thus we must only
+        // delete a revision previous to "keyRevision[i]".
+        return i == 0 ? NOT_FOUND : i - 1;
     }
 
     /**
