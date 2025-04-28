@@ -17,7 +17,9 @@
 
 package org.apache.ignite.internal.rest.recovery;
 
+import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -30,17 +32,27 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.rest.ResourceHolder;
 import org.apache.ignite.internal.rest.api.recovery.DisasterRecoveryApi;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.GlobalPartitionStatesResponse;
+import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStateResponse;
+import org.apache.ignite.internal.rest.api.recovery.GlobalZonePartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStateResponse;
 import org.apache.ignite.internal.rest.api.recovery.LocalPartitionStatesResponse;
+import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStateResponse;
+import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
+import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.apache.ignite.internal.rest.exception.handler.IgniteInternalExceptionHandler;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
+import org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState;
+import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.table.QualifiedName;
@@ -68,7 +80,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                         nodeNames.orElse(Set.of()),
                         partitionIds.orElse(Set.of())
                 )
-                .thenApply(DisasterRecoveryController::convertLocalStates);
+                .thenApply(DisasterRecoveryController::convertLocalTableStates);
     }
 
     @Override
@@ -97,7 +109,7 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
     @Override
     public CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command) {
         QualifiedName tableName = QualifiedName.parse(command.tableName());
-        return disasterRecoveryManager.restartPartitions(
+        return disasterRecoveryManager.restartTablePartitions(
                 command.nodeNames(),
                 command.zoneName(),
                 tableName.schemaName(),
@@ -106,7 +118,49 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         );
     }
 
-    private static LocalPartitionStatesResponse convertLocalStates(Map<TablePartitionId, LocalTablePartitionStateByNode> localStates) {
+    @Override
+    public CompletableFuture<Void> resetZonePartitions(ResetZonePartitionsRequest command) {
+        checkColocationEnabled();
+
+        return disasterRecoveryManager.resetPartitions(command.zoneName(), command.partitionIds());
+    }
+
+    @Override
+    public CompletableFuture<Void> restartZonePartitions(RestartZonePartitionsRequest command) {
+        checkColocationEnabled();
+
+        return disasterRecoveryManager.restartPartitions(command.nodeNames(), command.zoneName(), command.partitionIds());
+    }
+
+    @Override
+    public CompletableFuture<LocalZonePartitionStatesResponse> getZoneLocalPartitionStates(
+            Optional<Set<String>> zoneNames,
+            Optional<Set<String>> nodeNames,
+            Optional<Set<Integer>> partitionIds
+    ) {
+        checkColocationEnabled();
+
+        return disasterRecoveryManager.localPartitionStates(
+                zoneNames.orElse(emptySet()),
+                nodeNames.orElse(emptySet()),
+                partitionIds.orElse(emptySet())
+        ).thenApply(DisasterRecoveryController::convertLocalZoneStates);
+    }
+
+    @Override
+    public CompletableFuture<GlobalZonePartitionStatesResponse> getZoneGlobalPartitionStates(
+            Optional<Set<String>> zoneNames,
+            Optional<Set<Integer>> partitionIds
+    ) {
+        checkColocationEnabled();
+
+        return disasterRecoveryManager.globalPartitionStates(
+                zoneNames.orElse(emptySet()),
+                partitionIds.orElse(emptySet())
+        ).thenApply(DisasterRecoveryController::convertGlobalZoneStates);
+    }
+
+    private static LocalPartitionStatesResponse convertLocalTableStates(Map<TablePartitionId, LocalTablePartitionStateByNode> localStates) {
         List<LocalPartitionStateResponse> states = new ArrayList<>();
 
         for (LocalTablePartitionStateByNode map : localStates.values()) {
@@ -136,6 +190,31 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         return new LocalPartitionStatesResponse(states);
     }
 
+    private static LocalZonePartitionStatesResponse convertLocalZoneStates(Map<ZonePartitionId, LocalPartitionStateByNode> localStates) {
+        List<LocalZonePartitionStateResponse> states = new ArrayList<>();
+
+        for (LocalPartitionStateByNode map : localStates.values()) {
+            for (Entry<String, LocalPartitionState> entry : map.entrySet()) {
+                String nodeName = entry.getKey();
+                LocalPartitionState state = entry.getValue();
+
+                states.add(new LocalZonePartitionStateResponse(
+                        nodeName,
+                        state.zoneName,
+                        state.partitionId,
+                        state.state.name(),
+                        state.estimatedRows
+                ));
+            }
+        }
+
+        // Sort the output conveniently.
+        states.sort(comparing(LocalZonePartitionStateResponse::partitionId)
+                .thenComparing(LocalZonePartitionStateResponse::nodeName));
+
+        return new LocalZonePartitionStatesResponse(states);
+    }
+
     private static GlobalPartitionStatesResponse convertGlobalStates(Map<TablePartitionId, GlobalTablePartitionState> globalStates) {
         List<GlobalPartitionStateResponse> states = new ArrayList<>();
 
@@ -156,6 +235,29 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
                 .thenComparingInt(GlobalPartitionStateResponse::partitionId));
 
         return new GlobalPartitionStatesResponse(states);
+    }
+
+    private static GlobalZonePartitionStatesResponse convertGlobalZoneStates(Map<ZonePartitionId, GlobalPartitionState> globalStates) {
+        List<GlobalZonePartitionStateResponse> states = new ArrayList<>();
+
+        for (GlobalPartitionState state : globalStates.values()) {
+            states.add(new GlobalZonePartitionStateResponse(
+                    state.zoneName,
+                    state.partitionId,
+                    state.state.name()
+            ));
+        }
+
+        // Sort the output conveniently.
+        states.sort(comparing(GlobalZonePartitionStateResponse::partitionId));
+
+        return new GlobalZonePartitionStatesResponse(states);
+    }
+
+    private static void checkColocationEnabled() {
+        if (!enabledColocation()) {
+            throw new UnsupportedOperationException("This method is unsupported when colocation is disabled.");
+        }
     }
 
     @Override
