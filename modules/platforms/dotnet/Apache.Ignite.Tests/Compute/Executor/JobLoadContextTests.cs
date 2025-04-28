@@ -38,6 +38,7 @@ public class JobLoadContextTests
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var jobTypeName = typeof(AddOneJob).AssemblyQualifiedName!;
         var jobWrapper = jobLoadCtx.GetOrCreateJobWrapper(jobTypeName);
+
         using var argBuf = PackArg(1);
         using var resBuf = new PooledArrayBuffer();
 
@@ -52,9 +53,12 @@ public class JobLoadContextTests
         using var buffer = new PooledArrayBuffer();
         var writer = buffer.MessageWriter;
         ComputePacker.PackArgOrResult(ref writer, arg, null);
-        var arr = buffer.GetWrittenMemory().ToArray();
 
-        return new PooledBuffer(arr, 0, arr.Length);
+        var mem = buffer.GetWrittenMemory();
+        var arr = ByteArrayPool.Rent(mem.Length);
+        mem.Span.CopyTo(arr);
+
+        return new PooledBuffer(arr, 0, mem.Length);
     }
 
     private static T UnpackRes<T>(PooledArrayBuffer buf)
