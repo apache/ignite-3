@@ -48,7 +48,7 @@ public class TestConfigurationChanger extends ConfigurationChanger {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
-        super(noOpListener(), rootKeys, storage, configurationValidator);
+        super(noOpListener(), rootKeys, storage, configurationValidator, change -> {}); // TODO Param
 
         this.generator = generator;
     }

@@ -95,7 +95,8 @@ public class InternalIdTest {
                 List.of(InternalIdParentConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

@@ -93,6 +93,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Configuration validator. */
     private final ConfigurationValidator configurationValidator;
+    private final ConfigurationMigrator migrator;
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
@@ -203,19 +204,23 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param rootKeys Configuration root keys.
      * @param storage Configuration storage.
      * @param configurationValidator Configuration validator.
+     * @param migrator Configuration migrator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
             ConfigurationUpdateListener configurationUpdateListener,
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
-            ConfigurationValidator configurationValidator) {
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator
+    ) {
         checkConfigurationType(rootKeys, storage);
 
         this.configurationUpdateListener = configurationUpdateListener;
         this.storage = storage;
         this.configurationValidator = configurationValidator;
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
+        this.migrator = migrator;
     }
 
     /**
@@ -610,6 +615,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             src.descend(changes);
 
             addDefaults(changes);
+
+            migrator.migrate(new SuperRootChangeImpl(changes));
 
             Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
             if (allChanges.isEmpty() && onStartup) {

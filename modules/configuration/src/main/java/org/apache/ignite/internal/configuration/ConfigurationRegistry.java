@@ -68,6 +68,7 @@ public class ConfigurationRegistry implements IgniteComponent {
      * @param storage                     Configuration storage.
      * @param generator                   Configuration tree generator.
      * @param configurationValidator      Configuration validator.
+     * @param migrator                    Configuration migrator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
      *                                  extensions are not valid.
      */
@@ -75,11 +76,12 @@ public class ConfigurationRegistry implements IgniteComponent {
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
-            ConfigurationValidator configurationValidator
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
+        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator, migrator) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());

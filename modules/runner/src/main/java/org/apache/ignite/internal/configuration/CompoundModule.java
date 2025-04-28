@@ -84,4 +84,9 @@ public class CompoundModule implements ConfigurationModule {
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         modules.forEach(module -> module.patchConfigurationWithDynamicDefaults(rootChange));
     }
+
+    @Override
+    public void migrateDeprecatedConfigurations(SuperRootChange rootChange) {
+        modules.forEach(module -> module.migrateDeprecatedConfigurations(rootChange));
+    }
 }

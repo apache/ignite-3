@@ -117,4 +117,8 @@ public interface ConfigurationModule {
     default void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
         // No-op.
     }
+
+    default void migrateDeprecatedConfigurations(SuperRootChange rootChange) {
+        // No-op.
+    }
 }

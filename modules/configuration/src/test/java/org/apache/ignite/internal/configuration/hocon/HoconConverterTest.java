@@ -232,7 +232,8 @@ public class HoconConverterTest {
                                 HoconSecondPolymorphicInstanceConfigurationSchema.class
                         )
                 ),
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
