@@ -955,6 +955,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
             compactAuxiliaryMappings(revision, statHolder);
 
+            statHolder.onFinished();
+
             LOG.info("Metastore compaction completed successfully. [" + statHolder.info() + "]");
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
@@ -1414,7 +1416,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
 
         if (!busyLock.enterBusy()) {
-            statHolder.onStopped();
+            statHolder.onCancelled();
 
             return;
         }
@@ -1431,7 +1433,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                     batchKeys.clear();
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
                         if (stopCompaction.get()) {
-                            statHolder.onStopped();
+                            statHolder.onCancelled();
 
                             return;
                         }
@@ -1462,7 +1464,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
 
         if (!busyLock.enterBusy()) {
-            statHolder.onStopped();
+            statHolder.onCancelled();
 
             return;
         }
@@ -1475,7 +1477,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 try (WriteBatch batch = new WriteBatch()) {
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
                         if (stopCompaction.get()) {
-                            statHolder.onStopped();
+                            statHolder.onCancelled();
 
                             return;
                         }

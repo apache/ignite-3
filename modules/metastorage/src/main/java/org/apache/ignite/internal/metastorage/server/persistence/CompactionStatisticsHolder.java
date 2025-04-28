@@ -27,9 +27,11 @@ class CompactionStatisticsHolder {
     private final long revision;
     /** {@link System#nanoTime()} at the moment of compaction start. */
     private final long startNanoTime;
+    /** {@link System#nanoTime()} at the moment of compaction completion. */
+    private long finishNanoTime;
 
     /** Whether compaction has been stopped in the process. */
-    private boolean stopped;
+    private boolean cancelled;
 
     /** Total number of keys read from rocksb iterator.*/
     private int totalKeysScanned;
@@ -74,9 +76,9 @@ class CompactionStatisticsHolder {
     }
 
     String info() {
-        return "stopped=" + stopped
+        return "cancelled=" + cancelled
                 + ", compactedRevision=" + revision
-                + ", duration=" + TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanoTime) + "ms"
+                + ", duration=" + TimeUnit.NANOSECONDS.toMillis(finishNanoTime - startNanoTime) + "ms"
                 + ", batchesCommitted=" + batchesCommitted
                 + ", batchesAborted=" + batchesAborted
                 + ", keysScanned=" + totalKeysScanned
@@ -89,8 +91,12 @@ class CompactionStatisticsHolder {
                 + ", maxLockHold=" + TimeUnit.NANOSECONDS.toMicros(maxLockHoldNanos) + "us";
     }
 
-    void onStopped() {
-        stopped = true;
+    void onCancelled() {
+        cancelled = true;
+    }
+
+    void onFinished() {
+        finishNanoTime = System.nanoTime();
     }
 
     void onBatchCommitted() {
