@@ -130,9 +130,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
             return null;
         }
 
-        Map<String, Object> map = newHashMap(node.size());
+        Map<String, Object> innerMap = newHashMap(node.size());
 
-        deque.push(map);
+        deque.push(innerMap);
 
         for (String subkey : node.namedListKeys()) {
             InnerNode innerNode = node.getInnerNode(subkey);
@@ -142,9 +142,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
         deque.pop();
 
-        addToParent(key, map);
+        addToParent(key, innerMap);
 
-        return map;
+        return innerMap;
     }
 
     /**
