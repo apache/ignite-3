@@ -17,9 +17,64 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Runtime.Loader;
+
 /// <summary>
 /// Loader for deployment units in Apache Ignite compute execution context.
 /// </summary>
 internal sealed class DeploymentUnitLoader
 {
+    private readonly ConcurrentDictionary<DeploymentUnitPaths, AssemblyLoadContext> _contexts = new();
+
+    /// <summary>
+    /// Gets the assembly load context for the specified deployment unit paths.
+    /// </summary>
+    /// <param name="paths">Deployment unit paths.</param>
+    /// <returns>Assembly load context.</returns>
+    public AssemblyLoadContext GetOrCreateLoadContext(DeploymentUnitPaths paths) =>
+        _contexts.GetOrAdd(paths, LoadInternal);
+
+    /// <summary>
+    /// Unloads the assembly load context for the specified deployment unit paths.
+    /// </summary>
+    /// <param name="paths">Paths.</param>
+    /// <returns>True if the context was unloaded, false if it was not found.</returns>
+    public bool Unload(DeploymentUnitPaths paths)
+    {
+        if (!_contexts.TryRemove(paths, out var ctx))
+        {
+            return false;
+        }
+
+        ctx.Unload();
+        return true;
+    }
+
+    private static AssemblyLoadContext LoadInternal(DeploymentUnitPaths paths)
+    {
+        var asmCtx = new AssemblyLoadContext(name: null, isCollectible: true);
+
+        asmCtx.Resolving += (ctx, asmName) => ResolveAssembly(paths.Paths, asmName, ctx);
+
+        return asmCtx;
+    }
+
+    private static Assembly? ResolveAssembly(IReadOnlyList<string> paths, AssemblyName name, AssemblyLoadContext ctx)
+    {
+        foreach (var path in paths)
+        {
+            var dllName = $"{name.Name}.dll";
+            var assemblyPath = System.IO.Path.Combine(path, dllName);
+
+            if (System.IO.File.Exists(assemblyPath))
+            {
+                return ctx.LoadFromAssemblyPath(assemblyPath);
+            }
+        }
+
+        return null;
+    }
 }
