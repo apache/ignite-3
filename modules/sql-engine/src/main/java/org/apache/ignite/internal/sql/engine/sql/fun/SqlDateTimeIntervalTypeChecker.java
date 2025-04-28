@@ -47,21 +47,10 @@ import org.apache.calcite.sql.type.SqlTypeUtil;
 public class SqlDateTimeIntervalTypeChecker implements SqlOperandTypeChecker {
 
     private static final Map<SqlTypeName, Set<SqlTypeName>> MATCHING_INTERVAL_TYPES = Map.of(
-            SqlTypeName.TIME, Set.of(
-                    SqlTypeName.INTERVAL_DAY,
-                    SqlTypeName.INTERVAL_DAY_HOUR,
-                    SqlTypeName.INTERVAL_DAY_MINUTE,
-                    SqlTypeName.INTERVAL_DAY_SECOND,
-                    SqlTypeName.INTERVAL_HOUR,
-                    SqlTypeName.INTERVAL_HOUR_MINUTE,
-                    SqlTypeName.INTERVAL_HOUR_SECOND,
-                    SqlTypeName.INTERVAL_MINUTE,
-                    SqlTypeName.INTERVAL_MINUTE_SECOND,
-                    SqlTypeName.INTERVAL_SECOND
-            ),
-            SqlTypeName.DATE, Set.copyOf(SqlTypeName.INTERVAL_TYPES),
-            SqlTypeName.TIMESTAMP, Set.copyOf(SqlTypeName.INTERVAL_TYPES),
-            SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, Set.copyOf(SqlTypeName.INTERVAL_TYPES)
+            SqlTypeName.TIME, SqlTypeName.DAY_INTERVAL_TYPES,
+            SqlTypeName.DATE, SqlTypeName.INTERVAL_TYPES,
+            SqlTypeName.TIMESTAMP, SqlTypeName.INTERVAL_TYPES,
+            SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE, SqlTypeName.INTERVAL_TYPES
     );
 
     private static final SqlOperandCountRange TWO_OPERANDS = SqlOperandCountRanges.of(2);
