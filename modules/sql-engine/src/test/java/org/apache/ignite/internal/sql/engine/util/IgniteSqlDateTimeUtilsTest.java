@@ -83,6 +83,8 @@ public class IgniteSqlDateTimeUtilsTest {
     @ParameterizedTest
     @CsvSource({
             "00:00:00,            0",
+            "00:00,               0",
+            "00:01,               60000",
             "00:00:00.,           0",
             "00:00:00.1,          100",
             "00:00:00.12,         120",
@@ -102,11 +104,19 @@ public class IgniteSqlDateTimeUtilsTest {
 
     @ParameterizedTest
     @ValueSource(strings = {
+            "0",
             "00",
-            "00:00",
+            "00.0",
+            "00.00",
+            "00:0",
+            "00:00.1",
             "0:00:00",
             "00:0:00",
             "00:00:0",
+            "00: 00",
+            "00 :00",
+            "00:00: 00",
+            "00:00 :00",
             "0a:00:00",
             "00:0a:00",
             "00:00:0a",
@@ -161,11 +171,20 @@ public class IgniteSqlDateTimeUtilsTest {
 
     @ParameterizedTest
     @CsvSource(ignoreLeadingAndTrailingWhitespace = false, value = {
+            "1970-01-01 0,TIME",
             "1970-01-01 00,TIME",
-            "1970-01-01 00:00,TIME",
+            "1970-01-01 00.0,TIME",
+            "1970-01-01 00.00,TIME",
+            "1970-01-01 00:0,TIME",
+            "1970-01-01 00:00.1,TIME",
+            "1970-01-01 00:00.11,TIME",
             "1970-01-01 0:00:00,TIME",
             "1970-01-01 0:0:00,TIME",
             "1970-01-01 00:00:0,TIME",
+            "1970-01-01 00: 00,TIME",
+            "1970-01-01 00 :00,TIME",
+            "1970-01-01 00:00: 00,TIME",
+            "1970-01-01 00:00 :00,TIME",
             "1970-01-01 0a:00:00,TIME",
             "1970-01-01 00:0a:00,TIME",
             "1970-01-01 00:00:0a,TIME",
@@ -200,6 +219,10 @@ public class IgniteSqlDateTimeUtilsTest {
             "0001-01-0a 00:00:00,DATE",
             "0001--01-01 00:00:00,DATE",
             "0001-01--01 00:00:00,DATE",
+            "0001- 01-01 00:00:00,DATE",
+            "0001 -01-01 00:00:00,DATE",
+            "0001-01 -01 00:00:00,DATE",
+            "0001-01- 01 00:00:00,DATE",
     })
     public void testInvalidTimeStampStringToUnixDate(String timestampString, String expectedPart) {
         IgniteTestUtils.assertThrows(

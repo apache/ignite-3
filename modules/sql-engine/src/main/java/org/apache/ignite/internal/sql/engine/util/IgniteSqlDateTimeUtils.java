@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteSqlDateTimeUtils {
     /** Regex for time, HH:MM:SS. */
     private static final Pattern ISO_TIME_PATTERN =
-            Pattern.compile("^([0-2]\\d):[0-5]\\d:[0-5]\\d(\\.\\d*)*$");
+            Pattern.compile("^([0-2]\\d):[0-5]\\d(:[0-5]\\d(\\.\\d*)?)?$");
 
     /** Regex for date, YYYY-MM-DD. */
     private static final Pattern ISO_DATE_PATTERN =
