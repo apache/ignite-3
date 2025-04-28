@@ -34,6 +34,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
+import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -42,6 +43,7 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SuperRoot;
+import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
 import org.apache.ignite.internal.configuration.TestConfigurationChanger;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.storage.Data;
@@ -53,6 +55,7 @@ import org.apache.ignite.internal.configuration.tree.TraversableTreeNodeTest.Chi
 import org.apache.ignite.internal.configuration.tree.TraversableTreeNodeTest.NamedElementConfigurationSchema;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -63,7 +66,7 @@ import org.mockito.invocation.InvocationOnMock;
 /**
  * Tests for configuration schemas with {@link Deprecated} properties.
  */
-public class DeprecatedConfigurationTest {
+public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     private static final ConfigurationType TEST_CONFIGURATION_TYPE = ConfigurationType.LOCAL;
 
     private ConfigurationStorage storage;
@@ -155,8 +158,7 @@ public class DeprecatedConfigurationTest {
             assertEquals(
                     mapWithNulls(
                             "root.intValue", 10,
-                            "root.child.my-int-cfg", 99,
-                            "root.child.strCfg", null
+                            "root.child.my-int-cfg", 99
                     ),
                     lastWriteCapture.getValue()
             );
@@ -185,10 +187,26 @@ public class DeprecatedConfigurationTest {
             );
 
             Data data = getData();
-
             assertEquals(2, data.changeId());
             assertEquals(
                     Map.of("root.child.my-int-cfg", 99),
+                    data.values()
+            );
+
+            changeConfiguration(changer, superRoot ->
+                    superRoot.changeRoot(DeprecatedValueConfiguration.KEY).changeChild().changeIntCfg(100)
+            );
+
+            // Deprecated values should NOT be re-written if they're already absent.
+            assertEquals(
+                    Map.of("root.child.my-int-cfg", 100),
+                    lastWriteCapture.getValue()
+            );
+
+            data = getData();
+            assertEquals(3, data.changeId());
+            assertEquals(
+                    Map.of("root.child.my-int-cfg", 100),
                     data.values()
             );
         });
@@ -201,8 +219,7 @@ public class DeprecatedConfigurationTest {
         withConfigurationChanger(DeprecatedChildConfiguration.KEY, false, changer -> {
             assertEquals(
                     mapWithNulls(
-                            "root.child.my-int-cfg", null,
-                            "root.child.strCfg", null
+                            "root.child.my-int-cfg", null
                     ),
                     lastWriteCapture.getValue()
             );
@@ -214,6 +231,23 @@ public class DeprecatedConfigurationTest {
                     Map.of("root.intValue", 10),
                     data.values()
             );
+
+            changeConfiguration(changer, superRoot ->
+                    superRoot.changeRoot(DeprecatedChildConfiguration.KEY).changeIntValue(20)
+            );
+
+            // Deprecated values should NOT be re-written if they're already absent.
+            assertEquals(
+                    Map.of("root.intValue", 20),
+                    lastWriteCapture.getValue()
+            );
+
+            data = getData();
+            assertEquals(3, data.changeId());
+            assertEquals(
+                    Map.of("root.intValue", 20),
+                    data.values()
+            );
         });
     }
 
@@ -222,23 +256,13 @@ public class DeprecatedConfigurationTest {
         AtomicReference<UUID> internalIdReference = new AtomicReference<>();
 
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {
-            CompletableFuture<Void> changeFuture = changer.change(new ConfigurationSource() {
-                @Override
-                public void descend(ConstructableTreeNode node) {
-                    node.construct("root", ConfigurationUtil.EMPTY_CFG_SRC, true);
-
-                    //noinspection CastToIncompatibleInterface
-                    var beforeDeprecationChange = (BeforeDeprecationChange) ((SuperRoot) node).getRoot(BeforeDeprecationConfiguration.KEY);
-
-                    assertNotNull(beforeDeprecationChange);
-
-                    beforeDeprecationChange.changeList().create("foo", namedElementChange -> {
-                        internalIdReference.set(((InnerNode) namedElementChange).internalId());
-                    });
-                }
+            changeConfiguration(changer, superRoot -> {
+                superRoot.changeRoot(BeforeDeprecationConfiguration.KEY)
+                        .changeList()
+                        .create("foo", namedElementChange ->
+                                internalIdReference.set(((InnerNode) namedElementChange).internalId())
+                        );
             });
-
-            assertThat(changeFuture, willCompleteSuccessfully());
 
             UUID internalId = internalIdReference.get();
             assertNotNull(internalId);
@@ -247,7 +271,6 @@ public class DeprecatedConfigurationTest {
                     mapWithNulls(
                             "root.list." + internalId + ".<order>", 0,
                             "root.list." + internalId + ".<name>", "foo",
-                            "root.list." + internalId + ".strCfg", null,
                             "root.list.<ids>.foo", internalId
                     ),
                     lastWriteCapture.getValue()
@@ -275,7 +298,6 @@ public class DeprecatedConfigurationTest {
                     mapWithNulls(
                             "root.list." + internalId + ".<order>", null,
                             "root.list." + internalId + ".<name>", null,
-                            "root.list." + internalId + ".strCfg", null,
                             "root.list.<ids>.foo", null
                     ),
                     lastWriteCapture.getValue()
@@ -287,6 +309,26 @@ public class DeprecatedConfigurationTest {
             assertEquals(
                     Map.of(
                             "root.intValue", 10,
+                            "root.child.my-int-cfg", 99
+                    ),
+                    data.values()
+            );
+
+            changeConfiguration(changer, superRoot ->
+                    superRoot.changeRoot(DeprecatedNamedListConfiguration.KEY).changeIntValue(20)
+            );
+
+            // Deprecated values should NOT be re-written if they're already absent.
+            assertEquals(
+                    Map.of("root.intValue", 20),
+                    lastWriteCapture.getValue()
+            );
+
+            data = getData();
+            assertEquals(4, data.changeId());
+            assertEquals(
+                    Map.of(
+                            "root.intValue", 20,
                             "root.child.my-int-cfg", 99
                     ),
                     data.values()
@@ -317,6 +359,19 @@ public class DeprecatedConfigurationTest {
         } finally {
             changer.stop();
         }
+    }
+
+    private static void changeConfiguration(ConfigurationChanger changer, Consumer<SuperRootChange> changeClosure) {
+        CompletableFuture<Void> changeFuture = changer.change(new ConfigurationSource() {
+            @Override
+            public void descend(ConstructableTreeNode node) {
+                node.construct("root", ConfigurationUtil.EMPTY_CFG_SRC, true);
+
+                changeClosure.accept(new SuperRootChangeImpl((SuperRoot) node));
+            }
+        });
+
+        assertThat(changeFuture, willCompleteSuccessfully());
     }
 
     private Data getData() {
