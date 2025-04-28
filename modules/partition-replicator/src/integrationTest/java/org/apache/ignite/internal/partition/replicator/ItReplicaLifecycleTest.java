@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
@@ -732,6 +733,36 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
                 .close();
         verify(internalTable.txStateStorage())
                 .close();
+    }
+
+    @Test
+    public void testReplicaStop() throws Exception {
+        startCluster(1);
+
+        Node node = getNode(0);
+
+        String zoneName = "test_zone";
+        int zoneId = createZone(node, zoneName, 1, 1);
+
+        String tableName = "test_table";
+        int tableId = createTable(node, zoneName, tableName);
+        InternalTable internalTable = node.tableManager.table(tableId).internalTable();
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        assertThat(
+                node.partitionReplicaLifecycleManager.stopPartitionInternal(
+                        zonePartitionId,
+                        AFTER_REPLICA_STOPPED,
+                        -1L,
+                        replicaWasStopped -> {}
+                ),
+                willCompleteSuccessfully()
+        );
+
+        // Tables must not be stopped on partition replica stop.
+        verify(internalTable.storage(), never()).close();
+        verify(internalTable.txStateStorage(), never()).close();
     }
 
     private static RemotelyTriggeredResource getVersionedStorageCursor(Node node, FullyQualifiedResourceId cursorId) {

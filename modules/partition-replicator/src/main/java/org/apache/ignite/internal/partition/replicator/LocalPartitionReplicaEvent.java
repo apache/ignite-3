@@ -29,15 +29,9 @@ public enum LocalPartitionReplicaEvent implements Event {
     BEFORE_REPLICA_STARTED,
 
     /**
-     * Fired when partition replica has just been stopped and the related partition shouldn't be destroyed e.g. on Ignite node stop.
+     * Fired when partition replica has just been stopped and the related partition shouldn't be destroyed.
      */
     AFTER_REPLICA_STOPPED,
-
-    /**
-     * Fired when partition replica has just been stopped for the restart purposes
-     * and the related partition shouldn't be destroyed or storages shouldn't be closed.
-     */
-    AFTER_REPLICA_STOPPED_FOR_RESTART,
 
     /**
      * Fired when partition replica has been destroyed.
