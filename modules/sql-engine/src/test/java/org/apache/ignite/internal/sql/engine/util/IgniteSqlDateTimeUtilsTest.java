@@ -26,6 +26,8 @@ import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.util.Locale;
 import java.util.TimeZone;
+import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -81,6 +83,7 @@ public class IgniteSqlDateTimeUtilsTest {
     @ParameterizedTest
     @CsvSource({
             "00:00:00,            0",
+            "00:00:00.,           0",
             "00:00:00.1,          100",
             "00:00:00.12,         120",
             "00:00:00.123,        123",
@@ -95,6 +98,43 @@ public class IgniteSqlDateTimeUtilsTest {
     })
     public void testTimeStringToUnixDate(String timeString, int expected) {
         assertThat(IgniteSqlDateTimeUtils.timeStringToUnixDate(timeString), is(expected));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "00",
+            "00:00",
+            "0:00:00",
+            "00:0:00",
+            "00:00:0",
+            "0a:00:00",
+            "00:0a:00",
+            "00:00:0a",
+            "a0:00:00",
+            "00:a0:00",
+            "00:00:a0",
+            "00:00:00.a",
+            "-10:00:00",
+            "-1:00:00",
+            "00:-10:00",
+            "00:-1:00",
+            "00:00:-10",
+            "00:00:-1",
+            "+10:00:00",
+            "+1:00:00",
+            "00:+10:00",
+            "00:+1:00",
+            "00:00:+10",
+            "00:00:+1",
+            "00:00:00.-1",
+            "00:00:00.+1",
+    })
+    public void testInvalidTimeStringToUnixDate(String timeString) {
+        IgniteTestUtils.assertThrows(
+                IllegalArgumentException.class,
+                () -> IgniteSqlDateTimeUtils.timeStringToUnixDate(timeString),
+                IgniteStringFormatter.format("Invalid TIME value, '{}'", timeString)
+        );
     }
 
     @ParameterizedTest
@@ -117,5 +157,55 @@ public class IgniteSqlDateTimeUtilsTest {
     })
     public void testTimestampStringToUnixDate(String timestampString, long expected) {
         assertThat(IgniteSqlDateTimeUtils.timestampStringToUnixDate(timestampString), is(expected));
+    }
+
+    @ParameterizedTest
+    @CsvSource(ignoreLeadingAndTrailingWhitespace = false, value = {
+            "1970-01-01 00,TIME",
+            "1970-01-01 00:00,TIME",
+            "1970-01-01 0:00:00,TIME",
+            "1970-01-01 0:0:00,TIME",
+            "1970-01-01 00:00:0,TIME",
+            "1970-01-01 0a:00:00,TIME",
+            "1970-01-01 00:0a:00,TIME",
+            "1970-01-01 00:00:0a,TIME",
+            "1970-01-01 a0:00:00,TIME",
+            "1970-01-01 00:a0:00,TIME",
+            "1970-01-01 00:00:a0,TIME",
+            "1970-01-01 00:00:00.a,TIME",
+            "1970-01-01 -10:00:00,TIME",
+            "1970-01-01 -1:00:00,TIME",
+            "1970-01-01 00:-10:00,TIME",
+            "1970-01-01 00:-1:00,TIME",
+            "1970-01-01 00:00:-10,TIME",
+            "1970-01-01 00:00:-1,TIME",
+            "1970-01-01 +10:00:00,TIME",
+            "1970-01-01 +1:00:00,TIME",
+            "1970-01-01 00:+10:00,TIME",
+            "1970-01-01 00:+1:00,TIME",
+            "1970-01-01 00:00:+10,TIME",
+            "1970-01-01 00:00:+1,TIME",
+            "1970-01-01 00:00:00.-1,TIME",
+            "1970-01-01 00:00:00.+1,TIME",
+
+            "0001 00:00:00,DATE",
+            "0001-01 00:00:00,DATE",
+            "1-01-01 00:00:00,DATE",
+            "01-01-01 00:00:00,DATE",
+            "001-01-01 00:00:00,DATE",
+            "0001-1-01 00:00:00,DATE",
+            "0001-01-1 00:00:00,DATE",
+            "000a-01-01 00:00:00,DATE",
+            "0001-0a-01 00:00:00,DATE",
+            "0001-01-0a 00:00:00,DATE",
+            "0001--01-01 00:00:00,DATE",
+            "0001-01--01 00:00:00,DATE",
+    })
+    public void testInvalidTimeStampStringToUnixDate(String timestampString, String expectedPart) {
+        IgniteTestUtils.assertThrows(
+                IllegalArgumentException.class,
+                () -> IgniteSqlDateTimeUtils.timestampStringToUnixDate(timestampString),
+                IgniteStringFormatter.format("Invalid {} value, '{}'", expectedPart, timestampString)
+        );
     }
 }

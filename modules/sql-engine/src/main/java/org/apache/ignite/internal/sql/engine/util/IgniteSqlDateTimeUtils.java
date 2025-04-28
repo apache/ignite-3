@@ -26,6 +26,7 @@ import java.util.regex.Pattern;
 import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Contains a set of utility methods for converting temporal types.
@@ -38,6 +39,11 @@ public class IgniteSqlDateTimeUtils {
     /** Regex for date, YYYY-MM-DD. */
     private static final Pattern ISO_DATE_PATTERN =
             Pattern.compile("^(\\d{4})-([0]\\d|1[0-2])-([0-2]\\d|3[01])$");
+
+    /** The maximum number of digits after the decimal point that are taken into account. */
+    private static final int USEFUL_FRACTION_OF_SECOND_LENGTH = 3;
+
+    private static final int[] FRACTION_OF_SECOND_MULTIPLIERS = {100, 10, 1};
 
     /** Returns the timestamp value minus the offset of the specified timezone. */
     public static Long subtractTimeZoneOffset(long timestamp, TimeZone timeZone) {
@@ -118,6 +124,67 @@ public class IgniteSqlDateTimeUtils {
     }
 
     /**
+     * Converts time string into unix time.
+     *
+     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#timeStringToUnixDate(String)} method,
+     *          with the only difference that result is truncated to milliseconds without rounding.
+     *
+     * @param value Time string.
+     * @return Timestamp.
+     */
+    public static int timeStringToUnixDate(String value) {
+        value = value.trim();
+
+        validateTime(value, value);
+        return timeStringToUnixDate(value, value);
+    }
+
+    private static int timeStringToUnixDate(String v, String full) {
+        int colon1 = v.indexOf(':');
+        int hour;
+        int minute;
+        int second;
+        int milli = 0;
+        try {
+            if (colon1 < 0) {
+                hour = Integer.parseInt(v.trim());
+                minute = 0;
+                second = 0;
+            } else {
+                hour = Integer.parseInt(v.substring(0, colon1).trim());
+                int colon2 = v.indexOf(':', colon1 + 1);
+                if (colon2 < 0) {
+                    minute = Integer.parseInt(v.substring(colon1 + 1).trim());
+                    second = 0;
+                } else {
+                    minute = Integer.parseInt(v.substring(colon1 + 1, colon2).trim());
+                    int dot = v.indexOf('.', colon2);
+                    if (dot < 0) {
+                        second = Integer.parseInt(v.substring(colon2 + 1).trim());
+                    } else {
+                        second = Integer.parseInt(v.substring(colon2 + 1, dot).trim());
+                        String fraction = v.substring(dot + 1).trim();
+                        for (int i = 0; i < Math.min(fraction.length(), USEFUL_FRACTION_OF_SECOND_LENGTH); i++) {
+                            int x = fraction.charAt(i) - '0';
+
+                            assert x >= 0 && x <= 9 : x;
+
+                            milli += FRACTION_OF_SECOND_MULTIPLIERS[i] * x;
+                        }
+                    }
+                }
+            }
+        } catch (NumberFormatException e) {
+            throw invalidType("TIME", full, e);
+        }
+
+        return hour * (int) DateTimeUtils.MILLIS_PER_HOUR
+                + minute * (int) DateTimeUtils.MILLIS_PER_MINUTE
+                + second * (int) DateTimeUtils.MILLIS_PER_SECOND
+                + milli;
+    }
+
+    /**
      * Converts timestamp string into unix timestamp.
      *
      * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#timestampStringToUnixDate(String)} method,
@@ -139,7 +206,7 @@ public class IgniteSqlDateTimeUtils {
 
                 String timePart = s.substring(space + 1);
                 validateTime(timePart, s);
-                t = timeStringToUnixDate(timePart);
+                t = timeStringToUnixDate(timePart, s);
             } else {
                 validateDate(s, s);
                 d = dateStringToUnixDate(s);
@@ -147,57 +214,8 @@ public class IgniteSqlDateTimeUtils {
             }
             return d * DateTimeUtils.MILLIS_PER_DAY + t;
         } catch (NumberFormatException e) {
-            throw new IllegalArgumentException(e.getMessage());
+            throw invalidType("TIMESTAMP", s, e);
         }
-    }
-
-    /**
-     * Converts time string into unix time.
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#timeStringToUnixDate(String)} method,
-     *          with the only difference that result is truncated to milliseconds without rounding.
-     *
-     * @param v Time string.
-     * @return Timestamp.
-     */
-    public static int timeStringToUnixDate(String v) {
-        int colon1 = v.indexOf(':');
-        int hour;
-        int minute;
-        int second;
-        int milli = 0;
-        if (colon1 < 0) {
-            hour = Integer.parseInt(v.trim());
-            minute = 0;
-            second = 0;
-        } else {
-            hour = Integer.parseInt(v.substring(0, colon1).trim());
-            int colon2 = v.indexOf(':', colon1 + 1);
-            if (colon2 < 0) {
-                minute = Integer.parseInt(v.substring(colon1 + 1).trim());
-                second = 0;
-            } else {
-                minute = Integer.parseInt(v.substring(colon1 + 1, colon2).trim());
-                int dot = v.indexOf('.', colon2);
-                if (dot < 0) {
-                    second = Integer.parseInt(v.substring(colon2 + 1).trim());
-                } else {
-                    second = Integer.parseInt(v.substring(colon2 + 1, dot).trim());
-                    String fraction = v.substring(dot + 1).trim();
-                    int multiplier = 100;
-                    for (int i = 0; i < Math.min(fraction.length(), 3); i++) {
-                        char c = fraction.charAt(i);
-                        int x = c < '0' || c > '9' ? 0 : (c - '0');
-                        milli += multiplier * x;
-                        multiplier /= 10;
-                    }
-                }
-            }
-        }
-        return hour * (int) DateTimeUtils.MILLIS_PER_HOUR
-                + minute * (int) DateTimeUtils.MILLIS_PER_MINUTE
-                + second * (int) DateTimeUtils.MILLIS_PER_SECOND
-                + milli;
     }
 
     private static void validateTime(String time, String full) {
@@ -208,7 +226,7 @@ public class IgniteSqlDateTimeUtils {
                 throw fieldOutOfRange("HOUR", full);
             }
         } else {
-            throw invalidType("TIME", full);
+            throw invalidType("TIME", full, null);
         }
     }
 
@@ -220,7 +238,7 @@ public class IgniteSqlDateTimeUtils {
             int day = Integer.parseInt(matcher.group(3));
             checkLegalDate(year, month, day, full);
         } else {
-            throw invalidType("DATE", full);
+            throw invalidType("DATE", full, null);
         }
     }
 
@@ -272,8 +290,8 @@ public class IgniteSqlDateTimeUtils {
     }
 
     private static IllegalArgumentException invalidType(String type,
-            String full) {
+            String full, @Nullable Exception cause) {
         return new IllegalArgumentException("Invalid " + type + " value, '"
-                + full + "'");
+                + full + "'", cause);
     }
 }
