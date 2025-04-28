@@ -34,10 +34,10 @@ using NUnit.Framework;
 /// </summary>
 public class JobLoadContextTests
 {
-    private static readonly ConcurrentDictionary<Guid, Guid> DisposedIds = new();
+    private static readonly ConcurrentDictionary<Guid, string> DisposedJobStates = new();
 
     [SetUp]
-    public void SetUp() => DisposedIds.Clear();
+    public void SetUp() => DisposedJobStates.Clear();
 
     [Test]
     public async Task TestJobExecution()
@@ -50,16 +50,16 @@ public class JobLoadContextTests
     [Test]
     public async Task TestDisposableJob([Values(true, false)] bool async)
     {
-        var execId = Guid.NewGuid();
         var jobType = async ? typeof(AsyncDisposableJob) : typeof(DisposableJob);
-        var res = await ExecuteJobAsync<Guid, Guid>(jobType, execId);
+        var expectedState = async ? "InitializedExecutingExecutedAsyncDisposed" : "InitializedExecutedDisposed";
 
-        Assert.AreEqual(execId, res);
-        Assert.IsTrue(DisposedIds.TryRemove(execId, out var disposedId));
-        Assert.AreEqual(execId, disposedId);
+        var execId = await ExecuteJobAsync<object, Guid>(jobType, null);
+
+        Assert.IsTrue(DisposedJobStates.TryRemove(execId, out var state));
+        Assert.AreEqual(expectedState, state);
     }
 
-    private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(Type jobType, TArg jobArg)
+    private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(Type jobType, TArg? jobArg)
     {
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var jobWrapper = jobLoadCtx.GetOrCreateJobWrapper(jobType.AssemblyQualifiedName!);
@@ -98,33 +98,44 @@ public class JobLoadContextTests
             ValueTask.FromResult(arg + 1);
     }
 
-    private class DisposableJob : IComputeJob<Guid, Guid>, IDisposable
+    private class DisposableJob : IComputeJob<object, Guid>, IDisposable
     {
-        private Guid _arg;
+        private readonly Guid _id = Guid.NewGuid();
 
-        public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, Guid arg, CancellationToken cancellationToken)
+        private string _state;
+
+        public DisposableJob() => _state = "Initialized";
+
+        public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken)
         {
-            _arg = arg;
-            return ValueTask.FromResult(arg);
+            _state += "Executed";
+            return ValueTask.FromResult(_id);
         }
 
-        public void Dispose() => DisposedIds[_arg] = _arg;
+        public void Dispose() => DisposedJobStates[_id] = _state + "Disposed";
     }
 
-    private class AsyncDisposableJob : IComputeJob<Guid, Guid>, IAsyncDisposable
+    private class AsyncDisposableJob : IComputeJob<object, Guid>, IAsyncDisposable
     {
-        private Guid _arg;
+        private readonly Guid _id = Guid.NewGuid();
 
-        public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, Guid arg, CancellationToken cancellationToken)
+        private string _state;
+
+        public AsyncDisposableJob() => _state = "Initialized";
+
+        public async ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken)
         {
-            _arg = arg;
-            return ValueTask.FromResult(arg);
+            _state += "Executing";
+            await Task.Delay(1, cancellationToken);
+            _state += "Executed";
+
+            return _id;
         }
 
         public async ValueTask DisposeAsync()
         {
             await Task.Delay(1);
-            DisposedIds[_arg] = _arg;
+            DisposedJobStates[_id] = _state + "AsyncDisposed";
         }
     }
 }
