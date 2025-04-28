@@ -61,15 +61,17 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
             new NotCustomTypeOperandTypeChecker();
 
-    private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL = new SqlDateTimeIntervalTypeChecker(true);
+    private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL =
+            new SqlDateTimeIntervalTypeChecker(true);
 
-    private static final SqlOperandTypeChecker MATCHING_INTERVAL_DATETIME = new SqlDateTimeIntervalTypeChecker(false);
+    private static final SqlOperandTypeChecker MATCHING_INTERVAL_DATETIME =
+            new SqlDateTimeIntervalTypeChecker(false);
 
     private static final SqlOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL).and(NOT_CUSTOM_TYPE))
-                    .or(OperandTypes.INTERVAL_DATETIME.and(MATCHING_INTERVAL_DATETIME).and(NOT_CUSTOM_TYPE));
+                    .or(DATETIME_MATCHING_INTERVAL.and(NOT_CUSTOM_TYPE))
+                    .or(MATCHING_INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
 
     private static final SqlOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
