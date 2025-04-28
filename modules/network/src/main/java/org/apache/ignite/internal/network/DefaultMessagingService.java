@@ -436,7 +436,7 @@ public class DefaultMessagingService extends AbstractMessagingService {
         HandlerContext firstHandlerContext = handlerContexts.next();
         Executor firstHandlerExecutor = chooseExecutorFor(payload, inNetworkObject, firstHandlerContext.executorChooser());
 
-        TestMessageUtils.addThreadInfo(444, payload);
+        // TestMessageUtils.addThreadInfo(444, payload);
 
         Long finalCorrelationId = correlationId;
         firstHandlerExecutor.execute(() -> {

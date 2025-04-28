@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.netty.NettySender;
@@ -69,6 +70,9 @@ public class RecoveryDescriptor {
 
     /** Some context around current owner channel of this descriptor. */
     private final AtomicReference<DescriptorAcquiry> channelHolder = new AtomicReference<>();
+
+    private final AtomicInteger acquiredCount = new AtomicInteger();
+    private final AtomicInteger releasedCount = new AtomicInteger();
 
     /**
      * Constructor.
@@ -176,6 +180,7 @@ public class RecoveryDescriptor {
     public void release(ChannelHandlerContext ctx) {
         DescriptorAcquiry oldAcquiry = channelHolder.getAndUpdate(acquiry -> {
             if (acquiry != null && acquiry.channel() == ctx.channel()) {
+                releasedCount.incrementAndGet();
                 return null;
             }
 
@@ -201,7 +206,11 @@ public class RecoveryDescriptor {
     }
 
     private boolean doTryAcquire(@Nullable Channel channel, CompletableFuture<NettySender> handshakeCompleteFuture) {
-        return channelHolder.compareAndSet(null, new DescriptorAcquiry(channel, handshakeCompleteFuture));
+        boolean result = channelHolder.compareAndSet(null, new DescriptorAcquiry(channel, handshakeCompleteFuture));
+        if (result) {
+            acquiredCount.incrementAndGet();
+        }
+        return result;
     }
 
     /**
@@ -266,5 +275,13 @@ public class RecoveryDescriptor {
         }
 
         unacknowledgedMessages.clear();
+    }
+
+    public int acquiredCount() {
+        return acquiredCount.get();
+    }
+
+    public int releasedCount() {
+        return releasedCount.get();
     }
 }

@@ -109,8 +109,8 @@ public class NettySender {
 
         TestMessageUtils.extendHistory(
                 obj.networkMessage(),
-                "send() " + triggerChannelRecreation + ", channel " + channel + ", event loop " + channel.eventLoop()
-                        + ", in event loop: " + channel.eventLoop().inEventLoop()
+                true,
+                "send(), channel " + channel + ", in event loop: " + channel.eventLoop().inEventLoop()
         );
 
         // Write in event loop to make sure that, if a ClosedSocketException happens, we recover from it without exiting the event loop.
@@ -184,7 +184,8 @@ public class NettySender {
     }
 
     private void writeWithRecovery(OutNetworkObject obj, Channel channel, Runnable triggerChannelRecreation) {
-        TestMessageUtils.extendHistory(obj.networkMessage(), "writeWithRecovery, channel " + channel);
+        TestMessageUtils.extendHistory(obj.networkMessage(), "writeWithRecovery, channel " + channel
+                + ", acquired " + recoveryDescriptor.acquiredCount() + ", released " + recoveryDescriptor.releasedCount());
 
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
 
