@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;
 
@@ -67,9 +68,21 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
             throw new InvalidOperationException($"Failed to find job interface '{typeof(IComputeJob<,>)}' in type '{typeName}'");
         }
 
-        var jobWrapperType = typeof(ComputeJobWrapper<,,>)
-            .MakeGenericType(jobType, jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
+        try
+        {
+            var jobWrapperType = typeof(ComputeJobWrapper<,,>)
+                .MakeGenericType(jobType, jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
 
-        return (IComputeJobWrapper)Activator.CreateInstance(jobWrapperType)!;
+            return (IComputeJobWrapper)Activator.CreateInstance(jobWrapperType)!;
+        }
+        catch (Exception e)
+        {
+            if (jobType.GetConstructor(BindingFlags.Public, []) == null)
+            {
+                throw new InvalidOperationException($"No public parameterless constructor for job type '{typeName}'", e);
+            }
+
+            throw;
+        }
     }
 }

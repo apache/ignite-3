@@ -59,6 +59,14 @@ public class JobLoadContextTests
         Assert.AreEqual(expectedState, state);
     }
 
+    [Test]
+    public void TestJobWithoutDefaultConstructorThrows()
+    {
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await ExecuteJobAsync<int, int>(typeof(NoCtorJob), 1));
+
+        Assert.AreEqual($"No public parameterless constructor for job type '{typeof(NoCtorJob).AssemblyQualifiedName}'", ex.Message);
+    }
+
     private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(Type jobType, TArg? jobArg)
     {
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
@@ -137,5 +145,16 @@ public class JobLoadContextTests
             await Task.Delay(1);
             DisposedJobStates[_id] = _state + "AsyncDisposed";
         }
+    }
+
+    private class NoCtorJob : IComputeJob<int, int>
+    {
+        public NoCtorJob(int ctorArg)
+        {
+            // No-op.
+        }
+
+        public ValueTask<int> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 }
