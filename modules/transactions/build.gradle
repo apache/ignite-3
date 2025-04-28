@@ -89,6 +89,7 @@ dependencies {
     integrationTestImplementation project(':ignite-client-handler')
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation(testFixtures(project(':ignite-core')))
+    integrationTestImplementation(testFixtures(project(':ignite-distribution-zones')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
     integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
