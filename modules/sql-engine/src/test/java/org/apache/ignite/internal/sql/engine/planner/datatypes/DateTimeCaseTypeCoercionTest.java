@@ -1,24 +1,33 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.instanceOf;
 
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.DatetimePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -32,10 +41,6 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
     private static final IgniteSchema SCHEMA = createSchemaWithTwoColumnTable(NativeTypes.STRING, NativeTypes.STRING);
-
-    private static final NativeType DYNAMIC_PARAM_TIMESTAMP_TYPE = NativeTypes.datetime(6);
-    ;
-    private static final NativeType DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE = NativeTypes.timestamp(6);
 
     /** CASE operands from columns. */
     @ParameterizedTest
@@ -651,31 +656,4 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3))
         );
     }
-
-    Matcher<IgniteRel> operandCaseMatcher(Matcher<RexNode> first, Matcher<RexNode> second) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                RexNode comparison = ((ProjectableFilterableTableScan) actual).projects().get(0);
-
-                assertThat(comparison, instanceOf(RexCall.class));
-
-                RexCall comparisonCall = (RexCall) comparison;
-
-                RexNode firstOperand = comparisonCall.getOperands().get(1);
-                RexNode secondOperand = comparisonCall.getOperands().get(2);
-
-                assertThat("first operand: ", firstOperand, first);
-                assertThat("second operand: ", secondOperand, second);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
-    }
-
 }

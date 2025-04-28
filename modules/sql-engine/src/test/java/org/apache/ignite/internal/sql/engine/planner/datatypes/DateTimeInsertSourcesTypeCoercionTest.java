@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -27,13 +25,9 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.DatetimePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -80,28 +74,6 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
         checkIncludesAllTypePairs(argsDyn(), DatetimePair.class);
     }
 
-    private static Matcher<IgniteRel> keyValOperandMatcher(Matcher<RexNode> matcher) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                List<RexNode> expressions = ((IgniteKeyValueModify) actual).expressions();
-
-                RexNode leftOperand = expressions.get(0);
-                RexNode rightOperand = expressions.get(1);
-
-                assertThat(leftOperand, matcher);
-                assertThat(rightOperand, matcher);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
-    }
-
     private static Stream<Arguments> args() {
         return Stream.of(
                 forTypePair(DatetimePair.DATE_DATE)
@@ -131,7 +103,7 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
 
                 // TIMESTAMP 0
-                
+
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_0)),
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)

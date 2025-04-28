@@ -188,7 +188,7 @@ public final class Types {
 
     public static final NativeType TIME_0 = NativeTypes.time(0);
     public static final NativeType TIME_1 = NativeTypes.time(1);
-    // Calcite truncates precision to 3.
+    // Maximum precision available at supported by calcite's runtime.
     public static final NativeType TIME_3 = NativeTypes.time(3);
     public static final NativeType TIME_9 = NativeTypes.time(9);
 
@@ -196,14 +196,14 @@ public final class Types {
 
     public static final NativeType TIMESTAMP_0 = NativeTypes.datetime(0);
     public static final NativeType TIMESTAMP_1 = NativeTypes.datetime(1);
-    // Calcite truncates precision to 3.
+    // Maximum precision available at supported by calcite's runtime.
     public static final NativeType TIMESTAMP_3 = NativeTypes.datetime(3);
     public static final NativeType TIMESTAMP_9 = NativeTypes.datetime(9);
     public static final NativeType TIMESTAMP_DEFAULT = NativeTypes.datetime(6);
 
     public static final NativeType TIMESTAMP_WLTZ_0 = NativeTypes.timestamp(0);
     public static final NativeType TIMESTAMP_WLTZ_1 = NativeTypes.timestamp(1);
-    // Calcite truncates precision to 3.
+    // Maximum precision available at supported by calcite's runtime.
     public static final NativeType TIMESTAMP_WLTZ_3 = NativeTypes.timestamp(3);
     public static final NativeType TIMESTAMP_WLTZ_9 = NativeTypes.timestamp(9);
     public static final NativeType TIMESTAMP_WLTZ_DEFAULT = NativeTypes.timestamp(6);

@@ -1,30 +1,34 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements. See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License. You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
 import static org.hamcrest.CoreMatchers.any;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.type.RelDataType;
-import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableFunctionScan;
-import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
-import org.hamcrest.TypeSafeDiagnosingMatcher;
-import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -236,142 +240,5 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                 Types.TIMESTAMP_WLTZ_1,
                 Types.TIMESTAMP_WLTZ_9
         );
-    }
-
-    private static class FunctionCallMatcher {
-
-        private final List<Matcher<RexNode>> args;
-
-        // Most of SQL functions propagate nullability from their arguments,
-        // since most of the tests use nullable columns as their arguments,
-        // it is better use use the same default.
-        private boolean returnTypeNullability = true;
-
-        private FunctionCallMatcher(List<Matcher<RexNode>> args) {
-            this.args = args;
-        }
-
-        FunctionCallMatcher returnTypeNullability(boolean value) {
-            this.returnTypeNullability = value;
-            return this;
-        }
-
-        Matcher<RelNode> resultWillBe(Matcher<RexCall> returnType) {
-            return new FunctionCallMatcher.ProjectionRexNodeMatcher(new CallMatcher(returnType));
-        }
-
-        Matcher<RelNode> resultWillBe(NativeType returnType) {
-            return new FunctionCallMatcher.ProjectionRexNodeMatcher(new CallMatcher(returnType));
-        }
-
-        Matcher<RelNode> resultWillBe(RelDataType returnType) {
-            return new FunctionCallMatcher.ProjectionRexNodeMatcher(new CallMatcher(returnType));
-        }
-
-        private String expectedArguments() {
-            return args.stream().map(Object::toString).collect(Collectors.joining(", "));
-        }
-
-        private class ProjectionRexNodeMatcher extends TypeSafeDiagnosingMatcher<RelNode> {
-
-            private final CallMatcher callMatcher;
-
-            private ProjectionRexNodeMatcher(CallMatcher callMatcher) {
-                this.callMatcher = callMatcher;
-            }
-
-            @Override
-            protected boolean matchesSafely(RelNode relNode, Description description) {
-                RexCall call = getRexCall(relNode);
-                if (call == null) {
-                    return false;
-                }
-
-                if (call.getOperands().size() != args.size()) {
-                    return false;
-                }
-
-                assertEquals(args.size(), call.getOperands().size(), "Number of arguments do not match");
-
-                for (int i = 0; i < args.size(); i++) {
-                    Matcher<RexNode> arg = args.get(i);
-                    assertThat("Operand#" + i + ". Expected arguments: " + expectedArguments(), call.getOperands().get(i), arg);
-                }
-
-                callMatcher.checkCall(call, expectedArguments(), returnTypeNullability);
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        }
-
-        private static @Nullable RexCall getRexCall(RelNode relNode) {
-            if (relNode instanceof ProjectableFilterableTableScan) {
-                ProjectableFilterableTableScan scan = (ProjectableFilterableTableScan) relNode;
-                List<RexNode> projects = scan.projects();
-                return (RexCall) projects.get(0);
-            } else if (relNode instanceof IgniteTableFunctionScan) {
-                IgniteTableFunctionScan functionScan = (IgniteTableFunctionScan) relNode;
-                return (RexCall) functionScan.getCall();
-            } else {
-                return null;
-            }
-        }
-    }
-
-
-    private static class CallMatcher {
-
-        private final NativeType nativeType;
-
-        private final RelDataType relDataType;
-
-        private final Matcher<RexCall> callMatcher;
-
-        CallMatcher(NativeType nativeType) {
-            this.nativeType = nativeType;
-            this.relDataType = null;
-            this.callMatcher = null;
-        }
-
-        CallMatcher(RelDataType relDataType) {
-            this.nativeType = null;
-            this.relDataType = relDataType;
-            this.callMatcher = null;
-        }
-
-        CallMatcher(Matcher<RexCall> callMatcher) {
-            this.nativeType = null;
-            this.relDataType = null;
-            this.callMatcher = callMatcher;
-        }
-
-        void checkCall(RexCall call, String expectedArguments, boolean returnTypeNullability) {
-            IgniteTypeFactory tf = Commons.typeFactory();
-            RelDataType actualRelType = call.getType();
-            RelDataType expectedRelType;
-
-            if (nativeType != null || relDataType != null) {
-
-                if (nativeType != null) {
-                    expectedRelType = native2relationalType(tf, nativeType, returnTypeNullability);
-                } else {
-                    expectedRelType = tf.createTypeWithNullability(relDataType, returnTypeNullability);
-                }
-
-                String message = "Expected return type "
-                        + expectedRelType + " but got " + actualRelType
-                        + ". Expected arguments: " + expectedArguments;
-
-                assertEquals(actualRelType, expectedRelType, message);
-            } else if (callMatcher != null) {
-                assertThat("Return type does not match", call, callMatcher);
-            } else {
-                throw new IllegalStateException("Not possible");
-            }
-        }
     }
 }

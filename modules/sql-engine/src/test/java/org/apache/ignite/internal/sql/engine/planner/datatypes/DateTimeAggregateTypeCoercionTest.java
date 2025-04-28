@@ -17,23 +17,12 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.equalTo;
-
 import java.util.List;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.sql.validate.implicit.TypeCoercion;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
-import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeType;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
-import org.hamcrest.Matcher;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -83,23 +72,5 @@ public class DateTimeAggregateTypeCoercionTest extends BaseTypeCoercionTest {
                 Arguments.of(Types.TIMESTAMP_WLTZ_1),
                 Arguments.of(Types.TIMESTAMP_WLTZ_9)
         );
-    }
-
-    private static Matcher<IgniteRel> aggregateReturnTypeMatcher(NativeType expected) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                RelDataType type = ((RelNode) actual).getRowType();
-
-                assertThat(type.getFieldList().get(0).getType(), equalTo(native2relationalType(Commons.typeFactory(), expected, true)));
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
     }
 }

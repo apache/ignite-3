@@ -20,9 +20,7 @@ package org.apache.ignite.internal.sql.engine.planner.datatypes;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
-import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.DatetimePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
@@ -46,7 +44,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
 
     private static final NativeType DYNAMIC_PARAM_TIMESTAMP_TYPE = NativeTypes.datetime(6);
-    ;
+
     private static final NativeType DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE = NativeTypes.timestamp(6);
 
     private static Stream<Arguments> inOperandsAllColumns() {
@@ -1375,47 +1373,4 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
         checkIncludesAllTypePairs(inOperandsDynamicParamsRhs(), DatetimePair.class);
         checkIncludesAllTypePairs(inOperandsLiterals(), DatetimePair.class);
     }
-
-    private Predicate<IgniteTableScan> checkPlan(
-            Matcher<RexNode> call1op1, Matcher<RexNode> call1op2,
-            Matcher<RexNode> call2op1, Matcher<RexNode> call2op2
-    ) {
-        return isInstanceOf(IgniteTableScan.class).and(t -> {
-            RexNode condition = t.condition();
-
-            if (condition.getKind() != SqlKind.OR) {
-                return false;
-            }
-
-            RexCall or = (RexCall) condition;
-            List<RexNode> operands = or.getOperands();
-            RexCall call1 = (RexCall) operands.get(0);
-            RexCall call2 = (RexCall) operands.get(1);
-
-            boolean firstOp = matchCall(call1, call1op1, call1op2);
-            boolean secondOp = matchCall(call2, call2op1, call2op2);
-
-            return firstOp && secondOp;
-        });
-    }
-
-    private Predicate<IgniteTableScan> checkPlan(Matcher<RexNode> call1op1, Matcher<RexNode> call1op2) {
-        return isInstanceOf(IgniteTableScan.class).and(t -> {
-            RexNode condition = t.condition();
-
-            return matchCall((RexCall) condition, call1op1, call1op2);
-        });
-    }
-
-    private static boolean matchCall(RexCall call, Matcher<RexNode> first, Matcher<RexNode> second) {
-        List<RexNode> operands = call.getOperands();
-        RexNode op1 = operands.get(0);
-        RexNode op2 = operands.get(1);
-
-        boolean op1Matches = first.matches(op1);
-        boolean op2Matches = second.matches(op2);
-
-        return op1Matches && op2Matches;
-    }
-
 }

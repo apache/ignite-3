@@ -22,7 +22,6 @@ import static org.apache.calcite.sql.type.SqlTypeName.BINARY_TYPES;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateValueByType;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.native2relationalType;
-import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.List;
 import java.util.stream.Stream;
@@ -32,8 +31,6 @@ import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.BinaryPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -89,26 +86,6 @@ public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
     void insertArgsIncludesAllTypePairs() {
         checkIncludesAllTypePairs(args(), BinaryPair.class);
         checkIncludesAllTypePairs(argsDyn(), BinaryPair.class);
-    }
-
-    private static Matcher<IgniteRel> keyValOperandMatcher(Matcher<RexNode> matcher) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                List<RexNode> expressions = ((IgniteKeyValueModify) actual).expressions();
-
-                RexNode operand = expressions.get(0);
-
-                assertThat(operand, matcher);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
     }
 
     private static Stream<Arguments> args() {
