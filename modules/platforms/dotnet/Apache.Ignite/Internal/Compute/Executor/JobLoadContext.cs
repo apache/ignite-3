@@ -19,7 +19,13 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Concurrent;
+using System.Linq;
+using System.Reflection;
 using System.Runtime.Loader;
+using System.Threading;
+using System.Threading.Tasks;
+using Buffers;
+using Ignite.Compute;
 
 /// <summary>
 /// Job load context.
@@ -27,6 +33,9 @@ using System.Runtime.Loader;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext)
 {
+    private static readonly MethodInfo ExecuteJobMethodInfo =
+        typeof(JobLoadContext).GetMethod(nameof(ExecuteJob), BindingFlags.Static | BindingFlags.NonPublic)!;
+
     private readonly ConcurrentDictionary<string, JobDelegate> _jobDelegates = new();
 
     /// <summary>
@@ -44,9 +53,53 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
     private static JobDelegate CreateJobDelegate(string typeName, AssemblyLoadContext ctx)
     {
-        var jobType = Type.GetType(typeName, ctx.LoadFromAssemblyName, null);
+        var type = Type.GetType(typeName, ctx.LoadFromAssemblyName, null);
 
-        // TODO
-        return null!;
+        if (type == null)
+        {
+            throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+        }
+
+        var jobInterface = type
+            .GetInterfaces()
+            .FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
+
+        if (jobInterface == null)
+        {
+            throw new InvalidOperationException($"Failed to find job interface '{typeof(IComputeJob<,>)}' in type '{typeName}'");
+        }
+
+        var job = Activator.CreateInstance(type)!;
+
+        // TODO: Non-generic job interface.
+        var method = ExecuteJobMethodInfo.MakeGenericMethod(jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
+
+        return (context, argBuf, responseBuf, token) => method.Invoke(null, [job, context, argBuf, responseBuf, token]);
+    }
+
+    private static async ValueTask ExecuteJob<TArg, TResult>(
+        IComputeJob<TArg, TResult> job,
+        IJobExecutionContext context,
+        PooledBuffer argBuf,
+        PooledArrayBuffer responseBuf,
+        CancellationToken cancellationToken)
+    {
+        TArg arg = ReadArg();
+
+        TResult res = await job.ExecuteAsync(context, arg, cancellationToken).ConfigureAwait(false);
+
+        WriteRes();
+
+        TArg ReadArg()
+        {
+            var reader = argBuf.GetReader();
+            return ComputePacker.UnpackArgOrResult(ref reader, job.InputMarshaller);
+        }
+
+        void WriteRes()
+        {
+            var writer = responseBuf.MessageWriter;
+            ComputePacker.PackArgOrResult(ref writer, res, job.ResultMarshaller);
+        }
     }
 }
