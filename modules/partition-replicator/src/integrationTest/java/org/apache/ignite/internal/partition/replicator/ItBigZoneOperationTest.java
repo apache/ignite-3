@@ -30,7 +30,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
-// TODO: https://issues.apache.org/jira/browse/IGNITE-24943 - remove the mute.
 @ExtendWith(FailureManagerExtension.class)
 @MuteFailureManagerLogging
 class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {

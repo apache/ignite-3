@@ -437,8 +437,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<LocalPartitionReplicaEventParameters> onBeforeZoneReplicaStartedListener = this::beforeZoneReplicaStarted;
     private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaStoppedListener = this::onZoneReplicaStopped;
     private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaDestroyedListener = this::onZoneReplicaDestroyed;
-    private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaStoppedForRestartListener =
-            this::onZoneReplicaStoppedForRestart;
 
     private final EventListener<CreateTableEventParameters> onTableCreateListener = enabledColocation
             ? this::prepareTableResourcesAndLoadToZoneReplica : this::onTableCreate;
@@ -640,9 +638,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 );
                 partitionReplicaLifecycleManager.listen(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
                 partitionReplicaLifecycleManager.listen(LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
-                partitionReplicaLifecycleManager.listen(
-                        LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED_FOR_RESTART, onZoneReplicaStoppedForRestartListener
-                );
             }
 
             if (!enabledColocation) {
@@ -728,34 +723,13 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             return falseCompletedFuture();
         }
 
-        Set<TableImpl> zoneTables = zoneTablesRawSet(parameters.zonePartitionId().zoneId());
-
-        CompletableFuture<?>[] futures = zoneTables.stream()
-                .map(this::tableStopFuture)
-                .toArray(CompletableFuture[]::new);
-
-        return allOf(futures).thenApply(v -> false);
-    }
-
-    private CompletableFuture<Boolean> onZoneReplicaStoppedForRestart(LocalPartitionReplicaEventParameters parameters) {
-        if (!enabledColocation) {
-            return falseCompletedFuture();
-        }
-
         ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-        return inBusyLockAsync(busyLock, () -> {
-            CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
-                    .map(table -> supplyAsync(
-                            () -> inBusyLockAsync(
-                                    busyLock,
-                                    () -> stopTablePartition(new TablePartitionId(table.tableId(), zonePartitionId.partitionId()), table)
-                            ),
-                            ioExecutor))
-                    .toArray(CompletableFuture[]::new);
+        CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
+                .map(table -> stopTablePartition(new TablePartitionId(table.tableId(), zonePartitionId.partitionId()), table))
+                .toArray(CompletableFuture[]::new);
 
-            return allOf(futures);
-        }).thenApply((unused) -> false);
+        return allOf(futures).thenApply(unused -> false);
     }
 
     private CompletableFuture<Boolean> onZoneReplicaDestroyed(LocalPartitionReplicaEventParameters parameters) {
@@ -1543,8 +1517,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             metaStorageMgr.unregisterWatch(stableAssignmentsRebalanceListener);
             metaStorageMgr.unregisterWatch(assignmentsSwitchRebalanceListener);
 
-            // All table resources under colocation track should be stopped on AFTER_REPLICA_STOP local event handler only.
-            cleanUpTablesResources(tables);
+            stopReplicasAndCloseTables(tables);
         }
     }
 
@@ -1563,12 +1536,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     onZoneReplicaDestroyedListener
             );
 
-            partitionReplicaLifecycleManager.removeListener(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
-
-            partitionReplicaLifecycleManager.removeListener(
-                    LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED_FOR_RESTART,
-                    onZoneReplicaStoppedForRestartListener
-            );
+            partitionReplicaLifecycleManager.removeListener(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
+                    onZoneReplicaStoppedListener);
 
             partitionReplicaLifecycleManager.removeListener(
                     LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED,
@@ -1580,6 +1549,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         try {
             closeAllManually(
+                    () -> {
+                        if (enabledColocation) {
+                            closeAllManually(tables.values().stream().map(table -> () -> closeTable(table)));
+                        }
+                    },
                     mvGc,
                     fullStateTransferIndexChooser,
                     () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
@@ -1607,11 +1581,27 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param tables Tables to stop.
      */
-    private void cleanUpTablesResources(Map<Integer, TableImpl> tables) {
+    private void stopReplicasAndCloseTables(Map<Integer, TableImpl> tables) {
         var futures = new ArrayList<CompletableFuture<Void>>(tables.size());
 
         for (TableImpl table : tables.values()) {
-            futures.add(tableStopFuture(table));
+            CompletableFuture<Void> stopFuture = stopTableReplicas(table)
+                    .thenRun(() -> {
+                        try {
+                            closeTable(table);
+                        } catch (Exception e) {
+                            throw new CompletionException(e);
+                        }
+                    })
+                    .whenComplete((res, ex) -> {
+                        if (ex != null) {
+                            String errorMessage = String.format("Unable to stop table [name=%s, tableId=%s]", table.name(),
+                                    table.tableId());
+                            failureProcessor.process(new FailureContext(ex, errorMessage));
+                        }
+                    });
+
+            futures.add(stopFuture);
         }
 
         try {
@@ -1621,10 +1611,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private CompletableFuture<Void> tableStopFuture(TableImpl table) {
-        InternalTable internalTable = table.internalTable();
+    private CompletableFuture<Void> stopTableReplicas(TableImpl table) {
+        assert !enabledColocation : "Table replicas should be not stopped in colocation mode";
 
-        CompletableFuture<Void> replicasStopFuture = supplyAsync(() -> {
+        return supplyAsync(() -> {
+            InternalTable internalTable = table.internalTable();
+
             var stopReplicaFutures = new CompletableFuture<?>[internalTable.partitions()];
 
             for (int p = 0; p < internalTable.partitions(); p++) {
@@ -1635,25 +1627,16 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
             return allOf(stopReplicaFutures);
         }, ioExecutor).thenCompose(identity());
+    }
 
-        return replicasStopFuture
-                .thenRun(() -> {
-                    try {
-                        closeAllManually(
-                                internalTable.storage(),
-                                internalTable.txStateStorage(),
-                                internalTable
-                        );
-                    } catch (Exception e) {
-                        throw new CompletionException(e);
-                    }
-                })
-                .whenComplete((res, ex) -> {
-                    if (ex != null) {
-                        String errorMessage = String.format("Unable to stop table [name=%s, tableId=%s]", table.name(), table.tableId());
-                        failureProcessor.process(new FailureContext(ex, errorMessage));
-                    }
-                });
+    private static void closeTable(TableImpl table) throws Exception {
+        InternalTable internalTable = table.internalTable();
+
+        closeAllManually(
+                internalTable.storage(),
+                internalTable.txStateStorage(),
+                internalTable
+        );
     }
 
     /**
