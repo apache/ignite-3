@@ -34,20 +34,42 @@ using NUnit.Framework;
 /// </summary>
 public class JobLoadContextTests
 {
+    private static readonly ConcurrentDictionary<Guid, Guid> DisposedIds = new();
+
+    [SetUp]
+    public void SetUp() => DisposedIds.Clear();
+
     [Test]
     public async Task TestJobExecution()
     {
-        var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
-        var jobTypeName = typeof(AddOneJob).AssemblyQualifiedName!;
-        var jobWrapper = jobLoadCtx.GetOrCreateJobWrapper(jobTypeName);
+        var res = await ExecuteJobAsync<int, int>(typeof(AddOneJob), 1);
 
-        using var argBuf = PackArg(1);
+        Assert.AreEqual(2, res);
+    }
+
+    [Test]
+    public async Task TestDisposableJob([Values(true, false)] bool async)
+    {
+        var execId = Guid.NewGuid();
+        var jobType = async ? typeof(AsyncDisposableJob) : typeof(DisposableJob);
+        var res = await ExecuteJobAsync<Guid, Guid>(jobType, execId);
+
+        Assert.AreEqual(execId, res);
+        Assert.IsTrue(DisposedIds.TryRemove(execId, out var disposedId));
+        Assert.AreEqual(execId, disposedId);
+    }
+
+    private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(Type jobType, TArg jobArg)
+    {
+        var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+        var jobWrapper = jobLoadCtx.GetOrCreateJobWrapper(jobType.AssemblyQualifiedName!);
+
+        using var argBuf = PackArg(jobArg);
         using var resBuf = new PooledArrayBuffer();
 
         await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
 
-        var res = UnpackRes<int>(resBuf);
-        Assert.AreEqual(2, res);
+        return UnpackRes<TResult>(resBuf);
     }
 
     private static PooledBuffer PackArg<T>(T arg)
@@ -78,8 +100,6 @@ public class JobLoadContextTests
 
     private class DisposableJob : IComputeJob<Guid, Guid>, IDisposable
     {
-        public static readonly ConcurrentDictionary<Guid, Guid> DisposedIds = new();
-
         private Guid _arg;
 
         public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, Guid arg, CancellationToken cancellationToken)
@@ -89,5 +109,22 @@ public class JobLoadContextTests
         }
 
         public void Dispose() => DisposedIds[_arg] = _arg;
+    }
+
+    private class AsyncDisposableJob : IComputeJob<Guid, Guid>, IAsyncDisposable
+    {
+        private Guid _arg;
+
+        public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, Guid arg, CancellationToken cancellationToken)
+        {
+            _arg = arg;
+            return ValueTask.FromResult(arg);
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Task.Delay(1);
+            DisposedIds[_arg] = _arg;
+        }
     }
 }

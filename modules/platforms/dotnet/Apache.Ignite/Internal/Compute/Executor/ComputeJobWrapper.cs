@@ -50,7 +50,11 @@ internal sealed class ComputeJobWrapper<TJob, TArg, TResult> : IComputeJobWrappe
         }
         finally
         {
-            if (job is IDisposable disposable)
+            if (job is IAsyncDisposable asyncDisposable)
+            {
+                await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+            }
+            else if (job is IDisposable disposable)
             {
                 disposable.Dispose();
             }
