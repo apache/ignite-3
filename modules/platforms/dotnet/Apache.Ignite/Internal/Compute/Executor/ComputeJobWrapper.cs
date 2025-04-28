@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
-using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
