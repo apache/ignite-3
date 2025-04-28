@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -54,6 +55,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -71,7 +73,9 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -79,10 +83,15 @@ import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.metastorage.Entry;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
+import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -92,6 +101,7 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
@@ -146,7 +156,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
         assertEquals(zoneId, request.zoneId());
-        assertEquals(Map.of(tableId, PARTITION_IDS), request.partitionIds());
+        assertEquals(of(tableId, PARTITION_IDS), request.partitionIds());
         assertFalse(request.manualUpdate());
     }
 
@@ -155,12 +165,25 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     static void assertRecoveryRequestCount(IgniteImpl node, int count) {
-        assertEquals(
-                count,
-                node
-                        .metaStorageManager()
-                        .getLocally(RECOVERY_TRIGGER_KEY.bytes(), 0L, Long.MAX_VALUE).size()
-        );
+        MetaStorageManager metaStorageManager = node.metaStorageManager();
+
+        KeyValueStorage storage = ((MetaStorageManagerImpl) metaStorageManager).storage();
+
+        int revisions = 0;
+
+        long nextUpperBound = storage.revision();
+        while (true) {
+            Entry entry = storage.get(RECOVERY_TRIGGER_KEY.bytes(), nextUpperBound);
+
+            if (entry.empty()) {
+                break;
+            }
+
+            revisions++;
+            nextUpperBound = entry.revision() - 1;
+        }
+
+        assertEquals(count, revisions);
     }
 
     final void waitAndAssertStableAssignmentsOfPartitionEqualTo(
@@ -286,6 +309,19 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
+        if (enabledColocation()) {
+            int zoneId = TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager(), tableName, clock.nowLong());
+            try {
+                return ZoneRebalanceUtil.zonePartitionAssignments(node.metaStorageManager(), zoneId, partNum).get();
+            } catch (InterruptedException | ExecutionException e) {
+                throw new RuntimeException(e);
+            }
+        } else {
+            return getTablePartitionClusterNodes(node, tableName, partNum);
+        }
+    }
+
+    private Set<Assignment> getTablePartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
                 .map(tableId -> stablePartitionAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
@@ -320,7 +356,9 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             tableIds.add(getTableId(igniteImpl(0).catalogManager(), tableName, clock.nowLong()));
         }
 
-        awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
+        int zoneId = DistributionZonesTestUtil.getZoneId(igniteImpl(0).catalogManager(), zoneName, clock.nowLong());
+
+        awaitForAllNodesTableGroupInitialization(zoneId, tableIds, targetNodes.size());
 
         tableNames.forEach(t ->
                 waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, PARTITION_IDS, targetNodes)
@@ -445,7 +483,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         return gatewayNode.metaStorageManager().appliedRevision();
     }
 
-    private void awaitForAllNodesTableGroupInitialization(Set<Integer> tableIds, int replicas) throws InterruptedException {
+    private void awaitForAllNodesTableGroupInitialization(int zoneId, Set<Integer> tableIds, int replicas) throws InterruptedException {
         assertTrue(waitForCondition(() -> {
             AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
 
@@ -455,13 +493,10 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
                     if (raftNodeId.groupId() instanceof TablePartitionId
                             && tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
-                        try {
-                            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
-                                numberOfInitializedReplicas.incrementAndGet();
-                            }
-                        } catch (NodeStoppingException e) {
-                            throw new RuntimeException(e);
-                        }
+                        incrementReplicaCountIfHasLog(raftNodeId, igniteImpl, numberOfInitializedReplicas);
+                    } else if (raftNodeId.groupId() instanceof ZonePartitionId
+                            && zoneId == ((ZonePartitionId) raftNodeId.groupId()).zoneId()) {
+                        incrementReplicaCountIfHasLog(raftNodeId, igniteImpl, numberOfInitializedReplicas);
                     }
                 });
 
@@ -469,6 +504,20 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             return PARTITIONS_NUMBER * replicas * tableIds.size() == numberOfInitializedReplicas.get();
         }, 10_000));
+    }
+
+    private static void incrementReplicaCountIfHasLog(
+            RaftNodeId raftNodeId,
+            IgniteImpl igniteImpl,
+            AtomicInteger numberOfInitializedReplicas
+    ) {
+        try {
+            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
+                numberOfInitializedReplicas.incrementAndGet();
+            }
+        } catch (NodeStoppingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     final Set<String> nodeNames(Integer... indexes) {
@@ -570,10 +619,12 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     void triggerManualReset(IgniteImpl node) {
-        CompletableFuture<?> updateFuture = node.disasterRecoveryManager().resetAllPartitions(
+        DisasterRecoveryManager disasterRecoveryManager = node.disasterRecoveryManager();
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetTablePartitions(
                 HA_ZONE_NAME,
                 SCHEMA_NAME,
                 HA_TABLE_NAME,
+                emptySet(),
                 true,
                 -1
         );

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.Map;
 import java.util.UUID;
@@ -238,7 +239,7 @@ class ReplicaStateManager {
                     return partitionStarted;
                 }))
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class)) {
                         failureProcessor.process(new FailureContext(ex, String.format("Replica start failed [groupId=%s]", groupId)));
                     }
                 });
@@ -330,7 +331,7 @@ class ReplicaStateManager {
                     return true;
                 }))
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(ex, String.format("Replica stop failed [groupId=%s]", groupId)));
                     }
                 });

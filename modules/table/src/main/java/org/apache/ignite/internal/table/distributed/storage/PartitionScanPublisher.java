@@ -150,7 +150,12 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
                 }
 
                 if (shouldRetrieveBatch) {
-                    serializationFuture = serializationFuture.thenCompose(v -> retrieveAndProcessBatch());
+                    serializationFuture = serializationFuture.thenCompose(v -> retrieveAndProcessBatch())
+                            .whenComplete((v, err) -> {
+                                if (err != null) {
+                                    completeSubscription(err);
+                                }
+                            });
                 }
             }
         }
@@ -224,12 +229,7 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
 
             return retrieveBatch(scanId, batchSize)
                     .whenComplete((batch, err) -> inflightBatchRequestTracker.onRequestEnd())
-                    .thenAccept(batch -> processBatch(batch, batchSize))
-                    .whenComplete((v, err) -> {
-                        if (err != null) {
-                            completeSubscription(err);
-                        }
-                    });
+                    .thenAccept(batch -> processBatch(batch, batchSize));
         }
 
         private void processBatch(Collection<T> batch, int requestedCnt) {
@@ -249,7 +249,12 @@ public abstract class PartitionScanPublisher<T> implements Publisher<T> {
                     requestedItemsCnt -= batch.size();
 
                     if (requestedItemsCnt > 0) {
-                        serializationFuture = serializationFuture.thenCompose(v -> retrieveAndProcessBatch());
+                        serializationFuture = serializationFuture.thenCompose(v -> retrieveAndProcessBatch())
+                                .whenComplete((v, err) -> {
+                                    if (err != null) {
+                                        completeSubscription(err);
+                                    }
+                                });
                     }
                 }
             }

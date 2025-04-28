@@ -51,6 +51,7 @@ import org.apache.ignite.internal.raft.LeaderElectionListener;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.raft.StoppingExceptionFactories;
 import org.apache.ignite.internal.raft.TestRaftGroupListener;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.raft.server.RaftGroupOptions;
@@ -529,7 +530,8 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
                 logicalTopologyService,
                 eventsClientListener,
                 notifyOnSubscription,
-                commandsMarshaller
+                commandsMarshaller,
+                StoppingExceptionFactories.indicateComponentStop()
         );
     }
 

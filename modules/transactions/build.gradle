@@ -90,8 +90,10 @@ dependencies {
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation(testFixtures(project(':ignite-transactions')))
+    integrationTestImplementation(testFixtures(project(':ignite-table')))
     integrationTestImplementation(testFixtures(project(':ignite-sql-engine')))
     integrationTestImplementation(testFixtures(project(':ignite-runner')))
+    integrationTestImplementation(testFixtures(project(':ignite-catalog')))
     integrationTestImplementation libs.netty.transport
 
     testFixturesImplementation project(':ignite-configuration')

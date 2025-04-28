@@ -21,6 +21,7 @@ import static java.util.Collections.reverse;
 import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_TEST_PROFILE_NAME;
 import static org.apache.ignite.internal.TestRebalanceUtil.partitionReplicationGroupId;
@@ -58,6 +59,7 @@ import static org.apache.ignite.sql.ColumnType.INT32;
 import static org.apache.ignite.sql.ColumnType.INT64;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
+import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -105,6 +107,7 @@ import java.util.function.Predicate;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import java.util.stream.Stream;
 import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionConfigurationSchema;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.app.ThreadPoolsManager;
@@ -197,6 +200,7 @@ import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.JraftGroupEventsListener;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
+import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
 import org.apache.ignite.internal.raft.RaftNodeId;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupServiceFactory;
@@ -303,7 +307,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     /** Filter to determine a primary node identically on any cluster node. */
     private static final Function<Collection<ClusterNode>, ClusterNode> PRIMARY_FILTER = nodes -> nodes.stream()
-            .filter(n -> n.address().port() == BASE_PORT).findFirst().get();
+            .filter(n -> n.address().port() == BASE_PORT).findFirst().orElse(null);
 
     private static final String HOST = "localhost";
 
@@ -469,7 +473,6 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         checkPartitionNodes(0, 3);
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24674")
     @Test
     void testThreeQueuedRebalances() throws Exception {
         Node node = getNode(0);
@@ -767,14 +770,10 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         Set<Assignment> assignmentsBeforeRebalance = getPartitionStableAssignments(node, 0);
 
-        String newNodeNameForAssignment = nodes.stream()
-                .map(n -> Assignment.forPeer(n.clusterService.nodeName()))
-                .filter(assignment -> !assignmentsBeforeRebalance.contains(assignment))
-                .findFirst()
-                .orElseThrow()
-                .consistentId();
+        List<String> newNodeNames = getNodeNames(notIn(assignmentsBeforeRebalance))
+                .collect(toList());
 
-        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNames.get(0)));
         PartitionGroupId partitionGroupId = partitionReplicationGroupId(table, 0);
 
         // Write the new assignments to metastore as a pending assignments.
@@ -807,7 +806,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeInReplicationGroup)
-                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(newAssignment))),
+                        .allMatch(isNodeUpdatesPeersAndLearnersOnGroupService(newAssignment)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -836,19 +835,14 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
         electPrimaryReplica(node);
 
-        var assignmentsBeforeRebalance = getPartitionStableAssignments(node, 0);
-        String nodeNameAssignedBeforeRebalance = assignmentsBeforeRebalance.stream()
-                .findFirst()
-                .orElseThrow()
-                .consistentId();
+        Set<Assignment> assignmentsBeforeRebalance = getPartitionStableAssignments(node, 0);
 
-        String newNodeNameForAssignment = nodes.stream()
-                .filter(n -> !nodeNameAssignedBeforeRebalance.equals(n.clusterService.nodeName()))
-                .findFirst()
-                .orElseThrow()
-                .name;
+        List<String> newNodeNames = getNodeNames(notIn(assignmentsBeforeRebalance))
+                .collect(toList());
 
-        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNameForAssignment));
+        assertThat(newNodeNames, hasSize(greaterThanOrEqualTo(2)));
+
+        Set<Assignment> newAssignment = Set.of(Assignment.forPeer(newNodeNames.get(0)), Assignment.forLearner(newNodeNames.get(1)));
         PartitionGroupId partId = partitionReplicationGroupId(table, 0);
 
         // Write the new assignments to metastore as a pending assignments.
@@ -875,7 +869,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(
                 () -> nodes.stream()
                         .filter(isNodeInReplicationGroup)
-                        .allMatch(n -> isNodeUpdatesPeersOnGroupService(node, assignmentsToPeersSet(union))),
+                        .allMatch(isNodeUpdatesPeersAndLearnersOnGroupService(union)),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -934,9 +928,11 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
         return node.replicaManager.isReplicaStarted(replicationGroupId);
     }
 
-    private static boolean isNodeUpdatesPeersOnGroupService(Node node, Set<Peer> desiredPeers) {
-        return ReplicaTestUtils.getRaftClient(node.replicaManager, getTableOrZoneId(node, TABLE_NAME), 0)
-                .map(raftClient -> new HashSet<>(raftClient.peers()).equals(desiredPeers))
+    private static Predicate<Node> isNodeUpdatesPeersAndLearnersOnGroupService(Set<Assignment> desiredAssignments) {
+        PeersAndLearners desired = PeersAndLearners.fromAssignments(desiredAssignments);
+        return node -> ReplicaTestUtils.getRaftClient(node.replicaManager, getTableOrZoneId(node, TABLE_NAME), 0)
+                .map(raftClient -> desired.peers().equals(new HashSet<>(raftClient.peers()))
+                        && desired.learners().equals(new HashSet<>(raftClient.learners())))
                 .orElse(false);
     }
 
@@ -1887,6 +1883,26 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private Node getNode(int nodeIndex) {
         return nodes.get(nodeIndex);
+    }
+
+    private Stream<String> getNodeNames(Predicate<Node> filter) {
+        return getNodes(filter)
+                .map(n -> n.clusterService.nodeName());
+    }
+
+    private Stream<Node> getNodes(Predicate<Node> filter) {
+        return nodes.stream().filter(filter).distinct();
+    }
+
+    private Predicate<Node> notIn(Set<Assignment> assignments) {
+        return in(assignments).negate();
+    }
+
+    private Predicate<Node> in(Set<Assignment> assignments) {
+        return node -> {
+            String nodeName = node.clusterService.nodeName();
+            return assignments.stream().anyMatch(a -> a.consistentId().equals(nodeName));
+        };
     }
 
     private void checkPartitionNodes(int partitionId, int expNodeCount) {

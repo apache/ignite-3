@@ -56,7 +56,6 @@ import java.util.stream.StreamSupport;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
-import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.util.DateString;
@@ -65,10 +64,8 @@ import org.apache.calcite.util.TimestampString;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
-import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
@@ -122,7 +119,7 @@ public class SqlTestUtils {
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.STRING, SqlTypeName.VARCHAR);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.BYTE_ARRAY, SqlTypeName.VARBINARY);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.NULL, SqlTypeName.NULL);
-        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.ANY);
+        COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.UUID, SqlTypeName.UUID);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.PERIOD, null);
         COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.put(ColumnType.DURATION, null);
 
@@ -212,15 +209,6 @@ public class SqlTestUtils {
      */
     public static String toSqlType(ColumnType columnType) {
         SqlTypeName type = COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.get(columnType);
-
-        if (type == SqlTypeName.ANY) {
-            switch (columnType) {
-                case UUID:
-                    return UuidType.NAME;
-                default:
-                    throw new IllegalArgumentException("Unsupported type " + columnType);
-            }
-        }
 
         if (type == null) {
             throw new IllegalArgumentException("Unsupported type " + columnType);
@@ -427,8 +415,9 @@ public class SqlTestUtils {
             case BYTE_ARRAY:
                 assert value instanceof byte[];
                 return "X'" + StringUtils.toHexString((byte[]) value) + "'";
-            case NULL:
             case UUID:
+                return "UUID '" + value + "'";
+            case NULL:
             case PERIOD:
             case DURATION:
                 throw new IllegalArgumentException("The type " + type + " isn't supported right now");
@@ -461,8 +450,8 @@ public class SqlTestUtils {
         return result;
     }
 
-    /** Generates literal or value expression using specified column type and value. */
-    public static RexNode generateLiteralOrValueExpr(ColumnType type, @Nullable Object value) {
+    /** Generates literal using specified column type and value. */
+    public static RexNode generateLiteral(ColumnType type, @Nullable Object value) {
         RexBuilder rexBuilder = Commons.rexBuilder();
         IgniteTypeFactory typeFactory = Commons.typeFactory();
 
@@ -512,11 +501,7 @@ public class SqlTestUtils {
 
                 return rexBuilder.makeTimestampLiteral(TimestampString.fromMillisSinceEpoch(requireNonNull(instant).toEpochMilli()), 6);
             case UUID:
-                RexLiteral uuidStr = rexBuilder.makeLiteral(requireNonNull(value).toString(),
-                        typeFactory.createSqlType(SqlTypeName.VARCHAR));
-                IgniteCustomType uuidType = typeFactory.createCustomType(UuidType.NAME);
-
-                return rexBuilder.makeCast(uuidType, uuidStr);
+                return rexBuilder.makeUuidLiteral((UUID) value);
             case STRING:
                 return rexBuilder.makeLiteral(value, typeFactory.createSqlType(SqlTypeName.VARCHAR));
             case BYTE_ARRAY:

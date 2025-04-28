@@ -43,15 +43,23 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(ConfigurationExtension.class)
 class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
-    private static final String NODE_NAME = "foo";
+    private static final String NODE_NAME = "MetaStorageLeaderElectionListenerTest";
 
     @InjectConfiguration
     private SystemDistributedConfiguration systemConfiguration;
+
+    private ClusterTimeImpl clusterTime;
+
+    @AfterEach
+    void cleanup() throws Exception {
+        clusterTime.close();
+    }
 
     /**
      * If node lost leadership before Ignite is fully initialized, it could try to stop the safe time scheduler
@@ -67,7 +75,7 @@ class MetaStorageLeaderElectionListenerTest extends BaseIgniteAbstractTest {
 
         IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
-        ClusterTimeImpl clusterTime = spy(new ClusterTimeImpl(NODE_NAME, busyLock, new HybridClockImpl()));
+        clusterTime = spy(new ClusterTimeImpl(NODE_NAME, busyLock, new HybridClockImpl()));
 
         CompletableFuture<MetaStorageServiceImpl> metaStorageSvcFut = new CompletableFuture<>();
         CompletableFuture<SystemDistributedConfiguration> systemConfigurationFuture = completedFuture(systemConfiguration);

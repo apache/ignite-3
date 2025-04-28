@@ -370,18 +370,55 @@ public final class ExceptionUtils {
             @Nullable String message,
             Class<?> @Nullable... clazz
     ) {
-        return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()));
+        return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), true);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method IGNORES {@link Throwable#getSuppressed()}.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCause(
+            @Nullable Throwable throwable,
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCause(throwable, null, clazz);
+    }
+
+    /**
+     * Checks if passed in {@code 'Throwable'} has given class in {@code 'cause'} hierarchy
+     * <b>including</b> that throwable itself.
+     * Note that this method IGNORES {@link Throwable#getSuppressed()}.
+     *
+     * @param throwable Throwable to check (if {@code null}, {@code false} is returned).
+     * @param message Error message fragment that should be in error message.
+     * @param clazz Cause classes to check (if {@code null} or empty, {@code false} is returned).
+     * @return {@code true} if one of the causing exception is an instance of passed in classes,
+     *      {@code false} otherwise.
+     */
+    public static boolean hasCause(
+            @Nullable Throwable throwable,
+            @Nullable String message,
+            Class<?> @Nullable... clazz
+    ) {
+        return hasCauseOrSuppressedInternal(throwable, message, clazz, newSetFromMap(new IdentityHashMap<>()), false);
     }
 
     /**
      * Internal method that does what is described in {@link #hasCauseOrSuppressed(Throwable, String, Class[])}, but protects against an
-     * infinite loop.
+     * infinite loop. It can also consider or ignore suppressed exceptions.
      */
     private static boolean hasCauseOrSuppressedInternal(
             @Nullable Throwable throwable,
             @Nullable String message,
             Class<?> @Nullable [] clazz,
-            Set<Throwable> dejaVu
+            Set<Throwable> dejaVu,
+            boolean considerSuppressed
     ) {
         if (throwable == null || clazz == null || clazz.length == 0) {
             return false;
@@ -406,9 +443,11 @@ public final class ExceptionUtils {
                 }
             }
 
-            for (Throwable n : th.getSuppressed()) {
-                if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu)) {
-                    return true;
+            if (considerSuppressed) {
+                for (Throwable n : th.getSuppressed()) {
+                    if (hasCauseOrSuppressedInternal(n, message, clazz, dejaVu, considerSuppressed)) {
+                        return true;
+                    }
                 }
             }
 

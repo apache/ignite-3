@@ -149,6 +149,8 @@ import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.sql.engine.util.cache.StatsCounter;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.AsyncCursor;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -166,6 +168,7 @@ import org.junit.jupiter.api.Named;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -174,6 +177,9 @@ import org.junit.jupiter.params.provider.MethodSource;
  * Test class to verify {@link ExecutionServiceImplTest}.
  */
 @SuppressWarnings("ThrowableNotThrown")
+@ExtendWith(FailureManagerExtension.class)
+// TODO: https://issues.apache.org/jira/browse/IGNITE-25221 - remove the mute.
+@MuteFailureManagerLogging
 public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
     /** Tag allows to skip default cluster setup. */
     private static final String CUSTOM_CLUSTER_SETUP_TAG = "skipDefaultClusterSetup";

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import java.util.Map;
@@ -50,7 +51,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Manages resources of distribution zones; that is, allows creation of underlying storages and closes them on node stop.
  */
-class ZoneResourcesManager implements ManuallyCloseable {
+public class ZoneResourcesManager implements ManuallyCloseable {
     private final TxStateRocksDbSharedStorage sharedTxStateStorage;
 
     private final TxManager txManager;
@@ -123,23 +124,26 @@ class ZoneResourcesManager implements ManuallyCloseable {
                 partitionOperationsExecutor
         );
 
-        var zonePartitionResources = new ZonePartitionResources(txStatePartitionStorage, raftGroupListener, snapshotStorage);
+        var zonePartitionResources = new ZonePartitionResources(
+                txStatePartitionStorage,
+                raftGroupListener,
+                snapshotStorage,
+                storageIndexTracker
+        );
 
         zoneResources.resourcesByPartitionId.put(zonePartitionId.partitionId(), zonePartitionResources);
 
         return zonePartitionResources;
     }
 
-    ZonePartitionResources getZonePartitionResources(ZonePartitionId zonePartitionId) {
+    @Nullable ZonePartitionResources getZonePartitionResources(ZonePartitionId zonePartitionId) {
         ZoneResources zoneResources = resourcesByZoneId.get(zonePartitionId.zoneId());
 
-        assert zoneResources != null : "Missing resources for zone " + zonePartitionId.zoneId();
+        if (zoneResources == null) {
+            return null;
+        }
 
-        ZonePartitionResources zonePartitionResources = zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
-
-        assert zonePartitionResources != null : "Missing resources for partition " + zonePartitionId;
-
-        return zonePartitionResources;
+        return zoneResources.resourcesByPartitionId.get(zonePartitionId.partitionId());
     }
 
     private TxStateStorage createTxStateStorage(int zoneId, int partitionCount) {
@@ -181,6 +185,10 @@ class ZoneResourcesManager implements ManuallyCloseable {
     CompletableFuture<Void> removeTableResources(ZonePartitionId zonePartitionId, int tableId) {
         ZonePartitionResources resources = getZonePartitionResources(zonePartitionId);
 
+        if (resources == null) {
+            return nullCompletedFuture();
+        }
+
         return resources.replicaListenerFuture
                 .thenCompose(zoneReplicaListener -> {
                     zoneReplicaListener.removeTableReplicaProcessor(tableId);
@@ -214,10 +222,17 @@ class ZoneResourcesManager implements ManuallyCloseable {
         }
     }
 
-    static class ZonePartitionResources {
+    /**
+     * Zone partition resources.
+     */
+    public static class ZonePartitionResources {
         private final TxStatePartitionStorage txStatePartitionStorage;
+
         private final ZonePartitionRaftListener raftListener;
+
         private final PartitionSnapshotStorage snapshotStorage;
+
+        private final PendingComparableValuesTracker<Long, Void> storageIndexTracker;
 
         /**
          * Future that completes when the zone-wide replica listener is created.
@@ -232,26 +247,32 @@ class ZoneResourcesManager implements ManuallyCloseable {
         ZonePartitionResources(
                 TxStatePartitionStorage txStatePartitionStorage,
                 ZonePartitionRaftListener raftListener,
-                PartitionSnapshotStorage snapshotStorage
+                PartitionSnapshotStorage snapshotStorage,
+                PendingComparableValuesTracker<Long, Void> storageIndexTracker
         ) {
             this.txStatePartitionStorage = txStatePartitionStorage;
             this.raftListener = raftListener;
             this.snapshotStorage = snapshotStorage;
+            this.storageIndexTracker = storageIndexTracker;
         }
 
-        TxStatePartitionStorage txStatePartitionStorage() {
+        public TxStatePartitionStorage txStatePartitionStorage() {
             return txStatePartitionStorage;
         }
 
-        ZonePartitionRaftListener raftListener() {
+        public ZonePartitionRaftListener raftListener() {
             return raftListener;
         }
 
-        PartitionSnapshotStorage snapshotStorage() {
+        public PartitionSnapshotStorage snapshotStorage() {
             return snapshotStorage;
         }
 
-        CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
+        public PendingComparableValuesTracker<Long, Void> storageIndexTracker() {
+            return storageIndexTracker;
+        }
+
+        public CompletableFuture<ZonePartitionReplicaListener> replicaListenerFuture() {
             return replicaListenerFuture;
         }
     }

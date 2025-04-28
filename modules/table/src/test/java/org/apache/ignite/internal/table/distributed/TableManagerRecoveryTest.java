@@ -103,6 +103,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
+import org.apache.ignite.internal.partition.replicator.ZonePartitionReplicaListener;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -112,6 +113,7 @@ import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
+import org.apache.ignite.internal.replicator.Replica;
 import org.apache.ignite.internal.replicator.ReplicaManager;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -323,7 +325,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         RaftGroupService raftGrpSrvcMock = mock(TopologyAwareRaftGroupService.class);
 
         when(raftGrpSrvcMock.leader()).thenReturn(new Peer("node0"));
-        when(rm.startRaftGroupService(any(), any(), any(), any())).thenAnswer(mock -> raftGrpSrvcMock);
+        when(rm.startRaftGroupService(any(), any(), any(), any(), any())).thenAnswer(mock -> raftGrpSrvcMock);
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
         when(clusterService.topologyService()).thenReturn(topologyService);
@@ -332,9 +334,19 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         doReturn(nullCompletedFuture())
                 .when(replicaMgr).startReplica(any(RaftGroupEventsListener.class), any(), anyBoolean(), any(), any(), any(), any(), any());
-        doReturn(nullCompletedFuture())
-                .when(replicaMgr)
-                .startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any());
+
+        ZonePartitionReplicaListener zonePartitionReplicaListener = mock(ZonePartitionReplicaListener.class);
+        Replica replica = mock(Replica.class);
+        when(replicaMgr.startReplica(any(ReplicationGroupId.class), any(), any(), any(), any(), any(), anyBoolean(), any(), any()))
+                .then(invocation -> {
+                    partitionReplicaLifecycleManager
+                            .zonePartitionResources(invocation.getArgument(0))
+                            .replicaListenerFuture()
+                            .complete(zonePartitionReplicaListener);
+
+                    return completedFuture(replica);
+                });
+
         doReturn(trueCompletedFuture()).when(replicaMgr).stopReplica(any());
         doAnswer(invocation -> {
             Supplier<CompletableFuture<Boolean>> startSupplier = invocation.getArgument(1);

@@ -25,6 +25,9 @@ import java.util.Map.Entry;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
+import org.apache.ignite.internal.metastorage.MetaStorageManager;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.CompletableFutures;
@@ -35,9 +38,8 @@ import org.apache.ignite.internal.util.CompletableFutures;
  *
  * <p>Expected usage:</p>
  * <ul>
- *     <li>Before starting execution, the reading command invoke {@link #track} with its ID and the compaction revision that is currently
- *     set ({@link KeyValueStorage#setCompactionRevision}).</li>
- *     <li>After completion, the reading command will invoke {@link #untrack} with the same arguments as when calling {@link #track},
+ *     <li>Before starting execution, the reading command invokes {@link #track} with the lowest estimation for revision upper bound.
+ *     <li>After completion, the reading command will invoke {@link TrackingToken#close()} on an instance returned by {@link #track},
  *     regardless of whether the operation was successful or not.</li>
  *     <li>{@link #collect} will be invoked only after a new compaction revision has been set
  *     ({@link KeyValueStorage#setCompactionRevision}) for a new compaction revision.</li>
@@ -48,80 +50,112 @@ public class ReadOperationForCompactionTracker {
 
     private final AtomicLong longOperationIdGenerator = new AtomicLong();
 
-    /** Generates the next read operation ID. Thread-safe. */
-    public long generateReadOperationId() {
-        return longOperationIdGenerator.getAndIncrement();
+    /**
+     * Token to stop tracking the read operation.
+     *
+     * @see #track(long, LongSupplier, LongSupplier)
+     */
+    @FunctionalInterface
+    public interface TrackingToken extends AutoCloseable {
+        @Override
+        void close();
     }
 
     /**
-     * Starts tracking the completion of a read operation on the current compaction revision.
-     *
-     * <p>Method is expected not to be called more than once for the same arguments.</p>
+     * Starts tracking the completion of a read operation on its lowest estimation for revision upper bound.
      *
      * <p>Expected usage pattern:</p>
      * <pre><code>
-     *     Object readOperationId = ...;
-     *     int compactionRevision = ...;
+     *     int operationRevision = ...;
      *
-     *     tracker.track(readOperationId, compactionRevision);
-     *
-     *     try {
+     *     try (var token = tracker.track(operationRevision, storage::revision, storage::getCompactionRevision)) {
      *         doReadOperation(...);
-     *     } finally {
-     *         tracker.untrack(readOperationId, compactionRevision);
      *     }
      * </code></pre>
      *
-     * @see #untrack(Object, long)
+     * <p>Or you can use an explicit {@link TrackingToken#close()} call if execution context requires that, for example if your operation is
+     * asynchronous.
+     *
+     * @see TrackingToken
      */
-    public void track(Object readOperationId, long compactionRevision) {
-        var key = new ReadOperationKey(readOperationId, compactionRevision);
+    public TrackingToken track(
+            long operationRevision, LongSupplier latestRevision, LongSupplier compactedRevision
+    ) throws CompactedException {
+        long operationId = longOperationIdGenerator.getAndIncrement();
 
-        CompletableFuture<Void> previous = readOperationFutureByKey.putIfAbsent(key, new CompletableFuture<>());
+        while (true) {
+            // "operationRevision" parameter is immutable, because we might need it on a next iteration.
+            // If it is asked to track the latest revision, we receive it right here from the corresponding supplier.
+            long currentOperationRevision = operationRevision == MetaStorageManager.LATEST_REVISION
+                    ? latestRevision.getAsLong()
+                    : operationRevision;
 
-        assert previous == null : key;
+            // Value from compacted revision supplier can only grow. We only use it for upper bound checks, so it's safe to read it every
+            // time instead of caching it. It applies to all usages of the supplier.
+            if (currentOperationRevision <= compactedRevision.getAsLong()) {
+                // Latest revision can never be compacted. If for some reason latest revision is concurrently updated and this revision is
+                // already compacted, we should retry until we succeed. That's quite a lag, but it is possible in theory and in tests.
+                if (operationRevision == MetaStorageManager.LATEST_REVISION) {
+                    continue;
+                }
+
+                throw new CompactedException(currentOperationRevision, compactedRevision.getAsLong());
+            }
+
+            var key = new ReadOperationKey(operationId, currentOperationRevision);
+
+            TrackingToken trackingToken = () -> {
+                CompletableFuture<Void> removed = readOperationFutureByKey.remove(key);
+
+                // Might be null, that's fine, "close" can be called multiple times.
+                if (removed != null) {
+                    removed.complete(null);
+                }
+            };
+
+            CompletableFuture<Void> operationFuture = new CompletableFuture<>();
+            readOperationFutureByKey.put(key, operationFuture);
+
+            // If this condition passes, it is possible that a future returned by "collect" in a compaction thread is already completed.
+            // It is not safe to proceed with tracking, we have to invalidate current token and either retry, or throw an exception.
+            if (currentOperationRevision <= compactedRevision.getAsLong()) {
+                trackingToken.close();
+
+                if (operationRevision == MetaStorageManager.LATEST_REVISION) {
+                    continue;
+                }
+
+                throw new CompactedException(currentOperationRevision, compactedRevision.getAsLong());
+            }
+
+            return trackingToken;
+        }
     }
 
     /**
-     * Stops tracking the read operation on the compaction revision on which tracking start.
-     *
-     * <p>Method is expected not to be called more than once for the same arguments, and {@link #track} was previously called for same
-     * arguments.</p>
-     *
-     * @see #track(Object, long)
-     */
-    public void untrack(Object readOperationId, long compactionRevision) {
-        var key = new ReadOperationKey(readOperationId, compactionRevision);
-
-        CompletableFuture<Void> removed = readOperationFutureByKey.remove(key);
-
-        assert removed != null : key;
-
-        removed.complete(null);
-    }
-
-    /**
-     * Collects all read operations that were started before {@code compactionRevisionExcluded} and returns a future that will complete
+     * Collects all read operations that were started before {@code compactionRevision} and returns a future that will complete
      * when all collected operations complete.
      *
      * <p>Future completes without exception.</p>
      */
-    public CompletableFuture<Void> collect(long compactionRevisionExcluded) {
+    public CompletableFuture<Void> collect(long compactionRevision) {
         return readOperationFutureByKey.entrySet().stream()
-                .filter(entry -> entry.getKey().compactionRevision < compactionRevisionExcluded)
+                .filter(entry -> entry.getKey().operationRevision <= compactionRevision)
                 .map(Entry::getValue)
                 .collect(collectingAndThen(toList(), CompletableFutures::allOf));
     }
 
     private static class ReadOperationKey {
         @IgniteToStringInclude
-        private final Object readOperationId;
+        private final long readOperationId;
 
-        private final long compactionRevision;
+        private final long operationRevision;
 
-        private ReadOperationKey(Object readOperationId, long compactionRevision) {
+        private ReadOperationKey(long readOperationId, long operationRevision) {
+            assert operationRevision >= 0 : operationRevision;
+
             this.readOperationId = readOperationId;
-            this.compactionRevision = compactionRevision;
+            this.operationRevision = operationRevision;
         }
 
         @Override
@@ -135,13 +169,13 @@ public class ReadOperationForCompactionTracker {
 
             ReadOperationKey that = (ReadOperationKey) o;
 
-            return compactionRevision == that.compactionRevision && readOperationId.equals(that.readOperationId);
+            return operationRevision == that.operationRevision && readOperationId == that.readOperationId;
         }
 
         @Override
         public int hashCode() {
-            int result = readOperationId.hashCode();
-            result = 31 * result + (int) (compactionRevision ^ (compactionRevision >>> 32));
+            int result = Long.hashCode(readOperationId);
+            result = 31 * result + Long.hashCode(operationRevision);
             return result;
         }
 

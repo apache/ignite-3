@@ -62,6 +62,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
+import org.apache.ignite.internal.metastorage.server.ConditionalWatchInhibitor;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
@@ -76,7 +77,6 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
-import org.apache.ignite.internal.test.ConditionalWatchInhibitor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
@@ -154,6 +154,9 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     public void tearDown() {
         leaseUpdater.deactivate();
         assignmentsTracker.stopTrack();
+
+        metaStorageManager.beforeNodeStop();
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
     }
 
     private LeaseUpdater createLeaseUpdater() {

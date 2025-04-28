@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.sql.engine.prepare.pruning;
 
 import static java.util.UUID.randomUUID;
-import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteralOrValueExpr;
+import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.generateLiteral;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
@@ -106,7 +106,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
 
         int fieldIndex = 0;
         Object val = generateFieldValue(table, fieldIndex);
-        RexNode expr = generateLiteralOrValueExpr(columnType, val);
+        RexNode expr = generateLiteral(columnType, val);
 
         PartitionPruningColumns columns = new PartitionPruningColumns(List.of(Int2ObjectMaps.singleton(fieldIndex, expr)));
 

@@ -117,88 +117,6 @@ public interface KeyValueStorage extends ManuallyCloseable {
     Entry get(byte[] key, long revUpperBound);
 
     /**
-     * Returns all entries (ordered by revisions) corresponding to the given key and bounded by given revisions.
-     *
-     * <p>Let's consider examples of the work of the method and compaction of the metastorage. Let's assume that we have keys with
-     * revisions "foo" [2, 4] and "bar" [2, 4 (tombstone)], and the key "some" has never been in the metastorage.</p>
-     * <ul>
-     *     <li>Compaction revision is {@code 1}.
-     *     <ul>
-     *         <li>get("foo", 1, 1) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 1, 2) - will return a single value with revision 2.</li>
-     *         <li>get("foo", 1, 3) - will return a single value with revision 2.</li>
-     *         <li>get("bar", 1, 1) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 1, 2) - will return a single value with revision 2.</li>
-     *         <li>get("bar", 1, 3) - will return a single value with revision 2.</li>
-     *         <li>get("some", 1, 1) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 1, 2) - will return an empty list.</li>
-     *         <li>get("some", 1, 3) - will return an empty list.</li>
-     *     </ul>
-     *     </li>
-     *     <li>Compaction revision is {@code 2}.
-     *     <ul>
-     *         <li>get("foo", 1, 2) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 2, 2) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 1, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 2, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 3, 3) - will return an empty list.</li>
-     *         <li>get("foo", 3, 4) - will return a single value with revision 4.</li>
-     *         <li>get("bar", 1, 2) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 2, 2) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 1, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 2, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 3, 3) - will return an empty list.</li>
-     *         <li>get("bar", 3, 4) - will return a single value with revision 4.</li>
-     *         <li>get("some", 1, 2) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 2, 2) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 2, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 3, 3) - will return an empty list.</li>
-     *     </ul>
-     *     </li>
-     *     <li>Compaction revision is {@code 3}.
-     *     <ul>
-     *         <li>get("foo", 1, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 2, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 3, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("foo", 3, 4) - will return a single value with revision 4.</li>
-     *         <li>get("foo", 4, 4) - will return a single value with revision 4.</li>
-     *         <li>get("bar", 1, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 2, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 3, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 3, 4) - will return a single value with revision 4.</li>
-     *         <li>get("bar", 4, 4) - will return a single value with revision 4.</li>
-     *         <li>get("some", 2, 3) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 3, 4) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 4, 4) - will return an empty list.</li>
-     *     </ul>
-     *     </li>
-     *     <li>Compaction revision is {@code 4}.
-     *     <ul>
-     *         <li>get("foo", 3, 4) - will return a single value with revision 4.</li>
-     *         <li>get("foo", 4, 4) - will return a single value with revision 4.</li>
-     *         <li>get("foo", 4, 5) - will return a single value with revision 4.</li>
-     *         <li>get("foo", 5, 5) - will return an empty list.</li>
-     *         <li>get("bar", 3, 4) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 4, 4) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 4, 5) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("bar", 5, 5) - will return an empty list.</li>
-     *         <li>get("some", 3, 4) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 4, 4) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 4, 5) - a {@link CompactedException} will be thrown.</li>
-     *         <li>get("some", 5, 5) - will return an empty list.</li>
-     *     </ul>
-     *     </li>
-     * </ul>
-     *
-     * @param key Key.
-     * @param revLowerBound Lower bound of revision (inclusive).
-     * @param revUpperBound Upper bound of revision (inclusive).
-     * @throws CompactedException If no entries could be found and the {@code revLowerBound} is less than or equal to the last
-     *      {@link #setCompactionRevision compacted} one.
-     */
-    List<Entry> get(byte[] key, long revLowerBound, long revUpperBound);
-
-    /**
      * Returns the latest version of entries corresponding to the given keys.
      *
      * <p>Never throws {@link CompactedException}.</p>
@@ -396,22 +314,54 @@ public interface KeyValueStorage extends ManuallyCloseable {
     /**
      * Compacts outdated key versions and removes tombstones of metastorage locally.
      *
-     * <p>We do not compact the only and last version of the key unless it is a tombstone.</p>
+     * <p>We do not delete the only and last version of the key unless it is a tombstone.</p>
      *
      * <p>Let's look at some examples, let's say we have the following keys with their versions:</p>
      * <ul>
-     *     <li>Key "foo" with versions that have revisions (1, 3, 5) - "foo" [1, 3, 5].</li>
-     *     <li>Key "bar" with versions that have revisions (1, 2, 5) the last revision is a tombstone - "bar" [1, 2, 5 tomb].</li>
+     *     <li>Key {@code "foo"} with versions that have revisions {@code (1, 3, 5)} - {@code "foo" [1, 3, 5]}.</li>
+     *     <li>
+     *         Key {@code "bar"} with versions that have revisions {@code (1, 2, 5)} the last revision is a tombstone -
+     *         {@code "bar" [1, 2, 5 tomb]}.
+     *     </li>
      * </ul>
      *
      * <p>Let's look at examples of invoking the current method and what will be in the storage after:</p>
      * <ul>
-     *     <li>Compaction revision is {@code 1}: "foo" [3, 5], "bar" [2, 5 tomb].</li>
-     *     <li>Compaction revision is {@code 2}: "foo" [3, 5], "bar" [5 tomb].</li>
-     *     <li>Compaction revision is {@code 3}: "foo" [5], "bar" [5 tomb].</li>
-     *     <li>Compaction revision is {@code 4}: "foo" [5], "bar" [5 tomb].</li>
-     *     <li>Compaction revision is {@code 5}: "foo" [5].</li>
-     *     <li>Compaction revision is {@code 6}: "foo" [5].</li>
+     *     <li>
+     *         Compaction revision is {@code 1}: {@code "foo" [1, 3, 5]}, {@code "bar" [2, 5 tomb]}.<br>
+     *         Explanation:<br>
+     *         {@code "foo"[1]} can still be read from {@code get("foo", 2)}.<br>
+     *         {@code "bar"[2]} can still be read from {@code get("bar", 2)}.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 2}: {@code "foo" [3, 5]}, {@code "bar" [2, 5 tomb]}.
+     *         Explanation:<br>
+     *         {@code "foo"[1]} can not be read from {@code get("foo", 3)}, so it is deleted.<br>
+     *         {@code "bar"[2]} can still be read from {@code get("bar", 3)}.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 3}: {@code "foo" [3, 5]}, {@code "bar" [2, 5 tomb]}.
+     *         Explanation:<br>
+     *         {@code "foo"[3]} can still be read from {@code get("foo", 4)}, so it is deleted.<br>
+     *         {@code "bar"[2]} can still be read from {@code get("bar", 4)}.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 4}: {@code "foo" [5]}, {@code "bar" [5 tomb]}.
+     *         Explanation:<br>
+     *         {@code "foo"[3]} can not be read from {@code get("foo", 5)}, so it is deleted.<br>
+     *         {@code "bar"[2]} can not be read from {@code get("bar", 5)}, so it is deleted.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 5}: {@code "foo" [5]}.
+     *         Explanation:<br>
+     *         {@code "foo"[5]} can still be read from {@code get("foo", 6)}, it's the last revision.<br>
+     *         {@code "bar"[5]} is a tombstone and its revision is less than or equal compacted revision, so it is deleted.
+     *     </li>
+     *     <li>
+     *         Compaction revision is {@code 6}: {@code "foo" [5]}.
+     *         Explanation:<br>
+     *         {@code "foo"[5]} can still be read from {@code get("foo", 7)}, it's the last revision.<br>
+     *     </li>
      * </ul>
      *
      * <p>Compaction revision is expected to be less than the {@link #revision current storage revision}.</p>

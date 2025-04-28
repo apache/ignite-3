@@ -18,49 +18,84 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Objects;
-import java.util.regex.Pattern;
-import org.apache.ignite.internal.util.StringUtils;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 
 /**
  * SQL identifier.
  */
 class Name extends QueryPart {
-    /**
-     * Pattern to find possible SQL injections in identifiers.
-     */
-    private static final Pattern PATTERN = Pattern.compile("[';\r\n\t\\s\\/]|(--[^\r\n]*)");
-
-    private final List<String> names = new ArrayList<>();
+    private final List<String> names;
 
     /**
-     * Identifier name. E.g [db, schema, table] become 'db.schema.table' or '"db"."schema"."table"' depending on DDL options.
+     * Creates a simple name.
      *
-     * @param names name parts of qualified identifier.
+     * @param name Name.
+     * @return Name.
      */
-    Name(String... names) {
-        Objects.requireNonNull(names, "Names must not be null");
+    static Name simple(String name) {
+        return new Name(List.of(name));
+    }
 
-        for (String name : names) {
-            if (StringUtils.nullOrBlank(name)) {
-                // Skip parts instead of failure as nulls can be used as defaults from annotations or builders.
-                continue;
+    /**
+     * Creates a compound name (e.g. {@code my_schema.my_table} or {@code my_table}). Accepts both simple and compound names.
+     *
+     * @param names Array of names.
+     * @return Name.
+     */
+    static Name compound(String... names) {
+        List<String> parts = new ArrayList<>(2);
+
+        if (names.length == 0) {
+            throw new IllegalArgumentException("Names can not be empty");
+        } else if (names.length == 1) {
+            return new Name(Arrays.asList(names));
+        } else {
+            boolean canSkipEmpty = true;
+            for (String part : names) {
+                if (part == null || part.isEmpty()) {
+                    if (canSkipEmpty) {
+                        canSkipEmpty = false;
+                        continue;
+                    }
+                } else {
+                    // Do not allow non-leading elements to be empty
+                    canSkipEmpty = false;
+                }
+                parts.add(part);
             }
-            // We need to sanitize the identifiers to prevent SQL injection.
-            // Ignite DDL doesn't have prepared statements yet which could be used instead of creating a raw query.
-            if (PATTERN.matcher(name).find()) {
-                throw new IllegalArgumentException("Name part " + name + " is invalid");
-            }
-            this.names.add(name);
+
+            return new Name(parts);
         }
+    }
+
+    private Name(List<String> names) {
+        for (String name : names) {
+            if (name == null || name.isEmpty()) {
+                throw new IllegalArgumentException("Name parts can not be null or empty: " + names);
+            }
+        }
+        this.names = names;
     }
 
     @Override
     protected void accept(QueryContext ctx) {
         String separator = "";
         for (String name : names) {
-            ctx.sql(separator).sql(name);
+            // If a name is quoted, we must preserve case sensitivity -> write it as is
+            // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name, write it in uppercase for consistency.
+            // Otherwise we must quote it.
+            if (name.startsWith("\"")) {
+                ctx.sql(separator).sql(name);
+            } else  {
+                String upperCase = name.toUpperCase();
+                if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
+                    ctx.sql(separator).sql(upperCase);
+                } else {
+                    ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
+                }
+            }
             separator = ".";
         }
     }

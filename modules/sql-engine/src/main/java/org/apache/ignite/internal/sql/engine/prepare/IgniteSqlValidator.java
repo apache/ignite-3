@@ -79,7 +79,6 @@ import org.apache.calcite.sql.SqlTypeNameSpec;
 import org.apache.calcite.sql.SqlUnknownLiteral;
 import org.apache.calcite.sql.SqlUpdate;
 import org.apache.calcite.sql.SqlUtil;
-import org.apache.calcite.sql.SqlUuidLiteral;
 import org.apache.calcite.sql.SqlWithItem;
 import org.apache.calcite.sql.dialect.CalciteSqlDialect;
 import org.apache.calcite.sql.fun.SqlStdOperatorTable;
@@ -109,7 +108,6 @@ import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteCustomAssignmentsRules;
 import org.apache.ignite.internal.sql.engine.util.IgniteResource;
@@ -585,9 +583,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         SqlLiteral resolved = super.resolveLiteral(literal);
         SqlTypeName typeName = resolved.getTypeName();
 
-        if (resolved instanceof SqlUuidLiteral) {
-            throw newValidationError(resolved, IgniteResource.INSTANCE.unsupportedExpression("UUID literal"));
-        } else if (typeName == SqlTypeName.TIMESTAMP) {
+        if (typeName == SqlTypeName.TIMESTAMP) {
             long ts = resolved.getValueAs(TimestampString.class).getMillisSinceEpoch();
 
             if (ts < IgniteSqlFunctions.TIMESTAMP_MIN_INTERNAL || ts > IgniteSqlFunctions.TIMESTAMP_MAX_INTERNAL) {
@@ -985,7 +981,9 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         } else if (returnCustomType != null) {
             check = coercionRules.needToCast(operandType, (IgniteCustomType) returnCustomType);
         } else {
-            check = SqlTypeUtil.canCastFrom(returnType, operandType, true);
+            check = IgniteCustomAssignmentsRules.instance().canApplyFrom(
+                    returnType.getSqlTypeName(), operandType.getSqlTypeName()
+            );
         }
 
         if (!check) {
@@ -1557,7 +1555,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
             case FLOAT: return typeFactory.createSqlType(SqlTypeName.REAL);
             case DOUBLE: return typeFactory.createSqlType(SqlTypeName.DOUBLE);
             case BOOLEAN: return typeFactory.createSqlType(SqlTypeName.BOOLEAN);
-            case UUID: return typeFactory().createCustomType(UuidType.NAME);
+            case UUID: return typeFactory.createSqlType(SqlTypeName.UUID);
             case DATE: return typeFactory.createSqlType(SqlTypeName.DATE);
             case TIME: return typeFactory.createSqlType(SqlTypeName.TIME);
             case DATETIME: return typeFactory.createSqlType(SqlTypeName.TIMESTAMP);

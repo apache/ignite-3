@@ -3402,7 +3402,10 @@ public class RexImpTable {
     /** Returns whether any of a call's operands have ANY type. */
     private static boolean anyAnyOperands(RexCall call) {
       for (RexNode operand : call.operands) {
-        if (operand.getType().getSqlTypeName() == SqlTypeName.ANY) {
+          // org.apache.calcite.runtime.SqlFunctions class lacks overrides for UUID,
+          // but "*Any" counterparts handles UUID just fine, therefore let's reuse
+          // these methods for UUID as well.
+        if (operand.getType().getSqlTypeName() == SqlTypeName.ANY || operand.getType().getSqlTypeName() == SqlTypeName.UUID) {
           return true;
         }
       }

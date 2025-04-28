@@ -17,12 +17,19 @@
 
 package org.apache.ignite.internal.metastorage.server;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.apache.ignite.internal.metastorage.MetaStorageManager.LATEST_REVISION;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
+import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.metastorage.exceptions.CompactedException;
+import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker.TrackingToken;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.Test;
 
 /** For {@link ReadOperationForCompactionTracker} testing. */
@@ -38,62 +45,114 @@ public class ReadOperationForCompactionTrackerTest {
 
     @Test
     void testTrackAndUntrack() {
-        UUID readOperation0 = UUID.randomUUID();
-        UUID readOperation1 = UUID.randomUUID();
+        assertThrows(CompactedException.class, () -> tracker.track(0, () -> 0L, () -> 0L));
 
-        long compactionRevision0 = 0;
-        long compactionRevision1 = 1;
+        TrackingToken token1 = tracker.track(1, () -> 0L, () -> 0L);
 
-        assertDoesNotThrow(() -> tracker.track(readOperation0, compactionRevision0));
-        assertDoesNotThrow(() -> tracker.track(readOperation0, compactionRevision1));
-        assertDoesNotThrow(() -> tracker.track(readOperation1, compactionRevision0));
-        assertDoesNotThrow(() -> tracker.track(readOperation1, compactionRevision1));
-
-        assertDoesNotThrow(() -> tracker.untrack(readOperation0, compactionRevision0));
-        assertDoesNotThrow(() -> tracker.untrack(readOperation0, compactionRevision1));
-        assertDoesNotThrow(() -> tracker.untrack(readOperation1, compactionRevision0));
-        assertDoesNotThrow(() -> tracker.untrack(readOperation1, compactionRevision1));
-
-        // Let's check that after untrack we can do track again for the previous arguments.
-        assertDoesNotThrow(() -> tracker.track(readOperation0, compactionRevision0));
-        assertDoesNotThrow(() -> tracker.untrack(readOperation0, compactionRevision0));
+        token1.close();
     }
 
     @Test
     void testTrackUntrackAndCollect() {
-        UUID readOperation0 = UUID.randomUUID();
-        UUID readOperation1 = UUID.randomUUID();
-
-        long compactionRevision0 = 0;
-        long compactionRevision1 = 1;
-
-        tracker.track(readOperation0, compactionRevision0);
-        tracker.track(readOperation1, compactionRevision0);
+        TrackingToken token1 = tracker.track(1, () -> 0L, () -> 0L);
+        TrackingToken token2 = tracker.track(2, () -> 0L, () -> 0L);
 
         assertTrue(tracker.collect(0).isDone());
 
         CompletableFuture<Void> collectFuture1 = tracker.collect(1);
-        assertFalse(collectFuture1.isDone());
-
-        tracker.untrack(readOperation0, compactionRevision0);
-        assertFalse(collectFuture1.isDone());
-
-        tracker.untrack(readOperation1, compactionRevision0);
-        assertTrue(collectFuture1.isDone());
-
-        tracker.track(readOperation0, compactionRevision1);
-        tracker.track(readOperation1, compactionRevision1);
-
-        assertTrue(tracker.collect(0).isDone());
-        assertTrue(tracker.collect(1).isDone());
-
         CompletableFuture<Void> collectFuture2 = tracker.collect(2);
+
+        assertFalse(collectFuture1.isDone());
         assertFalse(collectFuture2.isDone());
 
-        tracker.untrack(readOperation1, compactionRevision1);
+        token1.close();
+        assertTrue(collectFuture1.isDone());
         assertFalse(collectFuture2.isDone());
 
-        tracker.untrack(readOperation0, compactionRevision1);
+        token2.close();
+        assertTrue(collectFuture1.isDone());
         assertTrue(collectFuture2.isDone());
+    }
+
+    /**
+     * Tests that concurrent update and compaction doesn't break reading the "latest" revision of data.
+     */
+    @Test
+    void testTrackLatestRevision() {
+        for (int i = 0; i < 10_000; i++) {
+            AtomicLong latestRevision = new AtomicLong(2);
+            AtomicLong compactedRevision = new AtomicLong(1);
+
+            AtomicReference<TrackingToken> token = new AtomicReference<>();
+
+            IgniteTestUtils.runRace(
+                    () -> token.set(tracker.track(LATEST_REVISION, latestRevision::get, compactedRevision::get)),
+                    () -> {
+                        latestRevision.set(3);
+                        compactedRevision.set(2);
+
+                        // This one is tricky. If we identify that there are no tracked futures after the moment of setting compaction
+                        // revision to "2", it should mean that concurrent tracking should end up creating the future for revision "3".
+                        // Here we validate that there are no data races for such a scenario, by re-checking the list of tracked futures.
+                        // If something has been added there by a concurrent thread, it should soon be completed before a retry.
+                        if (tracker.collect(2).isDone()) {
+                            assertThat(tracker.collect(2), willSucceedFast());
+                        }
+                    }
+            );
+
+            assertFalse(tracker.collect(3).isDone());
+
+            token.get().close();
+
+            assertTrue(tracker.collect(3).isDone());
+        }
+    }
+
+    /**
+     * Tests that concurrent compaction either leads to {@link CompactedException}, or just works. There should be no leaks or races.
+     */
+    @Test
+    void testConcurrentCompact() {
+        for (int i = 0; i < 10_000; i++) {
+            AtomicLong latestRevision = new AtomicLong(2);
+            AtomicLong compactedRevision = new AtomicLong(1);
+
+            AtomicReference<TrackingToken> token = new AtomicReference<>();
+
+            IgniteTestUtils.runRace(
+                    () -> {
+                        try {
+                            token.set(tracker.track(2, latestRevision::get, compactedRevision::get));
+                        } catch (CompactedException ignore) {
+                            // No-op.
+                        }
+                    },
+                    () -> {
+                        latestRevision.set(3);
+                        compactedRevision.set(2);
+
+                        // This one is tricky. If we identify that there are no tracked futures after the moment of setting compaction
+                        // revision to "2", it should mean that concurrent tracking should end up end up throwing CompactedException.
+                        // Here we validate that there are no data races for such a scenario, by re-checking the list of tracked futures.
+                        // If something has been added there by a concurrent thread, it should soon be completed before failing.
+                        if (tracker.collect(2).isDone()) {
+                            assertThat(tracker.collect(2), willSucceedFast());
+                        }
+                    }
+            );
+
+            if (token.get() == null) {
+                // CompactedException case.
+                assertTrue(tracker.collect(2).isDone());
+            } else {
+                // Successful tracking case.
+                assertFalse(tracker.collect(2).isDone());
+
+                token.get().close();
+
+                assertTrue(tracker.collect(2).isDone());
+            }
+        }
     }
 }
