@@ -725,8 +725,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         ZonePartitionId zonePartitionId = parameters.zonePartitionId();
 
-        CompletableFuture<?>[] futures = zoneTables(zonePartitionId.zoneId()).stream()
-                .map(table -> stopTablePartition(new TablePartitionId(table.tableId(), zonePartitionId.partitionId()), table))
+        CompletableFuture<?>[] futures = zoneTablesRawSet(zonePartitionId.zoneId()).stream()
+                .map(this::stopTableReplicas)
                 .toArray(CompletableFuture[]::new);
 
         return allOf(futures).thenApply(unused -> false);
@@ -1612,7 +1612,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private CompletableFuture<Void> stopTableReplicas(TableImpl table) {
-        assert !enabledColocation : "Table replicas should be not stopped in colocation mode";
+        assert !enabledColocation : "Table replicas should not be stopped in colocation mode";
 
         return supplyAsync(() -> {
             InternalTable internalTable = table.internalTable();
