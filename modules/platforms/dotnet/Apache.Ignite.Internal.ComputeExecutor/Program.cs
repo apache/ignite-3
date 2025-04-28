@@ -49,12 +49,13 @@ ISslStreamFactory? sslStreamFactory = (serverSslEnabled, serverSslSkipCertValida
 
 var clientCfg = new IgniteClientConfiguration(serverAddr)
 {
-    RetryPolicy = RetryNonePolicy.Instance, // No reconnect.
+    RetryPolicy = RetryNonePolicy.Instance, // No reconnect on error.
+    ReconnectInterval = TimeSpan.Zero, // No background reconnect.
     SslStreamFactory = sslStreamFactory,
     LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning))
 };
 
 using var client = await IgniteClient.StartAsync(clientCfg).ConfigureAwait(false);
 
-// Sleep forever. Host process will terminate us when the executor is stopped.
+// Sleep forever. The host process will terminate us when the executor is stopped.
 await Task.Delay(Timeout.Infinite).ConfigureAwait(false);
