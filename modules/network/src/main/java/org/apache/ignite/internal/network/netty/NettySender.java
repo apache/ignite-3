@@ -107,7 +107,11 @@ public class NettySender {
             return toCompletableFuture(channel.writeAndFlush(obj));
         }
 
-        TestMessageUtils.extendHistory(obj.networkMessage(), "send() " + triggerChannelRecreation);
+        TestMessageUtils.extendHistory(
+                obj.networkMessage(),
+                "send() " + triggerChannelRecreation + ", channel " + channel + ", event loop " + channel.eventLoop()
+                        + ", in event loop: " + channel.eventLoop().inEventLoop()
+        );
 
         // Write in event loop to make sure that, if a ClosedSocketException happens, we recover from it without exiting the event loop.
         // We need this to avoid message reordering due to switching from old channel to a new one.
@@ -142,7 +146,7 @@ public class NettySender {
     private void recoverSendAfterChannelClosure(OutNetworkObject obj, Channel currentChannel, Runnable triggerChannelRecreation) {
         assert NettyBootstrapFactory.isInNetworkThread() : "In a non-netty thread " + Thread.currentThread();
 
-        TestMessageUtils.extendHistory(obj.networkMessage(), "recoverSendAfterChannelClosure");
+        TestMessageUtils.extendHistory(obj.networkMessage(), "recoverSendAfterChannelClosure, channel " + currentChannel);
 
         // As we are in the channel event loop and all channels of the same logical connection use the same event loop,
         // we can be sure that nothing related to our channel, recovery descriptor and possible new channel can change
@@ -180,7 +184,7 @@ public class NettySender {
     }
 
     private void writeWithRecovery(OutNetworkObject obj, Channel channel, Runnable triggerChannelRecreation) {
-        TestMessageUtils.extendHistory(obj.networkMessage(), "writeWithRecovery");
+        TestMessageUtils.extendHistory(obj.networkMessage(), "writeWithRecovery, channel " + channel);
 
         CompletableFuture<Void> writeFuture = toCompletableFuture(channel.writeAndFlush(obj));
 
