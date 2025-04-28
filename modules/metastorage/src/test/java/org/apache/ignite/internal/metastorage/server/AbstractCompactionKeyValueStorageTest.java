@@ -562,11 +562,13 @@ public abstract class AbstractCompactionKeyValueStorageTest extends AbstractKeyV
 
             long nextToLast = storage.revision() - 1;
 
-            // Here we read the previous value of the key that's been inserted right now.
+            // Here we read the previous value of the key that's been inserted right now. This read from the storage must NOT fail.
             // WatchProcessor does exactly the same thing, and it must work, otherwise Ignite nodes will fail in "remove+put" scenarios.
-            Entry entry = storage.get(key, nextToLast);
+            assertDoesNotThrow(() -> {
+                Entry entry = storage.get(key, nextToLast);
 
-            assertTrue(entry.empty());
+                assertTrue(entry.empty());
+            });
 
             // Check that compaction itself can handle the same case with a "writeBatch" race.
             storage.setCompactionRevision(nextToLast);
