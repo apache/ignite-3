@@ -15,32 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Compute.Executor;
-
-using System.Runtime.Loader;
+namespace Apache.Ignite.Compute;
 
 /// <summary>
-/// Deployment unit load context.
+/// Compute job execution context. See <see cref="IComputeJob{TArg,TResult}.ExecuteAsync"/>.
 /// </summary>
-internal sealed class DeploymentUnitLoadContext
+public interface IJobExecutionContext
 {
-    private readonly string _path;
-
-    private readonly AssemblyLoadContext _loadContext;
-
     /// <summary>
-    /// Initializes a new instance of the <see cref="DeploymentUnitLoadContext"/> class.
+    /// Gets the Ignite API entry point.
     /// </summary>
-    /// <param name="path">Path.</param>
-    /// <param name="loadContext">Assembly load context.</param>
-    public DeploymentUnitLoadContext(string path, AssemblyLoadContext loadContext)
-    {
-        _path = path;
-        _loadContext = loadContext;
-    }
-
-    /// <summary>
-    /// Initiates an unload of this DeploymentUnitContext.
-    /// </summary>
-    public void Unload() => _loadContext.Unload();
+    IIgnite Ignite { get; }
 }

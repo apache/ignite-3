@@ -27,14 +27,14 @@ using System.Runtime.Loader;
 /// </summary>
 internal sealed class DeploymentUnitLoader
 {
-    private readonly ConcurrentDictionary<DeploymentUnitPaths, AssemblyLoadContext> _contexts = new();
+    private readonly ConcurrentDictionary<DeploymentUnitPaths, JobLoadContext> _contexts = new();
 
     /// <summary>
     /// Gets the assembly load context for the specified deployment unit paths.
     /// </summary>
     /// <param name="paths">Deployment unit paths.</param>
     /// <returns>Assembly load context.</returns>
-    public AssemblyLoadContext GetOrCreateLoadContext(DeploymentUnitPaths paths) =>
+    public JobLoadContext GetOrCreateJobLoadContext(DeploymentUnitPaths paths) =>
         _contexts.GetOrAdd(paths, LoadInternal);
 
     /// <summary>
@@ -53,13 +53,13 @@ internal sealed class DeploymentUnitLoader
         return true;
     }
 
-    private static AssemblyLoadContext LoadInternal(DeploymentUnitPaths paths)
+    private static JobLoadContext LoadInternal(DeploymentUnitPaths paths)
     {
         var asmCtx = new AssemblyLoadContext(name: null, isCollectible: true);
 
         asmCtx.Resolving += (ctx, asmName) => ResolveAssembly(paths.Paths, asmName, ctx);
 
-        return asmCtx;
+        return new JobLoadContext(asmCtx);
     }
 
     private static Assembly? ResolveAssembly(IReadOnlyList<string> paths, AssemblyName name, AssemblyLoadContext ctx)
