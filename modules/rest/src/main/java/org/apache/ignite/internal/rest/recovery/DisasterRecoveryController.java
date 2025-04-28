@@ -19,6 +19,7 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static java.util.Comparator.comparing;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 
 import io.micronaut.context.annotation.Requires;
 import io.micronaut.http.annotation.Body;
@@ -119,11 +120,15 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
 
     @Override
     public CompletableFuture<Void> resetZonePartitions(ResetZonePartitionsRequest command) {
+        checkColocationEnabled();
+
         return disasterRecoveryManager.resetPartitions(command.zoneName(), command.partitionIds());
     }
 
     @Override
     public CompletableFuture<Void> restartZonePartitions(RestartZonePartitionsRequest command) {
+        checkColocationEnabled();
+
         return disasterRecoveryManager.restartPartitions(command.nodeNames(), command.zoneName(), command.partitionIds());
     }
 
@@ -133,6 +138,8 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> nodeNames,
             Optional<Set<Integer>> partitionIds
     ) {
+        checkColocationEnabled();
+
         return disasterRecoveryManager.localPartitionStates(
                 zoneNames.orElse(emptySet()),
                 nodeNames.orElse(emptySet()),
@@ -145,6 +152,8 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
             Optional<Set<String>> zoneNames,
             Optional<Set<Integer>> partitionIds
     ) {
+        checkColocationEnabled();
+
         return disasterRecoveryManager.globalPartitionStates(
                 zoneNames.orElse(emptySet()),
                 partitionIds.orElse(emptySet())
@@ -243,6 +252,12 @@ public class DisasterRecoveryController implements DisasterRecoveryApi, Resource
         states.sort(comparing(GlobalZonePartitionStateResponse::partitionId));
 
         return new GlobalZonePartitionStatesResponse(states);
+    }
+
+    private static void checkColocationEnabled() {
+        if (!enabledColocation()) {
+            throw new UnsupportedOperationException("This method is unsupported when colocation is disabled.");
+        }
     }
 
     @Override

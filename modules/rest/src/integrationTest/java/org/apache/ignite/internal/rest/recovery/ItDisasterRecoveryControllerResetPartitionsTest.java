@@ -19,7 +19,6 @@ package org.apache.ignite.internal.rest.recovery;
 
 import static java.util.Collections.emptySet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
 import static org.apache.ignite.internal.rest.recovery.ItDisasterRecoveryControllerTest.resetPartitionsRequest;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
@@ -35,13 +34,11 @@ import jakarta.inject.Inject;
 import java.util.Set;
 import org.apache.ignite.internal.ClusterConfiguration;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 /** Test for disaster recovery reset partitions command, positive cases. */
 @MicronautTest
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoveryControllerResetPartitionsTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
