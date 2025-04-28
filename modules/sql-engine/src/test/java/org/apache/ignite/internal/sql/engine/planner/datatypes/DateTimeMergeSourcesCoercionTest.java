@@ -56,7 +56,7 @@ public class DateTimeMergeSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoSingleColumnTable(pair.first(), pair.second());
 
-        String val = generateLiteral(pair.second(), false);
+        String val = timestampLiteral(pair.second());
         assertPlan("MERGE INTO T1 dst USING T2 src ON dst.c1 = src.c2 WHEN MATCHED THEN UPDATE SET c1 = " + val, schema,
                 mergeOperandMatcher(matcher)::matches, List.of());
     }
