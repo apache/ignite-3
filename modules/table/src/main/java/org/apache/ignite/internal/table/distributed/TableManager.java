@@ -1337,7 +1337,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 startReplicaSupplier,
                 forcedAssignments
         ).handle((res, ex) -> {
-            if (ex != null && !(hasCause(ex, TransientReplicaStartException.class))) {
+            if (ex != null && !(hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class))) {
                 String errorMessage = String.format(
                         "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
                         tableId,
