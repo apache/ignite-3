@@ -60,6 +60,13 @@ The optimizer tries to apply every hint and its parameters, if possible. But it 
 * The hint parameter is incorrect or refers to a nonexistent object, such as a nonexistent index or table.
 * The current hints or current parameters are incompatible with the previous ones, such as forcing the use and disabling of the same index.
 
+If a `FORCE_INDEX` hint references an index that does not exist, the following error will be thrown:
+
+[source, java]
+----
+Hints mentioned indexes "IDX_NOT_FOUND1", "IDX_NOT_FOUND2" were not found.
+----
+
 === Supported hints
 
 ==== FORCE_INDEX / NO_INDEX
