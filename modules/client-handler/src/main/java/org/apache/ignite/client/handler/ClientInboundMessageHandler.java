@@ -427,18 +427,17 @@ public class ClientInboundMessageHandler
                 CompletableFuture<PlatformComputeConnection> computeConnFut = computeConnectionFunc.apply(computeExecutorId);
 
                 if (computeConnFut == null) {
-                    LOG.warn("Invalid compute executor ID, client connection rejected [connectionId=" + connectionId
-                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " + computeExecutorId);
+                    var msg = "Invalid compute executor ID, client connection rejected [connectionId=" + connectionId
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " + computeExecutorId;
 
-                    ctx.close();
-                    return;
+                    handshakeError(ctx, packer, new IgniteException(PROTOCOL_ERR, msg));
+                } else {
+                    // Bypass authentication for compute executor connections.
+                    handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
+
+                    // Ready to handle compute requests now.
+                    computeConnFut.complete(new ComputeConnection());
                 }
-
-                // Bypass authentication for compute executor connections.
-                handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
-
-                // Ready to handle compute requests now.
-                computeConnFut.complete(new ComputeConnection());
 
                 return;
             }
