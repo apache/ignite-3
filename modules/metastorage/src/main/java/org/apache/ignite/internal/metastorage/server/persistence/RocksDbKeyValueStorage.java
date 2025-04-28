@@ -1092,11 +1092,13 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Adds modified entries to the watch event queue.
      */
     private void queueWatchEvent() {
-        if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
-            // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
-            updatedEntries.clear();
-        } else {
-            notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
+        synchronized (watchProcessorMutex) {
+            if (recoveryStatus.get() == RecoveryStatus.INITIAL) {
+                // Watches haven't been enabled yet, no need to queue any events, they will be replayed upon recovery.
+                updatedEntries.clear();
+            } else {
+                notifyWatchProcessor(updatedEntries.toNotifyWatchProcessorEvent(rev));
+            }
         }
     }
 
@@ -1579,9 +1581,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
         byte[] valueBytes = data.get(rocksKey);
 
-        assert valueBytes != null : "key=" + toUtf8String(key) + ", revision=" + revision;
-
-        return bytesToValue(valueBytes).tombstone();
+        // "null" means that the value has been deleted in one of previous compaction rounds. Treat it like a tombstone then.
+        return valueBytes == null || bytesToValue(valueBytes).tombstone();
     }
 
     private boolean isTombstoneForCompaction(byte[] key, long revision) {
@@ -1609,7 +1610,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     }
 
     @Override
-    protected Value valueForOperation(byte[] key, long revision) {
+    protected @Nullable Value valueForOperation(byte[] key, long revision) {
         return getValueForOperation(key, revision);
     }
 
@@ -1618,15 +1619,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         return recoveryStatus.get() == RecoveryStatus.DONE;
     }
 
-    private Value getValueForOperation(byte[] key, long revision) {
+    private @Nullable Value getValueForOperation(byte[] key, long revision) {
         try {
             byte[] valueBytes = data.get(keyToRocksKey(revision, key));
 
             if (valueBytes == null) {
-                assert revision <= compactionRevision
-                        : "key=" + toUtf8String(key) + ", revision=" + revision + ", compactionRevision=" + compactionRevision;
-
-                throw new CompactedException(revision, compactionRevision);
+                return null;
             }
 
             return bytesToValue(valueBytes);
@@ -1715,7 +1713,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 long revision = keyRevisions[maxRevisionIndex];
                 Value value = getValueForOperation(key, revision);
 
-                if (value.tombstone()) {
+                if (value == null || value.tombstone()) {
                     return EntryImpl.empty(key);
                 }
 

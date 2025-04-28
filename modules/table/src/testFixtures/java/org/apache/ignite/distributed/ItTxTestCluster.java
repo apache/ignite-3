@@ -895,7 +895,9 @@ public class ItTxTestCluster {
                     mock(IndexMetaStorage.class),
                     clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                     mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    placementDriver,
+                    clockServices.get(assignment)
             );
 
             zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
@@ -914,7 +916,9 @@ public class ItTxTestCluster {
                     mock(IndexMetaStorage.class),
                     clusterServices.get(assignment).topologyService().getByConsistentId(assignment).id(),
                     mock(MinimumRequiredTimeCollectorService.class),
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    placementDriver,
+                    clockServices.get(assignment)
             );
         }
     }

@@ -54,6 +54,7 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -515,6 +516,10 @@ public class DummyInternalTableImpl extends InternalTableImpl {
             replicaListener = tableReplicaListener;
         }
 
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(clock.current());
+
         PendingComparableValuesTracker<Long, Void> storageIndexTracker = new PendingComparableValuesTracker<>(0L);
         var tablePartitionListener = new PartitionListener(
                 this.txManager,
@@ -528,7 +533,9 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(IndexMetaStorage.class),
                 LOCAL_NODE.id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class)
+                mock(Executor.class),
+                placementDriver,
+                clockService
         );
 
         if (enabledColocation) {

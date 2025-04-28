@@ -969,7 +969,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     indexMetaStorage,
                     topologyService.localMember().id(),
                     minTimeCollectorService,
-                    partitionOperationsExecutor
+                    partitionOperationsExecutor,
+                    executorInclinedPlacementDriver,
+                    clockService
             );
 
             var partitionStorageAccess = new PartitionMvStorageAccessImpl(
@@ -1294,7 +1296,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             indexMetaStorage,
                             topologyService.localMember().id(),
                             minTimeCollectorService,
-                            partitionOperationsExecutor
+                            partitionOperationsExecutor,
+                            executorInclinedPlacementDriver,
+                            clockService
                     );
 
                     minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
@@ -1337,7 +1341,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 startReplicaSupplier,
                 forcedAssignments
         ).handle((res, ex) -> {
-            if (ex != null && !(hasCause(ex, TransientReplicaStartException.class))) {
+            if (ex != null && !(hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class))) {
                 String errorMessage = String.format(
                         "Unable to update raft groups on the node [tableId=%s, partitionId=%s]",
                         tableId,
