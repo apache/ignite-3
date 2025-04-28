@@ -750,7 +750,7 @@ class ItScaleCubeNetworkMessagingTest {
      * <p>The expected outcome is that the messages get delivered without any more external sends/invokes and that they
      * are delivered in the right order.
      */
-    @RepeatedTest(10000)
+    @RepeatedTest(20000)
     public void messagesQueuedOnFullyClosedOldChannelGetDeliveredAfterReconnection_other()
             throws Exception {
         boolean openNewChannelBeforeSendingToOld = true;

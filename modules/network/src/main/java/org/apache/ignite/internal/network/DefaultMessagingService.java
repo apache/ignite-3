@@ -357,6 +357,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
             return failedFuture(new IgniteException(INTERNAL_ERR, "Failed to marshal message: " + e.getMessage(), e));
         }
 
+        TestMessageUtils.extendHistory(message, "sendViaNetwork");
+
         return connectionManager.channel(nodeId, type, addr)
                 .thenComposeToCompletable(sender -> sender.send(
                         new OutNetworkObject(message, descriptors),
