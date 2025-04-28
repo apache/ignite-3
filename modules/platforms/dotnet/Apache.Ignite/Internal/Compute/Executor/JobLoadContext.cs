@@ -20,11 +20,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 using System;
 using System.Collections.Concurrent;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.Loader;
-using System.Threading;
-using System.Threading.Tasks;
-using Buffers;
 using Ignite.Compute;
 
 /// <summary>
@@ -33,34 +29,31 @@ using Ignite.Compute;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext)
 {
-    private static readonly MethodInfo ExecuteJobMethodInfo =
-        typeof(JobLoadContext).GetMethod(nameof(ExecuteJob), BindingFlags.Static | BindingFlags.NonPublic)!;
-
-    private readonly ConcurrentDictionary<string, JobDelegate> _jobDelegates = new();
+    private readonly ConcurrentDictionary<string, IComputeJobInternal> _jobDelegates = new();
 
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
     /// </summary>
     /// <param name="typeName">Job type name.</param>
     /// <returns>Job execution delegate.</returns>
-    public JobDelegate GetOrCreateJobDelegate(string typeName) =>
-        _jobDelegates.GetOrAdd(typeName, static (name, ctx) => CreateJobDelegate(name, ctx), AssemblyLoadContext);
+    public IComputeJobInternal GetOrCreateJobWrapper(string typeName) =>
+        _jobDelegates.GetOrAdd(typeName, static (name, ctx) => CreateJobWrapper(name, ctx), AssemblyLoadContext);
 
     /// <summary>
     /// Initiates an unload of this context.
     /// </summary>
     public void Unload() => AssemblyLoadContext.Unload();
 
-    private static JobDelegate CreateJobDelegate(string typeName, AssemblyLoadContext ctx)
+    private static IComputeJobInternal CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
     {
-        var type = Type.GetType(typeName, ctx.LoadFromAssemblyName, null);
+        var jobType = Type.GetType(typeName, ctx.LoadFromAssemblyName, null);
 
-        if (type == null)
+        if (jobType == null)
         {
             throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
         }
 
-        var jobInterface = type
+        var jobInterface = jobType
             .GetInterfaces()
             .FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
 
@@ -69,11 +62,9 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
             throw new InvalidOperationException($"Failed to find job interface '{typeof(IComputeJob<,>)}' in type '{typeName}'");
         }
 
-        var job = Activator.CreateInstance(type)!;
+        var jobWrapperType = typeof(ComputeJobWrapper<,,>)
+            .MakeGenericType(jobType, jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
 
-        // TODO: Non-generic job interface.
-        var method = ExecuteJobMethodInfo.MakeGenericMethod(jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
-
-        return (context, argBuf, responseBuf, token) => method.Invoke(null, [job, context, argBuf, responseBuf, token]);
+        return (IComputeJobInternal)Activator.CreateInstance(jobWrapperType)!;
     }
 }

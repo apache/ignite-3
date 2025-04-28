@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
@@ -25,17 +26,18 @@ using Ignite.Compute;
 /// <summary>
 /// Wraps a generic compute job to be called from a non-generic context.
 /// </summary>
+/// <typeparam name="TJob">Type of the job.</typeparam>
 /// <typeparam name="TArg">Type of the job argument.</typeparam>
 /// <typeparam name="TResult">Type of the job result.</typeparam>
-internal sealed class ComputeJobWrapper<TArg, TResult> : IComputeJobInternal
+internal sealed class ComputeJobWrapper<TJob, TArg, TResult> : IComputeJobInternal
+    where TJob : IComputeJob<TArg, TResult>, new()
 {
-    private readonly IComputeJob<TArg, TResult> _job;
+    private readonly TJob _job;
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="ComputeJobWrapper{TArg, TResult}"/> class.
+    /// Initializes a new instance of the <see cref="ComputeJobWrapper{TJob,TArg,TResult}"/> class.
     /// </summary>
-    /// <param name="job">Wrapped job.</param>
-    public ComputeJobWrapper(IComputeJob<TArg, TResult> job) => _job = job;
+    public ComputeJobWrapper() => _job = new TJob();
 
     /// <inheritdoc />
     public async ValueTask ExecuteAsync(
