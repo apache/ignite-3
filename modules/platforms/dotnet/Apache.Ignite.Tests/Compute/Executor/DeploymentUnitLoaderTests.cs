@@ -37,6 +37,7 @@ public class DeploymentUnitLoaderTests
     public async Task TestMultiAssemblyDeploymentUnit()
     {
         // TODO: Build multiple assemblies with different type names and make sure all of them can be loaded.
+        // TODO: Test isolation and versioning.
         await Task.Delay(1);
         Assert.Fail();
     }
