@@ -2850,7 +2850,6 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
      * - the node is restarted (INSTALLING_SNAPSHOT is stored in memory only)
      */
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24820")
     public void testNodeWillNeverGetOutOfSnapshot() throws Exception {
         CompletableFuture<Void> snapshotFuture = new CompletableFuture<>();
         CompletableFuture<Void> snapshotStartedFuture = new CompletableFuture<>();
