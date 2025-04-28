@@ -79,6 +79,8 @@ import java.util.function.LongSupplier;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metastorage.CommandId;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.dsl.Operation;
@@ -146,6 +148,8 @@ import org.rocksdb.WriteOptions;
  * entry and the value is a {@code byte[]} that represents a {@code long[]} where every item is a revision of the storage.
  */
 public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbKeyValueStorage.class);
+
     /** A revision to store with system entries. */
     private static final long SYSTEM_REVISION_MARKER_VALUE = 0;
 
@@ -199,7 +203,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * Only read or modifying while being synchronized on itself.
      *
      * @see #writeBatch(WriteBatch)
-     * @see #writeCompactedBatch(List, WriteBatch)
+     * @see #writeCompactedBatch(List, WriteBatch, CompactionStatisticsHolder)
      */
     private final WriteBatchProtector writeBatchProtector = new WriteBatchProtector();
 
@@ -943,10 +947,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
     public void compact(long revision) {
         assert revision >= 0 : revision;
 
-        try {
-            compactKeys(revision);
+        LOG.info("Metastore compaction has started. [revision={}]", revision);
 
-            compactAuxiliaryMappings(revision);
+        CompactionStatisticsHolder statHolder = new CompactionStatisticsHolder(revision);
+        try {
+            compactKeys(revision, statHolder);
+
+            compactAuxiliaryMappings(revision, statHolder);
+
+            LOG.info("Metastore compaction completed successfully. [" + statHolder.info() + "]");
         } catch (Throwable t) {
             throw new MetaStorageException(COMPACTION_ERR, "Error during compaction: " + revision, t);
         }
@@ -987,10 +996,20 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      * @param key Target key.
      * @param revs Key revisions.
      * @param compactionRevision Revision up to which (inclusively) the key will be compacted.
+     * @param statHolder Compaction statistics holder.
      * @throws MetaStorageException If failed.
      */
-    private void compactForKey(WriteBatch batch, List<byte[]> batchKeys, byte[] key, long[] revs, long compactionRevision) {
+    private void compactForKey(
+            WriteBatch batch,
+            List<byte[]> batchKeys,
+            byte[] key,
+            long[] revs,
+            long compactionRevision,
+            CompactionStatisticsHolder statHolder
+    ) {
         try {
+            statHolder.onKeyEncountered();
+
             int indexToCompact = indexToCompact(revs, compactionRevision, revision -> isTombstoneForCompaction(key, revision));
 
             if (NOT_FOUND == indexToCompact) {
@@ -1000,13 +1019,19 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
             batchKeys.add(key);
 
             for (int revisionIndex = 0; revisionIndex <= indexToCompact; revisionIndex++) {
+                statHolder.onKeyRevisionCompacted();
+
                 // This revision is not needed anymore, remove data.
                 data.delete(batch, keyToRocksKey(revs[revisionIndex], key));
             }
 
             if (indexToCompact == revs.length - 1) {
+                statHolder.onTombstoneCompacted();
+
                 index.delete(batch, key);
             } else {
+                statHolder.onKeyCompacted();
+
                 index.put(batch, key, longsToBytes(indexToCompact + 1, revs));
             }
         } catch (Throwable t) {
@@ -1380,7 +1405,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private void compactKeys(long compactionRevision) throws RocksDBException {
+    private void compactKeys(long compactionRevision, CompactionStatisticsHolder statHolder) throws RocksDBException {
         assertCompactionRevisionLessThanCurrent(this.compactionRevision, rev);
 
         // Clear bloom filter before opening iterator, so that we don't have collisions right from the start.
@@ -1389,6 +1414,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
 
         if (!busyLock.enterBusy()) {
+            statHolder.onStopped();
+
             return;
         }
 
@@ -1404,6 +1431,8 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                     batchKeys.clear();
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
                         if (stopCompaction.get()) {
+                            statHolder.onStopped();
+
                             return;
                         }
 
@@ -1412,10 +1441,10 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
 
                         key = iterator.key();
 
-                        compactForKey(batch, batchKeys, key, getAsLongs(iterator.value()), compactionRevision);
+                        compactForKey(batch, batchKeys, key, getAsLongs(iterator.value()), compactionRevision, statHolder);
                     }
 
-                    if (!writeCompactedBatch(batchKeys, batch)) {
+                    if (!writeCompactedBatch(batchKeys, batch, statHolder)) {
                         key = retryPositionKey;
 
                         // Refreshing the iterator is absolutely crucial. We have determined that data has been modified externally,
@@ -1429,10 +1458,12 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
         }
     }
 
-    private void compactAuxiliaryMappings(long compactionRevision) throws RocksDBException {
+    private void compactAuxiliaryMappings(long compactionRevision, CompactionStatisticsHolder statHolder) throws RocksDBException {
         assertCompactionRevisionLessThanCurrent(compactionRevision, rev);
 
         if (!busyLock.enterBusy()) {
+            statHolder.onStopped();
+
             return;
         }
 
@@ -1444,11 +1475,15 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
                 try (WriteBatch batch = new WriteBatch()) {
                     for (int i = 0; i < COMPACT_BATCH_SIZE && iterator.isValid(); i++, iterator.next()) {
                         if (stopCompaction.get()) {
+                            statHolder.onStopped();
+
                             return;
                         }
 
                         // Throw an exception if something went wrong.
                         iterator.status();
+
+                        statHolder.onAuxiliaryMappingCompacted();
 
                         if (!deleteAuxiliaryMapping(compactionRevision, iterator, batch)) {
                             continueIterating = false;
@@ -1500,7 +1535,7 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @param batch RockDB's {@link WriteBatch}.
      * @throws RocksDBException If {@link RocksDB#write(WriteOptions, WriteBatch)} threw an exception.
-     * @see #writeCompactedBatch(List, WriteBatch)
+     * @see #writeCompactedBatch(List, WriteBatch, CompactionStatisticsHolder)
      */
     private void writeBatch(WriteBatch batch) throws RocksDBException {
         synchronized (writeBatchProtector) {
@@ -1533,22 +1568,34 @@ public class RocksDbKeyValueStorage extends AbstractKeyValueStorage {
      *
      * @param batchKeys Meta-storage keys that have been compacted in this batch.
      * @param batch RockDB's {@link WriteBatch}.
+     * @param statHolder Compaction statistics holder.
      * @return {@code true} if writing succeeded, {@code false} if compaction round must be retried due to concurrent storage update.
      * @throws RocksDBException If {@link RocksDB#write(WriteOptions, WriteBatch)} threw an exception.
-     *
      * @see #writeBatch(WriteBatch)
      */
-    private boolean writeCompactedBatch(List<byte[]> batchKeys, WriteBatch batch) throws RocksDBException {
+    private boolean writeCompactedBatch(
+            List<byte[]> batchKeys,
+            WriteBatch batch,
+            CompactionStatisticsHolder statHolder
+    ) throws RocksDBException {
+        statHolder.onBeforeWriteBatchLock();
+
         synchronized (writeBatchProtector) {
+            statHolder.onAfterWriteBatchLock();
+
             for (byte[] key : batchKeys) {
                 if (writeBatchProtector.maybeUpdated(key)) {
                     writeBatchProtector.clear();
+
+                    statHolder.onBatchAborted();
 
                     return false;
                 }
             }
 
             db.write(writeOptions, batch);
+
+            statHolder.onBatchCommitted();
         }
 
         return true;
