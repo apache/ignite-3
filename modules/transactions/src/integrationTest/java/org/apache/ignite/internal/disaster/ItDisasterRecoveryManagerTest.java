@@ -106,7 +106,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    void testRestartPartitions() {
+    void testRestartTablePartitions() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         insert(0, 0);
@@ -114,7 +114,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         int partitionId = 0;
 
-        CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartPartitions(
+        CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartTablePartitions(
                 Set.of(node.name()),
                 ZONE_NAME,
                 SqlCommon.DEFAULT_SCHEMA_NAME,

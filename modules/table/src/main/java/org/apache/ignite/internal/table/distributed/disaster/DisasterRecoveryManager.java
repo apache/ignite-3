@@ -457,7 +457,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
      * @return Future that completes when partitions are restarted.
      */
-    public CompletableFuture<Void> restartPartitions(
+    public CompletableFuture<Void> restartTablePartitions(
             Set<String> nodeNames,
             String zoneName,
             String schemaName,
@@ -551,8 +551,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     partitionIds,
                     catalog,
                     zoneState()
-            )
-                    .thenApply(res -> normalizeLocal(res, catalog));
+            ).thenApply(res -> normalizeLocal(res, catalog));
         } catch (Throwable t) {
             return failedFuture(t);
         }
