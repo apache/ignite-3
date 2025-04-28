@@ -42,7 +42,12 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <summary>
     /// Initiates an unload of this context.
     /// </summary>
-    public void Unload() => AssemblyLoadContext.Unload();
+    public void Unload()
+    {
+        _jobDelegates.Clear();
+
+        AssemblyLoadContext.Unload();
+    }
 
     private static IComputeJobWrapper CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
     {

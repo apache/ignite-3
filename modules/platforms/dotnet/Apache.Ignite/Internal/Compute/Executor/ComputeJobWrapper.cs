@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
@@ -31,13 +32,6 @@ using Ignite.Compute;
 internal sealed class ComputeJobWrapper<TJob, TArg, TResult> : IComputeJobWrapper
     where TJob : IComputeJob<TArg, TResult>, new()
 {
-    private readonly TJob _job;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="ComputeJobWrapper{TJob,TArg,TResult}"/> class.
-    /// </summary>
-    public ComputeJobWrapper() => _job = new TJob();
-
     /// <inheritdoc />
     public async ValueTask ExecuteAsync(
         IJobExecutionContext context,
@@ -45,22 +39,33 @@ internal sealed class ComputeJobWrapper<TJob, TArg, TResult> : IComputeJobWrappe
         PooledArrayBuffer responseBuf,
         CancellationToken cancellationToken)
     {
+        TJob job = new TJob();
         TArg arg = ReadArg();
 
-        TResult res = await _job.ExecuteAsync(context, arg, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            TResult res = await job.ExecuteAsync(context, arg, cancellationToken).ConfigureAwait(false);
 
-        WriteRes();
+            WriteRes(res);
+        }
+        finally
+        {
+            if (job is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
 
         TArg ReadArg()
         {
             var reader = argBuf.GetReader();
-            return ComputePacker.UnpackArgOrResult(ref reader, _job.InputMarshaller);
+            return ComputePacker.UnpackArgOrResult(ref reader, job.InputMarshaller);
         }
 
-        void WriteRes()
+        void WriteRes(TResult res)
         {
             var writer = responseBuf.MessageWriter;
-            ComputePacker.PackArgOrResult(ref writer, res, _job.ResultMarshaller);
+            ComputePacker.PackArgOrResult(ref writer, res, job.ResultMarshaller);
         }
     }
 }

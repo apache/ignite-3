@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Tests.Compute.Executor;
 
+using System;
+using System.Collections.Concurrent;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
@@ -72,5 +74,20 @@ public class JobLoadContextTests
     {
         public ValueTask<int> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult(arg + 1);
+    }
+
+    private class DisposableJob : IComputeJob<Guid, Guid>, IDisposable
+    {
+        public static readonly ConcurrentDictionary<Guid, Guid> DisposedIds = new();
+
+        private Guid _arg;
+
+        public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, Guid arg, CancellationToken cancellationToken)
+        {
+            _arg = arg;
+            return ValueTask.FromResult(arg);
+        }
+
+        public void Dispose() => DisposedIds[_arg] = _arg;
     }
 }
