@@ -26,10 +26,6 @@ import static org.hamcrest.Matchers.not;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -71,8 +67,6 @@ import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.internal.type.TemporalNativeType;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -460,27 +454,6 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         prevResult = valString;
 
         return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
-    }
-
-    static String timestampLiteral(NativeType type) {
-        if (type.spec() == NativeTypeSpec.TIME) {
-            TemporalNativeType nativeType = (TemporalNativeType) type;
-            if (nativeType.precision() > 3) {
-                type = NativeTypes.time(3);
-            }
-        } else if (type.spec() == NativeTypeSpec.DATETIME) {
-            TemporalNativeType nativeType = (TemporalNativeType) type;
-            if (nativeType.precision() > 3) {
-                type = NativeTypes.datetime(3);
-            }
-        } else if (type.spec() == NativeTypeSpec.TIMESTAMP) {
-            TemporalNativeType nativeType = (TemporalNativeType) type;
-            if (nativeType.precision() > 3) {
-                type = NativeTypes.timestamp(3);
-            }
-        }
-
-        return generateLiteralWithNoRepetition(type);
     }
 
     /**

@@ -59,11 +59,12 @@ public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
             TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
-        IgniteSchema schema = createSchemaWithSingleColumnTable(pair.first());
+        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
         String byteVal = generateLiteral(pair.second(), false);
 
-        assertPlan("INSERT INTO T VALUES(" + byteVal + ")", schema, keyValOperandMatcher(operandMatcher)::matches, List.of());
+        String sql = "INSERT INTO T VALUES(" + byteVal + ", " + byteVal + ")";
+        assertPlan(sql, schema, keyValOperandMatcher(operandMatcher)::matches, List.of());
     }
 
     @ParameterizedTest
@@ -72,11 +73,11 @@ public class BinaryInsertCoercionTest extends BaseTypeCoercionTest {
             TypePair pair,
             Matcher<RexNode> operandMatcher
     ) throws Exception {
-        IgniteSchema schema = createSchemaWithSingleColumnTable(pair.first());
+        IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
         Object byteVal = generateValueByType(pair.second());
 
-        assertPlan("INSERT INTO T VALUES(?)", schema, keyValOperandMatcher(operandMatcher)::matches, List.of(byteVal));
+        assertPlan("INSERT INTO T VALUES(?, ?)", schema, keyValOperandMatcher(operandMatcher)::matches, List.of(byteVal, byteVal));
     }
 
     /**

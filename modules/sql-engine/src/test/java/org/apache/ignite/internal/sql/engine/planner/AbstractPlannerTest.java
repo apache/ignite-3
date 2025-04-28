@@ -63,7 +63,9 @@ import org.apache.calcite.rel.hint.HintStrategyTable;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.rex.RexCall;
+import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.schema.ColumnStrategy;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlExplainFormat;
@@ -71,10 +73,13 @@ import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlNode;
 import org.apache.calcite.sql.type.BasicSqlType;
+import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.calcite.sql2rel.InitializerContext;
 import org.apache.calcite.sql2rel.SqlToRelConverter;
 import org.apache.calcite.tools.Frameworks;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.calcite.util.TimeString;
+import org.apache.calcite.util.TimestampString;
 import org.apache.calcite.util.Util;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -90,6 +95,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestBuilders.SortedIndexB
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgnitePlanner;
+import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.PlannerHelper;
 import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
@@ -735,6 +741,11 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             // Hints are not serializable.
             clearHints(expected);
 
+            RelNode replaced = new RewriteTimeTimestampLiterals().visit((IgniteRel) expected);
+            if (replaced != expected) {
+                expected = replaced;
+            }
+
             if (!expected.deepEquals(deserialized)) {
                 IgniteStringBuilder sb = new IgniteStringBuilder();
                 fail(
@@ -1124,5 +1135,48 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
     public enum Unspecified {
         /** Placeholder for unspecified dynamic parameter. */
         UNKNOWN
+    }
+
+    /**
+     * Truncates TIME/TIMESTAMP literals to millis, because sub-millisecond values are lost during serilization,
+     * since calcite's runtime does not support sub-millisecond precision for these types.
+     */
+    private static class RewriteTimeTimestampLiterals extends IgniteRelShuttle {
+
+        final RexShuttle rexVisitor = new RexShuttle() {
+            @Override
+            public RexNode visitLiteral(RexLiteral literal) {
+                RelDataType type = literal.getType();
+                SqlTypeName sqlTypeName = type.getSqlTypeName();
+
+                if (sqlTypeName == SqlTypeName.TIME) {
+                    TimeString time = literal.getValueAs(TimeString.class);
+
+                    assert time != null;
+                    assert type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                    TimeString truncated = type.getPrecision() > 3 ? time.round(3) : time;
+
+                    return Commons.rexBuilder().makeLiteral(truncated, type);
+                } else if (sqlTypeName == SqlTypeName.TIMESTAMP || sqlTypeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+                    TimestampString ts = literal.getValueAs(TimestampString.class);
+
+                    assert ts != null;
+                    assert type.getPrecision() != RelDataType.PRECISION_NOT_SPECIFIED;
+
+                    TimestampString truncated = type.getPrecision() > 3 ? ts.round(3) : ts;
+
+                    return Commons.rexBuilder().makeLiteral(truncated, type);
+                } else {
+                    return super.visitLiteral(literal);
+                }
+            }
+        };
+
+        @Override
+        public IgniteRel visit(IgniteRel rel) {
+            rel = (IgniteRel) rel.accept(rexVisitor);
+            return super.visit(rel);
+        }
     }
 }

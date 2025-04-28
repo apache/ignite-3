@@ -57,7 +57,7 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
     ) throws Exception {
         IgniteSchema schema = createSchemaWithTwoColumnTable(pair.first(), pair.second());
 
-        String val = timestampLiteral(pair.second());
+        String val = generateLiteralWithNoRepetition(pair.second());
         assertPlan("UPDATE T SET c1=" + val, schema, modifyOperandMatcher(operandMatcher)::matches, List.of());
     }
 
