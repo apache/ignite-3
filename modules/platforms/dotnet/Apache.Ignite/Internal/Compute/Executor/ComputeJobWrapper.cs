@@ -29,7 +29,7 @@ using Ignite.Compute;
 /// <typeparam name="TJob">Type of the job.</typeparam>
 /// <typeparam name="TArg">Type of the job argument.</typeparam>
 /// <typeparam name="TResult">Type of the job result.</typeparam>
-internal sealed class ComputeJobWrapper<TJob, TArg, TResult> : IComputeJobInternal
+internal sealed class ComputeJobWrapper<TJob, TArg, TResult> : IComputeJobWrapper
     where TJob : IComputeJob<TArg, TResult>, new()
 {
     private readonly TJob _job;

@@ -26,7 +26,7 @@ using Ignite.Compute;
 /// <summary>
 /// Non-generic job interface to cross the genericity boundary.
 /// </summary>
-internal interface IComputeJobInternal
+internal interface IComputeJobWrapper
 {
     /// <summary>
     /// Executes the job.

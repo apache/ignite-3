@@ -29,14 +29,14 @@ using Ignite.Compute;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext)
 {
-    private readonly ConcurrentDictionary<string, IComputeJobInternal> _jobDelegates = new();
+    private readonly ConcurrentDictionary<string, IComputeJobWrapper> _jobDelegates = new();
 
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
     /// </summary>
     /// <param name="typeName">Job type name.</param>
     /// <returns>Job execution delegate.</returns>
-    public IComputeJobInternal GetOrCreateJobWrapper(string typeName) =>
+    public IComputeJobWrapper GetOrCreateJobWrapper(string typeName) =>
         _jobDelegates.GetOrAdd(typeName, static (name, ctx) => CreateJobWrapper(name, ctx), AssemblyLoadContext);
 
     /// <summary>
@@ -44,7 +44,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// </summary>
     public void Unload() => AssemblyLoadContext.Unload();
 
-    private static IComputeJobInternal CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
+    private static IComputeJobWrapper CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
     {
         var jobType = Type.GetType(typeName, ctx.LoadFromAssemblyName, null);
 
@@ -65,6 +65,6 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         var jobWrapperType = typeof(ComputeJobWrapper<,,>)
             .MakeGenericType(jobType, jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
 
-        return (IComputeJobInternal)Activator.CreateInstance(jobWrapperType)!;
+        return (IComputeJobWrapper)Activator.CreateInstance(jobWrapperType)!;
     }
 }
