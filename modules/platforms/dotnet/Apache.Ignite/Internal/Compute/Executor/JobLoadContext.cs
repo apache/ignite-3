@@ -76,30 +76,4 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
         return (context, argBuf, responseBuf, token) => method.Invoke(null, [job, context, argBuf, responseBuf, token]);
     }
-
-    private static async ValueTask ExecuteJob<TArg, TResult>(
-        IComputeJob<TArg, TResult> job,
-        IJobExecutionContext context,
-        PooledBuffer argBuf,
-        PooledArrayBuffer responseBuf,
-        CancellationToken cancellationToken)
-    {
-        TArg arg = ReadArg();
-
-        TResult res = await job.ExecuteAsync(context, arg, cancellationToken).ConfigureAwait(false);
-
-        WriteRes();
-
-        TArg ReadArg()
-        {
-            var reader = argBuf.GetReader();
-            return ComputePacker.UnpackArgOrResult(ref reader, job.InputMarshaller);
-        }
-
-        void WriteRes()
-        {
-            var writer = responseBuf.MessageWriter;
-            ComputePacker.PackArgOrResult(ref writer, res, job.ResultMarshaller);
-        }
-    }
 }

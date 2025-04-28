@@ -19,19 +19,27 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
+using System.Threading.Tasks;
 using Buffers;
 using Ignite.Compute;
 
 /// <summary>
-/// Job execution delegate.
+/// Non-generic job interface to cross the genericity boundary.
 /// </summary>
-/// <param name="context">Job execution context.</param>
-/// <param name="arg">The input buffer containing a job argument.</param>
-/// <param name="responseBuf">The output buffer for storing job execution results.</param>
-/// <param name="cancellationToken">Cancellation token.</param>
-[SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
-internal delegate void JobDelegate(
-    IJobExecutionContext context,
-    PooledBuffer arg,
-    PooledArrayBuffer responseBuf,
-    CancellationToken cancellationToken);
+internal interface IComputeJobInternal
+{
+    /// <summary>
+    /// Executes the job.
+    /// </summary>
+    /// <param name="context">Job execution context.</param>
+    /// <param name="argBuf">The input buffer containing a job argument.</param>
+    /// <param name="responseBuf">The output buffer for storing job execution results.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Job result.</returns>
+    [SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix", Justification = "Reviewed.")]
+    ValueTask ExecuteAsync(
+        IJobExecutionContext context,
+        PooledBuffer argBuf,
+        PooledArrayBuffer responseBuf,
+        CancellationToken cancellationToken);
+}
