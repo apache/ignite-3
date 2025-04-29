@@ -31,10 +31,10 @@ public sealed class SystemInfoJob : IComputeJob<object?, string>
     {
         var uptime = DateTime.Now - Process.GetCurrentProcess().StartTime;
 
-        var response = $"{nameof(SystemInfoJob)} [CLR version={Environment.Version}, " +
+        var response = $"{nameof(SystemInfoJob)} [CLR={Environment.Version}, " +
                        $"MemoryUsed={Environment.WorkingSet / 1024 / 1024}MB, " +
                        $"OS={Environment.OSVersion}, " +
-                       $"Uptime={uptime}, " +
+                       $"ExecutorUptime={uptime}, " +
                        $"JobArg={arg}]";
 
         return ValueTask.FromResult(response);

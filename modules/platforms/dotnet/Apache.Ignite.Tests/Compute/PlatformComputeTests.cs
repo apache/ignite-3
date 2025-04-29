@@ -32,6 +32,20 @@ public class PlatformComputeTests : IgniteTestsBase
     private const string TempJobPrefix = "TEST_ONLY_DOTNET_JOB:";
 
     [Test]
+    public async Task TestDotNetSystemInfoJob([Values(true, false)] bool withSsl)
+    {
+        var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
+        var desc = new JobDescriptor<object?, string>(
+            TempJobPrefix + "Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor");
+
+        var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
+        var result = await jobExec.GetResultAsync();
+
+        StringAssert.StartsWith("SystemInfoJob [CLR=", result);
+        StringAssert.EndsWith("JobArg=Hello world!]", result);
+    }
+
+    [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
