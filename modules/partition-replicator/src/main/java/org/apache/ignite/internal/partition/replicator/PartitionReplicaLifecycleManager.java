@@ -432,7 +432,7 @@ public class PartitionReplicaLifecycleManager extends
 
         return allOf(startZoneFutures.toArray(CompletableFuture[]::new))
                 .whenComplete((unused, throwable) -> {
-                    if (throwable != null) {
+                    if (throwable != null && !hasCause(throwable, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(throwable, "Error starting zones"));
                     } else {
                         LOG.debug(
@@ -490,7 +490,7 @@ public class PartitionReplicaLifecycleManager extends
 
             return allOf(futures)
                     .whenComplete((res, e) -> {
-                        if (e != null) {
+                        if (e != null && !hasCause(e, NodeStoppingException.class)) {
                             failureProcessor.process(new FailureContext(e, "Error when performing assignments recovery"));
                         }
                     });
@@ -709,7 +709,7 @@ public class PartitionReplicaLifecycleManager extends
 
         return replicaMgr.weakStartReplica(zonePartitionId, startReplicaSupplier, forcedAssignments)
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         String errorMessage = String.format(
                                 "Unable to update raft groups on the node [zonePartitionId=%s]",
                                 zonePartitionId
