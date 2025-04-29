@@ -26,17 +26,20 @@ using Ignite.Compute;
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public static class DotNetJobs
 {
-    public static readonly JobDescriptor<int, int> AddOne = new(typeof(AddOneJob).AssemblyQualifiedName!);
-    public static readonly JobDescriptor<int, int> NoCtor = new(typeof(NoCtorJob).AssemblyQualifiedName!);
-    public static readonly JobDescriptor<object?, object?> Echo = new(typeof(EchoJob).AssemblyQualifiedName!);
+    public static readonly JobDescriptor<int, int> AddOne = GetDesc(new AddOneJob());
+    public static readonly JobDescriptor<int, int> NoCtor = GetDesc(new NoCtorJob(1));
+    public static readonly JobDescriptor<object?, object?> Echo = GetDesc(new EchoJob());
 
-    private class AddOneJob : IComputeJob<int, int>
+    private static JobDescriptor<TArg, TRes> GetDesc<TArg, TRes>(IComputeJob<TArg, TRes> job) =>
+        new (job.GetType().AssemblyQualifiedName!);
+
+    public class AddOneJob : IComputeJob<int, int>
     {
         public ValueTask<int> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult(arg + 1);
     }
 
-    private class EchoJob : IComputeJob<object?, object?>
+    public class EchoJob : IComputeJob<object?, object?>
     {
         public ValueTask<object?> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult(arg);
