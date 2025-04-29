@@ -148,7 +148,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /** Immutable forest, so to say. */
         private final SuperRoot roots;
 
-        /** Version associated with the currently known storage state. */
+        /** Full storage data. */
         private final Data data;
 
         /** Future that signifies update of current configuration. */
@@ -728,6 +728,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         return new Data(newState, delta.changeId());
     }
 
+    /**
+     * Remove keys from {@code allChanges}, that are associated with nulls in this map, and already absent in {@link StorageRoots#data}.
+     */
     private static void dropUnnecessarilyDeletedKeys(Map<String, Serializable> allChanges, StorageRoots localRoots) {
         // "toList" is necessary to avoid "ConcurrentModificationException".
         List<String> unnecessarilyDeletedKeys = allChanges.entrySet().stream()
@@ -736,7 +739,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 .filter(k -> !localRoots.data.values().containsKey(k))
                 .collect(Collectors.toList());
 
-        unnecessarilyDeletedKeys.forEach(allChanges::remove);
+        allChanges.keySet().removeIf(unnecessarilyDeletedKeys::contains);
     }
 
     /**

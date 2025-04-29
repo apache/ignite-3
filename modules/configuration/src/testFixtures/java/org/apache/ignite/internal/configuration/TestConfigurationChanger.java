@@ -36,13 +36,6 @@ public class TestConfigurationChanger extends ConfigurationChanger {
 
     /**
      * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param generator                   Runtime implementations tree generator for node classes.
-     * @param validator                   Configuration validator.
-     * @param migrator                    Configuration migrator.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public TestConfigurationChanger(
             Collection<RootKey<?, ?>> rootKeys,

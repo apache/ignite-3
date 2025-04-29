@@ -61,12 +61,16 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Captor;
 import org.mockito.invocation.InvocationOnMock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * Tests for configuration schemas with {@link Deprecated} properties.
  */
+@ExtendWith(MockitoExtension.class)
 public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     private static final ConfigurationType TEST_CONFIGURATION_TYPE = ConfigurationType.LOCAL;
 
@@ -75,8 +79,8 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     /**
      * Argument captor for {@link ConfigurationStorage#write(Map, long)}.
      */
-    @SuppressWarnings("unchecked")
-    private final ArgumentCaptor<Map<String, Serializable>> lastWriteCapture = ArgumentCaptor.forClass(Map.class);
+    @Captor
+    private ArgumentCaptor<Map<String, Serializable>> lastWriteCapture;
 
     /**
      * Configuration root schema without any deprecations.

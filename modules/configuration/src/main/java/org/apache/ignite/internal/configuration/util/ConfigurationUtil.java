@@ -1008,6 +1008,10 @@ public class ConfigurationUtil {
 
                 if (val == null) {
                     try {
+                        // If we received a null value, there are two options:
+                        //  - we changed a type of the polymorphic configuration, and some values must disappear. We'll get an exception.
+                        //  - we deleted deprecated configuration value from configuration storage. The value in tree must be replaced with
+                        //    default in such a case.
                         ((InnerNode) node).constructDefault(key);
                     } catch (NoSuchElementException ignore) {
                         assert ((InnerNode) node).isPolymorphic()
