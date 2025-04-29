@@ -199,9 +199,9 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
 
-        cancelHandle.cancelAsync().join();
+        await(cancelHandle.cancelAsync());
 
-        // Expect all transactions to be rollbacked
+        // Expect all transactions to be rolled back.
         assertThat(txManager().pending(), is(0));
     }
 
@@ -220,9 +220,9 @@ public class ItSqlAsynchronousApiTest extends ItSqlApiBaseTest {
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
 
-        cancelHandle.cancelAsync().join();
+        await(cancelHandle.cancelAsync());
 
-        // Expect all transactions to be rollbacked
+        // Expect all transactions to be rolled back.
         waitForCondition(() -> txManager().pending() == 0, 5000);
     }
 

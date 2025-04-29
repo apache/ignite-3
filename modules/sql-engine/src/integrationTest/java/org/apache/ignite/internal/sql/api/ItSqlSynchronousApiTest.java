@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.api;
 
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThan;
@@ -159,9 +160,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
 
-        cancelHandle.cancelAsync().join();
+        await(cancelHandle.cancelAsync());
 
-        // Expect all transactions to be rollbacked
+        // Expect all transactions to be rolled back.
         assertThat(txManager().pending(), is(0));
     }
 
@@ -182,9 +183,9 @@ public class ItSqlSynchronousApiTest extends ItSqlApiBaseTest {
         SqlException sqlErr = assertInstanceOf(SqlException.class, err.getCause());
         assertEquals(Sql.EXECUTION_CANCELLED_ERR, sqlErr.code());
 
-        cancelHandle.cancelAsync().join();
+        await(cancelHandle.cancelAsync());
 
-        // Expect all transactions to be rollbacked
+        // Expect all transactions to be rolled back.
         waitForCondition(() -> txManager().pending() == 0, 5000);
     }
 
