@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Internal.Compute.Executor;
 
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -27,35 +26,12 @@ using System.Runtime.Loader;
 /// </summary>
 internal sealed class DeploymentUnitLoader
 {
-    // TODO: Remove caching for now and unload immediately, Java does not cache deployment units?
-    // Test it - do we have a new folder on every job execution?
-    private readonly ConcurrentDictionary<DeploymentUnitPaths, JobLoadContext> _contexts = new();
-
     /// <summary>
-    /// Gets the assembly load context for the specified deployment unit paths.
+    /// Creates a new job load context for the specified deployment unit paths.
     /// </summary>
-    /// <param name="paths">Deployment unit paths.</param>
-    /// <returns>Assembly load context.</returns>
-    public JobLoadContext GetOrCreateJobLoadContext(DeploymentUnitPaths paths) =>
-        _contexts.GetOrAdd(paths, LoadInternal);
-
-    /// <summary>
-    /// Unloads the assembly load context for the specified deployment unit paths.
-    /// </summary>
-    /// <param name="paths">Paths.</param>
-    /// <returns>True if the context was unloaded, false if it was not found.</returns>
-    public bool Unload(DeploymentUnitPaths paths)
-    {
-        if (!_contexts.TryRemove(paths, out var ctx))
-        {
-            return false;
-        }
-
-        ctx.Unload();
-        return true;
-    }
-
-    private static JobLoadContext LoadInternal(DeploymentUnitPaths paths)
+    /// <param name="paths">The deployment unit paths to load assemblies from.</param>
+    /// <returns>A new job load context instance.</returns>
+    public static JobLoadContext GetJobLoadContext(DeploymentUnitPaths paths)
     {
         var asmCtx = new AssemblyLoadContext(name: null, isCollectible: true);
 

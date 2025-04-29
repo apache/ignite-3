@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
-using System.Collections.Concurrent;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
@@ -30,25 +29,13 @@ using Ignite.Compute;
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
 internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext)
 {
-    private readonly ConcurrentDictionary<string, IComputeJobWrapper> _jobDelegates = new();
-
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
     /// </summary>
     /// <param name="typeName">Job type name.</param>
     /// <returns>Job execution delegate.</returns>
-    public IComputeJobWrapper GetOrCreateJobWrapper(string typeName) =>
-        _jobDelegates.GetOrAdd(typeName, static (name, ctx) => CreateJobWrapper(name, ctx), AssemblyLoadContext);
-
-    /// <summary>
-    /// Initiates an unload of this context.
-    /// </summary>
-    public void Unload()
-    {
-        _jobDelegates.Clear();
-
-        AssemblyLoadContext.Unload();
-    }
+    public IComputeJobWrapper CreateJobWrapper(string typeName) =>
+        CreateJobWrapper(typeName, AssemblyLoadContext);
 
     private static IComputeJobWrapper CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
     {

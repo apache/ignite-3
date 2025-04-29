@@ -70,7 +70,7 @@ public class JobLoadContextTests
     private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(Type jobType, TArg? jobArg)
     {
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
-        var jobWrapper = jobLoadCtx.GetOrCreateJobWrapper(jobType.AssemblyQualifiedName!);
+        var jobWrapper = jobLoadCtx.CreateJobWrapper(jobType.AssemblyQualifiedName!);
 
         using var argBuf = PackArg(jobArg);
         using var resBuf = new PooledArrayBuffer();
