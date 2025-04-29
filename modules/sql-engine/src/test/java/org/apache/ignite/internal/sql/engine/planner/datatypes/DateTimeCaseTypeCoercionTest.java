@@ -480,20 +480,20 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIME_0_TIME_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_1)),
 
                 forTypePair(DatetimePair.TIME_0_TIME_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_9)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_1)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_1))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_1)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))

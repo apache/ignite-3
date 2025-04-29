@@ -437,7 +437,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
                 }
             }
         }
-        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val, type);
     }
 
     private static String prevResult = "";
@@ -453,7 +453,7 @@ public class BaseTypeCoercionTest extends AbstractPlannerTest {
         } while (valString.equals(prevResult));
         prevResult = valString;
 
-        return SqlTestUtils.makeLiteral(val, type.spec().asColumnType());
+        return SqlTestUtils.makeLiteral(val, type);
     }
 
     /**

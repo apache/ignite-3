@@ -1123,8 +1123,8 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIME_0_TIME_1,
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3)
+                        castTo(Types.TIME_1),
+                        ofTypeWithoutCast(Types.TIME_1)
                 ),
 
                 Arguments.of(DatetimePair.TIME_0_TIME_9,
@@ -1133,8 +1133,8 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIME_1_TIME_1,
-                        castTo(Types.TIME_3),
-                        ofTypeWithoutCast(Types.TIME_3)
+                        ofTypeWithoutCast(Types.TIME_1),
+                        ofTypeWithoutCast(Types.TIME_1)
                 ),
 
                 Arguments.of(DatetimePair.TIME_1_TIME_0,

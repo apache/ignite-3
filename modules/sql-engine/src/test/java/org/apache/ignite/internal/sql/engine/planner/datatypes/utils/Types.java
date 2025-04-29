@@ -188,7 +188,6 @@ public final class Types {
 
     public static final NativeType TIME_0 = NativeTypes.time(0);
     public static final NativeType TIME_1 = NativeTypes.time(1);
-    public static final NativeType TIME_3 = NativeTypes.time(3);
     public static final NativeType TIME_9 = NativeTypes.time(9);
 
     public static final NativeType DATE = NativeTypes.DATE;
