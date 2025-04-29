@@ -199,10 +199,10 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
         }
 
         String lhsLiteral(int idx) {
-            return generateValue(lhs, idx, true);
+            return generateValue(lhs, idx);
         }
 
-        static String generateValue(RelDataType type, int i, boolean literal) {
+        static String generateValue(RelDataType type, int i) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
             } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
