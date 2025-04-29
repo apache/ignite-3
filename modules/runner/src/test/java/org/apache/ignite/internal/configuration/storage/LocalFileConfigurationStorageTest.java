@@ -97,7 +97,8 @@ public class LocalFileConfigurationStorageTest {
                 List.of(TopConfiguration.KEY),
                 storage,
                 treeGenerator,
-                new ConfigurationValidatorImpl(treeGenerator, Set.of())
+                new ConfigurationValidatorImpl(treeGenerator, Set.of()),
+                change -> {}
         );
     }
 

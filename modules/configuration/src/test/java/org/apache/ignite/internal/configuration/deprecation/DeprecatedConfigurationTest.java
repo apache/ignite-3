@@ -42,6 +42,7 @@ import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
+import org.apache.ignite.internal.configuration.ConfigurationMigrator;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
 import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.SuperRootChangeImpl;
@@ -158,7 +159,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
      */
     @Test
     void testInitialState() {
-        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true,  change -> {}, changer -> {
             assertEquals(
                     Map.of(
                             "root.intValue", 10,
@@ -182,9 +183,9 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
 
     @Test
     void testDeprecatedPrimitiveConfiguration() {
-        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {});
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {});
 
-        withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, changer -> {
+        withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, change -> {}, changer -> {
             //noinspection CastToIncompatibleInterface
             var root = (DeprecatedValueView) changer.superRoot().getRoot(DeprecatedValueConfiguration.KEY);
             // Deprecated value should still be read as a default.
@@ -225,9 +226,9 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
 
     @Test
     void testDeprecatedChildConfiguration() {
-        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {});
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {});
 
-        withConfigurationChanger(DeprecatedChildConfiguration.KEY, false, changer -> {
+        withConfigurationChanger(DeprecatedChildConfiguration.KEY, false, change -> {}, changer -> {
             //noinspection CastToIncompatibleInterface
             var root = (DeprecatedChildView) changer.superRoot().getRoot(DeprecatedChildConfiguration.KEY);
             assertNotNull(root.child());
@@ -274,7 +275,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     void testDeprecatedNamedListConfiguration() {
         AtomicReference<UUID> internalIdReference = new AtomicReference<>();
 
-        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {
             // Add named list element for the test.
             changeConfiguration(changer, superRoot -> {
                 superRoot.changeRoot(BeforeDeprecationConfiguration.KEY)
@@ -313,7 +314,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             );
         });
 
-        withConfigurationChanger(DeprecatedNamedListConfiguration.KEY, false, changer -> {
+        withConfigurationChanger(DeprecatedNamedListConfiguration.KEY, false, change -> {}, changer -> {
             //noinspection CastToIncompatibleInterface
             var root = (DeprecatedNamedListView) changer.superRoot().getRoot(DeprecatedNamedListConfiguration.KEY);
             assertNotNull(root.list());
@@ -364,17 +365,19 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         });
     }
 
-    private TestConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
-        return new TestConfigurationChanger(
+    private void withConfigurationChanger(
+            RootKey<?, ?> rootKey,
+            boolean init,
+            ConfigurationMigrator migrator,
+            Consumer<ConfigurationChanger> action
+    ) {
+        ConfigurationChanger changer = new TestConfigurationChanger(
                 List.of(rootKey),
                 storage,
                 new ConfigurationTreeGenerator(rootKey),
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                migrator
         );
-    }
-
-    private void withConfigurationChanger(RootKey<?, ?> rootKey, boolean init, Consumer<ConfigurationChanger> action) {
-        ConfigurationChanger changer = createChanger(rootKey);
 
         if (init) {
             changer.initializeConfigurationWith(ConfigurationUtil.EMPTY_CFG_SRC);
