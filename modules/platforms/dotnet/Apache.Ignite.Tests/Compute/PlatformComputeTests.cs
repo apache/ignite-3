@@ -52,7 +52,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        Assert.AreEqual("Platform jobs are not supported yet.", ex.Message);
+        Assert.AreEqual("Type 'MyNamespace.MyJob' not found in the specified deployment units.", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
