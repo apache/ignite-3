@@ -210,7 +210,7 @@ public class IgniteSqlDateTimeUtilsTest {
 
     @ParameterizedTest
     @MethodSource("invalidTimestamps")
-    public void testInvalidTimeStampStringToUnixDate(String timestampString, String expectedPart) {
+    public void testInvalidTimestampStringToUnixDate(String timestampString, String expectedPart) {
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
                 () -> IgniteSqlDateTimeUtils.timestampStringToUnixDate(timestampString),
