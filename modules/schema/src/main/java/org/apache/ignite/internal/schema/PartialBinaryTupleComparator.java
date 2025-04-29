@@ -102,10 +102,8 @@ public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
         // We use the EQUALITY FLAG to determine the outcome of the comparison operation: if the flag is set, the prefix is considered
         // larger than the tuple and if the flag is not set, the prefix is considered smaller than the tuple. This is needed to include
         // or exclude the scan bounds.
-        if (isBuffer1Prefix == isBuffer2Prefix) {
+        if (!isBuffer2Prefix) {
             return 0;
-        } else if (isBuffer1Prefix) {
-            return equalityFlag(buffer1);
         } else {
             return -equalityFlag(buffer2);
         }
