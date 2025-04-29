@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.schema;
 
+import static java.lang.Integer.signum;
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.EQUALITY_FLAG;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
@@ -93,5 +94,212 @@ class BinaryTupleComparatorUtils {
 
     static int equalityFlag(ByteBuffer tuple) {
         return isFlagSet(tuple, EQUALITY_FLAG) ? 1 : -1;
+    }
+
+    /**
+     * Compares a value in a binary tuple, interpreted as a string, with a given string.
+     * The comparison can be performed as case-sensitive or case-insensitive.
+     * The method first attempts a fast comparison for ASCII sequences and falls back
+     * to Unicode comparison if non-ASCII characters are detected.
+     *
+     * @param tuple The BinaryTupleReader containing the tuple to be compared.
+     * @param colIndex The column index in the tuple to retrieve the value for comparison.
+     * @param cmp The string to compare the value in the tuple against.
+     * @param ignoreCase Flag indicating whether the comparison should ignore case differences.
+     * @return 0 if the strings are equal, a negative value if the tuple string is lexicographically
+     *         less than the given string, or a positive value if it is greater.
+     */
+    static int compareAsString(BinaryTupleReader tuple, int colIndex, String cmp, boolean ignoreCase) {
+        tuple.seek(colIndex);
+        int begin = tuple.begin();
+        int end = tuple.end();
+
+        ByteBuffer buf = tuple.byteBuffer();
+        int fullSrtLength = end - begin;
+        int trimmedSize = Math.min(fullSrtLength, buf.capacity() - begin);
+        byte[] bytes = new byte[trimmedSize];
+
+        buf.duplicate().position(begin).limit(begin + trimmedSize).get(bytes);
+
+        char[] cmpArray = cmp.toCharArray();
+
+        // Fast pass for ASCII string.
+        int asciiResult = compareAsciiSequences(
+                bytes,
+                fullSrtLength,
+                cmpArray,
+                ignoreCase
+        );
+
+        if (asciiResult != Integer.MIN_VALUE) {
+            return asciiResult;
+        }
+
+        // If the string contains non-ASCII characters, we compare it as a Unicode string.
+        return fullUnicodeCompare(
+                bytes,
+                fullSrtLength,
+                cmpArray,
+                ignoreCase
+        );
+    }
+
+    /**
+     * Compares a UTF-8 encoded byte array with a character array, optionally ignoring case differences.
+     * The comparison performs a Unicode-aware lexicographical comparison.
+     *
+     * @param bytes The byte array containing a UTF-8 encoded string.
+     * @param fullSrtLength The full length of the string, which had been truncated in the byte array.
+     * @param cmpArray The character array to compare against.
+     * @param ignoreCase A flag indicating whether the comparison should ignore case differences.
+     * @return 0 if the strings are equal, a negative value if the byte array represents a string that is
+     *         lexicographically less than the character array, or a positive value if it is greater. Returns
+     *         0 if the string comparison is incomplete due to truncation in either of the arrays.
+     */
+    private static int fullUnicodeCompare(
+            byte[] bytes,
+            int fullSrtLength,
+            char[] cmpArray,
+            boolean ignoreCase
+    ) {
+        int[] idx = {0};
+        int i = 0;
+
+        while (idx[0] < bytes.length && i < cmpArray.length) {
+            int cp = getNextCodePoint(bytes, idx);
+
+            if (cp == -1) {
+                // Comparison is impossible because the string is truncated.
+                return 0;
+            }
+
+            char v1 = (char) cp;
+            char v2 = cmpArray[i];
+            i++;
+
+            if (v1 != v2) {
+                if (ignoreCase) {
+                    char upper1 = Character.toUpperCase(v1);
+                    char upper2 = Character.toUpperCase(v2);
+                    if (upper1 != upper2) {
+                        return signum(upper1 - upper2);
+                    }
+                } else {
+                    return signum(v1 - v2);
+                }
+            }
+        }
+
+        if (fullSrtLength > bytes.length && cmpArray.length > i) {
+            // Comparison is not completed yet. Both strings have more characters.
+            return 0;
+        }
+
+        return fullSrtLength == bytes.length && cmpArray.length == i ? 0 : fullSrtLength == bytes.length ? -1 : 1;
+    }
+
+    /**
+     * Decodes the next UTF-8 code point from a byte array, updating the index reference to the next position.
+     * The method validates the UTF-8 byte sequence and throws an exception if it encounters an invalid sequence.
+     *
+     * @param bytes The byte array containing the UTF-8 encoded data.
+     * @param idx An array containing the current index position; the index will be updated to point
+     *            to the next position after reading the code point.
+     * @return The decoded code point, or -1 if the end of the array is reached before completing a valid sequence.
+     * @throws IllegalArgumentException If an invalid UTF-8 sequence is encountered.
+     */
+    private static int getNextCodePoint(byte[] bytes, int[] idx) {
+        byte b1 = bytes[idx[0]];
+        idx[0]++;
+
+        if ((b1 & 0x80) == 0) {
+            return b1; // ASCII
+        }
+
+        int remainingBytes;
+        if ((b1 & 0xE0) == 0xC0) {
+            remainingBytes = 1;
+        } else if ((b1 & 0xF0) == 0xE0) {
+            remainingBytes = 2;
+        } else if ((b1 & 0xF8) == 0xF0) {
+            remainingBytes = 3;
+        } else {
+            throw new IllegalArgumentException("Invalid UTF-8");
+        }
+
+        if (idx[0] + remainingBytes >= bytes.length) {
+            return -1;
+        }
+
+        int codePoint = b1 & (0x3F >> remainingBytes);
+        for (int i = 0; i < remainingBytes; i++) {
+            byte nextByte = bytes[idx[0]];
+            idx[0]++;
+
+            if ((nextByte & 0xC0) != 0x80) {
+                throw new IllegalArgumentException("Invalid UTF-8 continuation");
+            }
+            codePoint = (codePoint << 6) | (nextByte & 0x3F);
+        }
+
+        return codePoint;
+    }
+
+    /**
+     * Compares an ASCII sequence encoded in a byte array with a character array,
+     * optionally ignoring case differences. The method assumes that the byte
+     * array contains only valid ASCII characters. If non-ASCII characters are
+     * detected, the method returns a special error value {@link Integer.MIN_VALUE}.
+     * The comparison is performed lexicographically.
+     *
+     * @param bytes The byte array representation of the ASCII sequence to be compared.
+     * @param fullSrtLength The full length of the string, which had been truncated in the byte array.
+     * @param cmpArray The character array to compare against the byte array content.
+     * @param ignoreCase Flag indicating whether the comparison should be case-insensitive.
+     * @return A negative value if the byte array sequence is lexicographically less
+     *         than the character array, 0 if they are equal, or a positive value if
+     *         the byte array sequence is greater. Returns {@link Integer.MIN_VALUE} if the
+     *         byte array contains non-ASCII characters.
+     */
+    private static int compareAsciiSequences(
+            byte[] bytes,
+            int fullSrtLength,
+            char[] cmpArray,
+            boolean ignoreCase
+    ) {
+        int i = 0;
+        int remaining = Math.min(cmpArray.length, bytes.length);
+
+        while (i < remaining) {
+            byte b = bytes[i];
+
+            // Checking if it is an ASCII character.
+            if ((b & 0x80) != 0) {
+                return Integer.MIN_VALUE;
+            }
+
+            char v1 = (char) b;
+            char v2 = cmpArray[i];
+            i++;
+
+            if (v1 != v2) {
+                if (ignoreCase) {
+                    char upper1 = Character.toUpperCase(v1);
+                    char upper2 = Character.toUpperCase(v2);
+                    if (upper1 != upper2) {
+                        return signum(upper1 - upper2);
+                    }
+                } else {
+                    return signum(v1 - v2);
+                }
+            }
+        }
+
+        if (fullSrtLength > remaining && cmpArray.length > remaining) {
+            // Comparison is not completed yet. Both strings have more characters.
+            return 0;
+        }
+
+        return signum(fullSrtLength - cmpArray.length);
     }
 }

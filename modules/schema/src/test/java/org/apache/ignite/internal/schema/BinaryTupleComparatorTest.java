@@ -21,9 +21,11 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.greaterThanOrEqualTo;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.lessThanOrEqualTo;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -314,6 +316,70 @@ public class BinaryTupleComparatorTest {
 
         assertThat(comparator.compare(tuple2, tuple1), is(lessThanOrEqualTo(1)));
         assertThat(comparator.compare(tuple1, tuple2), is(greaterThanOrEqualTo(-1)));
+    }
+
+    @Test
+    public void partialComparatorAsciiTest() {
+        PartialBinaryTupleComparator partialBinaryTupleComparator = new PartialBinaryTupleComparator(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.STRING)
+        );
+
+        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
+                .appendString("qwertyuiop".repeat(10))
+                .build();
+
+        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
+                .appendString("qwertyuiop")
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
+                .appendString("rxfsuzvjpq".repeat(2))
+                .build();
+
+        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
+                .appendString("qwertyuiop".repeat(15))
+                .build();
+
+        assertTrue(partialBinaryTupleComparator.compare(tuple1, tupleReference) < 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple2, tupleReference) > 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple3, tupleReference) > 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) == 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) == 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple3.limit(120).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+    }
+
+    @Test
+    public void partialComparatorUnicodeTest() {
+        PartialBinaryTupleComparator partialBinaryTupleComparator = new PartialBinaryTupleComparator(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.STRING)
+        );
+
+        ByteBuffer tupleReference = new BinaryTupleBuilder(1)
+                .appendString("йцукенгшщз".repeat(10))
+                .build();
+
+        ByteBuffer tuple1 = new BinaryTupleBuilder(1)
+                .appendString("йцукенгшщз")
+                .build();
+
+        ByteBuffer tuple2 = new BinaryTupleBuilder(1)
+                .appendString("кчфлёодщъи".repeat(2))
+                .build();
+
+        ByteBuffer tuple3 = new BinaryTupleBuilder(1)
+                .appendString("йцукенгшщз".repeat(15))
+                .build();
+
+        assertTrue(partialBinaryTupleComparator.compare(tuple1, tupleReference) < 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple2, tupleReference) > 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple3, tupleReference) > 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple1.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) == 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple2.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple3.limit(8).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) == 0);
+        assertTrue(partialBinaryTupleComparator.compare(tuple3.limit(220).slice().order(ByteOrder.LITTLE_ENDIAN), tupleReference) > 0);
     }
 
     private static BinaryTupleComparator createSingleColumnComparator(NativeType type, CatalogColumnCollation collation) {

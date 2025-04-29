@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsString;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareFieldValue;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.equalityFlag;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFlagSet;
@@ -33,7 +34,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.StringUtils;
 
 /**
  * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
@@ -44,7 +44,7 @@ import org.apache.ignite.internal.util.StringUtils;
  */
 @SuppressWarnings("ComparatorNotSerializable")
 public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
-    private final List<CatalogColumnCollation>  columnCollations;
+    private final List<CatalogColumnCollation> columnCollations;
     private final List<NativeType> columnTypes;
 
     /**
@@ -95,7 +95,7 @@ public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
             }
 
             if (readability == Readability.PARTIAL_READABLE) {
-                return  0;
+                return 0;
             }
         }
 
@@ -155,13 +155,7 @@ public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
                 return Arrays.compareUnsigned(part, cmp);
             }
             case STRING: {
-                partialTuple.seek(index1);
-
-                String part = partialTuple.stringValue(partialTuple.begin(), partialTuple.byteBuffer().capacity());
-
-                String cmp = StringUtils.trimToSize(tuple2.stringValue(index2), part.length());
-
-                return part.compareTo(cmp);
+                return compareAsString(partialTuple, index1, tuple2.stringValue(index2), false);
             }
             default: {
                 return 0;
