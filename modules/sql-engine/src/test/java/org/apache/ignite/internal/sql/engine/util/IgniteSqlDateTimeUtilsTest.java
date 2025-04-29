@@ -73,6 +73,24 @@ public class IgniteSqlDateTimeUtilsTest {
 
     @ParameterizedTest
     @CsvSource({
+            "00:00:00,     0, 0",
+            "00:00:00,     0, 123",
+            "00:00:00.1,   1, 123",
+            "00:00:00.12,  2, 123",
+            "00:00:00.123, 3, 123",
+            "00:00:00.123, 4, 123",
+            "00:00:00.123, 5, 123",
+            "00:00:00.123, 6, 123",
+            "23:59:59.999, 3, 86399999",
+            "23:59:59.99,  2, 86399999",
+            "23:59:59.9,   1, 86399999",
+    })
+    public void testTimeToString(String expectedTime, int precision, int millis) {
+        assertThat(IgniteSqlDateTimeUtils.unixTimeToString(millis, precision), is(expectedTime));
+    }
+
+    @ParameterizedTest
+    @CsvSource({
             "1970-01-01 00:00:00,     0, 0",
             "1970-01-01 00:00:00.12,  2, 123",
             "1970-01-01 00:00:00.123, 3, 123",
@@ -95,9 +113,11 @@ public class IgniteSqlDateTimeUtilsTest {
     private static Stream<Arguments> validTimes() {
         return Stream.of(
                 Arguments.of("0:0:0", 0),
-                // 6.13 TRIM ( BOTH ' ' FROM VE )
+                // According to the SQL spec (6.13 <cast specification>)
+                // leading and trailing spaces in a value must be trimmed.
                 Arguments.of("  0:0:1  ", 1000),
                 Arguments.of("  00:00:1  ", 1000),
+                Arguments.of("  00:00:1.1  ", 1100),
                 Arguments.of("  00:00:00.001  ", 1),
                 Arguments.of("00:00:00", 0),
                 Arguments.of("00:00:00.", 0),
