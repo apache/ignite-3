@@ -55,7 +55,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -732,14 +731,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * Remove keys from {@code allChanges}, that are associated with nulls in this map, and already absent in {@link StorageRoots#data}.
      */
     private static void dropUnnecessarilyDeletedKeys(Map<String, Serializable> allChanges, StorageRoots localRoots) {
-        // "toList" is necessary to avoid "ConcurrentModificationException".
-        List<String> unnecessarilyDeletedKeys = allChanges.entrySet().stream()
-                .filter(e -> e.getValue() == null)
-                .map(Entry::getKey)
-                .filter(k -> !localRoots.data.values().containsKey(k))
-                .collect(Collectors.toList());
-
-        allChanges.keySet().removeIf(unnecessarilyDeletedKeys::contains);
+        allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.data.values().containsKey(entry.getKey()));
     }
 
     /**
