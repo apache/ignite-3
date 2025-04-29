@@ -225,6 +225,34 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testConfigurationMigrator() {
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {});
+
+        ConfigurationMigrator migrator = superRootChange -> {
+            // Check one more time that an old value can be read, just to show that we can do that inside of migrator.
+            assertEquals(10, superRootChange.viewRoot(DeprecatedValueConfiguration.KEY).intValue());
+
+            superRootChange.changeRoot(DeprecatedValueConfiguration.KEY).changeChild().changeIntCfg(100);
+        };
+
+        withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, migrator, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedValueView) changer.superRoot().getRoot(DeprecatedValueConfiguration.KEY);
+            // Migrator completed its task.
+            assertEquals(100, root.child().intCfg());
+
+            // Check that deprecated value has been deleted while starting the changer, and that migrator did its job at the same time.
+            assertEquals(
+                    mapWithNulls(
+                            "root.intValue", null,
+                            "root.child.my-int-cfg", 100
+                    ),
+                    lastWriteCapture.getValue()
+            );
+        });
+    }
+
+    @Test
     void testDeprecatedChildConfiguration() {
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {});
 
