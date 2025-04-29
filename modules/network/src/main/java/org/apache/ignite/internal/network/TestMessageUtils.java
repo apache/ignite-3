@@ -110,6 +110,8 @@ public class TestMessageUtils {
      * Purum.
      */
     public static void extendHistory(NetworkMessage message, boolean writeTrace, String description) {
+        if (true) return;
+
         if (testMessageClass != null) {
             if (testMessageClass.isInstance(message)) {
                 Map<Integer, String> map = getMap(message);
