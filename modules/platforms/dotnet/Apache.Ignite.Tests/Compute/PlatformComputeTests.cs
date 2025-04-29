@@ -45,6 +45,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
+        // TODO: Deploy tests assembly via REST API.
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
 
         // TODO: Test all arg types.
