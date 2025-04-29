@@ -82,7 +82,7 @@ public abstract class BaseDistributionZoneManagerTest extends BaseIgniteAbstract
 
     protected DistributionZoneManager distributionZoneManager;
 
-    SimpleInMemoryKeyValueStorage keyValueStorage;
+    protected SimpleInMemoryKeyValueStorage keyValueStorage;
 
     protected LogicalTopology topology;
 
