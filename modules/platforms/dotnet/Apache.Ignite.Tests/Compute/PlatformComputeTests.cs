@@ -69,6 +69,17 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestMissingAssembly()
+    {
+        var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
+        var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
+
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
+        Assert.AreEqual("Type 'MyNamespace.MyJob' not found in the specified deployment units.", ex.Message);
+        Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
+    }
+
+    [Test]
     public async Task TestJobError()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
