@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.rule.logical;
 //CHECKSTYLE:OFF
 
 import com.google.common.collect.Iterables;
+import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelRule;
@@ -83,6 +84,8 @@ import static java.util.Objects.requireNonNull;
 public class IgniteSubQueryRemoveRule
         extends RelRule<IgniteSubQueryRemoveRule.Config>
         implements TransformationRule {
+
+    public static final RelOptRule INSTANCE = Config.JOIN.toRule();
 
     /** Creates a SubQueryRemoveRule. */
     protected IgniteSubQueryRemoveRule(Config config) {
