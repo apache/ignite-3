@@ -84,6 +84,8 @@ internal static class ComputeJobExecutor
         {
             IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
 
+            resBuf.MessageWriter.Write(0); // Response flags: success.
+
             // TODO: Job exec context.
             // TODO IGNITE-25153: Cancellation.
             await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
