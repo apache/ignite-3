@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
-
-import java.util.UUID;
+package org.apache.ignite.internal.compute;
 
 /**
- * Tracker of ongoing transactions.
+ * Job executor type.
  */
-public interface TransactionTracker {
-    /** Registers given transaction within the tracker. */ 
-    boolean register(UUID txId, boolean readOnly);
-
-    /** De-registers given transaction from the tracker. */
-    void unregister(UUID txId);
+public enum JobExecutorType { // TODO IGNITE-25116: Move to public API
+    JavaEmbedded,
+    DotNetSidecar
 }

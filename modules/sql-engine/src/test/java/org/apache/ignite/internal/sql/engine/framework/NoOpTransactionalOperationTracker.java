@@ -15,29 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal.sql.engine.framework;
 
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
+import org.apache.ignite.internal.tx.InternalTransaction;
 
 /**
- * Simple facade that propagates invocations to underlying {@link TransactionInflights} object.
+ * Dummy no-op tracker.
  */
-class InflightTransactionTracker implements TransactionTracker {
-    private final TransactionInflights delegate;
+public final class NoOpTransactionalOperationTracker implements TransactionalOperationTracker {
+    public static final TransactionalOperationTracker INSTANCE = new NoOpTransactionalOperationTracker();
 
-    InflightTransactionTracker(TransactionInflights delegate) {
-        this.delegate = delegate;
+    @Override
+    public void registerOperationStart(InternalTransaction tx) {
+        // NO-OP
     }
 
     @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return delegate.addInflight(txId, readOnly);
-    }
-
-    @Override
-    public void unregister(UUID txId) {
-        delegate.removeInflight(txId);
+    public void registerOperationFinish(InternalTransaction tx) {
+        // NO-OP
     }
 }

@@ -19,20 +19,18 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import static org.apache.ignite.client.handler.requests.cluster.ClientClusterGetNodesRequest.packClusterNode;
 import static org.apache.ignite.client.handler.requests.compute.ClientComputeGetStateRequest.packJobState;
-import static org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.compute.JobExecution;
-import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.NodeNotFoundException;
-import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientComputeJobPacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
+import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -55,6 +53,7 @@ public class ClientComputeExecuteRequest {
      * @param compute Compute.
      * @param cluster Cluster.
      * @param notificationSender Notification sender.
+     * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
@@ -62,17 +61,14 @@ public class ClientComputeExecuteRequest {
             ClientMessagePacker out,
             IgniteComputeInternal compute,
             ClusterService cluster,
-            NotificationSender notificationSender
+            NotificationSender notificationSender,
+            boolean enablePlatformJobs
     ) {
         Set<ClusterNode> candidates = unpackCandidateNodes(in, cluster);
-
-        List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
-        String jobClassName = in.unpackString();
-        JobExecutionOptions options = JobExecutionOptions.builder().priority(in.unpackInt()).maxRetries(in.unpackInt()).build();
-        ComputeJobDataHolder arg = unpackJobArgumentWithoutMarshaller(in);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
         CompletableFuture<JobExecution<ComputeJobDataHolder>> executionFut = compute.executeAsyncWithFailover(
-                candidates, deploymentUnits, jobClassName, options, arg, null
+                candidates, job.deploymentUnits(), job.jobClassName(), job.options(), job.arg(), null
         );
         sendResultAndState(executionFut, notificationSender);
 

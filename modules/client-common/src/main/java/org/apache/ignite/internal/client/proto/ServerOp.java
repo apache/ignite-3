@@ -15,24 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.framework;
-
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Dummy no-op tracker.
+ * Server -> client operation codes.
  */
-public final class NoOpTransactionTracker implements TransactionTracker {
-    public static final TransactionTracker INSTANCE = new NoOpTransactionTracker();
+public class ServerOp {
+    public static final int PING = 1;
 
-    @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return true;
-    }
+    /** Execute platform compute job. */
+    public static final int COMPUTE_JOB_EXEC = 2;
 
-    @Override
-    public void unregister(UUID txId) {
+    public static final int COMPUTE_JOB_CANCEL = 3;
 
-    }
+    public static final int DEPLOYMENT_UNITS_UNDEPLOY = 4;
 }
