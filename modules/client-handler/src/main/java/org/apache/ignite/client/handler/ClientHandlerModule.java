@@ -39,6 +39,7 @@ import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -50,6 +51,8 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.client.proto.ClientMessageDecoder;
 import org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -75,7 +78,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Client handler module maintains TCP endpoint for thin client connections.
  */
-public class ClientHandlerModule implements IgniteComponent {
+public class ClientHandlerModule implements IgniteComponent, PlatformComputeTransport {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(ClientHandlerModule.class);
 
@@ -137,6 +140,8 @@ public class ClientHandlerModule implements IgniteComponent {
     private final ClientConnectorConfiguration clientConnectorConfiguration;
 
     private final Executor partitionOperationsExecutor;
+
+    private final ConcurrentHashMap<String, CompletableFuture<PlatformComputeConnection>> computeExecutors = new ConcurrentHashMap<>();
 
     @TestOnly
     @SuppressWarnings("unused")
@@ -424,12 +429,28 @@ public class ClientHandlerModule implements IgniteComponent {
                 primaryReplicaTracker,
                 partitionOperationsExecutor,
                 SUPPORTED_FEATURES,
-                Map.of()
+                Map.of(),
+                computeExecutors::remove
         );
     }
 
     @TestOnly
     public ClientInboundMessageHandler handler() {
         return handler;
+    }
+
+    @Override
+    public String serverAddress() {
+        return "127.0.0.1:" + localAddress().getPort();
+    }
+
+    @Override
+    public boolean sslEnabled() {
+        return clientConnectorConfiguration.value().ssl().enabled();
+    }
+
+    @Override
+    public CompletableFuture<PlatformComputeConnection> registerComputeExecutorId(String computeExecutorId) {
+        return computeExecutors.computeIfAbsent(computeExecutorId, k -> new CompletableFuture<>());
     }
 }

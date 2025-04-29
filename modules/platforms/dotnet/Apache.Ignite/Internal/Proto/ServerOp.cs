@@ -17,36 +17,23 @@
 
 namespace Apache.Ignite.Internal.Proto;
 
-using System;
-
 /// <summary>
-/// Protocol bitmask features.
+/// Server -> client operation codes.
 /// </summary>
-[Flags]
-internal enum ProtocolBitmaskFeature
+internal enum ServerOp
 {
-    /// <summary>
-    /// User attributes in handshake.
-    /// </summary>
-    UserAttributes = 1,
+    /** None */
+    None = 0,
 
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
+    /** Ping */
+    Ping = 1,
 
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
+    /** Execute platform compute job. */
+    ComputeJobExec = 2,
 
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
+    /** Cancel executing platform job. */
+    ComputeJobCancel = 3,
 
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16
+    /** Unload and remove deployment unit. */
+    DeploymentUnitsUndeploy = 4
 }

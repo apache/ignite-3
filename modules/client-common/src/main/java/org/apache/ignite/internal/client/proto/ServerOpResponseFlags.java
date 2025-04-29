@@ -15,38 +15,22 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+package org.apache.ignite.internal.client.proto;
 
-using System;
+/**
+ * Server op response flags utils (see {@link ServerOp}).
+ */
+public class ServerOpResponseFlags {
+    /** Error flag. */
+    private static final int ERROR_FLAG = 4;
 
-/// <summary>
-/// Protocol bitmask features.
-/// </summary>
-[Flags]
-internal enum ProtocolBitmaskFeature
-{
-    /// <summary>
-    /// User attributes in handshake.
-    /// </summary>
-    UserAttributes = 1,
-
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
-
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
-
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
-
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16
+    /**
+     * Gets error flag value.
+     *
+     * @param flags Flags.
+     * @return Whether error is present.
+     */
+    public static boolean getErrorFlag(int flags) {
+        return (flags & ERROR_FLAG) == ERROR_FLAG;
+    }
 }
