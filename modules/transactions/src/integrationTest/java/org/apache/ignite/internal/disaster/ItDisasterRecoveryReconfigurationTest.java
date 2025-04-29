@@ -409,8 +409,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     @Test
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24232
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     @MuteFailureManagerLogging
     void testManualRebalanceRecovery() throws Exception {
