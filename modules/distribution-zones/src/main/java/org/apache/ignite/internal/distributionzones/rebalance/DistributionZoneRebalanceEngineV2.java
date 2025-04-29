@@ -62,7 +62,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  * // TODO: after switching to zone-based replication
  */
 public class DistributionZoneRebalanceEngineV2 {
-    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngine.class);
+    private static final IgniteLogger LOG = Loggers.forClass(DistributionZoneRebalanceEngineV2.class);
 
     /** Prevents double stopping of the component. */
     private final AtomicBoolean stopGuard = new AtomicBoolean();
