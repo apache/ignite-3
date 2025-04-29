@@ -42,7 +42,7 @@ public class JobLoadContextTests
     [Test]
     public async Task TestJobExecution()
     {
-        var res = await ExecuteJobAsync(TestJobs.AddOne, 1);
+        var res = await ExecuteJobAsync(DotNetJobs.AddOne, 1);
 
         Assert.AreEqual(2, res);
     }
@@ -63,9 +63,9 @@ public class JobLoadContextTests
     [Test]
     public void TestJobWithoutDefaultConstructorThrows()
     {
-        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await ExecuteJobAsync(TestJobs.NoCtor, 1));
+        var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await ExecuteJobAsync(DotNetJobs.NoCtor, 1));
 
-        Assert.AreEqual($"No public parameterless constructor for job type '{typeof(TestJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
+        Assert.AreEqual($"No public parameterless constructor for job type '{typeof(DotNetJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
     }
 
     private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(JobDescriptor<TArg, TResult> job, TArg? jobArg)

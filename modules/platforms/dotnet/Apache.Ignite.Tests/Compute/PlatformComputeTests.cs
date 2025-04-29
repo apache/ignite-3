@@ -49,9 +49,9 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
-        var desc = new JobDescriptor<string, string>(TempJobPrefix + "TODO");
 
-        var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
+        // TODO: Test all arg types.
+        var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
         var result = await jobExec.GetResultAsync();
 
         Assert.AreEqual("Hello world!", result);
