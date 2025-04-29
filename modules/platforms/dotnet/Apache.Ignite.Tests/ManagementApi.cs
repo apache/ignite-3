@@ -17,22 +17,45 @@
 
 namespace Apache.Ignite.Tests;
 
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 
 /// <summary>
 /// Ignite management REST API wrapper.
 /// </summary>
-public class ManagementApi
+public class ManagementApi(Uri baseUrl)
 {
-    private readonly string _baseUrl;
-
-    public ManagementApi(string baseUrl)
+    public async Task<string> UnitDeploy(string unitId, string unitVersion, List<string> unitContent)
     {
-        _baseUrl = baseUrl;
-    }
+        // See DeployUnitClient.java
+        var url = new UriBuilder(baseUrl)
+        {
+            Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}"
+        };
 
-    public async Task<string> UnitDeploy(string name, string version, string filesPath)
-    {
-        // TODO see DeployUnitClient.java
+        var content = new MultipartFormDataContent();
+        foreach (var file in unitContent)
+        {
+            // HttpClient will close the file.
+            var fileContent = new StreamContent(File.OpenRead(file));
+            fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+            content.Add(fileContent, "unitContent", file);
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Post, url.ToString())
+        {
+            Content = content
+        };
+
+        request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+        using var client = new HttpClient();
+        var response = await client.SendAsync(request);
+
+        return await response.Content.ReadAsStringAsync();
     }
 }
