@@ -21,6 +21,8 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -181,6 +183,12 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {});
 
         withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedValueView) changer.superRoot().getRoot(DeprecatedValueConfiguration.KEY);
+            // TODO
+            //  SHOULD WE USE DEFAULTS INSTEAD? PROBABLY.
+            assertThrows(NullPointerException.class, () -> root.intValue());
+
             assertEquals(
                     mapWithNulls("root.intValue", null),
                     lastWriteCapture.getValue()
@@ -217,6 +225,14 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {});
 
         withConfigurationChanger(DeprecatedChildConfiguration.KEY, false, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedChildView) changer.superRoot().getRoot(DeprecatedChildConfiguration.KEY);
+            assertNotNull(root.child());
+            assertNull(root.child().strCfg());
+            // TODO
+            //  SHOULD WE USE DEFAULTS INSTEAD? PROBABLY.
+            assertThrows(NullPointerException.class, () -> root.child().intCfg());
+
             assertEquals(
                     mapWithNulls(
                             "root.child.my-int-cfg", null
@@ -292,6 +308,10 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         });
 
         withConfigurationChanger(DeprecatedNamedListConfiguration.KEY, false, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedNamedListView) changer.superRoot().getRoot(DeprecatedNamedListConfiguration.KEY);
+            assertNotNull(root.list());
+
             UUID internalId = internalIdReference.get();
 
             assertEquals(

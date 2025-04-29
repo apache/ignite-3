@@ -38,6 +38,7 @@ import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.Queue;
 import java.util.RandomAccess;
@@ -223,7 +224,7 @@ public class ConfigurationUtil {
     public static Map<String, ?> toPrefixMap(Map<String, ? extends Serializable> rawConfig) {
         Map<String, Object> res = new HashMap<>();
 
-        for (Map.Entry<String, ? extends Serializable> entry : rawConfig.entrySet()) {
+        for (Entry<String, ? extends Serializable> entry : rawConfig.entrySet()) {
             List<String> keys = split(entry.getKey());
 
             assert keys instanceof RandomAccess : keys.getClass();
@@ -755,8 +756,8 @@ public class ConfigurationUtil {
      * @param prefixMap Prefix map, constructed from the storage notification data or its subtree.
      */
     public static void compressDeletedEntries(Map<String, ?> prefixMap) {
-        for (Iterator<? extends Map.Entry<String, ?>> it = prefixMap.entrySet().iterator(); it.hasNext(); ) {
-            Map.Entry<String, ?> entry = it.next();
+        for (Iterator<? extends Entry<String, ?>> it = prefixMap.entrySet().iterator(); it.hasNext(); ) {
+            Entry<String, ?> entry = it.next();
 
             Object value = entry.getValue();
 
@@ -769,9 +770,9 @@ public class ConfigurationUtil {
                     entry.setValue(null);
                 }
             } else if (value == null) {
+                // TODO We don't account for subtrees, I guess we never had any instances of such polymorphic configurations.
                 // If there was a change in the type of polymorphic configuration,
                 // then the fields of the old configuration will be {@code null}, so we can get rid of them.
-                it.remove();
             }
         }
 
@@ -998,7 +999,9 @@ public class ConfigurationUtil {
                 return;
             }
 
-            for (Map.Entry<String, ?> entry : map.entrySet()) {
+            assert node instanceof InnerNode : node;
+
+            for (Entry<String, ?> entry : map.entrySet()) {
                 String key = entry.getKey();
                 Object val = entry.getValue();
 
@@ -1010,7 +1013,12 @@ public class ConfigurationUtil {
                 }
 
                 if (val == null) {
-                    node.construct(key, null, true);
+                    // This code used to be dead. It's alive now.
+                    try {
+                        node.construct(key, null, true);
+                    } catch (NoSuchElementException ignore) {
+                        assert ((InnerNode) node).isPolymorphic() : node;
+                    }
                 } else if (val instanceof Map) {
                     node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), true);
                 } else {
@@ -1034,7 +1042,7 @@ public class ConfigurationUtil {
             // This list must be mutable and RandomAccess.
             var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
 
-            for (Map.Entry<String, ?> entry : map.entrySet()) {
+            for (Entry<String, ?> entry : map.entrySet()) {
                 String internalIdStr = entry.getKey();
 
                 // This is the mapping of internal ids to names. Skip it.
