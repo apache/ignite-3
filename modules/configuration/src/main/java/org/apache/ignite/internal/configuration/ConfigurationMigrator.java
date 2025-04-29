@@ -25,7 +25,7 @@ import org.apache.ignite.configuration.SuperRootChange;
  * values with their non-deprecated cousins. In production code expected to be based on
  * {@link ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)}. Could be anything in tests.
  *
- * @see ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange).
+ * @see ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)
  */
 @FunctionalInterface
 public interface ConfigurationMigrator {

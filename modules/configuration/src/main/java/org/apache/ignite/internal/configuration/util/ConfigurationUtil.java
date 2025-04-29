@@ -756,9 +756,7 @@ public class ConfigurationUtil {
      * @param prefixMap Prefix map, constructed from the storage notification data or its subtree.
      */
     public static void compressDeletedEntries(Map<String, ?> prefixMap) {
-        for (Iterator<? extends Entry<String, ?>> it = prefixMap.entrySet().iterator(); it.hasNext(); ) {
-            Entry<String, ?> entry = it.next();
-
+        for (Entry<String, ?> entry : prefixMap.entrySet()) {
             Object value = entry.getValue();
 
             if (value instanceof Map) {
