@@ -174,8 +174,6 @@ public class ConfigurationFlattener {
             NamedListNode<?> oldNode =
                     oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
 
-            boolean deletion = this.deletion || isDeprecated;
-
             // Old keys ordering can be ignored if we either create or delete everything.
             Map<String, Integer> oldKeysToOrderIdxMap = singleTreeTraversal ? null : keysToOrderIdx(oldNode);
 

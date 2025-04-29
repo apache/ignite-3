@@ -64,7 +64,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
 
-// TODO Add tests for repeated deletions. We don't need to have the same delete commands every time, makes no sense.
 /**
  * Tests for configuration schemas with {@link Deprecated} properties.
  */
