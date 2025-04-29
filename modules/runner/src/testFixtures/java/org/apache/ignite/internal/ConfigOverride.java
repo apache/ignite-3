@@ -15,26 +15,26 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.partition.replicator;
+package org.apache.ignite.internal;
 
-import org.apache.ignite.internal.event.Event;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Events produced by {@link PartitionReplicaLifecycleManager}.
+ * Annotation to make configuration overrides. Supports only root elements of the configuration.
+ * Used for testing purposes only.
  */
-public enum LocalPartitionReplicaEvent implements Event {
-    /**
-     * Fired before a partition replica is started.
-     */
-    BEFORE_REPLICA_STARTED,
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+public @interface ConfigOverride {
+    /** Node index. {@code -1} by default, which means that the override is applied to all nodes. */
+    int nodeIndex() default -1;
 
-    /**
-     * Fired when partition replica has just been stopped and the related partition shouldn't be destroyed.
-     */
-    AFTER_REPLICA_STOPPED,
+    /** Configuration node name. */
+    String name();
 
-    /**
-     * Fired when partition replica has been destroyed.
-     */
-    AFTER_REPLICA_DESTROYED
+    /** Value for override. */
+    String value();
 }

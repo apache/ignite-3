@@ -245,7 +245,7 @@ public class Node {
 
     public final CatalogManager catalogManager;
 
-    private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+    public final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     private final SchemaSyncService schemaSyncService;
 

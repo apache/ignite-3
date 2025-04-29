@@ -34,6 +34,7 @@ import org.junit.jupiter.api.Test;
 import org.mockserver.model.MediaType;
 
 /** Unit tests for {@link RestartPartitionsCommand}. */
+// TODO: https://issues.apache.org/jira/browse/IGNITE-25104
 public class RestartPartitionsTest extends IgniteCliInterfaceTestBase {
     @Test
     @DisplayName("Restart all partitions")

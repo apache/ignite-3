@@ -75,6 +75,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.partition.replicator.network.command.UpdateCom
 import org.apache.ignite.internal.partition.replicator.network.command.WriteIntentSwitchCommand;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryRowMessage;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
@@ -290,6 +292,13 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
 
         lenient().when(indexMetaStorage.indexMeta(eq(indexId))).thenReturn(indexMeta);
 
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(clock.current());
+
         commandListener = new PartitionListener(
                 mock(TxManager.class),
                 partitionDataStorage,
@@ -302,7 +311,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class)
+                mock(Executor.class),
+                placementDriver,
+                clockService
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -510,6 +521,13 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 replicationConfiguration
         );
 
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(clock.current());
+
         PartitionListener testCommandListener = new PartitionListener(
                 mock(TxManager.class),
                 partitionDataStorage,
@@ -522,7 +540,9 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 indexMetaStorage,
                 clusterService.topologyService().localMember().id(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                executor
+                executor,
+                placementDriver,
+                clockService
         );
 
         txStatePartitionStorage.lastApplied(3L, 1L);
