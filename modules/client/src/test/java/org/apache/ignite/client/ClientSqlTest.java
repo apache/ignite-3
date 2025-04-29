@@ -183,7 +183,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "foo, arguments: [], defaultSchema=<not set>, defaultQueryTimeout=0",
+                "foo, arguments: [], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
     }
 
@@ -197,7 +197,7 @@ public class ClientSqlTest extends AbstractClientTableTest {
         SqlRow row = resultSet.next();
 
         assertEquals(
-                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=<not set>, defaultQueryTimeout=0",
+                "do bar baz, arguments: [arg1, null, 2, ], defaultSchema=PUBLIC, defaultQueryTimeout=0",
                 row.value(0));
     }
 }

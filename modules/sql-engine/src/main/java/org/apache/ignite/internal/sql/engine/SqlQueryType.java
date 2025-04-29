@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -46,12 +47,12 @@ public enum SqlQueryType {
     ;
 
     /** A set of statement types that can run only in single statement mode. **/
-    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = Arrays.stream(values())
+    public static final Set<SqlQueryType> SINGLE_STMT_TYPES = EnumSet.copyOf(Arrays.stream(values())
             .filter(SqlQueryType::supportsIndependentExecution)
-            .collect(Collectors.toSet());
+            .collect(Collectors.toList()));
 
     /** A set of all query types. **/
-    public static final Set<SqlQueryType> ALL = Set.of(values());
+    public static final Set<SqlQueryType> ALL = EnumSet.allOf(SqlQueryType.class);
 
     /**
      * Returns {@code true} if a parse tree of a statement of this type should be cached.

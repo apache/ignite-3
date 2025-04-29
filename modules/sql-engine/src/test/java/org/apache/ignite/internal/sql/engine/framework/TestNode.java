@@ -54,6 +54,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.ExchangeService;
@@ -81,8 +82,6 @@ import org.apache.ignite.internal.sql.engine.message.MessageService;
 import org.apache.ignite.internal.sql.engine.message.MessageServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
@@ -235,7 +234,6 @@ public class TestNode implements LifecycleAware {
                 prepareService,
                 catalogService,
                 executionService,
-                SqlQueryProcessor.DEFAULT_PROPERTIES,
                 NoOpTransactionalOperationTracker.INSTANCE,
                 new QueryIdGenerator(nodeName.hashCode()),
                 new EventLog() {
@@ -340,7 +338,7 @@ public class TestNode implements LifecycleAware {
     /** Executes the given script. */
     public void initSchema(String script) {
         CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFuture = queryExecutor.executeQuery(
-                SqlPropertiesHelper.emptyProperties(),
+                new SqlProperties(),
                 ImplicitTxContext.create(),
                 script,
                 null,
@@ -373,7 +371,7 @@ public class TestNode implements LifecycleAware {
     /** Executes the given query. */
     public AsyncSqlCursor<InternalSqlRow> executeQuery(QueryTransactionContext txContext, String query, Object... params) {
         return executeQuery(
-                SqlPropertiesHelper.emptyProperties(), txContext, query, params
+                new SqlProperties(), txContext, query, params
         );
     }
 
