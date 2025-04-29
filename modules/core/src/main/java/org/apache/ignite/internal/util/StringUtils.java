@@ -211,25 +211,4 @@ public final class StringUtils {
     public static String escapeQuotes(String s) {
         return s.replace("\"", "\\\"");
     }
-
-    /**
-     * Truncates a string to the size specified.
-     *
-     * @param input Origin string.
-     * @param maxLength Length of truncate.
-     * @return Truncated string.
-     */
-    public static @Nullable String trimToSize(String input, int maxLength) {
-        if (maxLength <= 0) {
-            return "";
-        }
-
-        if (input == null) {
-            return null;
-        }
-
-        return input.length() > maxLength
-                ? input.substring(0, maxLength)
-                : input;
-    }
 }
