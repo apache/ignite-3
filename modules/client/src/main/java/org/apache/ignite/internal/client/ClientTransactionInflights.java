@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.client;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
@@ -55,46 +57,44 @@ public class ClientTransactionInflights {
      * Unregisters the inflight for a transaction.
      *
      * @param txId The transaction id.
+     * @param t Not null on error from a server.
      */
-    public void removeInflight(UUID txId) {
-        CompletableFuture[] res = {null};
-
-        txCtxMap.compute(txId, (uuid, ctx) -> {
+    public void removeInflight(UUID txId, @Nullable Throwable t) {
+        var ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
             if (ctx == null) {
                 throw new AssertionError();
             }
 
             ctx.removeInflight(txId);
 
-            if (ctx.inflights == 0) {
-                if (ctx.finishFut != null) {
-                    res[0] = ctx.finishFut;
-                }
-
-                return null;
+            if (t != null) {
+                ctx.err = t; // addSuppressed ?
             }
 
             return ctx;
         });
 
         // Avoid completion under lock.
-        if (res[0] != null) {
-            res[0].complete(null);
+        if (ctx0.finishFut != null && ctx0.inflights == 0) {
+            if (t != null) {
+                ctx0.finishFut.completeExceptionally(t);
+            } else {
+                ctx0.finishFut.complete(null);
+            }
         }
     }
 
     public CompletableFuture<Void> finishFuture(UUID txId) {
-        // No new operations can be enlisted an this point, so inflights counter can only go down.
+        // No new operations can be enlisted an this point, so concurrent inflights counter can only go down.
         TxContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) {
+            if (ctx == null) { // No operations were enlisted.
                 return null;
             }
 
-            if (ctx.inflights == 0) {
-                throw new AssertionError("State only expected if active inflights");
+            if (ctx.finishFut == null) {
+                ctx.finishFut =
+                        ctx.err != null ? failedFuture(ctx.err) : ctx.inflights == 0 ? nullCompletedFuture() : new CompletableFuture<>();
             }
-
-            ctx.finishFut = new CompletableFuture<>();
 
             return ctx;
         });
@@ -109,6 +109,7 @@ public class ClientTransactionInflights {
     public static class TxContext {
         public CompletableFuture<Void> finishFut;
         public long inflights = 0;
+        public Throwable err;
 
         void addInflight() {
             inflights++;

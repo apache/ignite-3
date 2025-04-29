@@ -607,11 +607,16 @@ public class ClientTable implements Table {
             assert ctx.pm != null;
 
             String consistentId = in.in().unpackString();
-            long token = in.in().unpackLong();
+            if (consistentId != null) {
+                long token = in.in().unpackLong();
 
-            // Finish enlist on first request only.
-            if (ctx.enlistmentToken == 0) {
-                tx.tryFinishEnlist(ctx.pm, consistentId, token);
+                // Finish enlist on first request only.
+                if (ctx.enlistmentToken == 0) {
+                    tx.tryFinishEnlist(ctx.pm, consistentId, token);
+                }
+            } else {
+                // No-op.
+                in.clientChannel().protocolContext().inflights().removeInflight(tx.txId(), null);
             }
         }
 

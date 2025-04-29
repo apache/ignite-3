@@ -517,14 +517,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void handleNotification(long id, ClientMessageUnpacker unpacker, @Nullable Throwable err) {
         // One-shot notification handler - remove immediately.
         CompletableFuture<PayloadInputChannel> handler = notificationHandlers.remove(id);
-        if (handler == null) {
-            if (err != null) {
-                throw new AssertionError("Don't expecting errors on global notifications");
-                // TODO handle replication error.
-            }
 
+        if (handler == null) {
             UUID txId = unpacker.unpackUuid();
-            inflights.removeInflight(txId);
+            inflights.removeInflight(txId, err);
 
             return;
         }

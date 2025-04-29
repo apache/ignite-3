@@ -425,7 +425,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                     stopLeaseProlongation(groupId, null);
                 }
 
-                if (ex == null && res.applyResult().replicationFuture() != null && !res.applyResult().remote()) {
+                if (ex == null && res.applyResult().replicationFuture() != null && !res.remote()) {
                     // TODO refactor rep future to fut<UUID>
                     res.applyResult().replicationFuture().whenComplete((res0, ex0) -> {
                         NetworkMessage msg0;

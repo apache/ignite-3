@@ -156,11 +156,6 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     }
 
     @Override
-    public CompletableFuture<Void> kill() {
-        return null;
-    }
-
-    @Override
     public String toString() {
         return S.toString(RemoteReadWriteTransaction.class, this);
     }

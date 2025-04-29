@@ -27,34 +27,33 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.client.ClientTransactionInflights;
+import org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests inflight tracker.
  */
 public class ClientTransactionInflightTest {
-    private UUID txId = UUID.randomUUID();
+    private final UUID txId = UUID.randomUUID();
 
-    private ClientTransactionInflights inflights = new ClientTransactionInflights();
+    private final ClientTransactionInflights inflights = new ClientTransactionInflights();
 
     @Test
     public void testState1() {
         inflights.addInflight(txId);
 
-        assertEquals(inflights.map().get(txId).inflights, 1);
+        assertEquals(1, inflights.map().get(txId).inflights);
     }
 
     @Test
     public void testState2() {
-        assertThrows(AssertionError.class, () -> inflights.removeInflight(txId));
+        assertThrows(AssertionError.class, () -> inflights.removeInflight(txId, null));
     }
 
     @Test
     public void testState3() {
         inflights.addInflight(txId);
-        inflights.removeInflight(txId);
-
-        assertFalse(inflights.map().containsKey(txId));
+        inflights.removeInflight(txId, null);
 
         CompletableFuture<Void> fut = inflights.finishFuture(txId);
         assertTrue(fut.isDone());
@@ -67,10 +66,32 @@ public class ClientTransactionInflightTest {
         CompletableFuture<Void> fut = inflights.finishFuture(txId);
         assertFalse(fut.isDone());
 
-        inflights.removeInflight(txId);
+        inflights.removeInflight(txId, null);
 
         assertThat(fut, willCompleteSuccessfully());
-
-        assertFalse(inflights.map().containsKey(txId));
     }
+
+    @Test
+    public void testState5() {
+        inflights.addInflight(txId);
+
+        CompletableFuture<Void> fut = inflights.finishFuture(txId);
+        assertFalse(fut.isDone());
+
+        inflights.removeInflight(txId, new TestException());
+
+        assertThat(fut, CompletableFutureExceptionMatcher.willThrow(TestException.class));
+    }
+
+    @Test
+    public void testState6() {
+        inflights.addInflight(txId);
+        inflights.removeInflight(txId, new TestException());
+
+        CompletableFuture<Void> fut = inflights.finishFuture(txId);
+
+        assertThat(fut, CompletableFutureExceptionMatcher.willThrow(TestException.class));
+    }
+
+    private static class TestException extends Exception {}
 }

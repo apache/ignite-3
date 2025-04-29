@@ -660,6 +660,7 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicaRequest request = mapFunc.apply(enlistment.consistencyToken());
 
+        // TODO FIXME
         boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
                 || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
                 || request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() != RW_GET
@@ -702,8 +703,12 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (!tx.remote() && noWriteChecker.test(res, request)) {
-                        transactionInflights.removeInflight(tx.id());
+                    if (noWriteChecker.test(res, request)) {
+                        if (!tx.remote()) {
+                            transactionInflights.removeInflight(tx.id());
+                        } else {
+                            tx.kill(); // Set unmapped via txState.
+                        }
                     }
 
                     return res;

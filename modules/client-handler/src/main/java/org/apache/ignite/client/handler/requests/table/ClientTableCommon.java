@@ -52,6 +52,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.PendingTxPartitionEnlistment;
 import org.apache.ignite.internal.tx.TxManager;
+import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
@@ -392,10 +393,18 @@ public class ClientTableCommon {
      */
     public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
         if (tx.remote()) {
-            // Remote tx carries operation enlistment info.
-            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
-            out.packString(token.primaryNodeConsistentId());
-            out.packLong(token.consistencyToken());
+            TxState state = tx.state();
+
+            if (state == TxState.ABORTED) {
+                // No-op.
+                out.packString(null);
+            } else {
+                // Remote tx carries operation enlistment info.
+                PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+                out.packString(token.primaryNodeConsistentId());
+                out.packLong(token.consistencyToken());
+            }
+
             out.meta(clockService.current());
         }
     }
