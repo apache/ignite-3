@@ -236,7 +236,7 @@ public class TestNode implements LifecycleAware {
                 catalogService,
                 executionService,
                 SqlQueryProcessor.DEFAULT_PROPERTIES,
-                NoOpTransactionTracker.INSTANCE,
+                NoOpTransactionalOperationTracker.INSTANCE,
                 new QueryIdGenerator(nodeName.hashCode()),
                 new EventLog() {
                     @Override

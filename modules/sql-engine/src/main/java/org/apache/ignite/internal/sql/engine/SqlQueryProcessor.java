@@ -68,7 +68,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
@@ -202,7 +202,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final TxManager txManager;
 
-    private final TransactionTracker txTracker;
+    private final TransactionalOperationTracker txTracker;
 
     private final ScheduledExecutorService commonScheduler;
 
@@ -247,7 +247,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
-        this.txTracker = new InflightTransactionTracker(transactionInflights);
+        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;

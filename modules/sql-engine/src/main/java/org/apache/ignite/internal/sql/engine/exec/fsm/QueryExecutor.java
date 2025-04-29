@@ -54,7 +54,7 @@ import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
@@ -91,7 +91,7 @@ public class QueryExecutor implements LifecycleAware {
     private final CatalogService catalogService;
     private final ExecutionService executionService;
     private final SqlProperties defaultProperties;
-    private final TransactionTracker transactionTracker;
+    private final TransactionalOperationTracker transactionalOperationTracker;
     private final QueryIdGenerator idGenerator;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -117,7 +117,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param catalogService Catalog service.
      * @param executionService Service to submit query plans for execution.
      * @param defaultProperties Set of properties to use as defaults.
-     * @param transactionTracker Tracker to track usage of transactions by query.
+     * @param transactionalOperationTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
      * @param eventLog Event log.
      */
@@ -134,7 +134,7 @@ public class QueryExecutor implements LifecycleAware {
             CatalogService catalogService,
             ExecutionService executionService,
             SqlProperties defaultProperties,
-            TransactionTracker transactionTracker,
+            TransactionalOperationTracker transactionalOperationTracker,
             QueryIdGenerator idGenerator,
             EventLog eventLog
     ) {
@@ -148,7 +148,7 @@ public class QueryExecutor implements LifecycleAware {
         this.catalogService = catalogService;
         this.executionService = executionService;
         this.defaultProperties = defaultProperties;
-        this.transactionTracker = transactionTracker;
+        this.transactionalOperationTracker = transactionalOperationTracker;
         this.idGenerator = idGenerator;
         this.eventLog = eventLog;
         this.eventsFactory = new QueryEventsFactory(nodeId);
@@ -544,7 +544,7 @@ public class QueryExecutor implements LifecycleAware {
         assert parsedResults != null;
 
         return new MultiStatementHandler(
-                transactionTracker,
+                transactionalOperationTracker,
                 query,
                 query.txContext,
                 parsedResults,
