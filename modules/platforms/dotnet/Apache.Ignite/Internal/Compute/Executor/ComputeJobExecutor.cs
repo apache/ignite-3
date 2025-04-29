@@ -60,6 +60,14 @@ internal static class ComputeJobExecutor
                 deploymentUnitPaths.Add(r.ReadString());
             }
 
+            bool retainDeploymentUnits = r.ReadBoolean();
+
+            if (retainDeploymentUnits)
+            {
+                // TODO IGNITE-25257 Cache dedployment units and JobLoadContext.
+                throw new NotSupportedException("Caching deployment units is not supported yet.");
+            }
+
             object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
 
             return new JobExecuteRequest(jobId, deploymentUnitPaths, jobClassName, arg);
