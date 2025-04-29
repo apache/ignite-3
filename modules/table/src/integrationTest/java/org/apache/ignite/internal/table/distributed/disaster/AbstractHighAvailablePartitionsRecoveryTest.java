@@ -156,14 +156,13 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
         if (enabledColocation()) {
-            assertEquals(zoneId, request.zoneId());
             assertEquals(of(zoneId, PARTITION_IDS), request.partitionIds());
-            assertFalse(request.manualUpdate());
         } else {
-            assertEquals(zoneId, request.zoneId());
             assertEquals(of(tableId, PARTITION_IDS), request.partitionIds());
-            assertFalse(request.manualUpdate());
         }
+
+        assertEquals(zoneId, request.zoneId());
+        assertFalse(request.manualUpdate());
     }
 
     static void assertRecoveryRequestWasOnlyOne(IgniteImpl node) {

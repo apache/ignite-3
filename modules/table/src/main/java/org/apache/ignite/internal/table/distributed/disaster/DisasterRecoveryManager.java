@@ -27,7 +27,6 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
@@ -76,6 +75,7 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -344,15 +344,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         Set<Assignment> stableAssignments;
 
         if (colocationEnabled) {
-            stableAssignments = Assignments.fromBytes(
-                    metaStorageManager.getLocally(
-                            ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionId),
-                            revision
-                    ).value()
+            stableAssignments = ZoneRebalanceUtil.zoneStableAssignmentsGetLocally(
+                    metaStorageManager,
+                    (ZonePartitionId) partitionId,
+                    revision
             ).nodes();
         } else {
-            stableAssignments = Assignments.fromBytes(
-                    metaStorageManager.getLocally(stablePartAssignmentsKey((TablePartitionId) partitionId), revision).value()
+            stableAssignments = RebalanceUtil.stableAssignmentsGetLocally(
+                    metaStorageManager,
+                    (TablePartitionId) partitionId,
+                    revision
             ).nodes();
         }
 
