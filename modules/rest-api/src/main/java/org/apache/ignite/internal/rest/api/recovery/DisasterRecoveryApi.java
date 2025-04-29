@@ -105,4 +105,69 @@ public interface DisasterRecoveryApi {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.PROBLEM_JSON)
     CompletableFuture<Void> restartPartitions(@Body RestartPartitionsRequest command);
+
+    @Post("zone/partitions/reset")
+    @Operation(
+            operationId = "resetZonePartitions",
+            description = "Updates assignments of zone's partitions in a forced manner, allowing for the recovery of raft groups with "
+                    + "lost majorities."
+    )
+    @ApiResponse(responseCode = "200", description = "Partition states reset.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
+    CompletableFuture<Void> resetZonePartitions(@Body ResetZonePartitionsRequest command);
+
+    @Post("zone/partitions/restart")
+    @Operation(
+            operationId = "restartZonePartitions",
+            description = "Restarts replica service and raft group of passed zone partitions."
+    )
+    @ApiResponse(responseCode = "200", description = "Zone partitions restarted.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.PROBLEM_JSON)
+    CompletableFuture<Void> restartZonePartitions(@Body RestartZonePartitionsRequest command);
+
+    @Get("zone/state/local")
+    @Operation(operationId = "getZoneLocalPartitionStates", description = "Returns local zone partition states.")
+    @ApiResponse(responseCode = "200", description = "Zone partition states returned.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces(MediaType.APPLICATION_JSON)
+    CompletableFuture<LocalZonePartitionStatesResponse> getZoneLocalPartitionStates(
+            @QueryValue
+            @Schema(description = "Names specifying zones to get partition states from. Case-sensitive, all zones if empty.")
+            Optional<Set<String>> zoneNames,
+            @QueryValue
+            @Schema(description = "Names specifying nodes to get partition states from. Case-sensitive, all nodes if empty.")
+            Optional<Set<String>> nodeNames,
+            @QueryValue
+            @Schema(description = "IDs of partitions to get states. All partitions if empty.") Optional<Set<Integer>> partitionIds
+    );
+
+    @Get("zone/state/global")
+    @Operation(operationId = "getZoneGlobalPartitionStates", description = "Returns global zone partition states.")
+    @ApiResponse(responseCode = "200", description = "Zone partition states returned.")
+    @ApiResponse(responseCode = "500", description = "Internal error.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @ApiResponse(responseCode = "400", description = "Bad request.",
+            content = @Content(mediaType = MediaType.PROBLEM_JSON, schema = @Schema(implementation = Problem.class)))
+    @Produces(MediaType.APPLICATION_JSON)
+    CompletableFuture<GlobalZonePartitionStatesResponse> getZoneGlobalPartitionStates(
+            @QueryValue
+            @Schema(description = "Names specifying zones to get partition states from. Case-sensitive, all zones if empty.")
+            Optional<Set<String>> zoneNames,
+            @QueryValue
+            @Schema(description = "IDs of partitions to get states of. All partitions if empty.")
+            Optional<Set<Integer>> partitionIds
+    );
 }
