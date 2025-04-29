@@ -94,6 +94,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Configuration validator. */
     private final ConfigurationValidator configurationValidator;
+
+    /** Configuration migrator. */
     private final ConfigurationMigrator migrator;
 
     /** Storage trees. */

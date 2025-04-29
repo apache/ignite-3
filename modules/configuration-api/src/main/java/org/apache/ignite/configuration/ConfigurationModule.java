@@ -118,7 +118,21 @@ public interface ConfigurationModule {
         // No-op.
     }
 
-    default void migrateDeprecatedConfigurations(SuperRootChange rootChange) {
+    /**
+     * Logic to perform configuration migration when Ignite version is upgraded. Main task - replace deprecated configuration values with
+     * their non-deprecated cousins.
+     *
+     * <p>Typical implementation should look something like this:
+     * <pre><code>
+     *      var barValue = superRoot.viewRoot(KEY).foo().oldConfiguration().bar()
+     *      if (barValue != BAR_DEFAULT) { // Usually implies explicitly set value.
+     *          superRoot.changeRoot(KEY).changeNewFoo().changeBar(barValue)
+     *      }
+     * </code></pre>
+     *
+     * @param superRootChange Super root change instance.
+     */
+    default void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
         // No-op.
     }
 }

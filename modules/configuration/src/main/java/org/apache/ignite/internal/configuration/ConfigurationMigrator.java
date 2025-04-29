@@ -17,10 +17,15 @@
 
 package org.apache.ignite.internal.configuration;
 
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.SuperRootChange;
 
 /**
- * TODO Add a description.
+ * Class that is used to perform configuration migration when Ignite version is upgraded. Main task - replace deprecated configuration
+ * values with their non-deprecated cousins. In production code expected to be based on
+ * {@link ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)}. Could be anything in tests.
+ *
+ * @see ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange).
  */
 @FunctionalInterface
 public interface ConfigurationMigrator {

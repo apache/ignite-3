@@ -400,7 +400,7 @@ public class WatchProcessor implements ManuallyCloseable {
 
             if (!nodeStopping) {
                 LOG.error("Notification chain encountered an error, so no notifications will be ever fired for subsequent revisions "
-                        + "until a restart. Notifying the FailureManager. Additional info: '{}'", e, additionalInfoSupplier.get());
+                        + "until a restart. Notifying the FailureManager. Additional info: '{}'", additionalInfoSupplier.get());
 
                 failureProcessor.process(new FailureContext(CRITICAL_ERROR, e));
             } else {
