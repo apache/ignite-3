@@ -24,10 +24,12 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.junit.jupiter.api.Disabled;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+@ExtendWith(FailureManagerExtension.class)
 class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
@@ -35,7 +37,6 @@ class ItBigZoneOperationTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24991")
     void zoneWithManyPartitionsDoesNotCauseHangs() {
         Ignite node = cluster.node(0);
 
