@@ -35,7 +35,7 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.TxControlInsideExternalTxNotSupportedException;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.fsm.QueryExecutor.ParsedResultWithNextCursorFuture;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
@@ -66,7 +66,7 @@ class MultiStatementHandler {
     private final Queue<CompletableFuture<Void>> dependentQueries = new ConcurrentLinkedQueue<>();
 
     MultiStatementHandler(
-            TransactionTracker txTracker,
+            TransactionalOperationTracker txTracker,
             Query query,
             QueryTransactionContext txContext,
             List<ParsedResult> parsedResults,
