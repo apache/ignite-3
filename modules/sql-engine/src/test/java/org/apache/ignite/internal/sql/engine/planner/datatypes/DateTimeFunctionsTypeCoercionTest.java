@@ -62,13 +62,13 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     private static Stream<NativeType> dateTimeTypes() {
         return Stream.of(
                 Types.TIME_0,
-                Types.TIME_1,
+                Types.TIME_3,
                 Types.TIME_9,
                 Types.TIMESTAMP_0,
-                Types.TIMESTAMP_1,
+                Types.TIMESTAMP_3,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
-                Types.TIMESTAMP_WLTZ_1,
+                Types.TIMESTAMP_WLTZ_3,
                 Types.TIMESTAMP_WLTZ_9
         );
     }
@@ -141,10 +141,10 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         return Stream.of(
                 Types.DATE,
                 Types.TIMESTAMP_0,
-                Types.TIMESTAMP_1,
+                Types.TIMESTAMP_3,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
-                Types.TIMESTAMP_WLTZ_1,
+                Types.TIMESTAMP_WLTZ_3,
                 Types.TIMESTAMP_WLTZ_9
         );
     }
@@ -163,7 +163,7 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     private static Stream<Arguments> extractTime() {
         List<NativeType> types = List.of(
                 Types.TIME_0,
-                Types.TIME_1,
+                Types.TIME_3,
                 Types.TIME_9
         );
 
@@ -200,10 +200,10 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     private static Stream<Arguments> extractTimestamp() {
         List<NativeType> types = List.of(
                 Types.TIMESTAMP_0,
-                Types.TIMESTAMP_1,
+                Types.TIMESTAMP_3,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
-                Types.TIMESTAMP_WLTZ_1,
+                Types.TIMESTAMP_WLTZ_3,
                 Types.TIMESTAMP_WLTZ_9
         );
 
@@ -234,10 +234,10 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
     private static Stream<NativeType> timestamps() {
         return Stream.of(
                 Types.TIMESTAMP_0,
-                Types.TIMESTAMP_1,
+                Types.TIMESTAMP_3,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
-                Types.TIMESTAMP_WLTZ_1,
+                Types.TIMESTAMP_WLTZ_3,
                 Types.TIMESTAMP_WLTZ_9
         );
     }

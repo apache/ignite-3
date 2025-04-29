@@ -68,7 +68,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIME_0_TIME_1)
-                        .firstOpMatches(castTo(Types.TIME_1))
+                        .firstOpMatches(castTo(Types.TIME_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIME_0_TIME_9)
@@ -81,7 +81,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIME_1_TIME_0)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIME_1)),
+                        .secondOpMatches(castTo(Types.TIME_3)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_9)
                         .firstOpMatches(castTo(Types.TIME_9))
@@ -104,7 +104,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_9)
@@ -116,8 +116,8 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(castTo(Types.TIMESTAMP_0)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
@@ -129,7 +129,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
@@ -137,11 +137,11 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
@@ -176,7 +176,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_WLTZ_1))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_WLTZ_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9)
@@ -188,7 +188,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_9)
@@ -201,18 +201,18 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIMESTAMP_WLTZ_1)),
+                        .secondOpMatches(castTo(Types.TIMESTAMP_WLTZ_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_WLTZ_9))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)
@@ -307,148 +307,148 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_WLTZ_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_WLTZ_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_0)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_9)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_0)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_9)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_DEFAULT))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
         );
     }
 
@@ -480,20 +480,20 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIME_0_TIME_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
 
                 forTypePair(DatetimePair.TIME_0_TIME_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_9)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_0)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
 
                 forTypePair(DatetimePair.TIME_1_TIME_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
@@ -516,7 +516,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_1))
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_9)
@@ -528,8 +528,8 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpMatches(castTo(Types.TIMESTAMP_0)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_1))
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3))
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
@@ -541,7 +541,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
                         .firstOpBeSame()
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_1)),
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
@@ -549,11 +549,11 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
                         .firstOpBeSame()
-                        .secondOpMatches(castTo(Types.TIMESTAMP_1)),
+                        .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
@@ -588,7 +588,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_1)
-                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_1))
+                        .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9)
@@ -600,7 +600,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_9)
@@ -613,18 +613,18 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_1)),
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
-                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_1)),
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
+                        .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
-                        .firstOpMatches(castTo(Types.TIMESTAMP_1))
+                        .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)

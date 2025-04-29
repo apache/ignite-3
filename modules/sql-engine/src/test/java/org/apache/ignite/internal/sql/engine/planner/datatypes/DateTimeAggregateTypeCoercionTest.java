@@ -63,13 +63,13 @@ public class DateTimeAggregateTypeCoercionTest extends BaseTypeCoercionTest {
         return Stream.of(
                 Arguments.of(Types.DATE),
                 Arguments.of(Types.TIME_0),
-                Arguments.of(Types.TIME_1),
+                Arguments.of(Types.TIME_3),
                 Arguments.of(Types.TIME_9),
                 Arguments.of(Types.TIMESTAMP_0),
-                Arguments.of(Types.TIMESTAMP_1),
+                Arguments.of(Types.TIMESTAMP_3),
                 Arguments.of(Types.TIMESTAMP_9),
                 Arguments.of(Types.TIMESTAMP_WLTZ_0),
-                Arguments.of(Types.TIMESTAMP_WLTZ_1),
+                Arguments.of(Types.TIMESTAMP_WLTZ_3),
                 Arguments.of(Types.TIMESTAMP_WLTZ_9)
         );
     }
