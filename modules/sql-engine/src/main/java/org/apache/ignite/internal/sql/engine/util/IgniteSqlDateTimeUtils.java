@@ -32,12 +32,12 @@ import org.jetbrains.annotations.Nullable;
  * Contains a set of utility methods for converting temporal types.
  */
 public class IgniteSqlDateTimeUtils {
-    /** Regex for time, HH:MM:SS. */
-    private static final Pattern ISO_TIME_PATTERN =
-            Pattern.compile("^([0-2]\\d):[0-5]\\d(:[0-5]\\d(\\.\\d*)?)?$");
+    /** Regex for time. */
+    private static final Pattern TIME_PATTERN =
+            Pattern.compile("^(\\d|[0-2]\\d):(\\d|[0-5]\\d):((\\d|[0-5]\\d)(\\.\\d*)?)$");
 
-    /** Regex for date, YYYY-MM-DD. */
-    private static final Pattern ISO_DATE_PATTERN =
+    /** Regex for date. */
+    private static final Pattern DATE_PATTERN =
             Pattern.compile("^(\\d{4})-([0]\\d|1[0-2])-([0-2]\\d|3[01])$");
 
     /** The maximum number of digits after the decimal point that are taken into account. */
@@ -219,7 +219,7 @@ public class IgniteSqlDateTimeUtils {
     }
 
     private static void validateTime(String time, String full) {
-        Matcher matcher = ISO_TIME_PATTERN.matcher(time);
+        Matcher matcher = TIME_PATTERN.matcher(time);
         if (matcher.find()) {
             int hour = Integer.parseInt(matcher.group(1));
             if (hour > 23) {
@@ -231,7 +231,7 @@ public class IgniteSqlDateTimeUtils {
     }
 
     private static void validateDate(String s, String full) {
-        Matcher matcher = ISO_DATE_PATTERN.matcher(s);
+        Matcher matcher = DATE_PATTERN.matcher(s);
         if (matcher.find()) {
             int year = Integer.parseInt(matcher.group(1));
             int month = Integer.parseInt(matcher.group(2));

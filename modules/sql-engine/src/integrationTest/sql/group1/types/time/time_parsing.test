@@ -40,10 +40,8 @@ SELECT '11:'::TIME
 statement error: Invalid TIME value, '11:1'
 SELECT '11:1'::TIME
 
-query T
+statement error: Invalid TIME value, '11:01'
 SELECT '11:01'::TIME
-----
-11:01:00
 
 statement error: Value of HOUR field is out of range in '25:42:04.500'
 SELECT '25:42:04.500'::TIME(3)

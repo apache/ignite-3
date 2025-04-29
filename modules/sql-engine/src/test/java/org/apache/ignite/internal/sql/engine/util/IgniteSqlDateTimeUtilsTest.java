@@ -24,12 +24,18 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
@@ -81,64 +87,77 @@ public class IgniteSqlDateTimeUtilsTest {
     }
 
     @ParameterizedTest
-    @CsvSource({
-            "00:00:00,            0",
-            "00:00,               0",
-            "00:01,               60000",
-            "00:00:00.,           0",
-            "00:00:00.1,          100",
-            "00:00:00.12,         120",
-            "00:00:00.123,        123",
-            "00:00:00.1234,       123",
-            "00:00:00.12345,      123",
-            "00:00:00.123456,     123",
-            "00:00:00.1234567,    123",
-            "00:00:00.12345678,   123",
-            "00:00:00.123456789,  123",
-            "23:59:59.999,        86399999",
-            "23:59:59.999999999,  86399999",
-    })
+    @MethodSource("validTimes")
     public void testTimeStringToUnixDate(String timeString, int expected) {
         assertThat(IgniteSqlDateTimeUtils.timeStringToUnixDate(timeString), is(expected));
     }
 
+    private static Stream<Arguments> validTimes() {
+        return Stream.of(
+                Arguments.of("0:0:0", 0),
+                // 6.13 TRIM ( BOTH ' ' FROM VE )
+                Arguments.of("  0:0:1  ", 1000),
+                Arguments.of("  00:00:1  ", 1000),
+                Arguments.of("  00:00:00.001  ", 1),
+                Arguments.of("00:00:00", 0),
+                Arguments.of("00:00:00.", 0),
+                Arguments.of("00:00:00.1", 100),
+                Arguments.of("00:00:00.12", 120),
+                Arguments.of("00:00:00.123", 123),
+                Arguments.of("00:00:00.1234", 123),
+                Arguments.of("00:00:00.12345", 123),
+                Arguments.of("00:00:00.123456", 123),
+                Arguments.of("00:00:00.1234567", 123),
+                Arguments.of("00:00:00.12345678", 123),
+                Arguments.of("00:00:00.123456789", 123),
+                Arguments.of("23:59:59.999", 86399999),
+                Arguments.of("23:59:59.999999999", 86399999)
+        );
+    }
+
+    private static Stream<Arguments> invalidTimes() {
+        String[] invalidTimeStrings = {
+                "0",
+                "00",
+                "00:00",
+                "00.0",
+                "00.00",
+                "00:00.1",
+                "00: 00:00",
+                "00 :00:00",
+                "00:00: 00",
+                "00:00 :00",
+                "000:00:00",
+                "00:000:00",
+                "00:00:000",
+                "0a:00:00",
+                "00:0a:00",
+                "00:00:0a",
+                "a0:00:00",
+                "00:a0:00",
+                "00:00:a0",
+                "00:00:00.a",
+                "-10:00:00",
+                "-1:00:00",
+                "00:-10:00",
+                "00:-1:00",
+                "00:00:-10",
+                "00:00:-1",
+                "+10:00:00",
+                "+1:00:00",
+                "00:+10:00",
+                "00:+1:00",
+                "00:00:+10",
+                "00:00:+1",
+                "00:00:00.-1",
+                "00:00:00.+1"
+        };
+
+        return Arrays.stream(invalidTimeStrings).map(Arguments::of);
+    }
+
     @ParameterizedTest
-    @ValueSource(strings = {
-            "0",
-            "00",
-            "00.0",
-            "00.00",
-            "00:0",
-            "00:00.1",
-            "0:00:00",
-            "00:0:00",
-            "00:00:0",
-            "00: 00",
-            "00 :00",
-            "00:00: 00",
-            "00:00 :00",
-            "0a:00:00",
-            "00:0a:00",
-            "00:00:0a",
-            "a0:00:00",
-            "00:a0:00",
-            "00:00:a0",
-            "00:00:00.a",
-            "-10:00:00",
-            "-1:00:00",
-            "00:-10:00",
-            "00:-1:00",
-            "00:00:-10",
-            "00:00:-1",
-            "+10:00:00",
-            "+1:00:00",
-            "00:+10:00",
-            "00:+1:00",
-            "00:00:+10",
-            "00:00:+1",
-            "00:00:00.-1",
-            "00:00:00.+1",
-    })
+    @MethodSource("invalidTimes")
     public void testInvalidTimeStringToUnixDate(String timeString) {
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
@@ -170,65 +189,49 @@ public class IgniteSqlDateTimeUtilsTest {
     }
 
     @ParameterizedTest
-    @CsvSource(ignoreLeadingAndTrailingWhitespace = false, value = {
-            "1970-01-01 0,TIME",
-            "1970-01-01 00,TIME",
-            "1970-01-01 00.0,TIME",
-            "1970-01-01 00.00,TIME",
-            "1970-01-01 00:0,TIME",
-            "1970-01-01 00:00.1,TIME",
-            "1970-01-01 00:00.11,TIME",
-            "1970-01-01 0:00:00,TIME",
-            "1970-01-01 0:0:00,TIME",
-            "1970-01-01 00:00:0,TIME",
-            "1970-01-01 00: 00,TIME",
-            "1970-01-01 00 :00,TIME",
-            "1970-01-01 00:00: 00,TIME",
-            "1970-01-01 00:00 :00,TIME",
-            "1970-01-01 0a:00:00,TIME",
-            "1970-01-01 00:0a:00,TIME",
-            "1970-01-01 00:00:0a,TIME",
-            "1970-01-01 a0:00:00,TIME",
-            "1970-01-01 00:a0:00,TIME",
-            "1970-01-01 00:00:a0,TIME",
-            "1970-01-01 00:00:00.a,TIME",
-            "1970-01-01 -10:00:00,TIME",
-            "1970-01-01 -1:00:00,TIME",
-            "1970-01-01 00:-10:00,TIME",
-            "1970-01-01 00:-1:00,TIME",
-            "1970-01-01 00:00:-10,TIME",
-            "1970-01-01 00:00:-1,TIME",
-            "1970-01-01 +10:00:00,TIME",
-            "1970-01-01 +1:00:00,TIME",
-            "1970-01-01 00:+10:00,TIME",
-            "1970-01-01 00:+1:00,TIME",
-            "1970-01-01 00:00:+10,TIME",
-            "1970-01-01 00:00:+1,TIME",
-            "1970-01-01 00:00:00.-1,TIME",
-            "1970-01-01 00:00:00.+1,TIME",
-
-            "0001 00:00:00,DATE",
-            "0001-01 00:00:00,DATE",
-            "1-01-01 00:00:00,DATE",
-            "01-01-01 00:00:00,DATE",
-            "001-01-01 00:00:00,DATE",
-            "0001-1-01 00:00:00,DATE",
-            "0001-01-1 00:00:00,DATE",
-            "000a-01-01 00:00:00,DATE",
-            "0001-0a-01 00:00:00,DATE",
-            "0001-01-0a 00:00:00,DATE",
-            "0001--01-01 00:00:00,DATE",
-            "0001-01--01 00:00:00,DATE",
-            "0001- 01-01 00:00:00,DATE",
-            "0001 -01-01 00:00:00,DATE",
-            "0001-01 -01 00:00:00,DATE",
-            "0001-01- 01 00:00:00,DATE",
-    })
+    @MethodSource("invalidTimestamps")
     public void testInvalidTimeStampStringToUnixDate(String timestampString, String expectedPart) {
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
                 () -> IgniteSqlDateTimeUtils.timestampStringToUnixDate(timestampString),
                 IgniteStringFormatter.format("Invalid {} value, '{}'", expectedPart, timestampString)
         );
+    }
+
+    private static List<Arguments> invalidTimestamps() {
+        String[] invalidDateStrings = {
+                "0001",
+                "0001-01",
+                "1-01-01",
+                "01-01-01",
+                "001-01-01",
+                "0001-1-01",
+                "0001-01-1",
+                "00001-01-01",
+                "0001-001-01",
+                "0001-01-001",
+                "000a-01-01",
+                "0001-0a-01",
+                "0001-01-0a",
+                "0001--01-01",
+                "0001-01--01",
+                "0001- 01-01",
+                "0001 -01-01",
+                "0001-01 -01",
+                "0001-01- 01",
+                "0001.01.01",
+        };
+
+        List<Arguments> args = new ArrayList<>();
+
+        for (String date : invalidDateStrings) {
+            args.add(Arguments.of(date + " 00:00:00", "DATE"));
+        }
+
+        invalidTimes().map(arg -> (String) arg.get()[0]).forEach(time -> {
+            args.add(Arguments.of("1970-01-01 " + time, "TIME"));
+        });
+
+        return args;
     }
 }
