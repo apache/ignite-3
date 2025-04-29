@@ -27,6 +27,8 @@ using System.Runtime.Loader;
 /// </summary>
 internal sealed class DeploymentUnitLoader
 {
+    // TODO: Remove caching for now and unload immediately, Java does not cache deployment units?
+    // Test it - do we have a new folder on every job execution?
     private readonly ConcurrentDictionary<DeploymentUnitPaths, JobLoadContext> _contexts = new();
 
     /// <summary>
