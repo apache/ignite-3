@@ -115,11 +115,7 @@ public class NettySender {
 
         // Write in event loop to make sure that, if a ClosedSocketException happens, we recover from it without exiting the event loop.
         // We need this to avoid message reordering due to switching from old channel to a new one.
-        if (channel.eventLoop().inEventLoop()) {
-            writeWithRecovery(obj, channel, triggerChannelRecreation);
-        } else {
-            channel.eventLoop().execute(() -> writeWithRecovery(obj, channel, triggerChannelRecreation));
-        }
+        channel.eventLoop().execute(() -> writeWithRecovery(obj, channel, triggerChannelRecreation));
 
         return obj.acknowledgedFuture();
     }
