@@ -114,7 +114,7 @@ class ReplicaStateManager {
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
-                        context.removeReservation();
+                        context.releaseReservation();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
                             executeDeferredReplicaStop(context);
@@ -146,7 +146,7 @@ class ReplicaStateManager {
                         // Unreserve if primary replica expired, only if its lease start time is equal to reservation time,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
-                            context.removeReservation();
+                            context.releaseReservation();
 
                             if (context.replicaState == ReplicaState.RESTART_PLANNED) {
                                 executeDeferredReplicaStop(context);
@@ -518,7 +518,7 @@ class ReplicaStateManager {
             reservedForPrimary = true;
         }
 
-        void removeReservation() {
+        void releaseReservation() {
             // TODO IGNITE-23702: should also lead to replica stop if it is PRIMARY_ONLY.
             reservedForPrimary = false;
             leaseStartTime = null;

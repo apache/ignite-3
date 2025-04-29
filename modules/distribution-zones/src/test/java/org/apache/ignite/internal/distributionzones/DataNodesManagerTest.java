@@ -199,7 +199,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         String zoneName = "Default";
 
         // Setup the scale up timer to 50 seconds.
-        alterZone(zoneName, 50_000, null, null);
+        alterZone(zoneName, 50, null, null);
 
         // Add new node to the topology that is A and B nodes. This should setup the scale up timer.
         addNodes(Set.of(C));

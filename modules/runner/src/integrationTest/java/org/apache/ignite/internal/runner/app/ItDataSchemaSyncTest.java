@@ -36,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -319,9 +319,9 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
 
         int numberOfPartitions = catalog.zone(zoneId).partitions();
 
-        var stableAssignmentsCounter = new AtomicInteger();
+        boolean res = waitForCondition(() -> {
+            var stableAssignmentsAreReady = new AtomicBoolean(true);
 
-        for (int iteration = 0; iteration < 30; ++iteration) {
             for (int partId = 0; partId < numberOfPartitions; ++partId) {
                 ByteArray key;
 
@@ -331,30 +331,28 @@ public class ItDataSchemaSyncTest extends ClusterPerTestIntegrationTest {
                     key = RebalanceUtil.stablePartAssignmentsKey(new TablePartitionId(zoneId, partId));
                 }
 
-                nodeImpl
-                        .metaStorageManager()
-                        .get(key)
-                        .thenAccept(entry -> {
-                            if (entry != null && !entry.tombstone() && !entry.empty()) {
-                                Assignments assignments = Assignments.fromBytes(entry.value());
+                try {
+                    nodeImpl
+                            .metaStorageManager()
+                            .get(key)
+                            .thenAccept(entry -> {
+                                if (entry != null && !entry.tombstone() && !entry.empty()) {
+                                    Assignments assignments = Assignments.fromBytes(entry.value());
 
-                                if (!assignments.nodes().isEmpty()) {
-                                    stableAssignmentsCounter.incrementAndGet();
+                                    if (assignments.nodes().isEmpty()) {
+                                        stableAssignmentsAreReady.set(false);
+                                    }
                                 }
-                            }
-                        })
-                        .get(5, SECONDS);
+                            })
+                            .get(5, SECONDS);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to read stable assignments for the partition [partId=" + partId + ']', e);
+                }
             }
 
-            if (stableAssignmentsCounter.get() == numberOfPartitions) {
-                break;
-            } else {
-                stableAssignmentsCounter.set(0);
+            return stableAssignmentsAreReady.get();
+        }, 15_000);
 
-                Thread.sleep(100);
-            }
-        }
-
-        assertEquals(numberOfPartitions, stableAssignmentsCounter.get(), "Node 0 should have stable assignments.");
+        assertTrue(res, "Node should have stable assignments.");
     }
 }
