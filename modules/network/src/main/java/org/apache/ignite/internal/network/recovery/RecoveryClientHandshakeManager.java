@@ -225,6 +225,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             recoveryDescriptor.acknowledge(receivedCount);
 
             if (recoveryDescriptor.unacknowledgedCount() == 0) {
+                recoveryDescriptor.addHistoryItem("Finishing handshake (client1): " + channel);
                 finishHandshake();
 
                 return;
@@ -252,6 +253,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
                 + ", message is " + message;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
+            recoveryDescriptor.addHistoryItem("Finishing handshake (client2): " + channel);
             finishHandshake();
         }
 

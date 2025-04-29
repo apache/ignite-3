@@ -79,6 +79,7 @@ import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.network.StaticNodeFinder;
+import org.apache.ignite.internal.network.TestMessageUtils;
 import org.apache.ignite.internal.network.TopologyEventHandler;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.messages.TestMessage;
@@ -90,6 +91,7 @@ import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
 import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryDescriptor;
 import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -763,16 +765,27 @@ class ItScaleCubeNetworkMessagingTest {
         List<ReceivedPayload> receivedPayloads = new CopyOnWriteArrayList<>();
         collectReceivedPayloads(sender, receiver, receivedPayloads);
 
+        TestMessageUtils.rememberTime();
+
         establishConnection(sender, receiver);
 
         NettySender defaultChannelSender = nettySenderForDefaultChannel(sender, receiver);
+        RecoveryDescriptor recoveryDescriptor = defaultChannelSender.recoveryDescriptor();
 
         // Now close the sender completely.
-        assertThat(defaultChannelSender.closeAsync(), willCompleteSuccessfully());
+        CompletableFuture<Void> closeFuture = defaultChannelSender.closeAsync();
+        closeFuture.whenComplete((res, ex) -> {
+            recoveryDescriptor.addHistoryItem("Closed old channel (on future)");
+        });
+        assertThat(closeFuture, willCompleteSuccessfully());
+
+        recoveryDescriptor.addHistoryItem("Closed old channel " + defaultChannelSender.channel());
 
         if (openNewChannelBeforeSendingToOld) {
             establishConnectionWithoutSendingMessages(sender, receiver);
         }
+
+        recoveryDescriptor.addHistoryItem("Opened new channel");
 
         // Sending first message directly via NettySender. This is a hack, but there is no reliable way to hit a closed
         // sender via MessagingService methods as its internals try to avoid such a situation; only in a tight race can
@@ -787,7 +800,11 @@ class ItScaleCubeNetworkMessagingTest {
         List<String> expectedPayloads = List.of("trailblazer", "first", "second");
         // No assertion here on purpose.
         waitForCondition(() -> receivedPayloads.stream().map(p -> p.message).collect(toList()).equals(expectedPayloads), 3_000);
-        assertThat("Payloads: " + receivedPayloads, receivedPayloads.stream().map(p -> p.message).collect(toList()), equalTo(expectedPayloads));
+        assertThat(
+                "Payloads: " + receivedPayloads + "\nDescriptor history " + recoveryDescriptor.history(),
+                receivedPayloads.stream().map(p -> p.message).collect(toList()),
+                equalTo(expectedPayloads)
+        );
 
         NettySender nettySender = nettySenderForDefaultChannel(sender, receiver);
         assertThatHasNoUnacknowledgedMessages(nettySender);

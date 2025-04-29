@@ -21,6 +21,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Map;
 import org.apache.ignite.internal.util.ExceptionUtils;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Pamparam.
@@ -30,7 +31,7 @@ public class TestMessageUtils {
     private static final Method msgMethod;
     private static final Method mapMethod;
 
-    private static final long NANOTIME_BASE = System.nanoTime();
+    private static long nanotimeBase = System.nanoTime();
 
     static {
         Class<?> clazz;
@@ -123,7 +124,7 @@ public class TestMessageUtils {
                     }
 
                     map.compute(555, (k, prev) -> {
-                        HistoryItem historyItem = new HistoryItem(description, System.nanoTime() - NANOTIME_BASE, getThreadInfo());
+                        HistoryItem historyItem = new HistoryItem(description);
                         return (prev == null ? historyItem.toString() : prev + "\n" + historyItem) + suffix;
                     });
                 }
@@ -131,10 +132,26 @@ public class TestMessageUtils {
         }
     }
 
-    private static class HistoryItem {
+    public static void rememberTime() {
+        nanotimeBase = System.nanoTime();
+    }
+
+    public static @Nullable String getMessageIfTest(NetworkMessage message) {
+        if (testMessageClass != null && testMessageClass.isInstance(message)) {
+            return getMessage(message);
+        } else {
+            return null;
+        }
+    }
+
+    public static class HistoryItem {
         private final String description;
         private final long timestampNanos;
         private final String threadInfo;
+
+        public HistoryItem(String description) {
+            this(description, System.nanoTime() - nanotimeBase, getThreadInfo());
+        }
 
         private HistoryItem(String description, long timestampNanos, String threadInfo) {
             this.description = description;

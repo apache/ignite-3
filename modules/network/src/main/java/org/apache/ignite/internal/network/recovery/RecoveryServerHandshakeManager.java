@@ -214,6 +214,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                 + ", message is " + message;
 
         if (recoveryDescriptor.unacknowledgedCount() == 0) {
+            recoveryDescriptor.addHistoryItem("Finishing handshake (server1): " + channel);
             finishHandshake();
         }
 
@@ -420,6 +421,7 @@ public class RecoveryServerHandshakeManager implements HandshakeManager {
                         new HandshakeException("Failed to send handshake response: " + throwable.getMessage(), throwable)
                 );
             } else if (!hasUnacknowledgedMessages) {
+                recoveryDescriptor.addHistoryItem("Finishing handshake (server2): " + channel);
                 finishHandshake();
             }
         });

@@ -26,9 +26,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.OutNetworkObject;
+import org.apache.ignite.internal.network.TestMessageUtils;
+import org.apache.ignite.internal.network.TestMessageUtils.HistoryItem;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -74,6 +78,8 @@ public class RecoveryDescriptor {
     private final AtomicInteger acquiredCount = new AtomicInteger();
     private final AtomicInteger releasedCount = new AtomicInteger();
 
+    private final List<HistoryItem> history = new CopyOnWriteArrayList<>();
+
     /**
      * Constructor.
      *
@@ -104,6 +110,11 @@ public class RecoveryDescriptor {
             OutNetworkObject req = unacknowledgedMessages.poll();
 
             assert req != null;
+
+            String testMessage = testMessage(req.networkMessage());
+            if (testMessage != null) {
+                addHistoryItem("Remove: " + testMessage);
+            }
 
             req.acknowledge();
 
@@ -152,6 +163,15 @@ public class RecoveryDescriptor {
 
         boolean added = unacknowledgedMessages.add(msg);
         assert added : "Wasn't added as the queue is full: " + msg.networkMessage();
+
+        String testMessage = testMessage(msg.networkMessage());
+        if (testMessage != null) {
+            addHistoryItem("Add: " + testMessage);
+        }
+    }
+
+    private static @Nullable String testMessage(NetworkMessage message) {
+        return TestMessageUtils.getMessageIfTest(message);
     }
 
     /**
@@ -283,5 +303,13 @@ public class RecoveryDescriptor {
 
     public int releasedCount() {
         return releasedCount.get();
+    }
+
+    public void addHistoryItem(String description) {
+        history.add(new HistoryItem(description));
+    }
+
+    public List<HistoryItem> history() {
+        return List.copyOf(history);
     }
 }
