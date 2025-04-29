@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
-using System.Linq;
 using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;

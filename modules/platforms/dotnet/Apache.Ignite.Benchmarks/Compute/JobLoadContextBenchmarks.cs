@@ -22,7 +22,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Ignite.Compute;
+using Internal.Buffers;
 using Internal.Compute.Executor;
+using Internal.Proto.MsgPack;
 
 /// <summary>
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
@@ -34,17 +36,31 @@ using Internal.Compute.Executor;
 [MemoryDiagnoser]
 public class JobLoadContextBenchmarks
 {
+    private static readonly PooledBuffer ArgBuf = new([MsgPackCode.Nil], 0, 1);
+
+    private static readonly PooledArrayBuffer ResBuf = new();
+
+    private static readonly IComputeJobWrapper JobWrapper =
+        new JobLoadContext(AssemblyLoadContext.Default).CreateJobWrapper(typeof(EmptyJob).AssemblyQualifiedName!);
+
     [Benchmark]
     public object CreateJobWrapper()
     {
         var ctx = new JobLoadContext(AssemblyLoadContext.Default);
 
-        return ctx.CreateJobWrapper(typeof(AddOneJob).AssemblyQualifiedName!);
+        return ctx.CreateJobWrapper(typeof(EmptyJob).AssemblyQualifiedName!);
     }
 
-    private sealed class AddOneJob : IComputeJob<int, int>
+    [Benchmark]
+    public async ValueTask ExecuteJob()
     {
-        public ValueTask<int> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(arg + 1);
+        ResBuf.Position = 0;
+        await JobWrapper.ExecuteAsync(null!, ArgBuf, ResBuf, CancellationToken.None);
+    }
+
+    private sealed class EmptyJob : IComputeJob<object, object>
+    {
+        public ValueTask<object> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(arg);
     }
 }
