@@ -74,6 +74,7 @@ internal static class ComputeJobExecutor
 
     private static ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
     {
+        // TODO IGNITE-25115 Implement platform job executor.
         if (req.JobClassName == "TEST_ONLY_DOTNET_JOB:ECHO")
         {
             return ValueTask.FromResult(req.Arg)!;
