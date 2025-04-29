@@ -28,15 +28,14 @@ using NUnit.Framework;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
-    private const string TestOnlyDotnetJobEcho = "TEST_ONLY_DOTNET_JOB:ECHO";
-
-    private const string TestOnlyDotnetJobError = "TEST_ONLY_DOTNET_JOB:ERR";
+    // TODO IGNITE-25116: Remove.
+    private const string TempJobPrefix = "TEST_ONLY_DOTNET_JOB:";
 
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
-        var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobEcho);
+        var desc = new JobDescriptor<string, string>("TODO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var result = await jobExec.GetResultAsync();
@@ -45,10 +44,23 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestNonExistentJob()
+    {
+        var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
+        var desc = new JobDescriptor<string, string>(TempJobPrefix + "MyNamespace.MyJob");
+
+        var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
+        var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
+
+        Assert.AreEqual("Platform jobs are not supported yet.", ex.Message);
+        Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
+    }
+
+    [Test]
     public async Task TestJobError()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
-        var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobError);
+        var desc = new JobDescriptor<string, string>("TODO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
@@ -61,7 +73,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
-        var desc = new JobDescriptor<string, string>(TestOnlyDotnetJobEcho);
+        var desc = new JobDescriptor<string, string>("TODO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
