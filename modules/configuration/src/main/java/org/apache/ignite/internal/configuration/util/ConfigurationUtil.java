@@ -1013,11 +1013,12 @@ public class ConfigurationUtil {
                 }
 
                 if (val == null) {
-                    // This code used to be dead. It's alive now.
                     try {
                         node.construct(key, null, true);
+
+                        ((InnerNode) node).constructDefault(key);
                     } catch (NoSuchElementException ignore) {
-                        assert ((InnerNode) node).isPolymorphic() : node;
+                        assert ((InnerNode) node).isPolymorphic() : node; // TODO Am I sure about this?
                     }
                 } else if (val instanceof Map) {
                     node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), true);

@@ -711,7 +711,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     }
 
     private static Data mergeData(Data currentData, Data delta) {
-        assert currentData.changeId() + 1 == delta.changeId();
+        assert currentData.changeId() + 1 == delta.changeId() : currentData.changeId() + " " + delta.changeId();
 
         Map<String, Serializable> newState = new HashMap<>(currentData.values());
 

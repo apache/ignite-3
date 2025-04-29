@@ -22,7 +22,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -73,6 +72,9 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
 
     private ConfigurationStorage storage;
 
+    /**
+     * Argument captor for {@link ConfigurationStorage#write(Map, long)}.
+     */
     @SuppressWarnings("unchecked")
     private final ArgumentCaptor<Map<String, Serializable>> lastWriteCapture = ArgumentCaptor.forClass(Map.class);
 
@@ -152,13 +154,13 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     /**
-     * Common assertions for the initial state of the test.
+     * Common assertions for the initial state of the test. In all other tests we rely on invariants stated here.
      */
     @Test
     void testInitialState() {
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {
             assertEquals(
-                    mapWithNulls(
+                    Map.of(
                             "root.intValue", 10,
                             "root.child.my-int-cfg", 99
                     ),
@@ -185,15 +187,16 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, changer -> {
             //noinspection CastToIncompatibleInterface
             var root = (DeprecatedValueView) changer.superRoot().getRoot(DeprecatedValueConfiguration.KEY);
-            // TODO
-            //  SHOULD WE USE DEFAULTS INSTEAD? PROBABLY.
-            assertThrows(NullPointerException.class, () -> root.intValue());
+            // Deprecated value should still be read as a default.
+            assertEquals(10, root.intValue());
 
+            // Check that deprecated value has been deleted while starting the changer.
             assertEquals(
                     mapWithNulls("root.intValue", null),
                     lastWriteCapture.getValue()
             );
 
+            // Check that deprecated value is not present in the storage anymore.
             Data data = getData();
             assertEquals(2, data.changeId());
             assertEquals(
@@ -201,11 +204,11 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     data.values()
             );
 
+            // Deprecated values should NOT be re-written if they're already absent.
             changeConfiguration(changer, superRoot ->
                     superRoot.changeRoot(DeprecatedValueConfiguration.KEY).changeChild().changeIntCfg(100)
             );
 
-            // Deprecated values should NOT be re-written if they're already absent.
             assertEquals(
                     Map.of("root.child.my-int-cfg", 100),
                     lastWriteCapture.getValue()
@@ -228,11 +231,10 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             //noinspection CastToIncompatibleInterface
             var root = (DeprecatedChildView) changer.superRoot().getRoot(DeprecatedChildConfiguration.KEY);
             assertNotNull(root.child());
-            assertNull(root.child().strCfg());
-            // TODO
-            //  SHOULD WE USE DEFAULTS INSTEAD? PROBABLY.
-            assertThrows(NullPointerException.class, () -> root.child().intCfg());
+            assertNull(root.child().strCfg()); // This test never really did anything to "strValue", that's why it's null.
+            assertEquals(99, root.child().intCfg());
 
+            // Check that deprecated value has been deleted while starting the changer.
             assertEquals(
                     mapWithNulls(
                             "root.child.my-int-cfg", null
@@ -240,6 +242,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     lastWriteCapture.getValue()
             );
 
+            // Check that deprecated value is not present in the storage anymore.
             Data data = getData();
 
             assertEquals(2, data.changeId());
@@ -248,11 +251,11 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     data.values()
             );
 
+            // Deprecated values should NOT be re-written if they're already absent.
             changeConfiguration(changer, superRoot ->
                     superRoot.changeRoot(DeprecatedChildConfiguration.KEY).changeIntValue(20)
             );
 
-            // Deprecated values should NOT be re-written if they're already absent.
             assertEquals(
                     Map.of("root.intValue", 20),
                     lastWriteCapture.getValue()
@@ -272,6 +275,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         AtomicReference<UUID> internalIdReference = new AtomicReference<>();
 
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changer -> {
+            // Add named list element for the test.
             changeConfiguration(changer, superRoot -> {
                 superRoot.changeRoot(BeforeDeprecationConfiguration.KEY)
                         .changeList()
@@ -283,8 +287,9 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
             UUID internalId = internalIdReference.get();
             assertNotNull(internalId);
 
+            // Check that all expected properties have been added.
             assertEquals(
-                    mapWithNulls(
+                    Map.of(
                             "root.list." + internalId + ".<order>", 0,
                             "root.list." + internalId + ".<name>", "foo",
                             "root.list.<ids>.foo", internalId
@@ -292,6 +297,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     lastWriteCapture.getValue()
             );
 
+            // Check storage state.
             Data data = getData();
 
             assertEquals(2, data.changeId());
@@ -314,6 +320,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
 
             UUID internalId = internalIdReference.get();
 
+            // Check that deprecated value has been deleted while starting the changer.
             assertEquals(
                     mapWithNulls(
                             "root.list." + internalId + ".<order>", null,
@@ -323,6 +330,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     lastWriteCapture.getValue()
             );
 
+            // Check that deprecated value is not present in the storage anymore.
             Data data = getData();
 
             assertEquals(3, data.changeId());
@@ -334,11 +342,11 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     data.values()
             );
 
+            // Deprecated values should NOT be re-written if they're already absent.
             changeConfiguration(changer, superRoot ->
                     superRoot.changeRoot(DeprecatedNamedListConfiguration.KEY).changeIntValue(20)
             );
 
-            // Deprecated values should NOT be re-written if they're already absent.
             assertEquals(
                     Map.of("root.intValue", 20),
                     lastWriteCapture.getValue()
@@ -385,8 +393,6 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         CompletableFuture<Void> changeFuture = changer.change(new ConfigurationSource() {
             @Override
             public void descend(ConstructableTreeNode node) {
-                node.construct("root", ConfigurationUtil.EMPTY_CFG_SRC, true);
-
                 changeClosure.accept(new SuperRootChangeImpl((SuperRoot) node));
             }
         });
