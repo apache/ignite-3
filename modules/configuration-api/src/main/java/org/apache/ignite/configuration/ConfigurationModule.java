@@ -125,6 +125,7 @@ public interface ConfigurationModule {
      * <p>Typical implementation should look something like this:
      * <pre><code>
      *      var barValue = superRoot.viewRoot(KEY).foo().oldConfiguration().bar()
+     *
      *      if (barValue != BAR_DEFAULT) { // Usually implies explicitly set value.
      *          superRoot.changeRoot(KEY).changeNewFoo().changeBar(barValue)
      *      }

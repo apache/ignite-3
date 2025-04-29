@@ -119,16 +119,11 @@ public class ConfigurationFlattener {
             // Read same value from old tree.
             Serializable oldVal = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
-            boolean deletion = this.deletion || isDeprecated;
-
             // Do not put duplicates into the resulting map.
             if (isDeprecated || singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
-                Serializable value = deletion ? null : newVal;
+                boolean deletion = this.deletion || isDeprecated;
 
-                // TODO Figure out what's going on. Use some mocks in tests, validate arguments. Check what happened.
-                if (!(isDeprecated && oldVal == null)) {
-                    resMap.put(currentKey(), value);
-                }
+                resMap.put(currentKey(), deletion ? null : newVal);
             }
 
             return null;

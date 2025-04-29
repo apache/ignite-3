@@ -769,10 +769,6 @@ public class ConfigurationUtil {
                 if (map.containsKey(NamedListNode.NAME) && map.get(NamedListNode.NAME) == null) {
                     entry.setValue(null);
                 }
-            } else if (value == null) {
-                // TODO We don't account for subtrees, I guess we never had any instances of such polymorphic configurations.
-                // If there was a change in the type of polymorphic configuration,
-                // then the fields of the old configuration will be {@code null}, so we can get rid of them.
             }
         }
 
@@ -1014,11 +1010,10 @@ public class ConfigurationUtil {
 
                 if (val == null) {
                     try {
-                        node.construct(key, null, true);
-
                         ((InnerNode) node).constructDefault(key);
                     } catch (NoSuchElementException ignore) {
-                        assert ((InnerNode) node).isPolymorphic() : node; // TODO Am I sure about this?
+                        assert ((InnerNode) node).isPolymorphic()
+                                : "Constructing property " + key + " failed in " + node + " and it is not polymorphic.";
                     }
                 } else if (val instanceof Map) {
                     node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), true);
