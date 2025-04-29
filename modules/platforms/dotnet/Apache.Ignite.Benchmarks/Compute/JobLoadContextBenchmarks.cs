@@ -24,6 +24,13 @@ using BenchmarkDotNet.Attributes;
 using Ignite.Compute;
 using Internal.Compute.Executor;
 
+/// <summary>
+/// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
+///
+/// | Method           | Mean     | Error     | StdDev    | Gen0   | Allocated |
+/// |----------------- |---------:|----------:|----------:|-------:|----------:|
+/// | CreateJobWrapper | 2.165 us | 0.0289 us | 0.0256 us | 0.0038 |   1.68 KB | (dominated by GetType).
+/// </summary>
 [MemoryDiagnoser]
 public class JobLoadContextBenchmarks
 {
