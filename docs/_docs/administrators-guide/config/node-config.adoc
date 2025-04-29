@@ -140,7 +140,7 @@ See the link:developers-guide/clients/overview[Clients] section for information 
 |dumpThreadsThrottlingTimeoutMillis|10000|Throttling timeout for thread dump generation during failure handling, in milliseconds.| Yes | Yes | 1 - inf
 
 |handler.ignoredFailureTypes|[systemWorkerBlocked, systemCriticalOperationTimeout]|Types of failures that will be ignored.| Yes | Yes | 1 - inf
-|handler.type|noop|Failure handler configuration type.| Yes | Yes | noop
+|handler.type|noop|Failure handler configuration type.| Yes | Yes | noop, stop, stopOrHalt
 |oomBufferSizeBytes|16384|Amount of memory reserved in the heap at node start, in bytes.| Yes | Yes | 1 - inf
 
 |======
@@ -506,6 +506,8 @@ _Checkpointing_ is the process of copying dirty pages from RAM to partition file
 |aipersist.replacementMode|CLOCK|Sets the page replacement algorithm.| Yes | Yes | CLOCK, RANDOM_LRU, SEGMENTED_LRU
 |aimem.initSizeBytes|268435456| Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
 |aimem.maxSizeBytes|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
+|rocksdb.sizeBytes|268435456| Size of the rocksdb offheap cache.| Yes | Yes | Min 0, max defined by the addressable memory limit of the OS
+|rocksdb.writeBufferSizeBytes|67108864| Size of rocksdb write buffer.| Yes | Yes | Min 1, max defined by the addressable memory limit of the OS
 |======
 
 
