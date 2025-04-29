@@ -128,15 +128,16 @@ class PartitionReplicatorNodeRecovery {
         if (table != null) {
             MvTableStorage storage = table.internalTable().storage();
 
-            MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
+            try {
+                MvPartitionStorage mvPartition = storage.getMvPartition(partitionId);
 
-            if (mvPartition != null) {
-                try {
+                if (mvPartition != null) {
+
                     dataPresence = mvPartition.closestRowId(RowId.lowestRowId(partitionId)) != null
-                            ? DataPresence.HAS_DATA : DataPresence.EMPTY;
-                } catch (StorageClosedException | StorageRebalanceException ignored) {
-                    // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.
+                        ? DataPresence.HAS_DATA : DataPresence.EMPTY;
                 }
+            } catch (StorageClosedException | StorageRebalanceException ignored) {
+                // Ignoring so we'll return UNKNOWN for storageHasData meaning that we have no idea.
             }
         }
 
