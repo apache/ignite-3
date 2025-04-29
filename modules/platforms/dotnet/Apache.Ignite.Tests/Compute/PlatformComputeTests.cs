@@ -35,7 +35,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
-        var desc = new JobDescriptor<string, string>("TODO");
+        var desc = new JobDescriptor<string, string>(TempJobPrefix + "TODO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var result = await jobExec.GetResultAsync();
@@ -60,7 +60,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestJobError()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
-        var desc = new JobDescriptor<string, string>("TODO");
+        var desc = new JobDescriptor<string, string>(TempJobPrefix + "TODO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
@@ -73,7 +73,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
-        var desc = new JobDescriptor<string, string>("TODO");
+        var desc = new JobDescriptor<string, string>(TempJobPrefix + "TODO");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
