@@ -44,8 +44,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
         try
         {
-            var jobWrapperType = typeof(ComputeJobWrapper<,,>)
-                .MakeGenericType(jobType, jobInterface.GenericTypeArguments[0], jobInterface.GenericTypeArguments[1]);
+            var genericArgs = jobInterface.GenericTypeArguments;
+            var jobWrapperType = typeof(ComputeJobWrapper<,,>).MakeGenericType(jobType, genericArgs[0], genericArgs[1]);
 
             return (IComputeJobWrapper)Activator.CreateInstance(jobWrapperType)!;
         }
