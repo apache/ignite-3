@@ -47,6 +47,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 import static org.apache.ignite.internal.util.IgniteUtils.startsWith;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.empty;
@@ -213,8 +214,7 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
     @AfterEach
     void afterEach() throws InterruptedException {
         if (tempPool != null) {
-            tempPool.shutdown();
-            tempPool.awaitTermination(1, SECONDS);
+            shutdownAndAwaitTermination(tempPool, 1, SECONDS);
         }
     }
 
@@ -1024,9 +1024,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Check that data nodes calculation is idempotented.
-     * The current data nodes value which was calculated by data nodes from the meta storage manager and topology augmentation maps equals
-     * to the data nodes value which were calculated by data nodes from the meta storage manager after topology augmentation maps
-     * were cleared.
+     * The current data nodes value which was calculated by data nodes from the meta storage manager equals
+     * to the data nodes value from the data nodes manager and from data nodes history by the corresponding timestamp.
      *
      * @throws Exception If failed.
      */
@@ -1051,9 +1050,8 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
 
     /**
      * Check that data nodes calculation is idempotented.
-     * The current data nodes value which was calculated by data nodes from the meta storage manager and topology augmentation maps equals
-     * to the data nodes value which were calculated by data nodes from the meta storage manager after topology augmentation maps
-     * were cleared.
+     * The current data nodes value which was calculated by data nodes from the meta storage manager equals
+     * to the data nodes value from the data nodes manager and from data nodes history by the corresponding timestamp.
      *
      * @throws Exception If failed.
      */
@@ -1201,12 +1199,10 @@ public class DistributionZoneCausalityDataNodesTest extends BaseDistributionZone
         checkThatDataNodesIsChangedInMetastorage(expectedDataNodesAfterTimersAreExpired);
 
         // Check that data nodes values are idempotent.
-        // Data nodes from the meta storage manager only used to calculate current data nodes because the meta storage are updated and
-        // topology augmentation maps were cleared.
         checkDataNodes(topologyUpdateRevision.get().timestamp, expectedDataNodesOnTopologyUpdateEvent);
 
         // Above, we have waited for data nodes in meta storage to become the same as in expectedDataNodesAfterTimersAreExpired map,
-        // so we use the applied revision and check the value of data nodes in data nodes manager.
+        // so we use the storage revision and check the value of data nodes in data nodes manager.
         HybridTimestamp timestamp = metaStorageManager.timestampByRevisionLocally(keyValueStorage.revision());
         checkDataNodes(timestamp, expectedDataNodesAfterTimersAreExpired);
     }
