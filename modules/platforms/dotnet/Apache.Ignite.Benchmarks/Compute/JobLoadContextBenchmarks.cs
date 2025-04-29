@@ -24,6 +24,7 @@ using BenchmarkDotNet.Attributes;
 using Ignite.Compute;
 using Internal.Compute.Executor;
 
+[MemoryDiagnoser]
 public class JobLoadContextBenchmarks
 {
     [Benchmark]

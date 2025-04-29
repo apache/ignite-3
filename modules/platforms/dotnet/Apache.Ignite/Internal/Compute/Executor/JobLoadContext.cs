@@ -39,21 +39,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
 
     private static IComputeJobWrapper CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
     {
-        var jobType = Type.GetType(typeName, ctx.LoadFromAssemblyName, null);
-
-        if (jobType == null)
-        {
-            throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
-        }
-
-        var jobInterface = jobType
-            .GetInterfaces()
-            .FirstOrDefault(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IComputeJob<,>));
-
-        if (jobInterface == null)
-        {
-            throw new InvalidOperationException($"Failed to find job interface '{typeof(IComputeJob<,>)}' in type '{typeName}'");
-        }
+        var jobType = LoadJobType(typeName, ctx);
+        var jobInterface = FindJobInterface(typeName, jobType);
 
         try
         {
@@ -72,4 +59,13 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
             throw;
         }
     }
+
+    private static Type LoadJobType(string typeName, AssemblyLoadContext ctx) =>
+        Type.GetType(typeName, ctx.LoadFromAssemblyName, null)
+        ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+
+    // Simple lookup by name. Will throw in a case of ambiguity.
+    private static Type FindJobInterface(string typeName, Type jobType) =>
+        jobType.GetInterface(typeof(IComputeJob<,>).Name, ignoreCase: false) ??
+        throw new InvalidOperationException($"Failed to find job interface '{typeof(IComputeJob<,>)}' in type '{typeName}'");
 }
