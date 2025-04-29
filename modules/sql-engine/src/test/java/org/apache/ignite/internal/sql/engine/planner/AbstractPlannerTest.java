@@ -741,6 +741,8 @@ public abstract class AbstractPlannerTest extends IgniteAbstractTest {
             // Hints are not serializable.
             clearHints(expected);
 
+            // TODO https://issues.apache.org/jira/browse/IGNITE-19162 Remove this rewriter
+            //  when the issue with sub-millisecond precision is resolved.
             RelNode replaced = new RewriteTimeTimestampLiterals().visit((IgniteRel) expected);
             if (replaced != expected) {
                 expected = replaced;
