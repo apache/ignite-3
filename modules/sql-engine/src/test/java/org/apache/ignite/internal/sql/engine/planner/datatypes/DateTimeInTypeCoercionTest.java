@@ -28,8 +28,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
-import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypes;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -42,10 +40,6 @@ import org.junit.jupiter.params.provider.MethodSource;
  * <p>This tests aim to help to understand in which cases implicit casts are added to operands of the IN operator.
  */
 public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
-
-    private static final NativeType DYNAMIC_PARAM_TIMESTAMP_TYPE = NativeTypes.datetime(6);
-
-    private static final NativeType DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE = NativeTypes.timestamp(6);
 
     private static Stream<Arguments> inOperandsAllColumns() {
 
@@ -471,17 +465,17 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_9,
@@ -492,17 +486,17 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9,
@@ -513,17 +507,17 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_9,
@@ -534,17 +528,17 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9,
@@ -597,17 +591,17 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9,
@@ -618,38 +612,38 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_9,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
                         castTo(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9,
@@ -660,22 +654,22 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9,
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
                         castTo(Types.TIMESTAMP_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_9)
                 ),
@@ -704,15 +698,15 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_0,
                         castTo(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_1,
                         castTo(Types.TIMESTAMP_WLTZ_9),
                         ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_9,
@@ -826,87 +820,87 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_9_TIMESTAMP_0,
@@ -952,87 +946,87 @@ public class DateTimeInTypeCoercionTest extends BaseTypeCoercionTest {
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9,
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_LTZ_TYPE),
-                        castTo(DYNAMIC_PARAM_TIMESTAMP_TYPE),
-                        ofTypeWithoutCast(DYNAMIC_PARAM_TIMESTAMP_TYPE)
+                        castTo(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DEFAULT),
+                        castTo(Types.TIMESTAMP_DEFAULT),
+                        ofTypeWithoutCast(Types.TIMESTAMP_DEFAULT)
                 ),
 
                 Arguments.of(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9,
