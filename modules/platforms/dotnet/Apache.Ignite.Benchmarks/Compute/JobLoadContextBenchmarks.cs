@@ -29,9 +29,10 @@ using Internal.Proto.MsgPack;
 /// <summary>
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
 ///
-/// | Method           | Mean     | Error     | StdDev    | Gen0   | Allocated |
-/// |----------------- |---------:|----------:|----------:|-------:|----------:|
-/// | CreateJobWrapper | 2.165 us | 0.0289 us | 0.0256 us | 0.0038 |   1.68 KB | (dominated by GetType).
+/// | Method           | Mean        | Error     | StdDev    | Allocated |
+/// |----------------- |------------:|----------:|----------:|----------:|
+/// | CreateJobWrapper | 2,108.30 ns | 27.510 ns | 25.733 ns |    1720 B | (dominated by GetType)
+/// | ExecuteJob       |    60.21 ns |  0.570 ns |  0.506 ns |      24 B |.
 /// </summary>
 [MemoryDiagnoser]
 public class JobLoadContextBenchmarks
