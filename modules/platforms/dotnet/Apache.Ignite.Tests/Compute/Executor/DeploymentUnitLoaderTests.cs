@@ -34,24 +34,8 @@ public class DeploymentUnitLoaderTests
     public async Task TestSingleAssemblyDeploymentUnit()
     {
         using var tempDir = new TempDir();
-        var asmName = "TestSingleAssemblyDeploymentUnit.dll";
-
-        AssemblyGenerator.EmitClassLib(
-            Path.Combine(tempDir.Path, asmName),
-            @"
-                    using System;
-                    using System.Threading;
-                    using System.Threading.Tasks;
-                    using Apache.Ignite.Compute;
-
-                    namespace TestNamespace
-                    {
-                        public class EchoJob : IComputeJob<object, object>
-                        {
-                            public ValueTask<object> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
-                                ValueTask.FromResult(arg);
-                        }
-                    }");
+        var asmName = nameof(TestSingleAssemblyDeploymentUnit);
+        EmitEchoJob(tempDir, asmName);
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
         IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper($"TestNamespace.EchoJob, {asmName}");
@@ -67,5 +51,34 @@ public class DeploymentUnitLoaderTests
         // TODO: Test isolation and versioning.
         await Task.Delay(1);
         Assert.Fail();
+    }
+
+    private static void EmitEchoJob(TempDir tempDir, string asmName) =>
+        EmitJob(
+            tempDir,
+            asmName,
+            """
+            public class EchoJob : IComputeJob<object, object>
+            {
+                public ValueTask<object> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
+                    ValueTask.FromResult(arg);
+            }
+            """);
+
+    private static void EmitJob(TempDir tempDir, string asmName, [StringSyntax("C#")] string jobCode)
+    {
+        AssemblyGenerator.EmitClassLib(
+            Path.Combine(tempDir.Path, $"{asmName}.dll"),
+            $$"""
+              using System;
+              using System.Threading;
+              using System.Threading.Tasks;
+              using Apache.Ignite.Compute;
+
+              namespace TestNamespace
+              {
+                  {{jobCode}}
+              }
+              """);
     }
 }
