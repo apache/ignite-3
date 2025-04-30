@@ -66,12 +66,12 @@ public static class ManagementApi
         await Task.Delay(500);
     }
 
-    private static UriBuilder GetUnitUrl(string unitId, string unitVersion) =>
-        new(BaseUri) { Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}" };
-
     public static async Task UnitUndeploy(DeploymentUnit unit)
     {
         using var client = new HttpClient();
-        await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).ToString());
+        await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).Uri);
     }
+
+    private static UriBuilder GetUnitUrl(string unitId, string unitVersion) =>
+        new(BaseUri) { Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}" };
 }
