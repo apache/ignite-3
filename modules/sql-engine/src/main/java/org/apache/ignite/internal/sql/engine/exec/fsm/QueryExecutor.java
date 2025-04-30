@@ -627,6 +627,26 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
     @Override
     @TestOnly
     public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent).app("Running queries:").nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+        for (Query query : runningQueries.values()) {
+            writer.app(childIndent)
+                    .app("queryId=").app(query.id)
+                    .app(", phase=").app(query.currentPhase());
+
+            if (query.parentId != null) {
+                writer.app(", parentId=").app(query.parentId);
+                writer.app(", statement=").app(query.statementNum);
+            }
+
+            writer.app(", createdAt=").app(query.createdAt)
+                    .app(", cancelled=").app(query.cancel.isCancelled())
+                    .app(", failed=").app(query.error.get() != null)
+                    .app(", sql=").app(query.sql)
+                    .nl();
+        }
+
         if (executionService instanceof Debuggable) {
             ((Debuggable) executionService).dumpState(writer, indent);
         }
