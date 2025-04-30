@@ -40,7 +40,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
 
     [Test]
-    public async Task TestDotNetSystemInfoJob([Values(true, false)] bool withSsl)
+    public async Task TestSystemInfoJob([Values(true, false)] bool withSsl)
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
         var desc = new JobDescriptor<object?, string>(
@@ -54,12 +54,11 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
+    public async Task TestEchoJob([Values(true, false)] bool withSsl)
     {
         var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
         var jobTarget = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
 
-        // TODO: Test all arg types.
         var jobExec = await Client.Compute.SubmitAsync(
             jobTarget,
             jobDesc,
@@ -93,7 +92,7 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestNonExistentJob()
+    public async Task TestMissingClass()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync());
         var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "MyNamespace.MyJob");
@@ -108,6 +107,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestMissingAssembly()
     {
+        // Run without providing deployment units.
         var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
         var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
 
