@@ -63,12 +63,15 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         return Stream.of(
                 Types.TIME_0,
                 Types.TIME_3,
+                Types.TIME_6,
                 Types.TIME_9,
                 Types.TIMESTAMP_0,
                 Types.TIMESTAMP_3,
+                Types.TIMESTAMP_6,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
                 Types.TIMESTAMP_WLTZ_3,
+                Types.TIMESTAMP_WLTZ_6,
                 Types.TIMESTAMP_WLTZ_9
         );
     }
@@ -142,9 +145,11 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
                 Types.DATE,
                 Types.TIMESTAMP_0,
                 Types.TIMESTAMP_3,
+                Types.TIMESTAMP_6,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
                 Types.TIMESTAMP_WLTZ_3,
+                Types.TIMESTAMP_WLTZ_6,
                 Types.TIMESTAMP_WLTZ_9
         );
     }
@@ -164,6 +169,7 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         List<NativeType> types = List.of(
                 Types.TIME_0,
                 Types.TIME_3,
+                Types.TIME_6,
                 Types.TIME_9
         );
 
@@ -201,8 +207,10 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         List<NativeType> types = List.of(
                 Types.TIMESTAMP_0,
                 Types.TIMESTAMP_3,
+                Types.TIMESTAMP_6,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
+                Types.TIMESTAMP_WLTZ_3,
                 Types.TIMESTAMP_WLTZ_3,
                 Types.TIMESTAMP_WLTZ_9
         );
@@ -235,9 +243,11 @@ public class DateTimeFunctionsTypeCoercionTest extends BaseTypeCoercionTest {
         return Stream.of(
                 Types.TIMESTAMP_0,
                 Types.TIMESTAMP_3,
+                Types.TIMESTAMP_6,
                 Types.TIMESTAMP_9,
                 Types.TIMESTAMP_WLTZ_0,
                 Types.TIMESTAMP_WLTZ_3,
+                Types.TIMESTAMP_WLTZ_6,
                 Types.TIMESTAMP_WLTZ_9
         );
     }

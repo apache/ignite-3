@@ -27,15 +27,23 @@ public enum DatetimePair implements TypePair {
 
     TIME_0_TIME_0(Types.TIME_0, Types.TIME_0),
     TIME_0_TIME_3(Types.TIME_0, Types.TIME_3),
+    TIME_0_TIME_6(Types.TIME_0, Types.TIME_6),
     TIME_0_TIME_9(Types.TIME_0, Types.TIME_9),
 
-    TIME_3_TIME_3(Types.TIME_3, Types.TIME_3),
     TIME_3_TIME_0(Types.TIME_3, Types.TIME_0),
+    TIME_3_TIME_3(Types.TIME_3, Types.TIME_3),
+    TIME_3_TIME_6(Types.TIME_3, Types.TIME_6),
     TIME_3_TIME_9(Types.TIME_3, Types.TIME_9),
 
-    TIME_9_TIME_9(Types.TIME_9, Types.TIME_9),
+    TIME_6_TIME_0(Types.TIME_6, Types.TIME_0),
+    TIME_6_TIME_3(Types.TIME_6, Types.TIME_3),
+    TIME_6_TIME_6(Types.TIME_6, Types.TIME_6),
+    TIME_6_TIME_9(Types.TIME_6, Types.TIME_9),
+
     TIME_9_TIME_0(Types.TIME_9, Types.TIME_0),
     TIME_9_TIME_3(Types.TIME_9, Types.TIME_3),
+    TIME_9_TIME_6(Types.TIME_9, Types.TIME_6),
+    TIME_9_TIME_9(Types.TIME_9, Types.TIME_9),
 
     TIMESTAMP_0_TIMESTAMP_0(Types.TIMESTAMP_0, Types.TIMESTAMP_0),
     TIMESTAMP_0_TIMESTAMP_3(Types.TIMESTAMP_0, Types.TIMESTAMP_3),

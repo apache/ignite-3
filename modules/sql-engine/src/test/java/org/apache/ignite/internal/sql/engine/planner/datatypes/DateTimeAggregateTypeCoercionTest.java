@@ -64,12 +64,15 @@ public class DateTimeAggregateTypeCoercionTest extends BaseTypeCoercionTest {
                 Arguments.of(Types.DATE),
                 Arguments.of(Types.TIME_0),
                 Arguments.of(Types.TIME_3),
+                Arguments.of(Types.TIME_6),
                 Arguments.of(Types.TIME_9),
                 Arguments.of(Types.TIMESTAMP_0),
                 Arguments.of(Types.TIMESTAMP_3),
+                Arguments.of(Types.TIMESTAMP_6),
                 Arguments.of(Types.TIMESTAMP_9),
                 Arguments.of(Types.TIMESTAMP_WLTZ_0),
                 Arguments.of(Types.TIMESTAMP_WLTZ_3),
+                Arguments.of(Types.TIMESTAMP_WLTZ_6),
                 Arguments.of(Types.TIMESTAMP_WLTZ_9)
         );
     }
