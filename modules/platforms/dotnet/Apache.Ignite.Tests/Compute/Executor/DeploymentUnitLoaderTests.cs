@@ -40,8 +40,8 @@ public class DeploymentUnitLoaderTests
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
         IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper($"TestNamespace.EchoJob, {asmName}");
 
-        var jobRes = await JobWrapperHelper.ExecuteAsync<object, object>(jobWrapper, "Hello, world!");
-        Assert.AreEqual("Hello, world!", jobRes);
+        var jobRes = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper, "Hello, world!");
+        Assert.AreEqual("Echo: Hello, world!", jobRes);
     }
 
     [Test]
@@ -58,10 +58,10 @@ public class DeploymentUnitLoaderTests
             tempDir,
             asmName,
             """
-            public class EchoJob : IComputeJob<object, object>
+            public class EchoJob : IComputeJob<string, string>
             {
-                public ValueTask<object> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
-                    ValueTask.FromResult(arg);
+                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
+                    ValueTask.FromResult("Echo: " + arg);
             }
             """);
 
