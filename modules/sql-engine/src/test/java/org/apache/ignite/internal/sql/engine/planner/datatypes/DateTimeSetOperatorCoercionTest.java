@@ -100,7 +100,7 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIME_9))
                         .secondOpMatches(ofJustType(Types.TIME_9)),
 
-                // TIME 1
+                // TIME 3
 
                 forTypePair(DatetimePair.TIME_3_TIME_0)
                         .firstOpMatches(ofJustType(Types.TIME_3))
@@ -112,7 +112,7 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIME_9))
                         .secondOpMatches(ofJustType(Types.TIME_9)),
 
-                // TIME 3
+                // TIME 9
 
                 forTypePair(DatetimePair.TIME_9_TIME_0)
                         .firstOpMatches(ofJustType(Types.TIME_9))
@@ -146,7 +146,7 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-                // TIMESTAMP 1
+                // TIMESTAMP 3
 
                 forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                         .firstOpMatches(ofJustType(Types.TIMESTAMP_3))
@@ -168,7 +168,7 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-                // TIMESTAMP 3
+                // TIMESTAMP 9
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_0)
                         .firstOpMatches(ofJustType(Types.TIMESTAMP_9))
@@ -235,7 +235,7 @@ public class DateTimeSetOperatorCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofJustType(Types.TIMESTAMP_9)),
 
-                // TIMESTAMP LTZ 3
+                // TIMESTAMP LTZ 9
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_0)
                         .firstOpMatches(ofJustType(Types.TIMESTAMP_WLTZ_9))

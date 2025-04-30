@@ -157,7 +157,7 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_WLTZ_9)
                         .opMatches(castTo(Types.TIMESTAMP_0)),
 
-                // TIMESTAMP 1
+                // TIMESTAMP 3
 
                 forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
@@ -172,7 +172,7 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_9)
                         .opMatches(castTo(Types.TIMESTAMP_3)),
 
-                // TIMESTAMP 3
+                // TIMESTAMP 9
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
@@ -219,7 +219,7 @@ public class DateTimeUpdateSourcesCoercionTest extends BaseTypeCoercionTest {
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3)),
 
-                // TIMESTAMP LTZ 3
+                // TIMESTAMP LTZ 9
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_0)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)),
