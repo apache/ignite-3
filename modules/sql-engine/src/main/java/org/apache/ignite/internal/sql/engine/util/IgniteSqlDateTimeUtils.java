@@ -221,19 +221,19 @@ public class IgniteSqlDateTimeUtils {
     private static void validateTime(String time, String full) {
         Matcher matcher = TIME_PATTERN.matcher(time);
         if (matcher.find()) {
-            verifyBound(matcher.group(1), 24, "HOUR", full);
-            verifyBound(matcher.group(2), 60, "MINUTE", full);
-            verifyBound(matcher.group(3), 60, "SECOND", full);
+            checkRange(matcher.group(1), 23, "HOUR", full);
+            checkRange(matcher.group(2), 59, "MINUTE", full);
+            checkRange(matcher.group(3), 59, "SECOND", full);
         } else {
             throw invalidType("TIME", full, null);
         }
     }
 
-    private static void verifyBound(String intValue, int maxVal, String fieldName, String full) {
+    private static void checkRange(String intValue, int maxVal, String fieldName, String full) {
         try {
             int value = Integer.parseInt(intValue);
 
-            if (value >= maxVal) {
+            if (value > maxVal) {
                 throw fieldOutOfRange(fieldName, full, null);
             }
         } catch (NumberFormatException e) {
