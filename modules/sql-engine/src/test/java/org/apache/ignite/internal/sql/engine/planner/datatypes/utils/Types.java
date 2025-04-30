@@ -201,7 +201,7 @@ public final class Types {
 
     public static final NativeType TIMESTAMP_WLTZ_0 = NativeTypes.timestamp(0);
     public static final NativeType TIMESTAMP_WLTZ_3 = NativeTypes.timestamp(3);
-    public static final NativeType TIMESTAMP_WLTZ_6 = NativeTypes.datetime(6);
+    public static final NativeType TIMESTAMP_WLTZ_6 = NativeTypes.timestamp(6);
     public static final NativeType TIMESTAMP_WLTZ_9 = NativeTypes.timestamp(9);
     public static final NativeType TIMESTAMP_WLTZ_DYN_PARAM = NativeTypes.timestamp(6);
 
