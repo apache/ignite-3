@@ -119,7 +119,8 @@ public class ConfigurationTreeGeneratorTest {
                 rootKeys,
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                change -> {}
         );
 
         changer.start();

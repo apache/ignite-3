@@ -45,13 +45,15 @@ public class ConfigurationManager implements IgniteComponent {
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
-            ConfigurationValidator configurationValidator
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,
                 storage,
                 generator,
-                configurationValidator
+                configurationValidator,
+                migrator
         );
     }
 

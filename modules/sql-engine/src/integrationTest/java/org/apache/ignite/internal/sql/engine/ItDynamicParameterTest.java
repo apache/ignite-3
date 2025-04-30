@@ -48,8 +48,6 @@ import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator;
 import org.apache.ignite.internal.sql.engine.prepare.ParameterType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
@@ -572,9 +570,7 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
         }
 
         assertThrowsSqlException(Sql.EXECUTION_CANCELLED_ERR, "Query timeout", () -> {
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.QUERY_TIMEOUT, 1L)
-                    .build();
+            SqlProperties properties = new SqlProperties().queryTimeout(1L);
 
             QueryProcessor qryProc = queryProcessor();
             await(qryProc.prepareSingleAsync(properties, null, stmt.toString())).parameterTypes();
@@ -725,6 +721,6 @@ public class ItDynamicParameterTest extends BaseSqlIntegrationTest {
 
     private List<ParameterType> getParameterTypes(String query, Object... params) {
         QueryProcessor qryProc = queryProcessor();
-        return await(qryProc.prepareSingleAsync(SqlQueryProcessor.DEFAULT_PROPERTIES, null, query, params)).parameterTypes();
+        return await(qryProc.prepareSingleAsync(new SqlProperties(), null, query, params)).parameterTypes();
     }
 }

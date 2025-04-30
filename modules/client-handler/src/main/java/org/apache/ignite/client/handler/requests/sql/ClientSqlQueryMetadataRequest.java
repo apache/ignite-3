@@ -26,10 +26,8 @@ import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 
 /**
  * Client SQL request for the parameter metadata.
@@ -57,9 +55,7 @@ public class ClientSqlQueryMetadataRequest {
             String schema = in.unpackString();
             String query = in.unpackString();
 
-            SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                    .set(QueryProperty.DEFAULT_SCHEMA, schema)
-                    .build();
+            SqlProperties properties = new SqlProperties().defaultSchema(schema);
 
             return processor.prepareSingleAsync(properties, tx, query).thenAccept(meta -> writeMeta(out, meta));
         }, operationExecutor);

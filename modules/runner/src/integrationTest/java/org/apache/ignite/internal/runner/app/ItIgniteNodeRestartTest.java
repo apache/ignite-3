@@ -373,7 +373,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 modules.local().rootKeys(),
                 new LocalFileConfigurationStorage(configFile, localConfigurationGenerator, modules.local()),
                 localConfigurationGenerator,
-                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators())
+                ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, modules.local().validators()),
+                changer -> {}
         );
 
         NetworkConfiguration networkConfiguration = nodeCfgMgr.configurationRegistry()
@@ -550,7 +551,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 modules.distributed().rootKeys(),
                 cfgStorage,
                 distributedConfigurationGenerator,
-                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators())
+                ConfigurationValidatorImpl.withDefaultValidators(distributedConfigurationGenerator, modules.distributed().validators()),
+                changer -> {}
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
