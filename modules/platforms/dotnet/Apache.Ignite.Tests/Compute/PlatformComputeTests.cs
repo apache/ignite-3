@@ -22,6 +22,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using Network;
+using NodaTime;
 using NUnit.Framework;
 
 /// <summary>
@@ -69,9 +70,59 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestAllSupportedArgTypes()
+    {
+        await Test(sbyte.MinValue);
+        await Test(sbyte.MaxValue);
+        await Test(short.MinValue);
+        await Test(short.MaxValue);
+        await Test(int.MinValue);
+        await Test(int.MaxValue);
+        await Test(long.MinValue);
+        await Test(long.MaxValue);
+        await Test(float.MinValue);
+        await Test(float.MaxValue);
+        await Test(double.MinValue);
+        await Test(double.MaxValue);
+
+        await Test(123.456m);
+        await Test(-123.456m);
+        await Test(decimal.MinValue);
+        await Test(decimal.MaxValue);
+        await Test(new BigDecimal(long.MinValue, 10));
+        await Test(new BigDecimal(long.MaxValue, 20));
+
+        await Test(new byte[] { 1, 255 });
+        await Test("Ignite 🔥");
+        await Test(LocalDate.MinIsoValue);
+        await Test(LocalTime.Noon);
+        await Test(LocalDateTime.MaxIsoValue);
+        await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
+
+        await Test(Guid.Empty);
+        await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
+        await Test(Guid.NewGuid());
+
+        async Task Test(object val)
+        {
+            var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
+            var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
+
+            var jobExec = await Client.Compute.SubmitAsync(
+                jobTarget,
+                jobDesc,
+                val);
+
+            var result = await jobExec.GetResultAsync();
+
+            Assert.AreEqual(val, result);
+        }
+    }
+
+    [Test]
     public async Task TestNonExistentJob()
     {
-        var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
+        var target = JobTarget.Node(await GetClusterNodeAsync());
         var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "MyNamespace.MyJob");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
@@ -139,7 +190,7 @@ public class PlatformComputeTests : IgniteTestsBase
         return new DeploymentUnit(unitId0, unitVersion0);
     }
 
-    private async Task<IClusterNode> GetClusterNodeAsync(string suffix)
+    private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
         var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
 
