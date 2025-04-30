@@ -78,23 +78,16 @@ internal static class ComputeJobExecutor
         PooledBuffer argBuf,
         PooledArrayBuffer resBuf)
     {
-        JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
+        // Unload assemblies after job execution.
+        // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
+        using JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
+        IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
 
-        try
-        {
-            IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
+        resBuf.MessageWriter.Write(0); // Response flags: success.
 
-            resBuf.MessageWriter.Write(0); // Response flags: success.
-
-            // TODO: Job exec context.
-            // TODO IGNITE-25153: Cancellation.
-            await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
-        }
-        finally
-        {
-            // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
-            jobLoadCtx.AssemblyLoadContext.Unload();
-        }
+        // TODO IGNITE-25116: IJobExecutionContext.
+        // TODO IGNITE-25153: Cancellation.
+        await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
     }
 
     private record JobExecuteRequest(long JobId, DeploymentUnitPaths DeploymentUnitPaths, string JobClassName);

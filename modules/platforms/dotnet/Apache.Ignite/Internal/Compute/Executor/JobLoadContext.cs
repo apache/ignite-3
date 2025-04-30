@@ -26,7 +26,7 @@ using Ignite.Compute;
 /// Job load context.
 /// </summary>
 /// <param name="AssemblyLoadContext">Assembly load context.</param>
-internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext)
+internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadContext) : IDisposable
 {
     /// <summary>
     /// Gets or creates a job delegate for the specified type name.
@@ -35,6 +35,9 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <returns>Job execution delegate.</returns>
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
         CreateJobWrapper(typeName, AssemblyLoadContext);
+
+    /// <inheritdoc/>
+    public void Dispose() => AssemblyLoadContext.Unload();
 
     private static IComputeJobWrapper CreateJobWrapper(string typeName, AssemblyLoadContext ctx)
     {

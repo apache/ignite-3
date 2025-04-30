@@ -33,10 +33,11 @@ public class DeploymentUnitLoaderTests
     [Test]
     public async Task TestSingleAssemblyDeploymentUnit()
     {
-        var tempFle = $"{Path.GetTempFileName()}.dll";
+        using var tempDir = new TempDir();
+        var tempFile = Path.Combine(tempDir.Path, "TestSingleAssemblyDeploymentUnit.dll");
 
         AssemblyGenerator.EmitClassLib(
-            tempFle,
+            tempFile,
             @"
                     using System;
                     using System.Threading;
@@ -52,7 +53,10 @@ public class DeploymentUnitLoaderTests
                         }
                     }");
 
-        DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempFle]));
+        using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
+        IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper("TestNamespace.EchoJob");
+
+        // var jobRes = await jobWrapper.ExecuteAsync(null!,)
 
         await Task.Delay(1);
     }
