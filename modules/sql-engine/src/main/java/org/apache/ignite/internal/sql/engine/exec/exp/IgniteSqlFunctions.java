@@ -25,10 +25,7 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.time.LocalTime;
 import java.util.UUID;
-import org.apache.calcite.DataContext;
-import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
@@ -523,15 +520,6 @@ public class IgniteSqlFunctions {
     /** CAST(VARCHAR AS VARBINARY). */
     public static ByteString toByteString(String s) {
         return s == null ? null : new ByteString(s.getBytes(Commons.typeFactory().getDefaultCharset()));
-    }
-
-    public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal(LocalTime.now(), NativeTypeSpec.TIME);
-    }
-
-    /** CURRENT_TIMESTAMP. */
-    public static long currentTimeStamp(DataContext ctx) {
-        return Variable.CURRENT_TIMESTAMP.get(ctx);
     }
 
     /** LEAST2. */
