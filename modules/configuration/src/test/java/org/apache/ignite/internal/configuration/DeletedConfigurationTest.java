@@ -1,11 +1,14 @@
 package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.configuration.annotation.ConfigurationType.LOCAL;
+import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoconSource;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
+import com.typesafe.config.ConfigFactory;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.HashMap;
@@ -17,9 +20,11 @@ import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
+import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
@@ -73,6 +78,21 @@ class DeletedConfigurationTest {
         assertThat(storageData.size(), is(1));
 
         assertThat(storageData.get(VALID_KEY), Matchers.equalTo("value"));
+    }
+
+    @Test
+    public void testUserAddsDeletedValue() {
+        ConfigurationChanger changer = createChanger(DeletedTestConfiguration.KEY);
+
+        changer.start();
+
+        String config = DELETED_INDIVIDUAL_PROPERTY + " = \"value\", " + VALID_KEY + " = \"3\"";
+
+        ConfigurationSource change = hoconSource(ConfigFactory.parseString(config).root());
+
+        assertThat(changer.change(change), willCompleteSuccessfully());
+
+        assertThat(storage.readLatest(VALID_KEY), willBe(3));
     }
 
     private static Stream<Map<String, ? extends Serializable>> deletedPropertiesProvider() {

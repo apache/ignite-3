@@ -29,7 +29,7 @@ class DeletedKeysFilter {
                 .collect(Collectors.toList());
 
         List<String> ignoredKeys = values.keySet().stream()
-                .filter(serializable -> isDeleted(serializable, patterns))
+                .filter(key -> isDeleted(key, patterns))
                 .collect(Collectors.toList());
 
         for (String key : ignoredKeys) {
