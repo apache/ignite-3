@@ -25,6 +25,7 @@ using Ignite.Compute;
 using Network;
 using NodaTime;
 using NUnit.Framework;
+using TestHelpers;
 
 /// <summary>
 /// Tests for platform compute (non-Java jobs).
