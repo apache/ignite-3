@@ -82,21 +82,21 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
                 forTypePair(DatetimePair.TIME_0_TIME_0)
                         .opMatches(ofTypeWithoutCast(Types.TIME_0)),
-                forTypePair(DatetimePair.TIME_0_TIME_1)
+                forTypePair(DatetimePair.TIME_0_TIME_3)
                         .opMatches(ofTypeWithoutCast(Types.TIME_0)),
                 forTypePair(DatetimePair.TIME_0_TIME_9)
                         .opMatches(ofTypeWithoutCast(Types.TIME_0)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_0)
+                forTypePair(DatetimePair.TIME_3_TIME_0)
                         .opMatches(ofTypeWithoutCast(Types.TIME_3)),
-                forTypePair(DatetimePair.TIME_1_TIME_1)
+                forTypePair(DatetimePair.TIME_3_TIME_3)
                         .opMatches(ofTypeWithoutCast(Types.TIME_3)),
-                forTypePair(DatetimePair.TIME_1_TIME_9)
+                forTypePair(DatetimePair.TIME_3_TIME_9)
                         .opMatches(ofTypeWithoutCast(Types.TIME_3)),
 
                 forTypePair(DatetimePair.TIME_9_TIME_0)
                         .opMatches(ofTypeWithoutCast(Types.TIME_9)),
-                forTypePair(DatetimePair.TIME_9_TIME_1)
+                forTypePair(DatetimePair.TIME_9_TIME_3)
                         .opMatches(ofTypeWithoutCast(Types.TIME_9)),
                 forTypePair(DatetimePair.TIME_9_TIME_9)
                         .opMatches(ofTypeWithoutCast(Types.TIME_9)),
@@ -106,7 +106,7 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_0)),
-                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_3)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_0)),
                 forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_0)),
@@ -119,24 +119,24 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
                 // TIMESTAMP 1
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_0)
                         .opMatches(castTo(Types.TIMESTAMP_3)),
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_3)
                         .opMatches(castTo(Types.TIMESTAMP_3)),
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_9)
                         .opMatches(castTo(Types.TIMESTAMP_3)),
 
                 // TIMESTAMP 3
 
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
-                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_3)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
                 forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
@@ -165,32 +165,32 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
                 // TIMESTAMP LTZ 1
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_0)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)),
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_3)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)),
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_9)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3)),
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3)),
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3)),
 
                 // TIMESTAMP LTZ 3
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_0)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)),
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_3)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)),
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_9)
                         .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)),
 
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_0)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)),
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_3)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)),
                 forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9)
                         .opMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9))
@@ -202,16 +202,16 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
         // TIME
 
-        diff.put(DatetimePair.TIME_1_TIME_0, forTypePair(DatetimePair.TIME_1_TIME_0)
+        diff.put(DatetimePair.TIME_3_TIME_0, forTypePair(DatetimePair.TIME_3_TIME_0)
                 .opMatches(castTo(Types.TIME_3)));
-        diff.put(DatetimePair.TIME_1_TIME_1, forTypePair(DatetimePair.TIME_1_TIME_1)
+        diff.put(DatetimePair.TIME_3_TIME_3, forTypePair(DatetimePair.TIME_3_TIME_3)
                 .opMatches(castTo(Types.TIME_3)));
-        diff.put(DatetimePair.TIME_1_TIME_9, forTypePair(DatetimePair.TIME_1_TIME_9)
+        diff.put(DatetimePair.TIME_3_TIME_9, forTypePair(DatetimePair.TIME_3_TIME_9)
                 .opMatches(castTo(Types.TIME_3)));
 
         diff.put(DatetimePair.TIME_9_TIME_0, forTypePair(DatetimePair.TIME_9_TIME_0)
                 .opMatches(castTo(Types.TIME_9)));
-        diff.put(DatetimePair.TIME_9_TIME_1, forTypePair(DatetimePair.TIME_9_TIME_1)
+        diff.put(DatetimePair.TIME_9_TIME_3, forTypePair(DatetimePair.TIME_9_TIME_3)
                 .opMatches(castTo(Types.TIME_9)));
         diff.put(DatetimePair.TIME_9_TIME_9, forTypePair(DatetimePair.TIME_9_TIME_9)
                 .opMatches(castTo(Types.TIME_9)));
@@ -220,22 +220,22 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
 
         diff.put(DatetimePair.TIMESTAMP_0_TIMESTAMP_0, forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_0)
                 .opMatches(castTo(Types.TIMESTAMP_0)));
-        diff.put(DatetimePair.TIMESTAMP_0_TIMESTAMP_1, forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
+        diff.put(DatetimePair.TIMESTAMP_0_TIMESTAMP_3, forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_3)
                 .opMatches(castTo(Types.TIMESTAMP_0)));
         diff.put(DatetimePair.TIMESTAMP_0_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_9)
                 .opMatches(castTo(Types.TIMESTAMP_0)));
 
 
-        diff.put(DatetimePair.TIMESTAMP_1_TIMESTAMP_0, forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
+        diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_0, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                 .opMatches(castTo(Types.TIMESTAMP_3)));
-        diff.put(DatetimePair.TIMESTAMP_1_TIMESTAMP_1, forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_1)
+        diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_3, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                 .opMatches(castTo(Types.TIMESTAMP_3)));
-        diff.put(DatetimePair.TIMESTAMP_1_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
+        diff.put(DatetimePair.TIMESTAMP_3_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_9)
                 .opMatches(castTo(Types.TIMESTAMP_3)));
 
         diff.put(DatetimePair.TIMESTAMP_9_TIMESTAMP_0, forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_0)
                 .opMatches(castTo(Types.TIMESTAMP_9)));
-        diff.put(DatetimePair.TIMESTAMP_9_TIMESTAMP_1, forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_1)
+        diff.put(DatetimePair.TIMESTAMP_9_TIMESTAMP_3, forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_3)
                 .opMatches(castTo(Types.TIMESTAMP_9)));
         diff.put(DatetimePair.TIMESTAMP_9_TIMESTAMP_9, forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_9)
                 .opMatches(castTo(Types.TIMESTAMP_9)));
@@ -250,16 +250,16 @@ public class DateTimeInsertSourcesTypeCoercionTest extends BaseTypeCoercionTest 
         diff.put(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_0_TIMESTAMP_WLTZ_9)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_0)));
 
-        diff.put(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0, forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
+        diff.put(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_0, forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_0)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)));
-        diff.put(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1, forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1)
+        diff.put(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3, forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)));
-        diff.put(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
+        diff.put(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_3)));
 
         diff.put(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_0, forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_0)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)));
-        diff.put(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1, forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1)
+        diff.put(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_3, forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_3)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)));
         diff.put(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9, forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_9)
                 .opMatches(castTo(Types.TIMESTAMP_WLTZ_9)));

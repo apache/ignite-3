@@ -67,7 +67,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIME_0_TIME_1)
+                forTypePair(DatetimePair.TIME_0_TIME_3)
                         .firstOpMatches(castTo(Types.TIME_3))
                         .secondOpBeSame(),
 
@@ -75,15 +75,15 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIME_9))
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIME_1_TIME_1)
+                forTypePair(DatetimePair.TIME_3_TIME_3)
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIME_1_TIME_0)
+                forTypePair(DatetimePair.TIME_3_TIME_0)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIME_3)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_9)
+                forTypePair(DatetimePair.TIME_3_TIME_9)
                         .firstOpMatches(castTo(Types.TIME_9))
                         .secondOpBeSame(),
 
@@ -95,7 +95,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIME_9)),
 
-                forTypePair(DatetimePair.TIME_9_TIME_1)
+                forTypePair(DatetimePair.TIME_9_TIME_3)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIME_9)),
 
@@ -103,7 +103,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
@@ -123,27 +123,27 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_3)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
@@ -155,7 +155,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_3)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
@@ -195,27 +195,27 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3)
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_WLTZ_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_WLTZ_9))
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_0)
                         .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpBeSame(),
 
@@ -227,7 +227,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_WLTZ_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_3)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_WLTZ_9)),
 
@@ -235,7 +235,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
@@ -274,7 +274,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIME_0_TIME_1)
+                forTypePair(DatetimePair.TIME_0_TIME_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
@@ -282,15 +282,15 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_1)
+                forTypePair(DatetimePair.TIME_3_TIME_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_0)
+                forTypePair(DatetimePair.TIME_3_TIME_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_9)
+                forTypePair(DatetimePair.TIME_3_TIME_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
@@ -302,7 +302,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
-                forTypePair(DatetimePair.TIME_9_TIME_1)
+                forTypePair(DatetimePair.TIME_9_TIME_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_0))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_0)),
 
@@ -310,7 +310,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
@@ -330,27 +330,27 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM)),
 
@@ -362,7 +362,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
@@ -402,27 +402,27 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_0)
                         .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
@@ -434,7 +434,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_DYN_PARAM)),
 
@@ -442,7 +442,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_DYN_PARAM))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_DYN_PARAM)),
 
@@ -479,7 +479,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIME_0_TIME_1)
+                forTypePair(DatetimePair.TIME_0_TIME_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
 
@@ -487,15 +487,15 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_9)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_1)
+                forTypePair(DatetimePair.TIME_3_TIME_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_0)
+                forTypePair(DatetimePair.TIME_3_TIME_0)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_3)),
 
-                forTypePair(DatetimePair.TIME_1_TIME_9)
+                forTypePair(DatetimePair.TIME_3_TIME_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_9)),
 
@@ -507,7 +507,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_9)),
 
-                forTypePair(DatetimePair.TIME_9_TIME_1)
+                forTypePair(DatetimePair.TIME_9_TIME_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIME_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIME_9)),
 
@@ -515,7 +515,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_0_TIMESTAMP_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
@@ -535,27 +535,27 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_3)
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_0)
                         .firstOpBeSame()
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_3)
                         .firstOpBeSame()
                         .secondOpMatches(castTo(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_3_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
                         .secondOpMatches(castTo(Types.TIMESTAMP_9)),
 
@@ -563,7 +563,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_9_TIMESTAMP_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
@@ -607,27 +607,27 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_3)
                         .firstOpBeSame()
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_0)
                         .firstOpBeSame()
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_WLTZ_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_WLTZ_9)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_0)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_0)
                         .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_3)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_3))
                         .secondOpBeSame(),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_1_TIMESTAMP_9)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_3_TIMESTAMP_9)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
@@ -639,7 +639,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_WLTZ_3)
                         .firstOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_WLTZ_9)),
 
@@ -647,7 +647,7 @@ public class DateTimeCaseTypeCoercionTest extends BaseTypeCoercionTest {
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
-                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_1)
+                forTypePair(DatetimePair.TIMESTAMP_WLTZ_9_TIMESTAMP_3)
                         .firstOpMatches(castTo(Types.TIMESTAMP_9))
                         .secondOpMatches(ofTypeWithoutCast(Types.TIMESTAMP_9)),
 
