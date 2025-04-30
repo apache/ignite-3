@@ -32,6 +32,7 @@ public static class DotNetJobs
     public static readonly JobDescriptor<int, int> AddOne = GetDesc(new AddOneJob());
     public static readonly JobDescriptor<int, int> NoCtor = GetDesc(new NoCtorJob(1));
     public static readonly JobDescriptor<object?, object?> Echo = GetDesc(new EchoJob());
+    public static readonly JobDescriptor<object?, object?> Error = GetDesc(new ErrorJob());
 
     private static JobDescriptor<TArg, TRes> GetDesc<TArg, TRes>(IComputeJob<TArg, TRes> job) =>
         new(TempJobPrefix + job.GetType().AssemblyQualifiedName!);
@@ -46,6 +47,12 @@ public static class DotNetJobs
     {
         public ValueTask<object?> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult(arg);
+    }
+
+    public class ErrorJob : IComputeJob<object?, object?>
+    {
+        public ValueTask<object?> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken) =>
+            ValueTask.FromException<object?>(new ArithmeticException("Test exception: " + arg));
     }
 
     public class NoCtorJob : IComputeJob<int, int>

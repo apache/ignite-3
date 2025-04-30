@@ -96,12 +96,12 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestJobError()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync(string.Empty));
-        var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "TODO");
+        var desc = DotNetJobs.Error with { DeploymentUnits = [_defaultTestUnit] };
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        Assert.AreEqual("Platform jobs are not supported yet.", ex.Message);
+        Assert.AreEqual("Test exception: arg", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
