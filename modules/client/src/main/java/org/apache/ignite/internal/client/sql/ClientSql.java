@@ -164,15 +164,25 @@ public class ClientSql implements IgniteSql {
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return executeBatch(transaction, new StatementImpl(dmlQuery), batch);
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    ) {
+        return executeBatch(transaction, cancellationToken, new StatementImpl(dmlQuery), batch);
     }
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    ) {
         try {
-            return executeBatchAsync(transaction, dmlStatement, batch).join();
+            return executeBatchAsync(transaction, cancellationToken, dmlStatement, batch).join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(ExceptionUtils.copyExceptionWithCause(e));
         }
@@ -286,13 +296,23 @@ public class ClientSql implements IgniteSql {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return executeBatchAsync(transaction, new StatementImpl(query), batch);
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    ) {
+        return executeBatchAsync(transaction, cancellationToken, new StatementImpl(query), batch);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
         PayloadWriter payloadWriter = w -> {
             writeTx(transaction, w, null);
 
@@ -307,6 +327,10 @@ public class ClientSql implements IgniteSql {
             w.out().packString(statement.query());
             w.out().packBatchedArgumentsAsBinaryTupleArray(batch);
             w.out().packLong(ch.observableTimestamp().get().longValue());
+
+            if (cancellationToken != null) {
+                addCancelAction(cancellationToken, w);
+            }
         };
 
         PayloadReader<long[]> payloadReader = r -> {
@@ -321,6 +345,18 @@ public class ClientSql implements IgniteSql {
 
             return unpacker.unpackLongArray(); // Update counters.
         };
+
+
+        if (transaction != null) {
+            try {
+                //noinspection resource
+                return ClientLazyTransaction.ensureStarted(transaction, ch, null)
+                        .thenCompose(tx -> tx.channel().serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader))
+                        .exceptionally(ClientSql::handleException);
+            } catch (TransactionException e) {
+                return CompletableFuture.failedFuture(new SqlException(e.traceId(), e.code(), e.getMessage(), e));
+            }
+        }
 
         return ch.serviceAsync(ClientOp.SQL_EXEC_BATCH, payloadWriter, payloadReader);
     }

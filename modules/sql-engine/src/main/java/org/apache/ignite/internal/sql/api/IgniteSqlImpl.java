@@ -263,14 +263,24 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return sync(executeBatchAsync(transaction, dmlQuery, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    ) {
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlQuery, batch));
     }
 
     /** {@inheritDoc} */
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        return sync(executeBatchAsync(transaction, dmlStatement, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    ) {
+        return sync(executeBatchAsync(transaction, cancellationToken, dmlStatement, batch));
     }
 
     /** {@inheritDoc} */
@@ -395,13 +405,23 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return executeBatchAsync(transaction, createStatement(query), batch);
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    ) {
+        return executeBatchAsync(transaction, cancellationToken, createStatement(query), batch);
     }
 
     /** {@inheritDoc} */
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
         if (!busyLock.enterBusy()) {
             return CompletableFuture.failedFuture(nodeIsStoppingException());
         }
@@ -413,6 +433,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                     queryProcessor,
                     observableTimestampTracker,
                     (InternalTransaction) transaction,
+                    cancellationToken,
                     statement.query(),
                     batch,
                     properties,
@@ -447,6 +468,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
             QueryProcessor queryProcessor,
             HybridTimestampTracker observableTimestampTracker,
             @Nullable InternalTransaction transaction,
+            @Nullable CancellationToken cancellationToken,
             String query,
             BatchedArguments batch,
             SqlProperties properties,
@@ -471,7 +493,7 @@ public class IgniteSqlImpl implements IgniteSql, IgniteComponent {
                 }
 
                 try {
-                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, null, query, args)
+                    return queryProcessor.queryAsync(properties0, observableTimestampTracker, transaction, cancellationToken, query, args)
                             .thenCompose(cursor -> {
                                 if (!enterBusy.get()) {
                                     cursor.closeAsync();
