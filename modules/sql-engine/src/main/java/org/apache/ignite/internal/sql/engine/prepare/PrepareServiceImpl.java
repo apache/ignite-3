@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.sql.engine.util.Commons.fastQueryOptimi
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
 
-import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -220,19 +219,43 @@ public class PrepareServiceImpl implements PrepareService {
     public CompletableFuture<QueryPlan> prepareAsync(
             ParsedResult parsedResult, SqlOperationContext operationContext
     ) {
-        CompletableFuture<QueryPlan> result;
-
         String schemaName = operationContext.defaultSchemaName();
 
         assert schemaName != null;
 
+        boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
+
         long timestamp = operationContext.operationTime().longValue();
+        int catalogVersion = schemaManager.catalogVersion(timestamp); 
+
+        CacheKey key = createCacheKey(parsedResult, catalogVersion, schemaName, operationContext.parameters());
+
+        CompletableFuture<QueryPlan> planFuture = cache.get(key);
+
+        if (planFuture != null) {
+            return planFuture.thenApply((plan) -> {
+                // We assume that non-multi-step plans is always better then a multi-step plan.
+                // or fast query optimization is disabled return a regular plan.
+                if (!(plan instanceof MultiStepPlan)) {
+                    return plan;
+                } else {
+                    MultiStepPlan regularPlan = (MultiStepPlan) plan;
+                    QueryPlan fastPlan = regularPlan.fastPlan();
+
+                    if (fastPlan != null && !explicitTx) {
+                        return fastPlan;
+                    } else {
+                        return regularPlan;
+                    }
+                }
+            });
+        }
+
         IgniteSchemas rootSchema = schemaManager.schemas(timestamp);
         assert rootSchema != null : "Root schema does not exist";
 
         QueryCancel cancelHandler = operationContext.cancel();
         assert cancelHandler != null;
-        boolean explicitTx = operationContext.txContext() != null && operationContext.txContext().explicitTx() != null;
 
         SchemaPlus schemaPlus = rootSchema.root();
         SchemaPlus defaultSchema = schemaPlus.getSubSchema(schemaName);
@@ -252,9 +275,7 @@ public class PrepareServiceImpl implements PrepareService {
                 .explicitTx(explicitTx)
                 .build();
 
-        result = prepareAsync0(parsedResult, planningContext);
-
-        return result.exceptionally(ex -> {
+        return prepareAsync0(parsedResult, planningContext).exceptionally(ex -> {
                     Throwable th = ExceptionUtils.unwrapCause(ex);
 
                     throw new CompletionException(SqlExceptionMapperUtil.mapToPublicSqlException(th));
@@ -352,30 +373,6 @@ public class PrepareServiceImpl implements PrepareService {
             ParsedResult parsedResult,
             PlanningContext ctx
     ) {
-
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
-
-        if (f != null) {
-            return f.thenApply((plan) -> {
-                // We assume that non-multi-step plans is always better then a multi-step plan.
-                // or fast query optimization is disabled return a regular plan.
-                boolean fastQueryOptEnabled = fastQueryOptimizationEnabled();
-
-                if (!(plan instanceof MultiStepPlan) || !fastQueryOptEnabled) {
-                    return plan;
-                } else {
-                    MultiStepPlan regularPlan = (MultiStepPlan) plan;
-                    QueryPlan fastPlan = regularPlan.fastPlan();
-
-                    if (fastPlan != null && !ctx.explicitTx()) {
-                        return fastPlan;
-                    } else {
-                        return regularPlan;
-                    }
-                }
-            });
-        }
-
         // First validate statement
 
         CompletableFuture<ValidStatement<ValidationResult>> validFut = CompletableFuture.supplyAsync(() -> {
@@ -433,10 +430,6 @@ public class PrepareServiceImpl implements PrepareService {
                 );
 
                 logPlan(parsedResult.originalQuery(), plan);
-
-                if (LOG.isDebugEnabled()) {
-                    LOG.debug("Plan prepared: \n{}\n\n{}", parsedResult.originalQuery(), plan.explain());
-                }
 
                 return plan;
             }, planningPool));
@@ -509,12 +502,6 @@ public class PrepareServiceImpl implements PrepareService {
     }
 
     private CompletableFuture<QueryPlan> prepareDml(ParsedResult parsedResult, PlanningContext ctx) {
-        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
-        CompletableFuture<QueryPlan> f = getPlanIfParameterHaveValues(parsedResult, ctx);
-        if (f != null) {
-            return f;
-        }
-
         SqlNode sqlNode = parsedResult.parsedTree();
 
         assert single(sqlNode);
@@ -619,83 +606,23 @@ public class PrepareServiceImpl implements PrepareService {
         return plan;
     }
 
-    /**
-     * Tries to find a prepared plan if all parameters are set.
-     *
-     * <p>This method relies on the fact that if parameter is specified, it's type does not change during the validation.
-     * Given the following query: SELECT * FROM t WHERE int_key = ?0, the validator assigns type {@code INTEGER} to ?0,
-     * regardless whether prepare is called with parameter values (type hints) or not:
-     * <ul>
-     *     <li>If parameter value (type hint) is int, then the validator returns the same plan</li>
-     *     <li>if type hint is not an int, then the validator return different plan with different parameter metadata.</li>
-     * </ul>
-     *
-     * <p>Because of that we can optimistically create a cache key, if all parameters are set.
-     *
-     * <p>If some parameters are not, always returns {@code null}.
-     */
-    @Nullable
-    private CompletableFuture<QueryPlan> getPlanIfParameterHaveValues(ParsedResult parsedResult, PlanningContext ctx) {
-        // If a caller passes all the parameters, then get parameter types and check to see whether a plan future already exists.
+    private static CacheKey createCacheKey(
+            ParsedResult parsedResult, int catalogVersion, String schemaName, Object[] params
+    ) {
+        ColumnType[] paramTypes = new ColumnType[params.length];
 
-        CacheKey cacheKey = tryCreateCacheKeyFromParameterValues(parsedResult, ctx);
-        if (cacheKey != null) {
-            CompletableFuture<QueryPlan> f = cache.get(cacheKey);
-            if (f != null) {
-                return f;
+        int idx = 0;
+        for (Object param : params) {
+            ColumnType columnType;
+            if (param != null) {
+                columnType = NativeTypeSpec.fromObject(param).asColumnType();
+            } else {
+                columnType = ColumnType.NULL;
             }
-        }
-        return null;
-    }
-
-    @Nullable
-    private static CacheKey tryCreateCacheKeyFromParameterValues(ParsedResult parsedResult, PlanningContext ctx) {
-
-        Int2ObjectMap<Object> parameters = ctx.parameters();
-
-        int maxParamNum = 0;
-        for (int key : parameters.keySet()) {
-            maxParamNum = Math.max(maxParamNum, key);
+            paramTypes[idx++] = columnType;
         }
 
-        for (int i = 0; i < maxParamNum; i++) {
-            if (!parameters.containsKey(i)) {
-                // Some parameters are not specified,
-                // we do not known the their type and we can not create a cache key.
-                return null;
-            }
-        }
-
-        // If parameters type are known, they do not change and we can create a cache key.
-        // See IgniteSqlValidator::validateInferredDynamicParameters
-
-        boolean distributed = distributionPresent(ctx.config().getTraitDefs());
-        int catalogVersion = ctx.catalogVersion();
-        ColumnType[] paramTypes;
-
-        if (parameters.isEmpty()) {
-            paramTypes = new ColumnType[0];
-        } else {
-            ColumnType[] result = new ColumnType[parameters.size()];
-
-            for (Int2ObjectMap.Entry<Object> entry : parameters.int2ObjectEntrySet()) {
-                Object value = entry.getValue();
-                ColumnType columnType;
-                if (value != null) {
-                    columnType = NativeTypeSpec.fromObject(value).asColumnType();
-                } else {
-                    columnType = ColumnType.NULL;
-                }
-                result[entry.getIntKey()] = columnType;
-            }
-
-            paramTypes = result;
-        }
-
-        String schemaName = ctx.schemaName();
-        assert schemaName != null;
-
-        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), distributed, paramTypes);
+        return new CacheKey(catalogVersion, schemaName, parsedResult.normalizedQuery(), true /* distributed */, paramTypes);
     }
 
     private static CacheKey createCacheKeyFromParameterMetadata(ParsedResult parsedResult, PlanningContext ctx,
