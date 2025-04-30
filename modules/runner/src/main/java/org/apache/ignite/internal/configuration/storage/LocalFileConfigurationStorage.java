@@ -329,6 +329,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
                 null,
                 ConverterToMapVisitor.builder()
                         .includeInternal(false)
+                        .includeDeprecated(false)
                         .skipEmptyValues(true)
                         .maskSecretValues(false)
                         .build()
