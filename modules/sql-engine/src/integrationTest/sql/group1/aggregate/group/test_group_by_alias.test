@@ -19,7 +19,7 @@ query IR
 SELECT POWER(ROUND(ABS(SQRT(i*i)), 1), 2) % 2 as alias, SUM(i) FROM integers GROUP BY alias ORDER BY alias;
 ----
 0	2
-1.000000000000000	4
+1	4
 NULL	NULL
 
 # use alias in HAVING clause
