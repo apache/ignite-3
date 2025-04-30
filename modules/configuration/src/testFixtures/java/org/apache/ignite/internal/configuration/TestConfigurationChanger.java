@@ -42,9 +42,10 @@ public class TestConfigurationChanger extends ConfigurationChanger {
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator validator,
-            ConfigurationMigrator migrator
+            ConfigurationMigrator migrator,
+            Collection<String> deletedPrefixes
     ) {
-        super(noOpListener(), rootKeys, storage, validator, migrator);
+        super(noOpListener(), rootKeys, storage, validator, migrator, deletedPrefixes);
 
         this.generator = generator;
     }

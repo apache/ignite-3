@@ -1223,8 +1223,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(NodeConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
-                    new TestConfigurationValidator(),
-                    changer -> {}
+                    new TestConfigurationValidator()
             );
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -1377,8 +1376,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterCfgGenerator,
                     ConfigurationValidatorImpl.withDefaultValidators(
                             clusterCfgGenerator, Set.of(new NonNegativeIntegerNumberSystemPropertyValueValidator(REBALANCE_RETRY_DELAY_MS))
-                    ),
-                    changer -> {}
+                    )
             );
 
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

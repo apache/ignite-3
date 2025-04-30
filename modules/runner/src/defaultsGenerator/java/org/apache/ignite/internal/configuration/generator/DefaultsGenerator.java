@@ -95,7 +95,14 @@ public class DefaultsGenerator {
 
         ConfigurationUpdateListener empty = (oldRoot, newRoot, storageRevision, notificationNumber) -> nullCompletedFuture();
 
-        return new ConfigurationChanger(empty, modules.local().rootKeys(), storage, configurationValidator, c -> {}) {
+        return new ConfigurationChanger(
+                empty,
+                modules.local().rootKeys(),
+                storage,
+                configurationValidator,
+                c -> {},
+                modules.local().deletedPrefixes()
+        ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return localConfigurationGenerator.instantiateNode(rootKey.schemaClass());

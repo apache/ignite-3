@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration registry.
@@ -61,6 +63,17 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
+    /** Constructor. */
+    @TestOnly
+    public ConfigurationRegistry(
+            Collection<RootKey<?, ?>> rootKeys,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
+    ) {
+        this(rootKeys, storage, generator, configurationValidator, c -> {}, Set.of());
+    }
+
     /**
      * Constructor.
      */
@@ -69,11 +82,12 @@ public class ConfigurationRegistry implements IgniteComponent {
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
-            ConfigurationMigrator migrator
+            ConfigurationMigrator migrator,
+            Collection<String> deletedPrefixes
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator, migrator) {
+        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator, migrator, deletedPrefixes) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());

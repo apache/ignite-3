@@ -227,7 +227,8 @@ public class ConfigurationChangerTest {
                 storage,
                 generator,
                 ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator)),
-                change -> {}
+                change -> {},
+                Set.of()
         );
 
         changer2.start();
@@ -608,7 +609,8 @@ public class ConfigurationChangerTest {
                 storage,
                 generator,
                 new TestConfigurationValidator(),
-                change -> {}
+                change -> {},
+                Set.of()
         );
     }
 

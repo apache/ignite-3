@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.configuration.DeletedKeysFilter.ignoreDeleted;
 import static org.apache.ignite.internal.configuration.direct.KeyPathNode.INTERNAL_IDS;
 import static org.apache.ignite.internal.configuration.tree.InnerNode.INJECTED_NAME;
 import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_ID;
@@ -44,6 +45,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -96,6 +98,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** Configuration migrator. */
     private final ConfigurationMigrator migrator;
+
+    private final Collection<String> deletedPrefixes;
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
@@ -150,6 +154,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /** Full storage data. */
         private final Data data;
 
+        private final Collection<String> ignoredKeys;
+
         /** Future that signifies update of current configuration. */
         private final CompletableFuture<Void> changeFuture = new CompletableFuture<>();
 
@@ -159,11 +165,13 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          * @param rootsWithoutDefaults Forest without the defaults
          * @param roots Forest with the defaults filled in
          * @param data Configuration storage state.
+         * @param ignoredKeys Keys that were deleted, but still present in configuration.
          */
-        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, Data data) {
+        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, Data data, Collection<String> ignoredKeys) {
             this.rootsWithoutDefaults = rootsWithoutDefaults;
             this.roots = roots;
             this.data = data;
+            this.ignoredKeys = ignoredKeys;
 
             makeImmutable(roots);
             makeImmutable(rootsWithoutDefaults);
@@ -214,7 +222,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationValidator configurationValidator,
-            ConfigurationMigrator migrator
+            ConfigurationMigrator migrator,
+            Collection<String> deletedPrefixes
     ) {
         checkConfigurationType(rootKeys, storage);
 
@@ -223,6 +232,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         this.configurationValidator = configurationValidator;
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
         this.migrator = migrator;
+        this.deletedPrefixes = deletedPrefixes;
     }
 
     /**
@@ -263,6 +273,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
 
         Map<String, ? extends Serializable> storageValues = data.values();
+
+        List<String> ignoredKeys = ignoreDeleted(storageValues, deletedPrefixes);
+
         long revision = data.changeId();
 
         SuperRoot superRoot = new SuperRoot(rootCreator());
@@ -299,22 +312,22 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         // The root WITHOUT the defaults is used to calculate which properties to write to the underlying storage,
         // in other words it allows us to persist the defaults from the code.
         // After the storage listener fires for the first time both roots are supposed to become equal.
-        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data);
+        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data, ignoredKeys);
 
         storage.registerConfigurationListener(configurationStorageListener());
 
-        persistDefaults();
+        persistModifiedConfiguration();
 
         started.set(true);
     }
 
     /**
-     * Persists default values to the storage.
+     * Persists configuration to the storage on startup.
      *
      * <p>Specifically, this method runs a check whether there are
-     * default values that are not persisted to the storage and writes them if there are any.
+     * default values that are not persisted to the storage and writes them if there are any, or deletes values that were deprecated.
      */
-    private void persistDefaults() {
+    private void persistModifiedConfiguration() {
         // If the storage version is 0, it indicates that the storage is empty.
         // In this case, write the defaults along with the initial configuration.
         ConfigurationSource cfgSrc = storageRoots.data.changeId() == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
@@ -621,7 +634,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             migrator.migrate(new SuperRootChangeImpl(changes));
 
             Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
+
             dropUnnecessarilyDeletedKeys(allChanges, localRoots);
+
+            for (String ignoredValue : localRoots.ignoredKeys) {
+                allChanges.put(ignoredValue, null);
+            }
 
             if (allChanges.isEmpty() && onStartup) {
                 // We don't want an empty storage update if this is the initialization changer.
@@ -670,6 +688,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     private ConfigurationStorageListener configurationStorageListener() {
         return changedEntries -> {
+            Map<String, ? extends Serializable> changedValues = changedEntries.values();
+
+            // We need to ignore deletion of deprecated values.
+            ignoreDeleted(changedValues, deletedPrefixes);
+
             StorageRoots oldStorageRoots = storageRoots;
 
             SuperRoot oldSuperRoot = oldStorageRoots.roots;
@@ -677,7 +700,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             SuperRoot newSuperRoot = oldSuperRoot.copy();
             SuperRoot newSuperNoDefaults = oldSuperRootNoDefaults.copy();
 
-            Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedEntries.values());
+            Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
             compressDeletedEntries(dataValuesPrefixMap);
 
@@ -686,7 +709,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             long newChangeId = changedEntries.changeId();
 
-            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
+            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries), Set.of());
 
             rwLock.writeLock().lock();
 

@@ -270,8 +270,7 @@ public class ItDistributedConfigurationPropertiesTest extends BaseIgniteAbstract
                     List.of(DistributedConfiguration.KEY),
                     distributedCfgStorage,
                     generator,
-                    new TestConfigurationValidator(),
-                    changer -> {}
+                    new TestConfigurationValidator()
             );
         }
 

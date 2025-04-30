@@ -98,7 +98,8 @@ public class LocalFileConfigurationStorageTest {
                 storage,
                 treeGenerator,
                 new ConfigurationValidatorImpl(treeGenerator, Set.of()),
-                change -> {}
+                change -> {},
+                Set.of()
         );
     }
 

@@ -18,12 +18,14 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.Collection;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration manager is responsible for handling configuration lifecycle and provides configuration API.
@@ -31,6 +33,16 @@ import org.apache.ignite.internal.manager.IgniteComponent;
 public class ConfigurationManager implements IgniteComponent {
     /** Configuration registry. */
     private final ConfigurationRegistry registry;
+
+    @TestOnly
+    public ConfigurationManager(
+            Collection<RootKey<?, ?>> rootKeys,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator
+    ) {
+        this(rootKeys, storage, generator, configurationValidator, changer -> {}, Set.of());
+    }
 
     /**
      * Constructor.
@@ -46,14 +58,16 @@ public class ConfigurationManager implements IgniteComponent {
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
-            ConfigurationMigrator migrator
+            ConfigurationMigrator migrator,
+            Collection<String> deletedPrefixes
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,
                 storage,
                 generator,
                 configurationValidator,
-                migrator
+                migrator,
+                deletedPrefixes
         );
     }
 

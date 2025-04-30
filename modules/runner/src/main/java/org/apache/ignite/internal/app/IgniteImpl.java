@@ -548,7 +548,8 @@ public class IgniteImpl implements Ignite {
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
                 localConfigurationValidator,
-                modules.local()::migrateDeprecatedConfigurations
+                modules.local()::migrateDeprecatedConfigurations,
+                modules.local().deletedPrefixes()
         );
 
         // Start local configuration to be able to read all local properties.
@@ -765,7 +766,8 @@ public class IgniteImpl implements Ignite {
                 cfgStorage,
                 distributedConfigurationGenerator,
                 distributedCfgValidator,
-                modules.distributed()::migrateDeprecatedConfigurations
+                modules.distributed()::migrateDeprecatedConfigurations,
+                modules.distributed().deletedPrefixes()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

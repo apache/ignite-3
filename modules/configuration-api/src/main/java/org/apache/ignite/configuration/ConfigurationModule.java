@@ -136,4 +136,14 @@ public interface ConfigurationModule {
     default void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
         // No-op.
     }
+
+    /**
+     * Returns a collection of prefixes, removed from configuration. Keys that match any of the prefixes
+     * in this collection will be deleted.
+     *
+     * @return A collection of prefixes of deleted keys.
+     */
+    default Collection<String> deletedPrefixes() {
+        return emptySet();
+    }
 }
