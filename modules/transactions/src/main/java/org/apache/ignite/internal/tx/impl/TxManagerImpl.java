@@ -964,7 +964,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             }
 
             @Override
-            public void processDelayedAck(@Nullable Throwable err) {
+            public void processDelayedAck(Object val, @Nullable Throwable err) {
                 cb.accept(err == null ? null : err);
             }
         };

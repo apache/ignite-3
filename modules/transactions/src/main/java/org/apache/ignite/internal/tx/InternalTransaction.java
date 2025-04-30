@@ -172,7 +172,13 @@ public interface InternalTransaction extends Transaction {
      */
     boolean isRolledBackWithTimeoutExceeded();
 
-    default void processDelayedAck(@Nullable Throwable err) {
+    /**
+     * Process delayed ack.
+     *
+     * @param val Value.
+     * @param err Error.
+     */
+    default void processDelayedAck(Object val, @Nullable Throwable err) {
         // No-op.
     }
 }
