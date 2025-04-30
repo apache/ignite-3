@@ -69,14 +69,16 @@ public static class ManagementApi
             throw new Exception($"Failed to deploy unit. Status code: {response.StatusCode}, Content: {resContent}");
         }
 
-        await TestUtils.WaitForConditionAsync(async () =>
-        {
-            var statuses = await GetUnitStatus(unitId);
+        await TestUtils.WaitForConditionAsync(
+            async () =>
+            {
+                var statuses = await GetUnitStatus(unitId);
 
-            return statuses != null &&
-                   statuses.Any(status => status.VersionToStatus.Any(
-                       v => v.Version == unitVersion && v.Status == "DEPLOYED"));
-        });
+                return statuses != null &&
+                       statuses.Any(status => status.VersionToStatus.Any(
+                           v => v.Version == unitVersion && v.Status == "DEPLOYED"));
+            },
+            timeoutMs: 3000);
     }
 
     public static async Task UnitUndeploy(DeploymentUnit unit)

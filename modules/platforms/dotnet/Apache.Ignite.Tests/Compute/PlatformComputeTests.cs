@@ -103,6 +103,12 @@ public class PlatformComputeTests : IgniteTestsBase
 
         Assert.AreEqual("Test exception: arg", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
+
+        StringAssert.Contains(
+            "System.ArithmeticException: Test exception: arg" +
+            "\n   at Apache.Ignite.Tests.Compute.DotNetJobs.ErrorJob.Throw(Object arg)" +
+            "\n   at Apache.Ignite.Tests.Compute.DotNetJobs.ErrorJob.ExecuteAsync",
+            ex.InnerException?.Message);
     }
 
     [Test]

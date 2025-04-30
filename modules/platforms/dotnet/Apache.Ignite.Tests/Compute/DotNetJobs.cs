@@ -51,8 +51,15 @@ public static class DotNetJobs
 
     public class ErrorJob : IComputeJob<object?, object?>
     {
-        public ValueTask<object?> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken) =>
-            ValueTask.FromException<object?>(new ArithmeticException("Test exception: " + arg));
+        public async ValueTask<object?> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken)
+        {
+            // Yield and throw from another method to check stack trace propagation.
+            await Task.Yield();
+            Throw(arg);
+            return arg;
+        }
+
+        private static void Throw(object? arg) => throw new ArithmeticException("Test exception: " + arg);
     }
 
     public class NoCtorJob : IComputeJob<int, int>
