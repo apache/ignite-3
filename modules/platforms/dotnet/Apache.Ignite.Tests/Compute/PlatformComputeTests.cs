@@ -46,11 +46,16 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
-        // TODO: Deploy tests assembly via REST API.
+        var deploymentUnit = await DeployTestsAssembly();
+
         var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
 
         // TODO: Test all arg types.
-        var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
+        var jobExec = await Client.Compute.SubmitAsync(
+            target,
+            DotNetJobs.Echo with { DeploymentUnits = [deploymentUnit] },
+            "Hello world!");
+
         var result = await jobExec.GetResultAsync();
 
         Assert.AreEqual("Hello world!", result);
@@ -106,20 +111,26 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual("Could not start .NET executor process in 2 attempts", ex.Message);
     }
 
+    private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
+    {
+        var testsDll = typeof(PlatformComputeTests).Assembly.Location;
+
+        var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
+        var unitVersion0 = unitVersion ?? "1.0.0";
+
+        await ManagementApi.UnitDeploy(
+            unitId: unitId0,
+            unitVersion: unitVersion0,
+            unitContent: [testsDll]);
+
+        return new DeploymentUnit(unitId0, unitVersion0);
+    }
+
     private async Task<IClusterNode> GetClusterNodeAsync(string suffix)
     {
         var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
 
         var nodes = await Client.GetClusterNodesAsync();
         return nodes.First(n => n.Name == nodeName);
-    }
-
-    private static async Task DeployTestsAssembly(string unitId, string unitVersion)
-    {
-        var currentDll = typeof(PlatformComputeTests).Assembly.Location;
-        var unitContent = new[] { currentDll };
-
-        var api = new ManagementApi(new Uri("localhost:10300"));
-
     }
 }

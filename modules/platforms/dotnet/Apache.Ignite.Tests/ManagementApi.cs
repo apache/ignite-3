@@ -27,12 +27,12 @@ using System.Threading.Tasks;
 /// <summary>
 /// Ignite management REST API wrapper.
 /// </summary>
-public class ManagementApi(Uri baseUrl)
+public static class ManagementApi
 {
-    public async Task<string> UnitDeploy(string unitId, string unitVersion, List<string> unitContent)
+    public static async Task UnitDeploy(string unitId, string unitVersion, IList<string> unitContent)
     {
         // See DeployUnitClient.java
-        var url = new UriBuilder(baseUrl)
+        var url = new UriBuilder("localhost:10300")
         {
             Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}"
         };
@@ -54,8 +54,12 @@ public class ManagementApi(Uri baseUrl)
         request.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         using var client = new HttpClient();
-        var response = await client.SendAsync(request);
+        HttpResponseMessage response = await client.SendAsync(request);
+        string resContent = await response.Content.ReadAsStringAsync();
 
-        return await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+        {
+            throw new Exception($"Failed to deploy unit. Status code: {response.StatusCode}, Content: {resContent}");
+        }
     }
 }
