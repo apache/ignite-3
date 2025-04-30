@@ -52,8 +52,9 @@ public class DeploymentUnitLoaderTests
                         }
                     }");
 
+        DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempFle]));
+
         await Task.Delay(1);
-        Assert.Fail();
     }
 
     [Test]

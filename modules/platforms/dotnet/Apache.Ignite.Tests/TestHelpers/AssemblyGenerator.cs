@@ -31,10 +31,14 @@ internal static class AssemblyGenerator
     {
         var assemblyName = Path.GetFileNameWithoutExtension(targetFile);
         var syntaxTree = CSharpSyntaxTree.ParseText(code);
+
+        var refDir = Path.GetDirectoryName(typeof(object).Assembly.Location)!;
+
         var references = new[]
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(ValueTask<>).Assembly.Location),
+            MetadataReference.CreateFromFile(Path.Combine(refDir, "System.dll")),
+            MetadataReference.CreateFromFile(Path.Combine(refDir, "System.Runtime.dll")),
             MetadataReference.CreateFromFile(typeof(IgniteClient).Assembly.Location),
         };
 
