@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Compute;
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -70,53 +71,25 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAllSupportedArgTypes()
+    [TestCaseSource(nameof(ArgTypesTestCases))]
+    public async Task TestAllSupportedArgTypes(object val)
     {
-        await Test(sbyte.MinValue);
-        await Test(sbyte.MaxValue);
-        await Test(short.MinValue);
-        await Test(short.MaxValue);
-        await Test(int.MinValue);
-        await Test(int.MaxValue);
-        await Test(long.MinValue);
-        await Test(long.MaxValue);
-        await Test(float.MinValue);
-        await Test(float.MaxValue);
-        await Test(double.MinValue);
-        await Test(double.MaxValue);
+        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
 
-        await Test(123.456m);
-        await Test(-123.456m);
-        await Test(decimal.MinValue);
-        await Test(decimal.MaxValue);
-        await Test(new BigDecimal(long.MinValue, 10));
-        await Test(new BigDecimal(long.MaxValue, 20));
+        var jobExec = await Client.Compute.SubmitAsync(
+            jobTarget,
+            jobDesc,
+            val);
 
-        await Test(new byte[] { 1, 255 });
-        await Test("Ignite 🔥");
-        await Test(LocalDate.MinIsoValue);
-        await Test(LocalTime.Noon);
-        await Test(LocalDateTime.MaxIsoValue);
-        await Test(Instant.FromUtc(2001, 3, 4, 5, 6));
+        var result = await jobExec.GetResultAsync();
 
-        await Test(Guid.Empty);
-        await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
-        await Test(Guid.NewGuid());
-
-        async Task Test(object val)
+        if (val is decimal dec)
         {
-            var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
-            var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
-
-            var jobExec = await Client.Compute.SubmitAsync(
-                jobTarget,
-                jobDesc,
-                val);
-
-            var result = await jobExec.GetResultAsync();
-
-            Assert.AreEqual(val, result);
+            val = new BigDecimal(dec);
         }
+
+        Assert.AreEqual(val, result);
     }
 
     [Test]
@@ -189,6 +162,35 @@ public class PlatformComputeTests : IgniteTestsBase
 
         return new DeploymentUnit(unitId0, unitVersion0);
     }
+
+    private static IEnumerable<object> ArgTypesTestCases() => [
+        sbyte.MinValue,
+        sbyte.MaxValue,
+        short.MinValue,
+        short.MaxValue,
+        int.MinValue,
+        int.MaxValue,
+        long.MinValue,
+        long.MaxValue,
+        float.MinValue,
+        float.MaxValue,
+        double.MinValue,
+        double.MaxValue,
+        123.456m,
+        -123.456m,
+        decimal.MinValue,
+        decimal.MaxValue,
+        new BigDecimal(long.MinValue, 10),
+        new BigDecimal(long.MaxValue, 20),
+        new byte[] { 1, 255 },
+        "Ignite 🔥",
+        LocalDate.MinIsoValue,
+        LocalTime.Noon,
+        LocalDateTime.MaxIsoValue,
+        Instant.FromUtc(2001, 3, 4, 5, 6),
+        Guid.Empty,
+        new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }),
+    ];
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
