@@ -29,6 +29,14 @@ using NUnit.Framework;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
+    private DeploymentUnit _defaultTestUnit = null!;
+
+    [OneTimeSetUp]
+    public async Task DeployDefaultUnit() => _defaultTestUnit = await DeployTestsAssembly();
+
+    [OneTimeTearDown]
+    public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
+
     [Test]
     public async Task TestDotNetSystemInfoJob([Values(true, false)] bool withSsl)
     {
@@ -46,14 +54,13 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetEchoJob([Values(true, false)] bool withSsl)
     {
-        var deploymentUnit = await DeployTestsAssembly();
-
-        var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
+        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
 
         // TODO: Test all arg types.
         var jobExec = await Client.Compute.SubmitAsync(
-            target,
-            DotNetJobs.Echo with { DeploymentUnits = [deploymentUnit] },
+            jobTarget,
+            jobDesc,
             "Hello world!");
 
         var result = await jobExec.GetResultAsync();

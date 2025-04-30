@@ -23,19 +23,19 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
+using Ignite.Compute;
 
 /// <summary>
 /// Ignite management REST API wrapper.
 /// </summary>
 public static class ManagementApi
 {
+    private const string BaseUri = "http://localhost:10300";
+
     public static async Task UnitDeploy(string unitId, string unitVersion, IList<string> unitContent)
     {
         // See DeployUnitClient.java
-        var url = new UriBuilder("http://localhost:10300")
-        {
-            Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}"
-        };
+        var url = GetUnitUrl(unitId, unitVersion);
 
         var content = new MultipartFormDataContent();
         foreach (var file in unitContent)
@@ -64,5 +64,14 @@ public static class ManagementApi
 
         // TODO: Await for deployment to finish.
         await Task.Delay(500);
+    }
+
+    private static UriBuilder GetUnitUrl(string unitId, string unitVersion) =>
+        new(BaseUri) { Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}" };
+
+    public static async Task UnitUndeploy(DeploymentUnit unit)
+    {
+        using var client = new HttpClient();
+        await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).ToString());
     }
 }
