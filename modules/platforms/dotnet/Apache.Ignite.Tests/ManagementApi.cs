@@ -43,7 +43,7 @@ public static class ManagementApi
             // HttpClient will close the file.
             var fileContent = new StreamContent(File.OpenRead(file));
             fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
-            content.Add(fileContent, "unitContent", file);
+            content.Add(fileContent, "unitContent", fileName: Path.GetFileName(file));
         }
 
         var request = new HttpRequestMessage(HttpMethod.Post, url.ToString())
