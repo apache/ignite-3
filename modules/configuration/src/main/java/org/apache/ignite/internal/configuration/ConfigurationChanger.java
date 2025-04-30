@@ -45,7 +45,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
-import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -122,6 +121,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Flag indicating whether the component is started. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
+    /** Keys that were deleted, but still present in configuration. */
+    private Collection<String> ignoredKeys;
+
     /**
      * Closure interface to be used by the configuration changer. An instance of this closure is passed into the constructor and invoked
      * every time when there's an update from any of the storages.
@@ -154,8 +156,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /** Full storage data. */
         private final Data data;
 
-        private final Collection<String> ignoredKeys;
-
         /** Future that signifies update of current configuration. */
         private final CompletableFuture<Void> changeFuture = new CompletableFuture<>();
 
@@ -165,13 +165,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          * @param rootsWithoutDefaults Forest without the defaults
          * @param roots Forest with the defaults filled in
          * @param data Configuration storage state.
-         * @param ignoredKeys Keys that were deleted, but still present in configuration.
          */
-        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, Data data, Collection<String> ignoredKeys) {
+        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, Data data) {
             this.rootsWithoutDefaults = rootsWithoutDefaults;
             this.roots = roots;
             this.data = data;
-            this.ignoredKeys = ignoredKeys;
 
             makeImmutable(roots);
             makeImmutable(rootsWithoutDefaults);
@@ -274,7 +272,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         Map<String, ? extends Serializable> storageValues = data.values();
 
-        List<String> ignoredKeys = ignoreDeleted(storageValues, deletedPrefixes);
+        ignoredKeys = ignoreDeleted(storageValues, deletedPrefixes);
 
         long revision = data.changeId();
 
@@ -312,7 +310,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         // The root WITHOUT the defaults is used to calculate which properties to write to the underlying storage,
         // in other words it allows us to persist the defaults from the code.
         // After the storage listener fires for the first time both roots are supposed to become equal.
-        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data, ignoredKeys);
+        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data);
 
         storage.registerConfigurationListener(configurationStorageListener());
 
@@ -637,8 +635,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             dropUnnecessarilyDeletedKeys(allChanges, localRoots);
 
-            for (String ignoredValue : localRoots.ignoredKeys) {
-                allChanges.put(ignoredValue, null);
+            if (onStartup) {
+                for (String ignoredValue : ignoredKeys) {
+                    allChanges.put(ignoredValue, null);
+                }
             }
 
             if (allChanges.isEmpty() && onStartup) {
@@ -691,7 +691,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             Map<String, ? extends Serializable> changedValues = changedEntries.values();
 
             // We need to ignore deletion of deprecated values.
-            ignoreDeleted(changedValues, deletedPrefixes);
+            for (String ignoredValue : ignoredKeys) {
+                changedValues.remove(ignoredValue);
+            }
 
             StorageRoots oldStorageRoots = storageRoots;
 
@@ -709,7 +711,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             long newChangeId = changedEntries.changeId();
 
-            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries), Set.of());
+            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
 
             rwLock.writeLock().lock();
 
