@@ -34,10 +34,10 @@ public class DeploymentUnitLoaderTests
     public async Task TestSingleAssemblyDeploymentUnit()
     {
         using var tempDir = new TempDir();
-        var tempFile = Path.Combine(tempDir.Path, "TestSingleAssemblyDeploymentUnit.dll");
+        var asmName = "TestSingleAssemblyDeploymentUnit.dll";
 
         AssemblyGenerator.EmitClassLib(
-            tempFile,
+            Path.Combine(tempDir.Path, asmName),
             @"
                     using System;
                     using System.Threading;
@@ -54,11 +54,10 @@ public class DeploymentUnitLoaderTests
                     }");
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
-        IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper("TestNamespace.EchoJob");
+        IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper($"TestNamespace.EchoJob, {asmName}");
 
-        // var jobRes = await jobWrapper.ExecuteAsync(null!,)
-
-        await Task.Delay(1);
+        var jobRes = await JobWrapperHelper.ExecuteAsync<object, object>(jobWrapper, "Hello, world!");
+        Assert.AreEqual("Hello, world!", jobRes);
     }
 
     [Test]

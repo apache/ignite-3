@@ -23,10 +23,7 @@ using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
-using Internal.Buffers;
-using Internal.Compute;
 using Internal.Compute.Executor;
-using Internal.Proto.MsgPack;
 using NUnit.Framework;
 
 /// <summary>
@@ -73,32 +70,7 @@ public class JobLoadContextTests
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var jobWrapper = jobLoadCtx.CreateJobWrapper(job.JobClassName.Replace(DotNetJobs.TempJobPrefix, string.Empty));
 
-        using var argBuf = PackArg(jobArg);
-        using var resBuf = new PooledArrayBuffer();
-
-        await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
-
-        return UnpackRes<TResult>(resBuf);
-    }
-
-    private static PooledBuffer PackArg<T>(T arg)
-    {
-        using var buffer = new PooledArrayBuffer();
-        var writer = buffer.MessageWriter;
-        ComputePacker.PackArgOrResult(ref writer, arg, null);
-
-        var mem = buffer.GetWrittenMemory();
-        var arr = ByteArrayPool.Rent(mem.Length);
-        mem.Span.CopyTo(arr);
-
-        return new PooledBuffer(arr, 0, mem.Length);
-    }
-
-    private static T UnpackRes<T>(PooledArrayBuffer buf)
-    {
-        var reader = new MsgPackReader(buf.GetWrittenMemory().Span);
-
-        return ComputePacker.UnpackArgOrResult<T>(ref reader, null);
+        return await JobWrapperHelper.ExecuteAsync<TArg, TResult>(jobWrapper, jobArg);
     }
 
     private class DisposableJob : IComputeJob<object, Guid>, IDisposable
