@@ -32,6 +32,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
 import java.util.Set;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.failure.FailureType;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -69,12 +71,14 @@ import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.network.ClusterNode;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Component is responsible for starting and stopping the building of indexes on primary replicas.
@@ -236,7 +240,7 @@ class IndexBuildController implements ManuallyCloseable {
 
             return CompletableFutures.allOf(startBuildIndexFutures);
         }).whenComplete((res, ex) -> {
-            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+            if (ex != null && !hasCause(ex, NodeStoppingException.class, TableClosedException.class)) {
                 failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
             }
         });
@@ -335,7 +339,7 @@ class IndexBuildController implements ManuallyCloseable {
             }
         }).whenComplete((res, ex) -> {
             if (ex != null) {
-                if (!hasCause(ex, NodeStoppingException.class)) {
+                if (!hasCause(ex, NodeStoppingException.class, TableClosedException.class)) {
                     failureProcessor.process(new FailureContext(FailureType.CRITICAL_ERROR, ex));
                 }
             }
@@ -541,7 +545,12 @@ class IndexBuildController implements ManuallyCloseable {
             int tableId,
             int partitionId
     ) {
-        MvPartitionStorage mvPartition = mvTableStorage.getMvPartition(partitionId);
+        MvPartitionStorage mvPartition;
+        try {
+            mvPartition = mvTableStorage.getMvPartition(partitionId);
+        } catch (StorageClosedException e) {
+            throw new TableClosedException(tableId, e);
+        }
 
         assert mvPartition != null : "Partition storage is missing [zoneId=" + zoneId
                 + ", tableId=" + tableId + ", partitionId=" + partitionId + "].";
@@ -554,10 +563,23 @@ class IndexBuildController implements ManuallyCloseable {
             int partitionId,
             CatalogIndexDescriptor indexDescriptor
     ) {
-        IndexStorage indexStorage = mvTableStorage.getIndex(partitionId, indexDescriptor.id());
+        IndexStorage indexStorage;
+        try {
+            indexStorage = mvTableStorage.getIndex(partitionId, indexDescriptor.id());
+        } catch (StorageClosedException e) {
+            throw new TableClosedException(indexDescriptor.tableId(), e);
+        }
 
         assert indexStorage != null : "Index storage is missing [partitionId=" + partitionId + ", indexId=" + indexDescriptor.id() + "].";
 
         return indexStorage;
+    }
+
+    private static class TableClosedException extends IgniteInternalException {
+        private static final long serialVersionUID = 1L;
+
+        private TableClosedException(int tableId, @Nullable Throwable cause) {
+            super(INTERNAL_ERR, "Table is closed [tableId=" + tableId + "]", cause);
+        }
     }
 }
