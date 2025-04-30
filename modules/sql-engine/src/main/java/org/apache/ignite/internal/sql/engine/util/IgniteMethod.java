@@ -55,8 +55,8 @@ public enum IgniteMethod {
     /** See {@link ExecutionContext#getParameter(String, Type)}. */
     CONTEXT_GET_PARAMETER_VALUE(ExecutionContext.class, "getParameter", String.class, Type.class),
 
-    /** See {@link IgniteSqlFunctions#subtractTimeZoneOffset(long, TimeZone)}. **/
-    SUBTRACT_TIMEZONE_OFFSET(IgniteSqlFunctions.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
+    /** See {@link IgniteSqlDateTimeUtils#subtractTimeZoneOffset(long, TimeZone)}. **/
+    SUBTRACT_TIMEZONE_OFFSET(IgniteSqlDateTimeUtils.class, "subtractTimeZoneOffset", long.class, TimeZone.class),
 
     /** See {@link IgniteSqlFunctions#toDateExact(int)}. **/
     TO_DATE_EXACT(IgniteSqlFunctions.class, "toDateExact", int.class),
@@ -121,15 +121,28 @@ public enum IgniteMethod {
 
     /**
      * Conversion of timestamp to string (precision aware).
-     * See {@link IgniteSqlFunctions#unixTimestampToString(long, int)}.
+     * See {@link IgniteSqlDateTimeUtils#unixTimestampToString(long, int)}.
      */
-    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimestampToString", long.class, int.class),
+    UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE(IgniteSqlDateTimeUtils.class, "unixTimestampToString", long.class, int.class),
 
     /**
      * Conversion of time to string (precision aware).
-     * See {@link IgniteSqlFunctions#unixTimeToString(int, int)}.
+     * See {@link IgniteSqlDateTimeUtils#unixTimeToString(int, int)}.
      */
-    UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlFunctions.class, "unixTimeToString", int.class, int.class),
+    UNIX_TIME_TO_STRING_PRECISION_AWARE(IgniteSqlDateTimeUtils.class, "unixTimeToString", int.class, int.class),
+
+    /**
+     * Converts a timestamp string to a unix date (unlike the original version, truncation to milliseconds occurs without rounding).
+     * See {@link IgniteSqlDateTimeUtils#timestampStringToUnixDate(String)}.
+     */
+    STRING_TO_TIMESTAMP(IgniteSqlDateTimeUtils.class, "timestampStringToUnixDate", String.class),
+
+    /**
+     * Converts a time string to a unix time (unlike the original version, truncation to milliseconds occurs without rounding).
+     * See {@link IgniteSqlDateTimeUtils#timeStringToUnixDate(String)}.
+     */
+    STRING_TO_TIME(IgniteSqlDateTimeUtils.class, "timeStringToUnixDate", String.class),
+
     ;
 
     private final Method method;
