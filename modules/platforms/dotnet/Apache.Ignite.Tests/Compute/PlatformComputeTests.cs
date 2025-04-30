@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Compute;
 
-using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;

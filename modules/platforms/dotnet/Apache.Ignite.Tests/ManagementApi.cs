@@ -32,7 +32,7 @@ public static class ManagementApi
     public static async Task UnitDeploy(string unitId, string unitVersion, IList<string> unitContent)
     {
         // See DeployUnitClient.java
-        var url = new UriBuilder("localhost:10300")
+        var url = new UriBuilder("http://localhost:10300")
         {
             Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}"
         };
@@ -61,5 +61,8 @@ public static class ManagementApi
         {
             throw new Exception($"Failed to deploy unit. Status code: {response.StatusCode}, Content: {resContent}");
         }
+
+        // TODO: Await for deployment to finish.
+        await Task.Delay(500);
     }
 }
