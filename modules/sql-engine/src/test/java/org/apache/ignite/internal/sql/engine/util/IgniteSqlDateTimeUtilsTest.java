@@ -135,6 +135,16 @@ public class IgniteSqlDateTimeUtilsTest {
         );
     }
 
+    @ParameterizedTest
+    @MethodSource("invalidTimes")
+    public void testInvalidTimeStringToUnixDate(String timeString) {
+        IgniteTestUtils.assertThrows(
+                IllegalArgumentException.class,
+                () -> IgniteSqlDateTimeUtils.timeStringToUnixDate(timeString),
+                IgniteStringFormatter.format("Invalid TIME value, '{}'", timeString)
+        );
+    }
+
     private static Stream<Arguments> invalidTimes() {
         String[] invalidTimeStrings = {
                 "0",
@@ -147,9 +157,6 @@ public class IgniteSqlDateTimeUtilsTest {
                 "00 :00:00",
                 "00:00: 00",
                 "00:00 :00",
-                "000:00:00",
-                "00:000:00",
-                "00:00:000",
                 "0a:00:00",
                 "00:0a:00",
                 "00:00:0a",
@@ -177,12 +184,22 @@ public class IgniteSqlDateTimeUtilsTest {
     }
 
     @ParameterizedTest
-    @MethodSource("invalidTimes")
-    public void testInvalidTimeStringToUnixDate(String timeString) {
+    @CsvSource({
+            "25:00:00,HOUR",
+            "125:00:00,HOUR",
+            "9999999999999999:00:00,HOUR",
+            "00:60:00,MINUTE",
+            "00:125:00,MINUTE",
+            "00:9999999999999999:00,MINUTE",
+            "00:00:60,SECOND",
+            "00:00:125,SECOND",
+            "00:00:9999999999999999,SECOND",
+    })
+    public void testOutOfRangeTimeStringToUnixDate(String timeString, String expectedField) {
         IgniteTestUtils.assertThrows(
                 IllegalArgumentException.class,
                 () -> IgniteSqlDateTimeUtils.timeStringToUnixDate(timeString),
-                IgniteStringFormatter.format("Invalid TIME value, '{}'", timeString)
+                IgniteStringFormatter.format("Value of {} field is out of range in '{}'", expectedField, timeString)
         );
     }
 

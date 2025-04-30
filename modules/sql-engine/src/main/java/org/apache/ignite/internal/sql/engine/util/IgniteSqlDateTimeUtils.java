@@ -34,7 +34,7 @@ import org.jetbrains.annotations.Nullable;
 public class IgniteSqlDateTimeUtils {
     /** Regex for time. */
     private static final Pattern TIME_PATTERN =
-            Pattern.compile("^(\\d|[0-2]\\d):(\\d|[0-5]\\d):((\\d|[0-5]\\d)(\\.\\d*)?)$");
+            Pattern.compile("^(\\d+):(\\d+):(\\d+)(\\.\\d*)?$");
 
     /** Regex for date. */
     private static final Pattern DATE_PATTERN =
@@ -221,12 +221,23 @@ public class IgniteSqlDateTimeUtils {
     private static void validateTime(String time, String full) {
         Matcher matcher = TIME_PATTERN.matcher(time);
         if (matcher.find()) {
-            int hour = Integer.parseInt(matcher.group(1));
-            if (hour > 23) {
-                throw fieldOutOfRange("HOUR", full);
-            }
+            verifyBound(matcher.group(1), 24, "HOUR", full);
+            verifyBound(matcher.group(2), 60, "MINUTE", full);
+            verifyBound(matcher.group(3), 60, "SECOND", full);
         } else {
             throw invalidType("TIME", full, null);
+        }
+    }
+
+    private static void verifyBound(String intValue, int maxVal, String fieldName, String full) {
+        try {
+            int value = Integer.parseInt(intValue);
+
+            if (value >= maxVal) {
+                throw fieldOutOfRange(fieldName, full, null);
+            }
+        } catch (NumberFormatException e) {
+            throw fieldOutOfRange(fieldName, full, e);
         }
     }
 
@@ -245,14 +256,14 @@ public class IgniteSqlDateTimeUtils {
     /** Check that the combination year, month, date forms a legal date. */
     private static void checkLegalDate(int year, int month, int day, String full) {
         if (day > daysInMonth(year, month)) {
-            throw fieldOutOfRange("DAY", full);
+            throw fieldOutOfRange("DAY", full, null);
         }
         if (month < 1 || month > 12) {
-            throw fieldOutOfRange("MONTH", full);
+            throw fieldOutOfRange("MONTH", full, null);
         }
         if (year <= 0) {
             // Year 0 is not really a legal value.
-            throw fieldOutOfRange("YEAR", full);
+            throw fieldOutOfRange("YEAR", full, null);
         }
     }
 
@@ -284,9 +295,9 @@ public class IgniteSqlDateTimeUtils {
     }
 
     private static IllegalArgumentException fieldOutOfRange(String field,
-            String full) {
+            String full, @Nullable Exception cause) {
         return new IllegalArgumentException("Value of " + field
-                + " field is out of range in '" + full + "'");
+                + " field is out of range in '" + full + "'", cause);
     }
 
     private static IllegalArgumentException invalidType(String type,

@@ -46,29 +46,26 @@ SELECT '11:01'::TIME
 statement error: Value of HOUR field is out of range in '25:42:04.500'
 SELECT '25:42:04.500'::TIME(3)
 
-statement error: Invalid TIME value
-SELECT '23:60:00'::TIME
-
-statement error: Invalid TIME value, '23:00:60'
-SELECT '23:00:60'::TIME
-
-statement error: Invalid TIME value, '22:60:60'
-SELECT '22:60:60'::TIME
-
-statement error: Invalid TIME value, '23:59:60'
-SELECT '23:59:60'::TIME
-
-statement error: Invalid TIME value, '100:42:04.500'
+statement error: Value of HOUR field is out of range in '100:42:04.500'
 SELECT '100:42:04.500'::TIME(3)
 
-statement error: Invalid TIME value, '14:70:04.500'
-SELECT '14:70:04.500'::TIME(3)
+statement error: Value of MINUTE field is out of range in '23:60:00'
+SELECT '23:60:00'::TIME
 
-statement error: Invalid TIME value, '14:100:04.500'
+statement error: Value of MINUTE field is out of range in '22:60:60'
+SELECT '22:60:60'::TIME
+
+statement error: Value of MINUTE field is out of range in '14:100:04.500'
 SELECT '14:100:04.500'::TIME(3)
 
-statement error: Invalid TIME value, '14:42:70.500'
-SELECT '14:42:70.500'::TIME(3)
+statement error: Value of SECOND field is out of range in '23:00:60'
+SELECT '23:00:60'::TIME
+
+statement error: Value of SECOND field is out of range in '23:59:60'
+SELECT '23:59:60'::TIME
+
+statement error: Value of SECOND field is out of range in '14:42:100.500'
+SELECT '14:42:100.500'::TIME(3)
 
 # invalid separator
 statement error: Invalid TIME value, '14-42-04'
