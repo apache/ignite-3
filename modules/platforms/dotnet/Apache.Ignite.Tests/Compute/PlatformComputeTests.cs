@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -111,5 +112,14 @@ public class PlatformComputeTests : IgniteTestsBase
 
         var nodes = await Client.GetClusterNodesAsync();
         return nodes.First(n => n.Name == nodeName);
+    }
+
+    private static async Task DeployTestsAssembly(string unitId, string unitVersion)
+    {
+        var currentDll = typeof(PlatformComputeTests).Assembly.Location;
+        var unitContent = new[] { currentDll };
+
+        var api = new ManagementApi(new Uri("localhost:10300"));
+
     }
 }
