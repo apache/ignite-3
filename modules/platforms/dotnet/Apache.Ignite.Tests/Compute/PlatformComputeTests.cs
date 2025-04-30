@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Compute;
 
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -115,7 +116,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
-        var unitVersion0 = unitVersion ?? "1.0.0";
+        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.fff");
 
         await ManagementApi.UnitDeploy(
             unitId: unitId0,
