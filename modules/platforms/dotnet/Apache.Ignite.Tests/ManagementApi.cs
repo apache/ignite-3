@@ -20,8 +20,10 @@ namespace Apache.Ignite.Tests;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Ignite.Compute;
 
@@ -31,6 +33,11 @@ using Ignite.Compute;
 public static class ManagementApi
 {
     private const string BaseUri = "http://localhost:10300";
+
+    private static readonly JsonSerializerOptions JsonSerializerOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
 
     public static async Task UnitDeploy(string unitId, string unitVersion, IList<string> unitContent)
     {
@@ -62,8 +69,14 @@ public static class ManagementApi
             throw new Exception($"Failed to deploy unit. Status code: {response.StatusCode}, Content: {resContent}");
         }
 
-        // TODO: Await for deployment to finish.
-        await Task.Delay(500);
+        await TestUtils.WaitForConditionAsync(async () =>
+        {
+            var statuses = await GetUnitStatus(unitId);
+
+            return statuses != null &&
+                   statuses.Any(status => status.VersionToStatus.Any(
+                       v => v.Version == unitVersion && v.Status == "DEPLOYED"));
+        });
     }
 
     public static async Task UnitUndeploy(DeploymentUnit unit)
@@ -72,6 +85,22 @@ public static class ManagementApi
         await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).Uri);
     }
 
+    private static async Task<DeploymentUnitStatus[]?> GetUnitStatus(string unitId)
+    {
+        using var client = new HttpClient();
+        using var response = await client.GetAsync(GetUnitClusterUrl(unitId).Uri);
+
+        await using var responseStream = await response.Content.ReadAsStreamAsync();
+        return await JsonSerializer.DeserializeAsync<DeploymentUnitStatus[]>(responseStream, JsonSerializerOptions);
+    }
+
     private static UriBuilder GetUnitUrl(string unitId, string unitVersion) =>
         new(BaseUri) { Path = $"/management/v1/deployment/units/{Uri.EscapeDataString(unitId)}/{Uri.EscapeDataString(unitVersion)}" };
+
+    private static UriBuilder GetUnitClusterUrl(string unitId) =>
+        new(BaseUri) { Path = $"/management/v1/deployment/cluster/units/{Uri.EscapeDataString(unitId)}" };
+
+    private record DeploymentUnitStatus(string Id, DeploymentUnitVersionStatus[] VersionToStatus);
+
+    private record DeploymentUnitVersionStatus(string Version, string Status);
 }
