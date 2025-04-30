@@ -17,18 +17,41 @@
 
 namespace Apache.Ignite.Tests.Compute.Executor;
 
+using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Threading.Tasks;
 using Internal.Compute.Executor;
 using NUnit.Framework;
+using TestHelpers;
 
 /// <summary>
 /// Tests for <see cref="DeploymentUnitLoader"/>.
 /// </summary>
+[SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1118:Parameter should not span multiple lines", Justification = "Tests")]
 public class DeploymentUnitLoaderTests
 {
     [Test]
     public async Task TestSingleAssemblyDeploymentUnit()
     {
+        var tempFle = $"{Path.GetTempFileName()}.dll";
+
+        AssemblyGenerator.EmitClassLib(
+            tempFle,
+            @"
+                    using System;
+                    using System.Threading;
+                    using System.Threading.Tasks;
+                    using Apache.Ignite.Compute;
+
+                    namespace TestNamespace
+                    {
+                        public class EchoJob : IComputeJob<object, object>
+                        {
+                            public ValueTask<object> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
+                                ValueTask.FromResult(arg);
+                        }
+                    }");
+
         await Task.Delay(1);
         Assert.Fail();
     }

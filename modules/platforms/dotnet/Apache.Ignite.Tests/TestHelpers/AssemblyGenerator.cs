@@ -18,20 +18,23 @@
 namespace Apache.Ignite.Tests.TestHelpers;
 
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Threading.Tasks;
 using Internal.Common;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 
 internal static class AssemblyGenerator
 {
-    internal static void EmitClassLib(string targetFile, string code)
+    internal static void EmitClassLib(string targetFile, [StringSyntax("C#")] string code)
     {
         var assemblyName = Path.GetFileNameWithoutExtension(targetFile);
         var syntaxTree = CSharpSyntaxTree.ParseText(code);
         var references = new[]
         {
             MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(ValueTask<>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(IgniteClient).Assembly.Location),
         };
 
