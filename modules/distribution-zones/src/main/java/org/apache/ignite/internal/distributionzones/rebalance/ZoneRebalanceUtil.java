@@ -602,8 +602,7 @@ public class ZoneRebalanceUtil {
                     Assignments assignments =
                             zoneStableAssignmentsGetLocally(metaStorageManager, new ZonePartitionId(zoneId, p), revision);
 
-                    assert assignments != null
-                            : metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)), revision);
+                    assert assignments != null : "No assignments found for " + new ZonePartitionId(zoneId, p);
 
                     return assignments;
                 })
