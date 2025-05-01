@@ -36,8 +36,10 @@ import static org.apache.ignite.internal.partition.replicator.network.disaster.L
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalPartitionStatesSystemView;
-import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalPartitionStatesSystemView;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalTablePartitionStatesSystemView;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createGlobalZonePartitionStatesSystemView;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalTablePartitionStatesSystemView;
+import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoverySystemViews.createLocalZonePartitionStatesSystemView;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.DEGRADED;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.READ_ONLY;
@@ -272,9 +274,16 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
     @Override
     public List<SystemView<?>> systemViews() {
+        if (enabledColocation()) {
+            return List.of(
+                    createGlobalZonePartitionStatesSystemView(this),
+                    createLocalZonePartitionStatesSystemView(this)
+            );
+        }
+
         return List.of(
-                createGlobalPartitionStatesSystemView(this),
-                createLocalPartitionStatesSystemView(this)
+                createGlobalTablePartitionStatesSystemView(this),
+                createLocalTablePartitionStatesSystemView(this)
         );
     }
 
