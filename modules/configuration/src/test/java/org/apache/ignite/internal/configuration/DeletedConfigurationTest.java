@@ -45,45 +45,20 @@ import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
-class DeletedConfigurationTest {
+class DeletedConfigurationTest extends BaseIgniteAbstractTest {
     private static final String DELETED_INDIVIDUAL_PROPERTY = "key.individual_property";
     private static final String DELETED_SUBTREE = "key.subtree";
     private static final String SUBTREE_NAMED_LIST = "key.list.*.subtree";
     private static final String NESTED_NAMED_LISTS = "key.list." + NAMED_LIST_NAME + ".*";
 
-    private static final Collection<String> DELETED_KEYS = List.of(
-            DELETED_INDIVIDUAL_PROPERTY,
-            DELETED_SUBTREE,
-            SUBTREE_NAMED_LIST,
-            NESTED_NAMED_LISTS
-    );
-
     private static final String VALID_KEY = "key.someValue";
-
-    @ConfigurationRoot(rootName = "key", type = LOCAL)
-    public static class DeletedTestConfigurationSchema {
-        @Value(hasDefault = true)
-        public String someValue = "default";
-
-        @NamedConfigValue
-        public NestedListConfigurationSchema list;
-    }
-
-    @PolymorphicConfig
-    public static class NestedListConfigurationSchema {
-        @PolymorphicId(hasDefault = true)
-        public String name = NAMED_LIST_NAME;
-    }
-
-    @PolymorphicConfigInstance(NAMED_LIST_NAME)
-    public static class NestedListInstanceConfigurationSchema extends NestedListConfigurationSchema {
-        static final String NAMED_LIST_NAME = "named-list";
-    }
 
     private static final ConfigurationTreeGenerator GENERATOR = new ConfigurationTreeGenerator(
             Set.of(DeletedTestConfiguration.KEY),
@@ -93,9 +68,17 @@ class DeletedConfigurationTest {
 
     private final TestConfigurationStorage storage = new TestConfigurationStorage(LOCAL);
 
+    private ConfigurationChanger changer;
+
     @AfterAll
     public static void afterAll() {
         GENERATOR.close();
+    }
+
+    @AfterEach
+    void tearDown() {
+        storage.close();
+        changer.stop();
     }
 
     @ParameterizedTest
@@ -105,7 +88,7 @@ class DeletedConfigurationTest {
 
         fullConfig.put(VALID_KEY, "value");
 
-        ConfigurationChanger changer = createChanger(DeletedTestConfiguration.KEY);
+        changer = createChanger(DeletedTestConfiguration.KEY);
 
         CompletableFuture<Boolean> write = storage.write(fullConfig, 0);
         assertThat(write, willCompleteSuccessfully());
@@ -123,7 +106,7 @@ class DeletedConfigurationTest {
     @ParameterizedTest
     @MethodSource("hoconConfigProvider")
     public void testUserAddsDeletedValue(String hoconConfig) {
-        ConfigurationChanger changer = createChanger(DeletedTestConfiguration.KEY);
+        changer = createChanger(DeletedTestConfiguration.KEY);
 
         changer.start();
 
@@ -164,5 +147,32 @@ class DeletedConfigurationTest {
                 changer -> {},
                 DELETED_KEYS
         );
+    }
+
+    private static final Collection<String> DELETED_KEYS = List.of(
+            DELETED_INDIVIDUAL_PROPERTY,
+            DELETED_SUBTREE,
+            SUBTREE_NAMED_LIST,
+            NESTED_NAMED_LISTS
+    );
+
+    @ConfigurationRoot(rootName = "key", type = LOCAL)
+    public static class DeletedTestConfigurationSchema {
+        @Value(hasDefault = true)
+        public String someValue = "default";
+
+        @NamedConfigValue
+        public NestedListConfigurationSchema list;
+    }
+
+    @PolymorphicConfig
+    public static class NestedListConfigurationSchema {
+        @PolymorphicId(hasDefault = true)
+        public String name = NAMED_LIST_NAME;
+    }
+
+    @PolymorphicConfigInstance(NAMED_LIST_NAME)
+    public static class NestedListInstanceConfigurationSchema extends NestedListConfigurationSchema {
+        static final String NAMED_LIST_NAME = "named-list";
     }
 }
