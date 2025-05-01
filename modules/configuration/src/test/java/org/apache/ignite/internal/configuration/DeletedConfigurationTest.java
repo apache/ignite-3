@@ -54,7 +54,7 @@ class DeletedConfigurationTest {
     private static final String DELETED_INDIVIDUAL_PROPERTY = "key.individual_property";
     private static final String DELETED_SUBTREE = "key.subtree";
     private static final String SUBTREE_NAMED_LIST = "key.list.*.subtree";
-    private static final String NESTED_NAMED_LISTS = "key.list." + NAMED_LIST_NAME+ ".*";
+    private static final String NESTED_NAMED_LISTS = "key.list." + NAMED_LIST_NAME + ".*";
 
     private static final Collection<String> DELETED_KEYS = List.of(
             DELETED_INDIVIDUAL_PROPERTY,
