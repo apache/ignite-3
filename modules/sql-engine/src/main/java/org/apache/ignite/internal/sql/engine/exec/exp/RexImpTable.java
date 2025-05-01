@@ -1238,7 +1238,7 @@ public class RexImpTable {
       // Current time functions
       //define(CURRENT_TIME, systemFunctionImplementor);
       define(CURRENT_TIMESTAMP, systemFunctionImplementor);
-      define(CURRENT_DATE, systemFunctionImplementor);
+      //define(CURRENT_DATE, systemFunctionImplementor);
       define(CURRENT_DATETIME, systemFunctionImplementor);
       define(LOCALTIME, systemFunctionImplementor);
       define(LOCALTIMESTAMP, systemFunctionImplementor);
@@ -1321,6 +1321,7 @@ public class RexImpTable {
       define(LOG10, new LogImplementor(null));
 
       define(TYPEOF, systemFunctionImplementor);
+      define(CURRENT_DATE, systemFunctionImplementor);
     }
 
     private static class IgniteSystemFunctionImplementor
@@ -1339,6 +1340,8 @@ public class RexImpTable {
 
             return implementor.implement(translator, call, NullAs.NOT_POSSIBLE);
           }
+        } else if (op == CURRENT_DATE) {
+            return Expressions.call(IgniteMethod.CURRENT_DATE.method(), translator.getRoot());
         }
 
         throw new AssertionError("unknown function " + op);
@@ -3980,8 +3983,9 @@ public class RexImpTable {
         return Expressions.call(BuiltInMethod.CURRENT_TIMESTAMP.method, root);
       } else if (op == CURRENT_TIME) {
         return Expressions.call(BuiltInMethod.CURRENT_TIME.method, root);
-      } else if (op == CURRENT_DATE) {
-        return Expressions.call(BuiltInMethod.CURRENT_DATE.method, root);
+      // TODO comment
+      // } else if (op == CURRENT_DATE) {
+      //   return Expressions.call(BuiltInMethod.CURRENT_DATE.method, root);
       } else if (op == CURRENT_DATETIME) {
         if (call.getOperands().isEmpty()) {
           return Expressions.call(BuiltInMethod.CURRENT_DATETIME.method, root);
