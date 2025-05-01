@@ -30,8 +30,10 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
 import java.lang.reflect.Array;
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -96,11 +98,17 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
     /** {@inheritDoc} */
     @Override
-    public void descend(ConstructableTreeNode node) {
+    public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
         if (!(node instanceof NamedListNode)) {
             throw new IllegalArgumentException(
                     format("'%s' configuration is expected to be a composite configuration node, not a list", join(path))
             );
+        }
+
+        for (Pattern ignoredPrefix : ignoredPrefixes) {
+            if (ignoredPrefix.matcher(join(path)).matches()) {
+                return;
+            }
         }
 
         String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
@@ -139,7 +147,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
                 ));
             }
 
-            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), false);
+            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), ignoredPrefixes, false);
         }
     }
 

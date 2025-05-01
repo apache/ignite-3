@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
+import java.util.regex.Pattern;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationNodeAlreadyExistException;
@@ -459,7 +460,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
     /** {@inheritDoc} */
     @Override
-    public void construct(String key, ConfigurationSource src, boolean includeInternal) {
+    public void construct(String key, ConfigurationSource src, Collection<Pattern> ignoredPrefixes, boolean includeInternal) {
         Objects.requireNonNull(key, "key");
 
         assertMutability();
@@ -484,7 +485,12 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
                     String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
                     if (polymorphicTypeId != null) {
-                        polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
+                        polymorphicInnerNode.construct(
+                                typeIdFieldName,
+                                new LeafConfigurationSource(polymorphicTypeId),
+                                ignoredPrefixes,
+                                true
+                        );
                     } else {
                         // check if the Type ID node has already been created by the 'setDefaults' method
                         Object typeIdNode = polymorphicInnerNode.traverseChild(typeIdFieldName, leafNodeVisitor(), true);
@@ -504,7 +510,12 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
                     String polymorphicTypeId = src.polymorphicTypeId(typeIdFieldName);
 
                     if (polymorphicTypeId != null) {
-                        polymorphicInnerNode.construct(typeIdFieldName, new LeafConfigurationSource(polymorphicTypeId), true);
+                        polymorphicInnerNode.construct(
+                                typeIdFieldName,
+                                new LeafConfigurationSource(polymorphicTypeId),
+                                ignoredPrefixes,
+                                true
+                        );
                     }
                 }
             }
@@ -515,7 +526,7 @@ public final class NamedListNode<N> implements NamedListChange<N, N>, Traversabl
 
             value.setInjectedNameFieldValue(key);
 
-            src.descend(value);
+            src.descend(value, ignoredPrefixes);
         }
     }
 

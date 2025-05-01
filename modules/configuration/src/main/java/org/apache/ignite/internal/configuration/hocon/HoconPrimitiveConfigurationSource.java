@@ -24,8 +24,10 @@ import static java.lang.String.format;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 
 import com.typesafe.config.ConfigValue;
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -68,7 +70,13 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
     }
 
     @Override
-    public void descend(ConstructableTreeNode node) {
+    public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+        for (Pattern ignoredPrefix : ignoredPrefixes) {
+            if (ignoredPrefix.matcher(join(path)).matches()) {
+                return;
+            }
+        }
+
         String fieldName = node.injectedValueFieldName();
 
         if (fieldName == null) {
@@ -77,7 +85,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             );
         }
 
-        node.construct(fieldName, this, false);
+        node.construct(fieldName, this, ignoredPrefixes, false);
     }
 
     /**

@@ -26,8 +26,10 @@ import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
+import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -72,21 +74,27 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
     }
 
     @Override
-    public void descend(ConstructableTreeNode node) {
+    public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
         String injectedValueFieldName = node.injectedValueFieldName();
 
         if (injectedValueFieldName == null) {
-            hoconCfgObject.forEach((key, value) -> parseConfigEntry(key, value, node));
+            hoconCfgObject.forEach((key, value) -> parseConfigEntry(key, value, node, ignoredPrefixes));
         } else {
             assert hoconCfgObject.size() == 1; // User-friendly check must have been performed outside this method.
 
             ConfigValue value = hoconCfgObject.values().iterator().next();
 
-            parseConfigEntry(injectedValueFieldName, value, node);
+            parseConfigEntry(injectedValueFieldName, value, node, ignoredPrefixes);
         }
     }
 
-    private void parseConfigEntry(String key, ConfigValue hoconCfgValue, ConstructableTreeNode node) {
+    private void parseConfigEntry(String key, ConfigValue hoconCfgValue, ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+        for (Pattern ignoredPrefix : ignoredPrefixes) {
+            if (ignoredPrefix.matcher(join(appendKey(path, key))).matches()) {
+                return;
+            }
+        }
+
         if (key.equals(ignoredKey)) {
             return;
         }
@@ -94,7 +102,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
         try {
             switch (hoconCfgValue.valueType()) {
                 case NULL:
-                    node.construct(key, null, false);
+                    node.construct(key, null, ignoredPrefixes, false);
 
                     break;
 
@@ -104,6 +112,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                     node.construct(
                             key,
                             new HoconObjectConfigurationSource(null, path, (ConfigObject) hoconCfgValue),
+                            ignoredPrefixes,
                             false
                     );
 
@@ -113,7 +122,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                 case LIST: {
                     List<String> path = appendKey(this.path, key);
 
-                    node.construct(key, new HoconListConfigurationSource(path, (ConfigList) hoconCfgValue), false);
+                    node.construct(key, new HoconListConfigurationSource(path, (ConfigList) hoconCfgValue), ignoredPrefixes, false);
 
                     break;
                 }
@@ -121,7 +130,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                 default: {
                     List<String> path = appendKey(this.path, key);
 
-                    node.construct(key, new HoconPrimitiveConfigurationSource(path, hoconCfgValue), false);
+                    node.construct(key, new HoconPrimitiveConfigurationSource(path, hoconCfgValue), ignoredPrefixes, false);
                 }
             }
         } catch (NoSuchElementException e) {

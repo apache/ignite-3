@@ -45,6 +45,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
+import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -56,6 +57,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -98,7 +101,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Configuration migrator. */
     private final ConfigurationMigrator migrator;
 
-    private final Collection<String> deletedPrefixes;
+    private final Collection<Pattern> deletedPrefixes;
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
@@ -230,7 +233,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         this.configurationValidator = configurationValidator;
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
         this.migrator = migrator;
-        this.deletedPrefixes = deletedPrefixes;
+
+        this.deletedPrefixes = deletedPrefixes.stream()
+                .map(deletedKey -> deletedKey.replace(".", "\\.").replace("*", ".*") + ".*")
+                .map(Pattern::compile)
+                .collect(Collectors.toList());
     }
 
     /**
@@ -299,7 +306,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         // Fill the configuration with the initial configuration.
         if (revision == 0) {
-            initialConfiguration.descend(superRoot);
+            initialConfiguration.descend(superRoot, Set.of());
         }
 
         // Validate the restored configuration.
@@ -625,7 +632,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             src.reset();
 
-            src.descend(changes);
+            src.descend(changes, deletedPrefixes);
 
             addDefaults(changes);
 

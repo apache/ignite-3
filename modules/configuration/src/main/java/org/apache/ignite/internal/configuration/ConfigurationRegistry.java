@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
@@ -87,7 +88,14 @@ public class ConfigurationRegistry implements IgniteComponent {
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator, migrator, deletedPrefixes) {
+        changer = new ConfigurationChanger(
+                notificationUpdateListener(),
+                rootKeys,
+                storage,
+                configurationValidator,
+                migrator,
+                deletedPrefixes
+        ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());
@@ -176,7 +184,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     public CompletableFuture<Void> change(Consumer<SuperRootChange> change) {
         return change(new ConfigurationSource() {
             @Override
-            public void descend(ConstructableTreeNode node) {
+            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
                 assert node instanceof SuperRoot : "Descending always starts with super root: " + node;
 
                 SuperRoot superRoot = (SuperRoot) node;

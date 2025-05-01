@@ -17,7 +17,10 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
+import java.util.Collection;
 import java.util.NoSuchElementException;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.jetbrains.annotations.Nullable;
 
@@ -34,7 +37,22 @@ public interface ConstructableTreeNode {
      * @param includeInternal Include internal configuration nodes (private configuration extensions).
      * @throws NoSuchElementException If {@code key} cannot be constructed.
      */
-    void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException;
+    default void construct(String key, ConfigurationSource src, boolean includeInternal) throws NoSuchElementException {
+        construct(key, src, Set.of(), includeInternal);
+    }
+
+    /**
+     * Initializes {@code key} element of the object with the content from the source.
+     * Please refer to implementation to find out exact details.
+     *
+     * @param key Field / named list element name to be constructed.
+     * @param src Source that provides data for construction.
+     * @param ignoredPrefixes Collection of prefixes to ignore.
+     * @param includeInternal Include internal configuration nodes (private configuration extensions).
+     * @throws NoSuchElementException If {@code key} cannot be constructed.
+     */
+    void construct(String key, ConfigurationSource src, Collection<Pattern> ignoredPrefixes, boolean includeInternal)
+            throws NoSuchElementException;
 
     /**
      * Public equivalent of {@link Object#clone()} method. Creates a copy with effectively the same content.

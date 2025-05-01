@@ -22,10 +22,12 @@ import static org.apache.ignite.internal.configuration.tree.InnerNode.INTERNAL_I
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 
 import java.io.Serializable;
+import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
 import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.configuration.RootKey;
@@ -122,10 +124,10 @@ public class DynamicProperty<T extends Serializable> extends ConfigurationNode<T
 
             /** {@inheritDoc} */
             @Override
-            public void descend(ConstructableTreeNode node) {
+            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
                 assert level < keys.size();
 
-                node.construct(keys.get(level++), this, true);
+                node.construct(keys.get(level++), this, ignoredPrefixes, true);
             }
 
             /** {@inheritDoc} */

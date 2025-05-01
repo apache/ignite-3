@@ -964,7 +964,7 @@ public class ConfigurationUtil {
         }
 
         @Override
-        public void descend(ConstructableTreeNode node) {
+        public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPatterns) {
             throw new UnsupportedOperationException("descend");
         }
     }

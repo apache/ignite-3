@@ -17,11 +17,13 @@
 
 package org.apache.ignite.internal.configuration;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.SortedMap;
 import java.util.TreeMap;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -128,6 +130,7 @@ public final class SuperRoot extends InnerNode {
     public void construct(
             String key,
             ConfigurationSource src,
+            Collection<Pattern> ignoredPrefixes,
             boolean includeInternal
     ) throws NoSuchElementException {
         assertMutability();
@@ -147,7 +150,7 @@ public final class SuperRoot extends InnerNode {
         } else {
             roots.put(key, root = new RootInnerNode(root));
 
-            src.descend(root.node());
+            src.descend(root.node(), ignoredPrefixes);
         }
     }
 
