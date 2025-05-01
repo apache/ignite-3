@@ -3983,7 +3983,6 @@ public class RexImpTable {
         return Expressions.call(BuiltInMethod.CURRENT_TIMESTAMP.method, root);
       } else if (op == CURRENT_TIME) {
         return Expressions.call(BuiltInMethod.CURRENT_TIME.method, root);
-      // TODO comment
       // } else if (op == CURRENT_DATE) {
       //   return Expressions.call(BuiltInMethod.CURRENT_DATE.method, root);
       } else if (op == CURRENT_DATETIME) {

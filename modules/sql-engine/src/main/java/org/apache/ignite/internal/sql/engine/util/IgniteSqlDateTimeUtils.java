@@ -60,6 +60,9 @@ public class IgniteSqlDateTimeUtils {
      * SQL {@code CURRENT_DATE} function.
      */
     public static int currentDate(DataContext ctx) {
+        // We using LOCAL_TIMESTAMP, because CURRENT_TIMESTAMP returns TIMESTAMP_LTZ
+        // which requires to be converted to TIMESTAMP taking into account client time zone.
+        // At the same time, LOCAL_TIMESTAMP already has the required value.
         long timestamp = DataContext.Variable.LOCAL_TIMESTAMP.get(ctx);
         int date = SqlFunctions.timestampToDate(timestamp);
         int time = SqlFunctions.timestampToTime(timestamp);
