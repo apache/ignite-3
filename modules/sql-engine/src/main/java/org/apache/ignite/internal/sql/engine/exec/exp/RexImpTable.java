@@ -3395,8 +3395,15 @@ public class RexImpTable {
         return Expressions.call(SqlFunctions.class, backupMethodName, argValueList);
       }
 
-      return IgniteExpressions.makeBinary(expressionType,
-          argValueList.get(0), argValueList.get(1));
+      Expression exp = IgniteExpressions.makeBinary(expressionType,
+             argValueList.get(0), argValueList.get(1));
+
+      // TODO https://issues.apache.org/jira/browse/IGNITE-21557 Next if block should be removed.
+      if (call.getType().getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
+          return Expressions.call(IgniteMethod.TO_TIMESTAMP_LTZ_EXACT_FROM_PRIMITIVE.method(), exp);
+      }
+
+      return exp;
     }
 
     /** Returns whether any of a call's operands have ANY type. */
