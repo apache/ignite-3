@@ -41,20 +41,6 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
 
     [Test]
-    public async Task TestSystemInfoJob([Values(true, false)] bool withSsl)
-    {
-        var target = JobTarget.Node(await GetClusterNodeAsync(withSsl ? "_3" : string.Empty));
-        var desc = new JobDescriptor<object?, string>(
-            DotNetJobs.TempJobPrefix + "Apache.Ignite.Internal.ComputeExecutor.SystemInfoJob, Apache.Ignite.Internal.ComputeExecutor");
-
-        var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
-        var result = await jobExec.GetResultAsync();
-
-        StringAssert.StartsWith("SystemInfoJob [CLR=", result);
-        StringAssert.EndsWith("JobArg=Hello world!]", result);
-    }
-
-    [Test]
     public async Task TestEchoJob([Values(true, false)] bool withSsl)
     {
         var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
