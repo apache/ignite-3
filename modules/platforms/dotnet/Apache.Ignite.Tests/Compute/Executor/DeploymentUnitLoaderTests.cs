@@ -99,9 +99,28 @@ public class DeploymentUnitLoaderTests
     [Test]
     public async Task TestAssemblyLoadOrder()
     {
-        // TODO: Test that assemblies are loaded in the same order as specified deployment units.
-        await Task.Delay(1);
-        Assert.Fail();
+        using var tempDir1 = new TempDir();
+        using var tempDir2 = new TempDir();
+
+        // Same job type and assembly, different return result in different dirs (units).
+        var asmName = nameof(TestAssemblyLoadOrder);
+        var typeName = $"TestNamespace.ReturnConstJob, {asmName}";
+
+        EmitReturnConstJob(tempDir1, asmName, "Res1");
+        EmitReturnConstJob(tempDir2, asmName, "Res2");
+
+        // Different order of deployment units affects the order of assembly loading.
+        var deploymentUnitPaths1 = new DeploymentUnitPaths([tempDir1.Path, tempDir2.Path]);
+        var deploymentUnitPaths2 = new DeploymentUnitPaths([tempDir2.Path, tempDir1.Path]);
+
+        using JobLoadContext jobCtx1 = DeploymentUnitLoader.GetJobLoadContext(deploymentUnitPaths1);
+        using JobLoadContext jobCtx2 = DeploymentUnitLoader.GetJobLoadContext(deploymentUnitPaths2);
+
+        var res1 = await JobWrapperHelper.ExecuteAsync<string, string>(jobCtx1.CreateJobWrapper(typeName), "_");
+        var res2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobCtx2.CreateJobWrapper(typeName), "_");
+
+        Assert.AreEqual("Res1", res1);
+        Assert.AreEqual("Res2", res2);
     }
 
     private static void EmitEchoJob(TempDir tempDir, string asmName) =>
@@ -132,6 +151,19 @@ public class DeploymentUnitLoaderTests
                     
                     return ValueTask.FromResult(oldValue);
                 }
+                    
+            }
+            """);
+
+    private static void EmitReturnConstJob(TempDir tempDir, string asmName, string jobResult) =>
+        EmitJob(
+            tempDir,
+            asmName,
+            $$"""
+            public class ReturnConstJob : IComputeJob<string, string>
+            {
+                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
+                    ValueTask.FromResult("{{jobResult}}");
                     
             }
             """);
