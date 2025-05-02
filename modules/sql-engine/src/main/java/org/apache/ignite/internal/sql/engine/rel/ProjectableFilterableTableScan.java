@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.calcite.sql.validate.SqlValidatorUtil.ATTEMPT_SUGGESTER;
 import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceLocalRefs;
@@ -36,6 +37,7 @@ import org.apache.calcite.rel.core.TableScan;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.calcite.rel.type.RelDataTypeFactory;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
@@ -55,56 +57,58 @@ import org.jetbrains.annotations.Nullable;
 /** Scan with projects and filters. */
 public abstract class ProjectableFilterableTableScan extends TableScan {
     /** Filters. */
-    protected final RexNode condition;
+    protected final @Nullable RexNode condition;
 
     /** Projects. */
-    protected final List<RexNode> projects;
+    protected final @Nullable List<RexNode> projects;
+
+    protected final @Nullable List<String> names;
 
     /** Participating columns. */
     protected final ImmutableBitSet requiredColumns;
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     protected ProjectableFilterableTableScan(
             RelOptCluster cluster,
             RelTraitSet traitSet,
             List<RelHint> hints,
             RelOptTable table,
-            @Nullable List<RexNode> proj,
-            @Nullable RexNode cond,
-            @Nullable ImmutableBitSet reqColumns
+            @Nullable List<String> names,
+            @Nullable List<RexNode> projects,
+            @Nullable RexNode condition,
+            @Nullable ImmutableBitSet requiredColumns
     ) {
         super(cluster, traitSet, hints, table);
 
-        projects = proj;
-        condition = cond;
-        requiredColumns = reqColumns;
+        this.names = names;
+        this.projects = projects;
+        this.condition = condition;
+        this.requiredColumns = requiredColumns;
     }
 
-    /**
-     * Constructor.
-     * TODO Documentation https://issues.apache.org/jira/browse/IGNITE-15859
-     */
     protected ProjectableFilterableTableScan(RelInput input) {
         super(input);
         condition = input.getExpression("filters");
+        names = input.get("names") == null ? null : input.getStringList("names");
         projects = input.get("projects") == null ? null : input.getExpressionList("projects");
         requiredColumns = input.get("requiredColumns") == null ? null : input.getBitSet("requiredColumns");
+    }
+
+    /** Returns field names explicitly passed during object creation, if any. */
+    public @Nullable List<String> fieldNames() {
+        return names;
     }
 
     /**
      * Get projections.
      */
-    public List<RexNode> projects() {
+    public @Nullable List<RexNode> projects() {
         return projects;
     }
 
     /**
      * Get rex condition.
      */
-    public RexNode condition() {
+    public @Nullable RexNode condition() {
         return condition;
     }
 
@@ -147,6 +151,7 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         }
 
         return pw.itemIf("fields", getRowType().getFieldNames(), forExplain(pw))
+                .itemIf("names", names, names != null && !forExplain(pw))
                 .itemIf("projects", projects, projects != null)
                 .itemIf("requiredColumns", requiredColumns, !forExplain(pw) && requiredColumns != null);
     }
@@ -173,8 +178,18 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /** {@inheritDoc} */
     @Override
     public RelDataType deriveRowType() {
+        RelDataTypeFactory typeFactory = Commons.typeFactory(getCluster());
+        List<RexNode> projects = this.projects;
+
+        if (projects == null && names != null) {
+            // Let's create fake identity projection just to preserve field names provided explicitly.
+            RelDataType type = table.unwrap(IgniteDataSource.class).getRowType(typeFactory, requiredColumns);
+
+            projects = getCluster().getRexBuilder().identityProjects(type);
+        }
+
         if (projects != null) {
-            return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects);
+            return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects, names, ATTEMPT_SUGGESTER);
         } else {
             return table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
         }

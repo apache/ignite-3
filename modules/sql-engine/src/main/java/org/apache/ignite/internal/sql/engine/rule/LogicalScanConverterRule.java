@@ -99,6 +99,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                             rel.indexName(),
                             index.type(),
                             collation,
+                            rel.fieldNames(),
                             rel.projects(),
                             rel.condition(),
                             rel.searchBounds(),
@@ -134,7 +135,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                             .replace(distribution);
 
                     return new IgniteTableScan(rel.getCluster(), traits, rel.getTable(), rel.getHints(),
-                        rel.projects(), rel.condition(), rel.requiredColumns());
+                            rel.fieldNames(), rel.projects(), rel.condition(), rel.requiredColumns());
                 }
             };
 
@@ -165,7 +166,7 @@ public abstract class LogicalScanConverterRule<T extends ProjectableFilterableTa
                             .replace(distribution);
 
                     return new IgniteSystemViewScan(rel.getCluster(), traits,  rel.getHints(), rel.getTable(),
-                            rel.projects(), rel.condition(), rel.requiredColumns());
+                            rel.fieldNames(), rel.projects(), rel.condition(), rel.requiredColumns());
                 }
             };
 

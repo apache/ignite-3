@@ -1,0 +1,277 @@
+statement ok
+CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
+
+# select all, no renames
+plan
+SELECT * FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      fields: [C1, C2, C3]
+      est. row count: 1
+
+# select with trimming projection, no renames
+plan
+SELECT c1, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      fields: [C1, C2]
+      est. row count: 1
+
+# select with trimming projection and renames
+plan
+SELECT c1 AS renamed_c1, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      fields: [RENAMED_C1, C2]
+      est. row count: 1
+
+# select with expression projection, no renames
+plan
+SELECT c1 + c3, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      fields: [EXPR$0, C2]
+      projects: [+(C1, C3), C2]
+      est. row count: 1
+
+# select with expression projection and renames
+plan
+SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      fields: [SUM_OF_C1_AND_C3, C2]
+      projects: [+(C1, C3), C2]
+      est. row count: 1
+
+# Similar set of tests but for IndexScan
+statement ok
+CREATE INDEX test_table_idx ON test_table (c1, c2, c3);
+
+# select all, no renames
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ * FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      fields: [C1, C2, C3]
+      collation: [C1 ASC, C2 ASC, C3 ASC]
+      est. row count: 1
+
+# select with trimming projection, no renames
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      fields: [C1, C2]
+      collation: [C1 ASC, C2 ASC]
+      est. row count: 1
+
+# select with trimming projection and renames
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 AS renamed_c1, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      fields: [RENAMED_C1, C2]
+      collation: [C1 ASC, C2 ASC]
+      est. row count: 1
+
+# select with expression projection, no renames
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 + c3, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      fields: [EXPR$0, C2]
+      projects: [+(C1, C3), C2]
+      collation: []
+      est. row count: 1
+
+# select with expression projection and renames
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      fields: [SUM_OF_C1_AND_C3, C2]
+      projects: [+(C1, C3), C2]
+      collation: []
+      est. row count: 1
+
+# Similar set of tests but for KeyValueGet
+# select all, no renames
+plan
+SELECT * FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: [PUBLIC, TEST_TABLE]
+    fields: [C1, C2, C3]
+    key: [1]
+    est. row count: 1
+
+# select with trimming projection, no renames
+plan
+SELECT c1, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: [PUBLIC, TEST_TABLE]
+    fields: [C1, C2]
+    key: [1]
+    est. row count: 1
+
+# select with trimming projection and renames
+plan
+SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: [PUBLIC, TEST_TABLE]
+    fields: [C1, C2]
+    key: [1]
+    est. row count: 1
+
+# select with expression projection, no renames
+plan
+SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: [PUBLIC, TEST_TABLE]
+    fields: [EXPR$0, C2]
+    projects: [+(C1, C3), C2]
+    key: [1]
+    est. row count: 1
+
+# select with expression projection and renames
+plan
+SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
+----
+KeyValueGet
+    table: [PUBLIC, TEST_TABLE]
+    fields: [SUM_OF_C1_AND_C3, C2]
+    projects: [+(C1, C3), C2]
+    key: [1]
+    est. row count: 1
+
+# Complex query where column of source table is renamed, and this renamed column is referenced by
+# correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
+plan
+SELECT
+  (SELECT COUNT(*)
+     FROM test_table inner_t
+    WHERE inner_t.c1 = renamed_c1
+  )
+  FROM (SELECT c1, c1 as renamed_c1 FROM test_table) as t
+----
+Project
+    fields: [EXPR$0]
+    exprs: [EXPR$0]
+    est. row count: 1
+  CorrelatedNestedLoopJoin
+      condition: true
+      joinType: left
+      variablesSet: [$cor0]
+      est. row count: 1
+    Exchange
+        distribution: single
+        est. row count: 1
+      TableScan
+          table: [PUBLIC, TEST_TABLE]
+          fields: [RENAMED_C1]
+          est. row count: 1
+    ColocatedHashAggregate
+        group: []
+        aggs: [COUNT()]
+        est. row count: 1
+      Exchange
+          distribution: single
+          est. row count: 1
+        TableScan
+            table: [PUBLIC, TEST_TABLE]
+            filters: =(C1, $cor0.RENAMED_C1)
+            fields: [C1]
+            est. row count: 1
+
+# Complex query where expression involving a column of source table is renamed, and this renamed expression is referenced by
+# correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
+plan
+SELECT
+  (SELECT COUNT(*)
+     FROM test_table inner_t
+    WHERE inner_t.c1 = doubled_c1
+  )
+  FROM (SELECT c1, c1 * 2 as doubled_c1 FROM test_table) as t
+----
+Project
+    fields: [EXPR$0]
+    exprs: [EXPR$0]
+    est. row count: 1
+  CorrelatedNestedLoopJoin
+      condition: true
+      joinType: left
+      variablesSet: [$cor0]
+      est. row count: 1
+    Exchange
+        distribution: single
+        est. row count: 1
+      TableScan
+          table: [PUBLIC, TEST_TABLE]
+          fields: [DOUBLED_C1]
+          projects: [*(C1, 2)]
+          est. row count: 1
+    ColocatedHashAggregate
+        group: []
+        aggs: [COUNT()]
+        est. row count: 1
+      Exchange
+          distribution: single
+          est. row count: 1
+        TableScan
+            table: [PUBLIC, TEST_TABLE]
+            filters: =(C1, $cor0.DOUBLED_C1)
+            fields: [C1]
+            est. row count: 1
