@@ -26,6 +26,7 @@ using System.Net.Http.Headers;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Apache.Ignite.Compute;
+using Internal.Common;
 
 /// <summary>
 /// Ignite management REST API wrapper.
@@ -75,10 +76,12 @@ public static class ManagementApi
                 var statuses = await GetUnitStatus(unitId);
 
                 return statuses != null &&
-                       statuses.Any(status => status.VersionToStatus.Any(
-                           v => v.Version == unitVersion && v.Status == "DEPLOYED"));
+                       statuses.Any(status => status.VersionToStatus.Any(v => v.Version == unitVersion && v.Status == "DEPLOYED"));
             },
-            timeoutMs: 3000);
+            timeoutMs: 3000,
+            () => $"Failed to deploy unit {unitId} version {unitVersion}: {GetUnitStatusString()}");
+
+        string GetUnitStatusString() => GetUnitStatus(unitId).GetAwaiter().GetResult()!.StringJoin();
     }
 
     public static async Task UnitUndeploy(DeploymentUnit unit)
