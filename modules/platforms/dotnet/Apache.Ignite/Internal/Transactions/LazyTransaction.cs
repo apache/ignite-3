@@ -106,7 +106,12 @@ internal sealed class LazyTransaction : ITransaction
     public async ValueTask DisposeAsync() => await RollbackAsync().ConfigureAwait(false);
 
     /// <inheritdoc/>
-    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+    public void Dispose()
+    {
+        // It is recommended to implement IDisposable when IAsyncDisposable is implemented,
+        // so we have to do sync-over-async here.
+        DisposeAsync().AsTask().GetAwaiter().GetResult();
+    }
 
     /// <inheritdoc/>
     public override string ToString()
