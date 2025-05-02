@@ -23,7 +23,9 @@ import java.time.Year;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.DateTimeUtils;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.jetbrains.annotations.Nullable;
@@ -52,6 +54,22 @@ public class IgniteSqlDateTimeUtils {
 
         // After adjusting to UTC, you need to make sure that the value matches the allowed values.
         return IgniteSqlFunctions.toTimestampLtzExact(timestamp - offset);
+    }
+
+    /**
+     * SQL {@code CURRENT_DATE} function.
+     */
+    public static int currentDate(DataContext ctx) {
+        // We using LOCAL_TIMESTAMP, because CURRENT_TIMESTAMP returns TIMESTAMP_LTZ
+        // which requires to be converted to TIMESTAMP taking into account client time zone.
+        // At the same time, LOCAL_TIMESTAMP already has the required value.
+        long timestamp = DataContext.Variable.LOCAL_TIMESTAMP.get(ctx);
+        int date = SqlFunctions.timestampToDate(timestamp);
+        int time = SqlFunctions.timestampToTime(timestamp);
+        if (time < 0) {
+            --date;
+        }
+        return date;
     }
 
     /**

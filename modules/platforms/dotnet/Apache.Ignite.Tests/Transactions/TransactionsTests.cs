@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Transactions
 {
     using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Linq;
     using System.Threading.Tasks;
     using Ignite.Transactions;
@@ -108,12 +109,24 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
+        [SuppressMessage("ReSharper", "UseAwaitUsing", Justification = "Testing synchronous Dispose.")]
         public async Task TestDisposeDoesNotUpdateData()
+        {
+            using (var tx = await Client.Transactions.BeginAsync())
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+            }
+
+            var (_, hasValue) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasValue);
+        }
+
+        [Test]
+        public async Task TestDisposeAsyncDoesNotUpdateData()
         {
             await using (var tx = await Client.Transactions.BeginAsync())
             {
                 await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
-                await tx.RollbackAsync();
             }
 
             var (_, hasValue) = await TupleView.GetAsync(null, GetTuple(1));
@@ -341,20 +354,16 @@ namespace Apache.Ignite.Tests.Transactions
         {
             public bool IsReadOnly => false;
 
-            public ValueTask DisposeAsync()
+            public ValueTask DisposeAsync() => new(Task.CompletedTask);
+
+            public void Dispose()
             {
-                return new ValueTask(Task.CompletedTask);
+                // No-op.
             }
 
-            public Task CommitAsync()
-            {
-                return Task.CompletedTask;
-            }
+            public Task CommitAsync() => Task.CompletedTask;
 
-            public Task RollbackAsync()
-            {
-                return Task.CompletedTask;
-            }
+            public Task RollbackAsync() => Task.CompletedTask;
         }
     }
 }

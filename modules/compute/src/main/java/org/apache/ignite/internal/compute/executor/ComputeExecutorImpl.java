@@ -133,7 +133,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         // TODO IGNITE-25116: Remove.
         if (jobClassName.startsWith("TEST_ONLY_DOTNET_JOB:") && dotNetExec0 != null) {
-            return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+            return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName.substring(21), input, context);
         }
 
         switch (executorType) {

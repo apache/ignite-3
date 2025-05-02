@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.lang.reflect.Type;
+import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
@@ -118,6 +119,7 @@ public class ExecutionContext<RowT> implements DataContext {
      * @param txAttributes Transaction attributes.
      * @param timeZoneId Session time-zone ID.
      * @param inBufSize Default execution nodes' internal buffer size. Negative value means default value.
+     * @param clock The clock to use to get the system time.
      */
     @SuppressWarnings("AssignmentOrReturnOfFieldWithMutableType")
     public ExecutionContext(
@@ -131,7 +133,8 @@ public class ExecutionContext<RowT> implements DataContext {
             Map<String, Object> params,
             TxAttributes txAttributes,
             ZoneId timeZoneId,
-            int inBufSize
+            int inBufSize,
+            Clock clock
     ) {
         this.expressionFactory = expressionFactory;
         this.executor = executor;
@@ -147,7 +150,7 @@ public class ExecutionContext<RowT> implements DataContext {
 
         assert this.inBufSize > 0 : this.inBufSize;
 
-        Instant nowUtc = Instant.now();
+        Instant nowUtc = Instant.now(clock);
         startTs = nowUtc.toEpochMilli();
         startTsWithTzOffset = nowUtc.plusSeconds(this.timeZoneId.getRules().getOffset(nowUtc).getTotalSeconds()).toEpochMilli();
 

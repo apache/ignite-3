@@ -26,6 +26,7 @@ import java.util.Arrays;
 import java.util.Objects;
 import java.util.TimeZone;
 import java.util.UUID;
+import org.apache.calcite.DataContext;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.tree.Types;
 import org.apache.calcite.runtime.SqlFunctions;
@@ -142,6 +143,12 @@ public enum IgniteMethod {
      * See {@link IgniteSqlDateTimeUtils#timeStringToUnixDate(String)}.
      */
     STRING_TO_TIME(IgniteSqlDateTimeUtils.class, "timeStringToUnixDate", String.class),
+
+    /**
+     * SQL {@code CURRENT_DATE} function.
+     * See {@link IgniteSqlDateTimeUtils#currentDate(DataContext)}.
+     */
+    CURRENT_DATE(IgniteSqlDateTimeUtils.class, "currentDate", DataContext.class),
 
     ;
 

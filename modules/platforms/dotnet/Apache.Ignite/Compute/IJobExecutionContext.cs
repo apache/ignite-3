@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,13 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Compute;
 
-using BenchmarkDotNet.Running;
-using Compute;
-
-internal static class Program
+/// <summary>
+/// Compute job execution context. See <see cref="IComputeJob{TArg,TResult}.ExecuteAsync"/>.
+/// </summary>
+public interface IJobExecutionContext
 {
-    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<JobLoadContextBenchmarks>();
+    /// <summary>
+    /// Gets the Ignite API entry point.
+    /// </summary>
+    IIgnite Ignite { get; }
 }

@@ -23,6 +23,7 @@ import static org.apache.calcite.rel.core.JoinRelType.SEMI;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import java.time.Clock;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Iterator;
@@ -145,7 +146,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 Map.of(),
                 TxAttributes.fromTx(new NoOpTransaction("fake-test-node", false)),
                 SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                bufferSize
+                bufferSize,
+                Clock.systemUTC()
         );
     }
 

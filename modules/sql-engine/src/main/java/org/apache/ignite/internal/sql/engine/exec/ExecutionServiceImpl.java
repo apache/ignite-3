@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -450,7 +451,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
-                -1
+                -1,
+                Clock.systemUTC()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -942,7 +944,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
                     ctx.timeZoneId(),
-                    -1
+                    -1,
+                    Clock.systemUTC()
             );
         }
 

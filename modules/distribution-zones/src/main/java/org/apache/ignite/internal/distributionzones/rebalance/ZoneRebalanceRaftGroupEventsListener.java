@@ -46,6 +46,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -541,8 +542,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         } catch (InterruptedException | ExecutionException e) {
             // TODO: IGNITE-14693
             if (!hasCause(e, NodeStoppingException.class)) {
-                String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
-                failureProcessor.process(new FailureContext(e, errorMessage));
+                if (hasCause(e, TimeoutException.class)) {
+                    // TODO: https://issues.apache.org/jira/browse/IGNITE-25276 - handle this timeout properly.
+                    LOG.error("Unable to commit partition configuration to metastore: {}", e, zonePartitionId);
+                } else {
+                    String errorMessage = String.format("Unable to commit partition configuration to metastore: %s", zonePartitionId);
+                    failureProcessor.process(new FailureContext(e, errorMessage));
+                }
             }
         }
     }
