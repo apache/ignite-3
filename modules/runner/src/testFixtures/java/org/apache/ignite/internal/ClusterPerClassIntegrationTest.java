@@ -176,7 +176,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible tables. */
     protected static void dropAllTables() {
-        String dropTablesScript = CLUSTER.aliveNode().tables().tables().stream()
+        Ignite aliveNode = CLUSTER.aliveNode();
+        String dropTablesScript = aliveNode.tables().tables().stream()
                 .map(Table::name)
                 .map(name -> "DROP TABLE " + name)
                 .collect(Collectors.joining(";\n"));
@@ -202,8 +203,8 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                 .map(name -> "DROP SCHEMA " + quoteIfNeeded(name) + " CASCADE")
                 .collect(Collectors.joining(";\n"));
 
-        if (dropSchemasScript.isEmpty()) {
-            sqlScript(dropSchemasScript);
+        if (!dropSchemasScript.isEmpty()) {
+            aliveNode.sql().executeScript(dropSchemasScript);
         }
     }
 
@@ -222,7 +223,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
                 .map(name -> "DROP ZONE " + quoteIfNeeded(name))
                 .collect(Collectors.joining(";\n"));
 
-        if (dropZonesScript.isEmpty()) {
+        if (!dropZonesScript.isEmpty()) {
             sqlScript(dropZonesScript);
         }
     }
