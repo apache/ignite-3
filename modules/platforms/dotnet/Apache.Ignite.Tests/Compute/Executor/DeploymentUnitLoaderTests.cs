@@ -69,11 +69,12 @@ public class DeploymentUnitLoaderTests
         IComputeJobWrapper jobWrapper2 = jobCtx2.CreateJobWrapper(typeName);
 
         var job1Res1 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper1, "Job1val1");
-        var job1Res2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper1, "Job1val2");
-
         var job2Res1 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper2, "Job2val1");
+
+        var job1Res2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper1, "Job1val2");
         var job2Res2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper2, "Job2val2");
 
+        // Static fields are isolated between different job contexts.
         Assert.AreEqual("Initial", job1Res1);
         Assert.AreEqual("Job1val1", job1Res2);
 
