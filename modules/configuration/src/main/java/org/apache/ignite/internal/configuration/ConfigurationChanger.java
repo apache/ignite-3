@@ -123,7 +123,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Flag indicating whether the component is started. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
-    /** Keys that were deleted, but were present in the configuration on the startup. */
+    /** Keys that were deleted from the configuration, but were present in the storage. Will be deleted on startup. */
     private Collection<String> ignoredKeys;
 
     /**
