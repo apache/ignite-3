@@ -47,9 +47,23 @@ public class DeploymentUnitLoaderTests
     [Test]
     public async Task TestMultiAssemblyDeploymentUnit()
     {
-        // TODO: Build multiple assemblies with different type names and make sure all of them can be loaded.
-        await Task.Delay(1);
-        Assert.Fail();
+        using var tempDir = new TempDir();
+
+        var asmName1 = nameof(TestMultiAssemblyDeploymentUnit) + "First";
+        EmitEchoJob(tempDir, asmName1);
+
+        var asmName2 = nameof(TestMultiAssemblyDeploymentUnit) + "Second";
+        EmitGetAndSetStaticFieldJob(tempDir, asmName2);
+
+        using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
+        IComputeJobWrapper jobWrapper1 = jobCtx.CreateJobWrapper($"TestNamespace.EchoJob, {asmName1}");
+        IComputeJobWrapper jobWrapper2 = jobCtx.CreateJobWrapper($"TestNamespace.GetAndSetStaticFieldJob, {asmName2}");
+
+        var jobRes1 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper1, "Hello, world!");
+        var jobRes2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper2, "Hello, world!");
+
+        Assert.AreEqual("Echo: Hello, world!", jobRes1);
+        Assert.AreEqual("Initial", jobRes2);
     }
 
     [Test]
