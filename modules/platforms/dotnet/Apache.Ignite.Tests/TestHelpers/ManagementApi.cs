@@ -78,10 +78,13 @@ public static class ManagementApi
                 return statuses != null &&
                        statuses.Any(status => status.VersionToStatus.Any(v => v.Version == unitVersion && v.Status == "DEPLOYED"));
             },
-            timeoutMs: 3000,
+            timeoutMs: 5000,
             () => $"Failed to deploy unit {unitId} version {unitVersion}: {GetUnitStatusString()}");
 
-        string GetUnitStatusString() => GetUnitStatus(unitId).GetAwaiter().GetResult()!.StringJoin();
+        string? GetUnitStatusString() =>
+            GetUnitStatus(unitId).GetAwaiter().GetResult()?
+                .SelectMany(x => x.VersionToStatus)
+                .StringJoin();
     }
 
     public static async Task UnitUndeploy(DeploymentUnit unit)
