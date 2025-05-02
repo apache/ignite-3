@@ -122,7 +122,7 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
     @Override
     public List<ValidationIssue> validate(ConfigurationSource src) {
         SuperRoot changes = emptySuperRoot();
-        src.descend(changes);
+        src.descend(changes, Set.of());
         addDefaults(changes);
         dropNulls(changes);
         return validate(emptySuperRoot(), changes);

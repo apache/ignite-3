@@ -43,6 +43,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -170,7 +171,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             SuperRoot copiedSuperRoot = superRoot.copy();
 
             Config hocon = readHoconFromFile();
-            HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot);
+            HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot, Set.of());
 
             Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
             flattenedUpdatesMap.forEach((key, value) -> {

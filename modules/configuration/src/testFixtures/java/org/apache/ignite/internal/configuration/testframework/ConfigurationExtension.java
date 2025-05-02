@@ -37,6 +37,7 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
@@ -252,7 +253,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
         ConfigObject hoconCfg = ConfigFactory.parseString(annotation.value()).root();
 
-        HoconConverter.hoconSource(hoconCfg).descend(superRoot);
+        HoconConverter.hoconSource(hoconCfg).descend(superRoot, Set.of());
 
         if (!annotation.rootName().isBlank()) {
             patchWithDynamicDefault(annotation.type(), superRoot);
@@ -287,7 +288,7 @@ public class ConfigurationExtension implements BeforeEachCallback, AfterEachCall
 
                     SuperRoot copy = sr.copy();
 
-                    change.descend(copy);
+                    change.descend(copy, Set.of());
 
                     ConfigurationUtil.dropNulls(copy);
 
