@@ -49,7 +49,6 @@ internal sealed partial class ClientSocket
                 break;
 
             case ServerOp.DeploymentUnitsUndeploy:
-                // TODO IGNITE-25115 Implement platform job executor.
                 response.MessageWriter.Write(false);
                 break;
 

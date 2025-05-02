@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,13 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Tests.TestHelpers;
 
-using BenchmarkDotNet.Running;
-using Compute;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
-internal static class Program
+/// <summary>
+/// Temporary directory holder for tests.
+/// </summary>
+internal sealed record TempDir : IDisposable
 {
-    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<JobLoadContextBenchmarks>();
+    public TempDir()
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
+
+        Directory.CreateDirectory(Path);
+    }
+
+    public string Path { get; }
+
+    public void Dispose() => _ = Task.Run(() =>
+    {
+        // Delete test temp dir in background, ignore errors.
+        Directory.Delete(Path, true);
+    });
 }

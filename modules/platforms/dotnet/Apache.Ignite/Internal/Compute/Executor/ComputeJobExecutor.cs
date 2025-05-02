@@ -19,9 +19,9 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
-using Proto.MsgPack;
 
 /// <summary>
 /// Compute executor utilities.
@@ -43,13 +43,12 @@ internal static class ComputeJobExecutor
         PooledBuffer request,
         PooledArrayBuffer response)
     {
-        var jobReq = Read(request.GetReader());
-        var jobRes = await ExecuteJobAsync(jobReq).ConfigureAwait(false);
+        var jobReq = Read(request);
+        await ExecuteJobAsync(jobReq, request, response).ConfigureAwait(false);
 
-        Write(response.MessageWriter, jobRes);
-
-        static JobExecuteRequest Read(MsgPackReader r)
+        static JobExecuteRequest Read(PooledBuffer request)
         {
+            var r = request.GetReader();
             long jobId = r.ReadInt64();
             string jobClassName = r.ReadString();
 
@@ -60,28 +59,36 @@ internal static class ComputeJobExecutor
                 deploymentUnitPaths.Add(r.ReadString());
             }
 
-            object arg = ComputePacker.UnpackArgOrResult<object>(ref r, null);
+            bool retainDeploymentUnits = r.ReadBoolean();
 
-            return new JobExecuteRequest(jobId, deploymentUnitPaths, jobClassName, arg);
-        }
+            if (retainDeploymentUnits)
+            {
+                // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
+                throw new NotSupportedException("Caching deployment units is not supported yet.");
+            }
 
-        static void Write(MsgPackWriter w, object? res)
-        {
-            w.Write(0); // Flags: success.
-            ComputePacker.PackArgOrResult(ref w, res, null);
+            request.Position += r.Consumed;
+
+            return new JobExecuteRequest(jobId, new(deploymentUnitPaths), jobClassName);
         }
     }
 
-    private static ValueTask<object?> ExecuteJobAsync(JobExecuteRequest req)
+    private static async ValueTask ExecuteJobAsync(
+        JobExecuteRequest req,
+        PooledBuffer argBuf,
+        PooledArrayBuffer resBuf)
     {
-        // TODO IGNITE-25115 Implement platform job executor.
-        if (req.JobClassName == "TEST_ONLY_DOTNET_JOB:ECHO")
-        {
-            return ValueTask.FromResult(req.Arg)!;
-        }
+        // Unload assemblies after job execution.
+        // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
+        using JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
+        IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
 
-        throw new NotImplementedException("Platform jobs are not supported yet.");
+        resBuf.MessageWriter.Write(0); // Response flags: success.
+
+        // TODO IGNITE-25116: IJobExecutionContext.
+        // TODO IGNITE-25153: Cancellation.
+        await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
     }
 
-    private record JobExecuteRequest(long JobId, IList<string> DeploymentUnitPaths, string JobClassName, object Arg);
+    private record JobExecuteRequest(long JobId, DeploymentUnitPaths DeploymentUnitPaths, string JobClassName);
 }
