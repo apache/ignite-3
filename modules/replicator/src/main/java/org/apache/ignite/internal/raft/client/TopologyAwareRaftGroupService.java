@@ -374,9 +374,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return Future that is completed when all messages about cancelling subscription to peers are sent.
      */
     public CompletableFuture<Void> unsubscribeLeader() {
-        // TODO sanpwc Implement unsubscribe.
-//        serverEventHandler.setOnLeaderElectedCallback(null);
-//        serverEventHandler.resetLeader();
+        eventsClientListener.removeAllLeaderElectionListener();
 
         return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
     }
@@ -503,8 +501,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     public void shutdown() {
         logicalTopologyService.removeEventListener(topologyEventsListener);
 
-        // TODO sanpwc remove all
-//        eventsClientListener.removeLeaderElectionListener(groupId(), serverEventHandler);
+        eventsClientListener.removeAllLeaderElectionListener();
 
         raftClient.shutdown();
     }
@@ -564,14 +561,6 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          */
         synchronized boolean isSubscribed() {
             return onLeaderElectedCallback != null;
-        }
-
-        Peer leader() {
-            return leaderPeer;
-        }
-
-        void resetLeader() {
-            leaderPeer = null;
         }
     }
 
