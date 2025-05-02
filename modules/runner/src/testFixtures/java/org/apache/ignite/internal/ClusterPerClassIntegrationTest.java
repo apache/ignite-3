@@ -36,6 +36,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -173,8 +176,13 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible tables. */
     protected static void dropAllTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
+        String dropTablesScript = CLUSTER.aliveNode().tables().tables().stream()
+                .map(Table::name)
+                .map(name -> "DROP TABLE " + name)
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropTablesScript.isEmpty()) {
+            sqlScript(dropTablesScript);
         }
     }
 
@@ -187,10 +195,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
         assert latestCatalog != null;
 
-        latestCatalog.schemas().stream()
-                .filter(schema -> !CatalogUtils.SYSTEM_SCHEMAS.contains(schema.name()))
-                .filter(schema -> !SqlCommon.DEFAULT_SCHEMA_NAME.equals(schema.name()))
-                .forEach(schema -> sql("DROP SCHEMA " + quoteIfNeeded(schema.name()) + " CASCADE"));
+        String dropSchemasScript = latestCatalog.schemas().stream()
+                .map(CatalogSchemaDescriptor::name)
+                .filter(Predicate.not(CatalogUtils.SYSTEM_SCHEMAS::contains))
+                .filter(Predicate.not(SqlCommon.DEFAULT_SCHEMA_NAME::equals))
+                .map(name -> "DROP SCHEMA " + quoteIfNeeded(name) + " CASCADE")
+                .collect(Collectors.joining(";\n"));
+
+        if (dropSchemasScript.isEmpty()) {
+            sqlScript(dropSchemasScript);
+        }
     }
 
     /** Drops all visible zones. */
@@ -198,12 +212,18 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
         Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-        for (CatalogZoneDescriptor z : catalog.zones()) {
-            String zoneName = z.name();
-            if (defaultZone != null && zoneName.equals(defaultZone.name())) {
-                continue;
-            }
-            sql("DROP ZONE " + zoneName);
+
+        Predicate<String> isNotDefaultZone = defaultZone == null ? zoneName -> true
+                : Predicate.not(defaultZone.name()::equals);
+
+        String dropZonesScript = catalog.zones().stream()
+                .map(CatalogZoneDescriptor::name)
+                .filter(isNotDefaultZone)
+                .map(name -> "DROP ZONE " + quoteIfNeeded(name))
+                .collect(Collectors.joining(";\n"));
+
+        if (dropZonesScript.isEmpty()) {
+            sqlScript(dropZonesScript);
         }
     }
 
