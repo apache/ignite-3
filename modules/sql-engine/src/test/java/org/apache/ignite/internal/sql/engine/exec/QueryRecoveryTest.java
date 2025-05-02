@@ -37,6 +37,7 @@ import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissExcepti
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransaction;
 import org.apache.ignite.internal.sql.engine.framework.NoOpTransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
@@ -44,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.message.UnknownNodeException;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapperImpl;

@@ -500,7 +500,6 @@ public class SnapshotExecutorImpl implements SnapshotExecutor {
         catch (final InterruptedException e) {
             Thread.currentThread().interrupt();
             LOG.warn("Install snapshot copy job was canceled.");
-            return;
         }
 
         loadDownloadingSnapshot(ds, meta);

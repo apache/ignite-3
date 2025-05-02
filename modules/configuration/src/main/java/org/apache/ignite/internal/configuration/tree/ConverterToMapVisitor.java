@@ -44,6 +44,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
+    /** Include deprecated nodes. */
+    private final boolean includeDeprecated;
+
     /** Skip nulls, empty Maps and empty lists. */
     private final boolean skipEmptyValues;
 
@@ -66,10 +69,12 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      */
     ConverterToMapVisitor(
             boolean includeInternal,
+            boolean includeDeprecated,
             boolean skipEmptyValues,
             boolean maskSecretValues
     ) {
         this.includeInternal = includeInternal;
+        this.includeDeprecated = includeDeprecated;
         this.skipEmptyValues = skipEmptyValues;
         this.maskSecretValues = maskSecretValues;
     }
@@ -77,6 +82,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitLeafNode(Field field, String key, Serializable val) {
+        if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
+            return null;
+        }
+
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
@@ -95,6 +104,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     @Override
     public Object visitInnerNode(Field field, String key, InnerNode node) {
         if (skipEmptyValues && node == null) {
+            return null;
+        }
+
+        if (!includeDeprecated && field != null && field.isAnnotationPresent(Deprecated.class)) {
             return null;
         }
 
@@ -127,6 +140,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     @Override
     public Object visitNamedListNode(Field field, String key, NamedListNode<?> node) {
         if (skipEmptyValues && node.isEmpty()) {
+            return null;
+        }
+
+        if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
             return null;
         }
 

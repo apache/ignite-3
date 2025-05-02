@@ -17,9 +17,6 @@
 
 package org.apache.ignite.client.fakes;
 
-import static org.apache.ignite.internal.sql.engine.QueryProperty.DEFAULT_SCHEMA;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.QUERY_TIMEOUT;
-import static org.apache.ignite.internal.sql.engine.QueryProperty.TIME_ZONE_ID;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import java.math.BigDecimal;
@@ -36,8 +33,8 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.sql.engine.util.ListToInternalSqlRowAdapter;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ColumnType;
@@ -58,9 +55,9 @@ public class FakeCursor implements AsyncSqlCursor<InternalSqlRow> {
             columns.add(new FakeColumnMetadata("name", ColumnType.STRING));
             columns.add(new FakeColumnMetadata("val", ColumnType.STRING));
 
-            rows.add(getRow("schema", properties.get(DEFAULT_SCHEMA)));
-            rows.add(getRow("timeout", String.valueOf(properties.get(QUERY_TIMEOUT))));
-            rows.add(getRow("timeZoneId", String.valueOf(properties.get(TIME_ZONE_ID))));
+            rows.add(getRow("schema", properties.defaultSchema()));
+            rows.add(getRow("timeout", String.valueOf(properties.queryTimeout())));
+            rows.add(getRow("timeZoneId", String.valueOf(properties.timeZoneId())));
         } else if ("SELECT META".equals(qry)) {
             columns.add(new FakeColumnMetadata("BOOL", ColumnType.BOOLEAN));
             columns.add(new FakeColumnMetadata("INT8", ColumnType.INT8));

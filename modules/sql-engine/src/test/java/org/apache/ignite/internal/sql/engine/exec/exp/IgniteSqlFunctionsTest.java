@@ -19,18 +19,11 @@ package org.apache.ignite.internal.sql.engine.exec.exp;
 
 import static org.apache.ignite.internal.sql.engine.prepare.IgniteSqlValidator.NUMERIC_FIELD_OVERFLOW_ERROR;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
-import static org.hamcrest.CoreMatchers.is;
-import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
-import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.util.Locale;
-import java.util.TimeZone;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.lang.ErrorGroups.Sql;
@@ -38,7 +31,6 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Sql functions test.
@@ -483,35 +475,6 @@ public class IgniteSqlFunctionsTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {
-            "2023-10-29 02:01:01",
-            "2023-10-29 03:01:01",
-            "2023-10-29 04:01:01",
-            "2023-10-29 05:01:01",
-            "2024-03-31 02:01:01",
-            "2024-03-31 03:01:01",
-            "2024-03-31 04:01:01",
-            "2024-03-31 05:01:01",
-    })
-    public void testSubtractTimeZoneOffset(String input) throws ParseException {
-        TimeZone cyprusTz = TimeZone.getTimeZone("Asia/Nicosia");
-        TimeZone utcTz = TimeZone.getTimeZone("UTC");
-
-        SimpleDateFormat dateFormatTz = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-        dateFormatTz.setTimeZone(cyprusTz);
-
-        SimpleDateFormat dateFormatUtc = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault());
-        dateFormatUtc.setTimeZone(utcTz);
-
-        long expMillis = dateFormatTz.parse(input).getTime();
-        long utcMillis = dateFormatUtc.parse(input).getTime();
-
-        long actualTs = IgniteSqlFunctions.subtractTimeZoneOffset(utcMillis, cyprusTz);
-
-        assertEquals(Instant.ofEpochMilli(expMillis), Instant.ofEpochMilli(actualTs));
-    }
-
-    @ParameterizedTest
     @CsvSource(
             value = {
                     "1; 2; 0.50",
@@ -531,20 +494,5 @@ public class IgniteSqlFunctionsTest {
         } else {
             assertThrows(ArithmeticException.class, () -> IgniteMath.decimalDivide(num, denum, 4, 2));
         }
-    }
-
-    @ParameterizedTest
-    @CsvSource({
-            "1970-01-01 00:00:00,     0, 0",
-            "1970-01-01 00:00:00.12,  2, 123",
-            "1970-01-01 00:00:00.123, 3, 123",
-            "1970-01-01 00:00:00.123, 6, 123",
-            "1970-02-01 23:59:59,     0, 2764799000",
-            "1970-02-01 23:59:59.04,  2, 2764799040",
-            "1969-12-31 23:59:59.999, 3, -1",
-            "1969-12-31 23:59:59.98,  2, -11",
-    })
-    public void testTimestampToString(String expectedDate, int precision, long millis) {
-        assertThat(IgniteSqlFunctions.unixTimestampToString(millis, precision), is(expectedDate));
     }
 }

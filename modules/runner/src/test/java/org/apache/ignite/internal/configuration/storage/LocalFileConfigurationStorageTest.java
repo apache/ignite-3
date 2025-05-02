@@ -91,13 +91,14 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, null);
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, new LocalFileConfigurationModule());
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
                 storage,
                 treeGenerator,
-                new ConfigurationValidatorImpl(treeGenerator, Set.of())
+                new ConfigurationValidatorImpl(treeGenerator, Set.of()),
+                change -> {}
         );
     }
 
@@ -577,6 +578,10 @@ public class LocalFileConfigurationStorageTest {
 
         @Value(hasDefault = true)
         public short shortVal = 1;
+
+        @Deprecated
+        @Value(hasDefault = true)
+        public int deprecated = 0;
     }
 
 

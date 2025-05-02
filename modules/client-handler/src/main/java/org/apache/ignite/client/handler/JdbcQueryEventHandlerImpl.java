@@ -27,6 +27,7 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import java.sql.Statement;
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -59,10 +60,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -75,7 +74,7 @@ import org.jetbrains.annotations.Nullable;
  */
 public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQueryEventHandler {
     /** {@link SqlQueryType}s allowed in JDBC update statements. **/
-    public static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = Set.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
+    public static final Set<SqlQueryType> UPDATE_STATEMENT_QUERIES = EnumSet.of(DML, SqlQueryType.DDL, SqlQueryType.KILL);
 
     /** Sql query processor. */
     private final QueryProcessor processor;
@@ -198,12 +197,11 @@ public class JdbcQueryEventHandlerImpl extends JdbcHandlerBase implements JdbcQu
 
         String schemaNameInCanonicalForm = IgniteNameUtils.parseIdentifier(defaultSchemaName);
 
-        return SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, allowedTypes)
-                .set(QueryProperty.TIME_ZONE_ID, timeZoneId)
-                .set(QueryProperty.DEFAULT_SCHEMA, schemaNameInCanonicalForm)
-                .set(QueryProperty.QUERY_TIMEOUT, queryTimeoutMillis)
-                .build();
+        return new SqlProperties()
+                .allowedQueryTypes(allowedTypes)
+                .timeZoneId(timeZoneId)
+                .defaultSchema(schemaNameInCanonicalForm)
+                .queryTimeout(queryTimeoutMillis);
     }
 
     /** {@inheritDoc} */

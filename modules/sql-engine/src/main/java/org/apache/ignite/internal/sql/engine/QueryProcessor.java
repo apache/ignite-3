@@ -21,7 +21,6 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.lang.CancellationToken;
 import org.apache.ignite.lang.IgniteException;
@@ -36,13 +35,12 @@ public interface QueryProcessor extends IgniteComponent {
      * Returns columns and parameters metadata for the given statement. This method uses optional array of parameters to assist with type
      * inference.
      *
-     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param properties User query properties.
      * @param transaction A transaction to use to resolve a schema.
      * @param qry Single statement SQL query.
      * @param params Query parameters.
      * @return Query metadata.
      * @throws IgniteException in case of an error.
-     * @see QueryProperty
      */
     CompletableFuture<QueryMetadata> prepareSingleAsync(
             SqlProperties properties,
@@ -54,7 +52,6 @@ public interface QueryProcessor extends IgniteComponent {
     /**
      * Execute the query with given schema name and parameters.
      *
-     * @param properties Query properties. See {@link QueryProperty} for available properties.
      * @param observableTime Tracker of the latest time observed by client.
      * @param transaction A transaction to use for query execution. If null, an implicit transaction
      *      will be started by provided transactions facade.
@@ -64,7 +61,6 @@ public interface QueryProcessor extends IgniteComponent {
      * @return Sql cursor.
      *
      * @throws IgniteException in case of an error.
-     * @see QueryProperty
      */
     CompletableFuture<AsyncSqlCursor<InternalSqlRow>> queryAsync(
             SqlProperties properties,

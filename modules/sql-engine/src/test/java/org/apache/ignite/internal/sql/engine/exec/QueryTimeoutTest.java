@@ -33,7 +33,7 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
 import org.apache.ignite.internal.sql.engine.api.kill.OperationKillHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
@@ -42,8 +42,6 @@ import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -61,13 +59,11 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
 
     private final AtomicBoolean ignoreCatalogUpdates = new AtomicBoolean(false);
 
-    private static final SqlProperties PROPS_WITH_TIMEOUT = SqlPropertiesHelper.newBuilder()
-            // Relatively high timeout is set to make tests stable on TC. The reason is that
-            // query have to make it to the final point which is varied from test to test in
-            // order to 1) make sure timeout is handled properly at particular stages of query
-            // execution, and 2) to fail with proper exception class.
-            .set(QueryProperty.QUERY_TIMEOUT, 2_000L)
-            .build();
+    // Relatively high timeout is set to make tests stable on TC. The reason is that
+    // query have to make it to the final point which is varied from test to test in
+    // order to 1) make sure timeout is handled properly at particular stages of query
+    // execution, and 2) to fail with proper exception class.
+    private static final SqlProperties PROPS_WITH_TIMEOUT = new SqlProperties().queryTimeout(2_000L);
 
     private TestCluster cluster;
     private TestNode gatewayNode;

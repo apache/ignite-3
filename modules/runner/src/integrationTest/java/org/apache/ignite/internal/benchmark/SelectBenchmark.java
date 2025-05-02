@@ -33,10 +33,8 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.SqlRow;
@@ -214,7 +212,7 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(".*" + SelectBenchmark.class.getSimpleName() + ".*")
+                .include(".*\\." + SelectBenchmark.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(opt).run();
@@ -240,13 +238,11 @@ public class SelectBenchmark extends AbstractMultiNodeBenchmark {
      */
     @State(Scope.Benchmark)
     public static class SqlInternalApiState {
-        private final SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                .build();
+        private final SqlProperties properties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
-        private final SqlProperties scriptProperties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build();
+        private final SqlProperties scriptProperties = new SqlProperties()
+                .allowedQueryTypes(SqlQueryType.ALL);
 
         private final QueryProcessor queryProc = igniteImpl.queryEngine();
         private int pageSize;

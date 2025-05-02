@@ -110,7 +110,8 @@ public class NamedListNodeTest {
                 List.of(FirstConfiguration.KEY),
                 storage,
                 cgen,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                change -> {}
         );
 
         changer.start();
