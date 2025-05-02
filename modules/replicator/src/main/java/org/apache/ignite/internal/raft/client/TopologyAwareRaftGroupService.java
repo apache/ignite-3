@@ -26,7 +26,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -152,8 +151,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                         .thenAcceptAsync(leaderWithTerm -> {
                                             if (!leaderWithTerm.isEmpty()
                                                     && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
-                                                ClusterNode leaderHost = clusterService.topologyService().
-                                                        getByConsistentId(leaderWithTerm.leader().consistentId());
+                                                ClusterNode leaderHost = clusterService.topologyService()
+                                                        .getByConsistentId(leaderWithTerm.leader().consistentId());
 
                                                 eventsClientListener.onLeaderElected(groupId(), leaderHost, leaderWithTerm.term());
                                             }
