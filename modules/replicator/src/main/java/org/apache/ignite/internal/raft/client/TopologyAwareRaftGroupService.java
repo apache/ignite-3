@@ -26,6 +26,7 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -92,6 +93,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * moment (see {@link #subscribeLeader}).
      */
     private final boolean notifyOnSubscription;
+
+    private volatile Peer leader;
 
     /**
      * Map that has a set of alive peer nodes as a key set, and {@link #sendSubscribeMessage(ClusterNode, SubscriptionLeaderChangeRequest)}
@@ -172,6 +175,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         };
 
         logicalTopologyService.addEventListener(topologyEventsListener);
+
+        ServerEventHandler defaultServerEventHandler = new ServerEventHandler();
+        defaultServerEventHandler.setOnLeaderElectedCallback((leader0, term) -> leader = new Peer(leader0.name()));
+        eventsClientListener.addLeaderElectionListener(raftClient.groupId(), defaultServerEventHandler);
     }
 
     /**
@@ -415,7 +422,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     @Override
     public @Nullable Peer leader() {
-        return raftClient.leader();
+        return leader == null ? raftClient.leader() : leader;
     }
 
     @Override
@@ -562,6 +569,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
          */
         synchronized boolean isSubscribed() {
             return onLeaderElectedCallback != null;
+        }
+
+        Peer leader() {
+            return leaderPeer;
         }
     }
 
