@@ -143,8 +143,8 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
 
     /**
      * Method with auto-generated implementation. Must look like this:
-     * <pre><code>
-     * {@literal @}Override
+     * {@code
+     * @Override
      * public abstract void construct(
      *     String key,
      *     ConfigurationSource src,
@@ -188,7 +188,7 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *         }
      *     }
      * }
-     * </code></pre>
+     * }
      * {@inheritDoc}
      */
     @Override

@@ -1035,7 +1035,7 @@ public class ConfigurationUtil {
          * proper ordering to named list elements.
          *
          * @param node Named list node under construction.
-         * @param ignoredPatterns
+         * @param ignoredPatterns Prefixes that should be ignored.
          */
         private void descendToNamedListNode(NamedListNode<?> node, Collection<Pattern> ignoredPatterns) {
             // This list must be mutable and RandomAccess.

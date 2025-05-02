@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,16 +35,6 @@ public interface ConfigurationSource {
      */
     default <T> T unwrap(Class<T> clazz) {
         throw new UnsupportedOperationException("unwrap");
-    }
-
-    /**
-     * Treats current configuration source as an inner node. Tries to construct the content of {@code node} using available data from the
-     * source.
-     *
-     * @param node Constructable node which content will be modified by the configuration source.
-     */
-    default void descend(ConstructableTreeNode node) {
-        descend(node, Set.of());
     }
 
     /**
