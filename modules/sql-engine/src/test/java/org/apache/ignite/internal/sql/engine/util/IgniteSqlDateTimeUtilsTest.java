@@ -17,31 +17,85 @@
 
 package org.apache.ignite.internal.sql.engine.util;
 
+import static java.util.UUID.randomUUID;
+import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.stream.Stream;
+import org.apache.calcite.DataContext;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
+import org.apache.ignite.internal.network.ClusterNodeImpl;
+import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.Mockito;
 
 /**
  * Test cases for {@link IgniteSqlDateTimeUtils}.
  */
-public class IgniteSqlDateTimeUtilsTest {
+public class IgniteSqlDateTimeUtilsTest extends BaseIgniteAbstractTest {
+    /**
+     * Ensures that {@link IgniteSqlDateTimeUtils#currentDate(DataContext)} takes into account the client's time zone.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "2025-01-01T23:00:00Z, 2025-01-01, GMT",
+            "2025-01-01T23:00:00Z, 2025-01-02, GMT+1",
+
+            // DST transition (GMT+2 => GMT+3).
+            "2024-03-30T21:00:00Z, 2024-03-30, Asia/Nicosia",
+            "2024-03-31T21:00:00Z, 2024-04-01, Asia/Nicosia",
+
+            // DST transition (GMT+3 => GMT+2).
+            "2023-10-28T20:00:00Z, 2023-10-28, Asia/Nicosia",
+            "2023-10-29T21:00:00Z, 2023-10-29, Asia/Nicosia",
+
+            // Negative values.
+            "1901-01-01T23:00:00Z, 1901-01-01, GMT",
+            "1901-01-01T23:00:00Z, 1901-01-02, GMT+1",
+    })
+    public void testCurrentDate(String currentUtcTime, String expectedDateString, String timeZone) {
+        ZoneId zoneId = TimeZone.getTimeZone(timeZone).toZoneId();
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), "N1", new NetworkAddress("localhost", 1234));
+
+        ExecutionContext<?> ctx = TestBuilders.executionContext()
+                .fragment(Mockito.mock(FragmentDescription.class))
+                .executor(Mockito.mock(QueryTaskExecutor.class))
+                .localNode(node)
+                .clock(Clock.fixed(Instant.parse(currentUtcTime), zoneId))
+                .timeZone(zoneId)
+                .build();
+
+        int result = IgniteSqlDateTimeUtils.currentDate(ctx);
+
+        LocalDate expected = LocalDate.parse(expectedDateString);
+        LocalDate actual = LocalDate.ofEpochDay(result);
+
+        assertThat(actual, equalTo(expected));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = {
             "2023-10-29 02:01:01",
