@@ -21,6 +21,8 @@ import static java.util.Collections.emptySet;
 
 import java.util.Collection;
 import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -145,5 +147,13 @@ public interface ConfigurationModule {
      */
     default Collection<String> deletedPrefixes() {
         return emptySet();
+    }
+
+    default Collection<Pattern> deletedPrefixesPatterns() {
+        return deletedPrefixes().stream()
+                .map(deletedKey -> deletedKey.replace(".", "\\.").replace("*", "[^.]*") + "(\\..*)?")
+                .map(Pattern::compile)
+                .collect(Collectors.toList());
+
     }
 }

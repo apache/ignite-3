@@ -35,8 +35,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
@@ -53,10 +55,29 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 
 class DeletedConfigurationTest extends BaseIgniteAbstractTest {
+    ConfigurationModule configurationModule = new ConfigurationModule() {
+        @Override
+        public ConfigurationType type() {
+            return LOCAL;
+        }
+
+        @Override
+        public Collection<String> deletedPrefixes() {
+            return Set.of(
+                    DELETED_INDIVIDUAL_PROPERTY,
+                    DELETED_PROPERTY_MATCHING_PREFIX,
+                    DELETED_SUBTREE,
+                    SUBTREE_NAMED_LIST,
+                    NESTED_NAMED_LISTS
+            );
+        }
+    };
+
     private static final String DELETED_INDIVIDUAL_PROPERTY = "key.individual_property";
     private static final String DELETED_SUBTREE = "key.subtree";
     private static final String SUBTREE_NAMED_LIST = "key.list.*.subtree";
     private static final String NESTED_NAMED_LISTS = "key.list." + NAMED_LIST_NAME + ".*";
+    private static final String DELETED_PROPERTY_MATCHING_PREFIX = "key.some";
 
     private static final String VALID_KEY = "key.someValue";
 
@@ -112,7 +133,7 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
 
         String config = hoconConfig + ", " + VALID_KEY + " = \"new_value\"";
 
-        ConfigurationSource change = hoconSource(ConfigFactory.parseString(config).root());
+        ConfigurationSource change = hoconSource(ConfigFactory.parseString(config).root(), configurationModule.deletedPrefixesPatterns());
 
         assertThat(changer.change(change), willCompleteSuccessfully());
 
@@ -132,6 +153,7 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
     private static Stream<Map<String, ? extends Serializable>> deletedPropertiesProvider() {
         return Stream.of(
                 Map.of(DELETED_INDIVIDUAL_PROPERTY, "deleted"),
+                Map.of(DELETED_PROPERTY_MATCHING_PREFIX, "deleted"),
                 Map.of(DELETED_SUBTREE + ".property", "deleted"),
                 Map.of(SUBTREE_NAMED_LIST.replace("*", NAMED_LIST_NAME) + ".property", "deleted"),
                 Map.of(NESTED_NAMED_LISTS.replace("*", NAMED_LIST_NAME) + ".property", "deleted")
@@ -145,16 +167,9 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
                 GENERATOR,
                 new TestConfigurationValidator(),
                 changer -> {},
-                DELETED_KEYS
+                configurationModule.deletedPrefixesPatterns()
         );
     }
-
-    private static final Collection<String> DELETED_KEYS = List.of(
-            DELETED_INDIVIDUAL_PROPERTY,
-            DELETED_SUBTREE,
-            SUBTREE_NAMED_LIST,
-            NESTED_NAMED_LISTS
-    );
 
     @ConfigurationRoot(rootName = "key", type = LOCAL)
     public static class DeletedTestConfigurationSchema {

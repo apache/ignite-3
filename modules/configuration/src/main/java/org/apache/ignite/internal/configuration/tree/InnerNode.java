@@ -18,10 +18,8 @@
 package org.apache.ignite.internal.configuration.tree;
 
 import java.lang.reflect.Field;
-import java.util.Collection;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.annotation.AbstractConfiguration;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.InjectedName;
@@ -143,14 +141,9 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
 
     /**
      * Method with auto-generated implementation. Must look like this:
-     * {@code
-     * @Override
-     * public abstract void construct(
-     *     String key,
-     *     ConfigurationSource src,
-     *     Collection<Pattern> ignoredPrefixes,
-     *     boolean includeInternal
-     * ) throws NoSuchElementException {
+     * <pre><code>
+     * {@literal @}Override public abstract void construct(String key, ConfigurationSource src, boolean includeInternal)
+     *     throws NoSuchElementException {
      *     if (includeInternal) {
      *         switch (key) {
      *              case "namedList":
@@ -188,14 +181,13 @@ public abstract class InnerNode implements TraversableTreeNode, ConstructableTre
      *         }
      *     }
      * }
-     * }
+     * </code></pre>
      * {@inheritDoc}
      */
     @Override
     public abstract void construct(
             String key,
             ConfigurationSource src,
-            Collection<Pattern> ignoredPrefixes,
             boolean includeInternal
     ) throws NoSuchElementException;
 

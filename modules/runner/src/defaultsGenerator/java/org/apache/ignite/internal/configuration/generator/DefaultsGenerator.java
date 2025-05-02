@@ -101,7 +101,7 @@ public class DefaultsGenerator {
                 storage,
                 configurationValidator,
                 c -> {},
-                modules.local().deletedPrefixes()
+                modules.local().deletedPrefixesPatterns()
         ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {

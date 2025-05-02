@@ -29,7 +29,7 @@ class DeletedKeysFilter {
      * Filters out keys that match the deleted prefixes and returns the ignored keys.
      *
      * @param values The map of values to filter.
-     * @param deletedPrefixes The collection of deleted key patterns.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
      * @return A collection of keys that were ignored.
      */
     static List<String> ignoreDeleted(
@@ -53,7 +53,7 @@ class DeletedKeysFilter {
 
     private static boolean isDeleted(String key, Collection<Pattern> patterns) {
         for (Pattern pattern : patterns) {
-            if (pattern.matcher(key).find()) {
+            if (pattern.matcher(key).matches()) {
                 return true;
             }
         }

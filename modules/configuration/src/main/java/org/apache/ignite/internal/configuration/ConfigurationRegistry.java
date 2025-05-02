@@ -64,6 +64,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
+    private final Collection<Pattern> deletedPrefixes;
+
     /** Constructor. */
     @TestOnly
     public ConfigurationRegistry(
@@ -84,9 +86,11 @@ public class ConfigurationRegistry implements IgniteComponent {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
-            Collection<String> deletedPrefixes
+            Collection<Pattern> deletedPrefixes
     ) {
         checkConfigurationType(rootKeys, storage);
+
+        this.deletedPrefixes = deletedPrefixes;
 
         changer = new ConfigurationChanger(
                 notificationUpdateListener(),
@@ -184,7 +188,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     public CompletableFuture<Void> change(Consumer<SuperRootChange> change) {
         return change(new ConfigurationSource() {
             @Override
-            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+            public void descend(ConstructableTreeNode node) {
                 assert node instanceof SuperRoot : "Descending always starts with super root: " + node;
 
                 SuperRoot superRoot = (SuperRoot) node;
@@ -245,6 +249,10 @@ public class ConfigurationRegistry implements IgniteComponent {
                 return CompletableFuture.allOf(resultFutures);
             }
         };
+    }
+
+    public Collection<Pattern> deletedPrefixes() {
+        return deletedPrefixes;
     }
 
     /**

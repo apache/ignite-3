@@ -27,7 +27,6 @@ import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 import java.io.Serializable;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +35,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.annotation.ConfigValue;
@@ -430,7 +428,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     private static void changeConfiguration(ConfigurationChanger changer, Consumer<SuperRootChange> changeClosure) {
         CompletableFuture<Void> changeFuture = changer.change(new ConfigurationSource() {
             @Override
-            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+            public void descend(ConstructableTreeNode node) {
                 changeClosure.accept(new SuperRootChangeImpl((SuperRoot) node));
             }
         });

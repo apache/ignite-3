@@ -278,7 +278,7 @@ public class ConfigurationUtil {
      *                                       method is actually used in configuration storage integration.
      */
     public static void fillFromPrefixMap(InnerNode node, Map<String, ?> prefixMap) {
-        new InnerConfigurationSource(prefixMap).descend(node, Set.of());
+        new InnerConfigurationSource(prefixMap).descend(node);
     }
 
     /**
@@ -964,7 +964,7 @@ public class ConfigurationUtil {
         }
 
         @Override
-        public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPatterns) {
+        public void descend(ConstructableTreeNode node) {
             throw new UnsupportedOperationException("descend");
         }
     }
@@ -986,9 +986,9 @@ public class ConfigurationUtil {
         }
 
         @Override
-        public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPatterns) {
+        public void descend(ConstructableTreeNode node) {
             if (node instanceof NamedListNode) {
-                descendToNamedListNode((NamedListNode<?>) node, ignoredPatterns);
+                descendToNamedListNode((NamedListNode<?>) node);
 
                 return;
             }
@@ -1018,9 +1018,9 @@ public class ConfigurationUtil {
                                 : "Constructing property " + key + " failed in " + node + " and it is not polymorphic.";
                     }
                 } else if (val instanceof Map) {
-                    node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), ignoredPatterns, true);
+                    node.construct(key, new InnerConfigurationSource((Map<String, ?>) val), true);
                 } else {
-                    node.construct(key, new LeafConfigurationSource((Serializable) val), ignoredPatterns, true);
+                    node.construct(key, new LeafConfigurationSource((Serializable) val), true);
                 }
             }
         }
@@ -1031,13 +1031,12 @@ public class ConfigurationUtil {
         }
 
         /**
-         * Specific implementation of {@link #descend(ConstructableTreeNode, Collection)} that descends into named list node and sets a
-         * proper ordering to named list elements.
+         * Specific implementation of {@link #descend(ConstructableTreeNode)} that descends into named list node and sets a proper ordering
+         * to named list elements.
          *
          * @param node Named list node under construction.
-         * @param ignoredPatterns Prefixes that should be ignored.
          */
-        private void descendToNamedListNode(NamedListNode<?> node, Collection<Pattern> ignoredPatterns) {
+        private void descendToNamedListNode(NamedListNode<?> node) {
             // This list must be mutable and RandomAccess.
             var orderedKeys = new ArrayList<>(((NamedListView<?>) node).namedListKeys());
 
@@ -1083,17 +1082,17 @@ public class ConfigurationUtil {
                     boolean construct = map.size() != sizeDiff;
 
                     if (oldKey == null) {
-                        node.construct(newKey, new InnerConfigurationSource(map), ignoredPatterns, true);
+                        node.construct(newKey, new InnerConfigurationSource(map), true);
 
                         node.setInternalId(newKey, internalId);
                     } else if (newKey != null) {
                         node.rename(oldKey, newKey);
 
                         if (construct) {
-                            node.construct(newKey, new InnerConfigurationSource(map), ignoredPatterns, true);
+                            node.construct(newKey, new InnerConfigurationSource(map), true);
                         }
                     } else if (construct) {
-                        node.construct(oldKey, new InnerConfigurationSource(map), ignoredPatterns, true);
+                        node.construct(oldKey, new InnerConfigurationSource(map), true);
                     }
                     // Else it's just index adjustment after new elements insertion.
 
@@ -1122,7 +1121,7 @@ public class ConfigurationUtil {
                         }
                     }
                 } else {
-                    node.construct(oldKey, new LeafConfigurationSource((Serializable) val), ignoredPatterns, true);
+                    node.construct(oldKey, new LeafConfigurationSource((Serializable) val), true);
                 }
             }
 

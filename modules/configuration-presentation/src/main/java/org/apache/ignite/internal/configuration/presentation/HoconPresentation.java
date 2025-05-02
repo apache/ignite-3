@@ -78,7 +78,7 @@ public class HoconPresentation implements ConfigurationPresentation<String> {
             return CompletableFuture.failedFuture(new IllegalArgumentException(e));
         }
 
-        return registry.change(HoconConverter.hoconSource(config.root()))
+        return registry.change(HoconConverter.hoconSource(config.root(), registry.deletedPrefixes()))
                 .exceptionally(e -> {
                     if (e instanceof CompletionException) {
                         e = e.getCause();

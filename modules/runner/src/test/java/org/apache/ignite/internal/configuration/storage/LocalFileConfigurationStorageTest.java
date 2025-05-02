@@ -28,6 +28,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigParseOptions;
@@ -40,6 +42,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -91,7 +94,12 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, null);
+        Set<String> deletedPrefixes = Set.of("top.deleted_property");
+
+        ConfigurationModule mockModule = mock(ConfigurationModule.class);
+        when(mockModule.deletedPrefixes()).thenReturn(deletedPrefixes);
+
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, mockModule);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
@@ -99,7 +107,7 @@ public class LocalFileConfigurationStorageTest {
                 treeGenerator,
                 new ConfigurationValidatorImpl(treeGenerator, Set.of()),
                 change -> {},
-                Set.of()
+                mockModule.deletedPrefixesPatterns()
         );
     }
 
@@ -558,6 +566,19 @@ public class LocalFileConfigurationStorageTest {
                 changer::start,
                 "Validation did not pass for keys: [top.inner.boolVal, Duplicated key]"
         );
+    }
+
+    @Test
+    void testReadDataOnStartupWithDeletedProperty() throws IOException {
+        // Given config in JSON format
+        String fileContent = "top.deleted_property = 3";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Storage ignores deleted property.
+        assertDoesNotThrow(changer::start);
     }
 
     private String configFileContent() throws IOException {

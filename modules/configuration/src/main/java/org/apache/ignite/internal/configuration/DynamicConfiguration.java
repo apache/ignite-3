@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration;
 
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 
-import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -28,7 +27,6 @@ import java.util.Objects;
 import java.util.RandomAccess;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationProperty;
 import org.apache.ignite.configuration.ConfigurationTree;
 import org.apache.ignite.configuration.RootKey;
@@ -95,7 +93,7 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
 
             /** {@inheritDoc} */
             @Override
-            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+            public void descend(ConstructableTreeNode node) {
                 if (level == keys.size()) {
                     if (node instanceof InnerNode) {
                         // To support polymorphic configuration.
@@ -105,7 +103,7 @@ public abstract class DynamicConfiguration<VIEWT, CHANGET extends VIEWT> extends
                         change.accept((CHANGET) node);
                     }
                 } else {
-                    node.construct(keys.get(level++), this, ignoredPrefixes, true);
+                    node.construct(keys.get(level++), this, true);
                 }
             }
 

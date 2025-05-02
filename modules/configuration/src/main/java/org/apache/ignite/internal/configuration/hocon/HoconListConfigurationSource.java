@@ -49,6 +49,11 @@ class HoconListConfigurationSource implements ConfigurationSource {
     private final List<String> path;
 
     /**
+     * Prefixes that need to be ignored by the source.
+     */
+    private final Collection<Pattern> deletedPrefixes;
+
+    /**
      * HOCON list that this source has been created from.
      */
     private final ConfigList hoconCfgList;
@@ -56,11 +61,13 @@ class HoconListConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON list.
      *
-     * @param path         Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
-     *                     object.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
+     *         object.
      * @param hoconCfgList HOCON list.
      */
-    HoconListConfigurationSource(List<String> path, ConfigList hoconCfgList) {
+    HoconListConfigurationSource(Collection<Pattern> deletedPrefixes, List<String> path, ConfigList hoconCfgList) {
+        this.deletedPrefixes = deletedPrefixes;
         this.path = path;
         this.hoconCfgList = hoconCfgList;
     }
@@ -98,15 +105,15 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
     /** {@inheritDoc} */
     @Override
-    public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+    public void descend(ConstructableTreeNode node) {
         if (!(node instanceof NamedListNode)) {
             throw new IllegalArgumentException(
                     format("'%s' configuration is expected to be a composite configuration node, not a list", join(path))
             );
         }
 
-        for (Pattern ignoredPrefix : ignoredPrefixes) {
-            if (ignoredPrefix.matcher(join(path)).matches()) {
+        for (Pattern deletedPrefix : deletedPrefixes) {
+            if (deletedPrefix.matcher(join(path)).matches()) {
                 return;
             }
         }
@@ -147,7 +154,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
                 ));
             }
 
-            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, path, hoconCfg), ignoredPrefixes, false);
+            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, deletedPrefixes, path, hoconCfg), false);
         }
     }
 

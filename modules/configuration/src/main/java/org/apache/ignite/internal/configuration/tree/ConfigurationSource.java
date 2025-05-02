@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.configuration.tree;
 
-import java.util.Collection;
-import java.util.regex.Pattern;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -42,9 +40,8 @@ public interface ConfigurationSource {
      * source.
      *
      * @param node Constructable node which content will be modified by the configuration source.
-     * @param ignoredPrefixes Prefixes that should be ignored.
      */
-    default void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+    default void descend(ConstructableTreeNode node) {
     }
 
     /**

@@ -46,18 +46,22 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      */
     private final ConfigValue hoconCfgValue;
 
+    private final Collection<Pattern> deletedPrefixes;
+
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object representing a primitive type.
      *
-     * @param path          current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
-     *                      object
+     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param path current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
+     *         object
      * @param hoconCfgValue HOCON object
      */
-    HoconPrimitiveConfigurationSource(List<String> path, ConfigValue hoconCfgValue) {
+    HoconPrimitiveConfigurationSource(Collection<Pattern> deletedPrefixes, List<String> path, ConfigValue hoconCfgValue) {
         assert !path.isEmpty();
 
         this.path = path;
         this.hoconCfgValue = hoconCfgValue;
+        this.deletedPrefixes = deletedPrefixes;
     }
 
     @Override
@@ -70,9 +74,9 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
     }
 
     @Override
-    public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
-        for (Pattern ignoredPrefix : ignoredPrefixes) {
-            if (ignoredPrefix.matcher(join(path)).matches()) {
+    public void descend(ConstructableTreeNode node) {
+        for (Pattern deletedPrefix : deletedPrefixes) {
+            if (deletedPrefix.matcher(join(path)).matches()) {
                 return;
             }
         }
@@ -85,7 +89,7 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             );
         }
 
-        node.construct(fieldName, this, ignoredPrefixes, false);
+        node.construct(fieldName, this, false);
     }
 
     /**

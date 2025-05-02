@@ -131,7 +131,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     /** {@link ConfigurationSource#unwrap(Class)}. */
     private static final Method UNWRAP;
 
-    /** {@link ConfigurationSource#descend(ConstructableTreeNode, Collection)}. */
+    /** {@link ConfigurationSource#descend(ConstructableTreeNode)}. */
     private static final Method DESCEND;
 
     /** {@link InnerNode#internalId()}. */
@@ -200,7 +200,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
             UNWRAP = ConfigurationSource.class.getDeclaredMethod("unwrap", Class.class);
 
-            DESCEND = ConfigurationSource.class.getDeclaredMethod("descend", ConstructableTreeNode.class, Collection.class);
+            DESCEND = ConfigurationSource.class.getDeclaredMethod("descend", ConstructableTreeNode.class);
 
             INTERNAL_ID = InnerNode.class.getDeclaredMethod("internalId");
 
@@ -1158,7 +1158,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 type(void.class),
                 arg("key", type(String.class)),
                 arg("src", type(ConfigurationSource.class)),
-                arg("ignoredPrefixes", type(Collection.class)),
                 arg("includeInternal", type(boolean.class))
         ).addException(NoSuchElementException.class);
 
@@ -1276,12 +1275,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
     }
 
     /**
-     * Creates bytecode block that invokes of construct methods for
-     * {@link InnerNode#construct(String, ConfigurationSource, Collection, boolean)}.
+     * Creates bytecode block that invokes of construct methods for {@link InnerNode#construct(String, ConfigurationSource, boolean)}.
      *
-     * @param constructMtd Method definition {@link InnerNode#construct(String, ConfigurationSource, Collection, boolean)} defined
-     *         in {@code *Node}     class.
-     * @param schemaField Schema field.
+     * @param constructMtd   Method definition {@link InnerNode#construct(String, ConfigurationSource, boolean)} defined in {@code *Node}
+     *                       class.
+     * @param schemaField    Schema field.
      * @param schemaFieldDef Schema field definition.
      * @return Bytecode block that invokes of construct method for field.
      */
@@ -1294,7 +1292,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
         Variable thisVar = constructMtd.getThis();
         Variable srcVar = constructMtd.getScope().getVariable("src");
-        Variable ignoredPrefixes = constructMtd.getScope().getVariable("ignoredPrefixes");
 
         if (isValue(schemaField)) {
             // this.field = src == null ? null : src.unwrap(FieldType.class);
@@ -1384,7 +1381,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                             .ifTrue(setThisFieldCode(constructMtd, constantNull(fieldDefType), schemaFieldDef))
                             .ifFalse(new BytecodeBlock()
                                     .append(setField)
-                                    .append(srcVar.invoke(DESCEND, thisVar.getField(schemaFieldDef), ignoredPrefixes))
+                                    .append(srcVar.invoke(DESCEND, thisVar.getField(schemaFieldDef)))
                             )
             );
         } else {
@@ -1398,7 +1395,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                                     constructMtd,
                                     thisVar.getField(schemaFieldDef).invoke(COPY).cast(schemaFieldDef.getType()),
                                     schemaFieldDef
-                            )).append(srcVar.invoke(DESCEND, thisVar.getField(schemaFieldDef), ignoredPrefixes))
+                            )).append(srcVar.invoke(DESCEND, thisVar.getField(schemaFieldDef)))
                     )
             );
         }
@@ -1805,7 +1802,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 type(void.class),
                 arg("key", type(String.class)),
                 arg("src", type(ConfigurationSource.class)),
-                arg("ignoredPrefixes", type(Collection.class)),
                 arg("includeInternal", type(boolean.class))
         ).addException(NoSuchElementException.class);
 

@@ -21,7 +21,6 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import java.util.List;
-import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.SuperRootChange;
@@ -76,10 +75,10 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
     private SuperRoot convertToSuperRoot(String hocon) {
         try {
             Config config = ConfigFactory.parseString(hocon);
-            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
+            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root(), configurationModule.deletedPrefixesPatterns());
 
             SuperRoot superRoot = generator.createSuperRoot();
-            hoconSource.descend(superRoot, Set.of());
+            hoconSource.descend(superRoot);
 
             return superRoot;
         } catch (Exception e) {

@@ -23,12 +23,10 @@ import static org.junit.jupiter.api.Assertions.assertNotSame;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
-import java.util.regex.Pattern;
 import org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
 import org.junit.jupiter.api.AfterAll;
@@ -159,7 +157,7 @@ public class ConstructableTreeNodeTest {
             }
 
             @Override
-            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+            public void descend(ConstructableTreeNode node) {
                 node.construct("strCfg", new ConstantConfigurationSource("value"), true);
             }
         }, true);
@@ -176,7 +174,7 @@ public class ConstructableTreeNodeTest {
             }
 
             @Override
-            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+            public void descend(ConstructableTreeNode node) {
                 node.construct("strCfg", new ConstantConfigurationSource("value"), true);
             }
         }, true);

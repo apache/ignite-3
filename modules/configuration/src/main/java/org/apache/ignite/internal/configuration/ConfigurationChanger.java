@@ -45,7 +45,6 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
 import java.util.RandomAccess;
-import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -58,7 +57,6 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
@@ -216,6 +214,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param storage Configuration storage.
      * @param configurationValidator Configuration validator.
      * @param migrator Configuration migrator.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
@@ -224,7 +223,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             ConfigurationStorage storage,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
-            Collection<String> deletedPrefixes
+            Collection<Pattern> deletedPrefixes
     ) {
         checkConfigurationType(rootKeys, storage);
 
@@ -234,10 +233,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
         this.migrator = migrator;
 
-        this.deletedPrefixes = deletedPrefixes.stream()
-                .map(deletedKey -> deletedKey.replace(".", "\\.").replace("*", ".*") + ".*")
-                .map(Pattern::compile)
-                .collect(Collectors.toList());
+        this.deletedPrefixes = deletedPrefixes;
     }
 
     /**
@@ -306,7 +302,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         // Fill the configuration with the initial configuration.
         if (revision == 0) {
-            initialConfiguration.descend(superRoot, Set.of());
+            initialConfiguration.descend(superRoot);
         }
 
         // Validate the restored configuration.
@@ -632,7 +628,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             src.reset();
 
-            src.descend(changes, deletedPrefixes);
+            src.descend(changes);
 
             addDefaults(changes);
 
@@ -698,9 +694,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             Map<String, ? extends Serializable> changedValues = changedEntries.values();
 
             // We need to ignore deletion of deprecated values.
-            for (String ignoredValue : ignoredKeys) {
-                changedValues.remove(ignoredValue);
-            }
+            ignoreDeleted(changedValues, deletedPrefixes);
 
             StorageRoots oldStorageRoots = storageRoots;
 

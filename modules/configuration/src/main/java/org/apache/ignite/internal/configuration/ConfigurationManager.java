@@ -20,6 +20,7 @@ package org.apache.ignite.internal.configuration;
 import java.util.Collection;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -47,11 +48,12 @@ public class ConfigurationManager implements IgniteComponent {
     /**
      * Constructor.
      *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param generator                   Configuration tree generator.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
+     * @param rootKeys Configuration root keys.
+     * @param storage Configuration storage.
+     * @param generator Configuration tree generator.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the
+     *         schema or its extensions are not valid.
      */
     public ConfigurationManager(
             Collection<RootKey<?, ?>> rootKeys,
@@ -59,7 +61,7 @@ public class ConfigurationManager implements IgniteComponent {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
-            Collection<String> deletedPrefixes
+            Collection<Pattern> deletedPrefixes
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,

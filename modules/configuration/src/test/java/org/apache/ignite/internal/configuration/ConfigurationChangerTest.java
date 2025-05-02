@@ -38,7 +38,6 @@ import java.io.Serializable;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -48,7 +47,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationChangeException;
 import org.apache.ignite.configuration.NamedListView;
 import org.apache.ignite.configuration.RootKey;
@@ -591,10 +589,10 @@ public class ConfigurationChangerTest {
     private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {
         return new ConfigurationSource() {
             @Override
-            public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+            public void descend(ConstructableTreeNode node) {
                 ConfigurationSource changerSrc = new ConfigurationSource() {
                     @Override
-                    public void descend(ConstructableTreeNode node, Collection<Pattern> ignoredPrefixes) {
+                    public void descend(ConstructableTreeNode node) {
                         changer.accept((CHANGET) node);
                     }
                 };

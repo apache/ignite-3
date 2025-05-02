@@ -52,6 +52,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -170,8 +171,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             SuperRoot superRoot = generator.createSuperRoot();
             SuperRoot copiedSuperRoot = superRoot.copy();
 
+            Collection<Pattern> deletedPrefixes = module == null ? Set.of() : module.deletedPrefixesPatterns();
+
             Config hocon = readHoconFromFile();
-            HoconConverter.hoconSource(hocon.root()).descend(copiedSuperRoot, Set.of());
+            HoconConverter.hoconSource(hocon.root(), deletedPrefixes).descend(copiedSuperRoot);
 
             Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
             flattenedUpdatesMap.forEach((key, value) -> {
