@@ -48,7 +48,22 @@ public class DeploymentUnitLoaderTests
     public async Task TestMultiAssemblyDeploymentUnit()
     {
         // TODO: Build multiple assemblies with different type names and make sure all of them can be loaded.
-        // TODO: Test isolation and versioning.
+        await Task.Delay(1);
+        Assert.Fail();
+    }
+
+    [Test]
+    public async Task TestUnitIsolation()
+    {
+        // TODO: Same assembly name in different deployment units should not conflict.
+        await Task.Delay(1);
+        Assert.Fail();
+    }
+
+    [Test]
+    public async Task TestAssemblyLoadOrder()
+    {
+        // TODO: Test that assemblies are loaded in the same order as specified deployment units.
         await Task.Delay(1);
         Assert.Fail();
     }
