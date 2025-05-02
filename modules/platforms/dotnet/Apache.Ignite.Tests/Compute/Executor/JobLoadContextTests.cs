@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Compute.Executor;
 
 using System;
 using System.Collections.Concurrent;
+using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
@@ -63,6 +64,17 @@ public class JobLoadContextTests
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await ExecuteJobAsync(DotNetJobs.NoCtor, 1));
 
         Assert.AreEqual($"No public parameterless constructor for job type '{typeof(DotNetJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
+    }
+
+    [Test]
+    public void TestCreateJobWrapperWithMultipleJobInterfacesThrows()
+    {
+        var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+
+        var ex = Assert.Throws<AmbiguousMatchException>(
+            () => jobLoadCtx.CreateJobWrapper(typeof(MultiInterfaceJob).AssemblyQualifiedName!));
+
+        Assert.AreEqual("Ambiguous match found for ' Apache.Ignite.Compute.IComputeJob`2[System.Object,System.Guid]'.", ex.Message);
     }
 
     private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(JobDescriptor<TArg, TResult> job, TArg? jobArg)
@@ -112,5 +124,14 @@ public class JobLoadContextTests
             await Task.Delay(1);
             DisposedJobStates[_id] = _state + "AsyncDisposed";
         }
+    }
+
+    private class MultiInterfaceJob : IComputeJob<object, Guid>, IComputeJob<int, string>
+    {
+        public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Guid.Empty);
+
+        public ValueTask<string> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult("x");
     }
 }
