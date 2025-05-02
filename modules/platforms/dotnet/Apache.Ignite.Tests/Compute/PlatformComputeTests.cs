@@ -140,7 +140,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
 
         var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
-        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.fff");
+        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
 
         await ManagementApi.UnitDeploy(
             unitId: unitId0,
