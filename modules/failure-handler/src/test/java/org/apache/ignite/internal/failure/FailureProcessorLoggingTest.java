@@ -29,6 +29,8 @@ import org.apache.ignite.internal.configuration.testframework.ConfigurationExten
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.logging.log4j.Level;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Tests for {@link FailureProcessor} logging.
  */
 @ExtendWith(ConfigurationExtension.class)
+@ExtendWith(FailureManagerExtension.class)
 public class FailureProcessorLoggingTest extends BaseIgniteAbstractTest {
     @InjectConfiguration("mock: { "
             + "oomBufferSizeBytes=0, "
@@ -49,7 +52,7 @@ public class FailureProcessorLoggingTest extends BaseIgniteAbstractTest {
      * Tests log message for ignored failure types.
      */
     @Test
-    public void testFailureProcessorLoggedIgnoredFailureTest() throws Exception {
+    public void testFailureProcessorLoggedIgnoredFailureTest() {
         AtomicInteger dumpMessageCounter = new AtomicInteger();
         AtomicInteger ignoredMessageCounter = new AtomicInteger();
 
@@ -84,7 +87,8 @@ public class FailureProcessorLoggingTest extends BaseIgniteAbstractTest {
      * Tests log message for not ignored failure types.
      */
     @Test
-    public void testFailureProcessorLoggedFailureTest() throws Exception {
+    @MuteFailureManagerLogging // Failure is expected.
+    public void testFailureProcessorLoggedFailureTest() {
         AtomicInteger dumpMessageCounter = new AtomicInteger();
         AtomicInteger errorMessageCounter = new AtomicInteger();
 

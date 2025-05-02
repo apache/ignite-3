@@ -903,17 +903,19 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
                 .query("SELECT CURRENT_TIMESTAMP")
                 .timeZoneId(zoneId);
 
+        long momentBefore = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
         ResultSet<SqlRow> resultSet = igniteSql().execute(null, builder.build());
         SqlRow row = resultSet.next();
+
+        long momentAfter = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
         Instant ts = row.value(0);
         assertNotNull(ts);
 
-        float tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float nowMillis = Instant.now().atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
-        float deltaMillis = 5000;
+        long tsMillis = ts.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli();
 
-        assertEquals(nowMillis, tsMillis, deltaMillis);
+        assertTrue(momentBefore <= tsMillis && momentAfter >= tsMillis);
     }
 
     @Test
@@ -1220,6 +1222,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public abstract void cancelQueryString() throws InterruptedException;
+
+    @Test
+    public abstract void cancelBatch() throws InterruptedException;
 
     @Test
     public void cancelQueryBeforeExecution() {

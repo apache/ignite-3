@@ -140,7 +140,7 @@ namespace Apache.Ignite.Internal.Compute
                 WriteUnits(taskDescriptor.DeploymentUnits, writer);
                 w.Write(taskDescriptor.TaskClassName);
 
-                ComputePacker.PackArg(ref w, arg, null);
+                ComputePacker.PackArgOrResult(ref w, arg, null);
             }
         }
 
@@ -340,7 +340,7 @@ namespace Apache.Ignite.Internal.Compute
 
             (T, JobState) Read(MsgPackReader reader)
             {
-                var res = ComputePacker.UnpackResult(ref reader, marshaller);
+                var res = ComputePacker.UnpackArgOrResult(ref reader, marshaller);
                 var status = ReadJobState(reader);
 
                 return (res, status);
@@ -374,7 +374,7 @@ namespace Apache.Ignite.Internal.Compute
             static (T, TaskState) Read(MsgPackReader reader)
             {
                 // TODO IGNITE-23074 .NET: Thin 3.0: Support marshallers in MapReduce
-                var res = ComputePacker.UnpackResult<T>(ref reader, null);
+                var res = ComputePacker.UnpackArgOrResult<T>(ref reader, null);
                 var state = ReadTaskState(reader);
 
                 return (res, state);
@@ -410,7 +410,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
 
-                ComputePacker.PackArg(ref w, arg, jobDescriptor.ArgMarshaller);
+                ComputePacker.PackArgOrResult(ref w, arg, jobDescriptor.ArgMarshaller);
             }
         }
 

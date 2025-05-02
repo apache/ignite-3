@@ -19,14 +19,15 @@ package org.apache.ignite.internal.catalog.sql;
 
 class Zone extends QueryPart {
 
-    private final String zone;
+    private final Name name;
 
-    Zone(String zone) {
-        this.zone = zone;
+    Zone(String name) {
+        this.name = Name.simple(name);
     }
 
     @Override
     protected void accept(QueryContext ctx) {
-        ctx.sql("ZONE " + zone);
+        ctx.sql("ZONE ");
+        ctx.visit(name);
     }
 }

@@ -62,6 +62,7 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
 
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(true)
+                .includeDeprecated(true)
                 .maskSecretValues(false)
                 .skipEmptyValues(true)
                 .build();

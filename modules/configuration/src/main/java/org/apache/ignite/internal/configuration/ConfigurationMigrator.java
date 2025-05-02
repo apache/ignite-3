@@ -15,21 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.property;
+package org.apache.ignite.internal.configuration;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.SuperRootChange;
 
 /**
- * Exception that is thrown by {@link SqlProperties} if given property is not found.
+ * Class that is used to perform configuration migration when Ignite version is upgraded. Main task - replace deprecated configuration
+ * values with their non-deprecated cousins. In production code expected to be based on
+ * {@link ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)}. Could be anything in tests.
  *
- * @see SqlProperties
+ * @see ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)
  */
-public class PropertyNotFoundException extends RuntimeException {
-
-    private static final long serialVersionUID = 4651104853616619936L;
-
-    /** Constructs the exception. */
-    PropertyNotFoundException(Property<?> prop) {
-        super(format("Property '{}' not found", prop.name));
-    }
+@FunctionalInterface
+public interface ConfigurationMigrator {
+    void migrate(SuperRootChange superRoot);
 }

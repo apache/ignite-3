@@ -91,13 +91,14 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, null);
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, new LocalFileConfigurationModule());
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
                 storage,
                 treeGenerator,
-                new ConfigurationValidatorImpl(treeGenerator, Set.of())
+                new ConfigurationValidatorImpl(treeGenerator, Set.of()),
+                change -> {}
         );
     }
 
@@ -162,13 +163,12 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name1 {\n"
                         + "            intVal=-1\n"
-                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=1\n"
                         + "}"
         ));
@@ -198,18 +198,16 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name1 {\n"
                         + "            intVal=-1\n"
-                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
-                        + "        },\n"
-                        + "        {\n"
+                        + "        }\n"
+                        + "        name2 {\n"
                         + "            intVal=-2\n"
-                        + "            name=name2\n"
                         + "            strVal=strVal2\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=1\n"
                         + "}\n"
         ));
@@ -267,13 +265,12 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name1 {\n"
                         + "            intVal=1\n"
-                        + "            name=name1\n"
                         + "            strVal=foo\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}"
         ));
@@ -300,13 +297,12 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name1 {\n"
                         + "            intVal=-1\n"
-                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}"
         ));
@@ -343,18 +339,16 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name1 {\n"
                         + "            intVal=-1\n"
-                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
-                        + "        },\n"
-                        + "        {\n"
+                        + "        }\n"
+                        + "        name2 {\n"
                         + "            intVal=-2\n"
-                        + "            name=name2\n"
                         + "            strVal=strVal2\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -377,13 +371,12 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name2 {\n"
                         + "            intVal=-2\n"
-                        + "            name=name2\n"
                         + "            strVal=strVal2\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -485,15 +478,14 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList=[\n"
-                        + "        {\n"
+                        + "    namedList {\n"
+                        + "        name1 {\n"
                         + "            intVal=-1\n"
-                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
                         + "        }\n"
-                        + "    ]\n"
+                        + "    }\n"
                         + "    shortVal=1\n"
-                        + "}\n"
+                        + "}"
         ));
     }
 
@@ -586,6 +578,10 @@ public class LocalFileConfigurationStorageTest {
 
         @Value(hasDefault = true)
         public short shortVal = 1;
+
+        @Deprecated
+        @Value(hasDefault = true)
+        public int deprecated = 0;
     }
 
 

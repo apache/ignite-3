@@ -33,8 +33,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.util.CursorUtils;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
@@ -92,9 +90,7 @@ public abstract class BaseSqlMultiStatementTest extends BaseSqlIntegrationTest {
 
     AsyncSqlCursor<InternalSqlRow> runScript(@Nullable InternalTransaction tx, @Nullable CancellationToken cancellationToken, String query,
             Object... params) {
-        SqlProperties properties = SqlPropertiesHelper.newBuilder()
-                .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-                .build();
+        SqlProperties properties = new SqlProperties();
 
         AsyncSqlCursor<InternalSqlRow> cursor = await(
                 queryProcessor().queryAsync(properties, observableTimeTracker(), tx, cancellationToken, query, params)

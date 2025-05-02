@@ -39,6 +39,7 @@ import org.apache.calcite.sql.fun.SqlSubstringFunction;
 import org.apache.calcite.sql.type.InferTypes;
 import org.apache.calcite.sql.type.OperandTypes;
 import org.apache.calcite.sql.type.ReturnTypes;
+import org.apache.calcite.sql.type.SqlOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlReturnTypeInference;
 import org.apache.calcite.sql.type.SqlSingleOperandTypeChecker;
 import org.apache.calcite.sql.type.SqlTypeName;
@@ -46,7 +47,6 @@ import org.apache.calcite.sql.type.SqlTypeTransforms;
 import org.apache.calcite.sql.type.SqlTypeUtil;
 import org.apache.calcite.sql.util.ReflectiveSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.sql.engine.type.UuidType;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
@@ -61,16 +61,22 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
     private static final SqlSingleOperandTypeChecker NOT_CUSTOM_TYPE =
             new NotCustomTypeOperandTypeChecker();
 
-    private static final SqlSingleOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
-            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
-                    .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(NOT_CUSTOM_TYPE))
-                    .or(OperandTypes.INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+    private static final SqlOperandTypeChecker DATETIME_MATCHING_INTERVAL =
+            new SqlDateTimeIntervalTypeChecker(true);
 
-    private static final SqlSingleOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
+    private static final SqlOperandTypeChecker MATCHING_INTERVAL_DATETIME =
+            new SqlDateTimeIntervalTypeChecker(false);
+
+    private static final SqlOperandTypeChecker PLUS_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
                     .or(OperandTypes.INTERVAL_SAME_SAME)
-                    .or(OperandTypes.DATETIME_INTERVAL.and(NOT_CUSTOM_TYPE));
+                    .or(DATETIME_MATCHING_INTERVAL.and(NOT_CUSTOM_TYPE))
+                    .or(MATCHING_INTERVAL_DATETIME.and(NOT_CUSTOM_TYPE));
+
+    private static final SqlOperandTypeChecker MINUS_OPERATOR_TYPES_CHECKER =
+            OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
+                    .or(OperandTypes.INTERVAL_SAME_SAME)
+                    .or(OperandTypes.DATETIME_INTERVAL.and(DATETIME_MATCHING_INTERVAL).and(NOT_CUSTOM_TYPE));
 
     private static final SqlSingleOperandTypeChecker DIVISION_OPERATOR_TYPES_CHECKER =
             OperandTypes.NUMERIC_NUMERIC.and(SAME_SAME)
@@ -151,7 +157,7 @@ public class IgniteSqlOperatorTable extends ReflectiveSqlOperatorTable {
             new SqlFunction(
                     "RAND_UUID",
                     SqlKind.OTHER_FUNCTION,
-                    ReturnTypes.explicit(new UuidType(false)),
+                    ReturnTypes.explicit(SqlTypeName.UUID),
                     null,
                     OperandTypes.NILADIC,
                     SqlFunctionCategory.SYSTEM

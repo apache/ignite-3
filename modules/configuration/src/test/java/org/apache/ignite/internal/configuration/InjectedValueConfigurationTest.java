@@ -80,7 +80,8 @@ public class InjectedValueConfigurationTest {
                 roots,
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(roots, List.of(), List.of()),
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -95,7 +96,7 @@ public class InjectedValueConfigurationTest {
     class HoconConverterTest {
         @Test
         void testEmpty() {
-            assertEquals("nestedNamed=[]", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed{}", asHoconStr(List.of("rootInjectedValue")));
         }
 
         @Test

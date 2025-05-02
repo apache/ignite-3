@@ -41,4 +41,9 @@ internal static class HandshakeExtensions
     /// Basic authentication type name.
     /// </summary>
     public const string AuthenticationTypeBasic = "basic";
+
+    /// <summary>
+    /// Compute executor id.
+    /// </summary>
+    public const string ComputeExecutorId = "compute-executor-id";
 }

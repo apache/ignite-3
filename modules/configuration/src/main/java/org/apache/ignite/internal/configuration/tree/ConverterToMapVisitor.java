@@ -23,8 +23,6 @@ import java.io.Serializable;
 import java.lang.reflect.Array;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
@@ -46,6 +44,9 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** Include internal configuration nodes (private configuration extensions). */
     private final boolean includeInternal;
 
+    /** Include deprecated nodes. */
+    private final boolean includeDeprecated;
+
     /** Skip nulls, empty Maps and empty lists. */
     private final boolean skipEmptyValues;
 
@@ -53,7 +54,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     private final boolean maskSecretValues;
 
     /** Stack with intermediate results. Used to store values during recursive calls. */
-    private final Deque<Object> deque = new ArrayDeque<>();
+    private final Deque<Map<String, Object>> deque = new ArrayDeque<>();
 
     public static ConverterToMapVisitorBuilder builder() {
         return new ConverterToMapVisitorBuilder();
@@ -68,10 +69,12 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      */
     ConverterToMapVisitor(
             boolean includeInternal,
+            boolean includeDeprecated,
             boolean skipEmptyValues,
             boolean maskSecretValues
     ) {
         this.includeInternal = includeInternal;
+        this.includeDeprecated = includeDeprecated;
         this.skipEmptyValues = skipEmptyValues;
         this.maskSecretValues = maskSecretValues;
     }
@@ -79,6 +82,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     /** {@inheritDoc} */
     @Override
     public Object visitLeafNode(Field field, String key, Serializable val) {
+        if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
+            return null;
+        }
+
         Object valObj = val;
 
         if (val instanceof Character || val instanceof UUID) {
@@ -97,6 +104,10 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
     @Override
     public Object visitInnerNode(Field field, String key, InnerNode node) {
         if (skipEmptyValues && node == null) {
+            return null;
+        }
+
+        if (!includeDeprecated && field != null && field.isAnnotationPresent(Deprecated.class)) {
             return null;
         }
 
@@ -119,7 +130,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
 
             return injectedValue;
         } else {
-            // Otherwise, the rendered named list will be a list of maps.
+            // Otherwise, the rendered named list will be a regular map.
             addToParent(key, innerMap);
 
             return innerMap;
@@ -132,50 +143,25 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
             return null;
         }
 
-        Object renderedList;
+        if (!includeDeprecated && field.isAnnotationPresent(Deprecated.class)) {
+            return null;
+        }
 
-        boolean hasInjectedValues = !node.isEmpty() && getFirstNode(node).injectedValueFieldName() != null;
+        Map<String, Object> innerMap = newHashMap(node.size());
 
-        // See the comment inside "visitInnerNode" why named lists are rendered differently for injected values.
-        if (hasInjectedValues) {
-            Map<String, Object> map = newHashMap(node.size());
+        deque.push(innerMap);
 
-            deque.push(map);
+        for (String subkey : node.namedListKeys()) {
+            InnerNode innerNode = node.getInnerNode(subkey);
 
-            for (String subkey : node.namedListKeys()) {
-                InnerNode innerNode = node.getInnerNode(subkey);
-
-                innerNode.accept(field, subkey, this);
-            }
-
-            renderedList = map;
-        } else {
-            List<Object> list = new ArrayList<>(node.size());
-
-            deque.push(list);
-
-            for (String subkey : node.namedListKeys()) {
-                InnerNode innerNode = node.getInnerNode(subkey);
-
-                innerNode.accept(field, subkey, this);
-
-                ((Map<String, Object>) list.get(list.size() - 1)).put(node.syntheticKeyName(), subkey);
-            }
-
-            renderedList = list;
+            innerNode.accept(field, subkey, this);
         }
 
         deque.pop();
 
-        addToParent(key, renderedList);
+        addToParent(key, innerMap);
 
-        return renderedList;
-    }
-
-    private static InnerNode getFirstNode(NamedListNode<?> namedListNode) {
-        String firstKey = namedListNode.namedListKeys().get(0);
-
-        return namedListNode.getInnerNode(firstKey);
+        return innerMap;
     }
 
     /**
@@ -185,13 +171,13 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
      * @param val Value to add to the parent
      */
     private void addToParent(String key, Object val) {
-        Object parent = deque.peek();
+        Map<String, Object> parent = deque.peek();
 
         if (skipEmptyValues && val == null) {
             return;
         }
 
-        if (parent instanceof Map) {
+        if (parent != null) {
             if (skipEmptyValues && val instanceof Map) {
                 Map<?, ?> map = (Map<?, ?>) val;
                 if (map.isEmpty()) {
@@ -199,16 +185,7 @@ public class ConverterToMapVisitor implements ConfigurationVisitor<Object> {
                 }
             }
 
-            ((Map<String, Object>) parent).put(key, val);
-        } else if (parent instanceof List) {
-            if (skipEmptyValues && val instanceof List) {
-                List<?> list = (List<?>) val;
-                if (list.isEmpty()) {
-                    return;
-                }
-            }
-
-            ((Collection<Object>) parent).add(val);
+            parent.put(key, val);
         }
     }
 

@@ -36,14 +36,19 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl.DelegatingSta
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
+import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.raft.jraft.Closure;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotReader;
 import org.apache.ignite.raft.jraft.storage.snapshot.SnapshotWriter;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * Test that checks that {@link FailureManager} handles exceptions from {@link RaftGroupListener} correctly.
  */
+@ExtendWith(FailureManagerExtension.class)
+@MuteFailureManagerLogging // Failures are expected.
 public class StateMachineFailureHandlerTest extends BaseIgniteAbstractTest {
     private static final RuntimeException EXPECTED_ERROR = new RuntimeException();
 

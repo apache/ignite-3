@@ -305,9 +305,7 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                 .thenComposeAsync(Function.identity(), compactionExecutor)
                 .thenRunAsync(() -> storage.compact(compactionRevision), compactionExecutor)
                 .whenComplete((unused, throwable) -> {
-                    if (throwable == null) {
-                        LOG.info("Metastore compaction completed successfully: [compactionRevision={}]", compactionRevision);
-                    } else {
+                    if (throwable != null) {
                         Throwable cause = unwrapCause(throwable);
 
                         if (!(cause instanceof NodeStoppingException)) {
@@ -382,12 +380,6 @@ public class MetaStorageCompactionTrigger implements IgniteComponent {
                                 );
                                 failureProcessor.process(new FailureContext(throwable, errorMessage));
                             }
-                        } else {
-                            LOG.info(
-                                    "Metastorage compaction launched during node recovery has been successfully completed: "
-                                            + "[compactionRevision={}]",
-                                    recoveredCompactionRevision
-                            );
                         }
                     });
         }

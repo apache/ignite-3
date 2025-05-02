@@ -15,24 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.framework;
+package org.apache.ignite.internal;
 
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Dummy no-op tracker.
+ * Annotation to make configuration overrides. Supports only root elements of the configuration.
+ * Used for testing purposes only.
  */
-public final class NoOpTransactionTracker implements TransactionTracker {
-    public static final TransactionTracker INSTANCE = new NoOpTransactionTracker();
-
-    @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return true;
-    }
-
-    @Override
-    public void unregister(UUID txId) {
-
-    }
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+public @interface ConfigOverrides {
+    /** See {@link ConfigOverride}. */
+    ConfigOverride[] value() default {};
 }

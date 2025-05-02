@@ -114,11 +114,15 @@ public class ConfigurationFlattener {
         /** {@inheritDoc} */
         @Override
         public Void doVisitLeafNode(Field field, String key, Serializable newVal) {
+            boolean isDeprecated = field.isAnnotationPresent(Deprecated.class);
+
             // Read same value from old tree.
             Serializable oldVal = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.leafNodeVisitor(), true);
 
             // Do not put duplicates into the resulting map.
-            if (singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
+            if (isDeprecated || singleTreeTraversal || !Objects.deepEquals(oldVal, newVal)) {
+                boolean deletion = this.deletion || isDeprecated;
+
                 resMap.put(currentKey(), deletion ? null : newVal);
             }
 
@@ -128,13 +132,10 @@ public class ConfigurationFlattener {
         /** {@inheritDoc} */
         @Override
         public Void doVisitInnerNode(Field field, String key, InnerNode newNode) {
+            boolean isDeprecated = field != null && field.isAnnotationPresent(Deprecated.class);
+
             // Read same node from old tree.
             InnerNode oldNode = oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.innerNodeVisitor(), true);
-
-            // Skip subtree that has not changed.
-            if (oldNode == newNode && !singleTreeTraversal) {
-                return null;
-            }
 
             // In case inner node is null in both trees,
             // see LocalFileConfigurationStorageTest#innerNodeWithPartialContent – the node is someConfigurationValue.
@@ -143,14 +144,16 @@ public class ConfigurationFlattener {
             }
 
             if (oldNode == null) {
-                visitAsymmetricInnerNode(newNode, false);
+                visitAsymmetricInnerNode(newNode, isDeprecated);
             } else if (oldNode.schemaType() != newNode.schemaType()) {
                 // At the moment, we do not separate the general fields from the fields of
                 // specific instances of the polymorphic configuration, so we will assume
                 // that all the fields have changed, perhaps we will fix this later.
                 visitAsymmetricInnerNode(oldNode, true);
 
-                visitAsymmetricInnerNode(newNode, false);
+                visitAsymmetricInnerNode(newNode, isDeprecated);
+            } else if (isDeprecated) {
+                visitAsymmetricInnerNode(newNode, true);
             } else {
                 oldInnerNodesStack.push(oldNode);
 
@@ -165,18 +168,14 @@ public class ConfigurationFlattener {
         /** {@inheritDoc} */
         @Override
         public Void doVisitNamedListNode(Field field, String key, NamedListNode<?> newNode) {
+            boolean isDeprecated = field.isAnnotationPresent(Deprecated.class);
+
             // Read same named list node from old tree.
             NamedListNode<?> oldNode =
                     oldInnerNodesStack.element().traverseChild(key, ConfigurationUtil.namedListNodeVisitor(), true);
 
-            // Skip subtree that has not changed.
-            if (oldNode == newNode && !singleTreeTraversal) {
-                return null;
-            }
-
             // Old keys ordering can be ignored if we either create or delete everything.
-            Map<String, Integer> oldKeysToOrderIdxMap = singleTreeTraversal ? null
-                    : keysToOrderIdx(oldNode);
+            Map<String, Integer> oldKeysToOrderIdxMap = singleTreeTraversal ? null : keysToOrderIdx(oldNode);
 
             // New keys ordering can be ignored if we delete everything.
             Map<String, Integer> newKeysToOrderIdxMap = deletion ? null : keysToOrderIdx(newNode);
@@ -187,7 +186,7 @@ public class ConfigurationFlattener {
                 String namedListFullKey = currentKey();
 
                 withTracking(newNodeInternalId.toString(), false, false, () -> {
-                    InnerNode newNamedElement = newNode.getInnerNode(newNodeKey);
+                    InnerNode newNamedElement = isDeprecated ? null : newNode.getInnerNode(newNodeKey);
 
                     String oldNodeKey = oldNode.keyByInternalId(newNodeInternalId);
                     InnerNode oldNamedElement = oldNode.getInnerNode(oldNodeKey);
@@ -197,27 +196,23 @@ public class ConfigurationFlattener {
                         return null;
                     }
 
-                    // Skip element that has not changed.
-                    // Its index can be different though, so we don't "continue" straight away.
-                    if (singleTreeTraversal || oldNamedElement != newNamedElement) {
-                        if (newNamedElement == null) {
-                            visitAsymmetricInnerNode(oldNamedElement, true);
-                        } else if (oldNamedElement == null) {
-                            visitAsymmetricInnerNode(newNamedElement, false);
-                        } else if (newNamedElement.schemaType() != oldNamedElement.schemaType()) {
-                            // At the moment, we do not separate the general fields from the fields of
-                            // specific instances of the polymorphic configuration, so we will assume
-                            // that all the fields have changed, perhaps we will fix this later.
-                            visitAsymmetricInnerNode(oldNamedElement, true);
+                    if (newNamedElement == null) {
+                        visitAsymmetricInnerNode(oldNamedElement, true);
+                    } else if (oldNamedElement == null) {
+                        visitAsymmetricInnerNode(newNamedElement, isDeprecated);
+                    } else if (newNamedElement.schemaType() != oldNamedElement.schemaType()) {
+                        // At the moment, we do not separate the general fields from the fields of
+                        // specific instances of the polymorphic configuration, so we will assume
+                        // that all the fields have changed, perhaps we will fix this later.
+                        visitAsymmetricInnerNode(oldNamedElement, true);
 
-                            visitAsymmetricInnerNode(newNamedElement, false);
-                        } else {
-                            oldInnerNodesStack.push(oldNamedElement);
+                        visitAsymmetricInnerNode(newNamedElement, isDeprecated);
+                    } else {
+                        oldInnerNodesStack.push(oldNamedElement);
 
-                            newNamedElement.traverseChildren(this, true);
+                        newNamedElement.traverseChildren(this, true);
 
-                            oldInnerNodesStack.pop();
-                        }
+                        oldInnerNodesStack.pop();
                     }
 
                     Integer newIdx = newKeysToOrderIdxMap == null ? null : newKeysToOrderIdxMap.get(newNodeKey);
@@ -282,7 +277,6 @@ public class ConfigurationFlattener {
          * configuration tree unconditionally.
          */
         private void visitAsymmetricInnerNode(InnerNode node, boolean delete) {
-            assert !singleTreeTraversal;
             assert node != null;
 
             oldInnerNodesStack.push(node);

@@ -36,6 +36,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.impl.MetaStorageManagerImpl;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -89,6 +91,11 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
         assignmentsTimestamp = clock.now().longValue();
     }
 
+    @AfterEach
+    public void cleanup() {
+        assertThat(metaStorageManager.stopAsync(), willCompleteSuccessfully());
+    }
+
     @ParameterizedTest
     @MethodSource("assignments")
     public void testPendingChangeTriggerKey(
@@ -105,13 +112,21 @@ public class DisasterRecoveryMsInvokeTest extends BaseIgniteAbstractTest {
             );
         }
 
+        byte[] timestampBytes = longToBytesKeepingOrder(expectedPendingChangeTimestampKey.longValue());
+        byte[] pendingAssignmentsBytes = AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp));
+        ByteArray pendingChangeTriggerKey = pendingChangeTriggerKey(tablePartitionId);
+        ByteArray partAssignmentsPendingKey = pendingPartAssignmentsQueueKey(tablePartitionId);
+        ByteArray partAssignmentsPlannedKey = RebalanceUtil.plannedPartAssignmentsKey(tablePartitionId);
+
         assertThat(
                 metaStorageManager.invoke(
-                        GroupUpdateRequest.prepareMsInvokeClosure(
-                                tablePartitionId,
-                                longToBytesKeepingOrder(expectedPendingChangeTimestampKey.longValue()),
-                                AssignmentsQueue.toBytes(Assignments.of(pending, assignmentsTimestamp)),
-                                null
+                        GroupUpdateRequestHandler.executeInvoke(
+                                timestampBytes,
+                                pendingAssignmentsBytes,
+                                null,
+                                pendingChangeTriggerKey,
+                                partAssignmentsPendingKey,
+                                partAssignmentsPlannedKey
                         )
                 ),
                 willCompleteSuccessfully()

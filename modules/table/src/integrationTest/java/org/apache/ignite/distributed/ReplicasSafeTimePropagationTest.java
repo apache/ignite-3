@@ -26,7 +26,9 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.Iterator;
 import java.util.Map;
@@ -46,6 +48,7 @@ import org.apache.ignite.internal.catalog.configuration.SchemaSynchronizationCon
 import org.apache.ignite.internal.configuration.ComponentWorkingDir;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -56,6 +59,7 @@ import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.StaticNodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.PeersAndLearners;
@@ -369,6 +373,12 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
 
             TxManager txManagerMock = mock(TxManager.class);
 
+            LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+            when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+            ClockService clockService = mock(ClockService.class);
+            when(clockService.current()).thenReturn(clock.current());
+
             this.raftClient = raftManager.startRaftGroupNode(
                     new RaftNodeId(GROUP_ID, new Peer(nodeName)),
                     fromConsistentIds(cluster.keySet()),
@@ -384,7 +394,10 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(IndexMetaStorage.class),
                             clusterService.topologyService().localMember().id(),
                             mock(MinimumRequiredTimeCollectorService.class),
-                            mock(Executor.class)
+                            mock(Executor.class),
+                            placementDriver,
+                            clockService
+
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {

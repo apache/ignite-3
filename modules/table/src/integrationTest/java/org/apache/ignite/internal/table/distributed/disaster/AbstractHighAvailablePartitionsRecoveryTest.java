@@ -24,14 +24,14 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.pendingPartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneScaleDownTimerKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.plannedPartAssignmentsKey;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartitionAssignments;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.table.TableTestUtils.getTableId;
 import static org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager.RECOVERY_TRIGGER_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -71,7 +71,9 @@ import org.apache.ignite.internal.distributionzones.DataNodesHistory;
 import org.apache.ignite.internal.distributionzones.DataNodesHistory.DataNodesHistorySerializer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer;
 import org.apache.ignite.internal.distributionzones.DistributionZoneTimer.DistributionZoneTimerSerializer;
+import org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil;
 import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -85,7 +87,10 @@ import org.apache.ignite.internal.metastorage.server.KeyValueStorage;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
+import org.apache.ignite.internal.raft.RaftNodeId;
+import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshallerImpl;
@@ -95,9 +100,9 @@ import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableImpl;
+import org.apache.ignite.internal.table.TableTestUtils;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
@@ -109,8 +114,6 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.TransactionException;
 
 /** Parent for tests of HA zones feature. */
-// TODO https://issues.apache.org/jira/browse/IGNITE-24144
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public abstract class AbstractHighAvailablePartitionsRecoveryTest extends ClusterPerTestIntegrationTest {
     static final String SCHEMA_NAME = SqlCommon.DEFAULT_SCHEMA_NAME;
 
@@ -148,8 +151,13 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
         int zoneId = catalog.zone(zoneName).id();
         int tableId = catalog.table(SCHEMA_NAME, tableName).id();
 
+        if (enabledColocation()) {
+            assertEquals(of(zoneId, PARTITION_IDS), request.partitionIds());
+        } else {
+            assertEquals(of(tableId, PARTITION_IDS), request.partitionIds());
+        }
+
         assertEquals(zoneId, request.zoneId());
-        assertEquals(of(tableId, PARTITION_IDS), request.partitionIds());
         assertFalse(request.manualUpdate());
     }
 
@@ -251,11 +259,23 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
                             assert tableId != null;
 
-                            TablePartitionId tablePartitionId = new TablePartitionId(tableId, partNum);
+                            int zoneId = TableTestUtils.getZoneIdByTableNameStrict(
+                                    gatewayNode.catalogManager(),
+                                    tableName,
+                                    clock.nowLong()
+                            );
 
-                            ByteArray stableKey = stablePartAssignmentsKey(tablePartitionId);
-                            ByteArray pendingKey = pendingPartAssignmentsQueueKey(tablePartitionId);
-                            ByteArray plannedKey = plannedPartAssignmentsKey(tablePartitionId);
+                            PartitionGroupId replicationGroupId;
+
+                            if (enabledColocation()) {
+                                replicationGroupId = new ZonePartitionId(zoneId, partNum);
+                            } else {
+                                replicationGroupId = new TablePartitionId(tableId, partNum);
+                            }
+
+                            ByteArray stableKey = stablePartitionAssignmentsKey(replicationGroupId);
+                            ByteArray pendingKey = pendingPartitionAssignmentsKey(replicationGroupId);
+                            ByteArray plannedKey = plannedPartitionAssignmentsKey(replicationGroupId);
 
                             Map<ByteArray, Entry> results = await(gatewayNode.metaStorageManager()
                                     .getAll(Set.of(stableKey, pendingKey, plannedKey)), 1, TimeUnit.SECONDS);
@@ -302,6 +322,21 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     private Set<Assignment> getPartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
+        if (enabledColocation()) {
+            int zoneId = TableTestUtils.getZoneIdByTableNameStrict(node.catalogManager(), tableName, clock.nowLong());
+
+            CompletableFuture<Set<Assignment>> zonePartAssignmentsFut =
+                    ZoneRebalanceUtil.zonePartitionAssignments(node.metaStorageManager(), zoneId, partNum);
+
+            assertThat(zonePartAssignmentsFut, willCompleteSuccessfully());
+
+            return zonePartAssignmentsFut.join();
+        } else {
+            return getTablePartitionClusterNodes(node, tableName, partNum);
+        }
+    }
+
+    private Set<Assignment> getTablePartitionClusterNodes(IgniteImpl node, String tableName, int partNum) {
         return Optional.ofNullable(getTableId(node.catalogManager(), tableName, clock.nowLong()))
                 .map(tableId -> stablePartitionAssignments(node.metaStorageManager(), tableId, partNum).join())
                 .orElse(Set.of());
@@ -336,11 +371,17 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
             tableIds.add(getTableId(igniteImpl(0).catalogManager(), tableName, clock.nowLong()));
         }
 
-        awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
+        int zoneId = DistributionZonesTestUtil.getZoneId(igniteImpl(0).catalogManager(), zoneName, clock.nowLong());
 
-        tableNames.forEach(t ->
-                waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, PARTITION_IDS, targetNodes)
-        );
+        if (enabledColocation()) {
+            awaitForAllNodesZoneGroupInitialization(zoneId, targetNodes.size());
+            waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), tableNames.get(0), PARTITION_IDS, targetNodes);
+        } else {
+            awaitForAllNodesTableGroupInitialization(tableIds, targetNodes.size());
+            tableNames.forEach(t ->
+                    waitAndAssertStableAssignmentsOfPartitionEqualTo(unwrapIgniteImpl(node(0)), t, PARTITION_IDS, targetNodes)
+            );
+        }
     }
 
     final void createHaZoneWithTables(String zoneName, List<String> tableNames) throws InterruptedException {
@@ -471,13 +512,7 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
                     if (raftNodeId.groupId() instanceof TablePartitionId
                             && tableIds.contains(((TablePartitionId) raftNodeId.groupId()).tableId())) {
-                        try {
-                            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
-                                numberOfInitializedReplicas.incrementAndGet();
-                            }
-                        } catch (NodeStoppingException e) {
-                            throw new RuntimeException(e);
-                        }
+                        incrementReplicaCountIfHasLog(raftNodeId, igniteImpl, numberOfInitializedReplicas);
                     }
                 });
 
@@ -485,6 +520,41 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
 
             return PARTITIONS_NUMBER * replicas * tableIds.size() == numberOfInitializedReplicas.get();
         }, 10_000));
+    }
+
+    private void awaitForAllNodesZoneGroupInitialization(int zoneId, int replicas) throws InterruptedException {
+        assertTrue(waitForCondition(() -> {
+            AtomicInteger numberOfInitializedReplicas = new AtomicInteger(0);
+
+            runningNodes().forEach(ignite -> {
+                IgniteImpl igniteImpl = unwrapIgniteImpl(ignite);
+                igniteImpl.raftManager().localNodes().forEach((raftNodeId) -> {
+
+                    if (raftNodeId.groupId() instanceof ZonePartitionId
+                            && zoneId == ((ZonePartitionId) raftNodeId.groupId()).zoneId()
+                    ) {
+                        incrementReplicaCountIfHasLog(raftNodeId, igniteImpl, numberOfInitializedReplicas);
+                    }
+                });
+
+            });
+
+            return PARTITIONS_NUMBER * replicas == numberOfInitializedReplicas.get();
+        }, 10_000));
+    }
+
+    private static void incrementReplicaCountIfHasLog(
+            RaftNodeId raftNodeId,
+            IgniteImpl igniteImpl,
+            AtomicInteger numberOfInitializedReplicas
+    ) {
+        try {
+            if (igniteImpl.raftManager().raftNodeIndex(raftNodeId).index() > 0) {
+                numberOfInitializedReplicas.incrementAndGet();
+            }
+        } catch (NodeStoppingException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     final Set<String> nodeNames(Integer... indexes) {
@@ -586,10 +656,12 @@ public abstract class AbstractHighAvailablePartitionsRecoveryTest extends Cluste
     }
 
     void triggerManualReset(IgniteImpl node) {
-        CompletableFuture<?> updateFuture = node.disasterRecoveryManager().resetAllPartitions(
+        DisasterRecoveryManager disasterRecoveryManager = node.disasterRecoveryManager();
+        CompletableFuture<?> updateFuture = disasterRecoveryManager.resetTablePartitions(
                 HA_ZONE_NAME,
                 SCHEMA_NAME,
                 HA_TABLE_NAME,
+                emptySet(),
                 true,
                 -1
         );

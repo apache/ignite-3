@@ -1263,7 +1263,7 @@ public class RexUtils {
 
         // Literal was parsed as UTC timestamp, now we need to adjust it to the client's time zone.
         if (literal.getTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-            return IgniteSqlFunctions.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
+            return IgniteSqlDateTimeUtils.subtractTimeZoneOffset((long) val, (TimeZone) context.get(Variable.TIME_ZONE.camelName));
         }
 
         return val;

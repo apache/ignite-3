@@ -41,6 +41,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.apache.calcite.DataContext;
 import org.apache.calcite.adapter.enumerable.PhysType;
@@ -648,7 +649,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into time
       return Expressions.isConstantNull(format)
-          ? Expressions.call(BuiltInMethod.STRING_TO_TIME.method, operand)
+          ? Expressions.call(IgniteMethod.STRING_TO_TIME.method(), operand)
           : Expressions.call(Expressions.new_(BuiltInMethod.PARSE_TIME.method.getDeclaringClass()),
               BuiltInMethod.PARSE_TIME.method, format, operand);
 
@@ -729,7 +730,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into timestamp
       return Expressions.isConstantNull(format)
-          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand))
+          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand))
           : Expressions.call(
                   IgniteMethod.TO_TIMESTAMP_EXACT.method(),
                   Expressions.call(
@@ -996,6 +997,16 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
               () -> "getValueAs(Enum.class) for " + literal);
       javaClass = value2.getClass();
       break;
+    case UUID: {
+      UUID value = literal.getValueAs(UUID.class);
+
+      // Literal NULL is covered at the very beginning of this method.
+      assert value != null;
+
+      return Expressions.new_(
+              UUID.class, constant(value.getMostSignificantBits()), constant(value.getLeastSignificantBits())
+      );
+    }
     default:
       final Primitive primitive = Primitive.ofBoxOr(javaClass);
       final Comparable value = literal.getValueAs(Comparable.class);

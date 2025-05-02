@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.testframework.matchers.CompletableFutur
 import static org.apache.ignite.internal.util.ArrayUtils.asList;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -61,6 +62,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
 import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.impl.StandaloneMetaStorageManager;
@@ -70,7 +72,9 @@ import org.apache.ignite.internal.metastorage.server.SimpleInMemoryKeyValueStora
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -158,6 +162,12 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         dataNodesManager.onZoneCreate(0, clock.now(), currentTopology);
     }
 
+    @AfterEach
+    void cleanup() {
+        List.of(catalogManager, metaStorageManager).forEach(IgniteComponent::beforeNodeStop);
+        assertThat(IgniteUtils.stopAsync(new ComponentContext(), catalogManager, metaStorageManager), willCompleteSuccessfully());
+    }
+
     private void createZone(String name, ConsistencyMode consistencyMode) {
         DistributionZonesTestUtil.createZone(catalogManager, name, consistencyMode);
 
@@ -182,6 +192,31 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
         if (filter != null) {
             dataNodesManager.onZoneFilterChange(descriptor(ZONE_NAME_1), clock.now(), currentTopology);
         }
+    }
+
+    @Test
+    void addNodeAndChangeScaleUpTimerToImmediate() throws Exception {
+        String zoneName = "Default";
+
+        // Setup the scale up timer to 50 seconds.
+        alterZone(zoneName, 50, null, null);
+
+        // Add new node to the topology that is A and B nodes. This should setup the scale up timer.
+        addNodes(Set.of(C));
+
+        HybridTimestamp t1 = clock.now();
+
+        // Change the scale up timer to immediate.
+        // The topology should be changed to A, B and C.
+        // A new history entry should be created and added to the history.
+        // It is assumed that a timestamp of that entry is greater than `t1`.
+        alterZone(zoneName, IMMEDIATE_TIMER_VALUE, null, null);
+
+        waitForDataNodes(zoneName, nodeNames(A, B, C));
+
+        DataNodesHistory history = dataNodesHistory(zoneName);
+
+        assertThat(history.dataNodesForTimestamp(t1).dataNodes().size(), is(2));
     }
 
     @Test
@@ -455,6 +490,13 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
     }
 
     private void addNodes(Set<NodeWithAttributes> nodes) {
+        Set<NodeWithAttributes> oldTopology;
+        if (currentTopology.isEmpty()) {
+            oldTopology = new HashSet<>(nodes);
+        } else {
+            oldTopology = new HashSet<>(currentTopology);
+        }
+
         currentTopology.addAll(nodes);
 
         assertThat(
@@ -462,7 +504,7 @@ public class DataNodesManagerTest extends BaseIgniteAbstractTest {
                         catalogManager.activeCatalog(clock.now().longValue()).zones()
                                 .stream()
                                 .map(zone -> dataNodesManager
-                                        .onTopologyChange(zone, 1, clock.now(), currentTopology, currentTopology))
+                                        .onTopologyChange(zone, 1, clock.now(), currentTopology, oldTopology))
                                 .collect(toList())
                 ),
                 willCompleteSuccessfully()

@@ -15,29 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
-
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
+package org.apache.ignite.internal.client.proto;
 
 /**
- * Simple facade that propagates invocations to underlying {@link TransactionInflights} object.
+ * Server -> client operation codes.
  */
-class InflightTransactionTracker implements TransactionTracker {
-    private final TransactionInflights delegate;
+public class ServerOp {
+    public static final int PING = 1;
 
-    InflightTransactionTracker(TransactionInflights delegate) {
-        this.delegate = delegate;
-    }
+    /** Execute platform compute job. */
+    public static final int COMPUTE_JOB_EXEC = 2;
 
-    @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return delegate.addInflight(txId, readOnly);
-    }
+    public static final int COMPUTE_JOB_CANCEL = 3;
 
-    @Override
-    public void unregister(UUID txId) {
-        delegate.removeInflight(txId);
-    }
+    public static final int DEPLOYMENT_UNITS_UNDEPLOY = 4;
 }
