@@ -55,9 +55,30 @@ public class DeploymentUnitLoaderTests
     [Test]
     public async Task TestUnitIsolation()
     {
-        // TODO: Same assembly name in different deployment units should not conflict.
-        await Task.Delay(1);
-        Assert.Fail();
+        using var tempDir = new TempDir();
+        var asmName = nameof(TestUnitIsolation);
+        EmitGetAndSetStaticFieldJob(tempDir, asmName);
+
+        var typeName = $"TestNamespace.GetAndSetStaticFieldJob, {asmName}";
+        var deploymentUnitPaths = new DeploymentUnitPaths([tempDir.Path]);
+
+        using JobLoadContext jobCtx1 = DeploymentUnitLoader.GetJobLoadContext(deploymentUnitPaths);
+        using JobLoadContext jobCtx2 = DeploymentUnitLoader.GetJobLoadContext(deploymentUnitPaths);
+
+        IComputeJobWrapper jobWrapper1 = jobCtx1.CreateJobWrapper(typeName);
+        IComputeJobWrapper jobWrapper2 = jobCtx2.CreateJobWrapper(typeName);
+
+        var job1Res1 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper1, "Job1val1");
+        var job1Res2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper1, "Job1val2");
+
+        var job2Res1 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper2, "Job2val1");
+        var job2Res2 = await JobWrapperHelper.ExecuteAsync<string, string>(jobWrapper2, "Job2val2");
+
+        Assert.AreEqual("Initial", job1Res1);
+        Assert.AreEqual("Job1val1", job1Res2);
+
+        Assert.AreEqual("Initial", job2Res1);
+        Assert.AreEqual("Job2val1", job2Res2);
     }
 
     [Test]
@@ -77,6 +98,26 @@ public class DeploymentUnitLoaderTests
             {
                 public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
                     ValueTask.FromResult("Echo: " + arg);
+            }
+            """);
+
+    private static void EmitGetAndSetStaticFieldJob(TempDir tempDir, string asmName) =>
+        EmitJob(
+            tempDir,
+            asmName,
+            """
+            public class GetAndSetStaticFieldJob : IComputeJob<string, string>
+            {
+                public static string StaticField { get; set; } = "Initial";
+                
+                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken)
+                {
+                    var oldValue = StaticField;
+                    StaticField = arg;
+                    
+                    return ValueTask.FromResult(oldValue);
+                }
+                    
             }
             """);
 
