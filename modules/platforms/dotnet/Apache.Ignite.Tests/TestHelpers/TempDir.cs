@@ -19,7 +19,11 @@ namespace Apache.Ignite.Tests.TestHelpers;
 
 using System;
 using System.IO;
+using System.Threading.Tasks;
 
+/// <summary>
+/// Temporary directory holder for tests.
+/// </summary>
 internal sealed record TempDir : IDisposable
 {
     public TempDir()
@@ -31,5 +35,9 @@ internal sealed record TempDir : IDisposable
 
     public string Path { get; }
 
-    public void Dispose() => Directory.Delete(Path, true);
+    public void Dispose() => _ = Task.Run(() =>
+    {
+        // Delete test temp dir in background, ignore errors.
+        Directory.Delete(Path, true);
+    });
 }
