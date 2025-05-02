@@ -104,6 +104,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
     }
 
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @Test
     void testRestartTablePartitions() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());

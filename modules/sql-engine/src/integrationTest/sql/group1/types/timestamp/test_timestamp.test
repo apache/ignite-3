@@ -151,13 +151,13 @@ SELECT '2008-01-01 00:00:01.999'::TIMESTAMP::VARCHAR
 ----
 2008-01-01 00:00:01.999
 
-# Value must be rounded up.
+# Value must be trimmed without rounding.
 query T
 SELECT '2008-01-01 00:00:01.9995'::TIMESTAMP(3)::VARCHAR
 ----
-2008-01-01 00:00:02
+2008-01-01 00:00:01.999
 
-# Value must be rounded down.
+# Value must be trimmed.
 query T
 SELECT '2008-01-01 00:00:01.9994'::TIMESTAMP(3)::VARCHAR
 ----
