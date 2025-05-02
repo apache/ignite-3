@@ -28,8 +28,6 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigParseOptions;
@@ -42,7 +40,6 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -94,12 +91,8 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        Set<String> deletedPrefixes = Set.of("top.deleted_property");
-
-        ConfigurationModule mockModule = mock(ConfigurationModule.class);
-        when(mockModule.deletedPrefixes()).thenReturn(deletedPrefixes);
-
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, new LocalFileConfigurationModule());
+        LocalFileConfigurationModule module = new LocalFileConfigurationModule();
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, module);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
@@ -107,7 +100,7 @@ public class LocalFileConfigurationStorageTest {
                 treeGenerator,
                 new ConfigurationValidatorImpl(treeGenerator, Set.of()),
                 change -> {},
-                mockModule.deletedPrefixesPatterns()
+                module.deletedPrefixesPatterns()
         );
     }
 
