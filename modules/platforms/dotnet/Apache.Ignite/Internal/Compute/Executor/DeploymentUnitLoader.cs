@@ -24,7 +24,7 @@ using System.Runtime.Loader;
 /// <summary>
 /// Loader for deployment units in Apache Ignite compute execution context.
 /// </summary>
-internal sealed class DeploymentUnitLoader
+internal static class DeploymentUnitLoader
 {
     /// <summary>
     /// Creates a new job load context for the specified deployment unit paths.

@@ -20,7 +20,6 @@ namespace Apache.Ignite.Tests.TestHelpers;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
-using System.Threading.Tasks;
 using Internal.Common;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
