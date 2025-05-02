@@ -29,7 +29,6 @@ import java.nio.ByteBuffer;
 import java.security.AccessController;
 import java.security.PrivilegedActionException;
 import java.security.PrivilegedExceptionAction;
-import org.jetbrains.annotations.NotNull;
 
 /**
  * Wraps a pointer to unmanaged memory into a direct byte buffer.
@@ -232,7 +231,7 @@ abstract class PointerWrapping {
     }
 
 
-    private static @NotNull ByteBuffer wrapPointerJavaNio(long ptr, int len) {
+    private static ByteBuffer wrapPointerJavaNio(long ptr, int len) {
         try {
             ByteBuffer buf = (ByteBuffer) DIRECT_BUF_MTD.invokeExact(JAVA_NIO_ACCESS_OBJ, ptr, len, NULL_OBJ);
 
