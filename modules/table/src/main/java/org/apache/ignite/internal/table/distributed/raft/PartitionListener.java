@@ -138,7 +138,14 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
     private final ClockService clockService;
 
-    private volatile ReplicaMeta lastKnownLease;
+    /**
+     * Partition group ID that is actually used for replication.
+     *
+     * <p>It is a zone partition ID when colocation is enabled, and table partition ID otherwise.
+     */
+    private final ReplicationGroupId realReplicationGroupId;
+
+    private ReplicaMeta lastKnownLease;
 
     /** Constructor. */
     public PartitionListener(
@@ -155,7 +162,8 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             MinimumRequiredTimeCollectorService minTimeCollectorService,
             Executor partitionOperationsExecutor,
             LeasePlacementDriver placementDriver,
-            ClockService clockService
+            ClockService clockService,
+            ReplicationGroupId realReplicationGroupId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -167,6 +175,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.localNodeId = localNodeId;
         this.placementDriver = placementDriver;
         this.clockService = clockService;
+        this.realReplicationGroupId = realReplicationGroupId;
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
@@ -216,8 +225,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         HybridTimestamp currentTime = clockService.current();
 
         if (lastKnownLease == null || lastKnownLease.getExpirationTime().compareTo(currentTime) < 0) {
-            ReplicationGroupId groupId = new TablePartitionId(storage.tableId(), storage.partitionId());
-            lastKnownLease = placementDriver.getCurrentPrimaryReplica(groupId, currentTime);
+            lastKnownLease = placementDriver.getCurrentPrimaryReplica(realReplicationGroupId, currentTime);
         }
 
         if (lastKnownLease == null || !lastKnownLease.getLeaseholderId().equals(localNodeId)) {
