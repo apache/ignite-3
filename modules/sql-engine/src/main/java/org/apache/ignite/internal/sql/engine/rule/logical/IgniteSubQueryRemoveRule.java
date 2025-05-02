@@ -19,11 +19,20 @@ package org.apache.ignite.internal.sql.engine.rule.logical;
 
 //CHECKSTYLE:OFF
 
+import static java.util.Objects.requireNonNull;
+import static org.apache.calcite.util.Util.last;
+
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptRule;
 import org.apache.calcite.plan.RelOptRuleCall;
 import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelRule;
+import org.apache.calcite.rel.RelHomogeneousShuttle;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.Collect;
 import org.apache.calcite.rel.core.Correlate;
@@ -35,7 +44,9 @@ import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.rules.CoreRules;
 import org.apache.calcite.rel.rules.TransformationRule;
 import org.apache.calcite.rex.LogicVisitor;
+import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexCorrelVariable;
+import org.apache.calcite.rex.RexFieldAccess;
 import org.apache.calcite.rex.RexInputRef;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.calcite.rex.RexNode;
@@ -50,19 +61,7 @@ import org.apache.calcite.sql2rel.RelDecorrelator;
 import org.apache.calcite.tools.RelBuilder;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
-
-import com.google.common.collect.ImmutableList;
-
 import org.immutables.value.Value;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
-
-import static org.apache.calcite.util.Util.last;
-
-import static java.util.Objects.requireNonNull;
 
 /**
  * Transform that converts IN, EXISTS and scalar sub-queries into joins.
@@ -909,9 +908,45 @@ public class IgniteSubQueryRemoveRule
             builder.push(join.getLeft());
             builder.push(join.getRight());
 
+            RexSubQuery subQuery = e;
+            if (!variablesSet.isEmpty()) {
+                // Original correlates reference joint row type, but we are about to create
+                // new join of original right side and correlated sub-query. Therefore we have
+                // to adjust correlated variables int following way:
+                //      1) new correlation variable must reference row type of right side only
+                //      2) field index must be shifted on the size of the left side
+
+                CorrelationId id = Iterables.getOnlyElement(variablesSet);
+
+                subQuery = e.clone(e.rel.accept(new RelHomogeneousShuttle() {
+                    private final int offset = join.getLeft().getRowType().getFieldCount();
+                    private final RexBuilder rexBuilder = join.getRight().getCluster().getRexBuilder();
+                    private final RexShuttle rexShuttle = new RexShuttle() {
+                        @Override
+                        public RexNode visitFieldAccess(RexFieldAccess fieldAccess) {
+                            if (!(fieldAccess.getReferenceExpr() instanceof RexCorrelVariable) 
+                                    ||  !((RexCorrelVariable) fieldAccess.getReferenceExpr()).id.equals(id)) {
+                                return super.visitFieldAccess(fieldAccess);
+                            }
+
+                            RexNode updatedCorrelation = rexBuilder.makeCorrel(join.getRight().getRowType(), id);
+
+                            int oldIdx = fieldAccess.getField().getIndex();
+                            return rexBuilder.makeFieldAccess(updatedCorrelation, oldIdx - offset);
+                        }
+                    };
+
+                    @Override
+                    public RelNode visit(RelNode other) {
+                        RelNode next = super.visit(other);
+                        return next.accept(rexShuttle);
+                    }
+                }));
+            }
+
             final int nFields = join.getRowType().getFieldCount();
             final RexNode target =
-                    rule.apply(e, variablesSet, logic, builder, 2, nFields, 0);
+                    rule.apply(subQuery, variablesSet, logic, builder, 2, nFields, 0);
             final RexShuttle shuttle = new ReplaceSubQueryShuttle(e, target);
 
             builder.join(join.getJoinType(), shuttle.apply(join.getCondition()));

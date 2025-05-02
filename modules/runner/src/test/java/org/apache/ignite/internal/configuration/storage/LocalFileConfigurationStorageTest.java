@@ -99,7 +99,7 @@ public class LocalFileConfigurationStorageTest {
         ConfigurationModule mockModule = mock(ConfigurationModule.class);
         when(mockModule.deletedPrefixes()).thenReturn(deletedPrefixes);
 
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, mockModule);
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, new LocalFileConfigurationModule());
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
@@ -600,6 +600,10 @@ public class LocalFileConfigurationStorageTest {
 
         @Value(hasDefault = true)
         public short shortVal = 1;
+
+        @Deprecated
+        @Value(hasDefault = true)
+        public int deprecated = 0;
     }
 
 

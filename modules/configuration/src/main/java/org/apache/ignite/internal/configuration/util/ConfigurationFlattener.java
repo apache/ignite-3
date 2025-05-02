@@ -277,7 +277,6 @@ public class ConfigurationFlattener {
          * configuration tree unconditionally.
          */
         private void visitAsymmetricInnerNode(InnerNode node, boolean delete) {
-            assert !singleTreeTraversal;
             assert node != null;
 
             oldInnerNodesStack.push(node);

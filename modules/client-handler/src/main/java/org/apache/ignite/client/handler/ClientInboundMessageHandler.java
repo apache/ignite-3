@@ -1311,6 +1311,7 @@ public class ClientInboundMessageHandler
                         packer.packLong(jobId);
                         packer.packString(jobClassName);
                         packDeploymentUnitPaths(deploymentUnitPaths, packer);
+                        packer.packBoolean(false); // Retain deployment units in cache.
                         ClientComputeJobPacker.packJobArgument(arg, null, packer);
                     })
                     .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);

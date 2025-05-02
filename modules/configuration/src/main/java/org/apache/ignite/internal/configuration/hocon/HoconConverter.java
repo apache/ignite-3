@@ -47,6 +47,7 @@ public class HoconConverter {
     ) {
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(false)
+                .includeDeprecated(false)
                 .maskSecretValues(true)
                 .build();
         return represent(root, path, visitor);
