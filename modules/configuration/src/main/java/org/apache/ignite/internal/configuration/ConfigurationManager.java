@@ -51,7 +51,7 @@ public class ConfigurationManager implements IgniteComponent {
      * @param rootKeys Configuration root keys.
      * @param storage Configuration storage.
      * @param generator Configuration tree generator.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the
      *         schema or its extensions are not valid.
      */

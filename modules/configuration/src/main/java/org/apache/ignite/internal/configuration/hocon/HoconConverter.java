@@ -84,7 +84,7 @@ public class HoconConverter {
      * Returns HOCON-based configuration source.
      *
      * @param hoconCfg HOCON that has to be converted to the configuration source.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @return HOCON-based configuration source.
      */
     public static ConfigurationSource hoconSource(ConfigObject hoconCfg, Collection<Pattern> deletedPrefixes) {

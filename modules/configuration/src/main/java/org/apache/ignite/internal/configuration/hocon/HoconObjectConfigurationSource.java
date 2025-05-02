@@ -44,9 +44,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
      */
     private final String ignoredKey;
 
-    /**
-     * Prefixes that need to be ignored by the source.
-     */
+    /** Patterns of prefixes, deleted from the configuration. */
     private final Collection<Pattern> deletedPrefixes;
 
     /**
@@ -63,7 +61,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
      * Creates a {@link ConfigurationSource} from the given HOCON object.
      *
      * @param ignoredKey     Key that needs to be ignored by the source. Can be {@code null}.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @param path           Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgObject} is the
      *                       top-level object.
      * @param hoconCfgObject HOCON object.

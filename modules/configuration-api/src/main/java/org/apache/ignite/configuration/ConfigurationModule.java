@@ -142,6 +142,8 @@ public interface ConfigurationModule {
     /**
      * Returns a collection of prefixes, removed from configuration. Keys that match any of the prefixes
      * in this collection will be deleted.
+     * <p>Use ignite.my.deleted.property for regular deleted properties</p>
+     * <p>ignite.list.*.deletedProperty - for named list elements. Arbitrarily nested named lists are supported</p>
      *
      * @return A collection of prefixes of deleted keys.
      */
@@ -149,11 +151,11 @@ public interface ConfigurationModule {
         return emptySet();
     }
 
+    /** Compiles @{link #deletedPrefixes()} into regex patterns. Shouldn't be overwritten. */
     default Collection<Pattern> deletedPrefixesPatterns() {
         return deletedPrefixes().stream()
                 .map(deletedKey -> deletedKey.replace(".", "\\.").replace("*", "[^.]*") + "(\\..*)?")
                 .map(Pattern::compile)
                 .collect(Collectors.toList());
-
     }
 }

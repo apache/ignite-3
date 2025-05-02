@@ -64,6 +64,7 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
+    /** Patterns of prefixes, deleted from the configuration. */
     private final Collection<Pattern> deletedPrefixes;
 
     /** Constructor. */

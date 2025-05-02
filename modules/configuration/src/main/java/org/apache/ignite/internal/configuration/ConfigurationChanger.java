@@ -99,6 +99,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Configuration migrator. */
     private final ConfigurationMigrator migrator;
 
+    /** Patterns of prefixes, deleted from the configuration. */
     private final Collection<Pattern> deletedPrefixes;
 
     /** Storage trees. */
@@ -122,7 +123,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Flag indicating whether the component is started. */
     private final AtomicBoolean started = new AtomicBoolean(false);
 
-    /** Keys that were deleted, but still present in configuration. */
+    /** Keys that were deleted, but were present in the configuration on the startup. */
     private Collection<String> ignoredKeys;
 
     /**

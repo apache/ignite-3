@@ -21,6 +21,7 @@ import static com.typesafe.config.ConfigValueType.BOOLEAN;
 import static com.typesafe.config.ConfigValueType.NUMBER;
 import static com.typesafe.config.ConfigValueType.STRING;
 import static java.lang.String.format;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 
 import com.typesafe.config.ConfigValue;
@@ -46,12 +47,13 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      */
     private final ConfigValue hoconCfgValue;
 
+    /** Patterns of prefixes, deleted from the configuration. */
     private final Collection<Pattern> deletedPrefixes;
 
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object representing a primitive type.
      *
-     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @param path current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
      *         object
      * @param hoconCfgValue HOCON object
@@ -75,18 +77,18 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
 
     @Override
     public void descend(ConstructableTreeNode node) {
-        for (Pattern deletedPrefix : deletedPrefixes) {
-            if (deletedPrefix.matcher(join(path)).matches()) {
-                return;
-            }
-        }
-
         String fieldName = node.injectedValueFieldName();
 
         if (fieldName == null) {
             throw new IllegalArgumentException(
                     format("'%s' is expected to be a composite configuration node, not a single value", join(path))
             );
+        }
+
+        for (Pattern deletedPrefix : deletedPrefixes) {
+            if (deletedPrefix.matcher(join(appendKey(path, fieldName))).matches()) {
+                return;
+            }
         }
 
         node.construct(fieldName, this, false);

@@ -48,9 +48,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
      */
     private final List<String> path;
 
-    /**
-     * Prefixes that need to be ignored by the source.
-     */
+    /** Patterns of prefixes, deleted from the configuration. */
     private final Collection<Pattern> deletedPrefixes;
 
     /**
@@ -61,7 +59,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON list.
      *
-     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
      *         object.
      * @param hoconCfgList HOCON list.
@@ -112,13 +110,13 @@ class HoconListConfigurationSource implements ConfigurationSource {
             );
         }
 
+        String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
+
         for (Pattern deletedPrefix : deletedPrefixes) {
-            if (deletedPrefix.matcher(join(path)).matches()) {
+            if (deletedPrefix.matcher(join(appendKey(path, syntheticKeyName))).matches()) {
                 return;
             }
         }
-
-        String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
 
         for (int idx = 0; idx < hoconCfgList.size(); idx++) {
             ConfigValue next = hoconCfgList.get(idx);

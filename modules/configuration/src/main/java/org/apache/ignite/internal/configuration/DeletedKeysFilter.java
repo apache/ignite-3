@@ -29,7 +29,7 @@ class DeletedKeysFilter {
      * Filters out keys that match the deleted prefixes and returns the ignored keys.
      *
      * @param values The map of values to filter.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the source.
+     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
      * @return A collection of keys that were ignored.
      */
     static List<String> ignoreDeleted(
