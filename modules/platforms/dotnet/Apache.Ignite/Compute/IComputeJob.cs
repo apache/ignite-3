@@ -24,7 +24,7 @@ using Marshalling;
 /// <summary>
 /// Ignite compute job interface.
 /// <para />
-/// To define a compute job, implement this interface and deploy the binaries to the cluster with the Deployemnt API.
+/// To define a compute job, implement this interface and deploy the binaries to the cluster with the Deployment API.
 /// </summary>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
