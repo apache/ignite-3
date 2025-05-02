@@ -106,6 +106,9 @@ internal sealed class LazyTransaction : ITransaction
     public async ValueTask DisposeAsync() => await RollbackAsync().ConfigureAwait(false);
 
     /// <inheritdoc/>
+    public void Dispose() => DisposeAsync().AsTask().GetAwaiter().GetResult();
+
+    /// <inheritdoc/>
     public override string ToString()
     {
         var builder = new IgniteToStringBuilder(typeof(Transaction));
