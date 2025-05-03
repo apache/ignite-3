@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -130,8 +129,10 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
     protected Downstream<RowT> requestDownstream(int idx) {
         return new Downstream<RowT>() {
             @Override
-            public void push(RowT row) throws Exception {
-                AbstractSetOpNode.this.push(row, idx);
+            public void push(List<RowT> rows) throws Exception {
+                for (RowT row : rows) {
+                    AbstractSetOpNode.this.push(row, idx);
+                }
             }
 
             @Override
@@ -157,15 +158,13 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             if (requested > 0 && !grouping.isEmpty()) {
                 int toSnd = Math.min(requested, inBufSize - processed);
 
-                for (RowT row : grouping.getRows(toSnd)) {
-                    requested--;
+                List<RowT> batch = grouping.getRows(toSnd);
+                requested -= batch.size();
 
-                    downstream().push(row);
+                downstream().push(batch);
+                releaseBatch(batch);
 
-                    processed++;
-                }
-
-                if (processed >= inBufSize && requested > 0) {
+                if (requested > 0 && !grouping.isEmpty()) {
                     // Allow others to do their job.
                     this.execute(this::flush);
 
@@ -202,9 +201,11 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         /** The number of columns in an input row of a set operator.*/
         private final int columnCnt;
+        private final ExecutionContext<RowT> ctx;
 
         protected Grouping(ExecutionContext<RowT> ctx, RowFactory<RowT> rowFactory, int columnCnt, AggregateType type, boolean all) {
             hnd = ctx.rowHandler();
+            this.ctx = ctx;
             this.columnCnt = columnCnt;
             this.type = type;
             this.all = all;
@@ -301,7 +302,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
             Iterator<Map.Entry<GroupKey, int[]>> it = groups.entrySet().iterator();
 
             int amount = Math.min(cnt, groups.size());
-            List<RowT> res = new ArrayList<>(amount);
+            List<RowT> res = ctx.allocateBuffer(amount);
 
             while (amount > 0 && it.hasNext()) {
                 Map.Entry<GroupKey, int[]> entry = it.next();
@@ -322,7 +323,7 @@ public abstract class AbstractSetOpNode<RowT> extends AbstractNode<RowT> {
 
         private List<RowT> getResultRows(int cnt) {
             Iterator<Map.Entry<GroupKey, int[]>> it = groups.entrySet().iterator();
-            List<RowT> res = new ArrayList<>(cnt);
+            List<RowT> res = ctx.allocateBuffer(cnt);
 
             while (it.hasNext() && cnt > 0) {
                 Map.Entry<GroupKey, int[]> entry = it.next();

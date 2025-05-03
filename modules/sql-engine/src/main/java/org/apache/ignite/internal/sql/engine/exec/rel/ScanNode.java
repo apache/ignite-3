@@ -109,18 +109,21 @@ public class ScanNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
                 inst = func.createInstance(context());
             }
 
-            int processed = 0;
+            List<RowT> batch = allocateBatch(inBufSize);
             while (requested > 0 && inst.hasNext()) {
                 requested--;
-                downstream().push(inst.next());
+                batch.add(inst.next());
+            }
 
-                if (++processed == inBufSize && requested > 0) {
-                    // allow others to do their job
+            if (!batch.isEmpty()) {
+                downstream().push(batch);
+                if (requested > 0) {
+                    releaseBatch(batch);
                     this.execute(this::push);
-
                     return;
                 }
             }
+            releaseBatch(batch);
         } catch (QueryCancelledException | SqlException e) {
             throw e;
         } finally {

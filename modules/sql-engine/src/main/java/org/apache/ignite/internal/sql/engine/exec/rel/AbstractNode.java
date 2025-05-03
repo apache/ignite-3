@@ -192,4 +192,16 @@ public abstract class AbstractNode<RowT> implements Node<RowT> {
     public Downstream<RowT> downstream() {
         return downstream;
     }
+
+    protected List<RowT> allocateBatch() {
+        return allocateBatch(inBufSize);
+    }
+
+    protected List<RowT> allocateBatch(int size) {
+        return context().allocateBuffer(size);
+    }
+
+    protected void releaseBatch(List<RowT> batch) {
+        context().releaseBuffer(batch);
+    }
 }

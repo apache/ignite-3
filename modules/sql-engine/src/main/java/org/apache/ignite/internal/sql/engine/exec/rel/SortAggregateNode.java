@@ -109,18 +109,35 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         if (waiting == 0) {
             source().request(waiting = inBufSize);
         } else if (!inLoop) {
-            execute(this::doFlush);
+            execute(this::flush);
         }
     }
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
+        assert waiting >= 0;
 
+        for (RowT row : batch) {
+            addToGroup(row);
+        }
+
+        if (outBuf.size() >= inBufSize) {
+            flush();
+        }
+
+        if (waiting == 0 && requested > 0) {
+            waiting = inBufSize;
+
+            source().request(inBufSize);
+        }
+    }
+
+    private boolean addToGroup(RowT row) {
         if (grp != null) {
             int cmp = comp.compare(row, prevRow);
 
@@ -136,8 +153,9 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
                 outBuf.add(grp.row());
 
                 grp = newGroup(row);
+                prevRow = row;
 
-                flush();
+                return true;
             }
         } else {
             grp = newGroup(row);
@@ -145,11 +163,7 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
 
         prevRow = row;
 
-        if (waiting == 0 && requested > 0) {
-            waiting = inBufSize;
-
-            source().request(inBufSize);
-        }
+        return false;
     }
 
     /** {@inheritDoc} */
@@ -209,17 +223,26 @@ public class SortAggregateNode<RowT> extends AbstractNode<RowT> implements Singl
         return grp;
     }
 
-    private void doFlush() throws Exception {
-        flush();
-    }
-
     private void flush() throws Exception {
         inLoop = true;
         try {
-            while (requested > 0 && !outBuf.isEmpty()) {
-                requested--;
+            if (requested > 0 && !outBuf.isEmpty()) {
+                int batchSize = Math.min(requested, outBuf.size());
+                List<RowT> batch = allocateBatch(batchSize);
+                requested -= batchSize;
 
-                downstream().push(outBuf.poll());
+                for (int i = 0; i < batchSize; i++) {
+                    batch.add(outBuf.poll());
+                }
+
+                downstream().push(batch);
+                releaseBatch(batch);
+
+                if (requested > 0 && !outBuf.isEmpty()) {
+                    execute(this::flush);
+
+                    return;
+                }
             }
         } finally {
             inLoop = false;

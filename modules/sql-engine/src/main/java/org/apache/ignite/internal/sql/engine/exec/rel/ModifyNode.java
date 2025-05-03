@@ -164,15 +164,15 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
 
-        rows.add(row);
+        rows.addAll(batch);
 
-        assert rows.size() <= MODIFY_BATCH_SIZE;
+        assert batch.size() <= MODIFY_BATCH_SIZE;
 
         if (needToFlush()) {
             flushTuples();
@@ -225,7 +225,7 @@ public class ModifyNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
         assert downstream() != null;
 
         if (waiting == NOT_WAITING && requested > 0 && !inFlightUpdate && rows.isEmpty()) {
-            downstream().push(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows));
+            downstream().push(List.of(context().rowHandler().factory(MODIFY_RESULT).create(updatedRows)));
 
             requested = 0;
             downstream().end();

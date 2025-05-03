@@ -121,17 +121,10 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
 
     private void push() throws Exception {
         if (requested > 0 && !inBuff.isEmpty()) {
-            int processed = 0;
             inLoop = true;
             try {
+                List<RowT> batch = allocateBatch(Math.min(requested, inBufSize));
                 while (requested > 0 && !inBuff.isEmpty()) {
-                    if (processed++ >= inBufSize) {
-                        // Allow others to do their job.
-                        execute(this::push);
-
-                        return;
-                    }
-
                     RowT row = inBuff.poll();
 
                     if (filters != null && !filters.test(row)) {
@@ -143,8 +136,13 @@ public abstract class StorageScanNode<RowT> extends AbstractNode<RowT> {
                     }
 
                     requested--;
-                    downstream().push(row);
+                    batch.add(row);
                 }
+
+                if (!batch.isEmpty()) {
+                    downstream().push(batch);
+                }
+                releaseBatch(batch);
             } finally {
                 inLoop = false;
             }

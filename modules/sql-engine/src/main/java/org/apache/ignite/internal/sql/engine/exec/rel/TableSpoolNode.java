@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
-import java.util.ArrayList;
 import java.util.List;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
@@ -63,7 +62,7 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
         this.lazyRead = lazyRead;
 
-        rows = new ArrayList<>();
+        rows = allocateBatch();
     }
 
     /** {@inheritDoc} */
@@ -109,21 +108,19 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
             return;
         }
 
-        int processed = 0;
         inLoop = true;
         try {
-            while (requested > 0 && rowIdx < rows.size()) {
-                if (processed++ >= inBufSize) {
-                    // Allow others to do their job
-                    this.execute(this::doPush);
+            int count = Math.min(requested, rows.size() - rowIdx);
 
-                    return;
-                }
+            if (count > 0) {
+                List<RowT> batch = allocateBatch(count);
+                batch.addAll(rows.subList(rowIdx, rowIdx + count));
 
-                downstream().push(rows.get(rowIdx));
+                requested -= count;
+                rowIdx += count;
 
-                rowIdx++;
-                requested--;
+                downstream().push(batch);
+                releaseBatch(batch);
             }
         } finally {
             inLoop = false;
@@ -137,13 +134,14 @@ public class TableSpoolNode<RowT> extends AbstractNode<RowT> implements SingleNo
 
     /** {@inheritDoc} */
     @Override
-    public void push(RowT row) throws Exception {
+    public void push(List<RowT> batch) throws Exception {
         assert downstream() != null;
         assert waiting > 0;
 
-        waiting--;
+        waiting -= batch.size();
 
-        rows.add(row);
+        rows.addAll(batch);
+
 
         if (waiting == 0) {
             source().request(waiting = inBufSize);
