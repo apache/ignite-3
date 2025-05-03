@@ -18,6 +18,8 @@
 package org.apache.ignite.internal.network.processor.serialization;
 
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.network.processor.EnumMethodsGenerator.FROM_TRANSFERABLE_ID_METHOD_NAME;
+import static org.apache.ignite.internal.network.processor.EnumMethodsGenerator.TRANSFERABLE_UTILS_CLASS_POSTFIX;
 import static org.apache.ignite.internal.network.processor.MessageGeneratorUtils.addByteArrayPostfix;
 
 import com.squareup.javapoet.ArrayTypeName;
@@ -30,7 +32,7 @@ import com.squareup.javapoet.TypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
-import javax.lang.model.element.ElementKind;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.type.TypeMirror;
@@ -39,7 +41,6 @@ import org.apache.ignite.internal.network.annotations.Marshallable;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
-import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageDeserializer;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
@@ -49,8 +50,6 @@ import org.apache.ignite.internal.network.serialization.MessageReader;
  * Class for generating {@link MessageDeserializer} classes.
  */
 public class MessageDeserializerGenerator {
-    private static final String FROM_ORDINAL_METHOD_NAME = "fromOrdinal";
-
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
@@ -151,11 +150,9 @@ public class MessageDeserializerGenerator {
                 method.beginControlFlow("case $L:", i);
 
                 if (typeUtils.isEnum(getter.getReturnType())) {
-                    checkFromOrdinalMethodExists(getter.getReturnType());
-
-                    // At the beginning we read the shifted ordinal, shifted by +1 to efficiently transfer null (since we use "var int").
-                    // If we read garbage then we should not convert to an enumeration, the check below does this.
-                    method.addStatement("int ordinalShifted = reader.readInt($S)", getterName);
+                    // At the beginning we read the shifted transferableId, shifted by +1 to efficiently transfer null (since we use
+                    // "var int"). If we read garbage then we should not convert to an enumeration, the check below does this.
+                    method.addStatement("int transferableIdShifted = reader.readInt($S)", getterName);
                 } else {
                     method.addStatement(readMessageCodeBlock(getter));
                 }
@@ -171,12 +168,14 @@ public class MessageDeserializerGenerator {
                         .addCode("\n");
 
                 if (typeUtils.isEnum(getter.getReturnType())) {
-                    TypeName varType = TypeName.get(getter.getReturnType());
+                    TypeName enumType = TypeName.get(getter.getReturnType());
+
+                    ClassName enumTransferableUtils = getEnumTransferableUtils(getter.getReturnType());
 
                     method
                             .addStatement(
-                                    "$T tmp = ordinalShifted == 0 ? null : $T.$L(ordinalShifted - 1)",
-                                    varType, varType, FROM_ORDINAL_METHOD_NAME
+                                    "$T tmp = transferableIdShifted == 0 ? null : $T.$L(transferableIdShifted - 1)",
+                                    enumType, enumTransferableUtils, FROM_TRANSFERABLE_ID_METHOD_NAME
                             )
                             .addCode("\n");
                 }
@@ -214,17 +213,11 @@ public class MessageDeserializerGenerator {
                 .build();
     }
 
-    private void checkFromOrdinalMethodExists(TypeMirror enumType) {
-        assert typeUtils.isEnum(enumType) : enumType;
+    private ClassName getEnumTransferableUtils(TypeMirror enumMirror) {
+        Element enumElement = typeUtils.types().asElement(enumMirror);
 
-        typeUtils.types().asElement(enumType).getEnclosedElements().stream()
-                .filter(element -> element.getKind() == ElementKind.METHOD)
-                .filter(element -> element.getSimpleName().toString().equals(FROM_ORDINAL_METHOD_NAME))
-                .filter(element -> element.getModifiers().contains(Modifier.PUBLIC))
-                .filter(element -> element.getModifiers().contains(Modifier.STATIC))
-                .findAny()
-                .orElseThrow(() -> new ProcessingException(
-                        String.format("Missing public static method \"%s\" for enum %s", FROM_ORDINAL_METHOD_NAME, enumType)
-                ));
+        return ClassName.bestGuess(
+                messageGroup.packageName() + "." + enumElement.getSimpleName().toString() + TRANSFERABLE_UTILS_CLASS_POSTFIX
+        );
     }
 }
