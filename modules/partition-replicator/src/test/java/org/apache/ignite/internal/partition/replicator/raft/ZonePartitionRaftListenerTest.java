@@ -394,7 +394,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(MinimumRequiredTimeCollectorService.class),
                 mock(Executor.class),
                 placementDriver,
-                clockService
+                clockService,
+                new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
     }
 

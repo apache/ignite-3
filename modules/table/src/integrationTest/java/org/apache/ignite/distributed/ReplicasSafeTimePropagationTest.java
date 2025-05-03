@@ -396,8 +396,8 @@ public class ReplicasSafeTimePropagationTest extends IgniteAbstractTest {
                             mock(MinimumRequiredTimeCollectorService.class),
                             mock(Executor.class),
                             placementDriver,
-                            clockService
-
+                            clockService,
+                            GROUP_ID
                     ) {
                         @Override
                         public void onWrite(Iterator<CommandClosure<WriteCommand>> iterator) {

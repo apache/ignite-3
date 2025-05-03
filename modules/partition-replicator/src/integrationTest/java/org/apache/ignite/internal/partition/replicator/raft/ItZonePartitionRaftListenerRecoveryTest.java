@@ -401,7 +401,8 @@ class ItZonePartitionRaftListenerRecoveryTest extends IgniteAbstractTest {
                 minimumRequiredTimeCollectorService,
                 executor,
                 placementDriver,
-                clockService
+                clockService,
+                new ZonePartitionId(PARTITION_ID.zoneId(), PARTITION_ID.partitionId())
         );
     }
 
