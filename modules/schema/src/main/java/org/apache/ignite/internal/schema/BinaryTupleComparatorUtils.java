@@ -119,6 +119,7 @@ class BinaryTupleComparatorUtils {
         int trimmedSize = Math.min(fullSrtLength, buf.capacity() - begin);
         byte[] bytes = new byte[trimmedSize];
 
+        // Copying the indirect array and then accessing it is better for performance than comparing with access by index in the buffer.
         buf.duplicate().position(begin).limit(begin + trimmedSize).get(bytes);
 
         char[] cmpArray = cmp.toCharArray();

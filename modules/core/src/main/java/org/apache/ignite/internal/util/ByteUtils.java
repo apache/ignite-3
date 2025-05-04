@@ -427,7 +427,7 @@ public class ByteUtils {
         }
 
         if (maxLength <= 0) {
-            return new byte[0];
+            return BYTE_EMPTY_ARRAY;
         }
 
         return Arrays.copyOf(bytes, Math.min(bytes.length, maxLength));
