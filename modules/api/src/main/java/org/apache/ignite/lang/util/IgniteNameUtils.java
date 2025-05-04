@@ -38,7 +38,15 @@ public final class IgniteNameUtils {
      * @return Unquoted identifier or identifier is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
     public static String parseIdentifier(String identifier) {
-        ensureNotNullAndNotEmpty(identifier, "name");
+        ensureNotNullAndNotEmpty(identifier, "identifier");
+
+        if (identifier.indexOf('"') < 0) { // Fast-path without StringBuilder for unquoted names.
+            if (identifier.indexOf('.') >= 0 || identifier.indexOf(' ') >= 0) {
+                throw new IllegalArgumentException("Fully qualified name is not expected [name=" + identifier + "]");
+            }
+
+            return identifier.toUpperCase();
+        }
 
         var tokenizer = new Tokenizer(identifier);
 
@@ -149,11 +157,11 @@ public final class IgniteNameUtils {
 
     /** Wraps the given name with double quotes. */
     private static String quote(String name) {
-        if (name.chars().noneMatch(cp -> cp == '\"')) {
+        if (name.indexOf('\"') < 0) {
             return '\"' + name + '\"';
         }
 
-        StringBuilder sb = new StringBuilder(name.length() + 2).append('\"');
+        StringBuilder sb = new StringBuilder(name.length() + 4).append('\"');
         for (int currentPosition = 0; currentPosition < name.length(); currentPosition++) {
             char ch = name.charAt(currentPosition);
             if (ch == '\"') {
