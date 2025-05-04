@@ -41,11 +41,7 @@ public final class IgniteNameUtils {
         ensureNotNullAndNotEmpty(identifier, "identifier");
 
         if (identifier.indexOf('"') < 0) { // Fast-path without StringBuilder for unquoted names.
-            if (identifier.indexOf('.') >= 0 || identifier.indexOf(' ') >= 0) {
-                throw new IllegalArgumentException("Fully qualified name is not expected [name=" + identifier + "]");
-            }
-
-            return identifier.toUpperCase();
+            return parseUnquotedIdentifier(identifier);
         }
 
         var tokenizer = new Tokenizer(identifier);
@@ -180,6 +176,25 @@ public final class IgniteNameUtils {
         if (argument.isEmpty()) {
             throw new IllegalArgumentException("Argument \"" + argumentName + "\" can't be empty.");
         }
+    }
+
+    private static String parseUnquotedIdentifier(String identifier) {
+        if (identifier.indexOf('.') >= 0 || identifier.indexOf(' ') >= 0) {
+            throw new IllegalArgumentException("Fully qualified name is not expected [name=" + identifier + "]");
+        }
+
+        if (!identifierStart(identifier.codePointAt(0))) {
+            throw new IllegalArgumentException("Malformed identifier [identifier=" + identifier + ", pos=0]");
+        }
+
+        for (int i = 1; i < identifier.length(); i++) {
+            int codePoint = identifier.codePointAt(i);
+            if (!identifierStart(codePoint) && !identifierExtend(codePoint)) {
+                throw new IllegalArgumentException("Malformed identifier [identifier=" + identifier + ", pos=" + i + ']');
+            }
+        }
+
+        return identifier.toUpperCase();
     }
 
     /**
