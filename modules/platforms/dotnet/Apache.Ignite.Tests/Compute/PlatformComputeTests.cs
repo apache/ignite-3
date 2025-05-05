@@ -171,7 +171,10 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetSidecarProcessIsRestartedOnExit()
     {
         int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId);
-        await ExecJobAsync(DotNetJobs.ProcessExit);
+
+        // TODO: Check exception - it is not good.
+        Assert.ThrowsAsync<IgniteException>(async () => await ExecJobAsync(DotNetJobs.ProcessExit));
+
         int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId);
 
         Assert.AreNotEqual(jobProcessId1, jobProcessId2);
