@@ -23,7 +23,7 @@ using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using Ignite.Compute;
 using Network;
-using Tests.Compute;
+using Tests.Compute.Executor;
 using Tests.TestHelpers;
 
 /// <summary>
@@ -46,17 +46,25 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
 
     private IJobTarget<IClusterNode> _jobTarget = null!;
 
+    private TempDir _tempDir = null!;
+
     public override async Task GlobalSetup()
     {
         await base.GlobalSetup();
 
-        var testsDll = typeof(PlatformComputeTests).Assembly.Location;
-        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [testsDll]);
+        _tempDir = new TempDir();
+        var asmName = nameof(ComputeJobExecutorBenchmarks);
+        JobGenerator.EmitEchoJob(_tempDir, asmName);
+
+        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [_tempDir.Path]);
+
+        _echoJobDotNet = new JobDescriptor<object?, object?>(
+            JobClassName: $"TestNamespace.EchoJob, {asmName}",
+            DeploymentUnits: [Unit],
+            Options: new() { ExecutorType = JobExecutorType.DotNetSidecar });
 
         _echoJobJava = new(
             "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob", [Unit]);
-
-        _echoJobDotNet = DotNetJobs.Echo with { DeploymentUnits = [Unit] };
 
         var nodes = await Client.GetClusterNodesAsync();
         var firstNode = nodes.Single(x => x.Name.EndsWith("PlatformTestNodeRunner", StringComparison.Ordinal));
