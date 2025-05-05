@@ -284,7 +284,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
                         + " (AUTO SCALE UP 0, AUTO SCALE DOWN 0) STORAGE PROFILES ['default']"
         );
 
-        int zoneId = igniteImpl(1).catalogManager().activeCatalog(Long.MAX_VALUE).zone("TEST_ZONE").id();
+        int zoneId = igniteImpl(1).catalogManager().activeCatalog(Long.MAX_VALUE).zone(zoneName).id();
 
         waitTillDataNodesBecome(new int[]{0, 1}, zoneId, igniteImpl(1));
 
@@ -321,21 +321,24 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
     private void waitTillDataNodesBecome(int[] expectedDataNodeIndexes, int zoneId, IgniteImpl ignite) throws InterruptedException {
         int catalogVersion = ignite.catalogManager().latestCatalogVersion();
 
-        assertTrue(
-                waitForCondition(
-                        () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
-                        SECONDS.toMillis(10)
-                ),
-                "Did not see data nodes to become " + IntStream.of(expectedDataNodeIndexes).boxed().collect(toList()) + " in time"
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, 10 seconds are enough, but with
+        // colocation, we have to wait longer. After this is sorted out, reduce the timeout back to 10 seconds.
+        waitForCondition(
+                () -> currentDataNodes(ignite, catalogVersion, zoneId).equals(Set.of(nodeNames(expectedDataNodeIndexes))),
+                SECONDS.toMillis(30)
+        );
+
+        Set<String> dataNodes = currentDataNodes(ignite, catalogVersion, zoneId);
+        assertThat(
+                "Did not see data nodes to become " + IntStream.of(expectedDataNodeIndexes).boxed().collect(toList()) + " in time",
+                dataNodes,
+                is(Set.of(nodeNames(expectedDataNodeIndexes)))
         );
     }
 
     private static Set<String> currentDataNodes(IgniteImpl ignite, int catalogVersion, int zoneId) {
-        long currentRevision = ignite.metaStorageManager().appliedRevision();
-        HybridTimestamp timestamp = ignite.metaStorageManager().timestampByRevisionLocally(currentRevision);
-
         CompletableFuture<Set<String>> dataNodesFuture = ignite.distributionZoneManager()
-                .dataNodes(timestamp, catalogVersion, zoneId);
+                .dataNodes(HybridTimestamp.MAX_VALUE, catalogVersion, zoneId);
 
         assertThat(dataNodesFuture, willCompleteSuccessfully());
         return dataNodesFuture.join();

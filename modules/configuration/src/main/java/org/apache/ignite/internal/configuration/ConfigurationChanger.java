@@ -94,6 +94,9 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Configuration validator. */
     private final ConfigurationValidator configurationValidator;
 
+    /** Configuration migrator. */
+    private final ConfigurationMigrator migrator;
+
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
 
@@ -144,8 +147,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         /** Immutable forest, so to say. */
         private final SuperRoot roots;
 
-        /** Version associated with the currently known storage state. */
-        private final long version;
+        /** Full storage data. */
+        private final Data data;
 
         /** Future that signifies update of current configuration. */
         private final CompletableFuture<Void> changeFuture = new CompletableFuture<>();
@@ -155,12 +158,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
          *
          * @param rootsWithoutDefaults Forest without the defaults
          * @param roots Forest with the defaults filled in
-         * @param version Version associated with the currently known storage state.
+         * @param data Configuration storage state.
          */
-        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, long version) {
+        private StorageRoots(SuperRoot rootsWithoutDefaults, SuperRoot roots, Data data) {
             this.rootsWithoutDefaults = rootsWithoutDefaults;
             this.roots = roots;
-            this.version = version;
+            this.data = data;
 
             makeImmutable(roots);
             makeImmutable(rootsWithoutDefaults);
@@ -203,19 +206,23 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param rootKeys Configuration root keys.
      * @param storage Configuration storage.
      * @param configurationValidator Configuration validator.
+     * @param migrator Configuration migrator.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
             ConfigurationUpdateListener configurationUpdateListener,
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
-            ConfigurationValidator configurationValidator) {
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator
+    ) {
         checkConfigurationType(rootKeys, storage);
 
         this.configurationUpdateListener = configurationUpdateListener;
         this.storage = storage;
         this.configurationValidator = configurationValidator;
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
+        this.migrator = migrator;
     }
 
     /**
@@ -292,7 +299,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         // The root WITHOUT the defaults is used to calculate which properties to write to the underlying storage,
         // in other words it allows us to persist the defaults from the code.
         // After the storage listener fires for the first time both roots are supposed to become equal.
-        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data.changeId());
+        storageRoots = new StorageRoots(superRootNoDefaults, superRoot, data);
 
         storage.registerConfigurationListener(configurationStorageListener());
 
@@ -310,7 +317,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private void persistDefaults() {
         // If the storage version is 0, it indicates that the storage is empty.
         // In this case, write the defaults along with the initial configuration.
-        ConfigurationSource cfgSrc = storageRoots.version == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
+        ConfigurationSource cfgSrc = storageRoots.data.changeId() == 0 ? initialConfiguration : ConfigurationUtil.EMPTY_CFG_SRC;
 
         changeInternally(cfgSrc, true)
                 .whenComplete((v, e) -> {
@@ -596,7 +603,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // This read and the following comparison MUST be performed while holding read lock.
             StorageRoots localRoots = storageRoots;
 
-            if (localRoots.version < storageRevision) {
+            if (localRoots.data.changeId() < storageRevision) {
                 // Need to wait for the configuration updates from the storage, then try to update again (loop).
                 return localRoots.changeFuture.thenCompose(v -> changeInternally(src, onStartup));
             }
@@ -611,7 +618,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             addDefaults(changes);
 
+            migrator.migrate(new SuperRootChangeImpl(changes));
+
             Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
+            dropUnnecessarilyDeletedKeys(allChanges, localRoots);
+
             if (allChanges.isEmpty() && onStartup) {
                 // We don't want an empty storage update if this is the initialization changer.
                 return nullCompletedFuture();
@@ -625,7 +636,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // still try to write the empty update, because local configuration can be obsolete. If this is the case, then the CAS will
             // fail and the update will be recalculated and there is a chance that the new local configuration will produce a non-empty
             // update.
-            return storage.write(allChanges, localRoots.version)
+            return storage.write(allChanges, localRoots.data.changeId())
                     .thenCompose(casWroteSuccessfully -> {
                         if (casWroteSuccessfully) {
                             return localRoots.changeFuture;
@@ -675,7 +686,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             long newChangeId = changedEntries.changeId();
 
-            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, newChangeId);
+            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
 
             rwLock.writeLock().lock();
 
@@ -700,6 +711,29 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         };
     }
 
+    private static Data mergeData(Data currentData, Data delta) {
+        assert delta.changeId() > currentData.changeId() : currentData.changeId() + " " + delta.changeId();
+
+        Map<String, Serializable> newState = new HashMap<>(currentData.values());
+
+        for (Entry<String, ? extends Serializable> entry : delta.values().entrySet()) {
+            if (entry.getValue() == null) {
+                newState.remove(entry.getKey());
+            } else {
+                newState.put(entry.getKey(), entry.getValue());
+            }
+        }
+
+        return new Data(newState, delta.changeId());
+    }
+
+    /**
+     * Remove keys from {@code allChanges}, that are associated with nulls in this map, and already absent in {@link StorageRoots#data}.
+     */
+    private static void dropUnnecessarilyDeletedKeys(Map<String, Serializable> allChanges, StorageRoots localRoots) {
+        allChanges.entrySet().removeIf(entry -> entry.getValue() == null && !localRoots.data.values().containsKey(entry.getKey()));
+    }
+
     /**
      * Notifies all listeners of the current configuration.
      *
@@ -710,7 +744,12 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         long notificationCount = notificationListenerCnt.incrementAndGet();
 
-        return configurationUpdateListener.onConfigurationUpdated(null, storageRoots.roots, storageRoots.version, notificationCount);
+        return configurationUpdateListener.onConfigurationUpdated(
+                null,
+                storageRoots.roots,
+                storageRoots.data.changeId(),
+                notificationCount
+        );
     }
 
     /** {@inheritDoc} */

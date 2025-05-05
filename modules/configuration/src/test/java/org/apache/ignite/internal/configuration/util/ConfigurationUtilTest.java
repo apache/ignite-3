@@ -1020,7 +1020,11 @@ public class ConfigurationUtilTest {
 
         Map<String, Object> exp = new HashMap<>();
 
-        exp.put("0", Map.of("first", "1"));
+        Map<String, Object> expMapZero = new HashMap<>();
+        expMapZero.put("first", "1");
+        expMapZero.put("second", null);
+
+        exp.put("0", expMapZero);
         exp.put("1", null);
         exp.put("2", Map.of("strVal", "foo", "intVal", 10));
 

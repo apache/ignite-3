@@ -1224,6 +1224,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     public abstract void cancelQueryString() throws InterruptedException;
 
     @Test
+    public abstract void cancelBatch() throws InterruptedException;
+
+    @Test
     public void cancelQueryBeforeExecution() {
         CancelHandle cancelHandle = CancelHandle.create();
         CancellationToken token = cancelHandle.token();

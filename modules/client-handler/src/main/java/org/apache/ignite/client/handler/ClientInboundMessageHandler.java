@@ -924,7 +924,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, out, queryProcessor, resources
+                        partitionOperationsExecutor, in, out, queryProcessor, resources, requestId, cancelHandles
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
@@ -1311,6 +1311,7 @@ public class ClientInboundMessageHandler
                         packer.packLong(jobId);
                         packer.packString(jobClassName);
                         packDeploymentUnitPaths(deploymentUnitPaths, packer);
+                        packer.packBoolean(false); // Retain deployment units in cache.
                         ClientComputeJobPacker.packJobArgument(arg, null, packer);
                     })
                     .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);

@@ -362,7 +362,7 @@ public class ComputeComponentImpl implements ComputeComponent, SystemViewProvide
     }
 
     @TestOnly
-    ExecutionManager executionManager() {
+    public ExecutionManager executionManager() {
         return executionManager;
     }
 

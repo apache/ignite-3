@@ -55,7 +55,8 @@ public class UsageTest {
                 List.of(LocalConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(LocalConfiguration.KEY),
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -114,7 +115,8 @@ public class UsageTest {
                 List.of(NetworkConfiguration.KEY, LocalConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(NetworkConfiguration.KEY, LocalConfiguration.KEY),
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

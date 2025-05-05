@@ -28,6 +28,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.lang.reflect.Proxy;
+import java.time.Clock;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
@@ -558,6 +560,12 @@ public class TestBuilders {
         /** Sets the dynamic parameters this fragment will be executed with. */
         ExecutionContextBuilder dynamicParameters(Object... params);
 
+        /** Sets the client's timezone. */
+        ExecutionContextBuilder timeZone(ZoneId zoneId);
+
+        /** Sets the clock used to obtain the system time. */
+        ExecutionContextBuilder clock(Clock clock);
+
         /**
          * Builds the context object.
          *
@@ -573,6 +581,8 @@ public class TestBuilders {
         private QueryTaskExecutor executor = null;
         private ClusterNode node = null;
         private Object[] dynamicParams = ArrayUtils.OBJECT_EMPTY_ARRAY;
+        private ZoneId zoneId = SqlQueryProcessor.DEFAULT_TIME_ZONE_ID;
+        private Clock clock = Clock.systemUTC();
 
         /** {@inheritDoc} */
         @Override
@@ -613,6 +623,19 @@ public class TestBuilders {
             return this;
         }
 
+        @Override
+        public ExecutionContextBuilder timeZone(ZoneId zoneId) {
+            this.zoneId = zoneId;
+            return this;
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public ExecutionContextBuilder clock(Clock clock) {
+            this.clock = clock;
+            return this;
+        }
+
         /** {@inheritDoc} */
         @Override
         public ExecutionContext<Object[]> build() {
@@ -628,8 +651,9 @@ public class TestBuilders {
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),
                     TxAttributes.fromTx(new NoOpTransaction(node.name(), false)),
-                    SqlQueryProcessor.DEFAULT_TIME_ZONE_ID,
-                    -1
+                    zoneId,
+                    -1,
+                    clock
             );
         }
     }

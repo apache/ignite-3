@@ -649,7 +649,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into time
       return Expressions.isConstantNull(format)
-          ? Expressions.call(BuiltInMethod.STRING_TO_TIME.method, operand)
+          ? Expressions.call(IgniteMethod.STRING_TO_TIME.method(), operand)
           : Expressions.call(Expressions.new_(BuiltInMethod.PARSE_TIME.method.getDeclaringClass()),
               BuiltInMethod.PARSE_TIME.method, format, operand);
 
@@ -730,7 +730,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
     case VARCHAR:
       // If format string is supplied, parse formatted string into timestamp
       return Expressions.isConstantNull(format)
-          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(BuiltInMethod.STRING_TO_TIMESTAMP.method, operand))
+          ? Expressions.call(IgniteMethod.TO_TIMESTAMP_EXACT.method(), Expressions.call(IgniteMethod.STRING_TO_TIMESTAMP.method(), operand))
           : Expressions.call(
                   IgniteMethod.TO_TIMESTAMP_EXACT.method(),
                   Expressions.call(
@@ -749,7 +749,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
           Expressions.add(
               Expressions.multiply(
                   Expressions.convert_(
-                      Expressions.call(BuiltInMethod.CURRENT_DATE.method, root),
+                      Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
                       long.class),
                   Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
               Expressions.convert_(operand, long.class));
@@ -817,7 +817,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                       Expressions.add(
                           Expressions.multiply(
                               Expressions.convert_(
-                                  Expressions.call(BuiltInMethod.CURRENT_DATE.method, root),
+                                  Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
                                   long.class),
                               Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
                           Expressions.convert_(operand, long.class)))),

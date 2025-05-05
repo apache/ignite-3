@@ -15,21 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.property;
+namespace Apache.Ignite.Compute;
 
-import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-
-/**
- * Exception that is thrown by {@link SqlProperties} if given property is not found.
- *
- * @see SqlProperties
- */
-public class PropertyNotFoundException extends RuntimeException {
-
-    private static final long serialVersionUID = 4651104853616619936L;
-
-    /** Constructs the exception. */
-    PropertyNotFoundException(Property<?> prop) {
-        super(format("Property '{}' not found", prop.name));
-    }
+/// <summary>
+/// Compute job execution context. See <see cref="IComputeJob{TArg,TResult}.ExecuteAsync"/>.
+/// </summary>
+public interface IJobExecutionContext
+{
+    /// <summary>
+    /// Gets the Ignite API entry point.
+    /// </summary>
+    IIgnite Ignite { get; }
 }
