@@ -82,7 +82,10 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestMissingClass()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync());
-        var desc = new JobDescriptor<string, string>("MyNamespace.MyJob");
+        var desc = new JobDescriptor<string, string>(
+            "MyNamespace.MyJob",
+            [_defaultTestUnit],
+            new JobExecutionOptions { ExecutorType = JobExecutorType.DotNetSidecar });
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
