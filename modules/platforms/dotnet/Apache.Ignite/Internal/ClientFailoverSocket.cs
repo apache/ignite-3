@@ -259,7 +259,7 @@ namespace Apache.Ignite.Internal
                         ?? (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext
                         ?? (e.InnerException?.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext;
 
-                    IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.RetryPolicy;
+                    IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.Configuration.RetryPolicy;
 
                     if (!HandleOpError(e, opFunc(socket, arg), ref attempt, ref errors, retryPolicy, metricsContext))
                     {
@@ -460,13 +460,13 @@ namespace Apache.Ignite.Internal
                     _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
                 }
 
-                if (Configuration.ReconnectInterval <= TimeSpan.Zero)
+                if (Configuration.Configuration.ReconnectInterval <= TimeSpan.Zero)
                 {
                     // Interval is zero - periodic reconnect is disabled.
                     return;
                 }
 
-                await Task.Delay(Configuration.ReconnectInterval).ConfigureAwait(false);
+                await Task.Delay(Configuration.Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
 
@@ -661,7 +661,7 @@ namespace Apache.Ignite.Internal
                 return true;
             }
 
-            var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
+            var ctx = new RetryPolicyContext(new(Configuration.Configuration), publicOpType.Value, attempt, exception);
 
             return retryPolicy.ShouldRetry(ctx);
 

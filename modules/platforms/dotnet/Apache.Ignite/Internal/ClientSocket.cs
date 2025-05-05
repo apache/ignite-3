@@ -173,7 +173,7 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
-        /// <param name="configuration">Configuration.</param>
+        /// <param name="configurationInternal">Configuration.</param>
         /// <param name="listener">Event listener.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
@@ -184,9 +184,11 @@ namespace Apache.Ignite.Internal
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed")]
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configurationInternal,
             IClientSocketEventListener listener)
         {
+            var configuration = configurationInternal.Configuration;
+
             using var cts = new CancellationTokenSource();
             var logger = configuration.LoggerFactory.CreateLogger(typeof(ClientSocket).FullName! + "-" +
                                                                   Interlocked.Increment(ref _socketId));
@@ -224,7 +226,7 @@ namespace Apache.Ignite.Internal
                     logger.LogSslConnectionEstablishedDebug(socket.RemoteEndPoint, sslStream.NegotiatedCipherSuite);
                 }
 
-                var context = await HandshakeAsync(stream, endPoint, configuration, listener, cts.Token)
+                var context = await HandshakeAsync(stream, endPoint, configurationInternal, listener, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
@@ -329,12 +331,12 @@ namespace Apache.Ignite.Internal
         private static async Task<ConnectionContext> HandshakeAsync(
             Stream stream,
             SocketEndpoint endPoint,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configuration,
             IClientSocketEventListener listener,
             CancellationToken cancellationToken)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, endPoint.MetricsContext, cancellationToken)
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration.Configuration, endPoint.MetricsContext, cancellationToken)
                 .ConfigureAwait(false);
 
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -344,7 +346,7 @@ namespace Apache.Ignite.Internal
             using var response = await ReadResponseAsync(stream, new byte[4], endPoint.MetricsContext, CancellationToken.None)
                 .ConfigureAwait(false);
 
-            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream), listener);
+            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream), listener, configuration);
         }
 
         private static async ValueTask CheckMagicBytesAsync(
@@ -379,7 +381,8 @@ namespace Apache.Ignite.Internal
             MsgPackReader reader,
             SocketEndpoint endPoint,
             ISslInfo? sslInfo,
-            IClientSocketEventListener listener)
+            IClientSocketEventListener listener,
+            IgniteClientConfigurationInternal configuration)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -440,7 +443,8 @@ namespace Apache.Ignite.Internal
                 clusterIds,
                 clusterName,
                 sslInfo,
-                features);
+                features,
+                configuration);
         }
 
         private static IgniteException ReadError(ref MsgPackReader reader)
