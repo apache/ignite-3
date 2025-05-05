@@ -66,10 +66,10 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
     }
 
     [Benchmark]
-    public async Task JavaJob() => await ExecJobAsync(_echoJobJava);
+    public async Task DotNetJob() => await ExecJobAsync(_echoJobDotNet);
 
     [Benchmark]
-    public async Task DotNetJob() => await ExecJobAsync(_echoJobDotNet);
+    public async Task JavaJob() => await ExecJobAsync(_echoJobJava);
 
     private async Task ExecJobAsync(JobDescriptor<object?, object?> desc)
     {
