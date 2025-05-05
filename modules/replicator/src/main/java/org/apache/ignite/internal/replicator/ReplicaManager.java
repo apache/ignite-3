@@ -298,7 +298,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
-                NamedThreadFactory.create(nodeName, "replica", LOG)
+                NamedThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
         );
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
