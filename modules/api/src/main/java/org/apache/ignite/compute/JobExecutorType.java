@@ -31,5 +31,22 @@ public enum JobExecutorType {
      *
      * <p>Starts the process on demand. Requires .NET runtime to be installed.
      */
-    DotNetSidecar
+    DotNetSidecar;
+
+    /** Cached array with all enum values. */
+    private static final JobExecutorType[] VALUES = values();
+
+    /**
+     * Returns the enumerated value from its ordinal.
+     *
+     * @param ordinal Ordinal of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     */
+    public static JobExecutorType fromOrdinal(int ordinal) throws IllegalArgumentException {
+        if (ordinal < 0 || ordinal >= VALUES.length) {
+            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+        }
+
+        return VALUES[ordinal];
+    }
 }

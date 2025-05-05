@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.client.proto;
 
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.marshalling.Marshaller;
@@ -68,9 +69,12 @@ public final class ClientComputeJobPacker {
         w.packInt(descriptor.options().priority());
         w.packInt(descriptor.options().maxRetries());
 
+        JobExecutorType executorType = descriptor.options().executorType();
+
         if (platformComputeSupported) {
-            // TODO: IGNITE-25116: descriptor.options().executorType().ordinal(); throw if non-default and not supported.
-            w.packInt(0);
+            w.packInt(executorType.ordinal());
+        } else if (executorType != JobExecutorType.JavaEmbedded) {
+            throw new IllegalArgumentException("Custom job executors are not supported by the server: " + executorType);
         }
 
         packJobArgument(arg, descriptor.argumentMarshaller(), w);

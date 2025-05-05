@@ -87,7 +87,7 @@ public class JobExecutionOptions {
 
         private int maxRetries;
 
-        private JobExecutorType executorType;
+        private JobExecutorType executorType = JobExecutorType.JavaEmbedded;
 
         /**
          * Sets the job execution priority.
