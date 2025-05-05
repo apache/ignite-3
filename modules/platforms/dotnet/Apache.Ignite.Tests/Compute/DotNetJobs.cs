@@ -92,12 +92,12 @@ public static class DotNetJobs
         {
             IIgnite ignite = context.Ignite;
             var sb = new StringBuilder();
-            sb.Append($"Arg: {arg}");
+            sb.Append($"Arg: {arg}|");
 
-            await using var cursor = await ignite.Sql.ExecuteAsync(null, "select 42");
+            await using var cursor = await ignite.Sql.ExecuteAsync(null, "select 42 as answer");
             await foreach (var row in cursor)
             {
-                sb.AppendLine($"SQL result: {row}");
+                sb.Append($"SQL result: {row}|");
             }
 
             var table = await ignite.Tables.GetTableAsync("TBL1");
@@ -107,7 +107,7 @@ public static class DotNetJobs
             await view.PutAsync(tx, 1L, "Hello");
             var val = await view.GetAsync(tx, 1L);
 
-            sb.AppendLine($"Table result: {val}");
+            sb.Append($"Table result: {val}");
 
             return sb.ToString();
         }

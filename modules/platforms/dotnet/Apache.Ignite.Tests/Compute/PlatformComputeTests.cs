@@ -189,7 +189,9 @@ public class PlatformComputeTests : IgniteTestsBase
     {
         var apiRes = await ExecJobAsync(DotNetJobs.ApiTest, "Hello world!");
 
-        Assert.AreEqual("Hello world!", apiRes);
+        Assert.AreEqual(
+            "Arg: Hello world!|SQL result: IgniteTuple { ANSWER = 42 }|Table result: Option { HasValue = True, Value = Hello }",
+            apiRes);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
