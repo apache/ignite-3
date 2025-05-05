@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Benchmarks.Compute;
 
 using System;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -53,10 +54,10 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
         await base.GlobalSetup();
 
         _tempDir = new TempDir();
-        var asmName = nameof(ComputeJobExecutorBenchmarks);
-        JobGenerator.EmitEchoJob(_tempDir, asmName);
+        var asmName = nameof(PlatformJobBenchmarks);
+        var asmDll = JobGenerator.EmitEchoJob(_tempDir, asmName);
 
-        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [_tempDir.Path]);
+        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [asmDll]);
 
         _echoJobDotNet = new JobDescriptor<object?, object?>(
             JobClassName: $"TestNamespace.EchoJob, {asmName}",
@@ -76,6 +77,8 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
         await base.GlobalCleanup();
 
         await ManagementApi.UnitUndeploy(Unit);
+
+        _tempDir.Dispose();
     }
 
     [Benchmark]

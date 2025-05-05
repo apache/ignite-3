@@ -27,7 +27,7 @@ using TestHelpers;
 [SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1118:Parameter should not span multiple lines", Justification = "Tests")]
 public static class JobGenerator
 {
-    public static void EmitEchoJob(TempDir tempDir, string asmName) =>
+    public static string EmitEchoJob(TempDir tempDir, string asmName) =>
         EmitJob(
             tempDir,
             asmName,
@@ -39,7 +39,7 @@ public static class JobGenerator
             }
             """);
 
-    public static void EmitGetAndSetStaticFieldJob(TempDir tempDir, string asmName) =>
+    public static string EmitGetAndSetStaticFieldJob(TempDir tempDir, string asmName) =>
         EmitJob(
             tempDir,
             asmName,
@@ -59,7 +59,7 @@ public static class JobGenerator
             }
             """);
 
-    public static void EmitReturnConstJob(TempDir tempDir, string asmName, string jobResult) =>
+    public static string EmitReturnConstJob(TempDir tempDir, string asmName, string jobResult) =>
         EmitJob(
             tempDir,
             asmName,
@@ -72,10 +72,12 @@ public static class JobGenerator
             }
             """);
 
-    public static void EmitJob(TempDir tempDir, string asmName, [StringSyntax("C#")] string jobCode)
+    public static string EmitJob(TempDir tempDir, string asmName, [StringSyntax("C#")] string jobCode)
     {
+        var targetFile = Path.Combine(tempDir.Path, $"{asmName}.dll");
+
         AssemblyGenerator.EmitClassLib(
-            Path.Combine(tempDir.Path, $"{asmName}.dll"),
+            targetFile,
             $$"""
               using System;
               using System.Threading;
@@ -87,5 +89,7 @@ public static class JobGenerator
                   {{jobCode}}
               }
               """);
+
+        return targetFile;
     }
 }
