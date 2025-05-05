@@ -829,7 +829,7 @@ public class PartitionReplicaLifecycleManager extends
         return metaStorageMgr
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .whenComplete((invokeResult, e) -> {
-                    if (e != null) {
+                    if (e != null && !hasCause(e, NodeStoppingException.class)) {
                         String errorMessage = String.format(
                                 "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                 assignmentListToString(newAssignments)
@@ -877,7 +877,7 @@ public class PartitionReplicaLifecycleManager extends
                                     return realAssignments;
                                 })
                                 .whenComplete((realAssignments, e) -> {
-                                    if (e != null) {
+                                    if (e != null && !hasCause(e, NodeStoppingException.class)) {
                                         String errorMessage = String.format(
                                                 "Couldn't get assignments from metastore for zone [zoneId=%s].",
                                                 zoneId
