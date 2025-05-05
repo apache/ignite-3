@@ -45,6 +45,7 @@ import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -82,7 +83,7 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
-import org.apache.ignite.internal.runner.app.PlatformTestNodeRunner.DotNetJobRunnerJob.DotNetJobInfo;
+import org.apache.ignite.internal.runner.app.PlatformTestNodeRunner.JobRunnerJob.JobInfo;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -999,20 +1000,26 @@ public class PlatformTestNodeRunner {
     }
 
     @SuppressWarnings({"DataFlowIssue", "OptionalGetWithoutIsPresent"})
-    public static class DotNetJobRunnerJob implements ComputeJob<DotNetJobInfo, Object> {
+    public static class JobRunnerJob implements ComputeJob<JobInfo, Object> {
         @Override
-        public @Nullable Marshaller<DotNetJobInfo, byte[]> inputMarshaller() {
-            return new JsonMarshaller<>(DotNetJobInfo.class);
+        public @Nullable Marshaller<JobInfo, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(JobInfo.class);
         }
 
         @Override
-        public CompletableFuture<Object> executeAsync(JobExecutionContext context, DotNetJobInfo arg) {
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, JobInfo arg) {
             JobExecutionOptions jobOpts = JobExecutionOptions.builder()
-                    .executorType(JobExecutorType.DOTNET_SIDECAR)
+                    .executorType(JobExecutorType.valueOf(arg.jobExecutorType))
                     .build();
 
             JobDescriptor<Object, Object> jobDesc = JobDescriptor.builder(arg.typeName)
-                    .units(arg.deploymentUnits)
+                    .units(arg.deploymentUnits.stream().map(u -> {
+                        String[] parts = u.split(":");
+                        String name = parts[0];
+                        String version = parts.length > 1 ? parts[1] : null;
+
+                        return new DeploymentUnit(name, version);
+                    }).collect(toList()))
                     .options(jobOpts)
                     .build();
 
@@ -1028,11 +1035,21 @@ public class PlatformTestNodeRunner {
             return context.ignite().compute().executeAsync(target, jobDesc, arg.arg);
         }
 
-        public static class DotNetJobInfo {
+        public static class JobInfo {
+            @JsonProperty
             String typeName;
+
+            @JsonProperty
             Object arg;
-            List<DeploymentUnit> deploymentUnits;
+
+            @JsonProperty
+            List<String> deploymentUnits;
+
+            @JsonProperty
             UUID nodeId;
+
+            @JsonProperty
+            String jobExecutorType;
         }
     }
 }
