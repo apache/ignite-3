@@ -110,7 +110,19 @@ public class DotNetComputeExecutor {
         long jobId = jobIdGen.incrementAndGet();
 
         return getPlatformComputeConnectionWithRetryAsync()
-                .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input));
+                .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
+                .handle((r, e) -> {
+                    if (e != null) {
+                        if (e.getCause() instanceof CancellationException) {
+                            return CompletableFuture.failedFuture(e.getCause());
+                        }
+
+                        return CompletableFuture.failedFuture(new IgniteException(Common.INTERNAL_ERR,
+                                "Failed to execute job [jobId=" + jobId + ']', e));
+                    }
+
+                    return (ComputeJobDataHolder) r;
+                });
     }
 
     private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnectionWithRetryAsync() {
