@@ -80,8 +80,7 @@ public class InjectedValueConfigurationTest {
                 roots,
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(roots, List.of(), List.of()),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

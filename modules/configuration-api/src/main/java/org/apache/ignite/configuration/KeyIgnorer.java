@@ -15,31 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.storage;
+package org.apache.ignite.configuration;
 
 import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
-/**
- * Module for {@link LocalFileConfigurationStorageTest}.
- */
-class LocalFileConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
+/** Determines if key should be ignored while processing configuration. */
+@FunctionalInterface
+public interface KeyIgnorer {
+    /** Returns true if key should be ignored. */
+    boolean shouldIgnore(String key);
 
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(TopConfiguration.KEY);
-    }
+    /** Creates a key ignorer that uses specified deletedPrefixes. */
+    static KeyIgnorer fromDeletedPrefixes(Collection<String> deletedPrefixes) {
+        Collection<Pattern> patterns = deletedPrefixes.stream()
+                .map(deletedKey -> deletedKey.replace(".", "\\.").replace("*", "[^.]*") + "(\\..*)?")
+                .map(Pattern::compile)
+                .collect(Collectors.toList());
 
-    @Override
-    public Collection<String> deletedPrefixes() {
-        return Set.of("top.deleted_property");
+        return key -> patterns.stream().anyMatch(pattern -> pattern.matcher(key).matches());
     }
 }

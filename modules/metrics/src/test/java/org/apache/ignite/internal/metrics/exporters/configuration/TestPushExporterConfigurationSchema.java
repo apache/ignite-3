@@ -15,31 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration.storage;
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-import java.util.Collection;
-import java.util.List;
-import java.util.Set;
-import org.apache.ignite.configuration.ConfigurationModule;
-import org.apache.ignite.configuration.RootKey;
-import org.apache.ignite.configuration.annotation.ConfigurationType;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Module for {@link LocalFileConfigurationStorageTest}.
- */
-class LocalFileConfigurationModule implements ConfigurationModule {
-    @Override
-    public ConfigurationType type() {
-        return ConfigurationType.LOCAL;
-    }
-
-    @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
-        return List.of(TopConfiguration.KEY);
-    }
-
-    @Override
-    public Collection<String> deletedPrefixes() {
-        return Set.of("top.deleted_property");
-    }
+ * Configuration for test push exporter.
+ **/
+@PolymorphicConfigInstance("test-push-exporter")
+public class TestPushExporterConfigurationSchema extends ExporterConfigurationSchema {
+    /** Export period, in milliseconds. */
+    @Value(hasDefault = true)
+    public long periodMillis = 1_000;
 }
