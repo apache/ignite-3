@@ -38,8 +38,12 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.lang.ErrorGroups;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -111,17 +115,16 @@ public class DotNetComputeExecutor {
 
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
-                .handle((r, e) -> {
-                    if (e != null) {
-                        if (e.getCause() instanceof CancellationException) {
-                            return CompletableFuture.failedFuture(e.getCause());
-                        }
+                .exceptionally(e -> {
+                    if (e instanceof TraceableException) {
+                        TraceableException ie = (TraceableException) e;
 
-                        return CompletableFuture.failedFuture(new IgniteException(Common.INTERNAL_ERR,
-                                "Failed to execute job [jobId=" + jobId + ']', e));
+                        if (ie.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                            throw new IgniteException(ie.traceId(), ie.code(), ".NET compute executor connection lost", e);
+                        }
                     }
 
-                    return (ComputeJobDataHolder) r;
+                    throw new IgniteException(Compute.COMPUTE_JOB_FAILED_ERR, "Failed to execute .NET job: " + e.getMessage(), e);
                 });
     }
 
