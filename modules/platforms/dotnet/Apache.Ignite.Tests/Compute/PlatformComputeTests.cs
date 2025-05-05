@@ -141,6 +141,21 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual("Could not start .NET executor process in 2 attempts", ex.Message);
     }
 
+    [Test]
+    public async Task TestCustomMarshallers()
+    {
+        // TODO: Test various job constructors to ensure marshaller propagation.
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public async Task TestCallDotNetJobFromJava()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
