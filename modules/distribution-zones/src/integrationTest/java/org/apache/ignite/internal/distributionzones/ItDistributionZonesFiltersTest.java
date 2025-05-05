@@ -480,11 +480,11 @@ public class ItDistributionZonesFiltersTest extends ClusterPerTestIntegrationTes
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
     private static String alterZoneSql(int replicas) {
-        return String.format("ALTER ZONE \"%s\" SET \"REPLICAS\" = %s", ZONE_NAME, replicas);
+        return String.format("ALTER ZONE \"%s\" SET (REPLICAS %s)", ZONE_NAME, replicas);
     }
 
     private static String createTableSql() {

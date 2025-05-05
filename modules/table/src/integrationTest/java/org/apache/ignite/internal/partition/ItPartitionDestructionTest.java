@@ -238,7 +238,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
         makeSurePartitionExistsOnDisk(ignite0, tableId, replicationGroupId);
         makeSurePartitionExistsOnDisk(ignite1, tableId, replicationGroupId);
 
-        executeUpdate("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 1");
+        executeUpdate("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 1)");
 
         IgniteImpl notHostingIgnite = nodeNotHostingPartition(replicationGroupId);
         verifyPartitionGetsRemovedFromDisk(notHostingIgnite, tableId, replicationGroupId);

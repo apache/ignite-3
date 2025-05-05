@@ -761,6 +761,10 @@ SqlNode SqlAlterZone() :
         { s.add(this); } optionList = AlterZoneOptions() {
           return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
         }
+        |
+        { s.add(this); } optionList = ZoneOptionsList() {
+          return new IgniteSqlAlterZone(s.end(this), zoneId, optionList, ifExists);
+        }
       )
     )
 }

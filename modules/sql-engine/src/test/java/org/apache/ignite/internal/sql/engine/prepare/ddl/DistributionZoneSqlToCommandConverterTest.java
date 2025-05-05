@@ -332,9 +332,10 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(zoneCmd.ifExists(), is(true));
     }
 
-    @Test
-    public void testAlterZoneCommand() throws SqlParseException {
-        SqlNode node = parse("ALTER ZONE test SET replicas=3");
+    @ParameterizedTest(name = "obsolete = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testAlterZoneCommand(boolean obsolete) throws SqlParseException {
+        SqlNode node = parse(obsolete ? "ALTER ZONE test SET replicas=3" : "ALTER ZONE test SET (replicas 3)");
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
@@ -353,9 +354,10 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(((AlterZoneCommand) cmd).ifExists(), is(false));
     }
 
-    @Test
-    public void testAlterZoneIfExistsCommand() throws SqlParseException {
-        SqlNode node = parse("ALTER ZONE IF EXISTS test SET replicas=3");
+    @ParameterizedTest(name = "obsolete = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testAlterZoneIfExistsCommand(boolean obsolete) throws SqlParseException {
+        SqlNode node = parse(obsolete ? "ALTER ZONE IF EXISTS test SET replicas=3" : "ALTER ZONE IF EXISTS test SET (replicas 3)");
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
 
@@ -363,14 +365,22 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(((AlterZoneCommand) cmd).ifExists(), is(true));
     }
 
-    @Test
-    public void testAlterZoneSetCommand() throws SqlParseException {
+    @ParameterizedTest(name = "obsolete = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testAlterZoneSetCommand(boolean obsolete) throws SqlParseException {
         // Check non-conflicting options.
         {
-            SqlNode node = parse("ALTER ZONE test SET "
-                    + "replicas=3, "
-                    + "data_nodes_filter='$[?(@.region == \"US\")]', "
-                    + "data_nodes_auto_adjust=300");
+            String sql = obsolete
+                    ? "ALTER ZONE test SET "
+                            + "replicas=3, "
+                            + "data_nodes_filter='$[?(@.region == \"US\")]', "
+                            + "data_nodes_auto_adjust=300"
+                    : "ALTER ZONE test SET "
+                            + "(replicas 3, "
+                            + "nodes filter '$[?(@.region == \"US\")]', "
+                            + "auto adjust 300)";
+
+            SqlNode node = parse(sql);
 
             CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
             assertThat(cmd, instanceOf(AlterZoneCommand.class));
@@ -392,9 +402,15 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         // Check remaining options.
         {
-            SqlNode node = parse("ALTER ZONE test SET "
-                    + "data_nodes_auto_adjust_scale_up=100, "
-                    + "data_nodes_auto_adjust_scale_down=200");
+            String sql = obsolete
+                    ? "ALTER ZONE test SET "
+                            + "data_nodes_auto_adjust_scale_up=100, "
+                            + "data_nodes_auto_adjust_scale_down=200"
+                    : "ALTER ZONE test SET "
+                            + "(auto scale up 100, "
+                            + "auto scale down 200)";
+
+            SqlNode node = parse(sql);
 
             CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
             assertThat(cmd, instanceOf(AlterZoneCommand.class));
@@ -414,9 +430,10 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         }
     }
 
-    @Test
-    public void testAlterZoneReplicasAll() throws SqlParseException {
-        SqlNode node = parse("ALTER ZONE test SET replicas=ALL");
+    @ParameterizedTest(name = "obsolete = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testAlterZoneReplicasAll(boolean obsolete) throws SqlParseException {
+        SqlNode node = parse(obsolete ? "ALTER ZONE test SET replicas=ALL" : "ALTER ZONE test SET (replicas ALL)");
 
         CatalogCommand cmd = converter.convert((SqlDdl) node, createContext());
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
@@ -459,18 +476,38 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(((AlterZoneSetDefaultCommand) cmd).ifExists(), is(true));
     }
 
-    @Test
-    public void testAlterZoneCommandWithInvalidOptions() throws SqlParseException {
-        expectOptionValidationError("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100", "DATA_NODES_AUTO_ADJUST");
+    @ParameterizedTest(name = "obsolete = {0}, option = {1}")
+    @MethodSource("numericOptions")
+    public void testAlterZoneCommandWithInvalidOptions(boolean obsolete, ZoneOptionEnum option) throws SqlParseException {
+        String sql = obsolete
+                ? "ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=-100"
+                : "ALTER ZONE test SET ({} -100)";
+
+        if (obsolete) {
+            expectOptionValidationError(sql, "DATA_NODES_AUTO_ADJUST");
+        } else {
+            String sqlName = option.sqlName;
+            String prefix = "ALTER ZONE test SET (";
+            assertThrowsWithPos(format(sql, sqlName, "-100"), "-", prefix.length() + sqlName.length() + 1 /* start pos*/
+                    + 1 /* first symbol after bracket*/);
+        }
     }
 
-    @Test
-    public void testAlterZoneCommandWithDuplicateOptions() throws SqlParseException {
-        SqlNode node = parse("ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=300, DATA_NODES_AUTO_ADJUST=400");
+    @ParameterizedTest(name = "obsolete = {0}")
+    @ValueSource(booleans = {true, false})
+    public void testAlterZoneCommandWithDuplicateOptions(boolean obsolete) throws SqlParseException {
+        String sql = obsolete
+                ? "ALTER ZONE test SET replicas=2, data_nodes_auto_adjust=300, DATA_NODES_AUTO_ADJUST=400"
+                : "ALTER ZONE test SET (replicas 2, auto adjust 300, AUTO ADJUST 400)";
+        SqlNode node = parse(sql);
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        expectDuplicateOptionError((SqlDdl) node, "DATA_NODES_AUTO_ADJUST");
+        if (obsolete) {
+            expectDuplicateOptionError((SqlDdl) node, "DATA_NODES_AUTO_ADJUST");
+        } else {
+            expectDuplicateOptionError((SqlDdl) node, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.sqlName);
+        }
     }
 
     @Test
