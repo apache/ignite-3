@@ -24,6 +24,10 @@ using Internal.Compute.Executor;
 using Tests.Compute.Executor;
 using Tests.TestHelpers;
 
+/// <summary>
+/// Measures the performance of assembly loading and job execution.
+/// </summary>
+[MemoryDiagnoser]
 public class ComputeJobExecutorBenchmarks
 {
     private static readonly PooledArrayBuffer ResBuf = new();
