@@ -62,7 +62,8 @@ public static class DotNetJobs
 
     public class NoCtorJob : IComputeJob<int, int>
     {
-        public NoCtorJob(int ctorArg)
+        [SuppressMessage("ReSharper", "UnusedParameter.Local", Justification = "Tests.")]
+        public NoCtorJob(int ignore)
         {
             // No-op.
         }
