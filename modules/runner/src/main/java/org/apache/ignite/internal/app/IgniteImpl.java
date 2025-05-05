@@ -151,6 +151,7 @@ import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -2101,6 +2102,18 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager() {
         return partitionReplicaLifecycleManager;
+    }
+
+    /** Triggers dumping node components state. This method is used for debugging purposes only. */
+    @TestOnly
+    public void dumpClusterState() {
+        IgniteStringBuilder sb = new IgniteStringBuilder()
+                .app("Dumping cluster state for node ").app(node().name()).app(":")
+                .nl();
+
+        lifecycleManager.dumpState(sb, "");
+
+        LOG.info(sb.toString());
     }
 
     /**
