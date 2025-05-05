@@ -17,7 +17,6 @@
 
 namespace Apache.Ignite.Tests.Compute.Executor;
 
-using System.Diagnostics.CodeAnalysis;
 using System.Threading.Tasks;
 using Internal.Compute.Executor;
 using NUnit.Framework;
@@ -26,7 +25,6 @@ using TestHelpers;
 /// <summary>
 /// Tests for <see cref="DeploymentUnitLoader"/>.
 /// </summary>
-[SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1118:Parameter should not span multiple lines", Justification = "Tests")]
 public class DeploymentUnitLoaderTests
 {
     [Test]

@@ -24,6 +24,7 @@ using TestHelpers;
 /// <summary>
 /// Test job generator. Produces temporary assemblies with job classes.
 /// </summary>
+[SuppressMessage("StyleCop.CSharp.ReadabilityRules", "SA1118:Parameter should not span multiple lines", Justification = "Tests")]
 public static class JobGenerator
 {
     public static void EmitEchoJob(TempDir tempDir, string asmName) =>
