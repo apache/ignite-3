@@ -56,8 +56,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationChangeException;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -99,8 +99,8 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     /** Configuration migrator. */
     private final ConfigurationMigrator migrator;
 
-    /** Patterns of prefixes, deleted from the configuration. */
-    private final Collection<Pattern> deletedPrefixes;
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
 
     /** Storage trees. */
     private volatile StorageRoots storageRoots;
@@ -215,7 +215,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param storage Configuration storage.
      * @param configurationValidator Configuration validator.
      * @param migrator Configuration migrator.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if key should be ignored.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public ConfigurationChanger(
@@ -224,7 +224,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             ConfigurationStorage storage,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
-            Collection<Pattern> deletedPrefixes
+            KeyIgnorer keyIgnorer
     ) {
         checkConfigurationType(rootKeys, storage);
 
@@ -234,7 +234,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         this.rootKeys = rootKeys.stream().collect(toMap(RootKey::key, identity()));
         this.migrator = migrator;
 
-        this.deletedPrefixes = deletedPrefixes;
+        this.keyIgnorer = keyIgnorer;
     }
 
     /**
@@ -276,7 +276,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         Map<String, ? extends Serializable> storageValues = data.values();
 
-        ignoredKeys = ignoreDeleted(storageValues, deletedPrefixes);
+        ignoredKeys = ignoreDeleted(storageValues, keyIgnorer);
 
         long revision = data.changeId();
 
@@ -695,7 +695,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             Map<String, ? extends Serializable> changedValues = changedEntries.values();
 
             // We need to ignore deletion of deprecated values.
-            ignoreDeleted(changedValues, deletedPrefixes);
+            ignoreDeleted(changedValues, keyIgnorer);
 
             StorageRoots oldStorageRoots = storageRoots;
 

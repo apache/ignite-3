@@ -19,45 +19,29 @@ package org.apache.ignite.internal.configuration;
 
 import java.io.Serializable;
 import java.util.Collection;
-import java.util.List;
 import java.util.Map;
-import java.util.regex.Pattern;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.apache.ignite.configuration.KeyIgnorer;
 
 class DeletedKeysFilter {
     /**
      * Filters out keys that match the deleted prefixes and returns the ignored keys.
      *
      * @param values The map of values to filter.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if a key should be ignored.
      * @return A collection of keys that were ignored.
      */
-    static List<String> ignoreDeleted(
+    static Collection<String> ignoreDeleted(
             Map<String, ? extends Serializable> values,
-            Collection<Pattern> deletedPrefixes
+            KeyIgnorer keyIgnorer
     ) {
-        if (deletedPrefixes.isEmpty()) {
-            return List.of();
-        }
+        Set<String> ignoredKeys = values.keySet().stream()
+                .filter(keyIgnorer::shouldIgnore)
+                .collect(Collectors.toSet());
 
-        List<String> ignoredKeys = values.keySet().stream()
-                .filter(key -> isDeleted(key, deletedPrefixes))
-                .collect(Collectors.toList());
-
-        for (String key : ignoredKeys) {
-            values.remove(key);
-        }
+        values.keySet().removeAll(ignoredKeys);
 
         return ignoredKeys;
-    }
-
-    private static boolean isDeleted(String key, Collection<Pattern> patterns) {
-        for (Pattern pattern : patterns) {
-            if (pattern.matcher(key).matches()) {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

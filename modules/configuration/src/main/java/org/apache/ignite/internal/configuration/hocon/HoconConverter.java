@@ -20,9 +20,8 @@ package org.apache.ignite.internal.configuration.hocon;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
-import java.util.Collection;
 import java.util.List;
-import java.util.regex.Pattern;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.ConfigurationConverter;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -78,17 +77,17 @@ public class HoconConverter {
      * @return HOCON-based configuration source.
      */
     public static ConfigurationSource hoconSource(ConfigObject hoconCfg) {
-        return hoconSource(hoconCfg, List.of());
+        return hoconSource(hoconCfg, s -> false);
     }
 
     /**
      * Returns HOCON-based configuration source.
      *
      * @param hoconCfg HOCON that has to be converted to the configuration source.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if key should be ignored.
      * @return HOCON-based configuration source.
      */
-    public static ConfigurationSource hoconSource(ConfigObject hoconCfg, Collection<Pattern> deletedPrefixes) {
-        return new HoconObjectConfigurationSource(null, deletedPrefixes, List.of(), hoconCfg);
+    public static ConfigurationSource hoconSource(ConfigObject hoconCfg, KeyIgnorer keyIgnorer) {
+        return new HoconObjectConfigurationSource(null, keyIgnorer, List.of(), hoconCfg);
     }
 }

@@ -30,7 +30,6 @@ import java.io.Serializable;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
@@ -409,7 +408,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                 new ConfigurationTreeGenerator(rootKey),
                 new TestConfigurationValidator(),
                 migrator,
-                Set.of()
+                s -> false
         );
 
         if (init) {

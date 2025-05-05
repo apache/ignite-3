@@ -30,10 +30,9 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
 import java.lang.reflect.Array;
-import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
-import java.util.regex.Pattern;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -48,8 +47,8 @@ class HoconListConfigurationSource implements ConfigurationSource {
      */
     private final List<String> path;
 
-    /** Patterns of prefixes, deleted from the configuration. */
-    private final Collection<Pattern> deletedPrefixes;
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
 
     /**
      * HOCON list that this source has been created from.
@@ -59,13 +58,13 @@ class HoconListConfigurationSource implements ConfigurationSource {
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON list.
      *
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if key should be ignored.
      * @param path Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgList} is the top-level
      *         object.
      * @param hoconCfgList HOCON list.
      */
-    HoconListConfigurationSource(Collection<Pattern> deletedPrefixes, List<String> path, ConfigList hoconCfgList) {
-        this.deletedPrefixes = deletedPrefixes;
+    HoconListConfigurationSource(KeyIgnorer keyIgnorer, List<String> path, ConfigList hoconCfgList) {
+        this.keyIgnorer = keyIgnorer;
         this.path = path;
         this.hoconCfgList = hoconCfgList;
     }
@@ -112,10 +111,8 @@ class HoconListConfigurationSource implements ConfigurationSource {
 
         String syntheticKeyName = ((NamedListNode<?>) node).syntheticKeyName();
 
-        for (Pattern deletedPrefix : deletedPrefixes) {
-            if (deletedPrefix.matcher(join(appendKey(path, syntheticKeyName))).matches()) {
-                return;
-            }
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, syntheticKeyName)))) {
+            return;
         }
 
         for (int idx = 0; idx < hoconCfgList.size(); idx++) {
@@ -152,7 +149,7 @@ class HoconListConfigurationSource implements ConfigurationSource {
                 ));
             }
 
-            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, deletedPrefixes, path, hoconCfg), false);
+            node.construct(key, new HoconObjectConfigurationSource(syntheticKeyName, keyIgnorer, path, hoconCfg), false);
         }
     }
 

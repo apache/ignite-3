@@ -43,7 +43,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
@@ -52,9 +51,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.configuration.validation.ValidationIssue;
@@ -171,10 +170,10 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             SuperRoot superRoot = generator.createSuperRoot();
             SuperRoot copiedSuperRoot = superRoot.copy();
 
-            Collection<Pattern> deletedPrefixes = module == null ? Set.of() : module.deletedPrefixesPatterns();
+            KeyIgnorer keyIgnorer = module == null ? s -> false : KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes());
 
             Config hocon = readHoconFromFile();
-            HoconConverter.hoconSource(hocon.root(), deletedPrefixes).descend(copiedSuperRoot);
+            HoconConverter.hoconSource(hocon.root(), keyIgnorer).descend(copiedSuperRoot);
 
             Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
             flattenedUpdatesMap.forEach((key, value) -> {

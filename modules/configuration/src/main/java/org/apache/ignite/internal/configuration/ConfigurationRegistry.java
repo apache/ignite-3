@@ -27,11 +27,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -64,8 +63,8 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /** Patterns of prefixes, deleted from the configuration. */
-    private final Collection<Pattern> deletedPrefixes;
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
 
     /** Constructor. */
     @TestOnly
@@ -75,7 +74,7 @@ public class ConfigurationRegistry implements IgniteComponent {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
-        this(rootKeys, storage, generator, configurationValidator, c -> {}, Set.of());
+        this(rootKeys, storage, generator, configurationValidator, c -> {}, s -> false);
     }
 
     /**
@@ -87,11 +86,11 @@ public class ConfigurationRegistry implements IgniteComponent {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
-            Collection<Pattern> deletedPrefixes
+            KeyIgnorer keyIgnorer
     ) {
         checkConfigurationType(rootKeys, storage);
 
-        this.deletedPrefixes = deletedPrefixes;
+        this.keyIgnorer = keyIgnorer;
 
         changer = new ConfigurationChanger(
                 notificationUpdateListener(),
@@ -99,7 +98,7 @@ public class ConfigurationRegistry implements IgniteComponent {
                 storage,
                 configurationValidator,
                 migrator,
-                deletedPrefixes
+                keyIgnorer
         ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
@@ -252,8 +251,9 @@ public class ConfigurationRegistry implements IgniteComponent {
         };
     }
 
-    public Collection<Pattern> deletedPrefixes() {
-        return deletedPrefixes;
+    /** Determines if key should be ignored. */
+    public KeyIgnorer keyIgnorer() {
+        return keyIgnorer;
     }
 
     /**

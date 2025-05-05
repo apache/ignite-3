@@ -35,7 +35,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutionException;
 import org.apache.ignite.configuration.ConfigurationReadOnlyException;
@@ -120,9 +119,7 @@ public class ConfigurationTreeGeneratorTest {
                 rootKeys,
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                new TestConfigurationValidator(),
-                change -> {},
-                Set.of()
+                new TestConfigurationValidator()
         );
 
         changer.start();

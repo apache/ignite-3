@@ -24,6 +24,7 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.configuration.ConfigurationChanger;
@@ -101,7 +102,7 @@ public class DefaultsGenerator {
                 storage,
                 configurationValidator,
                 c -> {},
-                modules.local().deletedPrefixesPatterns()
+                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {

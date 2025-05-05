@@ -21,8 +21,6 @@ import static java.util.Collections.emptySet;
 
 import java.util.Collection;
 import java.util.Set;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.PolymorphicConfig;
@@ -142,20 +140,12 @@ public interface ConfigurationModule {
     /**
      * Returns a collection of prefixes, removed from configuration. Keys that match any of the prefixes
      * in this collection will be deleted.
-     * <p>Use ignite.my.deleted.property for regular deleted properties</p>
-     * <p>ignite.list.*.deletedProperty - for named list elements. Arbitrarily nested named lists are supported</p>
+     * <p>Use {@code ignite.my.deleted.property} for regular deleted properties</p>
+     * * <p>{@code ignite.list.*.deletedProperty} - for named list elements. Arbitrarily nested named lists are supported</p>
      *
      * @return A collection of prefixes of deleted keys.
      */
     default Collection<String> deletedPrefixes() {
         return emptySet();
-    }
-
-    /** Compiles @{link #deletedPrefixes()} into regex patterns. Shouldn't be overwritten. */
-    default Collection<Pattern> deletedPrefixesPatterns() {
-        return deletedPrefixes().stream()
-                .map(deletedKey -> deletedKey.replace(".", "\\.").replace("*", "[^.]*") + "(\\..*)?")
-                .map(Pattern::compile)
-                .collect(Collectors.toList());
     }
 }

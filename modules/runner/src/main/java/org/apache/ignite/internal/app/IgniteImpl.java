@@ -68,6 +68,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
@@ -549,7 +550,7 @@ public class IgniteImpl implements Ignite {
                 localConfigurationGenerator,
                 localConfigurationValidator,
                 modules.local()::migrateDeprecatedConfigurations,
-                modules.local().deletedPrefixesPatterns()
+                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         );
 
         // Start local configuration to be able to read all local properties.
@@ -767,7 +768,7 @@ public class IgniteImpl implements Ignite {
                 distributedConfigurationGenerator,
                 distributedCfgValidator,
                 modules.distributed()::migrateDeprecatedConfigurations,
-                modules.distributed().deletedPrefixesPatterns()
+                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

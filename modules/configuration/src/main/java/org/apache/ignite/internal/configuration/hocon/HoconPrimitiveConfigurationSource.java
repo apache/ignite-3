@@ -25,10 +25,9 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.ap
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 
 import com.typesafe.config.ConfigValue;
-import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
-import java.util.regex.Pattern;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -47,23 +46,23 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      */
     private final ConfigValue hoconCfgValue;
 
-    /** Patterns of prefixes, deleted from the configuration. */
-    private final Collection<Pattern> deletedPrefixes;
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
 
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object representing a primitive type.
      *
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if key should be ignored.
      * @param path current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
      *         object
      * @param hoconCfgValue HOCON object
      */
-    HoconPrimitiveConfigurationSource(Collection<Pattern> deletedPrefixes, List<String> path, ConfigValue hoconCfgValue) {
+    HoconPrimitiveConfigurationSource(KeyIgnorer keyIgnorer, List<String> path, ConfigValue hoconCfgValue) {
         assert !path.isEmpty();
 
         this.path = path;
         this.hoconCfgValue = hoconCfgValue;
-        this.deletedPrefixes = deletedPrefixes;
+        this.keyIgnorer = keyIgnorer;
     }
 
     @Override
@@ -85,10 +84,8 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             );
         }
 
-        for (Pattern deletedPrefix : deletedPrefixes) {
-            if (deletedPrefix.matcher(join(appendKey(path, fieldName))).matches()) {
-                return;
-            }
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, fieldName)))) {
+            return;
         }
 
         node.construct(fieldName, this, false);

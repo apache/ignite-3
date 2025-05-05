@@ -26,11 +26,10 @@ import com.typesafe.config.ConfigList;
 import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.ConfigValueType;
-import java.util.Collection;
 import java.util.List;
 import java.util.NoSuchElementException;
-import java.util.regex.Pattern;
 import org.apache.ignite.configuration.ConfigurationWrongPolymorphicTypeIdException;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.jetbrains.annotations.Nullable;
@@ -44,8 +43,8 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
      */
     private final String ignoredKey;
 
-    /** Patterns of prefixes, deleted from the configuration. */
-    private final Collection<Pattern> deletedPrefixes;
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
 
     /**
      * Current path inside the top-level HOCON object.
@@ -61,19 +60,19 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
      * Creates a {@link ConfigurationSource} from the given HOCON object.
      *
      * @param ignoredKey     Key that needs to be ignored by the source. Can be {@code null}.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if key should be ignored.
      * @param path           Current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgObject} is the
      *                       top-level object.
      * @param hoconCfgObject HOCON object.
      */
     HoconObjectConfigurationSource(
             @Nullable String ignoredKey,
-            Collection<Pattern> deletedPrefixes,
+            KeyIgnorer keyIgnorer,
             List<String> path,
             ConfigObject hoconCfgObject
     ) {
         this.ignoredKey = ignoredKey;
-        this.deletedPrefixes = deletedPrefixes;
+        this.keyIgnorer = keyIgnorer;
         this.path = path;
         this.hoconCfgObject = hoconCfgObject;
     }
@@ -99,10 +98,8 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
     }
 
     private void parseConfigEntry(String key, ConfigValue hoconCfgValue, ConstructableTreeNode node) {
-        for (Pattern deletedPrefix : deletedPrefixes) {
-            if (deletedPrefix.matcher(join(appendKey(path, key))).matches()) {
-                return;
-            }
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, key)))) {
+            return;
         }
 
         if (key.equals(ignoredKey)) {
@@ -121,7 +118,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
 
                     node.construct(
                             key,
-                            new HoconObjectConfigurationSource(null, deletedPrefixes, path, (ConfigObject) hoconCfgValue),
+                            new HoconObjectConfigurationSource(null, keyIgnorer, path, (ConfigObject) hoconCfgValue),
                             false
                     );
 
@@ -131,7 +128,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                 case LIST: {
                     List<String> path = appendKey(this.path, key);
 
-                    node.construct(key, new HoconListConfigurationSource(deletedPrefixes, path, (ConfigList) hoconCfgValue), false);
+                    node.construct(key, new HoconListConfigurationSource(keyIgnorer, path, (ConfigList) hoconCfgValue), false);
 
                     break;
                 }
@@ -139,7 +136,7 @@ class HoconObjectConfigurationSource implements ConfigurationSource {
                 default: {
                     List<String> path = appendKey(this.path, key);
 
-                    node.construct(key, new HoconPrimitiveConfigurationSource(deletedPrefixes, path, hoconCfgValue), false);
+                    node.construct(key, new HoconPrimitiveConfigurationSource(keyIgnorer, path, hoconCfgValue), false);
                 }
             }
         } catch (NoSuchElementException e) {

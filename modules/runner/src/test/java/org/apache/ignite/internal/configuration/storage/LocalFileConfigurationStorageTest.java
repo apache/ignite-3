@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -100,7 +101,7 @@ public class LocalFileConfigurationStorageTest {
                 treeGenerator,
                 new ConfigurationValidatorImpl(treeGenerator, Set.of()),
                 change -> {},
-                module.deletedPrefixesPatterns()
+                KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes())
         );
     }
 

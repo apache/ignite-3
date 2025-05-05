@@ -36,6 +36,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Stream;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -132,8 +133,9 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
         changer.start();
 
         String config = hoconConfig + ", " + VALID_KEY + " = \"new_value\"";
+        KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(configurationModule.deletedPrefixes());
 
-        ConfigurationSource change = hoconSource(ConfigFactory.parseString(config).root(), configurationModule.deletedPrefixesPatterns());
+        ConfigurationSource change = hoconSource(ConfigFactory.parseString(config).root(), keyIgnorer);
 
         assertThat(changer.change(change), willCompleteSuccessfully());
 
@@ -167,7 +169,7 @@ class DeletedConfigurationTest extends BaseIgniteAbstractTest {
                 GENERATOR,
                 new TestConfigurationValidator(),
                 changer -> {},
-                configurationModule.deletedPrefixesPatterns()
+                KeyIgnorer.fromDeletedPrefixes(configurationModule.deletedPrefixes())
         );
     }
 

@@ -18,9 +18,8 @@
 package org.apache.ignite.internal.configuration;
 
 import java.util.Collection;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.regex.Pattern;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
@@ -42,7 +41,7 @@ public class ConfigurationManager implements IgniteComponent {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
-        this(rootKeys, storage, generator, configurationValidator, changer -> {}, Set.of());
+        this(rootKeys, storage, generator, configurationValidator, changer -> {}, s -> false);
     }
 
     /**
@@ -51,7 +50,7 @@ public class ConfigurationManager implements IgniteComponent {
      * @param rootKeys Configuration root keys.
      * @param storage Configuration storage.
      * @param generator Configuration tree generator.
-     * @param deletedPrefixes Patterns of prefixes, deleted from the configuration.
+     * @param keyIgnorer Determines if key should be ignored.
      * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the
      *         schema or its extensions are not valid.
      */
@@ -61,7 +60,7 @@ public class ConfigurationManager implements IgniteComponent {
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
-            Collection<Pattern> deletedPrefixes
+            KeyIgnorer keyIgnorer
     ) {
         registry = new ConfigurationRegistry(
                 rootKeys,
@@ -69,7 +68,7 @@ public class ConfigurationManager implements IgniteComponent {
                 generator,
                 configurationValidator,
                 migrator,
-                deletedPrefixes
+                keyIgnorer
         );
     }
 
