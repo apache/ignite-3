@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Compute.Executor;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
@@ -47,7 +48,7 @@ internal static class ComputeJobExecutor
         IJobExecutionContext context)
     {
         var jobReq = Read(request);
-        await ExecuteJobAsync(jobReq, request, response).ConfigureAwait(false);
+        await ExecuteJobAsync(jobReq, request, response, context).ConfigureAwait(false);
 
         static JobExecuteRequest Read(PooledBuffer request)
         {
@@ -79,7 +80,8 @@ internal static class ComputeJobExecutor
     private static async ValueTask ExecuteJobAsync(
         JobExecuteRequest req,
         PooledBuffer argBuf,
-        PooledArrayBuffer resBuf)
+        PooledArrayBuffer resBuf,
+        IJobExecutionContext context)
     {
         // Unload assemblies after job execution.
         // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
@@ -88,10 +90,10 @@ internal static class ComputeJobExecutor
 
         resBuf.MessageWriter.Write(0); // Response flags: success.
 
-        // TODO IGNITE-25116: IJobExecutionContext.
         // TODO IGNITE-25153: Cancellation.
-        await jobWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
+        await jobWrapper.ExecuteAsync(context, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
     }
 
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local")]
     private record JobExecuteRequest(long JobId, DeploymentUnitPaths DeploymentUnitPaths, string JobClassName);
 }
