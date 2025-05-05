@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -116,15 +117,19 @@ public class DotNetComputeExecutor {
         return getPlatformComputeConnectionWithRetryAsync()
                 .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
                 .exceptionally(e -> {
-                    if (e instanceof TraceableException) {
-                        TraceableException ie = (TraceableException) e;
+                    var cause = unwrapCause(e);
 
-                        if (ie.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
-                            throw new IgniteException(ie.traceId(), ie.code(), ".NET compute executor connection lost", e);
+                    if (cause instanceof TraceableException) {
+                        TraceableException te = (TraceableException) e;
+
+                        if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                            throw new IgniteException(te.traceId(), te.code(), ".NET compute executor connection lost", e);
+                        } else {
+                            throw new IgniteException(te.traceId(), te.code(), ".NET job failed: " + cause.getMessage(), e);
                         }
                     }
 
-                    throw new IgniteException(Compute.COMPUTE_JOB_FAILED_ERR, "Failed to execute .NET job: " + e.getMessage(), e);
+                    throw new IgniteException(Compute.COMPUTE_JOB_FAILED_ERR, ".NET job failed: " + cause.getMessage(), e);
                 });
     }
 
