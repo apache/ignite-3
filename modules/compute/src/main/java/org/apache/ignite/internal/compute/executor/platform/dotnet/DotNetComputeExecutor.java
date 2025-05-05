@@ -39,7 +39,6 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
-import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Compute;
