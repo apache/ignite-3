@@ -28,6 +28,12 @@ using Tests.TestHelpers;
 
 /// <summary>
 /// .NET vs Java job benchmarks.
+/// Not entirely fair, because the Java job does not require class loading.
+///
+/// | Method    | Mean       | Error    | StdDev   | Median     |
+/// |---------- |-----------:|---------:|---------:|-----------:|
+/// | DotNetJob | 1,572.2 us | 31.27 us | 68.64 us | 1,568.6 us |
+/// | JavaJob   |   285.5 us | 16.97 us | 47.59 us |   266.6 us |.
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
@@ -68,7 +74,7 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
     [Benchmark]
     public async Task DotNetJob() => await ExecJobAsync(_echoJobDotNet);
 
-    [Benchmark]
+    [Benchmark(Baseline = true)]
     public async Task JavaJob() => await ExecJobAsync(_echoJobJava);
 
     private async Task ExecJobAsync(JobDescriptor<object?, object?> desc)
