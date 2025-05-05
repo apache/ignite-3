@@ -184,6 +184,13 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual("IGN-CLIENT-9", ex.CodeAsString);
     }
 
+    [Test]
+    public async Task TestIgniteApiAccessFromJob()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
