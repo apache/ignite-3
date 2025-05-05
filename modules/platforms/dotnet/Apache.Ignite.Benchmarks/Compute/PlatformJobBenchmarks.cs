@@ -50,9 +50,7 @@ public class PlatformJobBenchmarks : ServerBenchmarkBase
         await base.GlobalSetup();
 
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
-        var benchDll = typeof(PlatformJobBenchmarks).Assembly.Location;
-
-        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [testsDll, benchDll]);
+        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [testsDll]);
 
         _echoJobJava = new(
             "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob", [Unit]);
