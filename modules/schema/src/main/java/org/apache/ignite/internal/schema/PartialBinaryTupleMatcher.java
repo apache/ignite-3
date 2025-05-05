@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFla
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
-import java.util.Comparator;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
@@ -36,14 +35,14 @@ import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ByteUtils;
 
 /**
- * Comparator implementation for comparing {@link BinaryTuple}s on a per-column basis.
+ * Matcher for comparing {@link BinaryTuple}s on a per-column basis.
  *
  * <p>This comparator is used to compare BinaryTuples. The first tuple has to be an ordinal tuple that is gotten from persistent.
- * The second tuple can be {@link BinaryTuplePrefix} as well. The comparator assumes that the first tuple may have been written in the
+ * The second tuple can be {@link BinaryTuplePrefix}. The mather assumes that the first tuple may have been written in the
  * buffer partially. If the length of the tuple buffer is not enough to do a comparison, the comparator returns {@code 0}.
  */
 @SuppressWarnings("ComparatorNotSerializable")
-public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
+public class PartialBinaryTupleMatcher {
     private final List<CatalogColumnCollation> columnCollations;
     private final List<NativeType> columnTypes;
 
@@ -53,7 +52,7 @@ public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
      * @param columnCollations Columns collations.
      * @param columnTypes Column types in order, which is defined in BinaryTuple schema.
      */
-    public PartialBinaryTupleComparator(
+    public PartialBinaryTupleMatcher(
             List<CatalogColumnCollation> columnCollations,
             List<NativeType> columnTypes
     ) {
@@ -61,8 +60,19 @@ public class PartialBinaryTupleComparator implements Comparator<ByteBuffer> {
         this.columnTypes = columnTypes;
     }
 
-    @Override
-    public int compare(ByteBuffer buffer1, ByteBuffer buffer2) {
+    /**
+     * Compares two binary tuples represented as ByteBuffers to determine their relative ordering.
+     * <p>
+     * The method takes into account tuple prefixes (the prefix writing structure is available for second buffer only), column types, and
+     * other configurations to compare the tuples up to the number of elements specified in the schema. If one of the tuples is a prefix,
+     * specific comparison rules leveraging the equality flag are applied.
+     *
+     * @param buffer1 The first ByteBuffer to compare must be in LITTLE_ENDIAN byte order.
+     * @param buffer2 The second ByteBuffer to compare must be in LITTLE_ENDIAN byte order and can contain a prefix {@see PREFIX_FLAG}.
+     * @return A positive integer if the first buffer is greater than the second one, zero if the first buffer equals the second one or its
+     *         bytes are not enough to compare, and a negative integer in other cases.
+     */
+    public int match(ByteBuffer buffer1, ByteBuffer buffer2) {
         assert buffer1.order() == ByteOrder.LITTLE_ENDIAN;
         assert buffer2.order() == ByteOrder.LITTLE_ENDIAN;
 

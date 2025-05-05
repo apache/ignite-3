@@ -25,7 +25,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 import org.apache.ignite.internal.schema.BinaryTupleComparator;
-import org.apache.ignite.internal.schema.PartialBinaryTupleComparator;
+import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageDestroyedException;
@@ -296,7 +296,7 @@ public class StorageUtils {
     /**
      * Creates a comparator for a Sorted Index identified by the given columns descriptors.
      */
-    public static PartialBinaryTupleComparator partialBinaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
+    public static PartialBinaryTupleMatcher partialBinaryTupleComparator(List<StorageSortedIndexColumnDescriptor> columns) {
         List<CatalogColumnCollation> columnCollation = new ArrayList<>(columns.size());
         List<NativeType> columnTypes = new ArrayList<>(columns.size());
 
@@ -305,6 +305,6 @@ public class StorageUtils {
             columnTypes.add(col.type());
         }
 
-        return new PartialBinaryTupleComparator(columnCollation, columnTypes);
+        return new PartialBinaryTupleMatcher(columnCollation, columnTypes);
     }
 }
