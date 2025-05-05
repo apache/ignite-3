@@ -120,7 +120,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Observable timestamp listeners. */
     private final Consumer<Long> observableTimestampListener;
 
-    /** Global notification listener. */
+    /** Inflights. */
     private final ClientTransactionInflights inflights;
 
     /** Closed flag. */
@@ -596,6 +596,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         return protocolCtx;
     }
 
+    @Override
+    public ClientTransactionInflights inflights() {
+        return inflights;
+    }
+
     private static void validateConfiguration(ClientChannelConfiguration cfg) {
         String error = null;
 
@@ -716,7 +721,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(SUPPORTED_FEATURES, serverFeatures);
             EnumSet<ProtocolBitmaskFeature> features = ProtocolBitmaskFeature.enumSet(mutuallySupportedFeatures);
 
-            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName, inflights);
+            protocolCtx = new ProtocolContext(srvVer, features, serverIdleTimeout, clusterNode, clusterIds, clusterName);
 
             return null;
         } catch (Throwable e) {

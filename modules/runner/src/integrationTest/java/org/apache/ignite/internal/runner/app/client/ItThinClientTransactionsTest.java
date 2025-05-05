@@ -27,6 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,6 +45,9 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.ClientTransactionInflights;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
@@ -72,6 +76,8 @@ import org.mockito.Mockito;
  * Thin client transactions integration test.
  */
 public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
+    private static final String INFLIGHTS_FIELD_NAME = "inflights";
+
     @Test
     void testKvViewOperations() {
         KeyValueView<Integer, String> kvView = kvView();
@@ -593,6 +599,20 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     @Test
     void testMixedMappingScenarioWithNoopEnlistment() throws Exception {
+        // Inject spied instance.
+        TcpIgniteClient clent0 = (TcpIgniteClient) client();
+        Field inflightsField = clent0.channel().getClass().getDeclaredField(INFLIGHTS_FIELD_NAME);
+        inflightsField.setAccessible(true);
+        ClientTransactionInflights inflights = clent0.channel().inflights();
+        ClientTransactionInflights spyed = Mockito.spy(inflights);
+        inflightsField.set(clent0.channel(), spyed);
+
+        for (ClientChannel channel : clent0.channel().channels()) {
+            Field f = channel.getClass().getDeclaredField(INFLIGHTS_FIELD_NAME);
+            f.setAccessible(true);
+            f.set(channel, spyed);
+        }
+
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
 
         ClientTable table = (ClientTable) table();
@@ -605,7 +625,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
-        Transaction tx0 = client().transactions().begin();
+        ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
 
         // First operation is collocated with txn coordinator and not directly mapped.
         Tuple k = tuples0.get(0);
@@ -628,6 +648,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(table.keyValueView().putIfAbsent(tx0, k2, v2));
 
         tx0.commit();
+
+        Mockito.verify(spyed, Mockito.times(2)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(2)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
         for (Entry<Tuple, Tuple> entry : data.entrySet()) {
             table.keyValueView().put(null, entry.getKey(), entry.getValue());

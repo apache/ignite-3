@@ -616,7 +616,7 @@ public class ClientTable implements Table {
                 }
             } else {
                 // No-op.
-                in.clientChannel().protocolContext().inflights().removeInflight(tx.txId(), null);
+                in.clientChannel().inflights().removeInflight(tx.txId(), null);
             }
         }
 

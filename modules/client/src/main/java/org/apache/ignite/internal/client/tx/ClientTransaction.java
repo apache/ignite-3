@@ -220,7 +220,7 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> finishFut = ch.protocolContext().inflights().finishFuture(txId());
+        CompletableFuture<Void> finishFut = ch.inflights().finishFuture(txId());
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
@@ -266,7 +266,7 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> finishFut = ch.protocolContext().inflights().finishFuture(txId());
+        CompletableFuture<Void> finishFut = ch.inflights().finishFuture(txId());
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);

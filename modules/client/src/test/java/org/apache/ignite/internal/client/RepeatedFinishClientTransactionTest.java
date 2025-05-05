@@ -35,6 +35,7 @@ import static org.mockito.Mockito.when;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.client.proto.ClientOp;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.lang.ErrorGroups.Transactions;
@@ -141,6 +142,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
     @Test
     public void testRepeatedCommitRollbackAfterCommitWithException() throws Exception {
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -171,6 +173,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
     @Test
     public void testRepeatedCommitRollbackAfterRollbackWithException() throws Exception {
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -203,6 +206,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
 
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -220,7 +224,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc, opCode);
+            tx.enlistFuture(ch, clientChannel, wc, ClientOp.TUPLE_UPSERT);
 
             fail();
         } catch (TransactionException e) {
@@ -233,6 +237,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         ReliableChannel ch = mock(ReliableChannel.class, Mockito.RETURNS_DEEP_STUBS);
 
         TestClientChannel clientChannel = mock(TestClientChannel.class, Mockito.RETURNS_DEEP_STUBS);
+        when(clientChannel.inflights()).thenReturn(new ClientTransactionInflights());
 
         ProtocolContext ctx = mock(ProtocolContext.class, Mockito.RETURNS_DEEP_STUBS);
         when(ctx.clusterNode()).thenReturn(new ClientClusterNode(randomUUID(), "test", null));
@@ -250,7 +255,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc, opCode);
+            tx.enlistFuture(ch, clientChannel, wc, ClientOp.TUPLE_UPSERT);
 
             fail();
         } catch (TransactionException e) {
@@ -260,8 +265,8 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
 
     private static class TestClientChannel implements ClientChannel {
         private final CountDownLatch txFinishStartedLatch;
-
         private final CountDownLatch secondFinishLatch;
+        private final ClientTransactionInflights inflights = new ClientTransactionInflights();
 
         TestClientChannel(CountDownLatch txFinishStartedLatch, CountDownLatch secondFinishLatch) {
             this.txFinishStartedLatch = txFinishStartedLatch;
@@ -290,6 +295,11 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         @Override
         public ProtocolContext protocolContext() {
             return null;
+        }
+
+        @Override
+        public ClientTransactionInflights inflights() {
+            return inflights;
         }
 
         @Override
