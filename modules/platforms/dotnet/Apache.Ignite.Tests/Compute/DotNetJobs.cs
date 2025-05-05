@@ -32,7 +32,13 @@ public static class DotNetJobs
     public static readonly JobDescriptor<object?, object?> Error = GetDesc(new ErrorJob());
 
     private static JobDescriptor<TArg, TRes> GetDesc<TArg, TRes>(IComputeJob<TArg, TRes> job) =>
-        new(job.GetType().AssemblyQualifiedName!);
+        new(job.GetType().AssemblyQualifiedName!)
+        {
+            Options = new JobExecutionOptions
+            {
+                ExecutorType = JobExecutorType.DotNetSidecar
+            }
+        };
 
     public class AddOneJob : IComputeJob<int, int>
     {
