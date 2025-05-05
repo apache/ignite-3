@@ -17,14 +17,64 @@
 
 namespace Apache.Ignite.Benchmarks.Compute;
 
+using System;
+using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
-using Tests;
+using Ignite.Compute;
+using Network;
+using Tests.Compute;
+using Tests.TestHelpers;
 
 /// <summary>
 /// .NET vs Java job benchmarks.
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
-    // TODO: Bench Java job against .NET job.
+    private static readonly DeploymentUnit Unit = new(nameof(PlatformJobBenchmarks), "1.0.0");
+
+    private JobDescriptor<object?, object?> _echoJobJava = null!;
+
+    private JobDescriptor<object?, object?> _echoJobDotNet = null!;
+
+    private IJobTarget<IClusterNode> _jobTarget = null!;
+
+    public override async Task GlobalSetup()
+    {
+        await base.GlobalSetup();
+
+        var testsDll = typeof(PlatformComputeTests).Assembly.Location;
+        var benchDll = typeof(PlatformJobBenchmarks).Assembly.Location;
+
+        await ManagementApi.UnitDeploy(Unit.Name, Unit.Version, [testsDll, benchDll]);
+
+        _echoJobJava = new(
+            "org.apache.ignite.internal.runner.app.client.ItThinClientComputeTest$EchoJob", [Unit]);
+
+        _echoJobDotNet = DotNetJobs.Echo with { DeploymentUnits = [Unit] };
+
+        var nodes = await Client.GetClusterNodesAsync();
+        var firstNode = nodes.Single(x => x.Name.EndsWith("PlatformTestNodeRunner", StringComparison.Ordinal));
+        _jobTarget = JobTarget.Node(firstNode);
+    }
+
+    public override async Task GlobalCleanup()
+    {
+        await base.GlobalCleanup();
+
+        await ManagementApi.UnitUndeploy(Unit);
+    }
+
+    [Benchmark]
+    public async Task JavaJob() => await ExecJobAsync(_echoJobJava);
+
+    [Benchmark]
+    public async Task DotNetJob() => await ExecJobAsync(_echoJobDotNet);
+
+    private async Task ExecJobAsync(JobDescriptor<object?, object?> desc)
+    {
+        var exec = await Client.Compute.SubmitAsync(_jobTarget, desc, "Hello world!");
+
+        await exec.GetResultAsync();
+    }
 }

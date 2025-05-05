@@ -7,6 +7,7 @@ using Tests;
 public abstract class ServerBenchmarkBase
 {
     protected JavaServer JavaServer { get; set; } = null!;
+
     protected IIgniteClient Client { get; set; } = null!;
 
     [GlobalSetup]
@@ -17,9 +18,11 @@ public abstract class ServerBenchmarkBase
     }
 
     [GlobalCleanup]
-    public virtual void GlobalCleanup()
+    public virtual Task GlobalCleanup()
     {
         Client?.Dispose();
         JavaServer?.Dispose();
+
+        return Task.CompletedTask;
     }
 }
