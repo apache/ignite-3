@@ -42,7 +42,8 @@ public class ComputeJobExecutorBenchmarks
         using var jobBuf = new PooledArrayBuffer();
         WriteJob(jobBuf);
         var written = jobBuf.GetWrittenMemory();
-        _jobBuf = new PooledBuffer(written.ToArray(), 0, 0);
+        var arr = written.ToArray();
+        _jobBuf = new PooledBuffer(arr, 0, arr.Length);
 
         void WriteJob(PooledArrayBuffer b)
         {
@@ -62,6 +63,7 @@ public class ComputeJobExecutorBenchmarks
     [Benchmark]
     public async Task ExecuteJobAsync()
     {
+        _jobBuf.Position = 0;
         ResBuf.Position = 0;
         await ComputeJobExecutor.ExecuteJobAsync(_jobBuf, ResBuf, null!);
     }
