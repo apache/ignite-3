@@ -83,7 +83,6 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
-import org.apache.ignite.internal.runner.app.PlatformTestNodeRunner.JobRunnerJob.JobInfo;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -999,8 +998,8 @@ public class PlatformTestNodeRunner {
         }
     }
 
-    @SuppressWarnings({"DataFlowIssue", "OptionalGetWithoutIsPresent"})
-    public static class JobRunnerJob implements ComputeJob<JobInfo, Object> {
+    @SuppressWarnings({"DataFlowIssue", "OptionalGetWithoutIsPresent", "unused"})
+    private static class JobRunnerJob implements ComputeJob<JobInfo, Object> {
         @Override
         public @Nullable Marshaller<JobInfo, byte[]> inputMarshaller() {
             return new JsonMarshaller<>(JobInfo.class);
@@ -1034,22 +1033,22 @@ public class PlatformTestNodeRunner {
 
             return context.ignite().compute().executeAsync(target, jobDesc, arg.arg);
         }
+    }
 
-        public static class JobInfo {
-            @JsonProperty
-            String typeName;
+    private static class JobInfo {
+        @JsonProperty
+        String typeName;
 
-            @JsonProperty
-            Object arg;
+        @JsonProperty
+        Object arg;
 
-            @JsonProperty
-            List<String> deploymentUnits;
+        @JsonProperty
+        List<String> deploymentUnits;
 
-            @JsonProperty
-            UUID nodeId;
+        @JsonProperty
+        UUID nodeId;
 
-            @JsonProperty
-            String jobExecutorType;
-        }
+        @JsonProperty
+        String jobExecutorType;
     }
 }
