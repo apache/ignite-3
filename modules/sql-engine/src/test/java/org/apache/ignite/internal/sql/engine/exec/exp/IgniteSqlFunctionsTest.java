@@ -24,13 +24,23 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.TimeZone;
 import java.util.function.Supplier;
+import java.util.stream.Stream;
+import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /**
  * Sql functions test.
@@ -494,5 +504,50 @@ public class IgniteSqlFunctionsTest {
         } else {
             assertThrows(ArithmeticException.class, () -> IgniteMath.decimalDivide(num, denum, 4, 2));
         }
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeZoneTime")
+    public void toTimestampWithLocalTimeZone(String zoneIdstr, LocalDateTime time) {
+        ZoneId zoneId = ZoneId.of(zoneIdstr);
+
+        String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+
+        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+        long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+
+        assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
+    }
+
+    @ParameterizedTest
+    @MethodSource("timeZoneTime")
+    public void toTimestampWithLocalTimeZoneFormat(String zoneIdstr, LocalDateTime time) {
+        ZoneId zoneId = ZoneId.of(zoneIdstr);
+
+        String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+
+        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+        long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, "yyyy-MM-dd hh:mi:ss.ff3", timeZone);
+
+        assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
+    }
+
+    private static Stream<Arguments> timeZoneTime() {
+        List<String> zones = List.of("Europe/Paris", "Europe/Moscow", "Asia/Tokyo", "America/New_York");
+        List<LocalDateTime> times = List.of(
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 1_000_000),
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 123_000_000),
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 500_000_000),
+                LocalDateTime.of(2012, 7, 19, 11, 13, 58, 999_000_000),
+
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 1_000_000),
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 123_000_000),
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 500_000_000),
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 999_000_000)
+        );
+
+        return zones.stream().flatMap(z -> times.stream().map(t -> Arguments.of(z, t)));
     }
 }

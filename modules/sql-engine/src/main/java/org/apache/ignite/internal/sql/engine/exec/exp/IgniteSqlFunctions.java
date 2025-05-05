@@ -25,10 +25,17 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
+import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
+import java.time.zone.ZoneRules;
+import java.util.Objects;
+import java.util.TimeZone;
 import java.util.UUID;
 import org.apache.calcite.avatica.util.ByteString;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
+import org.apache.calcite.runtime.SqlFunctions.DateParseFunction;
 import org.apache.calcite.sql.type.SqlTypeName;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -541,6 +548,32 @@ public class IgniteSqlFunctions {
     /** Returns the second argument and ignores the first. */
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;
+    }
+
+    /** Converts timestamp string into a timestamp with local time zone. */
+    public static @Nullable Long toTimestampWithLocalTimeZone(@Nullable String v, TimeZone timeZone) {
+        return SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+    }
+
+    /** Converts timestamp string into a timestamp with local time zone. */
+    public static @Nullable Long toTimestampWithLocalTimeZone(@Nullable String v, String format, TimeZone timeZone) {
+        if (v == null) {
+            return null;
+        }
+
+        Objects.requireNonNull(format, "format");
+        Objects.requireNonNull(timeZone, "timeZone");
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25320 reuse to improve performance.
+        DateParseFunction function = new DateParseFunction();
+        long ts = function.parseTimestamp(format, v);
+        Instant instant = Instant.ofEpochMilli(ts);
+
+        // Adjust instant millis
+        ZoneRules rules = timeZone.toZoneId().getRules();
+        ZoneOffset offset = rules.getOffset(instant);
+        Instant adjusted = instant.minus(offset.getTotalSeconds(), ChronoUnit.SECONDS);
+        return adjusted.toEpochMilli();
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

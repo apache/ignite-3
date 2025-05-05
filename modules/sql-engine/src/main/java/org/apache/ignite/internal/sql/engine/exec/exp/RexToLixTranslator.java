@@ -118,6 +118,7 @@ import org.locationtech.jts.geom.Geometry;
  *      Added pad-truncate from CHARACTER to INTERVAL types
  *      Added time-zone dependency for cast from CHARACTER types to TIMESTAMP WITH LOCAL TIMEZONE (see point 3)
  *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
+ *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  * 6. Translate literals changes:
  *      DECIMAL use own implementation see IgniteSqlFunctions.class, “toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
@@ -126,6 +127,7 @@ import org.locationtech.jts.geom.Geometry;
  *      IgniteMethod.CONTEXT_GET_PARAMETER_VALUE instead of BuiltInMethod.DATA_CONTEXT_GET
  *      added conversation for Decimals
  * 8. Added parameter `RelDataType valueType` for implementRecursively method to do right datatype conversion
+ * 9. Added parameter 'Format' to translateCastToTimestampWithLocalTimeZone.
  */
 public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result> {
   public static final Map<Method, SqlOperator> JAVA_TO_SQL_METHOD_MAP =
@@ -377,7 +379,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       return translateCastToTimestamp(sourceType, operand, format, defaultExpression);
 
     case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-      return translateCastToTimestampWithLocalTimeZone(sourceType, targetType, operand, defaultExpression);
+      return translateCastToTimestampWithLocalTimeZone(sourceType, targetType, operand, format, defaultExpression);
 
     case BOOLEAN:
       switch (sourceType.getSqlTypeName()) {
@@ -778,7 +780,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
   }
 
   private Expression translateCastToTimestampWithLocalTimeZone(RelDataType sourceType, RelDataType targetType,
-      Expression operand, Supplier<Expression> defaultExpression) {
+      Expression operand, ConstantExpression format, Supplier<Expression> defaultExpression) {
 
     switch (sourceType.getSqlTypeName()) {
     case CHAR:
@@ -786,14 +788,19 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       // By default Calcite for this type requires that the time zone be explicitly specified.
       // Since this type implies a local timezone, its explicit indication seems redundant,
       // so we prohibit the user from explicitly setting a timezone.
-      return
-              Expressions.call(
-                      IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
-                      Expressions.call(
-                              BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
-                              operand,
-                              Expressions.call(BuiltInMethod.TIME_ZONE.method, root))
-              );
+      Expression getTimeZone = Expressions.call(BuiltInMethod.TIME_ZONE.method, root);
+
+      if (Expressions.isConstantNull(format)) {
+        return Expressions.call(
+                IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), operand, getTimeZone)
+        );
+      } else {
+        return Expressions.call(
+                IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
+                Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), operand, format, getTimeZone)
+        );
+      }
 
     case DATE:
       return
@@ -838,7 +845,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       return
               Expressions.call(
                       IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
-                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
+                      Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(),
                           RexImpTable.optimize2(operand,
                               Expressions.call(
                                       IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
