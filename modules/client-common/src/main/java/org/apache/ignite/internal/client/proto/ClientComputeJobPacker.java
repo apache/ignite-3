@@ -73,7 +73,7 @@ public final class ClientComputeJobPacker {
 
         if (platformComputeSupported) {
             w.packInt(executorType.ordinal());
-        } else if (executorType != JobExecutorType.JavaEmbedded) {
+        } else if (executorType != JobExecutorType.JAVA_EMBEDDED) {
             throw new IllegalArgumentException("Custom job executors are not supported by the server: " + executorType);
         }
 

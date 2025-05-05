@@ -130,10 +130,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             ComputeJobDataHolder input,
             JobExecutionContext context) {
         switch (executorType) {
-            case JavaEmbedded:
+            case JAVA_EMBEDDED:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
-            case DotNetSidecar:
+            case DOTNET_SIDECAR:
                 DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
 
                 if (dotNetExec == null) {

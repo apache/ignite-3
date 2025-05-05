@@ -24,14 +24,14 @@ public enum JobExecutorType {
     /**
      * Embedded Java job executor. Executes Java jobs in the same process and JVM where the Ignite node is running.
      */
-    JavaEmbedded,
+    JAVA_EMBEDDED,
 
     /**
      * Side-car .NET job executor. Executes .NET jobs in a separate process.
      *
      * <p>Starts the process on demand. Requires .NET runtime to be installed.
      */
-    DotNetSidecar;
+    DOTNET_SIDECAR;
 
     /** Cached array with all enum values. */
     private static final JobExecutorType[] VALUES = values();
