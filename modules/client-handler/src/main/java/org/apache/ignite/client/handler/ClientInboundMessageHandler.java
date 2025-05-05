@@ -1266,7 +1266,7 @@ public class ClientInboundMessageHandler
             boolean error = ServerOpResponseFlags.getErrorFlag(flags);
 
             if (!error) {
-                fut.complete(in);
+                fut.complete(in.retain());
             } else {
                 Throwable err = readErrorFromClient(requestId, in);
                 fut.completeExceptionally(err);
@@ -1314,7 +1314,11 @@ public class ClientInboundMessageHandler
                         packer.packBoolean(false); // Retain deployment units in cache.
                         ClientComputeJobPacker.packJobArgument(arg, null, packer);
                     })
-                    .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);
+                    .thenApply(unpacker -> {
+                        try (unpacker) {
+                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker);
+                        }
+                    });
         }
 
         @Override
