@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Benchmarks.Compute;
 
 using System;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
@@ -32,10 +31,10 @@ using Tests.TestHelpers;
 /// Not entirely fair, because the Java job does not require class loading.
 /// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
 ///
-/// | Method    | Mean       | Error    | StdDev   | Median     |
-/// |---------- |-----------:|---------:|---------:|-----------:|
-/// | DotNetJob | 1,572.2 us | 31.27 us | 68.64 us | 1,568.6 us |
-/// | JavaJob   |   285.5 us | 16.97 us | 47.59 us |   266.6 us |.
+/// | Method    | Mean     | Error    | StdDev   | Median   | Ratio | RatioSD |
+/// |---------- |---------:|---------:|---------:|---------:|------:|--------:|
+/// | DotNetJob | 900.8 us | 17.90 us | 33.17 us | 892.0 us |  3.31 |    0.42 |
+/// | JavaJob   | 276.1 us | 12.75 us | 35.96 us | 261.5 us |  1.02 |    0.18 |.
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
