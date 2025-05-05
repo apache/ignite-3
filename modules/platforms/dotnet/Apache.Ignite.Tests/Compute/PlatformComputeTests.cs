@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Ignite.Marshalling;
 using Network;
 using NodaTime;
 using NUnit.Framework;
@@ -32,7 +33,10 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
-    private static readonly JobDescriptor<DotNetJobInfo, object?> DotNetJobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "DotNetJobRunnerJob");
+    private static readonly JobDescriptor<DotNetJobInfo, object?> DotNetJobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "$DotNetJobRunnerJob")
+    {
+        ArgMarshaller = new JsonMarshaller<DotNetJobInfo>()
+    };
 
     private DeploymentUnit _defaultTestUnit = null!;
 
@@ -161,7 +165,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var arg = new DotNetJobInfo(
             typeof(DotNetJobs.EchoJob).AssemblyQualifiedName!,
             "arg1",
-            DeploymentUnits: [_defaultTestUnit],
+            DeploymentUnits: [$"{_defaultTestUnit.Name}:{_defaultTestUnit.Version}"],
             NodeId: targetNode.Id);
 
         var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobRunnerJob, arg);
@@ -222,5 +226,5 @@ public class PlatformComputeTests : IgniteTestsBase
         return nodes.First(n => n.Name == nodeName);
     }
 
-    internal record DotNetJobInfo(string TypeName, object Arg, List<DeploymentUnit> DeploymentUnits, Guid NodeId);
+    internal record DotNetJobInfo(string TypeName, object Arg, List<string> DeploymentUnits, Guid NodeId);
 }
