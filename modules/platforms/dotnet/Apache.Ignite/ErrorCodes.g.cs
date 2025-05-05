@@ -199,6 +199,9 @@ namespace Apache.Ignite
 
             /// <summary> HandshakeHeader error. </summary>
             public const int HandshakeHeader = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> ServerToClientRequest error. </summary>
+            public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
