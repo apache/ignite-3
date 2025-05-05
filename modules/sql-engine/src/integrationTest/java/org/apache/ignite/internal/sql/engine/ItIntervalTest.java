@@ -887,9 +887,8 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         }
 
         private static class SqlTimestampLtzIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
-
-            final Instant result;
             final Instant initial;
+            final Instant result;
 
             private SqlTimestampLtzIntervalIntervalTestCase(RelDataType type, Interval value) {
                 super(type, value);
@@ -897,6 +896,8 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
                 int precision = type.getPrecision();
                 long nanos = adjustNanos(testLocalDate.getNano(), precision, 3);
 
+                // Instant only supports Month in jdk21+, so we do all calculations using
+                // LocalDateTime and adjust the result according to the required time zone.
                 LocalDateTime timestamp = testLocalDate.with(ChronoField.NANO_OF_SECOND, nanos);
 
                 initial = timestamp.atZone(TIME_ZONE_ID).toInstant();
