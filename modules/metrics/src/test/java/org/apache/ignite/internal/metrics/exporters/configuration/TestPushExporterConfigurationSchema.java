@@ -20,6 +20,9 @@ package org.apache.ignite.internal.metrics.exporters.configuration;
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 
+/**
+ * Configuration for test push exporter.
+ **/
 @PolymorphicConfigInstance("test-push-exporter")
 public class TestPushExporterConfigurationSchema extends ExporterConfigurationSchema {
     /** Export period, in milliseconds. */
