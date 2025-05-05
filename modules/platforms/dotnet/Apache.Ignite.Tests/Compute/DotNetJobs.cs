@@ -31,6 +31,7 @@ public static class DotNetJobs
     public static readonly JobDescriptor<object?, object?> Echo = JobDescriptor.Of(new EchoJob());
     public static readonly JobDescriptor<object?, object?> Error = new(typeof(ErrorJob));
     public static readonly JobDescriptor<object?, int> ProcessId = JobDescriptor.Of(new ProcessIdJob());
+    public static readonly JobDescriptor<object?, object?> ProcessExit = JobDescriptor.Of(new ProcessExitJob());
 
     public class AddOneJob : IComputeJob<int, int>
     {
@@ -72,5 +73,14 @@ public static class DotNetJobs
     {
         public ValueTask<int> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult(Environment.ProcessId);
+    }
+
+    public class ProcessExitJob : IComputeJob<object?, object?>
+    {
+        public ValueTask<object?> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken)
+        {
+            Environment.Exit(1);
+            return ValueTask.FromResult(arg);
+        }
     }
 }

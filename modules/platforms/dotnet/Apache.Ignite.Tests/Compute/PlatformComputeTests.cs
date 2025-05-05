@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -66,15 +67,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [TestCaseSource(nameof(ArgTypesTestCases))]
     public async Task TestAllSupportedArgTypes(object val)
     {
-        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
-        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
-
-        var jobExec = await Client.Compute.SubmitAsync(
-            jobTarget,
-            jobDesc,
-            val);
-
-        var result = await jobExec.GetResultAsync();
+        var result = await ExecJobAsync(DotNetJobs.Echo, val);
 
         if (val is decimal dec)
         {
@@ -148,14 +141,6 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestCustomMarshallers()
-    {
-        // TODO: Test various job constructors to ensure marshaller propagation.
-        await Task.Delay(1);
-        Assert.Fail("TODO");
-    }
-
-    [Test]
     public async Task TestCallDotNetJobFromJava()
     {
         var targetNode = await GetClusterNodeAsync();
@@ -177,17 +162,19 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetJobRunsInAnotherProcess()
     {
-        var jobDesc = DotNetJobs.ProcessId with { DeploymentUnits = [_defaultTestUnit] };
-        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
-
-        var jobExec = await Client.Compute.SubmitAsync(
-            jobTarget,
-            jobDesc,
-            arg: null!);
-
-        var jobProcessId = await jobExec.GetResultAsync();
+        var jobProcessId = await ExecJobAsync(DotNetJobs.ProcessId);
 
         Assert.AreNotEqual(Environment.ProcessId, jobProcessId);
+    }
+
+    [Test]
+    public async Task TestDotNetSidecarProcessIsRestartedOnExit()
+    {
+        int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId);
+        await ExecJobAsync(DotNetJobs.ProcessExit);
+        int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId);
+
+        Assert.AreNotEqual(jobProcessId1, jobProcessId2);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
@@ -242,5 +229,19 @@ public class PlatformComputeTests : IgniteTestsBase
         return nodes.First(n => n.Name == nodeName);
     }
 
-    internal record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, Guid NodeId, string JobExecutorType);
+    private async Task<TRes> ExecJobAsync<TArg, TRes>(JobDescriptor<TArg, TRes> desc, TArg arg = default!)
+    {
+        var jobDesc = desc with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
+
+        var jobExec = await Client.Compute.SubmitAsync(
+            jobTarget,
+            jobDesc,
+            arg: arg);
+
+        return await jobExec.GetResultAsync();
+    }
+
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "JSON")]
+    private record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, Guid NodeId, string JobExecutorType);
 }
