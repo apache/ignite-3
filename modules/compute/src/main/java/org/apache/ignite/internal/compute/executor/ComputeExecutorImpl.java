@@ -129,23 +129,18 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
-        DotNetComputeExecutor dotNetExec0 = dotNetComputeExecutor;
-
-        // TODO IGNITE-25116: Remove.
-        if (jobClassName.startsWith("TEST_ONLY_DOTNET_JOB:") && dotNetExec0 != null) {
-            return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName.substring(21), input, context);
-        }
-
         switch (executorType) {
             case JavaEmbedded:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
             case DotNetSidecar:
-                if (dotNetExec0 == null) {
+                DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+
+                if (dotNetExec == null) {
                     throw new IllegalStateException("DotNetComputeExecutor is not set");
                 }
 
-                return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
