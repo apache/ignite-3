@@ -29,6 +29,7 @@ using Tests.TestHelpers;
 /// <summary>
 /// .NET vs Java job benchmarks.
 /// Not entirely fair, because the Java job does not require class loading.
+/// Results on i9-12900H, .NET SDK 8.0.15, Ubuntu 22.04:
 ///
 /// | Method    | Mean       | Error    | StdDev   | Median     |
 /// |---------- |-----------:|---------:|---------:|-----------:|

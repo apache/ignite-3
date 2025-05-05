@@ -84,7 +84,7 @@ internal static class ComputeJobExecutor
         IJobExecutionContext context)
     {
         // Unload assemblies after job execution.
-        // TODO IGNITE-25257 Cache deployment units and JobLoadContext.
+        // TODO IGNITE-25257 Cache deployment units and JobLoadContext - see ComputeJobExecutorBenchmarks, expensive.
         using JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
         IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
 
