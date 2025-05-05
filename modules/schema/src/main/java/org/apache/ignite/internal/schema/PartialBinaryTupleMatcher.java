@@ -62,7 +62,6 @@ public class PartialBinaryTupleMatcher {
 
     /**
      * Compares two binary tuples represented as ByteBuffers to determine their relative ordering.
-     * <p>
      * The method takes into account tuple prefixes (the prefix writing structure is available for second buffer only), column types, and
      * other configurations to compare the tuples up to the number of elements specified in the schema. If one of the tuples is a prefix,
      * specific comparison rules leveraging the equality flag are applied.

@@ -39,6 +39,7 @@ import org.apache.ignite.internal.pagememory.datapage.DataPageReader;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.pagememory.util.PageUtils;
 import org.apache.ignite.internal.schema.BinaryTuple;
+import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.IndexColumns;
 import org.apache.ignite.internal.storage.pagememory.index.freelist.ReadIndexColumnsValue;
@@ -155,7 +156,7 @@ public interface SortedIndexTreeIo {
      *
      * @param dataPageReader Data page reader.
      * @param binaryTupleComparator Comparator of index columns {@link BinaryTuple}s.
-     * @param partialBinaryTupleComparator Comparator of index columns {@link BinaryTuple}s.
+     * @param partialBinaryTupleComparator Matcher partial data of index columns {@link BinaryTuple}s.
      * @param partitionId Partition ID.
      * @param pageAddr Page address.
      * @param idx Element's index.
@@ -166,7 +167,7 @@ public interface SortedIndexTreeIo {
     default int compare(
             DataPageReader dataPageReader,
             Comparator<ByteBuffer> binaryTupleComparator,
-            Comparator<ByteBuffer> partialBinaryTupleComparator,
+            PartialBinaryTupleMatcher partialBinaryTupleComparator,
             int partitionId,
             long pageAddr,
             int idx,
@@ -183,7 +184,7 @@ public interface SortedIndexTreeIo {
         if (indexColumnsSize == NOT_FULLY_INLINE) {
             ByteBuffer partialFirstBinaryTupleBuffer = wrapPointer(pageAddr + off + TUPLE_OFFSET, indexColumnsInlineSize());
 
-            int firstCmp = partialBinaryTupleComparator.compare(
+            int firstCmp = partialBinaryTupleComparator.match(
                     partialFirstBinaryTupleBuffer.order(LITTLE_ENDIAN),
                     secondBinaryTupleBuffer
             );
