@@ -67,9 +67,11 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -78,6 +80,7 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.configuration.ClusterChange;
 import org.apache.ignite.internal.configuration.ClusterConfiguration;
 import org.apache.ignite.internal.runner.app.Jobs.JsonMarshaller;
+import org.apache.ignite.internal.runner.app.PlatformTestNodeRunner.DotNetJobRunnerJob.DotNetJobInfo;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.marshaller.TupleMarshaller;
@@ -98,6 +101,7 @@ import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
@@ -989,6 +993,39 @@ public class PlatformTestNodeRunner {
             var ex = new IgniteException(arg);
 
             return completedFuture(ex.codeAsString());
+        }
+    }
+
+    @SuppressWarnings({"DataFlowIssue", "OptionalGetWithoutIsPresent"})
+    public static class DotNetJobRunnerJob implements ComputeJob<DotNetJobInfo, Object> {
+        @Override
+        public @Nullable Marshaller<DotNetJobInfo, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(DotNetJobInfo.class);
+        }
+
+        @Override
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, DotNetJobInfo arg) {
+            JobDescriptor<Object, Object> jobDesc = JobDescriptor.builder(arg.typeName)
+                    .units(arg.deploymentUnits)
+                    .build();
+
+            ClusterNode targetNode = context.ignite()
+                    .clusterNodes()
+                    .stream()
+                    .filter(n -> n.id().equals(arg.nodeId))
+                    .findFirst()
+                    .get();
+
+            JobTarget target = JobTarget.node(targetNode);
+
+            return context.ignite().compute().executeAsync(target, jobDesc, arg.arg);
+        }
+
+        public static class DotNetJobInfo {
+            String typeName;
+            Object arg;
+            List<DeploymentUnit> deploymentUnits;
+            UUID nodeId;
         }
     }
 }
