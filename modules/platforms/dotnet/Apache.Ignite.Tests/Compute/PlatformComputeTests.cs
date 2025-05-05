@@ -129,7 +129,10 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
-        var desc = new JobDescriptor<string, string>("SomeJob");
+        var desc = new JobDescriptor<string, string>(
+            "SomeJob",
+            [_defaultTestUnit],
+            new JobExecutionOptions { ExecutorType = JobExecutorType.DotNetSidecar });
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
