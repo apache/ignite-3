@@ -46,4 +46,10 @@ public class JobDescriptorTests
 
         Assert.AreEqual(JobExecutorType.DotNetSidecar, jobDesc.Options?.ExecutorType);
     }
+
+    [Test]
+    public void TestJobDescriptorPropagatesMarshallers()
+    {
+        Assert.Fail("TODO");
+    }
 }
