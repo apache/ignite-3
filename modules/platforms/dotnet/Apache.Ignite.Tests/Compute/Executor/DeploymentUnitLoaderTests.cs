@@ -18,7 +18,6 @@
 namespace Apache.Ignite.Tests.Compute.Executor;
 
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using System.Threading.Tasks;
 using Internal.Compute.Executor;
 using NUnit.Framework;
@@ -35,7 +34,7 @@ public class DeploymentUnitLoaderTests
     {
         using var tempDir = new TempDir();
         var asmName = nameof(TestSingleAssemblyDeploymentUnit);
-        EmitEchoJob(tempDir, asmName);
+        JobGenerator.EmitEchoJob(tempDir, asmName);
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
         IComputeJobWrapper jobWrapper = jobCtx.CreateJobWrapper($"TestNamespace.EchoJob, {asmName}");
@@ -50,10 +49,10 @@ public class DeploymentUnitLoaderTests
         using var tempDir = new TempDir();
 
         var asmName1 = nameof(TestMultiAssemblyDeploymentUnit) + "First";
-        EmitEchoJob(tempDir, asmName1);
+        JobGenerator.EmitEchoJob(tempDir, asmName1);
 
         var asmName2 = nameof(TestMultiAssemblyDeploymentUnit) + "Second";
-        EmitGetAndSetStaticFieldJob(tempDir, asmName2);
+        JobGenerator.EmitGetAndSetStaticFieldJob(tempDir, asmName2);
 
         using JobLoadContext jobCtx = DeploymentUnitLoader.GetJobLoadContext(new DeploymentUnitPaths([tempDir.Path]));
         IComputeJobWrapper jobWrapper1 = jobCtx.CreateJobWrapper($"TestNamespace.EchoJob, {asmName1}");
@@ -71,7 +70,7 @@ public class DeploymentUnitLoaderTests
     {
         using var tempDir = new TempDir();
         var asmName = nameof(TestUnitIsolation);
-        EmitGetAndSetStaticFieldJob(tempDir, asmName);
+        JobGenerator.EmitGetAndSetStaticFieldJob(tempDir, asmName);
 
         var typeName = $"TestNamespace.GetAndSetStaticFieldJob, {asmName}";
         var deploymentUnitPaths = new DeploymentUnitPaths([tempDir.Path]);
@@ -106,8 +105,8 @@ public class DeploymentUnitLoaderTests
         var asmName = nameof(TestAssemblyLoadOrder);
         var typeName = $"TestNamespace.ReturnConstJob, {asmName}";
 
-        EmitReturnConstJob(tempDir1, asmName, "Res1");
-        EmitReturnConstJob(tempDir2, asmName, "Res2");
+        JobGenerator.EmitReturnConstJob(tempDir1, asmName, "Res1");
+        JobGenerator.EmitReturnConstJob(tempDir2, asmName, "Res2");
 
         // Different order of deployment units affects the order of assembly loading.
         var deploymentUnitPaths1 = new DeploymentUnitPaths([tempDir1.Path, tempDir2.Path]);
@@ -121,67 +120,5 @@ public class DeploymentUnitLoaderTests
 
         Assert.AreEqual("Res1", res1);
         Assert.AreEqual("Res2", res2);
-    }
-
-    private static void EmitEchoJob(TempDir tempDir, string asmName) =>
-        EmitJob(
-            tempDir,
-            asmName,
-            """
-            public class EchoJob : IComputeJob<string, string>
-            {
-                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
-                    ValueTask.FromResult("Echo: " + arg);
-            }
-            """);
-
-    private static void EmitGetAndSetStaticFieldJob(TempDir tempDir, string asmName) =>
-        EmitJob(
-            tempDir,
-            asmName,
-            """
-            public class GetAndSetStaticFieldJob : IComputeJob<string, string>
-            {
-                public static string StaticField { get; set; } = "Initial";
-                
-                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken)
-                {
-                    var oldValue = StaticField;
-                    StaticField = arg;
-                    
-                    return ValueTask.FromResult(oldValue);
-                }
-                    
-            }
-            """);
-
-    private static void EmitReturnConstJob(TempDir tempDir, string asmName, string jobResult) =>
-        EmitJob(
-            tempDir,
-            asmName,
-            $$"""
-            public class ReturnConstJob : IComputeJob<string, string>
-            {
-                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
-                    ValueTask.FromResult("{{jobResult}}");
-                    
-            }
-            """);
-
-    private static void EmitJob(TempDir tempDir, string asmName, [StringSyntax("C#")] string jobCode)
-    {
-        AssemblyGenerator.EmitClassLib(
-            Path.Combine(tempDir.Path, $"{asmName}.dll"),
-            $$"""
-              using System;
-              using System.Threading;
-              using System.Threading.Tasks;
-              using Apache.Ignite.Compute;
-
-              namespace TestNamespace
-              {
-                  {{jobCode}}
-              }
-              """);
     }
 }
