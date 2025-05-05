@@ -35,6 +35,7 @@ import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestPushExporterConfigurationSchema;
 import org.apache.ignite.internal.metrics.exporters.configuration.TestPushExporterView;
+import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,7 +45,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  * Test for {@link PushMetricExporter}.
  */
 @ExtendWith(ConfigurationExtension.class)
-public class PushExporterTest {
+public class PushExporterTest extends BaseIgniteAbstractTest {
     private static final String TEST_EXPORTER_NAME = "test-push-exporter";
 
     @InjectConfiguration(polymorphicExtensions = TestPushExporterConfigurationSchema.class)
