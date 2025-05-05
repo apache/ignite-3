@@ -79,8 +79,4 @@ public class RaftGroupEventsClientListener {
             }
         }
     }
-
-    public void removeAllLeaderElectionListener() {
-        leaderElectionListeners.clear();
-    }
 }

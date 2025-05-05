@@ -79,6 +79,9 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     /** Logical topology service. */
     private final LogicalTopologyService logicalTopologyService;
 
+    /** Leader election handler. */
+    private final ServerEventHandler serverEventHandler;
+
     private final RaftGroupEventsClientListener eventsClientListener;
 
     /** Executor to invoke RPC requests. */
@@ -92,8 +95,6 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * moment (see {@link #subscribeLeader}).
      */
     private final boolean notifyOnSubscription;
-
-    private volatile Peer leader;
 
     /**
      * Map that has a set of alive peer nodes as a key set, and {@link #sendSubscribeMessage(ClusterNode, SubscriptionLeaderChangeRequest)}
@@ -132,8 +133,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         this.raftConfiguration = raftConfiguration;
         this.raftClient = raftClient;
         this.logicalTopologyService = logicalTopologyService;
+        this.serverEventHandler = new ServerEventHandler();
         this.eventsClientListener = eventsClientListener;
         this.notifyOnSubscription = notifyOnSubscription;
+
+        this.eventsClientListener.addLeaderElectionListener(groupId(), serverEventHandler);
 
         topologyEventsListener = new LogicalTopologyEventListener() {
             @Override
@@ -141,7 +145,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 Peer peer = new Peer(appearedNode.name(), 0);
 
                 if (peers().contains(peer)) {
-                    if (appearedNode.name().equals(peer.consistentId())) {
+                    if (serverEventHandler.isSubscribed() && appearedNode.name().equals(peer.consistentId())) {
                         LOG.info("New peer will be sending a leader elected notification [grpId={}, consistentId={}]", groupId(),
                                 peer.consistentId());
 
@@ -151,10 +155,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                                         .thenAcceptAsync(leaderWithTerm -> {
                                             if (!leaderWithTerm.isEmpty()
                                                     && appearedNode.name().equals(leaderWithTerm.leader().consistentId())) {
-                                                ClusterNode leaderHost = clusterService.topologyService()
-                                                        .getByConsistentId(leaderWithTerm.leader().consistentId());
-
-                                                eventsClientListener.onLeaderElected(groupId(), leaderHost, leaderWithTerm.term());
+                                                serverEventHandler.onLeaderElected(appearedNode, leaderWithTerm.term());
                                             }
                                         }, executor);
                             }
@@ -174,10 +175,6 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         };
 
         logicalTopologyService.addEventListener(topologyEventsListener);
-
-        ServerEventHandler defaultServerEventHandler = new ServerEventHandler();
-        defaultServerEventHandler.setOnLeaderElectedCallback((leader0, term) -> leader = new Peer(leader0.name()));
-        eventsClientListener.addLeaderElectionListener(raftClient.groupId(), defaultServerEventHandler);
     }
 
     /**
@@ -322,11 +319,15 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return Future that is completed when all subscription messages to peers are sent.
      */
     public CompletableFuture<Void> subscribeLeader(LeaderElectionListener callback) {
-        ServerEventHandler serverEventHandler = new ServerEventHandler();
-        serverEventHandler.setOnLeaderElectedCallback(callback);
-
         // TODO: https://issues.apache.org/jira/browse/IGNITE-23863 do the refactoring to make the code more consistent.
-        eventsClientListener.addLeaderElectionListener(groupId(), serverEventHandler);
+        if (serverEventHandler.isSubscribed()) {
+            ServerEventHandler wrappedEventHandler = new ServerEventHandler();
+            wrappedEventHandler.setOnLeaderElectedCallback(callback);
+
+            eventsClientListener.addLeaderElectionListener(groupId(), wrappedEventHandler);
+        } else {
+            serverEventHandler.setOnLeaderElectedCallback(callback);
+        }
 
         int peers = peers().size();
 
@@ -381,7 +382,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
      * @return Future that is completed when all messages about cancelling subscription to peers are sent.
      */
     public CompletableFuture<Void> unsubscribeLeader() {
-        eventsClientListener.removeAllLeaderElectionListener();
+        serverEventHandler.setOnLeaderElectedCallback(null);
+        serverEventHandler.resetLeader();
 
         return sendUnsubscribeLeaderMessageAndClearSubscribersMap();
     }
@@ -421,6 +423,8 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
 
     @Override
     public @Nullable Peer leader() {
+        Peer leader = serverEventHandler.leader();
+
         return leader == null ? raftClient.leader() : leader;
     }
 
@@ -508,7 +512,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     public void shutdown() {
         logicalTopologyService.removeEventListener(topologyEventsListener);
 
-        eventsClientListener.removeAllLeaderElectionListener();
+        eventsClientListener.removeLeaderElectionListener(groupId(), serverEventHandler);
 
         raftClient.shutdown();
     }
@@ -573,6 +577,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
         Peer leader() {
             return leaderPeer;
         }
+
+        void resetLeader() {
+            leaderPeer = null;
+        }
     }
 
     @Override
@@ -611,9 +619,11 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
                 refreshAndGetLeaderWithTerm().thenAcceptAsync(leaderWithTerm -> {
                     ClusterNode leaderHost = clusterService.topologyService().getByConsistentId(leaderWithTerm.leader().consistentId());
 
-
                     if (leaderHost != null) {
-                        eventsClientListener.onLeaderElected(groupId(), leaderHost, leaderWithTerm.term());
+                        serverEventHandler.onLeaderElected(
+                                leaderHost,
+                                leaderWithTerm.term()
+                        );
                     } else {
                         LOG.warn("Leader host occurred to leave the topology [nodeId = {}].", leaderWithTerm.leader().consistentId());
                     }
