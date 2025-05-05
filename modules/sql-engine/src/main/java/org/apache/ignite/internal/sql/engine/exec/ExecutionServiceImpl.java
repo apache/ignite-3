@@ -776,14 +776,6 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         }
     }
 
-    /**
-     * Dumps component state. This method is used for debugging purposes only.
-     */
-    @TestOnly
-    public void dumpComponentState() {
-        System.out.println("SqlExecutionService state: " + dumpDebugInfo());
-    }
-
     private static String dumpThreads() {
         ThreadMXBean bean = ManagementFactory.getThreadMXBean();
         ThreadInfo[] infos = bean.dumpAllThreads(bean.isObjectMonitorUsageSupported(), bean.isSynchronizerUsageSupported());

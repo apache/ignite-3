@@ -605,7 +605,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
             for (Ignite node : nodes) {
                 unwrapIgniteImpl(node).dumpClusterState();
-                System.out.flush();
             }
         }
     }
