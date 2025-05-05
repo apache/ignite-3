@@ -148,7 +148,8 @@ public class PersistentTxStateVacuumizer {
                                     vacuumizedPersistentTxnStatesCount.addAndGet(filteredTxIds.size());
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
-                                    // a part of regular flow and doesn't need to be logged.
+                                    // a part of regular flow and doesn't need to be logged. NodeStoppingException should be ignored as
+                                    // vacuumization will be retried after restart.
                                 } else if (hasCause(e, PrimaryReplicaMissException.class, NodeStoppingException.class)) {
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
