@@ -403,9 +403,9 @@ import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UNARY_PLUS;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.UPPER;
 import static org.apache.calcite.sql.fun.SqlStdOperatorTable.USER;
 import static org.apache.calcite.util.ReflectUtil.isStatic;
+import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.CURRENT_TIMESTAMP;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.SUBSTR;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.TYPEOF;
-import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.CURRENT_TIMESTAMP;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.GREATEST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LEAST2;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMethod.LENGTH;
@@ -3395,15 +3395,8 @@ public class RexImpTable {
         return Expressions.call(SqlFunctions.class, backupMethodName, argValueList);
       }
 
-      Expression exp = IgniteExpressions.makeBinary(expressionType,
-             argValueList.get(0), argValueList.get(1));
-
-      // TODO https://issues.apache.org/jira/browse/IGNITE-21557 Next if block should be removed.
-      if (call.getType().getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-          return Expressions.call(IgniteMethod.TO_TIMESTAMP_LTZ_EXACT_FROM_PRIMITIVE.method(), exp);
-      }
-
-      return exp;
+      return IgniteExpressions.makeBinary(expressionType,
+              argValueList.get(0), argValueList.get(1));
     }
 
     /** Returns whether any of a call's operands have ANY type. */
@@ -4134,6 +4127,7 @@ public class RexImpTable {
         default:
           final BuiltInMethod method =
               operand0.getType().getSqlTypeName() == SqlTypeName.TIMESTAMP
+                      || operand0.getType().getSqlTypeName() == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
                   ? BuiltInMethod.ADD_MONTHS
                   : BuiltInMethod.ADD_MONTHS_INT;
             return IgniteExpressions.addBoundsCheckIfNeeded(typeName, Expressions.call(method.method, trop0, trop1));
