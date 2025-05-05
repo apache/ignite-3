@@ -32,7 +32,7 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
-    public static readonly JobDescriptor<string, string> DotNetJobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "DotNetJobRunnerJob");
+    private static readonly JobDescriptor<DotNetJobInfo, object?> DotNetJobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "DotNetJobRunnerJob");
 
     private DeploymentUnit _defaultTestUnit = null!;
 
@@ -154,8 +154,20 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestCallDotNetJobFromJava()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        // TODO: Check another process id?
+        var targetNode = await GetClusterNodeAsync();
+        var target = JobTarget.Node(targetNode);
+
+        var arg = new DotNetJobInfo(
+            typeof(DotNetJobs.EchoJob).AssemblyQualifiedName!,
+            "arg1",
+            DeploymentUnits: [_defaultTestUnit],
+            NodeId: targetNode.Id);
+
+        var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobRunnerJob, arg);
+        var res = await jobExec.GetResultAsync();
+
+        Assert.AreEqual("arg1", res);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
@@ -210,5 +222,5 @@ public class PlatformComputeTests : IgniteTestsBase
         return nodes.First(n => n.Name == nodeName);
     }
 
-    public class DotNetJobInfo
+    internal record DotNetJobInfo(string TypeName, object Arg, List<DeploymentUnit> DeploymentUnits, Guid NodeId);
 }
