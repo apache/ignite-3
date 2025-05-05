@@ -44,8 +44,8 @@ internal sealed partial class ClientSocket
                 break;
 
             case ServerOp.ComputeJobExec:
-                var igniteApi = await socket._config.ApiTask.ConfigureAwait(false);
-                await ComputeJobExecutor.ExecuteJobAsync(request, response, igniteApi).ConfigureAwait(false);
+                IgniteApiAccessor api = await socket._config.ApiTask.ConfigureAwait(false);
+                await ComputeJobExecutor.ExecuteJobAsync(request, response, api).ConfigureAwait(false);
                 break;
 
             case ServerOp.ComputeJobCancel:

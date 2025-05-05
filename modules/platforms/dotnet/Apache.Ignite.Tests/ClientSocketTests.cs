@@ -87,7 +87,7 @@ namespace Apache.Ignite.Tests
             new(new(IPAddress.Loopback, serverPort ?? ServerPort), string.Empty, string.Empty);
 
         private static IgniteClientConfigurationInternal GetConfigInternal() =>
-            new(new(), Task.FromResult((IIgnite)null!));
+            new(new(), Task.FromResult((IgniteApiAccessor)null!));
 
         private class NoOpListener : IClientSocketEventListener
         {

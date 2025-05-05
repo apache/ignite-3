@@ -22,6 +22,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
+using Ignite.Compute;
 
 /// <summary>
 /// Compute executor utilities.
@@ -38,10 +39,12 @@ internal static class ComputeJobExecutor
     /// </summary>
     /// <param name="request">Request.</param>
     /// <param name="response">Response.</param>
-    /// <param name="igniteApi"></param>
+    /// <param name="context">Context.</param>
     /// <returns>Task.</returns>
-    internal static async Task ExecuteJobAsync(PooledBuffer request,
-        PooledArrayBuffer response, IIgnite igniteApi)
+    internal static async Task ExecuteJobAsync(
+        PooledBuffer request,
+        PooledArrayBuffer response,
+        IJobExecutionContext context)
     {
         var jobReq = Read(request);
         await ExecuteJobAsync(jobReq, request, response).ConfigureAwait(false);

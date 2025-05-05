@@ -17,10 +17,10 @@
 
 namespace Apache.Ignite.Internal;
 
-using System.Threading.Tasks;
+using Ignite.Compute;
 
 /// <summary>
-/// Internal Ignite client configuration.
+/// Ignite API accessor.
 /// </summary>
-/// <param name="Configuration">Configuration.</param>
-internal sealed record IgniteClientConfigurationInternal(IgniteClientConfiguration Configuration, Task<IgniteApiAccessor> ApiTask);
+/// <param name="Ignite">Ignite.</param>
+internal sealed record IgniteApiAccessor(IIgnite Ignite) : IJobExecutionContext;
