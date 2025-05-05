@@ -409,6 +409,7 @@ namespace Apache.Ignite.Internal.Compute
                 w.Write(jobDescriptor.JobClassName);
                 w.Write(options.Priority);
                 w.Write(options.MaxRetries);
+                w.Write((int)options.ExecutorType);
 
                 ComputePacker.PackArgOrResult(ref w, arg, jobDescriptor.ArgMarshaller);
             }
