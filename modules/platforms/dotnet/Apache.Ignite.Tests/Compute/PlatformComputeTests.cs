@@ -187,8 +187,9 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestIgniteApiAccessFromJob()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var apiRes = await ExecJobAsync(DotNetJobs.ApiTest, "Hello world!");
+
+        Assert.AreEqual("Hello world!", apiRes);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)

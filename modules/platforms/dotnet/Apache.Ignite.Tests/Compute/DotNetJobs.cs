@@ -33,6 +33,7 @@ public static class DotNetJobs
     public static readonly JobDescriptor<object?, object?> Error = new(typeof(ErrorJob));
     public static readonly JobDescriptor<object?, int> ProcessId = JobDescriptor.Of(new ProcessIdJob());
     public static readonly JobDescriptor<object?, object?> ProcessExit = JobDescriptor.Of(new ProcessExitJob());
+    public static readonly JobDescriptor<string, string> ApiTest = new(typeof(ApiTestJob));
 
     public class AddOneJob : IComputeJob<int, int>
     {
