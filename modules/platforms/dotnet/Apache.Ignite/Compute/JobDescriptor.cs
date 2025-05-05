@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Compute;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using Marshalling;
 
 /// <summary>
@@ -30,9 +31,26 @@ using Marshalling;
 /// <param name="ResultMarshaller">Result marshaller (deserializer).</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
+[SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
 public sealed record JobDescriptor<TArg, TResult>(
     string JobClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
     JobExecutionOptions? Options = null,
     IMarshaller<TArg>? ArgMarshaller = null,
     IMarshaller<TResult>? ResultMarshaller = null);
+
+/// <summary>
+/// Job descriptor factory methods.
+/// </summary>
+public static class JobDescriptor
+{
+    /// <summary>
+    /// Creates a job descriptor for the provided job.
+    /// </summary>
+    /// <param name="job">Job instance.</param>
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    /// <typeparam name="TResult">Result type.</typeparam>
+    /// <returns>Job descriptor.</returns>
+    public static JobDescriptor<TArg, TResult> Of<TArg, TResult>(IComputeJob<TArg, TResult> job) =>
+        new(job.GetType().AssemblyQualifiedName!, Options: new(ExecutorType: JobExecutorType.DotNetSidecar));
+}
