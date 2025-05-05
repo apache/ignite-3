@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -81,6 +82,33 @@ public static class DotNetJobs
         {
             Environment.Exit(1);
             return ValueTask.FromResult(arg);
+        }
+    }
+
+    public class ApiTestJob : IComputeJob<string, string>
+    {
+        public async ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken)
+        {
+            IIgnite ignite = context.Ignite;
+            var sb = new StringBuilder();
+            sb.Append($"Arg: {arg}");
+
+            await using var cursor = await ignite.Sql.ExecuteAsync(null, "select 42");
+            await foreach (var row in cursor)
+            {
+                sb.AppendLine($"SQL result: {row}");
+            }
+
+            var table = await ignite.Tables.GetTableAsync("TBL1");
+            var view = table!.GetKeyValueView<long, string>();
+
+            await using var tx = await ignite.Transactions.BeginAsync();
+            await view.PutAsync(tx, 1L, "Hello");
+            var val = await view.GetAsync(tx, 1L);
+
+            sb.AppendLine($"Table result: {val}");
+
+            return sb.ToString();
         }
     }
 }
