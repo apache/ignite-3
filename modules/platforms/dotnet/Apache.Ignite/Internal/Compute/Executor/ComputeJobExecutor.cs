@@ -94,6 +94,6 @@ internal static class ComputeJobExecutor
         await jobWrapper.ExecuteAsync(context, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
     }
 
-    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local")]
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "DTO.")]
     private record JobExecuteRequest(long JobId, DeploymentUnitPaths DeploymentUnitPaths, string JobClassName);
 }
