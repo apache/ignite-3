@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.allOf;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -36,6 +36,7 @@ import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -148,7 +149,7 @@ public class PersistentTxStateVacuumizer {
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
                                     // a part of regular flow and doesn't need to be logged.
-                                } else if (unwrapCause(e) instanceof PrimaryReplicaMissException) {
+                                } else if (hasCause(e, PrimaryReplicaMissException.class, NodeStoppingException.class)) {
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(
