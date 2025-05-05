@@ -23,4 +23,5 @@ using System.Threading.Tasks;
 /// Internal Ignite client configuration.
 /// </summary>
 /// <param name="Configuration">Configuration.</param>
+/// <param name="ApiTask">API accessor task.</param>
 internal sealed record IgniteClientConfigurationInternal(IgniteClientConfiguration Configuration, Task<IgniteApiAccessor> ApiTask);
