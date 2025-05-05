@@ -119,7 +119,7 @@ public class DotNetComputeExecutor {
                     var cause = unwrapCause(e);
 
                     if (cause instanceof TraceableException) {
-                        TraceableException te = (TraceableException) e;
+                        TraceableException te = (TraceableException) cause;
 
                         if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
                             throw new IgniteException(te.traceId(), te.code(), ".NET compute executor connection lost", e);
