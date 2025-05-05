@@ -32,6 +32,8 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
+    public static readonly JobDescriptor<string, string> DotNetJobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "DotNetJobRunnerJob");
+
     private DeploymentUnit _defaultTestUnit = null!;
 
     [OneTimeSetUp]
@@ -207,4 +209,6 @@ public class PlatformComputeTests : IgniteTestsBase
         var nodes = await Client.GetClusterNodesAsync();
         return nodes.First(n => n.Name == nodeName);
     }
+
+    public class DotNetJobInfo
 }

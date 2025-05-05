@@ -67,6 +67,8 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
@@ -1005,8 +1007,13 @@ public class PlatformTestNodeRunner {
 
         @Override
         public CompletableFuture<Object> executeAsync(JobExecutionContext context, DotNetJobInfo arg) {
+            JobExecutionOptions jobOpts = JobExecutionOptions.builder()
+                    .executorType(JobExecutorType.DOTNET_SIDECAR)
+                    .build();
+
             JobDescriptor<Object, Object> jobDesc = JobDescriptor.builder(arg.typeName)
                     .units(arg.deploymentUnits)
+                    .options(jobOpts)
                     .build();
 
             ClusterNode targetNode = context.ignite()
