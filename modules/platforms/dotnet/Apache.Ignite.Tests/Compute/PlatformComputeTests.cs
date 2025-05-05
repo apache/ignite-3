@@ -175,8 +175,8 @@ public class PlatformComputeTests : IgniteTestsBase
         int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId);
 
         Assert.AreNotEqual(jobProcessId1, jobProcessId2);
-        Assert.AreEqual("x", ex.Message);
-        Assert.AreEqual("x", ex.CodeAsString);
+        Assert.AreEqual(".NET compute executor connection lost", ex.Message);
+        Assert.AreEqual("IGN-CLIENT-9", ex.CodeAsString);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
