@@ -168,8 +168,7 @@ public class ConfigurationAnyListenerTest {
                 List.of(RootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
