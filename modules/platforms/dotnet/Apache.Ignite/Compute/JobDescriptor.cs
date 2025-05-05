@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using Marshalling;
@@ -40,7 +41,7 @@ public sealed record JobDescriptor<TArg, TResult>(
     IMarshaller<TResult>? ResultMarshaller = null);
 
 /// <summary>
-/// Job descriptor factory methods.
+/// Job descriptor factory methods for .NET jobs.
 /// </summary>
 public static class JobDescriptor
 {
@@ -52,5 +53,15 @@ public static class JobDescriptor
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>Job descriptor.</returns>
     public static JobDescriptor<TArg, TResult> Of<TArg, TResult>(IComputeJob<TArg, TResult> job) =>
-        new(job.GetType().AssemblyQualifiedName!, Options: new(ExecutorType: JobExecutorType.DotNetSidecar));
+        Of<TArg, TResult>(job.GetType());
+
+    /// <summary>
+    /// Creates a job descriptor for the provided job type.
+    /// </summary>
+    /// <param name="jobType">Job type.</param>
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    /// <typeparam name="TResult">Result type.</typeparam>
+    /// <returns>Job descriptor.</returns>
+    public static JobDescriptor<TArg, TResult> Of<TArg, TResult>(Type jobType) =>
+        new(jobType.AssemblyQualifiedName!, Options: new(ExecutorType: JobExecutorType.DotNetSidecar));
 }
