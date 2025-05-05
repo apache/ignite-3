@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.retryOperationUntilSuc
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.BiFunction;
@@ -73,7 +73,7 @@ public class PlacementDriverMessageProcessor {
     private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
 
     // TODO: IGNITE-20063 Maybe get rid of it
-    private final ExecutorService executor;
+    private final Executor executor;
 
     /** Latest lease expiration time. */
     private volatile HybridTimestamp leaseExpirationTime;
@@ -101,7 +101,7 @@ public class PlacementDriverMessageProcessor {
      * @param clockService Clock service.
      * @param replicaReservationClosure Closure that will be called to reserve the replica for becoming primary. It returns whether
      *     the reservation was successful.
-     * @param executor External executor.
+     * @param executor Executor for handling requests.
      * @param storageIndexTracker Storage index tracker.
      * @param raftClient Raft client.
      * @param failureProcessor Failure processor.
@@ -112,7 +112,7 @@ public class PlacementDriverMessageProcessor {
             PlacementDriver placementDriver,
             ClockService clockService,
             BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
-            ExecutorService executor,
+            Executor executor,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
             FailureProcessor failureProcessor
@@ -177,46 +177,48 @@ public class PlacementDriverMessageProcessor {
         LOG.info("Received LeaseGrantedMessage for replica [groupId={}, leaseStartTime={}, force={}].", groupId, msg.leaseStartTime(),
                 msg.force());
 
-        return placementDriver.previousPrimaryExpired(groupId).thenCompose(unused -> leaderFuture().thenCompose(leader -> {
-            HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
+        return placementDriver.previousPrimaryExpired(groupId).thenCompose(unused -> leaderFuture()
+                .thenComposeAsync(leader -> {
+                    HybridTimestamp leaseExpirationTime = this.leaseExpirationTime;
 
-            assert leaseExpirationTime == null || clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
-                    : "Invalid lease expiration time in message, msg=" + msg;
+                    assert leaseExpirationTime == null || clockService.after(msg.leaseExpirationTime(), leaseExpirationTime)
+                            : "Invalid lease expiration time in message, msg=" + msg;
 
-            if (msg.force()) {
-                // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
-                // group leader are received.
-                return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                        .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
-                                msg.leaseStartTime().longValue(),
-                                localNode.id(),
-                                localNode.name()
-                        ))
-                        .thenCompose(v -> {
-                            CompletableFuture<LeaseGrantedMessageResponse> respFut =
-                                    acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
+                    if (msg.force()) {
+                        // Replica must wait till storage index reaches the current leader's index to make sure that all updates made on the
+                        // group leader are received.
+                        return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
+                                .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
+                                        msg.leaseStartTime().longValue(),
+                                        localNode.id(),
+                                        localNode.name()
+                                ))
+                                .thenCompose(v -> {
+                                    CompletableFuture<LeaseGrantedMessageResponse> respFut =
+                                            acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime());
 
-                            if (leader.equals(localNode)) {
-                                return respFut;
-                            } else {
-                                return raftClient.transferLeadership(new Peer(localNode.name()))
-                                        .thenCompose(ignored -> respFut);
-                            }
-                        });
-            } else {
-                if (leader.equals(localNode)) {
-                    return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
-                            .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
-                                    msg.leaseStartTime().longValue(),
-                                    localNode.id(),
-                                    localNode.name()
-                            ))
-                            .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
-                } else {
-                    return proposeLeaseRedirect(leader);
-                }
-            }
-        }));
+                                    if (leader.equals(localNode)) {
+                                        return respFut;
+                                    } else {
+                                        return raftClient.transferLeadership(new Peer(localNode.name()))
+                                                .thenCompose(ignored -> respFut);
+                                    }
+                                });
+                    } else {
+                        if (leader.equals(localNode)) {
+                            return waitForActualState(msg.leaseStartTime(), msg.leaseExpirationTime().getPhysical())
+                                    .thenCompose(v -> sendPrimaryReplicaChangeToReplicationGroup(
+                                            msg.leaseStartTime().longValue(),
+                                            localNode.id(),
+                                            localNode.name()
+                                    ))
+                                    .thenCompose(v -> acceptLease(msg.leaseStartTime(), msg.leaseExpirationTime()));
+                        } else {
+                            return proposeLeaseRedirect(leader);
+                        }
+                    }
+                }, executor)
+        );
     }
 
     private CompletableFuture<Void> sendPrimaryReplicaChangeToReplicationGroup(

@@ -117,7 +117,6 @@ import org.apache.ignite.internal.replicator.message.ReplicaSafeTimeSyncRequest;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.replicator.message.TimestampAware;
 import org.apache.ignite.internal.thread.ExecutorChooser;
-import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteStripedBusyLock;
@@ -145,6 +144,10 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
     private static final ReplicaMessagesFactory REPLICA_MESSAGES_FACTORY = new ReplicaMessagesFactory();
 
     private static final PlacementDriverMessagesFactory PLACEMENT_DRIVER_MESSAGES_FACTORY = new PlacementDriverMessagesFactory();
+
+    /** Executor for the throttled log. */
+    // TODO: IGNITE-20063 Maybe get rid of it
+    private final ExecutorService throttledLogExecutor;
 
     private final IgniteThrottledLogger throttledLog;
 
@@ -208,13 +211,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private final RaftGroupOptionsConfigurer partitionRaftConfigurer;
 
-    /** Executor. */
-    // TODO: IGNITE-20063 Maybe get rid of it
-    private final ExecutorService executor;
-
     private final ReplicaStateManager replicaStateManager;
-
-    private final ExecutorService replicasCreationExecutor;
 
     private volatile UUID localNodeId;
 
@@ -295,27 +292,16 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
         );
 
-        int threadCount = Runtime.getRuntime().availableProcessors();
-
-        executor = new ThreadPoolExecutor(
-                threadCount,
-                threadCount,
+        throttledLogExecutor = new ThreadPoolExecutor(
+                1,
+                1,
                 30,
                 TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "replica", LOG)
         );
 
-        replicasCreationExecutor = new ThreadPoolExecutor(
-                threadCount,
-                threadCount,
-                30,
-                TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "replica-manager", LOG, STORAGE_READ, STORAGE_WRITE)
-        );
-
-        throttledLog = Loggers.toThrottledLogger(LOG, executor);
+        throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
     }
 
     private void onReplicaMessageReceived(NetworkMessage message, ClusterNode sender, @Nullable Long correlationId) {
@@ -641,7 +627,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 placementDriver,
                                 clockService,
                                 replicaStateManager::reserveReplica,
-                                executor,
+                                requestsExecutor,
                                 storageIndexTracker,
                                 raftClient,
                                 failureProcessor
@@ -706,7 +692,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 placementDriver,
                                 clockService,
                                 replicaStateManager::reserveReplica,
-                                executor,
+                                requestsExecutor,
                                 storageIndexTracker,
                                 raftClient,
                                 failureProcessor
@@ -960,8 +946,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         int shutdownTimeoutSeconds = 10;
 
         shutdownAndAwaitTermination(scheduledIdleSafeTimeSyncExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(executor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
-        shutdownAndAwaitTermination(replicasCreationExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(throttledLogExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
 
         // There we're closing replicas' futures that was created by requests and should be completed with NodeStoppingException.
         try {
