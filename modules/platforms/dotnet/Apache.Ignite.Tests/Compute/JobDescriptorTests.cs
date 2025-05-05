@@ -17,7 +17,12 @@
 
 namespace Apache.Ignite.Tests.Compute;
 
+using System;
+using System.Buffers;
+using System.Threading;
+using System.Threading.Tasks;
 using Ignite.Compute;
+using Ignite.Marshalling;
 using NUnit.Framework;
 
 /// <summary>
@@ -50,6 +55,20 @@ public class JobDescriptorTests
     [Test]
     public void TestJobDescriptorPropagatesMarshallers()
     {
-        Assert.Fail("TODO");
+        var job = new MarshJob();
+        var jobDesc = JobDescriptor.Of(job);
+
+        Assert.AreEqual(job.InputMarshaller, jobDesc.ArgMarshaller);
+        Assert.AreEqual(job.ResultMarshaller, jobDesc.ResultMarshaller);
+    }
+
+    private class MarshJob : IComputeJob<int, string>
+    {
+        public IMarshaller<int> InputMarshaller { get; } = new JsonMarshaller<int>();
+
+        public IMarshaller<string> ResultMarshaller { get; } = new JsonMarshaller<string>();
+
+        public ValueTask<string> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(arg.ToString());
     }
 }
