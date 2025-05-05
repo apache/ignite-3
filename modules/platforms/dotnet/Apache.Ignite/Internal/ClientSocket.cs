@@ -70,6 +70,9 @@ namespace Apache.Ignite.Internal
         /** Underlying stream. */
         private readonly Stream _stream;
 
+        /** Configuration. */
+        private readonly IgniteClientConfigurationInternal _config;
+
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
@@ -130,22 +133,23 @@ namespace Apache.Ignite.Internal
         /// <param name="logger">Logger.</param>
         private ClientSocket(
             Stream stream,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configuration,
             ConnectionContext connectionContext,
             IClientSocketEventListener listener,
             ILogger logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
+            _config = configuration;
             _listener = listener;
             _logger = logger;
-            _socketTimeout = configuration.SocketTimeout;
-            _operationTimeout = configuration.OperationTimeout;
+            _socketTimeout = configuration.Configuration.SocketTimeout;
+            _operationTimeout = configuration.Configuration.OperationTimeout;
 
             MetricsContext = connectionContext.ClusterNode.MetricsContext ??
                              throw new InvalidOperationException("Metrics context is missing.");
 
-            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
+            _heartbeatInterval = GetHeartbeatInterval(configuration.Configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
@@ -226,13 +230,13 @@ namespace Apache.Ignite.Internal
                     logger.LogSslConnectionEstablishedDebug(socket.RemoteEndPoint, sslStream.NegotiatedCipherSuite);
                 }
 
-                var context = await HandshakeAsync(stream, endPoint, configurationInternal, listener, cts.Token)
+                var context = await HandshakeAsync(stream, endPoint, configuration, listener, cts.Token)
                     .WaitAsync(configuration.SocketTimeout, cts.Token)
                     .ConfigureAwait(false);
 
                 logger.LogHandshakeSucceededDebug(socket.RemoteEndPoint, context);
 
-                return new ClientSocket(stream, configuration, context, listener, logger);
+                return new ClientSocket(stream, configurationInternal, context, listener, logger);
             }
             catch (Exception ex)
             {
@@ -331,12 +335,12 @@ namespace Apache.Ignite.Internal
         private static async Task<ConnectionContext> HandshakeAsync(
             Stream stream,
             SocketEndpoint endPoint,
-            IgniteClientConfigurationInternal configuration,
+            IgniteClientConfiguration configuration,
             IClientSocketEventListener listener,
             CancellationToken cancellationToken)
         {
             await stream.WriteAsync(ProtoCommon.MagicBytes, cancellationToken).ConfigureAwait(false);
-            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration.Configuration, endPoint.MetricsContext, cancellationToken)
+            await WriteHandshakeAsync(stream, CurrentProtocolVersion, configuration, endPoint.MetricsContext, cancellationToken)
                 .ConfigureAwait(false);
 
             await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -346,7 +350,7 @@ namespace Apache.Ignite.Internal
             using var response = await ReadResponseAsync(stream, new byte[4], endPoint.MetricsContext, CancellationToken.None)
                 .ConfigureAwait(false);
 
-            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream), listener, configuration);
+            return ReadHandshakeResponse(response.GetReader(), endPoint, GetSslInfo(stream), listener);
         }
 
         private static async ValueTask CheckMagicBytesAsync(
@@ -381,8 +385,7 @@ namespace Apache.Ignite.Internal
             MsgPackReader reader,
             SocketEndpoint endPoint,
             ISslInfo? sslInfo,
-            IClientSocketEventListener listener,
-            IgniteClientConfigurationInternal configuration)
+            IClientSocketEventListener listener)
         {
             var serverVer = new ClientProtocolVersion(reader.ReadInt16(), reader.ReadInt16(), reader.ReadInt16());
 
@@ -443,8 +446,7 @@ namespace Apache.Ignite.Internal
                 clusterIds,
                 clusterName,
                 sslInfo,
-                features,
-                configuration);
+                features);
         }
 
         private static IgniteException ReadError(ref MsgPackReader reader)

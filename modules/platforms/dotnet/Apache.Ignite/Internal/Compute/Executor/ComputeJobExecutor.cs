@@ -38,10 +38,10 @@ internal static class ComputeJobExecutor
     /// </summary>
     /// <param name="request">Request.</param>
     /// <param name="response">Response.</param>
+    /// <param name="igniteApi"></param>
     /// <returns>Task.</returns>
-    internal static async Task ExecuteJobAsync(
-        PooledBuffer request,
-        PooledArrayBuffer response)
+    internal static async Task ExecuteJobAsync(PooledBuffer request,
+        PooledArrayBuffer response, IIgnite igniteApi)
     {
         var jobReq = Read(request);
         await ExecuteJobAsync(jobReq, request, response).ConfigureAwait(false);

@@ -40,8 +40,7 @@ namespace Apache.Ignite.Internal
         IReadOnlyList<Guid> ClusterIds,
         string ClusterName,
         ISslInfo? SslInfo,
-        ProtocolBitmaskFeature Features,
-        IgniteClientConfigurationInternal Configuration)
+        ProtocolBitmaskFeature Features)
     {
         /// <summary>
         /// Gets the current cluster id.
