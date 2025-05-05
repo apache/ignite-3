@@ -26,16 +26,13 @@ using Ignite.Compute;
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public static class DotNetJobs
 {
-    // TODO IGNITE-25116: Remove.
-    public const string TempJobPrefix = "TEST_ONLY_DOTNET_JOB:";
-
     public static readonly JobDescriptor<int, int> AddOne = GetDesc(new AddOneJob());
     public static readonly JobDescriptor<int, int> NoCtor = GetDesc(new NoCtorJob(1));
     public static readonly JobDescriptor<object?, object?> Echo = GetDesc(new EchoJob());
     public static readonly JobDescriptor<object?, object?> Error = GetDesc(new ErrorJob());
 
     private static JobDescriptor<TArg, TRes> GetDesc<TArg, TRes>(IComputeJob<TArg, TRes> job) =>
-        new(TempJobPrefix + job.GetType().AssemblyQualifiedName!);
+        new(job.GetType().AssemblyQualifiedName!);
 
     public class AddOneJob : IComputeJob<int, int>
     {

@@ -82,7 +82,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestMissingClass()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync());
-        var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "MyNamespace.MyJob");
+        var desc = new JobDescriptor<string, string>("MyNamespace.MyJob");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
@@ -126,7 +126,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
-        var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "SomeJob");
+        var desc = new JobDescriptor<string, string>("SomeJob");
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
