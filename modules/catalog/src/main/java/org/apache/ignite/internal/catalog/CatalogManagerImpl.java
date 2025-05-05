@@ -30,6 +30,7 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultZo
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
+import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import java.util.ArrayList;
@@ -193,7 +194,7 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
 
     @Override
     public CompletableFuture<Void> catalogReadyFuture(int version) {
-        return versionTracker.waitFor(version);
+        return inBusyLockAsync(busyLock, () -> versionTracker.waitFor(version));
     }
 
     @Override
@@ -432,7 +433,9 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
             // This is important for the distribution zones recovery purposes:
             // we guarantee recovery for a zones' catalog actions only if that actions were completed.
             return updateLog.append(new VersionedUpdate(newVersion, delayDurationMsSupplier.getAsLong(), bulkUpdateEntries))
-                    .thenCompose(result -> versionTracker.waitFor(newVersion).thenApply(none -> result))
+                    .thenCompose(result -> {
+                        return inBusyLockAsync(busyLock, () -> versionTracker.waitFor(newVersion).thenApply(none -> result));
+                    })
                     .thenCompose(result -> {
                         if (result) {
                             long newCatalogTime = catalogByVer.get(newVersion).time();
@@ -509,7 +512,15 @@ public class CatalogManagerImpl extends AbstractEventProducer<CatalogEvent, Cata
                             failureProcessor.process(new FailureContext(err, "Failed to apply catalog update."));
                         }
 
-                        versionTracker.update(version, null);
+                        if (!busyLock.enterBusy()) {
+                            return;
+                        }
+
+                        try {
+                            versionTracker.update(version, null);
+                        } finally {
+                            busyLock.leaveBusy();
+                        }
                     });
         }
     }
