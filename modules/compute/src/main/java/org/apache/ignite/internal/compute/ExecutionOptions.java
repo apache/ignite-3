@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import java.util.Objects;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 

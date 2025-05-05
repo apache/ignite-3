@@ -37,7 +37,7 @@ import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
-import org.apache.ignite.internal.compute.JobExecutorType;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;

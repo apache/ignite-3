@@ -15,12 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+package org.apache.ignite.compute;
 
 /**
  * Job executor type.
  */
-public enum JobExecutorType { // TODO IGNITE-25116: Move to public API
+public enum JobExecutorType {
+    /**
+     * Embedded Java job executor. Executes Java jobs in the same process and JVM where the Ignite node is running.
+     */
     JavaEmbedded,
+
+    /**
+     * Side-car .NET job executor. Executes .NET jobs in a separate process.
+     *
+     * <p>Starts the process on demand. Requires .NET runtime to be installed.
+     */
     DotNetSidecar
 }
