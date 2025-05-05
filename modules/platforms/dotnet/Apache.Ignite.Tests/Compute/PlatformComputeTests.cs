@@ -170,8 +170,13 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetSidecarProcessIsRestartedOnExit()
     {
+        // Get executor process id.
         int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId);
+
+        // Run a job that exits the process. This job fails because the process exits before the result is returned.
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await ExecJobAsync(DotNetJobs.ProcessExit));
+
+        // Run another job - the process should be restarted automatically.
         int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId);
 
         Assert.AreNotEqual(jobProcessId1, jobProcessId2);
