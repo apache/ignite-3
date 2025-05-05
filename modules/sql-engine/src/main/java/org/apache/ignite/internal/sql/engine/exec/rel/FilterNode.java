@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.function.Predicate;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 
 /**
@@ -138,5 +139,12 @@ public class FilterNode<RowT> extends AbstractNode<RowT> implements SingleNode<R
             requested = 0;
             downstream().end();
         }
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting);
     }
 }
