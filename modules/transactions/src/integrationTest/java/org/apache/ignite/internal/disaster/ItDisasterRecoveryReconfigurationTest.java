@@ -140,7 +140,6 @@ import org.apache.ignite.tx.TransactionException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -1498,7 +1497,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
-    @RepeatedTest(100)
+    @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
         int partId = 0;
