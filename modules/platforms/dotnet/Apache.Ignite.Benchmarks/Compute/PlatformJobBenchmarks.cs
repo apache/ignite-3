@@ -33,13 +33,14 @@ using Tests.TestHelpers;
 ///
 /// | Method    | Mean     | Error    | StdDev   | Median   | Ratio | RatioSD |
 /// |---------- |---------:|---------:|---------:|---------:|------:|--------:|
-/// | DotNetJob | 900.8 us | 17.90 us | 33.17 us | 892.0 us |  3.31 |    0.42 |
-/// | JavaJob   | 276.1 us | 12.75 us | 35.96 us | 261.5 us |  1.02 |    0.18 |.
+/// | DotNetJob | 776.0 us | 15.16 us | 28.09 us | 772.3 us |  2.86 |    0.40 |
+/// | JavaJob   | 276.4 us | 14.63 us | 41.27 us | 258.6 us |  1.02 |    0.21 |
 ///
 /// Notes:
 /// 1. Presence of a deployment unit in the job descriptor
 ///    slows down the Java side of things by ~150us, even when no Java classes are loaded.
 /// 2. Dev mode executor uses Debug build (hardcoded path) - we should measure Release to be more fair.
+/// 3. Disable Netty leak detector.
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
