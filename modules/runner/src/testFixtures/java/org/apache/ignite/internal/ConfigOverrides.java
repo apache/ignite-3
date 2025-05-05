@@ -15,29 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine;
+package org.apache.ignite.internal;
 
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
-import org.apache.ignite.internal.tx.impl.TransactionInflights;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
 /**
- * Simple facade that propagates invocations to underlying {@link TransactionInflights} object.
+ * Annotation to make configuration overrides. Supports only root elements of the configuration.
+ * Used for testing purposes only.
  */
-class InflightTransactionTracker implements TransactionTracker {
-    private final TransactionInflights delegate;
-
-    InflightTransactionTracker(TransactionInflights delegate) {
-        this.delegate = delegate;
-    }
-
-    @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return delegate.addInflight(txId, readOnly);
-    }
-
-    @Override
-    public void unregister(UUID txId) {
-        delegate.removeInflight(txId);
-    }
+@Retention(RetentionPolicy.RUNTIME)
+@Target({ElementType.TYPE, ElementType.METHOD})
+public @interface ConfigOverrides {
+    /** See {@link ConfigOverride}. */
+    ConfigOverride[] value() default {};
 }

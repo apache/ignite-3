@@ -27,8 +27,8 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_CREATE;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.TABLE_DROP;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.findTablesByZoneId;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.value;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
@@ -75,6 +75,8 @@ import org.apache.ignite.internal.distributionzones.NodeWithAttributes;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEvent;
 import org.apache.ignite.internal.distributionzones.events.HaZoneTopologyUpdateEventParams;
 import org.apache.ignite.internal.distributionzones.exception.DistributionZoneNotFoundException;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -242,7 +244,11 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
 
         metaStorageManager.registerExactWatch(RECOVERY_TRIGGER_KEY, watchListener);
 
-        dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZoneTopologyReduce);
+        if (!enabledColocation()) {
+            dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZoneTablePartitionTopologyReduce);
+        } else {
+            dzManager.listen(HaZoneTopologyUpdateEvent.TOPOLOGY_REDUCED, this::onHaZonePartitionTopologyReduce);
+        }
 
         catalogManager.listen(TABLE_CREATE, fromConsumer(this::onTableCreate));
 
@@ -277,7 +283,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         return ongoingOperationsById;
     }
 
-    private CompletableFuture<Boolean> onHaZoneTopologyReduce(HaZoneTopologyUpdateEventParams params) {
+    private CompletableFuture<Boolean> onHaZoneTablePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
         int zoneId = params.zoneId();
         long revision = params.causalityToken();
         long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
@@ -292,7 +298,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
                 TablePartitionId partitionId = new TablePartitionId(table.id(), partId);
 
-                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision).size() < calculateQuorum(zoneDescriptor.replicas())) {
+                if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision, false).size() < calculateQuorum(zoneDescriptor.replicas())) {
                     partitionsToReset.add(partId);
                 }
             }
@@ -309,9 +315,47 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         }
     }
 
-    private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(TablePartitionId partitionId, long revision) {
-        Set<Assignment> stableAssignments = Assignments.fromBytes(
-                metaStorageManager.getLocally(stablePartAssignmentsKey(partitionId), revision).value()).nodes();
+    private CompletableFuture<Boolean> onHaZonePartitionTopologyReduce(HaZoneTopologyUpdateEventParams params) {
+        int zoneId = params.zoneId();
+        long revision = params.causalityToken();
+        long timestamp = metaStorageManager.timestampByRevisionLocally(revision).longValue();
+
+        Catalog catalog = catalogManager.activeCatalog(timestamp);
+        CatalogZoneDescriptor zoneDescriptor = catalog.zone(zoneId);
+
+        Set<Integer> partitionsToReset = new HashSet<>();
+
+        for (int partId = 0; partId < zoneDescriptor.partitions(); partId++) {
+            ZonePartitionId partitionId = new ZonePartitionId(zoneId, partId);
+
+            if (stableAssignmentsWithOnlyAliveNodes(partitionId, revision, true).size() < calculateQuorum(zoneDescriptor.replicas())) {
+                partitionsToReset.add(partId);
+            }
+        }
+
+        if (!partitionsToReset.isEmpty()) {
+            return resetPartitions(zoneDescriptor.name(), Map.of(zoneId, partitionsToReset), false, revision, true).thenApply(r -> false);
+        } else {
+            return falseCompletedFuture();
+        }
+    }
+
+    private Set<Assignment> stableAssignmentsWithOnlyAliveNodes(ReplicationGroupId partitionId, long revision, boolean colocationEnabled) {
+        Set<Assignment> stableAssignments;
+
+        if (colocationEnabled) {
+            stableAssignments = ZoneRebalanceUtil.zoneStableAssignmentsGetLocally(
+                    metaStorageManager,
+                    (ZonePartitionId) partitionId,
+                    revision
+            ).nodes();
+        } else {
+            stableAssignments = RebalanceUtil.stableAssignmentsGetLocally(
+                    metaStorageManager,
+                    (TablePartitionId) partitionId,
+                    revision
+            ).nodes();
+        }
 
         Set<String> logicalTopology = dzManager.logicalTopology(revision)
                 .stream().map(NodeWithAttributes::nodeName).collect(Collectors.toUnmodifiableSet());
@@ -457,7 +501,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
      * @param partitionIds IDs of partitions to restart. If empty, restart all zone's partitions.
      * @return Future that completes when partitions are restarted.
      */
-    public CompletableFuture<Void> restartPartitions(
+    public CompletableFuture<Void> restartTablePartitions(
             Set<String> nodeNames,
             String zoneName,
             String schemaName,
@@ -551,8 +595,7 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
                     partitionIds,
                     catalog,
                     zoneState()
-            )
-                    .thenApply(res -> normalizeLocal(res, catalog));
+            ).thenApply(res -> normalizeLocal(res, catalog));
         } catch (Throwable t) {
             return failedFuture(t);
         }

@@ -64,7 +64,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 // TODO https://issues.apache.org/jira/browse/IGNITE-22332 Add test cases.
 public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest {
     /** Table name. */
@@ -105,8 +104,9 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
     }
 
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @Test
-    void testRestartPartitions() {
+    void testRestartTablePartitions() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         insert(0, 0);
@@ -114,7 +114,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
         int partitionId = 0;
 
-        CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartPartitions(
+        CompletableFuture<Void> restartPartitionsFuture = node.disasterRecoveryManager().restartTablePartitions(
                 Set.of(node.name()),
                 ZONE_NAME,
                 SqlCommon.DEFAULT_SCHEMA_NAME,

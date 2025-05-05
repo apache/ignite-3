@@ -88,7 +88,8 @@ public class HoconPresentationTest {
                 List.of(TestRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator)),
+                changer -> {}
         );
 
         assertThat(cfgRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());

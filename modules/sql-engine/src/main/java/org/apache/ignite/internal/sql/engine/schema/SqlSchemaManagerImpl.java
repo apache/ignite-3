@@ -125,6 +125,12 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     /** {@inheritDoc} */
     @Override
+    public int catalogVersion(long timestamp) {
+        return catalogManager.activeCatalogVersion(timestamp);
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public CompletableFuture<Void> schemaReadyFuture(int catalogVersion) {
         // SqlSchemaManager creates SQL schema lazily on-demand, thus waiting for Catalog version is enough.
         if (catalogManager.latestCatalogVersion() >= catalogVersion) {

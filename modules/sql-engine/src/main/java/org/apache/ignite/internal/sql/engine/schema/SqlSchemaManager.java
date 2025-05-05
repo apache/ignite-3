@@ -33,6 +33,9 @@ public interface SqlSchemaManager {
      */
     IgniteSchemas schemas(long timestamp);
 
+    /** Returns version of the schemas which is considered to active at the given timestamp. */
+    int catalogVersion(long timestamp);
+
     /**
      * Returns table by given id, which version correspond to the one from catalog of given version.
      *

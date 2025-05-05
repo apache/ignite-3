@@ -577,9 +577,9 @@ public class ZoneRebalanceUtil {
             int partitionNumber,
             long revision
     ) {
-        Entry entry = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, partitionNumber)), revision);
-
-        return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value()).nodes();
+        Assignments assignments =
+                zoneStableAssignmentsGetLocally(metaStorageManager, new ZonePartitionId(zoneId, partitionNumber), revision);
+        return assignments == null ? null : assignments.nodes();
     }
 
     /**
@@ -599,11 +599,36 @@ public class ZoneRebalanceUtil {
     ) {
         return IntStream.range(0, numberOfPartitions)
                 .mapToObj(p -> {
-                    Entry e = metaStorageManager.getLocally(stablePartAssignmentsKey(new ZonePartitionId(zoneId, p)), revision);
+                    Assignments assignments =
+                            zoneStableAssignmentsGetLocally(metaStorageManager, new ZonePartitionId(zoneId, p), revision);
 
-                    assert e != null && !e.empty() && !e.tombstone() : e;
+                    assert assignments != null : "No assignments found for " + new ZonePartitionId(zoneId, p);
 
-                    return Assignments.fromBytes(e.value());
+                    return assignments;
+                })
+                .collect(toList());
+    }
+
+    /**
+     * Returns zone pending assignments for all zone partitions from meta storage locally. Assignments must be present.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with zone assignments as a value.
+     */
+    public static List<@Nullable Assignments> zonePendingAssignmentsGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> {
+                    Entry e = metaStorageManager.getLocally(pendingPartAssignmentsQueueKey(new ZonePartitionId(zoneId, p)), revision);
+
+                    return e != null && !e.empty() && !e.tombstone() ? AssignmentsQueue.fromBytes(e.value()).poll() : null;
                 })
                 .collect(toList());
     }

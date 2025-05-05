@@ -266,6 +266,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionOptions options = ExecutionOptions.builder()
                 .priority(descriptor.options().priority())
                 .maxRetries(descriptor.options().maxRetries())
+                // TODO IGNITE-25116
+                // .executorType(descriptor.options().executorType())
                 .partition(partition)
                 .build();
 
@@ -466,6 +468,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         ExecutionOptions options = ExecutionOptions.builder()
                 .priority(jobExecutionOptions.priority())
                 .maxRetries(jobExecutionOptions.maxRetries())
+                // TODO IGNITE-25116
+                // .executorType(jobExecutionOptions.executorType())
                 .partition(partition)
                 .build();
 
@@ -622,7 +626,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     @TestOnly
-    ComputeComponent computeComponent() {
+    public ComputeComponent computeComponent() {
         return computeComponent;
     }
 

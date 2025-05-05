@@ -47,22 +47,20 @@ import org.apache.ignite.internal.sql.engine.AsyncSqlCursorImpl;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancelledException;
 import org.apache.ignite.internal.sql.engine.QueryEventsFactory;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
 import org.apache.ignite.internal.sql.engine.SqlOperationContext;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor;
 import org.apache.ignite.internal.sql.engine.exec.AsyncDataCursor.CancellationReason;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionService;
 import org.apache.ignite.internal.sql.engine.exec.LifecycleAware;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.prepare.DdlPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.MultiStepPlan;
 import org.apache.ignite.internal.sql.engine.prepare.PrepareService;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.sql.ParserService;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
@@ -90,8 +88,7 @@ public class QueryExecutor implements LifecycleAware {
     private final PrepareService prepareService;
     private final CatalogService catalogService;
     private final ExecutionService executionService;
-    private final SqlProperties defaultProperties;
-    private final TransactionTracker transactionTracker;
+    private final TransactionalOperationTracker transactionalOperationTracker;
     private final QueryIdGenerator idGenerator;
 
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -116,8 +113,7 @@ public class QueryExecutor implements LifecycleAware {
      * @param prepareService Service to submit optimization
      * @param catalogService Catalog service.
      * @param executionService Service to submit query plans for execution.
-     * @param defaultProperties Set of properties to use as defaults.
-     * @param transactionTracker Tracker to track usage of transactions by query.
+     * @param transactionalOperationTracker Tracker to track usage of transactions by query.
      * @param idGenerator Id generator used to provide cluster-wide unique query id.
      * @param eventLog Event log.
      */
@@ -133,8 +129,7 @@ public class QueryExecutor implements LifecycleAware {
             PrepareService prepareService,
             CatalogService catalogService,
             ExecutionService executionService,
-            SqlProperties defaultProperties,
-            TransactionTracker transactionTracker,
+            TransactionalOperationTracker transactionalOperationTracker,
             QueryIdGenerator idGenerator,
             EventLog eventLog
     ) {
@@ -147,8 +142,7 @@ public class QueryExecutor implements LifecycleAware {
         this.prepareService = prepareService;
         this.catalogService = catalogService;
         this.executionService = executionService;
-        this.defaultProperties = defaultProperties;
-        this.transactionTracker = transactionTracker;
+        this.transactionalOperationTracker = transactionalOperationTracker;
         this.idGenerator = idGenerator;
         this.eventLog = eventLog;
         this.eventsFactory = new QueryEventsFactory(nodeId);
@@ -159,7 +153,7 @@ public class QueryExecutor implements LifecycleAware {
      *
      * <p>This is a common entry point for both single statement and script execution.
      *
-     * @param properties User query properties. See {@link QueryProperty} for available properties.
+     * @param properties User query properties.
      * @param txContext Transactional context to use.
      * @param sql Query string.
      * @param cancellationToken Cancellation token.
@@ -173,14 +167,12 @@ public class QueryExecutor implements LifecycleAware {
             @Nullable CancellationToken cancellationToken,
             Object[] params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, defaultProperties);
-
         Query query = new Query(
                 Instant.ofEpochMilli(clockService.now().getPhysical()),
                 this,
                 idGenerator.next(),
                 sql,
-                properties0,
+                properties,
                 txContext,
                 params
         );
@@ -195,7 +187,7 @@ public class QueryExecutor implements LifecycleAware {
             busyLock.leaveBusy();
         }
 
-        long queryTimeout = properties.getOrDefault(QueryProperty.QUERY_TIMEOUT, 0L);
+        long queryTimeout = properties.queryTimeout();
 
         if (queryTimeout > 0) {
             query.cancel.setTimeout(scheduler, queryTimeout);
@@ -544,7 +536,7 @@ public class QueryExecutor implements LifecycleAware {
         assert parsedResults != null;
 
         return new MultiStatementHandler(
-                transactionTracker,
+                transactionalOperationTracker,
                 query,
                 query.txContext,
                 parsedResults,
@@ -560,7 +552,7 @@ public class QueryExecutor implements LifecycleAware {
 
         assert old == null : "Query with the same id already registered";
 
-        CompletableFuture<Void> queryTerminationFut = query.onPhaseStarted(ExecutionPhase.TERMINATED);
+        CompletableFuture<Void> queryTerminationFut = query.terminationFuture;
 
         queryTerminationFut.whenComplete((none, ignoredEx) -> {
             runningQueries.remove(query.id);

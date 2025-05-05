@@ -114,7 +114,7 @@ class ReplicaStateManager {
                     // Unreserve if another replica was elected as primary, only if its lease start time is greater,
                     // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                     if (parameters.startTime().compareTo(context.leaseStartTime) > 0) {
-                        context.unreserve();
+                        context.releaseReservation();
 
                         if (context.replicaState == ReplicaState.PRIMARY_ONLY) {
                             executeDeferredReplicaStop(context);
@@ -146,7 +146,7 @@ class ReplicaStateManager {
                         // Unreserve if primary replica expired, only if its lease start time is equal to reservation time,
                         // otherwise it means that event is too late relatively to lease negotiation start and should be ignored.
                         if (parameters.startTime().equals(context.leaseStartTime)) {
-                            context.unreserve();
+                            context.releaseReservation();
 
                             if (context.replicaState == ReplicaState.RESTART_PLANNED) {
                                 executeDeferredReplicaStop(context);
@@ -239,7 +239,7 @@ class ReplicaStateManager {
                     return partitionStarted;
                 }))
                 .whenComplete((res, ex) -> {
-                    if (ex != null && !hasCause(ex, TransientReplicaStartException.class)) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class, TransientReplicaStartException.class)) {
                         failureProcessor.process(new FailureContext(ex, String.format("Replica start failed [groupId=%s]", groupId)));
                     }
                 });
@@ -331,7 +331,7 @@ class ReplicaStateManager {
                     return true;
                 }))
                 .whenComplete((res, ex) -> {
-                    if (ex != null) {
+                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
                         failureProcessor.process(new FailureContext(ex, String.format("Replica stop failed [groupId=%s]", groupId)));
                     }
                 });
@@ -518,7 +518,7 @@ class ReplicaStateManager {
             reservedForPrimary = true;
         }
 
-        void unreserve() {
+        void releaseReservation() {
             // TODO IGNITE-23702: should also lead to replica stop if it is PRIMARY_ONLY.
             reservedForPrimary = false;
             leaseStartTime = null;

@@ -245,7 +245,7 @@ public class Node {
 
     public final CatalogManager catalogManager;
 
-    private final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
+    public final PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
     private final SchemaSyncService schemaSyncService;
 
@@ -360,7 +360,8 @@ public class Node {
                 List.of(NodeConfiguration.KEY),
                 new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                 nodeCfgGenerator,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         var clusterIdHolder = new ClusterIdHolder();
@@ -540,7 +541,8 @@ public class Node {
                 List.of(ClusterConfiguration.KEY),
                 cfgStorage,
                 clusterCfgGenerator,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

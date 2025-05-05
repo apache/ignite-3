@@ -91,7 +91,8 @@ public class RestComponentTest extends BaseIgniteAbstractTest {
                 List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
         assertThat(configurationManager.startAsync(new ComponentContext()), willCompleteSuccessfully());
 

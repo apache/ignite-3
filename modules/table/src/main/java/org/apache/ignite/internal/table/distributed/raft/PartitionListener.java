@@ -42,6 +42,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.function.Consumer;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -58,6 +59,8 @@ import org.apache.ignite.internal.partition.replicator.raft.handlers.CommandHand
 import org.apache.ignite.internal.partition.replicator.raft.handlers.FinishTxCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.handlers.VacuumTxStatesCommandHandler;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
+import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
@@ -65,6 +68,7 @@ import org.apache.ignite.internal.raft.ReadCommand;
 import org.apache.ignite.internal.raft.WriteCommand;
 import org.apache.ignite.internal.raft.service.CommandClosure;
 import org.apache.ignite.internal.raft.service.RaftGroupListener;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.command.SafeTimePropagatingCommand;
 import org.apache.ignite.internal.replicator.command.SafeTimeSyncCommand;
@@ -130,6 +134,19 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
     // Raft command handlers.
     private final CommandHandlers commandHandlers;
 
+    private final LeasePlacementDriver placementDriver;
+
+    private final ClockService clockService;
+
+    /**
+     * Partition group ID that is actually used for replication.
+     *
+     * <p>It is a zone partition ID when colocation is enabled, and table partition ID otherwise.
+     */
+    private final ReplicationGroupId realReplicationGroupId;
+
+    private ReplicaMeta lastKnownLease;
+
     /** Constructor. */
     public PartitionListener(
             TxManager txManager,
@@ -143,7 +160,10 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
             IndexMetaStorage indexMetaStorage,
             UUID localNodeId,
             MinimumRequiredTimeCollectorService minTimeCollectorService,
-            Executor partitionOperationsExecutor
+            Executor partitionOperationsExecutor,
+            LeasePlacementDriver placementDriver,
+            ClockService clockService,
+            ReplicationGroupId realReplicationGroupId
     ) {
         this.txManager = txManager;
         this.storage = partitionDataStorage;
@@ -153,6 +173,9 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         this.storageIndexTracker = storageIndexTracker;
         this.catalogService = catalogService;
         this.localNodeId = localNodeId;
+        this.placementDriver = placementDriver;
+        this.clockService = clockService;
+        this.realReplicationGroupId = realReplicationGroupId;
 
         onSnapshotSaveHandler = new OnSnapshotSaveHandler(txStatePartitionStorage, partitionOperationsExecutor);
 
@@ -191,6 +214,24 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         if (committedGroupConfiguration != null) {
             setCurrentGroupTopology(committedGroupConfiguration);
+        }
+    }
+
+    private boolean shouldUpdateStorage(boolean isFull, LeaseInfo storageLeaseInfo) {
+        if (isFull) {
+            return true;
+        }
+
+        HybridTimestamp currentTime = clockService.current();
+
+        if (lastKnownLease == null || lastKnownLease.getExpirationTime().compareTo(currentTime) < 0) {
+            lastKnownLease = placementDriver.getCurrentPrimaryReplica(realReplicationGroupId, currentTime);
+        }
+
+        if (lastKnownLease == null || !lastKnownLease.getLeaseholderId().equals(localNodeId)) {
+            return true;
+        } else {
+            return !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId());
         }
     }
 
@@ -381,7 +422,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
         assert storageLeaseInfo != null;
         assert localNodeId != null;
 
-        if (cmd.full() || !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId())) {
+        if (shouldUpdateStorage(cmd.full(), storageLeaseInfo)) {
             storageUpdateHandler.handleUpdate(
                     txId,
                     cmd.rowUuid(),
@@ -447,7 +488,7 @@ public class PartitionListener implements RaftGroupListener, RaftTableProcessor 
 
         UUID txId = cmd.txId();
 
-        if (cmd.full() || !localNodeId.equals(storageLeaseInfo.primaryReplicaNodeId())) {
+        if (shouldUpdateStorage(cmd.full(), storageLeaseInfo)) {
             storageUpdateHandler.handleUpdateAll(
                     txId,
                     cmd.rowsToUpdate(),

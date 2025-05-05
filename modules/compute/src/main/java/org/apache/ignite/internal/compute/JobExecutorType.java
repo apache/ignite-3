@@ -15,24 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.framework;
-
-import java.util.UUID;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+package org.apache.ignite.internal.compute;
 
 /**
- * Dummy no-op tracker.
+ * Job executor type.
  */
-public final class NoOpTransactionTracker implements TransactionTracker {
-    public static final TransactionTracker INSTANCE = new NoOpTransactionTracker();
-
-    @Override
-    public boolean register(UUID txId, boolean readOnly) {
-        return true;
-    }
-
-    @Override
-    public void unregister(UUID txId) {
-
-    }
+public enum JobExecutorType { // TODO IGNITE-25116: Move to public API
+    JavaEmbedded,
+    DotNetSidecar
 }

@@ -54,7 +54,6 @@ import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.schema.SchemaManager;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.configuration.distributed.SqlDistributedConfiguration;
 import org.apache.ignite.internal.sql.configuration.local.SqlLocalConfiguration;
 import org.apache.ignite.internal.sql.engine.api.kill.CancellableOperationType;
@@ -68,7 +67,7 @@ import org.apache.ignite.internal.sql.engine.exec.MailboxRegistryImpl;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutor;
 import org.apache.ignite.internal.sql.engine.exec.QueryTaskExecutorImpl;
 import org.apache.ignite.internal.sql.engine.exec.SqlRowHandler;
-import org.apache.ignite.internal.sql.engine.exec.TransactionTracker;
+import org.apache.ignite.internal.sql.engine.exec.TransactionalOperationTracker;
 import org.apache.ignite.internal.sql.engine.exec.ddl.DdlCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.exp.ExpressionFactoryImpl;
 import org.apache.ignite.internal.sql.engine.exec.exp.func.TableFunctionRegistryImpl;
@@ -85,8 +84,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PrepareServiceImpl;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPrunerImpl;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManagerImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
@@ -131,14 +128,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     /** Number of the schemas in cache. */
     private static final int SCHEMA_CACHE_SIZE = 128;
-
-    /** Default properties. */
-    public static final SqlProperties DEFAULT_PROPERTIES = SqlPropertiesHelper.newBuilder()
-            .set(QueryProperty.DEFAULT_SCHEMA, SqlCommon.DEFAULT_SCHEMA_NAME)
-            .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.ALL)
-            .set(QueryProperty.TIME_ZONE_ID, DEFAULT_TIME_ZONE_ID)
-            .set(QueryProperty.QUERY_TIMEOUT, 0L)
-            .build();
 
     private static final CacheFactory CACHE_FACTORY = CaffeineCacheFactory.INSTANCE;
 
@@ -202,7 +191,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
 
     private final TxManager txManager;
 
-    private final TransactionTracker txTracker;
+    private final TransactionalOperationTracker txTracker;
 
     private final ScheduledExecutorService commonScheduler;
 
@@ -247,7 +236,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         this.placementDriver = placementDriver;
         this.clusterCfg = clusterCfg;
         this.nodeCfg = nodeCfg;
-        this.txTracker = new InflightTransactionTracker(transactionInflights);
+        this.txTracker = new InflightTransactionalOperationTracker(transactionInflights);
         this.txManager = txManager;
         this.commonScheduler = commonScheduler;
         this.killCommandHandler = killCommandHandler;
@@ -364,7 +353,6 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 prepareSvc,
                 catalogManager,
                 executionSrvc,
-                DEFAULT_PROPERTIES,
                 txTracker,
                 new QueryIdGenerator(nodeName.hashCode()),
                 eventLog
@@ -469,9 +457,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
             String sql,
             Object... params
     ) {
-        SqlProperties properties0 = SqlPropertiesHelper.chain(properties, DEFAULT_PROPERTIES);
-        String schemaName = properties0.get(QueryProperty.DEFAULT_SCHEMA);
-        Long queryTimeout = properties0.get(QueryProperty.QUERY_TIMEOUT);
+        String schemaName = properties.defaultSchema();
+        long queryTimeout = properties.queryTimeout();
 
         QueryCancel queryCancel = new QueryCancel();
         if (queryTimeout != 0) {
@@ -485,7 +472,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
                 : CompletableFuture.supplyAsync(() -> parseAndCache(sql), taskExecutor);
 
         return start.thenCompose(result -> {
-            validateParsedStatement(properties0, result);
+            validateParsedStatement(properties, result);
             validateDynamicParameters(result.dynamicParamsCount(), params, false);
 
             HybridTimestamp timestamp = explicitTransaction != null ? explicitTransaction.schemaTimestamp() : clockService.now();

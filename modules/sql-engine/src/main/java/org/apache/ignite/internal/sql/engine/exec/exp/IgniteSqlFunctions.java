@@ -25,17 +25,11 @@ import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.math.RoundingMode;
-import java.time.LocalTime;
-import java.util.TimeZone;
 import java.util.UUID;
-import org.apache.calcite.DataContext;
-import org.apache.calcite.DataContext.Variable;
 import org.apache.calcite.avatica.util.ByteString;
-import org.apache.calcite.avatica.util.DateTimeUtils;
 import org.apache.calcite.linq4j.function.NonDeterministic;
 import org.apache.calcite.runtime.SqlFunctions;
 import org.apache.calcite.sql.type.SqlTypeName;
-import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.schema.SchemaUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
@@ -528,15 +522,6 @@ public class IgniteSqlFunctions {
         return s == null ? null : new ByteString(s.getBytes(Commons.typeFactory().getDefaultCharset()));
     }
 
-    public static int currentTime(DataContext ctx) {
-        return (int) TypeUtils.toInternal(LocalTime.now(), NativeTypeSpec.TIME);
-    }
-
-    /** CURRENT_TIMESTAMP. */
-    public static long currentTimeStamp(DataContext ctx) {
-        return Variable.CURRENT_TIMESTAMP.get(ctx);
-    }
-
     /** LEAST2. */
     public static @Nullable Object least2(Object arg0, Object arg1) {
         return leastOrGreatest(true, arg0, arg1);
@@ -556,84 +541,6 @@ public class IgniteSqlFunctions {
     /** Returns the second argument and ignores the first. */
     public static Object consumeFirstArgument(Object args0, Object args1) {
         return args1;
-    }
-
-    /** Returns the timestamp value minus the offset of the specified timezone. */
-    public static Long subtractTimeZoneOffset(long timestamp, TimeZone timeZone) {
-        // A second offset calculation is required to handle DST transition period correctly.
-        int offset = timeZone.getOffset(timestamp - timeZone.getOffset(timestamp));
-
-        // After adjusting to UTC, you need to make sure that the value matches the allowed values.
-        return toTimestampLtzExact(timestamp - offset);
-    }
-
-    /**
-     * Helper for CAST({timestamp} AS VARCHAR(n)).
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
-     *          with the only difference being that it does not add trailing zeros.
-     */
-    public static String unixTimestampToString(long timestamp, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(17);
-        int date = (int) (timestamp / DateTimeUtils.MILLIS_PER_DAY);
-        int time = (int) (timestamp % DateTimeUtils.MILLIS_PER_DAY);
-
-        if (time < 0) {
-            --date;
-
-            time += (int) DateTimeUtils.MILLIS_PER_DAY;
-        }
-
-        buf.app(DateTimeUtils.unixDateToString(date)).app(' ');
-
-        unixTimeToString(buf, time, precision);
-
-        return buf.toString();
-    }
-
-    /**
-     * Helper for CAST({time} AS VARCHAR(n)).
-     *
-     * <p>Note: this method is a copy of the avatica {@link DateTimeUtils#unixTimestampToString(long, int)} method,
-     *          with the only difference being that it does not add trailing zeros.
-     */
-    public static String unixTimeToString(int time, int precision) {
-        IgniteStringBuilder buf = new IgniteStringBuilder(8 + (precision > 0 ? 1 + precision : 0));
-
-        unixTimeToString(buf, time, precision);
-
-        return buf.toString();
-    }
-
-    private static void unixTimeToString(IgniteStringBuilder buf, int time, int precision) {
-        int h = time / 3600000;
-        int time2 = time % 3600000;
-        int m = time2 / 60000;
-        int time3 = time2 % 60000;
-        int s = time3 / 1000;
-        int ms = time3 % 1000;
-
-        buf.app((char) ('0' + (h / 10) % 10))
-                .app((char) ('0' + h % 10))
-                .app(':')
-                .app((char) ('0' + (m / 10) % 10))
-                .app((char) ('0' + m % 10))
-                .app(':')
-                .app((char) ('0' + (s / 10) % 10))
-                .app((char) ('0' + s % 10));
-
-        if (precision == 0 || ms == 0) {
-            return;
-        }
-
-        buf.app('.');
-        do {
-            buf.app((char) ('0' + (ms / 100)));
-
-            ms = ms % 100;
-            ms = ms * 10;
-            --precision;
-        } while (ms > 0 && precision > 0);
     }
 
     private static @Nullable Object leastOrGreatest(boolean least, Object arg0, Object arg1) {

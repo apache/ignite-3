@@ -15,17 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.exec;
+package org.apache.ignite.internal.configuration;
 
-import java.util.UUID;
+import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.SuperRootChange;
 
 /**
- * Tracker of ongoing transactions.
+ * Class that is used to perform configuration migration when Ignite version is upgraded. Main task - replace deprecated configuration
+ * values with their non-deprecated cousins. In production code expected to be based on
+ * {@link ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)}. Could be anything in tests.
+ *
+ * @see ConfigurationModule#migrateDeprecatedConfigurations(SuperRootChange)
  */
-public interface TransactionTracker {
-    /** Registers given transaction within the tracker. */ 
-    boolean register(UUID txId, boolean readOnly);
-
-    /** De-registers given transaction from the tracker. */
-    void unregister(UUID txId);
+@FunctionalInterface
+public interface ConfigurationMigrator {
+    void migrate(SuperRootChange superRoot);
 }

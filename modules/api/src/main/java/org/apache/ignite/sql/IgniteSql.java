@@ -37,7 +37,7 @@ public interface IgniteSql {
     Statement createStatement(String query);
 
     /**
-     * Creates an SQL statement builder, which provides query-specific settings. 
+     * Creates an SQL statement builder, which provides query-specific settings.
      * These settings override the query execution context defaults when the statement is executed.
      *
      * @return A new statement builder.
@@ -335,7 +335,26 @@ public interface IgniteSql {
      * @return Number of rows affected by each query in the batch.
      * @throws SqlBatchException If the batch fails.
      */
-    long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch);
+    default long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
+        return executeBatch(transaction, null, dmlQuery, batch);
+    }
+
+    /**
+     * Executes a batched SQL query. Only DML queries are supported.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param dmlQuery DML query template.
+     * @param batch Batch of query arguments.
+     * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
+     */
+    long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    );
 
     /**
      * Executes a batched SQL statement. Only DML queries are supported.
@@ -346,7 +365,26 @@ public interface IgniteSql {
      * @return Number of rows affected by each query in the batch.
      * @throws SqlBatchException If the batch fails.
      */
-    long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch);
+    default long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
+        return executeBatch(transaction, null, dmlStatement, batch);
+    }
+
+    /**
+     * Executes a batched SQL statement. Only DML queries are supported.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param dmlStatement DML statement to execute.
+     * @param batch Batch of query arguments.
+     * @return Number of rows affected by each query in the batch.
+     * @throws SqlBatchException If the batch fails.
+     */
+    long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    );
 
     /**
      * Executes a batched SQL query asynchronously.
@@ -357,7 +395,26 @@ public interface IgniteSql {
      * @return Operation Future completed with the number of rows affected by each query in the batch
      *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
      */
-    CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch);
+    default CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
+        return executeBatchAsync(transaction, null, query, batch);
+    }
+
+    /**
+     * Executes a batched SQL query asynchronously.
+     *
+     * @param transaction Transaction to execute the query within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param query SQL query template.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation Future completed with the number of rows affected by each query in the batch
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     */
+    CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    );
 
     /**
      * Executes a batched SQL statement asynchronously.
@@ -368,7 +425,26 @@ public interface IgniteSql {
      * @return Operation Future completed with the number of rows affected by each query in the batch
      *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
      */
-    CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch);
+    default CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
+        return executeBatchAsync(transaction, null, statement, batch);
+    }
+
+    /**
+     * Executes a batched SQL statement asynchronously.
+     *
+     * @param transaction Transaction to execute the statement within or {@code null}.
+     * @param cancellationToken Cancellation token or {@code null}.
+     * @param statement SQL statement to execute.
+     * @param batch List of batch rows, where each row is a list of statement arguments.
+     * @return Operation Future completed with the number of rows affected by each query in the batch
+     *         (if the batch succeeds), future completed with the {@link SqlBatchException} (if the batch fails).
+     */
+    CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    );
 
     /**
      * Executes a multi-statement SQL query.

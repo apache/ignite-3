@@ -292,11 +292,16 @@ public class ConfigurationProcessor extends AbstractProcessor {
         // Get configuration types (VIEW, CHANGE and so on)
         TypeName interfaceGetMethodType = getInterfaceGetMethodType(field);
 
-        MethodSpec interfaceGetMethod = MethodSpec.methodBuilder(fieldName)
+        MethodSpec.Builder builder = MethodSpec.methodBuilder(fieldName)
                 .addModifiers(PUBLIC, ABSTRACT)
                 .returns(interfaceGetMethodType)
-                .addJavadoc("@see $T#" + field, field.getEnclosingElement())
-                .build();
+                .addJavadoc("@see $T#" + field, field.getEnclosingElement());
+
+        if (field.getAnnotation(Deprecated.class) != null) {
+            builder.addAnnotation(Deprecated.class);
+        }
+
+        MethodSpec interfaceGetMethod = builder.build();
 
         configurationInterfaceBuilder.addMethod(interfaceGetMethod);
     }
@@ -474,6 +479,11 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                     .returns(viewFieldType);
 
+            boolean isDeprecated = field.getAnnotation(Deprecated.class) != null;
+            if (isDeprecated) {
+                getMtdBuilder.addAnnotation(Deprecated.class);
+            }
+
             viewClsBuilder.addMethod(getMtdBuilder.build());
 
             // Read only.
@@ -487,6 +497,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
                     .addModifiers(PUBLIC, ABSTRACT)
                     .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                     .returns(changeClsName);
+
+            if (isDeprecated) {
+                changeMtdBuilder.addAnnotation(Deprecated.class);
+            }
 
             if (containsAnyAnnotation(field, Value.class, InjectedValue.class)) {
                 if (schemaFieldType.getKind() == TypeKind.ARRAY) {
@@ -502,6 +516,10 @@ public class ConfigurationProcessor extends AbstractProcessor {
                         .addModifiers(PUBLIC, ABSTRACT)
                         .addJavadoc("@see $T#" + field, field.getEnclosingElement())
                         .returns(changeFieldType);
+
+                if (isDeprecated) {
+                    shortChangeMtdBuilder.addAnnotation(Deprecated.class);
+                }
 
                 changeClsBuilder.addMethod(shortChangeMtdBuilder.build());
             }

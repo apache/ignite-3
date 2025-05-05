@@ -183,7 +183,8 @@ public class TestServer implements AutoCloseable {
                 List.of(NodeConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                new TestConfigurationValidator()
+                new TestConfigurationValidator(),
+                changer -> {}
         );
 
         ComponentContext componentContext = new ComponentContext();

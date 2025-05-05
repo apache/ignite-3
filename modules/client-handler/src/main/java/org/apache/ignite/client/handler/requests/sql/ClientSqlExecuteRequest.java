@@ -38,10 +38,8 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.sql.api.AsyncResultSetImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
-import org.apache.ignite.internal.sql.engine.QueryProperty;
+import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.SqlQueryType;
-import org.apache.ignite.internal.sql.engine.property.SqlProperties;
-import org.apache.ignite.internal.sql.engine.property.SqlPropertiesHelper;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.ArrayUtils;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -187,9 +185,8 @@ public class ClientSqlExecuteRequest {
             @Nullable Object... arguments
     ) {
         try {
-            SqlProperties properties = SqlPropertiesHelper.builderFromProperties(props)
-                    .set(QueryProperty.ALLOWED_QUERY_TYPES, SqlQueryType.SINGLE_STMT_TYPES)
-                    .build();
+            SqlProperties properties = new SqlProperties(props)
+                    .allowedQueryTypes(SqlQueryType.SINGLE_STMT_TYPES);
 
             CompletableFuture<AsyncResultSet<SqlRow>> fut = qryProc.queryAsync(
                         properties,
