@@ -509,7 +509,7 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
             return returnType;
         }
 
-        RelDataType resultTimestampType = leastRestrictiveBetweenTimestampTypes(types);
+        RelDataType resultTimestampType = leastRestrictiveBetweenTimestampTypes(types, hasNullOrNullable);
 
         if (resultTimestampType != null) {
             return resultTimestampType;
@@ -553,18 +553,26 @@ public class IgniteTypeFactory extends JavaTypeFactoryImpl {
         }
     }
 
-    private @Nullable RelDataType leastRestrictiveBetweenTimestampTypes(List<RelDataType> types) {
+    private @Nullable RelDataType leastRestrictiveBetweenTimestampTypes(List<RelDataType> types, boolean hasNullOrNullable) {
         RelDataType firstType = null;
-        boolean nullable = false;
+        // If some types are nullable, the result must be nullable as well
+        boolean nullable = hasNullOrNullable;
 
         for (RelDataType t : types) {
+            if (t.getSqlTypeName() == SqlTypeName.NULL) {
+                continue;
+            }
+
             if (t.getSqlTypeName() != SqlTypeName.TIMESTAMP && t.getSqlTypeName() != SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
                 return null;
             }
 
             if (firstType == null) {
                 firstType = t;
-                nullable = t.isNullable();
+
+                if (t.isNullable()) {
+                    nullable = true;
+                }
             } else {
                 RelDataType leftType = firstType;
                 RelDataType rightType = t;
