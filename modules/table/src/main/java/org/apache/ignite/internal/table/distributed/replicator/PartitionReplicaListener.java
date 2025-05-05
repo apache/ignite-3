@@ -689,7 +689,8 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
                     req.requestType(),
                     req.full(),
                     () -> processSingleEntryAction(req, replicaPrimacy.leaseStartTime()).whenComplete(
-                            (r, e) -> r.delayedAckProcessor = req.delayedAckProcessor())
+                            (r, e) ->
+                                    r.delayedAckProcessor = req.delayedAckProcessor())
             );
         } else if (request instanceof ReadWriteMultiRowReplicaRequest) {
             var req = (ReadWriteMultiRowReplicaRequest) request;
@@ -2854,7 +2855,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             case RW_GET: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        return nullCompletedFuture();
+                        return completedFuture(new ReplicaResult(null, null));
                     }
 
                     return takeLocksForGet(rowId, txId)
@@ -2891,7 +2892,7 @@ public class PartitionReplicaListener implements ReplicaListener, ReplicaTablePr
             case RW_GET_AND_DELETE: {
                 return resolveRowByPk(primaryKey, txId, (rowId, row, lastCommitTime) -> {
                     if (rowId == null) {
-                        return nullCompletedFuture();
+                        return completedFuture(new ReplicaResult(null, null));
                     }
 
                     return takeLocksForDelete(row, rowId, txId)

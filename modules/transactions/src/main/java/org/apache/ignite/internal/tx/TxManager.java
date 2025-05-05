@@ -112,6 +112,8 @@ public interface TxManager extends IgniteComponent {
      * @param coord Tx coordinator.
      * @param token Enlistment token.
      * @param timeout The timeout.
+     * @param cb Delayed ack callback.
+     *
      * @return Remote transaction.
      */
     InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout, Consumer<Throwable> cb);

@@ -385,7 +385,7 @@ public class ClientTableCommon {
     }
 
     /**
-     * Writes tx metadata for a direct mapping request.
+     * Write tx metadata.
      *
      * @param out Packer.
      * @param clockService Clock service.
@@ -396,7 +396,7 @@ public class ClientTableCommon {
             TxState state = tx.state();
 
             if (state == TxState.ABORTED) {
-                // No-op.
+                // No-op enlistment.
                 out.packString(null);
             } else {
                 // Remote tx carries operation enlistment info.
@@ -452,6 +452,7 @@ public class ClientTableCommon {
 
                 InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
                         coord, token, timeout, err -> {
+                            // Will be called for write txns.
                             notificationSender.sendNotification(w -> w.packUuid(txId), err);
                         });
 
@@ -486,33 +487,7 @@ public class ClientTableCommon {
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
      * @param readOnly Read only flag.
-     * @return Transaction.
-     */
-    public static InternalTransaction readOrStartImplicitTx(
-            ClientMessageUnpacker in,
-            ClientMessagePacker out,
-            ClientResourceRegistry resources,
-            TxManager txManager,
-            boolean readOnly) {
-        InternalTransaction tx = readTx(in, out, resources, txManager, null);
-
-        if (tx == null) {
-            // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
-            // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(out, txManager, null, readOnly);
-        }
-
-        return tx;
-    }
-
-    /**
-     * Reads transaction or start implicit one.
-     *
-     * @param in Unpacker.
-     * @param out Packer.
-     * @param resources Resource registry.
-     * @param txManager Ignite transactions.
-     * @param readOnly Read only flag.
+     * @param notificationSender Notification sender.
      * @return Transaction.
      */
     public static InternalTransaction readOrStartImplicitTx(
@@ -521,7 +496,7 @@ public class ClientTableCommon {
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly,
-            NotificationSender notificationSender) {
+            @Nullable NotificationSender notificationSender) {
         InternalTransaction tx = readTx(in, out, resources, txManager, notificationSender);
 
         if (tx == null) {

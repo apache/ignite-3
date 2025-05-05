@@ -699,7 +699,7 @@ public class InternalTableImpl implements InternalTable {
                         if (!tx.remote()) {
                             transactionInflights.removeInflight(tx.id());
                         } else {
-                            tx.kill(); // Set unmapped via txState.
+                            tx.kill(); // Kill for remote txn has special meaning - no-op enlistment..
                         }
                     }
 
@@ -955,7 +955,6 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -1101,6 +1100,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
+                .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
                 .build();
     }
 
@@ -1166,7 +1166,6 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(false)
                         .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
@@ -1262,7 +1261,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
         );
@@ -1286,7 +1285,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1345,7 +1344,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
-                .skipDelayedAck(tx.remote())
+                .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
                 .build();
     }
 
@@ -1367,7 +1366,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1395,7 +1394,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1421,7 +1420,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> res == null
         );
@@ -1445,7 +1444,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1469,7 +1468,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1495,7 +1494,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> res == null
         );

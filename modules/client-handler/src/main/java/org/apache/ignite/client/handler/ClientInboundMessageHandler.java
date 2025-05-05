@@ -763,43 +763,55 @@ public class ClientInboundMessageHandler
                 return ClientTupleGetRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_UPSERT_ALL:
-                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_GET_ALL:
                 return ClientTupleGetAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.TUPLE_GET_AND_UPSERT:
-                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleGetAndUpsertRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_INSERT_ALL:
-                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_REPLACE:
-                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_REPLACE_EXACT:
-                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleReplaceExactRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_DELETE:
-                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_DELETE_EXACT:
-                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_DELETE_ALL_EXACT:
-                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleDeleteAllExactRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_GET_AND_DELETE:
-                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleGetAndDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId));
 
             case ClientOp.TUPLE_CONTAINS_KEY:
                 return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources, txManager, clockService);

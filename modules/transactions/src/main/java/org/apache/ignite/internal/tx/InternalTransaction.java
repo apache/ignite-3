@@ -175,8 +175,8 @@ public interface InternalTransaction extends Transaction {
     /**
      * Process delayed ack.
      *
-     * @param val Value.
-     * @param err Error.
+     * @param val The value.
+     * @param err The error.
      */
     default void processDelayedAck(Object val, @Nullable Throwable err) {
         // No-op.

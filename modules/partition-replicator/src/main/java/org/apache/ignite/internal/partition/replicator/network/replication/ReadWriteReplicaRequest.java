@@ -47,7 +47,7 @@ public interface ReadWriteReplicaRequest extends PrimaryReplicaRequest, Timestam
     /**
      * Get write request flag.
      *
-     * @return {@code true} if this is write request.
+     * @return {@code true} if this is write request (requires replication layer).
      */
     default boolean isWrite() {
         return false;

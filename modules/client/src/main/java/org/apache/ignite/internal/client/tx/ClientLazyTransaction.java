@@ -141,7 +141,7 @@ public class ClientLazyTransaction implements Transaction {
     public static CompletableFuture<ClientTransaction> ensureStarted(
             @Nullable Transaction tx,
             ReliableChannel ch,
-            Supplier<PartitionMapping> sup
+            @Nullable Supplier<PartitionMapping> sup
     ) {
         if (tx == null) {
             return nullCompletedFuture();
@@ -156,7 +156,7 @@ public class ClientLazyTransaction implements Transaction {
 
     private synchronized CompletableFuture<ClientTransaction> ensureStarted(
             ReliableChannel ch,
-            Supplier<PartitionMapping> sup
+            @Nullable Supplier<PartitionMapping> sup
     ) {
         var tx0 = tx;
 
@@ -164,7 +164,7 @@ public class ClientLazyTransaction implements Transaction {
             return tx0;
         }
 
-        @Nullable PartitionMapping pm = sup.get();
+        @Nullable PartitionMapping pm = sup == null ? null : sup.get();
 
         tx0 = ClientTransactions.beginAsync(ch, pm, options, observableTimestamp);
         tx = tx0;

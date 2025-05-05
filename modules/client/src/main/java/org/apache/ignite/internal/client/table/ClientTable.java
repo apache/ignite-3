@@ -497,7 +497,7 @@ public class ClientTable implements Table {
                         return ch.serviceAsync(opCode,
                                         (opCh) -> tx0 == null || tx0.isReadOnly() || ctx.pm == null
                                                 || !opCh.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
-                                                : tx0.enlistFuture(ch, opCh, ctx),
+                                                : tx0.enlistFuture(ch, opCh, ctx, opCode),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
                                         resolvePreferredNode(tx0, ctx.pm),

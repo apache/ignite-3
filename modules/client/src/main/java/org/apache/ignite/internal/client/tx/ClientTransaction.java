@@ -345,9 +345,10 @@ public class ClientTransaction implements Transaction {
      * @param ch Channel facade.
      * @param opChannel Operation channel.
      * @param ctx The context.
+     * @param opCode Operation code.
      * @return The future.
      */
-    public CompletableFuture<Void> enlistFuture(ReliableChannel ch, ClientChannel opChannel, WriteContext ctx) {
+    public CompletableFuture<Void> enlistFuture(ReliableChannel ch, ClientChannel opChannel, WriteContext ctx, int opCode) {
         // Check if direct mapping is applicable.
         if (ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
             if (!enlistPartitionLock.readLock().tryLock()) {
@@ -375,7 +376,10 @@ public class ClientTransaction implements Transaction {
             // Re-check after unlock.
             checkEnlistPossible();
 
-            ch.inflights().addInflight(txId);
+            // TODO: get rid of this comparison.
+            if (ClientOp.isWrite(opCode)) {
+                ch.inflights().addInflight(txId);
+            }
 
             if (first[0]) {
                 ctx.enlistmentToken = 0L;

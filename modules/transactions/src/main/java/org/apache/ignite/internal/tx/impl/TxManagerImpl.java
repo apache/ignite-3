@@ -934,9 +934,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             @Override
             public TxState state() {
-                TxStateMeta meta = TxManagerImpl.this.stateMeta(txId);
-
-                return meta == null ? null : meta.txState();
+                return txState;
             }
 
             @Override
@@ -958,14 +956,19 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
             @Override
             public CompletableFuture<Void> kill() {
-                txState = ABORTED;
+                txState = ABORTED; // We use ABORTED state for remote txn to indicate no write enlistment.
 
                 return nullCompletedFuture();
             }
 
             @Override
-            public void processDelayedAck(Object val, @Nullable Throwable err) {
-                cb.accept(err == null ? null : err);
+            public void processDelayedAck(Object ignored, @Nullable Throwable err) {
+                try {
+                    cb.accept(err);
+                } catch (Throwable t) {
+                    // We can't do anything with the exception, only log it.
+                    LOG.error("Failed to process delayed ack [tx={}]", t, this);
+                }
             }
         };
 

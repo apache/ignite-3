@@ -220,7 +220,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc);
+            tx.enlistFuture(ch, clientChannel, wc, opCode);
 
             fail();
         } catch (TransactionException e) {
@@ -250,7 +250,7 @@ public class RepeatedFinishClientTransactionTest extends BaseIgniteAbstractTest 
         wc.pm = pm;
 
         try {
-            tx.enlistFuture(ch, clientChannel, wc);
+            tx.enlistFuture(ch, clientChannel, wc, opCode);
 
             fail();
         } catch (TransactionException e) {

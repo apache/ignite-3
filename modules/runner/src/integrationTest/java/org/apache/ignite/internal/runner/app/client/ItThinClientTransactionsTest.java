@@ -591,6 +591,49 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         }
     }
 
+    @Test
+    void testMixedMappingScenarioWithNoopEnlistment() throws Exception {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember());
+        List<Tuple> tuples1 = generateKeysForNode(510, 10, map, server1.clusterService().topologyService().localMember());
+
+        Map<Tuple, Tuple> data = new HashMap<>();
+
+        Transaction tx0 = client().transactions().begin();
+
+        // First operation is collocated with txn coordinator and not directly mapped.
+        Tuple k = tuples0.get(0);
+        Tuple v = val(tuples0.get(0).intValue(0) + "");
+        table.keyValueView().put(tx0, k, v);
+
+        // All other operations are directly mapped.
+        Tuple k1 = tuples1.get(0);
+        Tuple v1 = val(tuples1.get(0).intValue(0) + "");
+
+        Tuple k2 = tuples1.get(1);
+        Tuple v2 = val(tuples1.get(1).intValue(0) + "");
+
+        Map<Tuple, Tuple> batch0 = new HashMap<>();
+        batch0.put(tuples1.get(2), val(tuples1.get(2).intValue(0) + ""));
+        batch0.put(tuples1.get(3), val(tuples1.get(3).intValue(0) + ""));
+
+        table.keyValueView().put(tx0, k1, v1);
+        assertTrue(Tuple.equals(v1, table.keyValueView().get(tx0, k1)));
+        assertTrue(table.keyValueView().putIfAbsent(tx0, k2, v2));
+
+        tx0.commit();
+
+        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
+            table.keyValueView().put(null, entry.getKey(), entry.getValue());
+        }
+    }
+
     private KeyValueView<Integer, String> kvView() {
         return table().keyValueView(Mapper.of(Integer.class), Mapper.of(String.class));
     }
