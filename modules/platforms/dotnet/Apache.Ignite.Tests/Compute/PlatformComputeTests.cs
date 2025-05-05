@@ -33,9 +33,9 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
-    private static readonly JobDescriptor<DotNetJobInfo, object?> DotNetJobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "$DotNetJobRunnerJob")
+    private static readonly JobDescriptor<JobInfo, object?> JobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "$JobRunnerJob")
     {
-        ArgMarshaller = new JsonMarshaller<DotNetJobInfo>()
+        ArgMarshaller = new JsonMarshaller<JobInfo>()
     };
 
     private DeploymentUnit _defaultTestUnit = null!;
@@ -158,20 +158,36 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestCallDotNetJobFromJava()
     {
-        // TODO: Check another process id?
         var targetNode = await GetClusterNodeAsync();
         var target = JobTarget.Node(targetNode);
 
-        var arg = new DotNetJobInfo(
-            typeof(DotNetJobs.EchoJob).AssemblyQualifiedName!,
-            "arg1",
+        var arg = new JobInfo(
+            TypeName: typeof(DotNetJobs.EchoJob).AssemblyQualifiedName!,
+            Arg: "arg1",
             DeploymentUnits: [$"{_defaultTestUnit.Name}:{_defaultTestUnit.Version}"],
-            NodeId: targetNode.Id);
+            NodeId: targetNode.Id,
+            JobExecutorType: "DOTNET_SIDECAR");
 
-        var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobRunnerJob, arg);
+        var jobExec = await Client.Compute.SubmitAsync(target, JobRunnerJob, arg);
         var res = await jobExec.GetResultAsync();
 
         Assert.AreEqual("arg1", res);
+    }
+
+    [Test]
+    public async Task TestDotNetJobRunsInAnotherProcess()
+    {
+        var jobDesc = DotNetJobs.ProcessId with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
+
+        var jobExec = await Client.Compute.SubmitAsync(
+            jobTarget,
+            jobDesc,
+            arg: null!);
+
+        var jobProcessId = await jobExec.GetResultAsync();
+
+        Assert.AreNotEqual(Environment.ProcessId, jobProcessId);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
@@ -226,5 +242,5 @@ public class PlatformComputeTests : IgniteTestsBase
         return nodes.First(n => n.Name == nodeName);
     }
 
-    internal record DotNetJobInfo(string TypeName, object Arg, List<string> DeploymentUnits, Guid NodeId);
+    internal record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, Guid NodeId, string JobExecutorType);
 }

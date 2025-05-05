@@ -30,6 +30,7 @@ public static class DotNetJobs
     public static readonly JobDescriptor<int, int> NoCtor = JobDescriptor.Of(new NoCtorJob(1));
     public static readonly JobDescriptor<object?, object?> Echo = JobDescriptor.Of(new EchoJob());
     public static readonly JobDescriptor<object?, object?> Error = new(typeof(ErrorJob));
+    public static readonly JobDescriptor<object?, int> ProcessId = JobDescriptor.Of(new ProcessIdJob());
 
     public class AddOneJob : IComputeJob<int, int>
     {
@@ -65,5 +66,11 @@ public static class DotNetJobs
 
         public ValueTask<int> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
+    }
+
+    public class ProcessIdJob : IComputeJob<object?, int>
+    {
+        public ValueTask<int> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult(Environment.ProcessId);
     }
 }
