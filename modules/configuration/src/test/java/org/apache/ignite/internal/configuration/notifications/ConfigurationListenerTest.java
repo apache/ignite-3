@@ -189,8 +189,7 @@ public class ConfigurationListenerTest {
                 List.of(ParentConfiguration.KEY),
                 storage,
                 generator,
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

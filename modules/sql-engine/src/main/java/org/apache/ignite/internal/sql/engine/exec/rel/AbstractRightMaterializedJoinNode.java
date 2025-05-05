@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayDeque;
 import java.util.Deque;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.jetbrains.annotations.Nullable;
 
@@ -107,6 +108,14 @@ public abstract class AbstractRightMaterializedJoinNode<RowT> extends AbstractNo
         }
 
         throw new IndexOutOfBoundsException();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waitingLeft=").app(waitingLeft)
+                .app(", waitingRight=").app(waitingRight);
     }
 
     protected void pushLeft(RowT row) throws Exception {

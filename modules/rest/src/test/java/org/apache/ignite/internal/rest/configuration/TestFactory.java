@@ -64,8 +64,7 @@ public class TestFactory {
                 List.of(TestRootConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 generator,
-                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator)),
-                changer -> {}
+                ConfigurationValidatorImpl.withDefaultValidators(generator, Set.of(validator))
         );
 
         assertThat(configurationRegistry.startAsync(new ComponentContext()), willCompleteSuccessfully());
