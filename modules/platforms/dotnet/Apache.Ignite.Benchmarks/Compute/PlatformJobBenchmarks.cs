@@ -35,6 +35,11 @@ using Tests.TestHelpers;
 /// |---------- |---------:|---------:|---------:|---------:|------:|--------:|
 /// | DotNetJob | 900.8 us | 17.90 us | 33.17 us | 892.0 us |  3.31 |    0.42 |
 /// | JavaJob   | 276.1 us | 12.75 us | 35.96 us | 261.5 us |  1.02 |    0.18 |.
+///
+/// Notes:
+/// 1. Presence of a deployment unit in the job descriptor
+///    slows down the Java side of things by ~150us, even when no Java classes are loaded.
+/// 2. Dev mode executor uses Debug build (hardcoded path) - we should measure Release to be more fair.
 /// </summary>
 public class PlatformJobBenchmarks : ServerBenchmarkBase
 {
