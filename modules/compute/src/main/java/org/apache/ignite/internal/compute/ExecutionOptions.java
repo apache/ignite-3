@@ -94,8 +94,7 @@ public class ExecutionOptions {
         return builder()
                 .priority(jobExecutionOptions.priority())
                 .maxRetries(jobExecutionOptions.maxRetries())
-                // TODO IGNITE-25116
-                // .executorType(jobExecutionOptions.executorType())
+                .executorType(jobExecutionOptions.executorType())
                 .build();
     }
 

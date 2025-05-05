@@ -30,19 +30,19 @@ public class JobExecutionOptions {
 
     private final int maxRetries;
 
-    private final JobExecutorType jobExecutorType;
+    private final JobExecutorType executorType;
 
     /**
      * Constructor.
      *
      * @param priority Job execution priority.
      * @param maxRetries Number of times to retry job execution in case of failure, 0 to not retry.
-     * @param jobExecutorType Job executor type.
+     * @param executorType Job executor type.
      */
-    private JobExecutionOptions(int priority, int maxRetries, JobExecutorType jobExecutorType) {
+    private JobExecutionOptions(int priority, int maxRetries, JobExecutorType executorType) {
         this.priority = priority;
         this.maxRetries = maxRetries;
-        this.jobExecutorType = jobExecutorType;
+        this.executorType = executorType;
     }
 
     /**
@@ -77,8 +77,8 @@ public class JobExecutionOptions {
      *
      * @return Job executor type.
      */
-    public JobExecutorType jobExecutorType() {
-        return jobExecutorType;
+    public JobExecutorType executorType() {
+        return executorType;
     }
 
     /** JobExecutionOptions builder. */
@@ -87,7 +87,7 @@ public class JobExecutionOptions {
 
         private int maxRetries;
 
-        private JobExecutorType jobExecutorType;
+        private JobExecutorType executorType;
 
         /**
          * Sets the job execution priority.
@@ -117,8 +117,8 @@ public class JobExecutionOptions {
          * @param jobExecutorType Job executor type.
          * @return Builder instance.
          */
-        public Builder jobExecutorType(JobExecutorType jobExecutorType) {
-            this.jobExecutorType = jobExecutorType;
+        public Builder executorType(JobExecutorType jobExecutorType) {
+            this.executorType = jobExecutorType;
             return this;
         }
 
@@ -128,7 +128,7 @@ public class JobExecutionOptions {
          * @return Job execution options.
          */
         public JobExecutionOptions build() {
-            return new JobExecutionOptions(priority, maxRetries, jobExecutorType);
+            return new JobExecutionOptions(priority, maxRetries, executorType);
         }
     }
 }
