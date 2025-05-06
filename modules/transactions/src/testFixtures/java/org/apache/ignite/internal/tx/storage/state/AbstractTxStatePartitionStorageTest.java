@@ -54,6 +54,10 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
+import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -386,7 +390,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         MvPartitionMeta partitionMeta = saneMvPartitionMeta(30, 50);
 
         // We can't finish rebalance that we haven't started.
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.finishRebalance(partitionMeta));
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.finishRebalance(partitionMeta));
 
         List<IgniteBiTuple<UUID, TxMeta>> rowsBeforeStartRebalance = List.of(
                 randomTxMetaTuple(1, UUID.randomUUID()),
@@ -455,8 +459,8 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         storage0.close();
         storage1.destroy();
 
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::startRebalance);
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_ERR, storage1::startRebalance);
+        assertThrowsStorageClosedException(TX_STATE_STORAGE_STOPPED_ERR, storage0::startRebalance);
+        assertThrowsStorageDestroyedException(TX_STATE_STORAGE_ERR, storage1::startRebalance);
     }
 
     @Test
@@ -494,9 +498,9 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThat(storage2.startRebalance(), willCompleteSuccessfully());
 
         try {
-            assertThrowsIgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, storage0::clear);
-            assertThrowsIgniteInternalException(TX_STATE_STORAGE_ERR, storage1::clear);
-            assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage2::clear);
+            assertThrowsStorageClosedException(TX_STATE_STORAGE_STOPPED_ERR, storage0::clear);
+            assertThrowsStorageException(TX_STATE_STORAGE_ERR, storage1::clear);
+            assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, storage2::clear);
         } finally {
             assertThat(storage2.abortRebalance(), willCompleteSuccessfully());
         }
@@ -574,32 +578,32 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
         checkTxStateStorageMethodsWhenRebalanceInProgress(storage);
 
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::hasNext);
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::next);
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::hasNext);
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::next);
 
         // We cannot start a new rebalance until the current one has ended.
-        assertThrows(IgniteInternalException.class, storage::startRebalance);
+        assertThrows(StorageException.class, storage::startRebalance);
     }
 
     private static void checkTxStateStorageMethodsWhenRebalanceInProgress(TxStatePartitionStorage storage) {
         checkMeta(storage, REBALANCE_IN_PROGRESS, REBALANCE_IN_PROGRESS, null, null, null);
 
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
-        assertThrowsIgniteInternalException(
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.lastApplied(100, 500));
+        assertThrowsStorageRebalanceException(
                 TX_STATE_STORAGE_REBALANCE_ERR,
                 () -> storage.committedGroupConfiguration(BYTE_EMPTY_ARRAY, 1, 2)
         );
-        assertThrowsIgniteInternalException(
+        assertThrowsStorageRebalanceException(
                 TX_STATE_STORAGE_REBALANCE_ERR,
                 () -> storage.leaseInfo(LEASE_INFO, 1, 2)
         );
-        assertThrowsIgniteInternalException(
+        assertThrowsStorageRebalanceException(
                 TX_STATE_STORAGE_REBALANCE_ERR,
                 () -> storage.snapshotInfo(SNAPSHOT_INFO, 1, 2)
         );
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 100, 500));
-        assertThrowsIgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, storage::scan);
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 100, 500));
+        assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, storage::scan);
     }
 
     private static IgniteBiTuple<UUID, TxMeta> putRandomTxMetaWithCommandIndex(
@@ -631,8 +635,26 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         );
     }
 
-    private static void assertThrowsIgniteInternalException(int expFullErrorCode, Executable executable) {
-        IgniteInternalException exception = assertThrows(IgniteInternalException.class, executable);
+    private static void assertThrowsStorageException(int expFullErrorCode, Executable executable) {
+        StorageException exception = assertThrows(StorageException.class, executable);
+
+        assertEquals(expFullErrorCode, exception.code());
+    }
+
+    private static void assertThrowsStorageClosedException(int expFullErrorCode, Executable executable) {
+        StorageClosedException exception = assertThrows(StorageClosedException.class, executable);
+
+        assertEquals(expFullErrorCode, exception.code());
+    }
+
+    private static void assertThrowsStorageDestroyedException(int expFullErrorCode, Executable executable) {
+        StorageDestroyedException exception = assertThrows(StorageDestroyedException.class, executable);
+
+        assertEquals(expFullErrorCode, exception.code());
+    }
+
+    private static void assertThrowsStorageRebalanceException(int expFullErrorCode, Executable executable) {
+        StorageRebalanceException exception = assertThrows(StorageRebalanceException.class, executable);
 
         assertEquals(expFullErrorCode, exception.code());
     }

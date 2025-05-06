@@ -40,7 +40,17 @@ public class StorageRebalanceException extends StorageException {
      * @param message Error message.
      */
     public StorageRebalanceException(String message) {
-        super(Common.INTERNAL_ERR, message);
+        this(Common.INTERNAL_ERR, message);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param code Error code.
+     * @param message Error message.
+     */
+    public StorageRebalanceException(int code, String message) {
+        super(code, message);
     }
 
     /**

@@ -38,6 +38,16 @@ public class StorageClosedException extends StorageException {
      * @param message Error message.
      */
     public StorageClosedException(String message) {
-        super(Common.INTERNAL_ERR, message);
+        this(Common.INTERNAL_ERR, message);
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param code Error code.
+     * @param message Error message.
+     */
+    public StorageClosedException(int code, String message) {
+        super(code, message);
     }
 }

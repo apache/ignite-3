@@ -33,11 +33,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.IntSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
-import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.flush.RocksDbFlusher;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.rocksdb.ColumnFamilyDescriptor;
@@ -178,7 +178,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
     /**
      * Starts the storage.
      *
-     * @throws IgniteInternalException If failed to create directory or start the RocksDB storage.
+     * @throws StorageException If failed to create directory or start the RocksDB storage.
      */
     private void start() {
         try {
@@ -215,7 +215,7 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
             flusher.init(db, cfHandles);
         } catch (Exception e) {
-            throw new IgniteInternalException(Common.INTERNAL_ERR, "Could not create transaction state storage", e);
+            throw new StorageException(Common.INTERNAL_ERR, "Could not create transaction state storage", e);
         }
     }
 

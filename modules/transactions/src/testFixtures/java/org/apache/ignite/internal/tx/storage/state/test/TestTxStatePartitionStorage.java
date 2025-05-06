@@ -32,7 +32,9 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.storage.StorageClosedException;
+import org.apache.ignite.internal.storage.StorageDestroyedException;
+import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -254,7 +256,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
 
         if (rebalanceFuture == null) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalancing has not started");
+            throw new StorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalancing has not started");
         }
 
         return rebalanceFuture
@@ -348,7 +350,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         }
 
         if (destroyed) {
-            throw new IgniteInternalException(TX_STATE_STORAGE_ERR, "Storage is destroyed");
+            throw new StorageDestroyedException(TX_STATE_STORAGE_ERR, "Storage is destroyed");
         }
     }
 
@@ -359,10 +361,10 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
     }
 
     private static void throwStorageClosedException() {
-        throw new IgniteInternalException(TX_STATE_STORAGE_STOPPED_ERR, "Storage is closed");
+        throw new StorageClosedException(TX_STATE_STORAGE_STOPPED_ERR, "Storage is closed");
     }
 
     private static void throwRebalanceInProgressException() {
-        throw new IgniteInternalException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalance is already in progress");
+        throw new StorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalance is already in progress");
     }
 }
