@@ -26,10 +26,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReferenceArray;
-import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.tx.storage.state.TxStateStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageException;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.jetbrains.annotations.Nullable;
 
@@ -146,7 +146,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             reverse(resources);
             closeAll(resources);
         } catch (Exception e) {
-            throw new StorageException("Failed to stop transaction state storage of the table: " + id, e);
+            throw new TxStateStorageException("Failed to stop transaction state storage of the table: " + id, e);
         }
     }
 
@@ -160,7 +160,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             sharedStorage.db().deleteRange(start, end);
         } catch (Exception e) {
-            throw new StorageException("Failed to destroy the transaction state storage of the table: " + id, e);
+            throw new TxStateStorageException("Failed to destroy the transaction state storage of the table: " + id, e);
         }
     }
 }

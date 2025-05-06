@@ -38,16 +38,6 @@ public class StorageDestroyedException extends StorageException {
      * @param message Error message.
      */
     public StorageDestroyedException(String message) {
-        this(Common.INTERNAL_ERR, message);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param code Error code.
-     * @param message Error message.
-     */
-    public StorageDestroyedException(int code, String message) {
-        super(code, message);
+        super(Common.INTERNAL_ERR, message);
     }
 }

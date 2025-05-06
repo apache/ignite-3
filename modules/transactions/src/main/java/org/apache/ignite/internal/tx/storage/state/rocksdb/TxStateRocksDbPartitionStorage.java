@@ -25,8 +25,6 @@ import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDb
 import static org.apache.ignite.internal.util.ByteUtils.bytesToLong;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.nio.ByteBuffer;
 import java.util.Collection;
@@ -41,10 +39,6 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.rocksdb.ColumnFamily;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
-import org.apache.ignite.internal.storage.StorageClosedException;
-import org.apache.ignite.internal.storage.StorageDestroyedException;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.storage.util.StorageState;
@@ -52,6 +46,10 @@ import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxMetaSerializer;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageClosedException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageDestroyedException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageRebalanceException;
 import org.apache.ignite.internal.util.Cursor;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -123,7 +121,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     /**
      * Starts the storage.
      *
-     * @throws StorageException In case when the operation has failed.
+     * @throws TxStateStorageException In case when the operation has failed.
      */
     public void start() {
         busy(() -> {
@@ -142,7 +140,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
                     metaStorage.startInCompatibilityMode(lastAppliedIndex, lastAppliedTerm);
                 }
             } catch (RocksDBException e) {
-                throw new StorageException(
+                throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
                         format("Failed to start storage: [{}]", createStorageInfo()),
                         e
@@ -163,7 +161,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
                 return txMetaBytes == null ? null : deserializeTxMeta(txMetaBytes);
             } catch (RocksDBException e) {
-                throw new StorageException(
+                throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
                         format("Failed to get a value from storage: [{}]", createStorageInfo()),
                         e
@@ -184,7 +182,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
                 return null;
             } catch (RocksDBException e) {
-                throw new StorageException(
+                throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
                         format("Failed to put a value into storage: [{}]", createStorageInfo()),
                         e
@@ -271,7 +269,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
                 return result;
             } catch (RocksDBException e) {
-                throw new StorageException(
+                throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
                         format("Failed to update data in the storage: [{}]", createStorageInfo()),
                         e
@@ -389,7 +387,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
         } catch (Exception e) {
-            throw new StorageException(TX_STATE_STORAGE_ERR, format("Failed to destroy storage: [{}]", createStorageInfo()), e);
+            throw new TxStateStorageException(TX_STATE_STORAGE_ERR, format("Failed to destroy storage: [{}]", createStorageInfo()), e);
         }
     }
 
@@ -454,8 +452,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             return nullCompletedFuture();
         } catch (Exception e) {
-            throw new StorageException(
-                    TX_STATE_STORAGE_REBALANCE_ERR,
+            throw new TxStateStorageRebalanceException(
                     format("Failed to start rebalance: [{}]", createStorageInfo()),
                     e
             );
@@ -477,8 +474,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
-            throw new StorageException(
-                    TX_STATE_STORAGE_REBALANCE_ERR,
+            throw new TxStateStorageRebalanceException(
                     format("Failed to abort rebalance: [{}]", createStorageInfo()),
                     e
             );
@@ -490,8 +486,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     @Override
     public CompletableFuture<Void> finishRebalance(MvPartitionMeta partitionMeta) {
         if (state.get() != StorageState.REBALANCE) {
-            throw new StorageRebalanceException(
-                    TX_STATE_STORAGE_REBALANCE_ERR,
+            throw new TxStateStorageRebalanceException(
                     format("Rebalancing has not started: [{}]", createStorageInfo())
             );
         }
@@ -513,8 +508,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             state.set(StorageState.RUNNABLE);
         } catch (Exception e) {
-            throw new StorageException(
-                    TX_STATE_STORAGE_REBALANCE_ERR,
+            throw new TxStateStorageRebalanceException(
                     format("Failed to finish rebalance: [{}]", createStorageInfo()),
                     e
             );
@@ -537,7 +531,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
 
             return nullCompletedFuture();
         } catch (RocksDBException e) {
-            throw new StorageException(
+            throw new TxStateStorageException(
                     TX_STATE_STORAGE_ERR,
                     format("Failed to cleanup storage: [{}]", createStorageInfo()),
                     e
@@ -599,8 +593,7 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         try {
             return metaStorage.snapshotInfo();
         } catch (RocksDBException e) {
-            throw new StorageException(
-                    TX_STATE_STORAGE_REBALANCE_ERR,
+            throw new TxStateStorageRebalanceException(
                     format("Failed to get snapshot info: [{}]", createStorageInfo()),
                     e
             );
@@ -627,9 +620,8 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
         }
     }
 
-    private StorageException createStorageInProgressOfRebalanceException() {
-        return new StorageRebalanceException(
-                TX_STATE_STORAGE_REBALANCE_ERR,
+    private TxStateStorageException createStorageInProgressOfRebalanceException() {
+        return new TxStateStorageRebalanceException(
                 format("Storage is in the process of rebalance: [{}]", createStorageInfo())
         );
     }
@@ -637,24 +629,23 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     private void throwExceptionDependingOnStorageState(StorageState state) {
         switch (state) {
             case CLOSED:
-                throw new StorageClosedException(
-                        TX_STATE_STORAGE_STOPPED_ERR,
+                throw new TxStateStorageClosedException(
                         format("Transaction state storage is stopped: [{}]", createStorageInfo())
                 );
             case REBALANCE:
                 throw createStorageInProgressOfRebalanceException();
             case CLEANUP:
-                throw new StorageException(
+                throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
                         format("Storage is in the process of cleanup: [{}]", createStorageInfo())
                 );
             case DESTROYED:
-                throw new StorageDestroyedException(
+                throw new TxStateStorageDestroyedException(
                         TX_STATE_STORAGE_ERR,
                         format("Storage has been destroyed: [{}]", createStorageInfo())
                 );
             default:
-                throw new StorageException(
+                throw new TxStateStorageException(
                         TX_STATE_STORAGE_ERR,
                         format("Unexpected state: [{}, state={}]", createStorageInfo(), state)
                 );

@@ -21,8 +21,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
-import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 import java.util.Collection;
 import java.util.Iterator;
@@ -32,9 +30,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
-import org.apache.ignite.internal.storage.StorageClosedException;
-import org.apache.ignite.internal.storage.StorageDestroyedException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
@@ -42,6 +37,9 @@ import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageClosedException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageDestroyedException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageRebalanceException;
 import org.apache.ignite.internal.tx.storage.state.UnsignedUuidComparator;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
@@ -256,7 +254,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         CompletableFuture<Void> rebalanceFuture = rebalanceFutureReference.getAndSet(null);
 
         if (rebalanceFuture == null) {
-            throw new StorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalancing has not started");
+            throw new TxStateStorageRebalanceException("Rebalancing has not started");
         }
 
         return rebalanceFuture
@@ -350,7 +348,7 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
         }
 
         if (destroyed) {
-            throw new StorageDestroyedException(TX_STATE_STORAGE_ERR, "Storage is destroyed");
+            throw new TxStateStorageDestroyedException(TX_STATE_STORAGE_ERR, "Storage is destroyed");
         }
     }
 
@@ -361,10 +359,10 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
     }
 
     private static void throwStorageClosedException() {
-        throw new StorageClosedException(TX_STATE_STORAGE_STOPPED_ERR, "Storage is closed");
+        throw new TxStateStorageClosedException("Storage is closed");
     }
 
     private static void throwRebalanceInProgressException() {
-        throw new StorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, "Rebalance is already in progress");
+        throw new TxStateStorageRebalanceException("Rebalance is already in progress");
     }
 }

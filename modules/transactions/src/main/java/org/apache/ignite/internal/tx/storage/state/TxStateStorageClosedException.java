@@ -15,20 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.tx.storage.state;
 
-import org.apache.ignite.lang.ErrorGroups.Common;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 /**
  * Exception that is be thrown when trying to access a closed storage.
  */
-public class StorageClosedException extends StorageException {
+public class TxStateStorageClosedException extends TxStateStorageException {
     private static final long serialVersionUID = -7988332521347221109L;
 
     /**
      * Default constructor.
      */
-    public StorageClosedException() {
+    public TxStateStorageClosedException() {
         this("Storage is already closed");
     }
 
@@ -37,7 +37,7 @@ public class StorageClosedException extends StorageException {
      *
      * @param message Error message.
      */
-    public StorageClosedException(String message) {
-        super(Common.INTERNAL_ERR, message);
+    public TxStateStorageClosedException(String message) {
+        super(TX_STATE_STORAGE_STOPPED_ERR, message);
     }
 }

@@ -54,10 +54,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.replicator.TablePartitionId;
-import org.apache.ignite.internal.storage.StorageClosedException;
-import org.apache.ignite.internal.storage.StorageDestroyedException;
-import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.StorageRebalanceException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -582,7 +578,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, scanCursorBeforeStartRebalance::next);
 
         // We cannot start a new rebalance until the current one has ended.
-        assertThrows(StorageException.class, storage::startRebalance);
+        assertThrows(TxStateStorageException.class, storage::startRebalance);
     }
 
     private static void checkTxStateStorageMethodsWhenRebalanceInProgress(TxStatePartitionStorage storage) {
@@ -636,25 +632,25 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
     }
 
     private static void assertThrowsStorageException(int expFullErrorCode, Executable executable) {
-        StorageException exception = assertThrows(StorageException.class, executable);
+        TxStateStorageException exception = assertThrows(TxStateStorageException.class, executable);
 
         assertEquals(expFullErrorCode, exception.code());
     }
 
     private static void assertThrowsStorageClosedException(int expFullErrorCode, Executable executable) {
-        StorageClosedException exception = assertThrows(StorageClosedException.class, executable);
+        TxStateStorageClosedException exception = assertThrows(TxStateStorageClosedException.class, executable);
 
         assertEquals(expFullErrorCode, exception.code());
     }
 
     private static void assertThrowsStorageDestroyedException(int expFullErrorCode, Executable executable) {
-        StorageDestroyedException exception = assertThrows(StorageDestroyedException.class, executable);
+        TxStateStorageDestroyedException exception = assertThrows(TxStateStorageDestroyedException.class, executable);
 
         assertEquals(expFullErrorCode, exception.code());
     }
 
     private static void assertThrowsStorageRebalanceException(int expFullErrorCode, Executable executable) {
-        StorageRebalanceException exception = assertThrows(StorageRebalanceException.class, executable);
+        TxStateStorageRebalanceException exception = assertThrows(TxStateStorageRebalanceException.class, executable);
 
         assertEquals(expFullErrorCode, exception.code());
     }

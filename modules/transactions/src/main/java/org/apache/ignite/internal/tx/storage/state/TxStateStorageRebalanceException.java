@@ -15,22 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.storage;
+package org.apache.ignite.internal.tx.storage.state;
 
-import org.apache.ignite.internal.lang.IgniteStringFormatter;
-import org.apache.ignite.lang.ErrorGroups.Common;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_REBALANCE_ERR;
+
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Exception that will be thrown when the storage is in the process of rebalance.
  */
-public class StorageRebalanceException extends StorageException {
+public class TxStateStorageRebalanceException extends TxStateStorageException {
     private static final long serialVersionUID = -4840074471464728969L;
 
     /**
      * Default constructor.
      */
-    public StorageRebalanceException() {
+    public TxStateStorageRebalanceException() {
         this("Storage in the process of rebalancing");
     }
 
@@ -39,8 +39,8 @@ public class StorageRebalanceException extends StorageException {
      *
      * @param message Error message.
      */
-    public StorageRebalanceException(String message) {
-        super(Common.INTERNAL_ERR, message);
+    public TxStateStorageRebalanceException(String message) {
+        super(TX_STATE_STORAGE_REBALANCE_ERR, message);
     }
 
     /**
@@ -49,30 +49,7 @@ public class StorageRebalanceException extends StorageException {
      * @param message Error message.
      * @param cause Optional nested exception (can be {@code null}).
      */
-    public StorageRebalanceException(String message, @Nullable Throwable cause) {
-        super(Common.INTERNAL_ERR, message, cause);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param messagePattern Error message pattern.
-     * @param cause Non-null throwable cause.
-     * @param params Error message params.
-     * @see IgniteStringFormatter#format(String, Object...)
-     */
-    public StorageRebalanceException(String messagePattern, Throwable cause, Object... params) {
-        super(Common.INTERNAL_ERR, messagePattern, cause, params);
-    }
-
-    /**
-     * Constructor.
-     *
-     * @param messagePattern Error message pattern.
-     * @param params Error message params.
-     * @see IgniteStringFormatter#format(String, Object...)
-     */
-    public StorageRebalanceException(String messagePattern, Object... params) {
-        super(Common.INTERNAL_ERR, messagePattern, params);
+    public TxStateStorageRebalanceException(String message, @Nullable Throwable cause) {
+        super(TX_STATE_STORAGE_REBALANCE_ERR, message, cause);
     }
 }
