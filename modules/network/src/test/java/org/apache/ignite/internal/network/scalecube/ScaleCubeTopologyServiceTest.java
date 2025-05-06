@@ -17,17 +17,33 @@
 
 package org.apache.ignite.internal.network.scalecube;
 
+import static io.scalecube.cluster.membership.MembershipEvent.createAdded;
+import static io.scalecube.cluster.membership.MembershipEvent.createRemoved;
+import static java.util.concurrent.CompletableFuture.allOf;
+import static java.util.concurrent.CompletableFuture.runAsync;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.net.Address;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
+@ExtendWith(ExecutorServiceExtension.class)
 class ScaleCubeTopologyServiceTest {
     private final ScaleCubeTopologyService topologyService = new ScaleCubeTopologyService();
 
@@ -47,15 +63,15 @@ class ScaleCubeTopologyServiceTest {
     void removedEventRemovesNodeFromTopology() {
         addTwoMembers();
 
-        topologyService.onMembershipEvent(MembershipEvent.createRemoved(member2, null, 100));
+        topologyService.onMembershipEvent(createRemoved(member2, null, 100));
 
         assertThat(topologyService.allMembers(), hasSize(1));
         assertThat(topologyService.getByConsistentId("second"), is(nullValue()));
     }
 
     private void addTwoMembers() {
-        topologyService.onMembershipEvent(MembershipEvent.createAdded(member1, null, 1));
-        topologyService.onMembershipEvent(MembershipEvent.createAdded(member2, null, 2));
+        topologyService.onMembershipEvent(createAdded(member1, null, 1));
+        topologyService.onMembershipEvent(createAdded(member2, null, 2));
     }
 
     @Test
@@ -66,5 +82,47 @@ class ScaleCubeTopologyServiceTest {
 
         assertThat(topologyService.allMembers(), hasSize(1));
         assertThat(topologyService.getByConsistentId("second"), is(nullValue()));
+    }
+
+    @Test
+    void getByConsistentIdWorksWithConcurrentModifications(@InjectExecutorService ExecutorService executor) {
+        testGetNodeWorksWithConcurrentModifications(executor, member -> topologyService.getByConsistentId(member.alias()));
+    }
+
+    @Test
+    void getByAddressWorksWithConcurrentModifications(@InjectExecutorService ExecutorService executor) {
+        testGetNodeWorksWithConcurrentModifications(
+                executor,
+                member -> topologyService.getByAddress(new NetworkAddress(member.address().host(), member.address().port()))
+        );
+    }
+
+    @Test
+    void getByIdWorksWithConcurrentModifications(@InjectExecutorService ExecutorService executor) {
+        testGetNodeWorksWithConcurrentModifications(executor, member -> topologyService.getById(UUID.fromString(member.id())));
+    }
+
+    private void testGetNodeWorksWithConcurrentModifications(
+            @InjectExecutorService ExecutorService executor,
+            Function<Member, ClusterNode> getter
+    ) {
+        Member member = new Member(UUID.randomUUID().toString(), "test", Address.create("host", 1001), "default");
+
+        AtomicBoolean proceed = new AtomicBoolean(true);
+
+        CompletableFuture<Void> updaterFuture = runAsync(() -> {
+            for (int i = 0; i < 1000 && proceed.get(); i++) {
+                topologyService.onMembershipEvent(createAdded(member, null, System.nanoTime()));
+                topologyService.onMembershipEvent(createRemoved(member, null, System.nanoTime()));
+            }
+        }, executor).whenComplete((res, ex) -> proceed.set(false));
+
+        CompletableFuture<Void> readerFuture = runAsync(() -> {
+            while (proceed.get()) {
+                assertDoesNotThrow(() -> getter.apply(member));
+            }
+        }, executor).whenComplete((res, ex) -> proceed.set(false));
+
+        assertThat(allOf(updaterFuture, readerFuture), willCompleteSuccessfully());
     }
 }
