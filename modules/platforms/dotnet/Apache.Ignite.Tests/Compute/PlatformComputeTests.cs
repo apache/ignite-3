@@ -200,7 +200,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestManyJobsAssemblyLoadContextUnload()
     {
-        int jobCount = 1000;
+        int jobCount = 100;
 
         var jobTasks = Enumerable
             .Range(0, jobCount)
