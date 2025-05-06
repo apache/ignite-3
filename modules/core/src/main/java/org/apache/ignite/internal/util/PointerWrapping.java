@@ -55,17 +55,14 @@ abstract class PointerWrapping {
         } catch (Exception e) {
             try {
                 directBufCtorWithLongLen = createAndTestNewDirectBufferCtor(long.class);
-            } catch (Exception e2) {
+            } catch (Exception e1) {
+                e.addSuppressed(e1);
+
                 try {
                     nioAccessObj = javaNioAccessObject();
                     directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
-                } catch (Exception exFallback) {
-                    //noinspection CallToPrintStackTrace
-                    exFallback.printStackTrace(); // NOPMD
-
-                    e.addSuppressed(exFallback);
-
-                    throw e; // Fallback to shared secrets failed.
+                } catch (Exception e2) {
+                    e.addSuppressed(e2);
                 }
 
                 if (nioAccessObj == null || directBufMtd == null) {
@@ -89,6 +86,12 @@ abstract class PointerWrapping {
      * @return Byte buffer wrapping the given memory.
      */
     static ByteBuffer wrapPointer(long ptr, int len) {
+        // Direct usage of "static final" method handle instances allows JIT to inline them into a compiled code. Such an approach produces
+        // the most optimal results.
+        // Usage of conditional branching here is not a problem, because they only refer to "static final" values too, which means that
+        // eventually JIT will inline them and perform a dead branch elimination.
+        // Please be aware of that if you want to refactor this code. Don't do it without having benchmarks and guaranteeing that
+        // performance won't suffer.
         if (DIRECT_BUF_MTD != null && JAVA_NIO_ACCESS_OBJ != null) {
             return wrapPointerJavaNio(ptr, len);
         } else if (DIRECT_BUF_CTOR_INT != null) {
@@ -96,7 +99,7 @@ abstract class PointerWrapping {
         } else if (DIRECT_BUF_CTOR_LONG != null) {
             return wrapPointerDirectBufferConstructor(ptr, (long) len);
         } else {
-            throw new RuntimeException(
+            throw new AssertionError(
                     "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_STARTUP_PARAMS_WARN);
         }
     }
@@ -105,7 +108,7 @@ abstract class PointerWrapping {
      * Returns {@code JavaNioAccess} instance from private API for corresponding Java version.
      *
      * @return {@code JavaNioAccess} instance for corresponding Java version.
-     * @throws RuntimeException If getting access to the private API is failed.
+     * @throws AssertionError If getting access to the private API is failed.
      */
     private static Object javaNioAccessObject() {
         Class<?> cls;
@@ -115,7 +118,7 @@ abstract class PointerWrapping {
             try {
                 cls = Class.forName("jdk.internal.misc.SharedSecrets");
             } catch (ClassNotFoundException e1) {
-                throw new RuntimeException("Neither jdk.internal.access.SharedSecrets nor jdk.internal.misc.SharedSecrets are unavailable."
+                throw new AssertionError("Neither jdk.internal.access.SharedSecrets nor jdk.internal.misc.SharedSecrets are unavailable."
                         + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
             }
         }
@@ -124,7 +127,7 @@ abstract class PointerWrapping {
 
             return mth.invoke(null);
         } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(cls.getName() + " class is unavailable."
+            throw new AssertionError(cls.getName() + " class is unavailable."
                     + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
@@ -134,7 +137,7 @@ abstract class PointerWrapping {
      *
      * @param nioAccessObj Java NIO access object.
      * @return Reference to {@code JavaNioAccess.newDirectByteBuffer} method
-     * @throws RuntimeException If getting access to the private API is failed.
+     * @throws AssertionError If getting access to the private API is failed.
      */
     private static MethodHandle newDirectBufferMethodHandle(Object nioAccessObj) {
         try {
@@ -160,7 +163,7 @@ abstract class PointerWrapping {
                     .unreflect(mtd)
                     .asType(mtdType);
         } catch (ReflectiveOperationException | PrivilegedActionException e) {
-            throw new RuntimeException(nioAccessObj.getClass().getName() + "#newDirectByteBuffer() method is unavailable."
+            throw new AssertionError(nioAccessObj.getClass().getName() + "#newDirectByteBuffer() method is unavailable."
                     + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
@@ -189,14 +192,13 @@ abstract class PointerWrapping {
                 throw new IllegalArgumentException("Buffer expected to be direct, internal error during #wrapPointerDirectBufCtor()");
             }
         } catch (Throwable t) {
-            throw new RuntimeException(t);
+            throw new AssertionError(t);
         } finally {
             UNSAFE.freeMemory(ptr);
         }
 
         return ctorCandidate;
     }
-
 
     /**
      * Simply create some instance of direct Byte Buffer and try to get it's class declared constructor.
@@ -226,10 +228,9 @@ abstract class PointerWrapping {
                     .unreflectConstructor(ctor)
                     .asType(mtdType);
         } catch (ReflectiveOperationException | PrivilegedActionException e) {
-            throw new RuntimeException("Unable to set up byte buffer creation using reflection :" + e.getMessage(), e);
+            throw new AssertionError("Unable to set up byte buffer creation using reflection :" + e.getMessage(), e);
         }
     }
-
 
     private static ByteBuffer wrapPointerJavaNio(long ptr, int len) {
         try {
@@ -241,7 +242,7 @@ abstract class PointerWrapping {
 
             return buf;
         } catch (Throwable e) {
-            throw new RuntimeException("JavaNioAccess#newDirectByteBuffer() method is unavailable."
+            throw new AssertionError("JavaNioAccess#newDirectByteBuffer() method is unavailable."
                     + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
@@ -249,8 +250,8 @@ abstract class PointerWrapping {
     /**
      * Wraps a pointer to unmanaged memory into a direct byte buffer. Uses the constructor of the direct byte buffer.
      *
-     * @param ptr         Pointer to wrap.
-     * @param len         Memory location length.
+     * @param ptr Pointer to wrap.
+     * @param len Memory location length.
      * @return Byte buffer wrapping the given memory.
      */
     private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, int len) {
@@ -259,7 +260,7 @@ abstract class PointerWrapping {
 
             return newDirectBuf.order(NATIVE_BYTE_ORDER);
         } catch (Throwable e) {
-            throw new RuntimeException("DirectByteBuffer#constructor is unavailable."
+            throw new AssertionError("DirectByteBuffer#constructor is unavailable."
                     + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
@@ -267,8 +268,8 @@ abstract class PointerWrapping {
     /**
      * Wraps a pointer to unmanaged memory into a direct byte buffer. Uses the constructor of the direct byte buffer.
      *
-     * @param ptr         Pointer to wrap.
-     * @param len         Memory location length.
+     * @param ptr Pointer to wrap.
+     * @param len Memory location length.
      * @return Byte buffer wrapping the given memory.
      */
     private static ByteBuffer wrapPointerDirectBufferConstructor(long ptr, long len) {
@@ -277,7 +278,7 @@ abstract class PointerWrapping {
 
             return newDirectBuf.order(NATIVE_BYTE_ORDER);
         } catch (Throwable e) {
-            throw new RuntimeException("DirectByteBuffer#constructor is unavailable."
+            throw new AssertionError("DirectByteBuffer#constructor is unavailable."
                     + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
         }
     }
