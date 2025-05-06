@@ -114,26 +114,28 @@ public class DotNetComputeExecutor {
         long jobId = jobIdGen.incrementAndGet();
 
         return getPlatformComputeConnectionWithRetryAsync()
-                .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
-                .exceptionally(e -> {
-                    var cause = unwrapCause(e);
+                .thenCompose(conn -> conn.connectionFut()
+                        .thenCompose(c -> c.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
+                        .exceptionally(e -> {
+                            var cause = unwrapCause(e);
 
-                    if (cause instanceof TraceableException) {
-                        TraceableException te = (TraceableException) cause;
+                            if (cause instanceof TraceableException) {
+                                TraceableException te = (TraceableException) cause;
 
-                        if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
-                            throw new IgniteException(te.traceId(), te.code(), ".NET compute executor connection lost", e);
-                        } else {
-                            throw new IgniteException(te.traceId(), te.code(), ".NET job failed: " + cause.getMessage(), e);
-                        }
-                    }
+                                if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                    Throwable cause2 = handleTransportError(conn.process(), cause);
+                                    throw new IgniteException(te.traceId(), te.code(), ".NET compute executor connection lost", cause2);
+                                } else {
+                                    throw new IgniteException(te.traceId(), te.code(), ".NET job failed: " + cause.getMessage(), e);
+                                }
+                            }
 
-                    throw new IgniteException(Compute.COMPUTE_JOB_FAILED_ERR, ".NET job failed: " + cause.getMessage(), e);
-                });
+                            throw new IgniteException(Compute.COMPUTE_JOB_FAILED_ERR, ".NET job failed: " + cause.getMessage(), e);
+                        }));
     }
 
-    private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnectionWithRetryAsync() {
-        CompletableFuture<PlatformComputeConnection> fut = new CompletableFuture<>();
+    private CompletableFuture<DotNetExecutorProcess> getPlatformComputeConnectionWithRetryAsync() {
+        CompletableFuture<DotNetExecutorProcess> fut = new CompletableFuture<>();
 
         getPlatformComputeConnectionWithRetryAsync(fut, null);
 
@@ -141,7 +143,7 @@ public class DotNetComputeExecutor {
     }
 
     private void getPlatformComputeConnectionWithRetryAsync(
-            CompletableFuture<PlatformComputeConnection> fut,
+            CompletableFuture<DotNetExecutorProcess> fut,
             @Nullable List<Throwable> errors) {
         getPlatformComputeConnection()
                 .handle((res, e) -> {
@@ -170,8 +172,8 @@ public class DotNetComputeExecutor {
                 });
     }
 
-    private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnection() {
-        CompletableFuture<PlatformComputeConnection> fut = new CompletableFuture<>();
+    private CompletableFuture<DotNetExecutorProcess> getPlatformComputeConnection() {
+        CompletableFuture<DotNetExecutorProcess> fut = new CompletableFuture<>();
 
         DotNetExecutorProcess proc = ensureProcessStarted();
 
@@ -181,7 +183,7 @@ public class DotNetComputeExecutor {
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .handle((res, e) -> {
                     if (e == null) {
-                        fut.complete(res);
+                        fut.complete(proc);
                     } else {
                         fut.completeExceptionally(handleTransportError(proc.process(), e));
                     }
