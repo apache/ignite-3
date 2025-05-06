@@ -125,6 +125,7 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
+    [Ignore("IGNITE-25181")]
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
