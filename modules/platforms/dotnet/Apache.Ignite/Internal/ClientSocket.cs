@@ -1014,6 +1014,12 @@ namespace Apache.Ignite.Internal
                 }
 
                 Metrics.ConnectionsActiveDecrement();
+
+                if (ComputeJobExecutor.IgniteComputeExecutorId != null)
+                {
+                    // Shut down the executor process on disconnect.
+                    Environment.Exit(0);
+                }
             }
         }
     }
