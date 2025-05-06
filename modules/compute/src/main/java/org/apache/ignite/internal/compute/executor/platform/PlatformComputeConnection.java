@@ -55,4 +55,9 @@ public interface PlatformComputeConnection {
      * @return True if the undeployment was successful, false if the units were not deployed or already undeployed.
      */
     CompletableFuture<Boolean> undeployUnitsAsync(List<String> deploymentUnitPaths);
+
+    /**
+     * Closes the connection.
+     */
+    void close();
 }

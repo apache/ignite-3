@@ -1340,6 +1340,11 @@ public class ClientInboundMessageHandler
                     .thenApply(ClientMessageUnpacker::unpackBoolean);
         }
 
+        @Override
+        public void close() {
+            closeConnection();
+        }
+
         private void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
             packer.packInt(deploymentUnitPaths.size());
             for (String path : deploymentUnitPaths) {

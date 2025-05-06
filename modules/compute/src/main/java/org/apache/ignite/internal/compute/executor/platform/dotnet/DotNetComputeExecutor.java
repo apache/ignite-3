@@ -237,7 +237,12 @@ public class DotNetComputeExecutor {
             LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
 
-            proc.onExit().thenRun(() -> fut.completeExceptionally(handleTransportError(proc, null)));
+            proc.onExit().thenRun(() -> {
+                if (!fut.completeExceptionally(handleTransportError(proc, null))) {
+                    // Process exited after the connection was established - close the connection.
+                    fut.thenAccept(PlatformComputeConnection::close);
+                }
+            });
 
             process = new DotNetExecutorProcess(proc, fut);
         }
