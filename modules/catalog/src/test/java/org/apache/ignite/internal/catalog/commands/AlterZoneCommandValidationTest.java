@@ -25,7 +25,11 @@ import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.List;
+import java.util.stream.Stream;
+import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.CatalogValidationException;
@@ -35,6 +39,7 @@ import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -90,6 +95,62 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         alterZoneBuilder().replicas(1).build();
         alterZoneBuilder().replicas(Integer.MAX_VALUE).build();
         alterZoneBuilder().replicas(DEFAULT_REPLICA_COUNT).build();
+    }
+
+    private static Stream<Arguments> incompatibleReplicas() {
+        return Stream.of(
+                arguments(1, 1, 2),
+                arguments(2, 2, 1),
+                arguments(3, 2, 1),
+                arguments(5, 3, 4),
+                arguments(6, 3, 4)
+        );
+    }
+    @ParameterizedTest
+    @MethodSource("incompatibleReplicas")
+    void zoneIncompatibleReplicas(int initialReplicas, int quorumSize, int targetReplicas) {
+        Catalog catalog = catalog(alterZoneBuilder()
+                .replicas(initialReplicas)
+                .quorumSize(quorumSize)
+                .build()
+        );
+
+        CatalogCommand alterCommand = alterZoneBuilder()
+                .replicas(targetReplicas)
+                .build();
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> alterCommand.get(new UpdateContext(catalog)),
+                "Current quorum size doesn't fit into the specified replicas count"
+        );
+    }
+
+    private static List<Arguments> compatibleReplicas() {
+        return List.of(
+                arguments(2, 2, 3),
+                arguments(2, 2, 4),
+                arguments(2, 2, 5),
+                arguments(5, 2, 4),
+                arguments(5, 2, 6),
+                arguments(5, 2, 7)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("compatibleReplicas")
+    void zoneCompatibleReplicas(int initialReplicas, int quorumSize, int targetReplicas) {
+        Catalog catalog = catalog(alterZoneBuilder()
+                .replicas(initialReplicas)
+                .quorumSize(quorumSize)
+                .build()
+        );
+
+        CatalogCommand alterCommand = alterZoneBuilder()
+                .replicas(targetReplicas)
+                .build();
+
+        alterCommand.get(new UpdateContext(catalog));
     }
 
     @Test
