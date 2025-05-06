@@ -195,7 +195,7 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestAssemblyLoadContextUnload()
+    public async Task TestManyJobsAssemblyLoadContextUnload()
     {
         int jobCount = 1000;
 
