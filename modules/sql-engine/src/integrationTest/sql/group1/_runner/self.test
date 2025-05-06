@@ -58,6 +58,12 @@ statement error: From line 1, column 8 to line 1, column 10: Column 'COL' not fo
 SELECT col
 
 # error with message
+# checks whether a message from an exception contains the given substring
+statement error: From line 1, column 8 to line 1, column 10: Column 'COL' not found in any table
+statement error: One more different error
+SELECT col
+
+# error with message
 # CAVEAT: currently it collapses multiple spaces inside a error message into one.
 statement error: From line 1,    column 8
 SELECT col
