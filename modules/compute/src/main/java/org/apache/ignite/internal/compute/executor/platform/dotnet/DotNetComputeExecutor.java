@@ -181,8 +181,6 @@ public class DotNetComputeExecutor {
 
         DotNetExecutorProcess proc = ensureProcessStarted();
 
-        proc.process().onExit().thenRun(() -> fut.completeExceptionally(handleTransportError(proc.process(), null)));
-
         proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .handle((res, e) -> {
@@ -238,6 +236,8 @@ public class DotNetComputeExecutor {
             String dotnetBinaryPath = DOTNET_BINARY_PATH;
             LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
+
+            proc.onExit().thenRun(() -> fut.completeExceptionally(handleTransportError(proc, null)));
 
             process = new DotNetExecutorProcess(proc, fut);
         }
