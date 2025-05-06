@@ -79,10 +79,10 @@ public class TxStateRocksDbStorage implements TxStateStorage {
     private void checkPartitionId(int partitionId) {
         if (partitionId < 0 || partitionId >= storages.length()) {
             throw new IllegalArgumentException(S.toString(
-                "Unable to access partition with id outside of configured range",
-                "tableId", id, false,
-                "partitionId", partitionId, false,
-                "partitions", storages.length(), false
+                    "Unable to access partition with id outside of configured range",
+                    "tableId", id, false,
+                    "partitionId", partitionId, false,
+                    "partitions", storages.length(), false
             ));
         }
     }
@@ -146,7 +146,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
             reverse(resources);
             closeAll(resources);
         } catch (Exception e) {
-            throw new TxStateStorageException("Failed to stop transaction state storage of the table: " + id, e);
+            throw new TxStateStorageException("Failed to stop transaction state storage [tableId={}]", e, id);
         }
     }
 
@@ -160,7 +160,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
             sharedStorage.db().deleteRange(start, end);
         } catch (Exception e) {
-            throw new TxStateStorageException("Failed to destroy the transaction state storage of the table: " + id, e);
+            throw new TxStateStorageException("Failed to destroy the transaction state storage [tableId={}]", e, id);
         }
     }
 }
