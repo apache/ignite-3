@@ -174,7 +174,8 @@ public class PlatformComputeTests : IgniteTestsBase
         int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId);
 
         // Run a job that exits the process. This job fails because the process exits before the result is returned.
-        var ex = Assert.ThrowsAsync<IgniteException>(async () => await ExecJobAsync(DotNetJobs.ProcessExit));
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await ExecJobAsync(DotNetJobs.ProcessExit).WaitAsync(TimeSpan.FromSeconds(5)));
 
         // Run another job - the process should be restarted automatically.
         int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId);
