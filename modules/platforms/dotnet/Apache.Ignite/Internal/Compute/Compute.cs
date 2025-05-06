@@ -74,7 +74,7 @@ namespace Apache.Ignite.Internal.Compute
 
             return target switch
             {
-                JobTarget.SingleNodeTarget singleNode => SubmitAsync(new[] { singleNode.Data }, jobDescriptor, arg),
+                JobTarget.SingleNodeTarget singleNode => SubmitAsync([singleNode.Data], jobDescriptor, arg),
                 JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg),
                 JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg),
 
@@ -221,7 +221,7 @@ namespace Apache.Ignite.Internal.Compute
         }
 
         /// <summary>
-        /// Changes the job priority. After priority change the job will be the last in the queue of jobs with the same priority.
+        /// Changes the job priority. After priority change, the job will be the last in the queue of jobs with the same priority.
         /// </summary>
         /// <param name="jobId">Job id.</param>
         /// <param name="priority">New priority.</param>
@@ -291,6 +291,21 @@ namespace Apache.Ignite.Internal.Compute
 
         private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf) =>
             WriteEnumerable(nodes, buf, writerFunc: static (node, buf) => buf.MessageWriter.Write(node.Name));
+
+        private static void WriteJob<TArg, TResult>(
+            PooledArrayBuffer writer,
+            JobDescriptor<TArg, TResult> jobDescriptor)
+        {
+            WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
+
+            var w = writer.MessageWriter;
+            w.Write(jobDescriptor.JobClassName);
+
+            var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
+            w.Write(options.Priority);
+            w.Write(options.MaxRetries);
+            w.Write((int)options.ExecutorType);
+        }
 
         private static JobState ReadJobState(MsgPackReader reader)
         {
@@ -387,12 +402,11 @@ namespace Apache.Ignite.Internal.Compute
             TArg arg)
         {
             IClusterNode node = GetRandomNode(nodes);
-            JobExecutionOptions options = jobDescriptor.Options ?? JobExecutionOptions.Default;
 
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            var (buf, sock) = await _socket.DoOutInOpAndGetSocketAsync(
+            var (buf, _) = await _socket.DoOutInOpAndGetSocketAsync(
                     ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
@@ -402,14 +416,10 @@ namespace Apache.Ignite.Internal.Compute
 
             void Write()
             {
-                var w = writer.MessageWriter;
-
                 WriteNodeNames(nodes, writer);
-                WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
-                w.Write(jobDescriptor.JobClassName);
-                w.Write(options.Priority);
-                w.Write(options.MaxRetries);
+                WriteJob(writer, jobDescriptor);
 
+                var w = writer.MessageWriter;
                 ComputePacker.PackArgOrResult(ref w, arg, jobDescriptor.ArgMarshaller);
             }
         }
@@ -443,9 +453,6 @@ namespace Apache.Ignite.Internal.Compute
             TArg arg)
             where TKey : notnull
         {
-            var options = descriptor.Options ?? JobExecutionOptions.Default;
-            var units0 = GetUnitsCollection(descriptor.DeploymentUnits);
-
             int? schemaVersion = null;
 
             while (true)
@@ -459,7 +466,7 @@ namespace Apache.Ignite.Internal.Compute
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                    var (resBuf, sock) = await _socket.DoOutInOpAndGetSocketAsync(
+                    var (resBuf, _) = await _socket.DoOutInOpAndGetSocketAsync(
                             ClientOp.ComputeExecuteColocated, tx: null, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
@@ -496,10 +503,7 @@ namespace Apache.Ignite.Internal.Compute
                 var serializerHandler = serializerHandlerFunc(table);
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
-                WriteUnits(units0, bufferWriter);
-                w.Write(descriptor.JobClassName);
-                w.Write(options.Priority);
-                w.Write(options.MaxRetries);
+                WriteJob(bufferWriter, descriptor);
 
                 w.WriteObjectAsBinaryTuple(arg);
 

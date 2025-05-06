@@ -83,9 +83,9 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
         /// <param name="logger">Logger.</param>
-        private ClientFailoverSocket(IgniteClientConfiguration configuration, ILogger logger)
+        private ClientFailoverSocket(IgniteClientConfigurationInternal configuration, ILogger logger)
         {
-            if (configuration.Endpoints.Count == 0)
+            if (configuration.Configuration.Endpoints.Count == 0)
             {
                 throw new IgniteClientException(
                     ErrorGroups.Client.Configuration,
@@ -93,15 +93,15 @@ namespace Apache.Ignite.Internal
             }
 
             _logger = logger;
-            _endpoints = GetIpEndPoints(configuration).ToList();
+            _endpoints = GetIpEndPoints(configuration.Configuration).ToList();
 
-            Configuration = new(configuration); // Defensive copy.
+            Configuration = configuration;
         }
 
         /// <summary>
         /// Gets the configuration.
         /// </summary>
-        public IgniteClientConfiguration Configuration { get; }
+        public IgniteClientConfigurationInternal Configuration { get; }
 
         /// <summary>
         /// Gets the partition assignment timestamp.
@@ -128,9 +128,9 @@ namespace Apache.Ignite.Internal
         /// </summary>
         /// <param name="configuration">Client configuration.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        public static async Task<ClientFailoverSocket> ConnectAsync(IgniteClientConfiguration configuration)
+        public static async Task<ClientFailoverSocket> ConnectAsync(IgniteClientConfigurationInternal configuration)
         {
-            var logger = configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
+            var logger = configuration.Configuration.LoggerFactory.CreateLogger<ClientFailoverSocket>();
             logger.LogClientStartInfo(VersionUtils.InformationalVersion);
 
             var socket = new ClientFailoverSocket(configuration, logger);
@@ -259,7 +259,7 @@ namespace Apache.Ignite.Internal
                         ?? (e.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext
                         ?? (e.InnerException?.Data[ExceptionDataEndpoint] as SocketEndpoint)?.MetricsContext;
 
-                    IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.RetryPolicy;
+                    IRetryPolicy retryPolicy = retryPolicyOverride ?? Configuration.Configuration.RetryPolicy;
 
                     if (!HandleOpError(e, opFunc(socket, arg), ref attempt, ref errors, retryPolicy, metricsContext))
                     {
@@ -460,13 +460,13 @@ namespace Apache.Ignite.Internal
                     _logger.LogSecondaryConnectionsEstablishedDebug(tasks.Count - failed, failed);
                 }
 
-                if (Configuration.ReconnectInterval <= TimeSpan.Zero)
+                if (Configuration.Configuration.ReconnectInterval <= TimeSpan.Zero)
                 {
                     // Interval is zero - periodic reconnect is disabled.
                     return;
                 }
 
-                await Task.Delay(Configuration.ReconnectInterval).ConfigureAwait(false);
+                await Task.Delay(Configuration.Configuration.ReconnectInterval).ConfigureAwait(false);
             }
         }
 
@@ -661,7 +661,7 @@ namespace Apache.Ignite.Internal
                 return true;
             }
 
-            var ctx = new RetryPolicyContext(new(Configuration), publicOpType.Value, attempt, exception);
+            var ctx = new RetryPolicyContext(new(Configuration.Configuration), publicOpType.Value, attempt, exception);
 
             return retryPolicy.ShouldRetry(ctx);
 
