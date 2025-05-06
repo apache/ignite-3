@@ -30,6 +30,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon.OffsetReadFunction;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon.OffsetWriteFunction;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.jetbrains.annotations.Nullable;
 
@@ -54,6 +56,9 @@ public class BinaryTupleBuilder {
 
     /** Starting position of variable-length values. */
     private final int valueBase;
+
+    /** Offset table write function. */
+    private final OffsetWriteFunction offsetWriteFunc;
 
     /** Buffer for tuple content. */
     private ByteBuffer buffer;
@@ -99,6 +104,7 @@ public class BinaryTupleBuilder {
         } else {
             entrySize = BinaryTupleCommon.flagsToEntrySize(BinaryTupleCommon.valueSizeToFlags(totalValueSize));
         }
+        offsetWriteFunc = BinaryTupleCommon.offsetWriteFunction(entrySize);
 
         valueBase = entryBase + entrySize * numElements;
 
@@ -603,21 +609,15 @@ public class BinaryTupleBuilder {
 
             int getIndex = valueBase;
             int putIndex = valueBase;
+
+            OffsetReadFunction offsetSource = BinaryTupleCommon.offsetReadFunction(entrySize);
+            OffsetWriteFunction offsetTarget = BinaryTupleCommon.offsetWriteFunction(desiredEntrySize);
+
             while (getIndex > entryBase) {
                 getIndex -= entrySize;
                 putIndex -= desiredEntrySize;
 
-                int value;
-                if (entrySize == 4) {
-                    value = buffer.getInt(getIndex);
-                } else {
-                    value = Short.toUnsignedInt(buffer.getShort(getIndex));
-                }
-                if (desiredEntrySize == 1) {
-                    buffer.put(putIndex, (byte) value);
-                } else {
-                    buffer.putShort(putIndex, (short) value);
-                }
+                offsetTarget.offset(buffer, putIndex, offsetSource.offset(buffer, getIndex));
             }
 
             offset = (entrySize - desiredEntrySize) * numElements;
@@ -745,19 +745,7 @@ public class BinaryTupleBuilder {
         assert elementIndex < numElements : "Element index overflow: " + elementIndex + " >= " + numElements;
 
         int offset = buffer.position() - valueBase;
-        switch (entrySize) {
-            case Byte.BYTES:
-                buffer.put(entryBase + elementIndex, (byte) offset);
-                break;
-            case Short.BYTES:
-                buffer.putShort(entryBase + elementIndex * Short.BYTES, (short) offset);
-                break;
-            case Integer.BYTES:
-                buffer.putInt(entryBase + elementIndex * Integer.BYTES, offset);
-                break;
-            default:
-                assert false;
-        }
+        offsetWriteFunc.offset(buffer, entryBase + elementIndex * entrySize, offset);
 
         elementIndex++;
         return this;
