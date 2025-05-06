@@ -1286,8 +1286,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 7, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testAssignmentsChainUpdate() throws Exception {
         int partId = 0;
 
@@ -1359,8 +1357,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNodesInParallel(1, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+
+        CompletableFuture<?> updateFuture;
+        if (enabledColocation()) {
+            updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), true, -1);
+        } else {
+            updateFuture = disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+        }
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1589,8 +1592,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testGracefulRewritesChainAfterForceReset() throws Exception {
         int partId = 0;
 
