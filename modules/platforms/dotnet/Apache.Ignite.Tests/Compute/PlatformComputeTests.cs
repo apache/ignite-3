@@ -194,6 +194,19 @@ public class PlatformComputeTests : IgniteTestsBase
             apiRes);
     }
 
+    [Test]
+    public async Task TestAssemblyLoadContextUnload()
+    {
+        int jobCount = 1000;
+
+        var jobTasks = Enumerable
+            .Range(0, jobCount)
+            .Select(x => ExecJobAsync(DotNetJobs.Echo, x))
+            .ToArray();
+
+        await Task.WhenAll(jobTasks);
+    }
+
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
