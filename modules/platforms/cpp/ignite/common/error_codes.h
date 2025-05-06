@@ -195,6 +195,7 @@ enum class code : underlying_t {
     NODE_NOT_FOUND = 0x10000c,
     MARSHALLING_TYPE_MISMATCH = 0x10000d,
     COMPUTE_JOB_CANCELLED = 0x10000e,
+    COMPUTE_PLATFORM_EXECUTOR = 0x10000f,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

@@ -602,6 +602,9 @@ namespace Apache.Ignite
 
             /// <summary> ComputeJobCancelled error. </summary>
             public const int ComputeJobCancelled = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> ComputePlatformExecutor error. </summary>
+            public const int ComputePlatformExecutor = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>

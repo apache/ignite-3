@@ -277,6 +277,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_NOT_FOUND:
         case error::code::MARSHALLING_TYPE_MISMATCH:
         case error::code::COMPUTE_JOB_CANCELLED:
+        case error::code::COMPUTE_PLATFORM_EXECUTOR:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17
