@@ -1346,6 +1346,12 @@ public class ClientInboundMessageHandler
             closeConnection();
         }
 
+        @Override
+        public boolean isActive() {
+            ChannelHandlerContext ctx = channelHandlerContext;
+            return ctx != null && ctx.channel().isActive();
+        }
+
         private void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {
             packer.packInt(deploymentUnitPaths.size());
             for (String path : deploymentUnitPaths) {

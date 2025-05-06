@@ -60,4 +60,11 @@ public interface PlatformComputeConnection {
      * Closes the connection.
      */
     void close();
+
+    /**
+     * Checks if the connection is closed.
+     *
+     * @return True if the connection is closed, false otherwise.
+     */
+    boolean isActive();
 }

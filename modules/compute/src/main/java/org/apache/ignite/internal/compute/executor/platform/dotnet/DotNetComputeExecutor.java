@@ -184,7 +184,7 @@ public class DotNetComputeExecutor {
         proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .handle((res, e) -> {
-                    if (e == null) {
+                    if (e == null && res.isActive()) {
                         fut.complete(proc);
                     } else {
                         fut.completeExceptionally(handleTransportError(proc.process(), e));
