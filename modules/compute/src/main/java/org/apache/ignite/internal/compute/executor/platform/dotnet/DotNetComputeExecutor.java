@@ -41,6 +41,7 @@ import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConne
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.ErrorGroups;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -196,7 +197,9 @@ public class DotNetComputeExecutor {
         return fut;
     }
 
-    private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
+    private static Throwable handleTransportError(Process proc, Throwable cause) {
+        Throwable cause0 = unwrapCause(cause);
+
         String output = getProcessOutputTail(proc, 10_000);
 
         if (proc.isAlive()) {
@@ -204,7 +207,17 @@ public class DotNetComputeExecutor {
             proc.destroyForcibly();
         }
 
-        return new RuntimeException(".NET executor process failed to establish connection with the server: " + output, cause);
+        if (cause0 instanceof TraceableException) {
+            TraceableException te = (TraceableException) cause;
+
+            if (te.code() == Client.PROTOCOL_COMPATIBILITY_ERR) {
+                return cause;
+            }
+        }
+
+        return new IgniteException(
+                Compute.COMPUTE_PLATFORM_EXECUTOR_ERR,
+                ".NET executor process failed to establish connection with the server: " + output, cause);
     }
 
     private static String getProcessOutputTail(Process proc, int tail) {
@@ -238,7 +251,8 @@ public class DotNetComputeExecutor {
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
 
             proc.onExit().thenRun(() -> {
-                if (!fut.completeExceptionally(handleTransportError(proc, null))) {
+                if (!fut.completeExceptionally(handleTransportError(
+                        proc, new IgniteException(Compute.COMPUTE_PLATFORM_EXECUTOR_ERR, ".NET executor process exited")))) {
                     // Process exited after the connection was established - close the connection.
                     fut.thenAccept(PlatformComputeConnection::close);
                 }
