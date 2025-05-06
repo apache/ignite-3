@@ -428,10 +428,15 @@ public class ClientInboundMessageHandler
 
                 if (computeConnFut == null) {
                     var msg = "Invalid compute executor ID, client connection rejected [connectionId=" + connectionId
-                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " + computeExecutorId;
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + ", executorId=" + computeExecutorId + "]";
+
+                    LOG.debug(msg);
 
                     handshakeError(ctx, packer, new IgniteException(PROTOCOL_ERR, msg));
                 } else {
+                    LOG.debug("Compute executor connected [connectionId=" + connectionId
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + ", executorId=" + computeExecutorId + "]");
+
                     // Bypass authentication for compute executor connections.
                     handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
 

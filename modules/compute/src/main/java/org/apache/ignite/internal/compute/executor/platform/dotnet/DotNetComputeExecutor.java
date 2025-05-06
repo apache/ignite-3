@@ -39,6 +39,8 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.ErrorGroups.Compute;
@@ -50,6 +52,8 @@ import org.jetbrains.annotations.Nullable;
  * .NET compute executor.
  */
 public class DotNetComputeExecutor {
+    private static final IgniteLogger LOG = Loggers.forClass(DotNetComputeExecutor.class);
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
@@ -231,7 +235,9 @@ public class DotNetComputeExecutor {
             CompletableFuture<PlatformComputeConnection> fut = transport.registerComputeExecutorId(executorId);
 
             // 2. Start the process. It connects to the server, passes the id, and the server knows it is the right one.
-            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, DOTNET_BINARY_PATH);
+            String dotnetBinaryPath = DOTNET_BINARY_PATH;
+            LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
+            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
 
             process = new DotNetExecutorProcess(proc, fut);
         }
