@@ -55,7 +55,7 @@ public sealed record JobDescriptor<TArg, TResult>(
         IMarshaller<TArg>? argMarshaller = null,
         IMarshaller<TResult>? resultMarshaller = null)
         : this(
-            type.AssemblyQualifiedName!,
+            type.AssemblyQualifiedName ?? throw new ArgumentException("Type has null AssemblyQualifiedName: " + type),
             deploymentUnits,
             EnsureDotNetExecutor(options),
             argMarshaller,
