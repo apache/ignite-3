@@ -19,6 +19,8 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using System.Runtime.Loader;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +36,7 @@ public static class DotNetJobs
     public static readonly JobDescriptor<object?, int> ProcessId = JobDescriptor.Of(new ProcessIdJob());
     public static readonly JobDescriptor<object?, object?> ProcessExit = JobDescriptor.Of(new ProcessExitJob());
     public static readonly JobDescriptor<string, string> ApiTest = new(typeof(ApiTestJob));
+    public static readonly JobDescriptor<object?, int> AssemblyLoadContextCount = JobDescriptor.Of(new AssemblyLoadContextCountJob());
 
     public class AddOneJob : IComputeJob<int, int>
     {
@@ -111,6 +114,17 @@ public static class DotNetJobs
             sb.Append($"Table result: {val}");
 
             return sb.ToString();
+        }
+    }
+
+    public class AssemblyLoadContextCountJob : IComputeJob<object?, int>
+    {
+        public ValueTask<int> ExecuteAsync(IJobExecutionContext context, object? arg, CancellationToken cancellationToken)
+        {
+            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
+            GC.WaitForPendingFinalizers();
+
+            return ValueTask.FromResult(AssemblyLoadContext.All.Count());
         }
     }
 }

@@ -180,7 +180,6 @@ public class PlatformComputeTests : IgniteTestsBase
             async () => await ExecJobAsync(DotNetJobs.ProcessExit).WaitAsync(jobTimeout));
 
         // Run another job - the process should be restarted automatically.
-        // TODO: This step gets stuck - investigate.
         int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId).WaitAsync(jobTimeout);
 
         Assert.AreNotEqual(jobProcessId1, jobProcessId2);
@@ -210,7 +209,10 @@ public class PlatformComputeTests : IgniteTestsBase
 
         await Task.WhenAll(jobTasks);
 
-        // TODO: Check that assembly load context count is low enough.
+        var assemblyLoadContextCount = await ExecJobAsync(DotNetJobs.AssemblyLoadContextCount);
+
+        // Default context + current job context, all others should be unloaded.
+        Assert.AreEqual(2, assemblyLoadContextCount);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
