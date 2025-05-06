@@ -649,6 +649,9 @@ public class ErrorGroups {
 
         /** Compute job cancelled. */
         public static final int COMPUTE_JOB_CANCELLED_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 14);
+
+        /** Platform compute executor error. */
+        public static final int COMPUTE_PLATFORM_EXECUTOR_ERR = COMPUTE_ERR_GROUP.registerErrorCode((short) 15);
     }
 
     /** Catalog error group. */
