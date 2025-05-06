@@ -197,6 +197,54 @@ KeyValueGet
     key: [1]
     est. row count: 1
 
+# Similar set of tests but for SystemViewScan
+# select all, no renames
+plan
+SELECT * FROM system.system_views
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    fields: [VIEW_ID, SCHEMA_NAME, VIEW_NAME, VIEW_TYPE, ID, SCHEMA, NAME, TYPE]
+    est. row count: 100
+
+# select with trimming projection, no renames
+plan
+SELECT view_id, view_name FROM system.system_views
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    fields: [VIEW_ID, VIEW_NAME]
+    est. row count: 100
+
+# select with trimming projection and renames
+plan
+SELECT view_id AS renamed_view_id, view_name FROM system.system_views
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    fields: [RENAMED_VIEW_ID, VIEW_NAME]
+    est. row count: 100
+
+# select with expression projection, no renames
+plan
+SELECT view_id + 5, view_name FROM system.system_views
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    fields: [EXPR$0, VIEW_NAME]
+    projects: [+(VIEW_ID, 5), VIEW_NAME]
+    est. row count: 100
+
+# select with expression projection and renames
+plan
+SELECT view_id + 5 AS adjusted_view_id, view_name FROM system.system_views
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    fields: [ADJUSTED_VIEW_ID, VIEW_NAME]
+    projects: [+(VIEW_ID, 5), VIEW_NAME]
+    est. row count: 100
+
 # Complex query where column of source table is renamed, and this renamed column is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
 plan
