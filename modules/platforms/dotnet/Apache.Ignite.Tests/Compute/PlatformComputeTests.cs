@@ -137,7 +137,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
         // TODO IGNITE-25181 Support client certs with .NET compute executor.
-        Assert.AreEqual(".NET job failed: Could not start .NET executor process in 2 attempts", ex.Message);
+        Assert.AreEqual("Could not start .NET executor process in 2 attempts", ex.Message);
     }
 
     [Test]
