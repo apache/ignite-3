@@ -37,7 +37,18 @@ public interface Row extends SchemaAware, BinaryRowEx, InternalTupleEx, BinaryTu
      * @param binaryRow Binary row.
      */
     static Row wrapBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new RowImpl(false, schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+        return wrapBinaryRow(schema, BinaryTupleSchema.createRowSchema(schema), binaryRow);
+    }
+
+    /**
+     * Creates a row from a given {@code BinaryRow}.
+     *
+     * @param schema Schema.
+     * @param rowSchema Row schema.
+     * @param binaryRow Binary row.
+     */
+    static Row wrapBinaryRow(SchemaDescriptor schema, BinaryTupleSchema rowSchema, BinaryRow binaryRow) {
+        return new RowImpl(false, schema, rowSchema, binaryRow);
     }
 
     /**
@@ -47,7 +58,18 @@ public interface Row extends SchemaAware, BinaryRowEx, InternalTupleEx, BinaryTu
      * @param binaryRow Binary row.
      */
     static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryRow binaryRow) {
-        return new RowImpl(true, schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
+        return wrapKeyOnlyBinaryRow(schema, BinaryTupleSchema.createKeySchema(schema), binaryRow);
+    }
+
+    /**
+     * Creates a row from a given {@code BinaryRow} that only contains the key component.
+     *
+     * @param schema Schema.
+     * @param keySchema Key schema.
+     * @param binaryRow Binary row.
+     */
+    static Row wrapKeyOnlyBinaryRow(SchemaDescriptor schema, BinaryTupleSchema keySchema, BinaryRow binaryRow) {
+        return new RowImpl(true, schema, keySchema, binaryRow);
     }
 
     /** Short-cut method that reads decimal value with a scale from the schema. */
