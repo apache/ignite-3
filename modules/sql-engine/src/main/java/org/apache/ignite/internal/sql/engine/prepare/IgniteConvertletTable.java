@@ -54,21 +54,7 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
 
         // Replace plus/minus implementors, because Calcite missed the TIMESTAMP WITH LOCAL TIME ZONE data type.
         registerOp(SqlStdOperatorTable.PLUS, this::convertPlus);
-        registerOp(SqlStdOperatorTable.MINUS,
-                (cx, call) -> {
-                    final RexCall e =
-                            (RexCall) StandardConvertletTable.INSTANCE.convertCall(cx, call);
-                    switch (e.getOperands().get(0).getType().getSqlTypeName()) {
-                        case DATE:
-                        case TIME:
-                        case TIMESTAMP:
-                        case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
-                            return StandardConvertletTable.INSTANCE.convertDatetimeMinus(cx, SqlStdOperatorTable.MINUS_DATE,
-                                    call);
-                        default:
-                            return e;
-                    }
-                });
+        registerOp(SqlStdOperatorTable.MINUS, this::convertMinus);
     }
 
     /** {@inheritDoc} */
@@ -148,6 +134,7 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
         }
     }
 
+    /** Convertlet that handles the {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} data type. */
     private RexNode convertPlus(
             IgniteConvertletTable this,
             SqlRexContext cx, SqlCall call) {
@@ -187,6 +174,24 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
                         SqlStdOperatorTable.DATETIME_PLUS, operands);
             default:
                 return rex;
+        }
+    }
+
+    /** Convertlet that handles the {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} data type. */
+    private RexNode convertMinus(
+            IgniteConvertletTable this,
+            SqlRexContext cx, SqlCall call) {
+        RexCall e =
+                (RexCall) StandardConvertletTable.INSTANCE.convertCall(cx, call);
+        switch (e.getOperands().get(0).getType().getSqlTypeName()) {
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                return StandardConvertletTable.INSTANCE.convertDatetimeMinus(cx, SqlStdOperatorTable.MINUS_DATE,
+                        call);
+            default:
+                return e;
         }
     }
 }
