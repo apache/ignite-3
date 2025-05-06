@@ -181,6 +181,16 @@ public abstract class AbstractTopologyAwareGroupServiceTest extends IgniteAbstra
         assertNotNull(leader);
 
         afterClusterInit(leader.name());
+
+        // Below we check that leaderElectionCallback is called once only.
+        AtomicInteger leaderElectionCallbackCallsCounter = new AtomicInteger(0);
+        raftClient.subscribeLeader((leader0, term) -> leaderElectionCallbackCallsCounter.incrementAndGet());
+
+        // Leader election callback triggering is asynchronous, thus it's required to give it some time to be called. With 1 second await
+        // interval the test will fail 100/100 if there's no fix.
+        Thread.sleep(1_000);
+
+        assertEquals(1, leaderElectionCallbackCallsCounter.get());
     }
 
     /**

@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-import java.nio.ByteBuffer;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Always fails with an exception.
- */
-class BrokenPointerWrapping implements PointerWrapping {
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        throw new RuntimeException(
-                "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_STARTUP_PARAMS_WARN);
-    }
+ * Configuration for test push exporter.
+ **/
+@PolymorphicConfigInstance("test-push-exporter")
+public class TestPushExporterConfigurationSchema extends ExporterConfigurationSchema {
+    /** Export period, in milliseconds. */
+    @Value(hasDefault = true)
+    public long periodMillis = 1_000;
 }
