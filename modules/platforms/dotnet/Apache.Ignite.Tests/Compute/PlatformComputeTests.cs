@@ -167,19 +167,21 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreNotEqual(Environment.ProcessId, jobProcessId);
     }
 
-    // TODO: This is flaky and gets stuck - investigate.
     [Test]
     public async Task TestDotNetSidecarProcessIsRestartedOnExit()
     {
+        var jobTimeout = TimeSpan.FromSeconds(5);
+
         // Get executor process id.
-        int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId);
+        int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId).WaitAsync(jobTimeout);
 
         // Run a job that exits the process. This job fails because the process exits before the result is returned.
         var ex = Assert.ThrowsAsync<IgniteException>(
-            async () => await ExecJobAsync(DotNetJobs.ProcessExit).WaitAsync(TimeSpan.FromSeconds(5)));
+            async () => await ExecJobAsync(DotNetJobs.ProcessExit).WaitAsync(jobTimeout));
 
         // Run another job - the process should be restarted automatically.
-        int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId);
+        // TODO: This step gets stuck - investigate.
+        int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId).WaitAsync(jobTimeout);
 
         Assert.AreNotEqual(jobProcessId1, jobProcessId2);
         Assert.AreEqual(".NET compute executor connection lost", ex.Message);
