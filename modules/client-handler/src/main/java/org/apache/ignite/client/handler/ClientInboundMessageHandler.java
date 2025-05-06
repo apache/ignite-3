@@ -396,7 +396,6 @@ public class ClientInboundMessageHandler
         resources.close();
 
         // Cancel all pending requests. New requests will fail due to closed connection.
-        // TODO: Race condition here?
         for (var fut : serverToClientRequests.values()) {
             fut.completeExceptionally(new IgniteException(SERVER_TO_CLIENT_REQUEST_ERR, "Connection lost"));
         }

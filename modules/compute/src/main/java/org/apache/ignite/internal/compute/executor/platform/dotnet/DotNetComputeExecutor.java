@@ -225,7 +225,7 @@ public class DotNetComputeExecutor {
     }
 
     private synchronized DotNetExecutorProcess ensureProcessStarted() {
-        if (process == null || !process.process().isAlive()) {
+        if (isDead(process)) {
             // 0. Generate a new secure id for every new process to prevent replay attacks.
             String executorId = generateSecureRandomId();
 
@@ -248,6 +248,21 @@ public class DotNetComputeExecutor {
         }
 
         return process;
+    }
+
+    private static boolean isDead(DotNetExecutorProcess proc) {
+        if (proc == null) {
+            return true;
+        }
+
+        if (!proc.process().isAlive()) {
+            return true;
+        }
+
+        var conn = proc.connectionFut().getNow(null);
+
+        // Connection was established previously, but is now closed.
+        return conn != null && !conn.isActive();
     }
 
     @SuppressWarnings("UseOfProcessBuilder")
