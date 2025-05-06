@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateQuorum;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateReplicasAndQuorumCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -142,16 +142,18 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         CatalogStorageProfilesDescriptor storageProfiles = storageProfileParams != null
                 ? fromParams(storageProfileParams) : previous.storageProfiles();
 
-        // Validate quorum size here since its boundaries depend on the current number of replicas
         int replicas = requireNonNullElse(this.replicas, previous.replicas());
-        validateQuorum(quorumSize, replicas);
+        int quorumSize = requireNonNullElse(this.quorumSize, previous.quorumSize());
+
+        // Validate replicas count and quorum size here since they depend on each other
+        validateReplicasAndQuorumCompatibility(replicas, quorumSize, this::getErrPrefix);
 
         return new CatalogZoneDescriptor(
                 previous.id(),
                 previous.name(),
                 requireNonNullElse(partitions, previous.partitions()),
                 replicas,
-                requireNonNullElse(quorumSize, previous.quorumSize()),
+                quorumSize,
                 requireNonNullElse(autoAdjust, previous.dataNodesAutoAdjust()),
                 requireNonNullElse(scaleUp, previous.dataNodesAutoAdjustScaleUp()),
                 requireNonNullElse(scaleDown, previous.dataNodesAutoAdjustScaleDown()),
@@ -161,9 +163,27 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         );
     }
 
+    private String getErrPrefix() {
+        if (this.quorumSize != null) {
+            if (this.replicas != null) {
+                return "Specified quorum size doesn't fit into the specified replicas count";
+            } else {
+                return "Specified quorum size doesn't fit into the current replicas count";
+            }
+        } else {
+            if (this.replicas != null) {
+                return "Current quorum size doesn't fit into the specified replicas count";
+            } else {
+                // Should never happen - this means that the current zone parameters are incompatible
+                return "Current quorum size doesn't fit into the current replicas count";
+            }
+        }
+    }
+
     private void validate() {
         validatePartition(partitions);
         validateField(replicas, 1, null, "Invalid number of replicas");
+        validateField(quorumSize, 1, null, "Invalid quorum size");
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
         validateField(dataNodesAutoAdjustScaleDown, 0, null, "Invalid data nodes auto adjust scale down");

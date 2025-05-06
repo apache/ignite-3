@@ -161,14 +161,16 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
     }
 
     /**
-     * Return quorum size.
+     * Return quorum size. Quorum is the minimal subset of replicas in the consensus group that is required for it to be fully operational
+     * and maintain the data consistency, in the case of Raft it is the majority of voting members.
      */
     public int quorumSize() {
         return quorumSize;
     }
 
     /**
-     * Return consensus group size.
+     * Return consensus group size. Consensus group is a subset of replicas of a partition that maintains the data consistency in the
+     * replication group, in the case of Raft it is the set of voting members. Derived from the quorum size.
      */
     public int consensusGroupSize() {
         return min(quorumSize * 2 - 1, replicas);

@@ -17,14 +17,15 @@
 
 package org.apache.ignite.internal.catalog;
 
-import static java.lang.Math.floor;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
+import static java.lang.Math.round;
 
 import com.jayway.jsonpath.InvalidPathException;
 import com.jayway.jsonpath.JsonPath;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.commands.StorageProfileParams;
@@ -147,15 +148,22 @@ public class CatalogParamsValidationUtils {
     }
 
     /**
-     * Validates quorum size, taking number of replicas into consideration.
+     * Validates replicas count and quorum size compatibility.
      *
-     * @param quorumSize Quorum size to validate.
-     * @param replicas Current number of replicas.
+     * @param replicas Number of replicas.
+     * @param quorumSize Quorum size.
+     * @param errPrefix Error message prefix supplier.
      */
-    public static void validateQuorum(@Nullable Integer quorumSize, int replicas) {
+    public static void validateReplicasAndQuorumCompatibility(int replicas, int quorumSize, Supplier<String> errPrefix) {
         int minQuorum = min(replicas, 2);
-        int maxQuorum = max(minQuorum, (int) (floor(replicas / 2.0 + 0.5)));
-        validateField(quorumSize, minQuorum, maxQuorum, "Invalid quorum size");
+        int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
+
+        if (quorumSize < minQuorum || quorumSize > maxQuorum) {
+            throw new CatalogValidationException(
+                    "{}: [quorum size={}, min={}, max={}, replicas count={}].",
+                    errPrefix.get(), quorumSize, minQuorum, maxQuorum, replicas
+            );
+        }
     }
 
     /**

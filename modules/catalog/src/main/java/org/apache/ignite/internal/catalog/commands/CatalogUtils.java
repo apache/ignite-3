@@ -62,8 +62,10 @@ public class CatalogUtils {
     /** Default number of distribution zone replicas. */
     public static final int DEFAULT_REPLICA_COUNT = 1;
 
-    /** Default quorum size. */
-    public static final int DEFAULT_QUORUM_SIZE = 1;
+    /**
+     * Quorum size for the default zone. Default quorum size for other zones is calculated using replicas count.
+     */
+    public static final int DEFAULT_ZONE_QUORUM_SIZE = 1;
 
     /**
      * Default filter of distribution zone, which is a {@link com.jayway.jsonpath.JsonPath} expression for including all attributes of

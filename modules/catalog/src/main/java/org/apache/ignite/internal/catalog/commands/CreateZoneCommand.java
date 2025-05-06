@@ -20,7 +20,7 @@ package org.apache.ignite.internal.catalog.commands;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateConsistencyMode;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateQuorum;
+import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateReplicasAndQuorumCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
@@ -165,9 +165,11 @@ public class CreateZoneCommand extends AbstractZoneCommand {
     private void validate() {
         validateField(partitions, 1, MAX_PARTITION_COUNT, "Invalid number of partitions");
         validateField(replicas, 1, null, "Invalid number of replicas");
+        validateField(quorumSize, 1, null, "Invalid quorum size");
 
         int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
-        validateQuorum(quorumSize, replicas);
+        int quorumSize = requireNonNullElse(this.quorumSize, defaultQuorumSize(replicas));
+        validateReplicasAndQuorumCompatibility(replicas, quorumSize, this::getErrPrefix);
 
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
@@ -184,6 +186,23 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         validateConsistencyMode(consistencyMode);
 
         validateStorageProfiles(storageProfileParams);
+    }
+
+    private String getErrPrefix() {
+        if (this.quorumSize != null) {
+            if (this.replicas != null) {
+                return "Specified quorum size doesn't fit into the specified replicas count";
+            } else {
+                return "Specified quorum size doesn't fit into the default replicas count";
+            }
+        } else {
+            if (this.replicas != null) {
+                return "Current quorum size doesn't fit into the specified replicas count";
+            } else {
+                // Should never happen - this means that the default zone parameters are incompatible
+                return "Default quorum size doesn't fit into the default replicas count";
+            }
+        }
     }
 
     /**

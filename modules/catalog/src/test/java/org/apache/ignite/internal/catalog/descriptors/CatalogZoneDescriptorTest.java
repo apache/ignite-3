@@ -47,8 +47,8 @@ class CatalogZoneDescriptorTest {
         assertThat(toString, containsString("id=1"));
         assertThat(toString, containsString("name=zone1"));
         assertThat(toString, containsString("partitions=2"));
-        assertThat(toString, containsString("replicas=3"));
-        assertThat(toString, containsString("quorumSize=4"));
+        assertThat(toString, containsString("replicas=5"));
+        assertThat(toString, containsString("quorumSize=3"));
         assertThat(toString, containsString("dataNodesAutoAdjust=5"));
         assertThat(toString, containsString("dataNodesAutoAdjustScaleUp=6"));
         assertThat(toString, containsString("dataNodesAutoAdjustScaleDown=7"));
@@ -117,8 +117,8 @@ class CatalogZoneDescriptorTest {
                 1,
                 "zone1",
                 2,
+                5,
                 3,
-                4,
                 5,
                 6,
                 7,

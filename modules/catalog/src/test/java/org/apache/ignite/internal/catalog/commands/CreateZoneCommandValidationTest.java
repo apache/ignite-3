@@ -40,6 +40,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests to verify validation of {@link CreateZoneCommand}.
@@ -104,6 +105,16 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @ParameterizedTest
+    @ValueSource(ints = {-1, 0})
+    void zoneInvalidQuorumSize(int quorumSize) {
+        assertThrows(
+                CatalogValidationException.class,
+                () -> createZoneBuilder().quorumSize(quorumSize).build(),
+                "Invalid quorum size"
+        );
+    }
+
+    @ParameterizedTest
     @MethodSource("quorumTable")
     void zoneQuorumSize(
             @Nullable Integer replicas,
@@ -112,16 +123,24 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
             int minQuorumSize,
             int maxQuorumSize
     ) {
+        String errorMessageFragmentMinQuorum = minQuorumSize > 1
+                ? "Specified quorum size doesn't fit into the specified replicas count"
+                : "Invalid quorum size"; // Special case when quorum size of 0 is rejected earlier.
+
         assertThrows(
                 CatalogValidationException.class,
                 () -> getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(minQuorumSize - 1)),
-                "Invalid quorum size"
+                errorMessageFragmentMinQuorum
         );
+
+        String errorMessageFragmentMaxQuorum = replicas != null
+                ? "Specified quorum size doesn't fit into the specified replicas count"
+                : "Specified quorum size doesn't fit into the default replicas count"; // Special case when replicas count is not specified
 
         assertThrows(
                 CatalogValidationException.class,
                 () -> getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)),
-                "Invalid quorum size"
+                errorMessageFragmentMaxQuorum
         );
 
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(createZoneBuilder().replicas(replicas));
