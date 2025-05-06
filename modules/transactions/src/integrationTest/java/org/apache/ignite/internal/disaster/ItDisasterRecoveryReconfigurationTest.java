@@ -31,7 +31,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
@@ -83,6 +82,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -2095,8 +2096,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private @Nullable AssignmentsChain getAssignmentsChain(IgniteImpl node, int partId) {
-        CompletableFuture<Entry> chainFut = node.metaStorageManager()
-                .get(assignmentsChainKey(new TablePartitionId(tableId, partId)));
+        CompletableFuture<Entry> chainFut;
+        if (enabledColocation()) {
+            chainFut = node.metaStorageManager()
+                    .get(ZoneRebalanceUtil.assignmentsChainKey(new ZonePartitionId(zoneId, partId)));
+        } else {
+            chainFut = node.metaStorageManager()
+                    .get(RebalanceUtil.assignmentsChainKey(new TablePartitionId(tableId, partId)));
+        }
 
         assertThat(chainFut, willCompleteSuccessfully());
 
