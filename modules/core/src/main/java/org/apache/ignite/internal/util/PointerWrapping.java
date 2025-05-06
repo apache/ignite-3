@@ -37,10 +37,16 @@ abstract class PointerWrapping {
     /** Null object. */
     private static final Object NULL_OBJ = null;
 
+    /** Handle for {@code JavaNioAccess#newDirectByteBuffer(long addr, int cap, Object ob)}. */
     private static final MethodHandle DIRECT_BUF_MTD;
+
+    /** Handle for {@code DirectByteBuffer#DirectByteBuffer(long addr, int cap)}. */
     private static final MethodHandle DIRECT_BUF_CTOR_INT;
+
+    /** Handle for {@code DirectByteBuffer#DirectByteBuffer(long addr, long cap)}. */
     private static final MethodHandle DIRECT_BUF_CTOR_LONG;
 
+    /** Instance of {@code JavaNioAccess} retrieved from {@code SharedSecrets#getJavaNioAccess()}. */
     private static final Object JAVA_NIO_ACCESS_OBJ;
 
     static {
