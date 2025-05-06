@@ -279,12 +279,9 @@ public class ExecutionServiceImplTest extends BaseIgniteAbstractTest {
 
         mailboxes.clear();
 
-        executers.forEach(executer -> {
+        executionServices.forEach(executer -> {
             try {
                 executer.stop();
-
-                assertTrue(executer.awaitTermination(SHUTDOWN_TIMEOUT, TimeUnit.MILLISECONDS),
-                        "Not all tasks completed within the specified timeout [timeout=" + SHUTDOWN_TIMEOUT + "].");
             } catch (Exception e) {
                 log.error("Unable to stop executor", e);
             }
