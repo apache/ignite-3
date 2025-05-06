@@ -31,6 +31,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
@@ -59,7 +60,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlParser;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.lang.IgniteException;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
@@ -317,10 +317,6 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         Interval intervalVal = testCase.intervalVal;
         SqlTypeName typeName = testCase.type.getSqlTypeName();
 
-        // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21557
-        Assumptions.assumeFalse(typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-                && (intervalVal.hasType(TimeUnit.MONTH) || intervalVal.hasType(TimeUnit.YEAR)));
-
         String query;
         if (intervalVal.sign() > 0) {
             query = format("SELECT {} '{}' + {}", typeName.getSpaceName(), testCase.sqlDateLiteral(), intervalVal.toLiteral());
@@ -338,11 +334,6 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
     @MethodSource("dateTimeIntervalTestCases")
     public void testDateTimeDynamicParamIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
         Interval intervalVal = testCase.intervalVal;
-        SqlTypeName typeName = testCase.type.getSqlTypeName();
-
-        // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21557
-        Assumptions.assumeFalse(typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-                && (intervalVal.hasType(TimeUnit.MONTH) || intervalVal.hasType(TimeUnit.YEAR)));
 
         String query;
         if (intervalVal.sign() > 0) {
@@ -363,10 +354,6 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
     public void testDateTimeColumnIntervalArithmetic(DateTimeIntervalBasicTestCase testCase) {
         Interval intervalVal = testCase.intervalVal;
         SqlTypeName typeName = testCase.type.getSqlTypeName();
-
-        // TODO Remove after https://issues.apache.org/jira/browse/IGNITE-21557
-        Assumptions.assumeFalse(typeName == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
-                && (intervalVal.hasType(TimeUnit.MONTH) || intervalVal.hasType(TimeUnit.YEAR)));
 
         String colName = typeName.getName() + testCase.type.getPrecision() + "_col";
 
@@ -537,11 +524,7 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.123");
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00.123' + INTERVAL '1.123' SECOND", "2021-01-01T00:00:01.246");
         timestampChecker.accept("SELECT {} '2021-01-01 00:00:00' + INTERVAL '1 1:1:1.123' DAY TO SECOND", "2021-01-02T01:01:01.123");
-
-        // TODO Enable this case after https://issues.apache.org/jira/browse/IGNITE-21557
-        if (sqlTypeName != SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE) {
-            timestampChecker.accept("SELECT {} '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", "2022-02-01T01:01:01.123");
-        }
+        timestampChecker.accept("SELECT {} '2021-01-01 01:01:01.123' + INTERVAL '1-1' YEAR TO MONTH", "2022-02-01T01:01:01.123");
     }
 
     @Test
@@ -904,34 +887,32 @@ public class ItIntervalTest extends BaseSqlIntegrationTest {
         }
 
         private static class SqlTimestampLtzIntervalIntervalTestCase extends DateTimeIntervalBasicTestCase {
-
-            private final Instant timestampLtz;
+            final Instant initial;
+            final Instant result;
 
             private SqlTimestampLtzIntervalIntervalTestCase(RelDataType type, Interval value) {
                 super(type, value);
 
                 int precision = type.getPrecision();
-                Instant instant = testLocalDate.atZone(TIME_ZONE_ID).toInstant();
-                long nanos = adjustNanos(instant.getNano(), precision, 3);
+                long nanos = adjustNanos(testLocalDate.getNano(), precision, 3);
 
-                timestampLtz = instant.with(ChronoField.NANO_OF_SECOND, nanos);
+                // Instant only supports Month in jdk21+, so we do all calculations using
+                // LocalDateTime and adjust the result according to the required time zone.
+                LocalDateTime timestamp = testLocalDate.with(ChronoField.NANO_OF_SECOND, nanos);
+
+                initial = timestamp.atZone(TIME_ZONE_ID).toInstant();
+                result = LocalDateTime.ofInstant(initial, ZoneOffset.UTC)
+                        .plus(intervalVal.toTemporalAmount()).toInstant(ZoneOffset.UTC);
             }
 
             @Override
             public Temporal expected() {
-                TemporalAmount temporalAmount = intervalVal.toTemporalAmount();
-                // Instant does not support year/month and calcite's runtime converts each interval unit into milliseconds.
-                if (temporalAmount instanceof Period) {
-                    Period period = (Period) temporalAmount;
-                    int days = period.getYears() * 365 + period.getMonths() * 31 + period.getDays();
-                    temporalAmount = Duration.ofDays(days);
-                }
-                return timestampLtz.plus(temporalAmount);
+                return result;
             }
 
             @Override
             public Temporal dateTimeValue() {
-                return timestampLtz;
+                return initial;
             }
         }
 
