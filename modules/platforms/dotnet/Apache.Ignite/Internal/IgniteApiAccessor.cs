@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters;
+namespace Apache.Ignite.Internal;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
+using Ignite.Compute;
 
-/**
- * Configuration for test exporter.
- */
-@PolymorphicConfigInstance("test")
-public class TestExporterConfigurationSchema extends ExporterConfigurationSchema {
-    @Value(hasDefault = true)
-    public int port = 0;
-}
+/// <summary>
+/// Ignite API accessor.
+/// </summary>
+/// <param name="Ignite">Ignite.</param>
+internal sealed record IgniteApiAccessor(IIgnite Ignite) : IJobExecutionContext;

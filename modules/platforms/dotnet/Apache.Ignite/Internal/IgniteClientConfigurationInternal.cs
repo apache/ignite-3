@@ -15,12 +15,13 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+namespace Apache.Ignite.Internal;
 
-/**
- * Job executor type.
- */
-public enum JobExecutorType { // TODO IGNITE-25116: Move to public API
-    JavaEmbedded,
-    DotNetSidecar
-}
+using System.Threading.Tasks;
+
+/// <summary>
+/// Internal Ignite client configuration.
+/// </summary>
+/// <param name="Configuration">Configuration.</param>
+/// <param name="ApiTask">API accessor task.</param>
+internal sealed record IgniteClientConfigurationInternal(IgniteClientConfiguration Configuration, Task<IgniteApiAccessor> ApiTask);

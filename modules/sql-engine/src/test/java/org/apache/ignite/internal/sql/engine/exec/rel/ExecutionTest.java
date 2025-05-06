@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.calcite.rel.type.RelDataType;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.RunnableX;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
@@ -419,6 +420,11 @@ public class ExecutionTest extends AbstractExecutionTest<Object[]> {
         @Override
         public void close() {
 
+        }
+
+        @Override
+        public void dumpState(IgniteStringBuilder writer, String indent) {
+            writer.app(indent).app("class=").app(getClass().getSimpleName()).nl();
         }
     }
 

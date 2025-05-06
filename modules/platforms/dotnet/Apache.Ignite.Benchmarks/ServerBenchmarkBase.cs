@@ -15,24 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+namespace Apache.Ignite.Benchmarks;
 
-import java.lang.invoke.MethodHandle;
-import java.nio.ByteBuffer;
+using System.Threading.Tasks;
+using BenchmarkDotNet.Attributes;
+using Tests;
 
-/**
- * Uses constructor of the direct byte buffer with 'length' parameter of type {@code long} to wrap a pointer to unmanaged memory into a
- * direct byte buffer.
- */
-class WrapWithLongDirectBufferConstructor implements PointerWrapping {
-    private final MethodHandle constructor;
+public abstract class ServerBenchmarkBase
+{
+    protected JavaServer JavaServer { get; set; } = null!;
 
-    WrapWithLongDirectBufferConstructor(MethodHandle constructor) {
-        this.constructor = constructor;
+    protected IIgniteClient Client { get; set; } = null!;
+
+    [GlobalSetup]
+    public virtual async Task GlobalSetup()
+    {
+        JavaServer = await JavaServer.StartAsync();
+        Client = await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + JavaServer.Port));
     }
 
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        return GridUnsafe.wrapPointerDirectBufferConstructor(ptr, (long) len, constructor);
+    [GlobalCleanup]
+    public virtual Task GlobalCleanup()
+    {
+        Client?.Dispose();
+        JavaServer?.Dispose();
+
+        return Task.CompletedTask;
     }
 }

@@ -68,6 +68,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogManagerImpl;
 import org.apache.ignite.internal.catalog.compaction.CatalogCompactionRunner;
@@ -150,6 +151,7 @@ import org.apache.ignite.internal.index.IndexBuildingManager;
 import org.apache.ignite.internal.index.IndexManager;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -548,7 +550,8 @@ public class IgniteImpl implements Ignite {
                 localFileConfigurationStorage,
                 localConfigurationGenerator,
                 localConfigurationValidator,
-                modules.local()::migrateDeprecatedConfigurations
+                modules.local()::migrateDeprecatedConfigurations,
+                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         );
 
         // Start local configuration to be able to read all local properties.
@@ -765,7 +768,8 @@ public class IgniteImpl implements Ignite {
                 cfgStorage,
                 distributedConfigurationGenerator,
                 distributedCfgValidator,
-                modules.distributed()::migrateDeprecatedConfigurations
+                modules.distributed()::migrateDeprecatedConfigurations,
+                KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();
@@ -2098,6 +2102,18 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public PartitionReplicaLifecycleManager partitionReplicaLifecycleManager() {
         return partitionReplicaLifecycleManager;
+    }
+
+    /** Triggers dumping node components state. This method is used for debugging purposes only. */
+    @TestOnly
+    public void dumpClusterState() {
+        IgniteStringBuilder sb = new IgniteStringBuilder()
+                .app("Dumping cluster state for node ").app(node().name()).app(":")
+                .nl();
+
+        lifecycleManager.dumpState(sb, "");
+
+        LOG.info(sb.toString());
     }
 
     /**

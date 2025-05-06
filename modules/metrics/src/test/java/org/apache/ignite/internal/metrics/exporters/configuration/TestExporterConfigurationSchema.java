@@ -15,24 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
-import java.lang.invoke.MethodHandle;
-import java.nio.ByteBuffer;
+import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
+import org.apache.ignite.configuration.annotation.Value;
 
 /**
- * Uses constructor of the direct byte buffer with 'length' parameter of type {@code int} to wrap a pointer to unmanaged memory into a
- * direct byte buffer.
+ * Configuration for test exporter.
  */
-class WrapWithIntDirectBufferConstructor implements PointerWrapping {
-    private final MethodHandle constructor;
-
-    WrapWithIntDirectBufferConstructor(MethodHandle constructor) {
-        this.constructor = constructor;
-    }
-
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        return GridUnsafe.wrapPointerDirectBufferConstructor(ptr, len, constructor);
-    }
+@PolymorphicConfigInstance("test")
+public class TestExporterConfigurationSchema extends ExporterConfigurationSchema {
+    @Value(hasDefault = true)
+    public int port = 0;
 }
