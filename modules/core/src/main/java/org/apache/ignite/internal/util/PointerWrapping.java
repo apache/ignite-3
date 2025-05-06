@@ -58,16 +58,16 @@ abstract class PointerWrapping {
 
         try {
             directBufCtorWithIntLen = createAndTestNewDirectBufferCtor(int.class);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             try {
                 directBufCtorWithLongLen = createAndTestNewDirectBufferCtor(long.class);
-            } catch (Exception e1) {
+            } catch (Throwable e1) {
                 e.addSuppressed(e1);
 
                 try {
                     nioAccessObj = javaNioAccessObject();
                     directBufMtd = newDirectBufferMethodHandle(nioAccessObj);
-                } catch (Exception e2) {
+                } catch (Throwable e2) {
                     e.addSuppressed(e2);
                 }
 
@@ -128,6 +128,7 @@ abstract class PointerWrapping {
                         + FeatureChecker.JAVA_STARTUP_PARAMS_WARN, e);
             }
         }
+
         try {
             Method mth = cls.getMethod("getJavaNioAccess");
 
@@ -176,7 +177,7 @@ abstract class PointerWrapping {
 
 
     /**
-     * Creates and tests contructor for Direct ByteBuffer. Test is wrapping one-byte unsafe memory into a buffer.
+     * Creates and tests constructor for Direct ByteBuffer. Test is wrapping one-byte unsafe memory into a buffer.
      *
      * @param lengthType Type of the length parameter.
      * @return constructor for creating direct ByteBuffers.
