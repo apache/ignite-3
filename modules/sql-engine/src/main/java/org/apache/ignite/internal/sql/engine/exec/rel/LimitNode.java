@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.exec.rel;
 
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 
@@ -149,6 +150,16 @@ public class LimitNode<RowT> extends AbstractNode<RowT> implements SingleNode<Ro
         }
 
         return this;
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting)
+                .app(", fetch=").app(fetch)
+                .app(", offset=").app(offset)
+                .app(", rowsProcessed=").app(rowsProcessed);
     }
 
     /** {@code True} if fetch is undefined, or current rows processed is less than required. */

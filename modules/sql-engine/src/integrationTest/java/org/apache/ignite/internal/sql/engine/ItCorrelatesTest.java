@@ -48,6 +48,7 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
 
     @Test
     void testProcessCorrelatesFromLeft() {
+        //noinspection ConcatenationWithEmptyString
         sqlScript(""
                 + "CREATE TABLE t0 ("
                 + " id INT PRIMARY KEY,"
@@ -56,13 +57,31 @@ public class ItCorrelatesTest extends BaseSqlIntegrationTest {
                 + " val INT);"
                 + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT);");
 
-        sql("insert into t0 values(1, 1, 1, 10);");
-        sql("insert into t0 values(2, 2, 2, 20);");
-        sql("insert into t1 values(1, 10);");
-        sql("insert into t1 values(2, 20);");
+        sql("insert into t0 values(1, 1, 1, 10), (2, 2, 2, 20);");
+        sql("insert into t1 values(1, 10), (2, 20);");
 
         assertQuery("SELECT t1.ID FROM t0 JOIN t1 ON "
                 + "(t1.id = (SELECT inner_t1.id FROM t1 AS inner_t1 WHERE inner_t1.val = t0.val)) ORDER BY 1")
+                .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
+                .returns(1)
+                .returns(2)
+                .check();
+    }
+
+    @Test
+    void testProcessCorrelatesFromRight() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript(""
+                + "CREATE TABLE t0 ("
+                + " id INT PRIMARY KEY,"
+                + " val INT);"
+                + "CREATE TABLE t1 (id INT PRIMARY KEY, val INT);");
+
+        sql("insert into t0 values(1, 10), (2, 20);");
+        sql("insert into t1 values(1, 10), (2, 20);");
+
+        assertQuery("SELECT t1.ID FROM t0 JOIN t1 ON "
+                + "(t0.id = (SELECT inner_t0.id FROM t0 AS inner_t0 WHERE inner_t0.val = t1.val)) ORDER BY 1")
                 .matches(containsSubPlan("CorrelatedNestedLoopJoin"))
                 .returns(1)
                 .returns(2)

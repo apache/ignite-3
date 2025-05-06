@@ -360,8 +360,7 @@ public class Node {
                 List.of(NodeConfiguration.KEY),
                 new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                 nodeCfgGenerator,
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         var clusterIdHolder = new ClusterIdHolder();
@@ -541,8 +540,7 @@ public class Node {
                 List.of(ClusterConfiguration.KEY),
                 cfgStorage,
                 clusterCfgGenerator,
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

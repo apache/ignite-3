@@ -40,6 +40,8 @@ import org.apache.ignite.internal.eventlog.api.IgniteEventType;
 import org.apache.ignite.internal.eventlog.event.EventUser;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.Debuggable;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
@@ -74,11 +76,12 @@ import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.lang.CancelHandleHelper;
 import org.apache.ignite.lang.CancellationToken;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Executor which accepts requests for query execution and returns cursor to the result of execution.
  */
-public class QueryExecutor implements LifecycleAware {
+public class QueryExecutor implements LifecycleAware, Debuggable {
     private final Cache<String, ParsedResult> queryToParsedResultCache;
     private final ParserService parserService;
     private final Executor executor;
@@ -610,6 +613,34 @@ public class QueryExecutor implements LifecycleAware {
         ) {
             this.parsedQuery = parsedQuery;
             this.nextCursorFuture = nextCursorFuture;
+        }
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        writer.app(indent).app("Running queries:").nl();
+
+        String childIndent = Debuggable.childIndentation(indent);
+        for (Query query : runningQueries.values()) {
+            writer.app(childIndent)
+                    .app("queryId=").app(query.id)
+                    .app(", phase=").app(query.currentPhase());
+
+            if (query.parentId != null) {
+                writer.app(", parentId=").app(query.parentId);
+                writer.app(", statement=").app(query.statementNum);
+            }
+
+            writer.app(", createdAt=").app(query.createdAt)
+                    .app(", cancelled=").app(query.cancel.isCancelled())
+                    .app(", failed=").app(query.error.get() != null)
+                    .app(", sql=").app(query.sql)
+                    .nl();
+        }
+
+        if (executionService instanceof Debuggable) {
+            ((Debuggable) executionService).dumpState(writer, indent);
         }
     }
 }

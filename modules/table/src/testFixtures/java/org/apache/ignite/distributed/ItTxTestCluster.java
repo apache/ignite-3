@@ -897,7 +897,8 @@ public class ItTxTestCluster {
                     mock(MinimumRequiredTimeCollectorService.class),
                     partitionOperationsExecutor,
                     placementDriver,
-                    clockServices.get(assignment)
+                    clockServices.get(assignment),
+                    zonePartitionId
             );
 
             zonePartitionRaftListener.addTableProcessor(tableId, tablePartitionRaftListener);
@@ -918,7 +919,8 @@ public class ItTxTestCluster {
                     mock(MinimumRequiredTimeCollectorService.class),
                     partitionOperationsExecutor,
                     placementDriver,
-                    clockServices.get(assignment)
+                    clockServices.get(assignment),
+                    new TablePartitionId(tableId, partId)
             );
         }
     }

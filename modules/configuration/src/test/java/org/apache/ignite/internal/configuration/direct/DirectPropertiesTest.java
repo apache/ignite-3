@@ -110,8 +110,7 @@ public class DirectPropertiesTest {
                 List.of(DirectConfiguration.KEY),
                 new TestConfigurationStorage(LOCAL),
                 new ConfigurationTreeGenerator(DirectConfiguration.KEY),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

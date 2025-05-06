@@ -15,24 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+namespace Apache.Ignite.Compute;
 
-import java.lang.invoke.MethodHandle;
-import java.nio.ByteBuffer;
-
-/**
- * Uses constructor of the direct byte buffer with 'length' parameter of type {@code int} to wrap a pointer to unmanaged memory into a
- * direct byte buffer.
- */
-class WrapWithIntDirectBufferConstructor implements PointerWrapping {
-    private final MethodHandle constructor;
-
-    WrapWithIntDirectBufferConstructor(MethodHandle constructor) {
-        this.constructor = constructor;
-    }
-
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        return GridUnsafe.wrapPointerDirectBufferConstructor(ptr, len, constructor);
-    }
+/// <summary>
+/// Compute job execution context. See <see cref="IComputeJob{TArg,TResult}.ExecuteAsync"/>.
+/// </summary>
+public interface IJobExecutionContext
+{
+    /// <summary>
+    /// Gets the Ignite API entry point.
+    /// </summary>
+    IIgnite Ignite { get; }
 }

@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+namespace Apache.Ignite.Tests.TestHelpers;
 
-import java.lang.invoke.MethodHandle;
-import java.nio.ByteBuffer;
+using System;
+using System.IO;
+using System.Threading.Tasks;
 
-/**
- * Uses constructor of the direct byte buffer with 'length' parameter of type {@code long} to wrap a pointer to unmanaged memory into a
- * direct byte buffer.
- */
-class WrapWithLongDirectBufferConstructor implements PointerWrapping {
-    private final MethodHandle constructor;
+/// <summary>
+/// Temporary directory holder for tests.
+/// </summary>
+internal sealed record TempDir : IDisposable
+{
+    public TempDir()
+    {
+        Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), Guid.NewGuid().ToString());
 
-    WrapWithLongDirectBufferConstructor(MethodHandle constructor) {
-        this.constructor = constructor;
+        Directory.CreateDirectory(Path);
     }
 
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        return GridUnsafe.wrapPointerDirectBufferConstructor(ptr, (long) len, constructor);
-    }
+    public string Path { get; }
+
+    public void Dispose() => _ = Task.Run(() =>
+    {
+        // Delete test temp dir in background, ignore errors.
+        Directory.Delete(Path, true);
+    });
 }

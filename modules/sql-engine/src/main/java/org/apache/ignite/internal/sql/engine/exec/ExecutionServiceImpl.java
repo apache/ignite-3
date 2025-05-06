@@ -31,6 +31,7 @@ import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.lang.management.ManagementFactory;
 import java.lang.management.ThreadInfo;
 import java.lang.management.ThreadMXBean;
+import java.time.Clock;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -60,6 +61,7 @@ import org.apache.calcite.schema.SchemaPlus;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.Debuggable;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
@@ -135,7 +137,7 @@ import org.jetbrains.annotations.TestOnly;
 /**
  * Provide ability to execute SQL query plan and retrieve results of the execution.
  */
-public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler {
+public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEventHandler, Debuggable {
     private static final int CACHE_SIZE = 1024;
     private static final IgniteLogger LOG = Loggers.forClass(ExecutionServiceImpl.class);
     private static final SqlQueryMessagesFactory FACTORY = new SqlQueryMessagesFactory();
@@ -450,7 +452,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                 Commons.parametersMap(operationContext.parameters()),
                 TxAttributes.dummy(),
                 operationContext.timeZoneId(),
-                -1
+                -1,
+                Clock.systemUTC()
         );
 
         QueryTransactionContext txContext = operationContext.txContext();
@@ -674,47 +677,53 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
      *
      * @return String containing debugging information.
      */
-    String dumpDebugInfo() {
-        IgniteStringBuilder buf = new IgniteStringBuilder();
+    @TestOnly
+    public String dumpDebugInfo() {
+        IgniteStringBuilder writer = new IgniteStringBuilder();
+
+        dumpState(writer, "");
+
+        return writer.length() > 0 ? writer.toString() : " No debug information available.";
+    }
+
+    @Override
+    @TestOnly
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        String indent0 = Debuggable.childIndentation(indent);
 
         for (Map.Entry<ExecutionId, DistributedQueryManager> entry : queryManagerMap.entrySet()) {
             ExecutionId executionId = entry.getKey();
             DistributedQueryManager mgr = entry.getValue();
 
-            buf.nl();
-            buf.app("Debug info for query: ").app(executionId)
-                    .app(" (canceled=").app(mgr.cancelled.get()).app(", stopped=").app(mgr.cancelFut.isDone()).app(")");
-            buf.nl();
+            writer.app(indent)
+                    .app("Debug info for query: ").app(executionId)
+                    .app(" (canceled=").app(mgr.cancelled.get()).app(", stopped=").app(mgr.cancelFut.isDone()).app(")")
+                    .nl();
 
-            buf.app("  Coordinator node: ").app(mgr.coordinatorNodeName);
-            if (mgr.coordinator) {
-                buf.app(" (current node)");
-            }
-            buf.nl();
+            writer.app(indent0)
+                    .app("Coordinator node: ").app(mgr.coordinatorNodeName)
+                    .app(mgr.coordinator ? " (current node)" : "")
+                    .nl();
 
             CompletableFuture<AsyncRootNode<RowT, InternalSqlRow>> rootNodeFut = mgr.root;
             if (rootNodeFut != null) {
-                buf.app("  Root node state: ");
+                writer.app(indent0).app("Root node state: ");
                 try {
                     AsyncRootNode<RowT, InternalSqlRow> rootNode = rootNodeFut.getNow(null);
-                    if (rootNode != null) {
-                        if (rootNode.isClosed()) {
-                            buf.app("closed");
-                        } else {
-                            buf.app("opened");
-                        }
-                    } else {
-                        buf.app("absent");
-                    }
+
+                    //noinspection NestedConditionalExpression
+                    String state = rootNode == null ? "absent" : rootNode.isClosed() ? "closed" : "opened";
+
+                    writer.app(state);
                 } catch (CompletionException ex) {
-                    buf.app("completed exceptionally ").app('(').app(ExceptionUtils.unwrapCause(ex)).app(')');
+                    writer.app("completed exceptionally ").app('(').app(ExceptionUtils.unwrapCause(ex)).app(')');
                 } catch (CancellationException ex) {
-                    buf.app("canceled");
+                    writer.app("canceled");
                 }
-                buf.nl();
+                writer.nl();
             }
 
-            buf.nl();
+            writer.nl();
 
             List<RemoteFragmentKey> initFragments = mgr.remoteFragmentInitCompletion.entrySet().stream()
                     .filter(entry0 -> !entry0.getValue().isDone())
@@ -723,14 +732,15 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .collect(Collectors.toList());
 
             if (!initFragments.isEmpty()) {
-                buf.app("  Fragments awaiting init completion:").nl();
+                writer.app(indent0).app("Fragments awaiting init completion:").nl();
 
+                String fragmentIndent = Debuggable.childIndentation(indent0);
                 for (RemoteFragmentKey fragmentKey : initFragments) {
-                    buf.app("    id=").app(fragmentKey.fragmentId()).app(", node=").app(fragmentKey.nodeName());
-                    buf.nl();
+                    writer.app(fragmentIndent).app("id=").app(fragmentKey.fragmentId()).app(", node=").app(fragmentKey.nodeName());
+                    writer.nl();
                 }
 
-                buf.nl();
+                writer.nl();
             }
 
             List<AbstractNode<?>> localFragments = mgr.localFragments().stream()
@@ -738,28 +748,34 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     .collect(Collectors.toList());
 
             if (!localFragments.isEmpty()) {
-                buf.app("  Local fragments:").nl();
+                writer.app(indent0).app("Local fragments:").nl();
 
+                String fragmentIndent = Debuggable.childIndentation(indent0);
                 for (AbstractNode<?> fragment : localFragments) {
                     long fragmentId = fragment.context().fragmentId();
 
-                    buf.app("    id=").app(fragmentId)
+                    writer.app(fragmentIndent).app("id=").app(fragmentId)
                             .app(", state=").app(fragment.isClosed() ? "closed" : "opened")
                             .app(", canceled=").app(fragment.context().isCancelled())
                             .app(", class=").app(fragment.getClass().getSimpleName());
 
                     Long rootFragmentId = mgr.rootFragmentId;
 
-                    if (rootFragmentId != null && rootFragmentId == fragmentId) {
-                        buf.app("  (root)");
-                    }
+                    writer.app(rootFragmentId != null && rootFragmentId == fragmentId ? " (root)" : "");
+                    writer.nl();
+                }
 
-                    buf.nl();
+                writer.nl();
+
+                for (AbstractNode<?> fragment : localFragments) {
+                    long fragmentId = fragment.context().fragmentId();
+
+                    writer.app(indent0).app("Fragment#").app(fragmentId).app(" tree:").nl();
+                    fragment.dumpState(writer, Debuggable.childIndentation(indent0));
+                    writer.nl();
                 }
             }
         }
-
-        return buf.length() > 0 ? buf.toString() : " No debug information available.";
     }
 
     private static String dumpThreads() {
@@ -942,7 +958,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
                     Commons.parametersMap(ctx.parameters()),
                     txAttributes,
                     ctx.timeZoneId(),
-                    -1
+                    -1,
+                    Clock.systemUTC()
             );
         }
 
