@@ -35,53 +35,53 @@ class BinaryTupleComparatorUtils {
      * Compares individual fields of two tuples using ascending order.
      */
     @SuppressWarnings("DataFlowIssue")
-    static int compareFieldValue(NativeTypeSpec typeSpec, BinaryTupleReader tuple1, int index1, BinaryTupleReader tuple2, int index2) {
+    static int compareFieldValue(NativeTypeSpec typeSpec, BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
         switch (typeSpec) {
             case INT8:
             case BOOLEAN:
-                return Byte.compare(tuple1.byteValue(index1), tuple2.byteValue(index2));
+                return Byte.compare(tuple1.byteValue(index), tuple2.byteValue(index));
 
             case INT16:
-                return Short.compare(tuple1.shortValue(index1), tuple2.shortValue(index2));
+                return Short.compare(tuple1.shortValue(index), tuple2.shortValue(index));
 
             case INT32:
-                return Integer.compare(tuple1.intValue(index1), tuple2.intValue(index2));
+                return Integer.compare(tuple1.intValue(index), tuple2.intValue(index));
 
             case INT64:
-                return Long.compare(tuple1.longValue(index1), tuple2.longValue(index2));
+                return Long.compare(tuple1.longValue(index), tuple2.longValue(index));
 
             case FLOAT:
-                return Float.compare(tuple1.floatValue(index1), tuple2.floatValue(index2));
+                return Float.compare(tuple1.floatValue(index), tuple2.floatValue(index));
 
             case DOUBLE:
-                return Double.compare(tuple1.doubleValue(index1), tuple2.doubleValue(index2));
+                return Double.compare(tuple1.doubleValue(index), tuple2.doubleValue(index));
 
             case BYTES:
-                return Arrays.compareUnsigned(tuple1.bytesValue(index1), tuple2.bytesValue(index2));
+                return Arrays.compareUnsigned(tuple1.bytesValue(index), tuple2.bytesValue(index));
 
             case UUID:
-                return tuple1.uuidValue(index1).compareTo(tuple2.uuidValue(index2));
+                return tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
 
             case STRING:
-                return tuple1.stringValue(index1).compareTo(tuple2.stringValue(index2));
+                return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
 
             case DECIMAL:
-                BigDecimal numeric1 = tuple1.decimalValue(index1, Integer.MIN_VALUE);
-                BigDecimal numeric2 = tuple2.decimalValue(index2, Integer.MIN_VALUE);
+                BigDecimal numeric1 = tuple1.decimalValue(index, Integer.MIN_VALUE);
+                BigDecimal numeric2 = tuple2.decimalValue(index, Integer.MIN_VALUE);
 
                 return numeric1.compareTo(numeric2);
 
             case TIMESTAMP:
-                return tuple1.timestampValue(index1).compareTo(tuple2.timestampValue(index2));
+                return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
 
             case DATE:
-                return tuple1.dateValue(index1).compareTo(tuple2.dateValue(index2));
+                return tuple1.dateValue(index).compareTo(tuple2.dateValue(index));
 
             case TIME:
-                return tuple1.timeValue(index1).compareTo(tuple2.timeValue(index2));
+                return tuple1.timeValue(index).compareTo(tuple2.timeValue(index));
 
             case DATETIME:
-                return tuple1.dateTimeValue(index1).compareTo(tuple2.dateTimeValue(index2));
+                return tuple1.dateTimeValue(index).compareTo(tuple2.dateTimeValue(index));
 
             default:
                 throw new IllegalArgumentException(format("Unsupported column type in binary tuple comparator. [type={}]", typeSpec));
@@ -117,11 +117,9 @@ class BinaryTupleComparatorUtils {
         ByteBuffer buf = tuple.byteBuffer();
         int fullSrtLength = end - begin;
         int trimmedSize = Math.min(fullSrtLength, buf.capacity() - begin);
-        byte[] bytes = new byte[trimmedSize];
 
         // Copying the direct byte buffer and then accessing it is better for performance than comparing with access by index in the buffer.
-        buf.duplicate().position(begin).limit(begin + trimmedSize).get(bytes);
-
+        byte[] bytes = tuple.bytesValue(begin, begin + trimmedSize);
         char[] cmpArray = cmp.toCharArray();
 
         // Fast pass for ASCII string.

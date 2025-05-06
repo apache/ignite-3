@@ -32,7 +32,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
-import org.apache.ignite.internal.util.ByteUtils;
 
 /**
  * Matcher for comparing {@link BinaryTuple}s on a per-column basis.
@@ -138,8 +137,8 @@ public class PartialBinaryTupleMatcher {
         NativeType nativeType = columnTypes.get(colIdx);
 
         int res = readability == Readability.READABLE
-                ? compareFieldValue(nativeType.spec(), tuple1, colIdx, tuple2, colIdx)
-                : compareFieldValuePartially(nativeType.spec(), tuple1, colIdx, tuple2, colIdx);
+                ? compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx)
+                : compareFieldValuePartially(nativeType.spec(), tuple1, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
     }
@@ -147,26 +146,44 @@ public class PartialBinaryTupleMatcher {
     private static int compareFieldValuePartially(
             NativeTypeSpec typeSpec,
             BinaryTupleReader partialTuple,
-            int index1,
             BinaryTupleReader tuple2,
-            int index2
+            int index
     ) {
         switch (typeSpec) {
             case BYTES: {
-                partialTuple.seek(index1);
+                partialTuple.seek(index);
 
                 byte[] part = partialTuple.bytesValue(partialTuple.begin(), partialTuple.byteBuffer().capacity());
 
-                byte[] cmp = ByteUtils.trimToSize(tuple2.bytesValue(index2), part.length);
+                byte[] cmp = getTrimmedBytes(tuple2, index, part.length);
 
                 return Arrays.compareUnsigned(part, cmp);
             }
             case STRING: {
-                return compareAsString(partialTuple, index1, tuple2.stringValue(index2), false);
+                return compareAsString(partialTuple, index, tuple2.stringValue(index), false);
             }
             default: {
                 return 0;
             }
         }
+    }
+
+    /**
+     * Retrieves a trimmed portion of binary data from the specified tuple at a given index.
+     * The size of the retrieved data is limited to the specified maximum length.
+     *
+     * @param tuple The BinaryTupleReader from which to retrieve the binary data.
+     * @param index The index in the tuple specifying the location of the data to be retrieved.
+     * @param maxLength The maximum allowable length for the trimmed portion of the binary data.
+     * @return A byte array containing the trimmed binary data.
+     */
+    private static byte[] getTrimmedBytes(BinaryTupleReader tuple, int index, int maxLength) {
+        tuple.seek(index);
+
+        int begin = tuple.begin();
+        int end = tuple.end();
+        int trimmedSize = Math.min(end - begin, maxLength);
+
+        return tuple.bytesValue(begin, begin + trimmedSize);
     }
 }

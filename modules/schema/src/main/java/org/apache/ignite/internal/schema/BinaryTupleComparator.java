@@ -110,7 +110,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         NativeType nativeType = columnTypes.get(colIdx);
 
-        int res = compareFieldValue(nativeType.spec(), tuple1, colIdx, tuple2, colIdx);
+        int res = compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
     }

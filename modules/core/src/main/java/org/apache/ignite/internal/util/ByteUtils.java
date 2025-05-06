@@ -29,7 +29,6 @@ import java.io.ObjectOutputStream;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -412,24 +411,5 @@ public class ByteUtils {
         long lower = bytesToLong(bytes, offset + Long.BYTES);
 
         return new UUID(higher, lower);
-    }
-
-    /**
-     * Truncates a byte array to the size specified.
-     *
-     * @param bytes Origin byte array.
-     * @param maxLength Length of truncate.
-     * @return Truncated array.
-     */
-    public static byte @Nullable [] trimToSize(byte[] bytes, int maxLength) {
-        if (bytes == null) {
-            return null;
-        }
-
-        if (maxLength <= 0) {
-            return BYTE_EMPTY_ARRAY;
-        }
-
-        return Arrays.copyOf(bytes, Math.min(bytes.length, maxLength));
     }
 }
