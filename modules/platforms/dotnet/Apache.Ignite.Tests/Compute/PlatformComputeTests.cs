@@ -167,6 +167,7 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreNotEqual(Environment.ProcessId, jobProcessId);
     }
 
+    // TODO: This is flaky and gets stuck - investigate.
     [Test]
     public async Task TestDotNetSidecarProcessIsRestartedOnExit()
     {
@@ -206,6 +207,8 @@ public class PlatformComputeTests : IgniteTestsBase
             .ToArray();
 
         await Task.WhenAll(jobTasks);
+
+        // TODO: Check that assembly load context count is low enough.
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
