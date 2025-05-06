@@ -30,7 +30,7 @@ import picocli.CommandLine;
         name = "sql-ddl-generator",
         description = "Generates a SQL DDL Script from the cache configurations in the input Ignite 2 configuration xml")
 public class SqlDdlGeneratorCmd extends BaseCommand implements Callable<Integer> {
-    @CommandLine.Parameters(paramLabel = "input-file", description = "Ignite 2 or Gridgain 8 Configuration XML")
+    @CommandLine.Parameters(paramLabel = "input-file", description = "Ignite 2 Configuration XML")
     private Path inputFile;
 
     @CommandLine.Option(names = {"-o", "--output"}, description = "Print the DDL Script to a file instead of the STDOUT")

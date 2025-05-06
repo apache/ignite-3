@@ -22,11 +22,11 @@ import picocli.CommandLine;
 
 /** Persistence Command parameters. */
 public class PersistenceParams {
-    @CommandLine.Parameters(paramLabel = "work-dir", description = "Work Directory of one or many Ignite 2 or Gridgain 8 nodes")
+    @CommandLine.Parameters(paramLabel = "work-dir", description = "Work Directory of one or many Ignite 2 nodes")
     private Path workDir;
-    @CommandLine.Parameters(paramLabel = "consistent-id", description = "Consistent ID of the Ignite 2 or Gridgain 8 node")
+    @CommandLine.Parameters(paramLabel = "consistent-id", description = "Consistent ID of the Ignite 2 node")
     private String nodeConsistentId;
-    @CommandLine.Parameters(paramLabel = "config-file", description = "Ignite 2 or Gridgain 8 Configuration XML")
+    @CommandLine.Parameters(paramLabel = "config-file", description = "Ignite 2 Configuration XML")
     private Path configFile;
 
     public Path workDir() {

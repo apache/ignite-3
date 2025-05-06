@@ -24,11 +24,8 @@ import com.typesafe.config.ConfigFactory;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.commons.lang3.concurrent.Memoizer;
 import org.apache.commons.lang3.function.Failable;
-import org.apache.commons.lang3.tuple.Pair;
 
 /** ConfigTestUtils. */
 public class ConfigTestUtils {
@@ -46,30 +43,7 @@ public class ConfigTestUtils {
         Path nodeCfgPath = Files.createTempFile("node", ".cfg");
         Path clusterCfgPath = Files.createTempFile("cluster", ".cfg");
 
-        // Set up properties. One of the caches requires this, should be configurable in the future.
-        Map<String, String> oldProps = null;
-        try {
-            Map<String, String> newProps = Map.of(
-                    "GRIDGAIN_SERVER_USERNAME", "user",
-                    "GRIDGAIN_SERVER_PASSWORD", "password",
-                    "GRIDGAIN_CLIENT_USERNAME", "user",
-                    "GRIDGAIN_CLIENT_PASSWORD", "password"
-            );
-
-            oldProps = newProps.keySet().stream()
-                    .map(key -> Pair.of(key, System.getProperty(key)))
-                    .filter(e -> e.getValue() != null)
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-            newProps.forEach(System::setProperty);
-
-            convertConfigurationFile(inputCfgPath.toFile(), nodeCfgPath.toFile(), clusterCfgPath.toFile(), false, null);
-        } finally {
-            if (oldProps != null) {
-                oldProps.forEach(System::setProperty);
-            }
-        }
-
+        convertConfigurationFile(inputCfgPath.toFile(), nodeCfgPath.toFile(), clusterCfgPath.toFile(), false, null);
 
         String nodeCfgStr = Files.readString(nodeCfgPath, StandardCharsets.UTF_8);
         String clusterCfgStr = Files.readString(clusterCfgPath, StandardCharsets.UTF_8);

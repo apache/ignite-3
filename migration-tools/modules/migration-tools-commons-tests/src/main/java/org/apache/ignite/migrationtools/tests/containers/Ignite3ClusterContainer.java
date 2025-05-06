@@ -69,8 +69,6 @@ public class Ignite3ClusterContainer implements Startable {
                 .withNetworkAliases("ai3.node.1")
                 .withCommand("--node-name clusterNode1")
                 .withExposedPorts(10800)
-                .withCopyFileToContainer(
-                        MountableFile.forHostPath("../../resources/gridgain-license.conf"), "/opt/gridgain9/gridgain-license.conf")
                 .waitingFor(Wait.forLogMessage(".*Components started.*", 1));
     }
 

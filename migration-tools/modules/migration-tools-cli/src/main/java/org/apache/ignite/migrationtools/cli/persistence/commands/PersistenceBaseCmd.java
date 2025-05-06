@@ -35,7 +35,7 @@ import picocli.CommandLine;
 /** Base for all the Persistence commands. */
 @CommandLine.Command(
         name = "persistent-data",
-        description = "Commands to interact with an Ignite 2 or Gridgain 8 node work directory",
+        description = "Commands to interact with an Ignite 2 node work directory",
         subcommands = {
                 ListCachesCmd.class,
                 MigrateCacheCmd.class

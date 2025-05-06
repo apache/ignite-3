@@ -30,13 +30,13 @@ import picocli.CommandLine;
         name = "configuration-converter",
         description = "Converters Ignite 2 configuration xml into Ignite 3 node and cluster configurations")
 public class ConfigurationConverterCmd extends BaseCommand implements Callable<Integer> {
-    @CommandLine.Parameters(paramLabel = "input-file", description = "Ignite 2 or Gridgain 8 Configuration XML")
+    @CommandLine.Parameters(paramLabel = "input-file", description = "Ignite 2 Configuration XML")
     private Path inputFile;
 
-    @CommandLine.Parameters(paramLabel = "node-cfg-output-file", description = "Ignite 3 or Gridgain 9 Configuration HOCON")
+    @CommandLine.Parameters(paramLabel = "node-cfg-output-file", description = "Ignite 3 Configuration HOCON")
     private Path locCfgFile;
 
-    @CommandLine.Parameters(paramLabel = "cluster-cfg-output-file", description = "Ignite 3 or Gridgain 9 Configuration HOCON")
+    @CommandLine.Parameters(paramLabel = "cluster-cfg-output-file", description = "Ignite 3 Configuration HOCON")
     private Path distCfgFile;
 
     @CommandLine.Option(
