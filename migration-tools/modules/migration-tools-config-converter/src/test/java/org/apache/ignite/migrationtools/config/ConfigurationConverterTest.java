@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.typesafe.config.Config;
 import java.nio.file.Files;
 import java.util.List;
+import java.util.Map;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -58,31 +59,43 @@ class ConfigurationConverterTest {
     private static Stream<Arguments> dataStorageConfigs() {
         return Stream.of(
                 Arguments.of("configs-custom/ignite-config.0.xml", List.of(
-                    (Consumer<Config>) c -> {
-                        assertThat(c.getString("name")).isEqualTo("default");
-                        assertThat(c.getString("engine")).isEqualTo("aimem");
-                        assertThat(c.getString("initSizeBytes")).isEqualTo("" + 100 * 1024 * 1024);
+                    (Consumer<Map.Entry<String, Map<String, Object>>>) e -> {
+                        var name = e.getKey();
+                        var conf = e.getValue();
+
+                        assertThat(name).isEqualTo("default");
+                        assertThat(conf.get("engine")).isEqualTo("aimem");
+                        assertThat(conf.get("initSizeBytes")).isEqualTo(100 * 1024 * 1024);
                     },
-                    (Consumer<Config>) c -> {
-                        assertThat(c.getString("name")).isEqualTo("40MB_Region_Eviction");
-                        assertThat(c.getString("engine")).isEqualTo("aimem");
-                        assertThat(c.getString("initSizeBytes")).isEqualTo("" + 20 * 1024 * 1024);
-                        assertThat(c.getString("maxSizeBytes")).isEqualTo("" + 40 * 1024 * 1024);
+                    (Consumer<Map.Entry<String, Map<String, Object>>>) e -> {
+                        var name = e.getKey();
+                        var conf = e.getValue();
+
+                        assertThat(name).isEqualTo("40MB_Region_Eviction");
+                        assertThat(conf.get("engine")).isEqualTo("aimem");
+                        assertThat(conf.get("initSizeBytes")).isEqualTo(20 * 1024 * 1024);
+                        assertThat(conf.get("maxSizeBytes")).isEqualTo(40 * 1024 * 1024);
                     }
                 )),
                 Arguments.of("configs-custom/ignite-config.1.xml", List.of(
-                    (Consumer<Config>) c -> {
-                        assertThat(c.getString("name")).isEqualTo("default");
-                        assertThat(c.getString("engine")).isEqualTo("aimem");
-                        assertThat(c.getString("initSizeBytes")).isEqualTo("" + 50 * 1024 * 1024);
-                        assertThat(c.getString("maxSizeBytes")).isEqualTo("" + 150 * 1024 * 1024);
+                    (Consumer<Map.Entry<String, Map<String, Object>>>) e -> {
+                        var name = e.getKey();
+                        var conf = e.getValue();
+
+                        assertThat(name).isEqualTo("default");
+                        assertThat(conf.get("engine")).isEqualTo("aimem");
+                        assertThat(conf.get("initSizeBytes")).isEqualTo(50 * 1024 * 1024);
+                        assertThat(conf.get("maxSizeBytes")).isEqualTo(150 * 1024 * 1024);
                     }
                 )),
                 Arguments.of("configs-custom/ignite-config.2.xml", List.of(
-                        (Consumer<Config>) c -> {
-                            assertThat(c.getString("name")).isEqualTo("default");
-                            assertThat(c.getString("engine")).isEqualTo("aipersist");
-                            assertThat(c.getString("sizeBytes")).isEqualTo("" + 50 * 1024 * 1024);
+                    (Consumer<Map.Entry<String, Map<String, Object>>>) e -> {
+                            var name = e.getKey();
+                            var conf = e.getValue();
+
+                            assertThat(name).isEqualTo("default");
+                            assertThat(conf.get("engine")).isEqualTo("aipersist");
+                            assertThat(conf.get("sizeBytes")).isEqualTo(50 * 1024 * 1024);
                         }
                 ))
         );
@@ -188,11 +201,11 @@ class ConfigurationConverterTest {
 
     @ParameterizedTest
     @MethodSource("dataStorageConfigs")
-    void testDataStorageConfigurations(String inputPath, List<Consumer<Config>> reqs) throws Exception {
+    void testDataStorageConfigurations(String inputPath, List<Consumer<Map.Entry<String, Map<String, Object>>>> reqs) throws Exception {
         var testDescr = ConfigTestUtils.loadResourceFile(inputPath);
         Config cfg = testDescr.getNodeCfg().getConfig("ignite");
 
-        var profiles = cfg.getConfigList("storage.profiles");
+        var profiles = cfg.getObject("storage.profiles").unwrapped().entrySet();
         assertThat(profiles).satisfiesExactlyInAnyOrder(reqs.toArray(new Consumer[0]));
     }
 
