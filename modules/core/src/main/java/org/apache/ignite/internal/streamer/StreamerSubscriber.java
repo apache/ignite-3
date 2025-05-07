@@ -167,9 +167,11 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void onNext(E item) {
-        if (closed) {
-            throw new IllegalStateException("Streamer is closed, can't add items.");
+    public void onNext(E item) {
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Streamer is closed, can't add items.");
+            }
         }
 
         pendingItemCount.decrementAndGet();
