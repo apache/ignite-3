@@ -2856,7 +2856,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             return allOf(stopReplicaAndDestroyFutures).whenComplete((res, th) -> {
-                tablesPerZone.get(internalTable.zoneId()).remove(table);
+                tablesPerZone.getOrDefault(internalTable.zoneId(), emptySet()).remove(table);
 
                 zoneLock.unlockWrite(stamp);
             });
