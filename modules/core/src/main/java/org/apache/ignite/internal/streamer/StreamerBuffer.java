@@ -44,50 +44,53 @@ class StreamerBuffer<T> {
      * @param item Item.
      */
     void add(T item) {
-        List<T> bufToFlush = addInternal(item);
+        List<T> bufToFlush = null;
 
-        if (bufToFlush != null) {
-            // Call outside of the synchronized block to avoid deadlocks.
-            flusher.accept(bufToFlush);
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Streamer is closed, can't add items.");
+            }
+
+            buf.add(item);
+
+            if (buf.size() >= capacity) {
+                bufToFlush = buf;
+                buf = new ArrayList<>(capacity);
+            }
         }
+
+        flushBuf(bufToFlush); // Flush out of lock to avoid deadlocks.
     }
 
-    private synchronized @Nullable List<T> addInternal(T item) {
-        if (closed) {
-            throw new IllegalStateException("Streamer is closed, can't add items.");
+    void flushAndClose() {
+        List<T> bufToFlush;
+
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+
+            bufToFlush = buf;
         }
 
-        buf.add(item);
+        flushBuf(bufToFlush); // Flush out of lock to avoid deadlocks.
+    }
 
-        if (buf.size() >= capacity) {
-            List<T> bufToFlush = buf;
+    void flush() {
+        List<T> bufToFlush;
+
+        synchronized (this) {
+            if (closed || buf.isEmpty()) {
+                return;
+            }
+
+            bufToFlush = buf;
             buf = new ArrayList<>(capacity);
-
-            return bufToFlush;
         }
 
-        return null;
-    }
-
-    synchronized void flushAndClose() {
-        if (closed) {
-            throw new IllegalStateException("Streamer is already closed.");
-        }
-
-        closed = true;
-
-        if (!buf.isEmpty()) {
-            flusher.accept(buf);
-        }
-    }
-
-    synchronized void flush() {
-        if (closed || buf.isEmpty()) {
-            return;
-        }
-
-        flusher.accept(buf);
-        buf = new ArrayList<>(capacity);
+        flushBuf(bufToFlush); // Flush out of lock to avoid deadlocks.
     }
 
     synchronized void forEach(Consumer<T> consumer) {
@@ -96,5 +99,13 @@ class StreamerBuffer<T> {
         }
 
         buf.forEach(consumer);
+    }
+
+    private void flushBuf(@Nullable List<T> bufToFlush) {
+        if (bufToFlush == null || bufToFlush.isEmpty()) {
+            return;
+        }
+
+        flusher.accept(bufToFlush);
     }
 }
