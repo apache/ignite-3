@@ -280,6 +280,7 @@ import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
@@ -1000,7 +1001,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void waitPartitionAssignmentsSyncedToExpected(String tableName, int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, tableName, partNum).size() == replicasNum),
+                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, tableName, partNum).size() == replicasNum
+                        && getPartitionPendingAssignments(n, tableName, partNum).isEmpty()),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -1087,12 +1089,16 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                 .orElse(Set.of());
     }
 
-    private static Set<Assignment> getPartitionPendingAssignments(Node node, int partNum) {
-        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
+    private static Set<Assignment> getPartitionPendingAssignments(Node node, String tableName, int partNum) {
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
         return Optional
                 .ofNullable(pendingPartitionAssignments(node.metaStorageManager, table, partNum).join())
                 .orElse(Set.of());
+    }
+
+    private static Set<Assignment> getPartitionPendingAssignments(Node node, int partNum) {
+        return getPartitionPendingAssignments(node, TABLE_NAME, partNum);
     }
 
     private static Set<Assignment> getPartitionPlannedAssignments(Node node, int partNum) {
