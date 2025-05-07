@@ -72,6 +72,24 @@ public class ExecutionOptions {
         return executorType;
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        ExecutionOptions that = (ExecutionOptions) o;
+        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition) &&
+                executorType == that.executorType;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(priority, maxRetries, partition, executorType);
+    }
+
     /** Compose execution options.  */
     public static ExecutionOptions from(JobExecutionOptions jobExecutionOptions) {
         return builder()
