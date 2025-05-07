@@ -274,7 +274,7 @@ public class ErrorGroups {
         /** Client handshake header error. */
         public static final int HANDSHAKE_HEADER_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 8);
 
-        /** Server -&gt; client request failed. */
+        /** Server to client request failed. */
         public static final int SERVER_TO_CLIENT_REQUEST_ERR = CLIENT_ERR_GROUP.registerErrorCode((short) 9);
     }
 
