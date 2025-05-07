@@ -19,15 +19,12 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
-import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -75,7 +72,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"0", "10"})
     private int idxes;
 
-    @Param({"10"})
+    @Param({"100"})
     private int fieldLength;
 
     @Param({"HASH", "SORTED"})
@@ -193,10 +190,5 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int replicaCount() {
         return 1;
-    }
-
-    @Override
-    protected Path workDir() throws Exception {
-        return Path.of("D:", "tmpDirPrefix" + ThreadLocalRandom.current().nextInt());
     }
 }
