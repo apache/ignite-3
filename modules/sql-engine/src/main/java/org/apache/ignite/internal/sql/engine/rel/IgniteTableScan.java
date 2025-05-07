@@ -163,6 +163,7 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
                     getTraitSet(),
                     getHints(),
                     getTable(),
+                    names,
                     newProjects,
                     newCondition,
                     requiredColumns

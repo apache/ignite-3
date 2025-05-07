@@ -171,10 +171,12 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
 
         if (newCondition != condition || newProjects != projects) {
             return new IgniteTableScan(
-                    sourceId, getCluster(),
+                    sourceId,
+                    getCluster(),
                     getTraitSet(),
                     getHints(),
                     getTable(),
+                    names,
                     newProjects,
                     newCondition,
                     requiredColumns
