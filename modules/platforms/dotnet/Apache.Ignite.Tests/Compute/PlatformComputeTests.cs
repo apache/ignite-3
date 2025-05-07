@@ -19,9 +19,11 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Ignite.Marshalling;
 using Network;
 using NodaTime;
 using NUnit.Framework;
@@ -32,6 +34,11 @@ using TestHelpers;
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
+    private static readonly JobDescriptor<JobInfo, object?> JobRunnerJob = new(ComputeTests.PlatformTestNodeRunner + "$JobRunnerJob")
+    {
+        ArgMarshaller = new JsonMarshaller<JobInfo>()
+    };
+
     private DeploymentUnit _defaultTestUnit = null!;
 
     [OneTimeSetUp]
@@ -60,15 +67,7 @@ public class PlatformComputeTests : IgniteTestsBase
     [TestCaseSource(nameof(ArgTypesTestCases))]
     public async Task TestAllSupportedArgTypes(object val)
     {
-        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
-        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
-
-        var jobExec = await Client.Compute.SubmitAsync(
-            jobTarget,
-            jobDesc,
-            val);
-
-        var result = await jobExec.GetResultAsync();
+        var result = await ExecJobAsync(DotNetJobs.Echo, val);
 
         if (val is decimal dec)
         {
@@ -82,12 +81,15 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestMissingClass()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync());
-        var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "MyNamespace.MyJob");
+        var desc = new JobDescriptor<string, string>(
+            "MyNamespace.MyJob",
+            [_defaultTestUnit],
+            new JobExecutionOptions { ExecutorType = JobExecutorType.DotNetSidecar });
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        Assert.AreEqual("Type 'MyNamespace.MyJob' not found in the specified deployment units.", ex.Message);
+        Assert.AreEqual(".NET job failed: Type 'MyNamespace.MyJob' not found in the specified deployment units.", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
@@ -99,7 +101,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
 
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
-        StringAssert.StartsWith("Could not load file or assembly 'Apache.Ignite.Tests", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Could not load file or assembly 'Apache.Ignite.Tests", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
@@ -112,7 +114,7 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        Assert.AreEqual("Test exception: arg", ex.Message);
+        Assert.AreEqual(".NET job failed: Test exception: arg", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
 
         StringAssert.Contains(
@@ -123,16 +125,95 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
+    [Ignore("IGNITE-25181")]
     public async Task TestDotNetJobFailsOnServerWithClientCertificate()
     {
         var target = JobTarget.Node(await GetClusterNodeAsync("_4"));
-        var desc = new JobDescriptor<string, string>(DotNetJobs.TempJobPrefix + "SomeJob");
+        var desc = new JobDescriptor<string, string>(
+            "SomeJob",
+            [_defaultTestUnit],
+            new JobExecutionOptions { ExecutorType = JobExecutorType.DotNetSidecar });
 
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "Hello world!");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
         // TODO IGNITE-25181 Support client certs with .NET compute executor.
         Assert.AreEqual("Could not start .NET executor process in 2 attempts", ex.Message);
+    }
+
+    [Test]
+    public async Task TestCallDotNetJobFromJava()
+    {
+        var targetNode = await GetClusterNodeAsync();
+        var target = JobTarget.Node(targetNode);
+
+        var arg = new JobInfo(
+            TypeName: typeof(DotNetJobs.EchoJob).AssemblyQualifiedName!,
+            Arg: "arg1",
+            DeploymentUnits: [$"{_defaultTestUnit.Name}:{_defaultTestUnit.Version}"],
+            NodeId: targetNode.Id,
+            JobExecutorType: "DOTNET_SIDECAR");
+
+        var jobExec = await Client.Compute.SubmitAsync(target, JobRunnerJob, arg);
+        var res = await jobExec.GetResultAsync();
+
+        Assert.AreEqual("arg1", res);
+    }
+
+    [Test]
+    public async Task TestDotNetJobRunsInAnotherProcess()
+    {
+        var jobProcessId = await ExecJobAsync(DotNetJobs.ProcessId);
+
+        Assert.AreNotEqual(Environment.ProcessId, jobProcessId);
+    }
+
+    [Test]
+    public async Task TestDotNetSidecarProcessIsRestartedOnExit()
+    {
+        var jobTimeout = TimeSpan.FromSeconds(5);
+
+        // Get executor process id.
+        int jobProcessId1 = await ExecJobAsync(DotNetJobs.ProcessId).WaitAsync(jobTimeout);
+
+        // Run a job that exits the process. This job fails because the process exits before the result is returned.
+        var ex = Assert.ThrowsAsync<IgniteException>(
+            async () => await ExecJobAsync(DotNetJobs.ProcessExit).WaitAsync(jobTimeout));
+
+        // Run another job - the process should be restarted automatically.
+        int jobProcessId2 = await ExecJobAsync(DotNetJobs.ProcessId).WaitAsync(jobTimeout);
+
+        Assert.AreNotEqual(jobProcessId1, jobProcessId2);
+        Assert.AreEqual(".NET compute executor connection lost", ex.Message);
+        Assert.AreEqual("IGN-CLIENT-9", ex.CodeAsString);
+    }
+
+    [Test]
+    public async Task TestIgniteApiAccessFromJob()
+    {
+        var apiRes = await ExecJobAsync(DotNetJobs.ApiTest, "Hello world!");
+
+        Assert.AreEqual(
+            "Arg: Hello world!|SQL result: IgniteTuple { ANSWER = 42 }|Table result: Option { HasValue = True, Value = Hello }",
+            apiRes);
+    }
+
+    [Test]
+    public async Task TestManyJobsAssemblyLoadContextUnload()
+    {
+        int jobCount = 100;
+
+        var jobTasks = Enumerable
+            .Range(0, jobCount)
+            .Select(x => ExecJobAsync(DotNetJobs.Echo, x))
+            .ToArray();
+
+        await Task.WhenAll(jobTasks);
+
+        var assemblyLoadContextCount = await ExecJobAsync(DotNetJobs.AssemblyLoadContextCount);
+
+        // Default context + current job context, all others should be unloaded.
+        Assert.AreEqual(2, assemblyLoadContextCount);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
@@ -186,4 +267,20 @@ public class PlatformComputeTests : IgniteTestsBase
         var nodes = await Client.GetClusterNodesAsync();
         return nodes.First(n => n.Name == nodeName);
     }
+
+    private async Task<TRes> ExecJobAsync<TArg, TRes>(JobDescriptor<TArg, TRes> desc, TArg arg = default!)
+    {
+        var jobDesc = desc with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
+
+        var jobExec = await Client.Compute.SubmitAsync(
+            jobTarget,
+            jobDesc,
+            arg: arg);
+
+        return await jobExec.GetResultAsync();
+    }
+
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "JSON")]
+    private record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, Guid NodeId, string JobExecutorType);
 }

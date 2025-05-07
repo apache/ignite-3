@@ -631,7 +631,15 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
             IgniteCustomType to = (IgniteCustomType) type2;
             return tryCustomTypeCoercionRules(type1, to);
         } else {
-            return super.commonTypeForBinaryComparison(type1, type2);
+            SqlTypeName t1 = type1.getSqlTypeName();
+            SqlTypeName t2 = type2.getSqlTypeName();
+
+            if (t1 == SqlTypeName.TIMESTAMP && t2 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE
+                    || t1 == SqlTypeName.TIMESTAMP_WITH_LOCAL_TIME_ZONE && t2 == SqlTypeName.TIMESTAMP) {
+                return typeFactory.leastRestrictive(List.of(type1, type2));
+            } else {
+                return super.commonTypeForBinaryComparison(type1, type2);
+            }
         }
     }
 
@@ -699,7 +707,7 @@ public class IgniteTypeCoercion extends TypeCoercionImpl {
                 // NOT MATCHED THEN arm of a MERGE statement.
                 SqlSelect select = (SqlSelect) insert.getSource();
                 sourceLists = List.of(select.getSelectList());
-            } else  {
+            } else {
                 // Basic INSERT INTO ... VALUES (...).
                 SqlCall values = (SqlCall) insert.getSource();
                 assert values.getKind() == SqlKind.VALUES : "Unexpected source node for INSERT " + values;

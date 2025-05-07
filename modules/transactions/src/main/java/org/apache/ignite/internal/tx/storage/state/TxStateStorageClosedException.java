@@ -15,17 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.tx.storage.state;
 
-import java.nio.ByteBuffer;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 /**
- * Always fails with an exception.
+ * Exception that is be thrown when trying to access a closed storage.
  */
-class BrokenPointerWrapping implements PointerWrapping {
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        throw new RuntimeException(
-                "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_STARTUP_PARAMS_WARN);
+public class TxStateStorageClosedException extends TxStateStorageException {
+    private static final long serialVersionUID = -7988332521347221109L;
+
+    /**
+     * Default constructor.
+     */
+    public TxStateStorageClosedException() {
+        this("Storage is already closed");
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public TxStateStorageClosedException(String message) {
+        super(TX_STATE_STORAGE_STOPPED_ERR, message);
     }
 }

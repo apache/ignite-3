@@ -24,7 +24,7 @@ using System.Threading.Tasks;
 /// <summary>
 /// Temporary directory holder for tests.
 /// </summary>
-internal sealed record TempDir : IDisposable
+public sealed record TempDir : IDisposable
 {
     public TempDir()
     {

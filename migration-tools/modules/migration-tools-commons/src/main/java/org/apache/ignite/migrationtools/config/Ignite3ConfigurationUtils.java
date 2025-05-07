@@ -118,7 +118,7 @@ public class Ignite3ConfigurationUtils {
                 ConfigurationValidatorImpl.withDefaultValidators(localConfigurationGenerator, myValidators);
 
         var nodeCfgMgr = new ConfigurationManager(module.rootKeys(), localFileConfigurationStorage, localConfigurationGenerator,
-                localConfigurationValidator, c -> {});
+                localConfigurationValidator, c -> {}, s -> false);
 
         nodeCfgMgr.startAsync(new ComponentContext()).join();
         return nodeCfgMgr.configurationRegistry();

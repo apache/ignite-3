@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import java.util.List;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeJobDataType;
@@ -71,8 +72,7 @@ public final class ClientComputeJobUnpacker {
         var options = JobExecutionOptions.builder().priority(unpacker.unpackInt()).maxRetries(unpacker.unpackInt());
 
         if (enablePlatformJobs) {
-            // TODO: IGNITE-25116 propagate executor type.
-            unpacker.unpackInt();
+            options.executorType(JobExecutorType.fromOrdinal(unpacker.unpackInt()));
         }
 
         ComputeJobDataHolder args = unpackJobArgumentWithoutMarshaller(unpacker);

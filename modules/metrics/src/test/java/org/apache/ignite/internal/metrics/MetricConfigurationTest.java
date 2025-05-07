@@ -29,8 +29,8 @@ import org.apache.ignite.internal.configuration.testframework.InjectConfiguratio
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.MetricExporter;
 import org.apache.ignite.internal.metrics.exporters.TestExporter;
-import org.apache.ignite.internal.metrics.exporters.TestExporterChange;
-import org.apache.ignite.internal.metrics.exporters.TestExporterConfigurationSchema;
+import org.apache.ignite.internal.metrics.exporters.configuration.TestExporterChange;
+import org.apache.ignite.internal.metrics.exporters.configuration.TestExporterConfigurationSchema;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;

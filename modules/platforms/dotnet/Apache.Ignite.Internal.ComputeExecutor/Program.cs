@@ -52,7 +52,8 @@ var clientCfg = new IgniteClientConfiguration(serverAddr)
     RetryPolicy = RetryNonePolicy.Instance, // No reconnect on error.
     ReconnectInterval = TimeSpan.Zero, // No background reconnect.
     SslStreamFactory = sslStreamFactory,
-    LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning))
+    LoggerFactory = LoggerFactory.Create(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Warning)),
+    HeartbeatInterval = TimeSpan.FromSeconds(1)
 };
 
 using var client = await IgniteClient.StartAsync(clientCfg).ConfigureAwait(false);

@@ -36,7 +36,7 @@ namespace Apache.Ignite.Tests
 
         private const int DefaultClientPort = 10942;
 
-        private const int ConnectTimeoutSeconds = 120;
+        private const int ConnectTimeoutSeconds = 4 * 60;
 
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
           + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";

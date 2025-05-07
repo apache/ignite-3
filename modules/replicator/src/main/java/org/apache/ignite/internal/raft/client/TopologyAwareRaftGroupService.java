@@ -321,7 +321,10 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
     public CompletableFuture<Void> subscribeLeader(LeaderElectionListener callback) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-23863 do the refactoring to make the code more consistent.
         if (serverEventHandler.isSubscribed()) {
-            eventsClientListener.addLeaderElectionListener(groupId(), callback);
+            ServerEventHandler wrappedEventHandler = new ServerEventHandler();
+            wrappedEventHandler.setOnLeaderElectedCallback(callback);
+
+            eventsClientListener.addLeaderElectionListener(groupId(), wrappedEventHandler);
         } else {
             serverEventHandler.setOnLeaderElectedCallback(callback);
         }

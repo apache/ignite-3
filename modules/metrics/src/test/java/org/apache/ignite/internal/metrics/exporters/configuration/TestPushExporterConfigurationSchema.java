@@ -15,17 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters;
+package org.apache.ignite.internal.metrics.exporters.configuration;
 
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
 
 /**
- * Configuration for test exporter.
- */
-@PolymorphicConfigInstance("test")
-public class TestExporterConfigurationSchema extends ExporterConfigurationSchema {
+ * Configuration for test push exporter.
+ **/
+@PolymorphicConfigInstance("test-push-exporter")
+public class TestPushExporterConfigurationSchema extends ExporterConfigurationSchema {
+    /** Export period, in milliseconds. */
     @Value(hasDefault = true)
-    public int port = 0;
+    public long periodMillis = 1_000;
 }

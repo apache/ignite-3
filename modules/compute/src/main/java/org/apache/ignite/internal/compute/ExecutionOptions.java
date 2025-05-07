@@ -19,6 +19,7 @@ package org.apache.ignite.internal.compute;
 
 import java.util.Objects;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.table.partition.Partition;
 import org.jetbrains.annotations.Nullable;
 
@@ -48,7 +49,7 @@ public class ExecutionOptions {
         this.priority = priority;
         this.maxRetries = maxRetries;
         this.partition = partition;
-        this.executorType = executorType == null ? JobExecutorType.JavaEmbedded : executorType;
+        this.executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
     }
 
     public static Builder builder() {
@@ -80,12 +81,13 @@ public class ExecutionOptions {
             return false;
         }
         ExecutionOptions that = (ExecutionOptions) o;
-        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition);
+        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition)
+                && executorType == that.executorType;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(priority, maxRetries, partition);
+        return Objects.hash(priority, maxRetries, partition, executorType);
     }
 
     /** Compose execution options.  */
@@ -93,8 +95,7 @@ public class ExecutionOptions {
         return builder()
                 .priority(jobExecutionOptions.priority())
                 .maxRetries(jobExecutionOptions.maxRetries())
-                // TODO IGNITE-25116
-                // .executorType(jobExecutionOptions.executorType())
+                .executorType(jobExecutionOptions.executorType())
                 .build();
     }
 
@@ -106,7 +107,7 @@ public class ExecutionOptions {
 
         private @Nullable Partition partition;
 
-        private JobExecutorType executorType = JobExecutorType.JavaEmbedded;
+        private JobExecutorType executorType = JobExecutorType.JAVA_EMBEDDED;
 
         public Builder priority(int priority) {
             this.priority = priority;
