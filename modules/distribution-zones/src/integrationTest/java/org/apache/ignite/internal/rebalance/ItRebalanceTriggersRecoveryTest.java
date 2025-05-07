@@ -171,7 +171,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
                 () -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID),
                 containsInAnyOrder(
                         Assignment.forPeer(node(1).name()),
-                        Assignment.forLearner(node(2).name())
+                        Assignment.forPeer(node(2).name())
                 )
         );
 
