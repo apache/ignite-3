@@ -16,6 +16,7 @@
  */
 
 rootProject.name = 'Apache Ignite 3'
+include(':ignite-dependency-constraints')
 include(':ignite-page-memory')
 include(':ignite-storage-api')
 include(':ignite-network-annotation-processor')
