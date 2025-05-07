@@ -28,7 +28,6 @@ import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.util.List;
-import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogCommand;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
@@ -97,60 +96,36 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
         alterZoneBuilder().replicas(DEFAULT_REPLICA_COUNT).build();
     }
 
-    private static Stream<Arguments> incompatibleReplicas() {
-        return Stream.of(
-                arguments(1, 1, 2),
-                arguments(2, 2, 1),
-                arguments(3, 2, 1),
-                arguments(5, 3, 4),
-                arguments(6, 3, 4)
-        );
-    }
-    @ParameterizedTest
-    @MethodSource("incompatibleReplicas")
-    void zoneIncompatibleReplicas(int initialReplicas, int quorumSize, int targetReplicas) {
-        Catalog catalog = catalog(alterZoneBuilder()
-                .replicas(initialReplicas)
-                .quorumSize(quorumSize)
-                .build()
-        );
-
-        CatalogCommand alterCommand = alterZoneBuilder()
-                .replicas(targetReplicas)
-                .build();
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> alterCommand.get(new UpdateContext(catalog)),
-                "Current quorum size doesn't fit into the specified replicas count"
-        );
-    }
-
-    private static List<Arguments> compatibleReplicas() {
+    private static List<Arguments> replicasChanges() {
         return List.of(
-                arguments(2, 2, 3),
-                arguments(2, 2, 4),
-                arguments(2, 2, 5),
-                arguments(5, 2, 4),
-                arguments(5, 2, 6),
-                arguments(5, 2, 7)
+                arguments(1, 1, 2, 2),
+
+                arguments(2, 2, 1, 1),
+                arguments(2, 2, 3, 2),
+                arguments(2, 2, 4, 2),
+                arguments(2, 2, 5, 2),
+
+                arguments(3, 2, 1, 1),
+
+                arguments(5, 3, 4, 2),
+                arguments(5, 2, 4, 2),
+                arguments(5, 2, 6, 2),
+                arguments(5, 2, 7, 2),
+
+                arguments(6, 3, 4, 2)
         );
     }
 
     @ParameterizedTest
-    @MethodSource("compatibleReplicas")
-    void zoneCompatibleReplicas(int initialReplicas, int quorumSize, int targetReplicas) {
+    @MethodSource("replicasChanges")
+    void adjustQuorumSize(int initialReplicas, int quorumSize, int targetReplicas, int targetQuorumSize) {
         Catalog catalog = catalog(alterZoneBuilder()
                 .replicas(initialReplicas)
                 .quorumSize(quorumSize)
                 .build()
         );
 
-        CatalogCommand alterCommand = alterZoneBuilder()
-                .replicas(targetReplicas)
-                .build();
-
-        alterCommand.get(new UpdateContext(catalog));
+        assertThat(getZoneDescriptor(alterZoneBuilder().replicas(targetReplicas), catalog).quorumSize(), is(targetQuorumSize));
     }
 
     @Test
@@ -179,28 +154,16 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
             int minQuorumSize,
             int maxQuorumSize
     ) {
-        String errorMessageFragmentMinQuorum = minQuorumSize > 1
-                ? "Specified quorum size doesn't fit into the specified replicas count"
-                : "Invalid quorum size"; // Special case when quorum size of 0 is rejected earlier.
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(minQuorumSize - 1)),
-                errorMessageFragmentMinQuorum
-        );
-
-        String errorMessageFragmentMaxQuorum = replicas != null
-                ? "Specified quorum size doesn't fit into the specified replicas count"
-                : "Specified quorum size doesn't fit into the current replicas count"; // Special case when replicas count is not changed
-
-        assertThrows(
-                CatalogValidationException.class,
-                () -> getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)),
-                errorMessageFragmentMaxQuorum
-        );
+        // Quorum size less than minimum and greater than maximum is automatically adjusted
+        // The only exception is quorum size of 0, which is invalid in any case
+        if (minQuorumSize != 1) {
+            assertThat(getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(minQuorumSize - 1)).quorumSize(),
+                    is(minQuorumSize));
+        }
+        assertThat(getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)).quorumSize(), is(maxQuorumSize));
 
         for (int i = minQuorumSize; i <= maxQuorumSize; i++) {
-            getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(i));
+            assertThat(getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(i)).quorumSize(), is(i));
         }
     }
 
@@ -354,6 +317,18 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
      * @return Catalog zone descriptor.
      */
     private static CatalogZoneDescriptor getZoneDescriptor(AlterZoneCommandBuilder builder) {
-        return ((AlterZoneEntry) builder.build().get(new UpdateContext(catalogWithDefaultZone())).get(0)).descriptor();
+        return getZoneDescriptor(builder, catalogWithDefaultZone());
+    }
+
+    /**
+     * Builds the command and gets update entries based on the provided catalog. Needed because quorum size validation requires knowing
+     * current (or previous) value of number of replicas.
+     *
+     * @param builder Alter zone command builder.
+     * @param catalog Catalog to alter.
+     * @return Catalog zone descriptor.
+     */
+    private static CatalogZoneDescriptor getZoneDescriptor(AlterZoneCommandBuilder builder, Catalog catalog) {
+        return ((AlterZoneEntry) builder.build().get(new UpdateContext(catalog)).get(0)).descriptor();
     }
 }

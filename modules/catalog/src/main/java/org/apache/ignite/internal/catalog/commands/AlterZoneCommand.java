@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validatePartition;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateReplicasAndQuorumCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
@@ -36,12 +38,16 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfilesDesc
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.AlterZoneEntry;
 import org.apache.ignite.internal.catalog.storage.UpdateEntry;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * A command that changes the particular zone.
  */
 public class AlterZoneCommand extends AbstractZoneCommand {
+    private static final IgniteLogger LOG = Loggers.forClass(AlterZoneCommand.class);
+
     public static AlterZoneCommandBuilder builder() {
         return new Builder();
     }
@@ -143,10 +149,7 @@ public class AlterZoneCommand extends AbstractZoneCommand {
                 ? fromParams(storageProfileParams) : previous.storageProfiles();
 
         int replicas = requireNonNullElse(this.replicas, previous.replicas());
-        int quorumSize = requireNonNullElse(this.quorumSize, previous.quorumSize());
-
-        // Validate replicas count and quorum size here since they depend on each other
-        validateReplicasAndQuorumCompatibility(replicas, quorumSize, this::getErrPrefix);
+        int quorumSize = adjustQuorumSize(replicas, previous.quorumSize());
 
         return new CatalogZoneDescriptor(
                 previous.id(),
@@ -163,21 +166,27 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         );
     }
 
-    private String getErrPrefix() {
-        if (this.quorumSize != null) {
-            if (this.replicas != null) {
-                return "Specified quorum size doesn't fit into the specified replicas count";
-            } else {
-                return "Specified quorum size doesn't fit into the current replicas count";
-            }
-        } else {
-            if (this.replicas != null) {
-                return "Current quorum size doesn't fit into the specified replicas count";
-            } else {
-                // Should never happen - this means that the current zone parameters are incompatible
-                return "Current quorum size doesn't fit into the current replicas count";
-            }
+    /**
+     * Adjusts quorum size so it is always consistent with the replicas count.
+     *
+     * @param replicas Desired replicas count.
+     * @param previousQuorumSize Previous quorum size.
+     * @return Adjusted quorum size.
+     */
+    private int adjustQuorumSize(int replicas, int previousQuorumSize) {
+        int quorumSize = requireNonNullElse(this.quorumSize, previousQuorumSize);
+
+        int minQuorum = min(replicas, 2);
+        int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
+
+        if (quorumSize > maxQuorum) {
+            LOG.info("Quorum size adjusted from {} to {}.", quorumSize, maxQuorum);
+            return maxQuorum;
+        } else if (quorumSize < minQuorum) {
+            LOG.info("Quorum size adjusted from {} to {}.", quorumSize, minQuorum);
+            return minQuorum;
         }
+        return quorumSize;
     }
 
     private void validate() {

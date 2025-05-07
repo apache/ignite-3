@@ -17,10 +17,12 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
+import static java.lang.Math.round;
 import static java.util.Objects.requireNonNullElse;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateConsistencyMode;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateField;
-import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateReplicasAndQuorumCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateStorageProfiles;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneDataNodesAutoAdjustParametersCompatibility;
 import static org.apache.ignite.internal.catalog.CatalogParamsValidationUtils.validateZoneFilter;
@@ -169,7 +171,7 @@ public class CreateZoneCommand extends AbstractZoneCommand {
 
         int replicas = requireNonNullElse(this.replicas, DEFAULT_REPLICA_COUNT);
         int quorumSize = requireNonNullElse(this.quorumSize, defaultQuorumSize(replicas));
-        validateReplicasAndQuorumCompatibility(replicas, quorumSize, this::getErrPrefix);
+        validateReplicasAndQuorumCompatibility(replicas, quorumSize);
 
         validateField(dataNodesAutoAdjust, 0, null, "Invalid data nodes auto adjust");
         validateField(dataNodesAutoAdjustScaleUp, 0, null, "Invalid data nodes auto adjust scale up");
@@ -186,6 +188,24 @@ public class CreateZoneCommand extends AbstractZoneCommand {
         validateConsistencyMode(consistencyMode);
 
         validateStorageProfiles(storageProfileParams);
+    }
+
+    /**
+     * Validates replicas count and quorum size compatibility.
+     *
+     * @param replicas Number of replicas.
+     * @param quorumSize Quorum size.
+     */
+    private void validateReplicasAndQuorumCompatibility(int replicas, int quorumSize) {
+        int minQuorum = min(replicas, 2);
+        int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
+
+        if (quorumSize < minQuorum || quorumSize > maxQuorum) {
+            throw new CatalogValidationException(
+                    "{}: [quorum size={}, min={}, max={}, replicas count={}].",
+                    getErrPrefix(), quorumSize, minQuorum, maxQuorum, replicas
+            );
+        }
     }
 
     private String getErrPrefix() {
