@@ -28,6 +28,9 @@ public enum ZoneOptionEnum {
     /** Number of replicas. */
     REPLICAS("REPLICAS"),
 
+    /** Number of replicas. */
+    QUORUM_SIZE("QUORUM SIZE"),
+
     /** Partition distribution algorithm name. */
     DISTRIBUTION_ALGORITHM("DISTRIBUTION ALGORITHM"),
 

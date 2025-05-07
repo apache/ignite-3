@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DISTRIBUTION_ALGORITHM;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.QUORUM_SIZE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
@@ -174,6 +175,8 @@ public class DdlSqlToCommandConverter {
         // CREATE ZONE options.
         zoneOptionInfos = new EnumMap<>(Map.of(
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::partitions),
+                // We can't properly validate quorum size since it depends on the replicas number.
+                QUORUM_SIZE, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::quorumSize),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-22162 appropriate setter method should be used.
                 DISTRIBUTION_ALGORITHM, new DdlOptionInfo<>(String.class, null, (builder, params) -> {}),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommandBuilder::filter),
@@ -192,6 +195,8 @@ public class DdlSqlToCommandConverter {
         // ALTER ZONE options.
         alterZoneOptionInfos = new EnumMap<>(Map.of(
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::partitions),
+                // We can't properly validate quorum size since it depends on the replicas number.
+                QUORUM_SIZE, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::quorumSize),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneCommandBuilder::filter),
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjust),
