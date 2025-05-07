@@ -252,6 +252,18 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
                 "Failed to parse query",
                 () -> parse("alter zone a.test_zone set (default replicas 2)")
         );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set replicas 2 partitions 2")
+        );
+
+        assertThrowsSqlException(
+                Sql.STMT_PARSE_ERR,
+                "Failed to parse query",
+                () -> parse("alter zone a.test_zone set replicas 2, partitions 2")
+        );
     }
 
     /**
@@ -266,12 +278,47 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      * Parsing ALTER ZONE SET statement.
      */
     @Test
-    public void alterZoneSet() {
+    public void alterZoneSetReplicas() {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (replicas 2)");
+        IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set replicas 2");
         assertFalse(alterZoneSet.ifExists());
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (REPLICAS 2)";
         expectUnparsed(alterZoneSet, expectedStmt);
+        expectUnparsed(alterZoneSetOneParam, expectedStmt);
+    }
+
+    @Test
+    public void alterZoneSetPartitions() {
+        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (partitions 2)");
+        IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set partitions 2");
+        assertFalse(alterZoneSet.ifExists());
+
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (PARTITIONS 2)";
+        expectUnparsed(alterZoneSet, expectedStmt);
+        expectUnparsed(alterZoneSetOneParam, expectedStmt);
+    }
+
+    @Test
+    public void alterZoneSetNodesFilter() {
+        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (NODES FILTER '\"SSD\"')");
+        IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set NODES FILTER '\"SSD\"'");
+        assertFalse(alterZoneSet.ifExists());
+
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (NODES FILTER '\"SSD\"')";
+        expectUnparsed(alterZoneSet, expectedStmt);
+        expectUnparsed(alterZoneSetOneParam, expectedStmt);
+    }
+
+    @Test
+    public void alterZoneSetAutoScale() {
+        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (AUTO SCALE UP 2)");
+        IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set AUTO SCALE UP 2");
+        assertFalse(alterZoneSet.ifExists());
+
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (AUTO SCALE UP 2)";
+        expectUnparsed(alterZoneSet, expectedStmt);
+        expectUnparsed(alterZoneSetOneParam, expectedStmt);
     }
 
     /**
