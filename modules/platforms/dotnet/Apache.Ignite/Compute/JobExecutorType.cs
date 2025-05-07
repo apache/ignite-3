@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,13 +15,21 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Compute;
 
-using BenchmarkDotNet.Running;
-using Compute;
-
-internal static class Program
+/// <summary>
+/// Job executor type.
+/// </summary>
+public enum JobExecutorType
 {
-    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<PlatformJobBenchmarks>();
+    /// <summary>
+    /// Embedded Java job executor. Executes Java jobs in the same process and JVM where the Ignite node is running.
+    /// </summary>
+    JavaEmbedded,
+
+    /// <summary>
+    /// Side-car .NET job executor. Executes .NET jobs in a separate process.
+    /// <para>Starts the process on demand. Requires .NET runtime to be installed.</para>
+    /// </summary>
+    DotNetSidecar
 }

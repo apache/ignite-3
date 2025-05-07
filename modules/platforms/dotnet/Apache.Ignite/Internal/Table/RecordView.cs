@@ -67,7 +67,7 @@ namespace Apache.Ignite.Internal.Table
             _table = table;
             _ser = ser;
             _sql = sql;
-            _logger = table.Socket.Configuration.LoggerFactory.CreateLogger<RecordView<T>>();
+            _logger = table.Socket.Configuration.Configuration.LoggerFactory.CreateLogger<RecordView<T>>();
         }
 
         /// <summary>
@@ -88,7 +88,7 @@ namespace Apache.Ignite.Internal.Table
         /// <inheritdoc/>
         public IQueryable<T> AsQueryable(ITransaction? transaction = null, QueryableOptions? options = null)
         {
-            var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration);
+            var executor = new IgniteQueryExecutor(_sql, transaction, options, Table.Socket.Configuration.Configuration);
             var provider = new IgniteQueryProvider(IgniteQueryParser.Instance, executor, _table.QualifiedName);
 
             if (typeof(T).IsKeyValuePair())

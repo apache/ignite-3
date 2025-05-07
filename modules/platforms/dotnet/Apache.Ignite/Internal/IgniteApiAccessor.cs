@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,13 +15,12 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+namespace Apache.Ignite.Internal;
 
-using BenchmarkDotNet.Running;
-using Compute;
+using Ignite.Compute;
 
-internal static class Program
-{
-    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<PlatformJobBenchmarks>();
-}
+/// <summary>
+/// Ignite API accessor.
+/// </summary>
+/// <param name="Ignite">Ignite.</param>
+internal sealed record IgniteApiAccessor(IIgnite Ignite) : IJobExecutionContext;

@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -15,13 +15,29 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Benchmarks;
+package org.apache.ignite.internal.tx.storage.state;
 
-using BenchmarkDotNet.Running;
-using Compute;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
-internal static class Program
-{
-    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<PlatformJobBenchmarks>();
+/**
+ * Exception that is be thrown when trying to access a closed storage.
+ */
+public class TxStateStorageClosedException extends TxStateStorageException {
+    private static final long serialVersionUID = -7988332521347221109L;
+
+    /**
+     * Default constructor.
+     */
+    public TxStateStorageClosedException() {
+        this("Storage is already closed");
+    }
+
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public TxStateStorageClosedException(String message) {
+        super(TX_STATE_STORAGE_STOPPED_ERR, message);
+    }
 }

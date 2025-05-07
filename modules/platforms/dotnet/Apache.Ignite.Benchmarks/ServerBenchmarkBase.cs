@@ -1,4 +1,4 @@
-﻿/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -17,11 +17,29 @@
 
 namespace Apache.Ignite.Benchmarks;
 
-using BenchmarkDotNet.Running;
-using Compute;
+using System.Threading.Tasks;
+using BenchmarkDotNet.Attributes;
+using Tests;
 
-internal static class Program
+public abstract class ServerBenchmarkBase
 {
-    // IMPORTANT: Disable Netty leak detector when using a real Ignite server for benchmarks.
-    private static void Main() => BenchmarkRunner.Run<PlatformJobBenchmarks>();
+    protected JavaServer JavaServer { get; set; } = null!;
+
+    protected IIgniteClient Client { get; set; } = null!;
+
+    [GlobalSetup]
+    public virtual async Task GlobalSetup()
+    {
+        JavaServer = await JavaServer.StartAsync();
+        Client = await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + JavaServer.Port));
+    }
+
+    [GlobalCleanup]
+    public virtual Task GlobalCleanup()
+    {
+        Client?.Dispose();
+        JavaServer?.Dispose();
+
+        return Task.CompletedTask;
+    }
 }

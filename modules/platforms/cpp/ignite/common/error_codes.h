@@ -91,6 +91,7 @@ enum class code : underlying_t {
     CLUSTER_ID_MISMATCH = 0x30006,
     CLIENT_SSL_CONFIGURATION = 0x30007,
     HANDSHAKE_HEADER = 0x30008,
+    SERVER_TO_CLIENT_REQUEST = 0x30009,
 
     // Sql group. Group code: 4
     QUERY_NO_RESULT_SET = 0x40001,
@@ -194,6 +195,7 @@ enum class code : underlying_t {
     NODE_NOT_FOUND = 0x10000c,
     MARSHALLING_TYPE_MISMATCH = 0x10000d,
     COMPUTE_JOB_CANCELLED = 0x10000e,
+    COMPUTE_PLATFORM_EXECUTOR = 0x10000f,
 
     // Catalog group. Group code: 17
     VALIDATION = 0x110001,

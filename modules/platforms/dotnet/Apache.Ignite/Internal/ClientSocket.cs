@@ -70,6 +70,9 @@ namespace Apache.Ignite.Internal
         /** Underlying stream. */
         private readonly Stream _stream;
 
+        /** Configuration. */
+        private readonly IgniteClientConfigurationInternal _config;
+
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
 
@@ -130,22 +133,23 @@ namespace Apache.Ignite.Internal
         /// <param name="logger">Logger.</param>
         private ClientSocket(
             Stream stream,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configuration,
             ConnectionContext connectionContext,
             IClientSocketEventListener listener,
             ILogger logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
+            _config = configuration;
             _listener = listener;
             _logger = logger;
-            _socketTimeout = configuration.SocketTimeout;
-            _operationTimeout = configuration.OperationTimeout;
+            _socketTimeout = configuration.Configuration.SocketTimeout;
+            _operationTimeout = configuration.Configuration.OperationTimeout;
 
             MetricsContext = connectionContext.ClusterNode.MetricsContext ??
                              throw new InvalidOperationException("Metrics context is missing.");
 
-            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
+            _heartbeatInterval = GetHeartbeatInterval(configuration.Configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
@@ -173,7 +177,7 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
-        /// <param name="configuration">Configuration.</param>
+        /// <param name="configurationInternal">Configuration.</param>
         /// <param name="listener">Event listener.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
@@ -184,9 +188,11 @@ namespace Apache.Ignite.Internal
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed")]
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configurationInternal,
             IClientSocketEventListener listener)
         {
+            var configuration = configurationInternal.Configuration;
+
             using var cts = new CancellationTokenSource();
             var logger = configuration.LoggerFactory.CreateLogger(typeof(ClientSocket).FullName! + "-" +
                                                                   Interlocked.Increment(ref _socketId));
@@ -230,7 +236,7 @@ namespace Apache.Ignite.Internal
 
                 logger.LogHandshakeSucceededDebug(socket.RemoteEndPoint, context);
 
-                return new ClientSocket(stream, configuration, context, listener, logger);
+                return new ClientSocket(stream, configurationInternal, context, listener, logger);
             }
             catch (Exception ex)
             {
@@ -1008,6 +1014,12 @@ namespace Apache.Ignite.Internal
                 }
 
                 Metrics.ConnectionsActiveDecrement();
+
+                if (ComputeJobExecutor.IgniteComputeExecutorId != null)
+                {
+                    // Shut down the executor process on disconnect.
+                    Environment.Exit(0);
+                }
             }
         }
     }

@@ -199,6 +199,12 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
                 },
                 AWAIT_TIMEOUT_MILLIS
         ));
+
+        @SuppressWarnings("rawtypes")
+        CompletableFuture[] catalogInitFutures = cluster.stream()
+                .map(n -> n.catalogManager.catalogInitializationFuture())
+                .toArray(CompletableFuture[]::new);
+        assertThat(allOf(catalogInitFutures), willCompleteSuccessfully());
     }
 
     Node addNodeToCluster(int idx) {
