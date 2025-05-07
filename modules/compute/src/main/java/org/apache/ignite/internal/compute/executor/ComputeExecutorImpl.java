@@ -124,11 +124,13 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
-            JobExecutorType executorType,
+            @Nullable JobExecutorType executorType,
             String jobClassName,
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
+        executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
+
         switch (executorType) {
             case JAVA_EMBEDDED:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
