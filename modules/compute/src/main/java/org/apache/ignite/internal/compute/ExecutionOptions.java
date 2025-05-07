@@ -81,8 +81,8 @@ public class ExecutionOptions {
             return false;
         }
         ExecutionOptions that = (ExecutionOptions) o;
-        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition) &&
-                executorType == that.executorType;
+        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition)
+                && executorType == that.executorType;
     }
 
     @Override
