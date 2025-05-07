@@ -97,6 +97,7 @@ include(':ignite-configuration-system')
 include(':ignite-system-disaster-recovery')
 include(':ignite-system-disaster-recovery-api')
 
+project(":ignite-dependency-constraints").projectDir = file('modules/dependency-constraints')
 project(":ignite-examples").projectDir = file('examples')
 project(":ignite-dev-utilities").projectDir = file('dev-utilities')
 project(":ignite-page-memory").projectDir = file('modules/page-memory')
