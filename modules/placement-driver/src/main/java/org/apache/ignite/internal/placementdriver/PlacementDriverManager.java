@@ -263,9 +263,11 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /** Steps down as active actor. */
     private void stepDownActiveActorBusy() {
-        LOG.info("Placement driver active actor is stopping.");
+        if (leaseUpdater.active()) {
+            LOG.info("Placement driver active actor is stopping.");
 
-        leaseUpdater.deactivate();
+            leaseUpdater.deactivate();
+        }
     }
 
     @TestOnly

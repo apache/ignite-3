@@ -90,6 +90,8 @@ public class LeaseNegotiator {
                             LOG.warn("Lease was not negotiated due to exception [lease={}]", throwable, lease);
                         }
 
+                        leaseToNegotiate.remove(agreement.groupId());
+
                         agreement.cancel();
                     }
                 });
