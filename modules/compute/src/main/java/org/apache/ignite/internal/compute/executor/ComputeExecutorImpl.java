@@ -129,6 +129,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
+        executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
+
         switch (executorType) {
             case JAVA_EMBEDDED:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
