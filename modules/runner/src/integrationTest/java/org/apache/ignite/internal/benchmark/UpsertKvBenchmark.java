@@ -19,6 +19,7 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -58,7 +59,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.SECONDS)
 public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
-    private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + "(field{});";
+    private static final String INDEX_CREATE_SQL = "CREATE INDEX " + TABLE_NAME + "_field{}_idx ON " + TABLE_NAME + " USING {} (field{});";
 
     private static KeyValueView<Tuple, Tuple> kvView;
 
@@ -76,6 +77,12 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Param({"10"})
     private int fieldLength;
+
+    @Param({"HASH", "SORTED"})
+    private String indexType;
+
+    @Param({"uniquePrefix", "uniquePostfix"})
+    private String fieldValueGeneration;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
@@ -102,7 +109,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         }
 
         for (int i = 1; i <= idxes; i++) {
-            sqlScript.append(format(INDEX_CREATE_SQL, i, i));
+            sqlScript.append(format(INDEX_CREATE_SQL, i, indexType, i));
         }
 
         if (sqlScript.length() > 0) {
@@ -110,8 +117,10 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         }
     }
 
-    private Tuple valueTuple() {
-        String fieldVal = IgniteTestUtils.randomString(ThreadLocalRandom.current(), fieldLength);
+    private Tuple valueTuple(int id) {
+        String formattedString = String.format("%" + (fieldValueGeneration.equals("uniquePrefix") ? '-' : '0') + fieldLength + "d", id);
+
+        String fieldVal = formattedString.length() > fieldLength ? formattedString.substring(0, fieldLength) : formattedString;
 
         return Tuple.create()
                 .set("field1", fieldVal)
@@ -134,13 +143,17 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
         for (int i = 0; i < batch - 1; i++) {
-            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", nextId()), valueTuple());
+            int id = nextId();
+
+            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id), valueTuple(id));
             futs.add(fut);
         }
 
         CompletableFutures.allOf(futs).join();
 
-        kvView.put(null, Tuple.create().set("ycsb_key", nextId()), valueTuple());
+        int id = nextId();
+
+        kvView.put(null, Tuple.create().set("ycsb_key", id), valueTuple(id));
     }
 
     private int nextId() {
@@ -180,5 +193,10 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int replicaCount() {
         return 1;
+    }
+
+    @Override
+    protected Path workDir() throws Exception {
+        return Path.of("D:", "tmpDirPrefix" + ThreadLocalRandom.current().nextInt());
     }
 }
