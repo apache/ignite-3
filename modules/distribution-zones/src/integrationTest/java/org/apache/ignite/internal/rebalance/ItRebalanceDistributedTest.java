@@ -1083,7 +1083,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static Set<Assignment> getPartitionStableAssignments(Node node, String tableName, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
-       var stableAssignmentsFuture = stablePartitionAssignments(node.metaStorageManager, table, partNum);
+        var stableAssignmentsFuture = stablePartitionAssignments(node.metaStorageManager, table, partNum);
 
         assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
 
