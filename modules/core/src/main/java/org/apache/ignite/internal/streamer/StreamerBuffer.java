@@ -59,7 +59,7 @@ class StreamerBuffer<T> {
             }
         }
 
-        flushBuf(bufToFlush); // Flush out of lock to avoid deadlocks.
+        flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
     void flushAndClose() {
@@ -75,7 +75,7 @@ class StreamerBuffer<T> {
             bufToFlush = buf;
         }
 
-        flushBuf(bufToFlush); // Flush out of lock to avoid deadlocks.
+        flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
     void flush() {
@@ -90,7 +90,7 @@ class StreamerBuffer<T> {
             buf = new ArrayList<>(capacity);
         }
 
-        flushBuf(bufToFlush); // Flush out of lock to avoid deadlocks.
+        flushBuf(bufToFlush); // Flush outside of lock to avoid deadlocks.
     }
 
     synchronized void forEach(Consumer<T> consumer) {
