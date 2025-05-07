@@ -91,13 +91,13 @@ Limit
                   est. row count: 199840
                 ReduceHashAggregate
                     rowType: RecordType(BOOLEAN i)
-                    group: [$f0]
+                    group: [i]
                     est. row count: 199840
                   Exchange
                       distribution: single
                       est. row count: 199840
                     MapHashAggregate
-                        group: [$f0]
+                        group: [i]
                         aggs: []
                         est. row count: 199840
                       IndexScan
@@ -106,19 +106,19 @@ Limit
                           type: SORTED
                           searchBounds: [ExactBounds [bound=$cor6.L_ORDERKEY]]
                           filters: AND(=(L_ORDERKEY, $cor6.L_ORDERKEY), <>(L_SUPPKEY, $cor6.L_SUPPKEY))
-                          fields: [$f0]
+                          fields: [i]
                           projects: [true]
                           collation: []
                           est. row count: 999202
             ReduceHashAggregate
                 rowType: RecordType(BOOLEAN i)
-                group: [$f0]
+                group: [i]
                 est. row count: 99920
               Exchange
                   distribution: single
                   est. row count: 99920
                 MapHashAggregate
-                    group: [$f0]
+                    group: [i]
                     aggs: []
                     est. row count: 99920
                   IndexScan
@@ -127,7 +127,7 @@ Limit
                       type: SORTED
                       searchBounds: [ExactBounds [bound=$cor5.L_ORDERKEY]]
                       filters: AND(=(L_ORDERKEY, $cor5.L_ORDERKEY), <>(L_SUPPKEY, $cor5.L_SUPPKEY), >(L_RECEIPTDATE, L_COMMITDATE))
-                      fields: [$f0]
+                      fields: [i]
                       projects: [true]
                       collation: []
                       est. row count: 499601

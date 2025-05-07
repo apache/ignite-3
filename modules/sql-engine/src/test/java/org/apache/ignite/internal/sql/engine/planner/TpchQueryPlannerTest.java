@@ -37,13 +37,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 )
 public class TpchQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-24195
-    // Query #7 contains disjunctive predicate that switches its part from run to run, making
-    // the test unstable.
-    // 
-    //    HashJoin(condition=[... OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')), OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')))]
-    //                     vs
-    //    HashJoin(condition=[... OR(=($14, _UTF-8'FRANCE'), =($10, _UTF-8'FRANCE')), OR(=($10, _UTF-8'GERMANY'), =($14, _UTF-8'GERMANY')))]
     @ValueSource(strings = {"1", "5", "7", "8", "9", "21"})
     public void test(String queryId) {
         validateQueryPlan(queryId);
