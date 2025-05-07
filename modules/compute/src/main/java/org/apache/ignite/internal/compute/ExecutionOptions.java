@@ -81,12 +81,13 @@ public class ExecutionOptions {
             return false;
         }
         ExecutionOptions that = (ExecutionOptions) o;
-        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition);
+        return priority == that.priority && maxRetries == that.maxRetries && Objects.equals(partition, that.partition)
+                && executorType == that.executorType;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(priority, maxRetries, partition);
+        return Objects.hash(priority, maxRetries, partition, executorType);
     }
 
     /** Compose execution options.  */
