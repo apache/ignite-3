@@ -20,7 +20,7 @@ package org.apache.ignite.internal.disaster;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.disaster.ItDisasterRecoveryZonePartitionsStatesSystemViewTest.estimatedSize;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum.HEALTHY;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.distributed.disaster.GlobalPartitionStateEnum.AVAILABLE;
@@ -41,14 +41,11 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.table.distributed.PublicApiThreadingTable;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /** For integration testing of disaster recovery system views. */
-// TODO remove this class when colocation is enabled by default. https://issues.apache.org/jira/browse/IGNITE-22522
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
 public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
     /** Table name. */
     public static final String TABLE_NAME = "TEST_TABLE";
@@ -116,7 +113,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        if (enabledColocation()) {
+            ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
+        } else {
+            waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        }
 
         int tableId = getTableId(DEFAULT_SCHEMA_NAME, TABLE_NAME);
 
@@ -134,7 +135,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        if (enabledColocation()) {
+            ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
+        } else {
+            waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        }
 
         List<String> nodeNames = CLUSTER.runningNodes().map(Ignite::name).sorted().collect(toList());
 
@@ -159,7 +164,11 @@ public class ItDisasterRecoverySystemViewTest extends BaseSqlIntegrationTest {
 
         createZoneAndTable(ZONE_NAME, TABLE_NAME, initialNodes(), partitionsCount);
 
-        waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        if (enabledColocation()) {
+            ItDisasterRecoveryZonePartitionsStatesSystemViewTest.waitLeaderOnAllPartitions(ZONE_NAME, partitionsCount);
+        } else {
+            waitLeaderOnAllPartitions(TABLE_NAME, partitionsCount);
+        }
 
         insertPeople(
                 TABLE_NAME,

@@ -277,7 +277,9 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         if (enabledColocation()) {
             return List.of(
                     createGlobalZonePartitionStatesSystemView(this),
-                    createLocalZonePartitionStatesSystemView(this)
+                    createLocalZonePartitionStatesSystemView(this),
+                    createGlobalTablePartitionStatesSystemView(this),
+                    createLocalTablePartitionStatesSystemView(this)
             );
         }
 
@@ -719,6 +721,18 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         try {
             Catalog catalog = catalogLatestVersion();
 
+            if (enabledColocation()) {
+                return localPartitionStatesInternal(
+                        zoneNames,
+                        nodeNames,
+                        partitionIds,
+                        catalog,
+                        zoneState()
+                )
+                        .thenApply(res -> zoneStateToTableState(res, catalog))
+                        .thenApply(res -> normalizeTableLocal(res, catalog));
+            }
+
             return localPartitionStatesInternal(
                     zoneNames,
                     nodeNames,
@@ -746,6 +760,19 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         try {
             Catalog catalog = catalogLatestVersion();
 
+            if (enabledColocation()) {
+                return localPartitionStatesInternal(
+                        zoneNames,
+                        Set.of(),
+                        partitionIds,
+                        catalog,
+                        zoneState()
+                )
+                        .thenApply(res -> zoneStateToTableState(res, catalog))
+                        .thenApply(res -> normalizeTableLocal(res, catalog))
+                        .thenApply(res -> assembleTableGlobal(res, partitionIds, catalog));
+            }
+
             return localPartitionStatesInternal(
                     zoneNames,
                     Set.of(),
@@ -758,6 +785,59 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
         } catch (Throwable t) {
             return failedFuture(t);
         }
+    }
+
+    private Map<TablePartitionId, LocalPartitionStateMessageByNode> zoneStateToTableState(
+            Map<ZonePartitionId, LocalPartitionStateMessageByNode> partitionStateMap,
+            Catalog catalog
+    ) {
+        Map<TablePartitionId, LocalPartitionStateMessageByNode> res = new HashMap<>();
+
+        for (Map.Entry<ZonePartitionId, LocalPartitionStateMessageByNode> entry : partitionStateMap.entrySet()) {
+            int zoneId = entry.getKey().zoneId();
+
+            int partitionId = entry.getKey().partitionId();
+
+            LocalPartitionStateMessageByNode zoneLocalPartitionStateMessageByNode = entry.getValue();
+
+            LocalPartitionStateMessageByNode tableLocalPartitionStateMessageByNode = new LocalPartitionStateMessageByNode(new HashMap<>());
+
+            for (CatalogTableDescriptor tableDescriptor : catalog.tables(zoneId)) {
+                TablePartitionId tablePartitionId = new TablePartitionId(tableDescriptor.id(), partitionId);
+
+                for (Map.Entry<String, LocalPartitionStateMessage> nodeEntry : zoneLocalPartitionStateMessageByNode.entrySet()) {
+                    String nodeName = nodeEntry.getKey();
+
+                    LocalPartitionStateMessage localPartitionStateMessage = nodeEntry.getValue();
+
+                    TableViewInternal tableViewInternal = tableManager.cachedTable(tablePartitionId.tableId());
+
+                    if (tableViewInternal == null) {
+                        continue;
+                    }
+
+                    MvPartitionStorage partitionStorage = tableViewInternal.internalTable().storage()
+                            .getMvPartition(tablePartitionId.partitionId());
+
+                    if (partitionStorage == null) {
+                        continue;
+                    }
+
+                    LocalPartitionStateMessage tableLocalPartitionStateMessage =
+                            PARTITION_REPLICATION_MESSAGES_FACTORY.localPartitionStateMessage()
+                                    .partitionId(toTablePartitionIdMessage(REPLICA_MESSAGES_FACTORY, tablePartitionId))
+                                    .state(localPartitionStateMessage.state())
+                                    .logIndex(localPartitionStateMessage.logIndex())
+                                    .estimatedRows(partitionStorage.estimatedSize())
+                                    .build();
+
+                    tableLocalPartitionStateMessageByNode.put(nodeName, tableLocalPartitionStateMessage);
+                }
+                res.put(tablePartitionId, tableLocalPartitionStateMessageByNode);
+            }
+        }
+
+        return res;
     }
 
     static Function<LocalPartitionStateMessage, TablePartitionId> tableState() {
