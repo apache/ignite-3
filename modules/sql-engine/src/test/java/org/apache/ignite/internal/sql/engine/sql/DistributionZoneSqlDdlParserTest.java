@@ -289,17 +289,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     }
 
     @Test
-    public void alterZoneSetPartitions() {
-        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (partitions 2)");
-        IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set partitions 2");
-        assertFalse(alterZoneSet.ifExists());
-
-        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (PARTITIONS 2)";
-        expectUnparsed(alterZoneSet, expectedStmt);
-        expectUnparsed(alterZoneSetOneParam, expectedStmt);
-    }
-
-    @Test
     public void alterZoneSetNodesFilter() {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (NODES FILTER '\"SSD\"')");
         IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set NODES FILTER '\"SSD\"'");
@@ -341,8 +330,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone(
                 "alter zone a.test_zone set ("
                         + "REPLICAS 2, "
-                        + "PARTITIONS 3, "
-                        + "DISTRIBUTION ALGORITHM 'test_Distribution', "
                         + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
                         + "AUTO ADJUST 1, "
                         + "AUTO SCALE UP 2, "
@@ -356,8 +343,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
         List<SqlNode> optList = alterZoneSet.alterOptionsList().getList();
 
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.REPLICAS, 2);
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.PARTITIONS, 3);
-        assertThatZoneOptionPresent(optList, ZoneOptionEnum.DISTRIBUTION_ALGORITHM, "test_Distribution");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST_SCALE_UP, 2);
@@ -365,8 +350,6 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET "
                 + "(REPLICAS 2, "
-                + "PARTITIONS 3, "
-                + "DISTRIBUTION ALGORITHM 'test_Distribution', "
                 + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
                 + "AUTO ADJUST 1, "
                 + "AUTO SCALE UP 2, "
