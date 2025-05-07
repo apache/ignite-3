@@ -1083,16 +1083,24 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static Set<Assignment> getPartitionStableAssignments(Node node, String tableName, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
+       var stableAssignmentsFuture = stablePartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
+
         return Optional
-                .ofNullable(stablePartitionAssignments(node.metaStorageManager, table, partNum).join())
+                .ofNullable(stableAssignmentsFuture.join())
                 .orElse(Set.of());
     }
 
     private static Set<Assignment> getPartitionPendingAssignments(Node node, String tableName, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
+        var pendingAssignmentsFuture =  pendingPartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(pendingAssignmentsFuture, willCompleteSuccessfully());
+
         return Optional
-                .ofNullable(pendingPartitionAssignments(node.metaStorageManager, table, partNum).join())
+                .ofNullable(pendingAssignmentsFuture.join())
                 .orElse(Set.of());
     }
 
@@ -1103,8 +1111,12 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static Set<Assignment> getPartitionPlannedAssignments(Node node, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
 
+        var plannedAssignmentsFuture = plannedPartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(plannedAssignmentsFuture, willCompleteSuccessfully());
+
         return Optional
-                .ofNullable(plannedPartitionAssignments(node.metaStorageManager, table, partNum).join())
+                .ofNullable(plannedAssignmentsFuture.join())
                 .orElse(Set.of());
     }
 
