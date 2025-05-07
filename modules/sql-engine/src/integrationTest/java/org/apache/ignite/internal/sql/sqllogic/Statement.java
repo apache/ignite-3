@@ -24,13 +24,13 @@ import static org.hamcrest.CoreMatchers.nullValue;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.google.common.base.Strings;
+import io.netty.util.internal.StringUtil;
 import java.io.IOException;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
-import org.apache.ignite.internal.util.ExceptionUtils;
 import org.hamcrest.Matcher;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Assertions;
@@ -53,11 +53,19 @@ import org.junit.jupiter.api.Assertions;
  *     statement error: Column 'COL' not found in any table
  *     SELECT col
  * </pre>
+ * <pre>
+ *     # an SQL statement/query must returns one of the errors contained in the listed errors.
+ *     statement error: Column 'COL' not found in any table, some additions 1
+ *     statement error: Column 'COL' not found in any table, some additions 2
+ *     SELECT col
+ * </pre>
  */
 final class Statement extends Command {
     private final List<String> queries;
 
     private final ExpectedStatementStatus expected;
+
+    private static final String ERR_STATEMENT = "statement error:";
 
     Statement(Script script, ScriptContext ctx, String[] cmd) throws IOException {
         super(script.scriptPosition());
@@ -81,6 +89,8 @@ final class Statement extends Command {
 
         queries = new ArrayList<>();
 
+        queries.add(processErrorStatements(script));
+
         while (script.ready()) {
             String s = script.nextLine();
 
@@ -90,6 +100,25 @@ final class Statement extends Command {
 
             queries.add(s);
         }
+    }
+
+    private String processErrorStatements(Script script) throws IOException {
+        while (script.ready()) {
+            String s = script.nextLine();
+
+            if (Strings.isNullOrEmpty(s)) {
+                break;
+            }
+
+            if (s.startsWith(ERR_STATEMENT)) {
+                s = s.substring(ERR_STATEMENT.length()).trim();
+                expected.addErrorMessage(s);
+            } else {
+                return s;
+            }
+        }
+
+        throw script.reportError("Unexpected line, position: " + script.scriptPosition(), null);
     }
 
     @Override
@@ -143,12 +172,8 @@ final class Statement extends Command {
 
                 Matcher<String> errorMatcher = expected.errorMatcher(ctx);
 
-                detailsBuilder.app(expected.errorMessage).nl()
-                        .app('\t').app("Actual: ").nl()
-                        .app(ExceptionUtils.getFullStackTrace(err));
-
                 assertThat(
-                        detailsBuilder.toString(),
+                        "Unexpected exception: ",
                         err.getMessage(), errorMatcher);
             }
         }
@@ -166,14 +191,17 @@ final class Statement extends Command {
 
         private final boolean successful;
 
-        private final @Nullable String errorMessage;
+        private final List<@Nullable String> errorMessages = new ArrayList<>();
 
         ExpectedStatementStatus(boolean successful, @Nullable String errorMessage) {
             if (successful && errorMessage != null) {
                 throw new IllegalArgumentException("Successful status with error message: " + errorMessage);
             }
             this.successful = successful;
-            this.errorMessage = errorMessage;
+
+            if (!StringUtil.isNullOrEmpty(errorMessage)) {
+                errorMessages.add(errorMessage);
+            }
         }
 
         static ExpectedStatementStatus ok() {
@@ -189,11 +217,20 @@ final class Statement extends Command {
         }
 
         Matcher<String> errorMatcher(ScriptContext ctx) {
-            if (errorMessage == null) {
+            if (errorMessages.isEmpty()) {
                 return anyOf(nullValue(String.class), any(String.class));
             } else {
-                return containsString(ctx.replaceVars(errorMessage));
+                List<Matcher<? super String>> matchers = new ArrayList<>();
+                for (String err : errorMessages) {
+                    matchers.add(containsString(ctx.replaceVars(err)));
+                }
+
+                return anyOf(matchers);
             }
+        }
+
+        void addErrorMessage(String err) {
+            errorMessages.add(err);
         }
 
         @Override
@@ -201,7 +238,7 @@ final class Statement extends Command {
             if (successful) {
                 return "ok";
             } else {
-                return "error:" + errorMessage;
+                return "error:" + errorMessages;
             }
         }
     }
