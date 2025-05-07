@@ -189,9 +189,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         }
 
         if (projects != null) {
-            return RexUtil.createStructType(Commons.typeFactory(getCluster()), projects, names, ATTEMPT_SUGGESTER);
+            return RexUtil.createStructType(typeFactory, projects, names, ATTEMPT_SUGGESTER);
         } else {
-            return table.unwrap(IgniteDataSource.class).getRowType(Commons.typeFactory(getCluster()), requiredColumns);
+            return table.unwrap(IgniteDataSource.class).getRowType(typeFactory, requiredColumns);
         }
     }
 
