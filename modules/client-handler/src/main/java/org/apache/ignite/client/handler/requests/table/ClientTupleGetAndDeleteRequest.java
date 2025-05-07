@@ -24,6 +24,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
@@ -51,10 +52,11 @@ public class ClientTupleGetAndDeleteRequest {
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            NotificationSender notificationSender
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false, notificationSender);
             return readTuple(in, table, true).thenCompose(tuple -> {
                 return table.recordView().getAndDeleteAsync(tx, tuple).thenAccept(resTuple -> {
                     writeTxMeta(out, clockService, tx);

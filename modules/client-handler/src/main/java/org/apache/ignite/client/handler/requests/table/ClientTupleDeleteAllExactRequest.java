@@ -25,6 +25,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -51,10 +52,11 @@ public class ClientTupleDeleteAllExactRequest {
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            NotificationSender notificationSender
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false, notificationSender);
             return readTuples(in, table, false).thenCompose(tuples -> {
                 return table.recordView().deleteAllExactAsync(tx, tuples).thenAccept(skippedTuples -> {
                     writeTxMeta(out, clockService, tx);

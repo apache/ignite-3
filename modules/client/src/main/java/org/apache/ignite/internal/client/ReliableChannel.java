@@ -130,6 +130,9 @@ public final class ReliableChannel implements AutoCloseable {
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
+    /** Inflights. */
+    private final ClientTransactionInflights inflights;
+
     /**
      * Constructor.
      *
@@ -151,6 +154,8 @@ public final class ReliableChannel implements AutoCloseable {
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
+
+        inflights = new ClientTransactionInflights();
     }
 
     /** {@inheritDoc} */
@@ -473,6 +478,15 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public void addChannelFailListener(Runnable chFailLsnr) {
         chFailLsnrs.add(chFailLsnr);
+    }
+
+    /**
+     * Get inflights instance.
+     *
+     * @return The instance.
+     */
+    public ClientTransactionInflights inflights() {
+        return inflights;
     }
 
     /**
@@ -867,7 +881,8 @@ public final class ReliableChannel implements AutoCloseable {
                         connMgr,
                         metrics,
                         ReliableChannel.this::onPartitionAssignmentChanged,
-                        ReliableChannel.this::onObservableTimestampReceived);
+                        ReliableChannel.this::onObservableTimestampReceived,
+                        inflights);
 
                 chFut0 = createFut.thenApply(ch -> {
                     UUID currentClusterId = ch.protocolContext().clusterId();

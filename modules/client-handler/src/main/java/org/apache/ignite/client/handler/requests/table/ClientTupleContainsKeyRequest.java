@@ -53,7 +53,7 @@ public class ClientTupleContainsKeyRequest {
             ClockService clockService
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, true);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, true, null);
             return readTuple(in, table, true).thenCompose(keyTuple -> {
                 return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> {
                     writeTxMeta(out, clockService, tx);

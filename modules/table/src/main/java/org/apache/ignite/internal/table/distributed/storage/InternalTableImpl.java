@@ -90,18 +90,14 @@ import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessagesFactory;
 import org.apache.ignite.internal.partition.replicator.network.replication.BinaryTupleMessage;
-import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.MultipleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlyScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteMultiRowReplicaRequest;
+import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteScanRetrieveBatchReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
 import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowPkReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.SingleRowReplicaRequest;
-import org.apache.ignite.internal.partition.replicator.network.replication.SwapRowReplicaRequest;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicaService;
@@ -660,12 +656,6 @@ public class InternalTableImpl implements InternalTable {
 
         ReplicaRequest request = mapFunc.apply(enlistment.consistencyToken());
 
-        boolean write = request instanceof SingleRowReplicaRequest && ((SingleRowReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowReplicaRequest && ((MultipleRowReplicaRequest) request).requestType() != RW_GET_ALL
-                || request instanceof SingleRowPkReplicaRequest && ((SingleRowPkReplicaRequest) request).requestType() != RW_GET
-                || request instanceof MultipleRowPkReplicaRequest && ((MultipleRowPkReplicaRequest) request).requestType() != RW_GET_ALL
-                || request instanceof SwapRowReplicaRequest;
-
         if (full) { // Full transaction retries are handled in postEnlist.
             return replicaSvc.invokeRaw(enlistment.primaryNodeConsistentId(), request).handle((r, e) -> {
                 boolean hasError = e != null;
@@ -681,7 +671,10 @@ public class InternalTableImpl implements InternalTable {
                 return (R) r.result();
             });
         } else {
-            if (write) { // Track only write requests from explicit transactions.
+            ReadWriteReplicaRequest req = (ReadWriteReplicaRequest) request;
+
+            if (req.isWrite()) {
+                // Track only write requests from explicit transactions.
                 if (!tx.remote() && !transactionInflights.addInflight(tx.id(), false)) {
                     int code = TX_ALREADY_FINISHED_ERR;
                     if (tx.isRolledBackWithTimeoutExceeded()) {
@@ -702,8 +695,12 @@ public class InternalTableImpl implements InternalTable {
                     assert noWriteChecker != null;
 
                     // Remove inflight if no replication was scheduled, otherwise inflight will be removed by delayed response.
-                    if (!tx.remote() && noWriteChecker.test(res, request)) {
-                        transactionInflights.removeInflight(tx.id());
+                    if (noWriteChecker.test(res, request)) {
+                        if (!tx.remote()) {
+                            transactionInflights.removeInflight(tx.id());
+                        } else {
+                            tx.kill(); // Kill for remote txn has special meaning - no-op enlistment..
+                        }
                     }
 
                     return res;
@@ -958,7 +955,6 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(false)
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
                         .build(),
                 (res, req) -> false
         );
@@ -1104,6 +1100,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
+                .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
                 .build();
     }
 
@@ -1169,7 +1166,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
         );
@@ -1264,7 +1261,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> false
         );
@@ -1288,7 +1285,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1347,7 +1344,7 @@ public class InternalTableImpl implements InternalTable {
                 .timestamp(tx.schemaTimestamp())
                 .full(full)
                 .coordinatorId(tx.coordinatorId())
-                .skipDelayedAck(tx.remote())
+                .delayedAckProcessor(tx.remote() ? tx::processDelayedAck : null)
                 .build();
     }
 
@@ -1369,7 +1366,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1397,7 +1394,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1423,7 +1420,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> res == null
         );
@@ -1447,7 +1444,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1471,7 +1468,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> !res
         );
@@ -1497,7 +1494,7 @@ public class InternalTableImpl implements InternalTable {
                         .timestamp(txo.schemaTimestamp())
                         .full(txo.implicit())
                         .coordinatorId(txo.coordinatorId())
-                        .skipDelayedAck(txo.remote())
+                        .delayedAckProcessor(txo.remote() ? txo::processDelayedAck : null)
                         .build(),
                 (res, req) -> res == null
         );

@@ -205,4 +205,27 @@ public class ClientOp {
     /** Reserved for extensions: max. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_END = 2000;
+
+    /**
+     * Test if operation is write.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isWrite(int opCode) {
+        return opCode == TABLES_GET
+                || opCode == TUPLE_UPSERT
+                || opCode == TUPLE_GET_AND_UPSERT
+                || opCode == TUPLE_INSERT
+                || opCode == TUPLE_REPLACE
+                || opCode == TUPLE_REPLACE_EXACT
+                || opCode == TUPLE_GET_AND_REPLACE
+                || opCode == TUPLE_DELETE
+                || opCode == TUPLE_DELETE_EXACT
+                || opCode == TUPLE_GET_AND_DELETE
+                || opCode == TUPLE_UPSERT_ALL
+                || opCode == TUPLE_INSERT_ALL
+                || opCode == TUPLE_DELETE_ALL
+                || opCode == TUPLE_DELETE_ALL_EXACT;
+    }
 }

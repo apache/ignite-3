@@ -51,7 +51,7 @@ public class ClientSqlQueryMetadataRequest {
             ClientResourceRegistry resources
     ) {
         return nullCompletedFuture().thenComposeAsync(none -> {
-            var tx = readTx(in, out, resources, null);
+            var tx = readTx(in, out, resources, null, null);
             String schema = in.unpackString();
             String query = in.unpackString();
 

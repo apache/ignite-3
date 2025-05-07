@@ -54,7 +54,7 @@ public class ClientTupleContainsAllKeysRequest {
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false, null);
             return readTuples(in, table, true).thenCompose(keyTuples -> table
                     .recordView()
                     .containsAllAsync(tx, keyTuples)

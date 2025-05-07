@@ -23,6 +23,7 @@ import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -286,8 +287,8 @@ public class FakeTxManager implements TxManager {
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token,
-            long timeout) {
+    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
+            Consumer<Throwable> cb) {
         return null;
     }
 }

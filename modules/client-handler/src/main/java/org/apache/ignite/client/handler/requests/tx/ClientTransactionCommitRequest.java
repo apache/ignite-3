@@ -97,8 +97,6 @@ public class ClientTransactionCommitRequest {
                     break;
                 }
 
-                table.internalTable().targetReplicationGroupId(enlistment.get1().partitionId());
-
                 if (!merge(table.internalTable(), enlistment.get1().partitionId(), enlistment.get2(), enlistment.get3(), tx, true)) {
                     ex = new TransactionException(TX_COMMIT_ERR, "Invalid enlistment token [id=" + enlistment.get1().tableId() + ']');
                     break;

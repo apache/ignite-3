@@ -426,7 +426,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
 
                 if (ex == null && res.applyResult().replicationFuture() != null) {
-                    res.applyResult().replicationFuture().whenComplete((res0, ex0) -> {
+                    // TODO refactor rep future to fut<UUID>
+                    res.applyResult().replicationFuture().whenComplete(
+                            res.delayedAckProcessor != null ? res.delayedAckProcessor : (res0, ex0) -> {
                         NetworkMessage msg0;
 
                         LOG.debug("Sending delayed response for replica request [request={}]", request);

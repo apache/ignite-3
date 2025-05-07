@@ -120,6 +120,9 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     /** Observable timestamp listeners. */
     private final Consumer<Long> observableTimestampListener;
 
+    /** Inflights. */
+    private final ClientTransactionInflights inflights;
+
     /** Closed flag. */
     private final AtomicBoolean closed = new AtomicBoolean();
 
@@ -157,12 +160,14 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ClientChannelConfiguration cfg,
             ClientMetricSource metrics,
             Consumer<Long> assignmentChangeListener,
-            Consumer<Long> observableTimestampListener) {
+            Consumer<Long> observableTimestampListener,
+            ClientTransactionInflights inflights) {
         validateConfiguration(cfg);
         this.cfg = cfg;
         this.metrics = metrics;
         this.assignmentChangeListener = assignmentChangeListener;
         this.observableTimestampListener = observableTimestampListener;
+        this.inflights = inflights;
 
         log = ClientUtils.logger(cfg.clientConfiguration(), TcpClientChannel.class);
 
@@ -218,9 +223,10 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ClientConnectionMultiplexer connMgr,
             ClientMetricSource metrics,
             Consumer<Long> assignmentChangeListener,
-            Consumer<Long> observableTimestampListener) {
+            Consumer<Long> observableTimestampListener,
+            ClientTransactionInflights inflights) {
         //noinspection resource - returned from method.
-        return new TcpClientChannel(cfg, metrics, assignmentChangeListener, observableTimestampListener)
+        return new TcpClientChannel(cfg, metrics, assignmentChangeListener, observableTimestampListener, inflights)
                 .initAsync(connMgr);
     }
 
@@ -511,10 +517,12 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     private void handleNotification(long id, ClientMessageUnpacker unpacker, @Nullable Throwable err) {
         // One-shot notification handler - remove immediately.
         CompletableFuture<PayloadInputChannel> handler = notificationHandlers.remove(id);
-        if (handler == null) {
-            log.error("Unexpected notification ID [remoteAddress=" + cfg.getAddress() + "]: " + id);
 
-            throw new IgniteClientConnectionException(PROTOCOL_ERR, String.format("Unexpected notification ID [%s]", id), endpoint());
+        if (handler == null) {
+            UUID txId = unpacker.unpackUuid();
+            inflights.removeInflight(txId, err);
+
+            return;
         }
 
         completeNotificationFuture(handler, unpacker, err);
@@ -586,6 +594,11 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
     @Override
     public ProtocolContext protocolContext() {
         return protocolCtx;
+    }
+
+    @Override
+    public ClientTransactionInflights inflights() {
+        return inflights;
     }
 
     private static void validateConfiguration(ClientChannelConfiguration cfg) {

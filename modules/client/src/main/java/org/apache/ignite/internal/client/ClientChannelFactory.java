@@ -39,5 +39,6 @@ public interface ClientChannelFactory {
             ClientConnectionMultiplexer multiplexer,
             ClientMetricSource metrics,
             Consumer<Long> assignmentChangeListener,
-            Consumer<Long> observableTimestampListener);
+            Consumer<Long> observableTimestampListener,
+            ClientTransactionInflights inflights);
 }

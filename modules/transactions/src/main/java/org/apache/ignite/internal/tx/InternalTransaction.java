@@ -171,4 +171,14 @@ public interface InternalTransaction extends Transaction {
      * @return {@code true} if the transaction was rolled back due to timeout exceeded, {@code false} otherwise.
      */
     boolean isRolledBackWithTimeoutExceeded();
+
+    /**
+     * Process delayed ack.
+     *
+     * @param val The value.
+     * @param err The error.
+     */
+    default void processDelayedAck(Object val, @Nullable Throwable err) {
+        // No-op.
+    }
 }
