@@ -64,6 +64,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -88,6 +89,7 @@ import org.apache.ignite.internal.thread.IgniteThreadFactory;
 import org.apache.ignite.internal.tx.ActiveLocalTxMinimumRequiredTimeProvider;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.util.CompletableFutures;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.Pair;
@@ -346,7 +348,11 @@ public class CatalogCompactionRunner implements IgniteComponent {
                     });
         }).whenComplete((ignore, ex) -> {
             if (ex != null) {
-                LOG.warn("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+                if (ExceptionUtils.isOrCausedBy(NodeStoppingException.class, ex)) {
+                    LOG.debug("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+                } else {
+                    LOG.warn("Catalog compaction iteration has failed [lwm={}].", ex, lwm);
+                }
             }
         });
     }
