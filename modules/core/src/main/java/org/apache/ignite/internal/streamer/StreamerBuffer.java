@@ -20,6 +20,7 @@ package org.apache.ignite.internal.streamer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import org.jetbrains.annotations.Nullable;
 
 class StreamerBuffer<T> {
     private final int capacity;
@@ -42,7 +43,16 @@ class StreamerBuffer<T> {
      *
      * @param item Item.
      */
-    synchronized void add(T item) {
+    void add(T item) {
+        List<T> bufToFlush = addInternal(item);
+
+        if (bufToFlush != null) {
+            // Call outside of the synchronized block to avoid deadlocks.
+            flusher.accept(bufToFlush);
+        }
+    }
+
+    private synchronized @Nullable List<T> addInternal(T item) {
         if (closed) {
             throw new IllegalStateException("Streamer is closed, can't add items.");
         }
@@ -50,9 +60,13 @@ class StreamerBuffer<T> {
         buf.add(item);
 
         if (buf.size() >= capacity) {
-            flusher.accept(buf);
+            List<T> bufToFlush = buf;
             buf = new ArrayList<>(capacity);
+
+            return bufToFlush;
         }
+
+        return null;
     }
 
     synchronized void flushAndClose() {
