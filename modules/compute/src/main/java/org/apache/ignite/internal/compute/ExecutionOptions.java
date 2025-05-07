@@ -68,7 +68,7 @@ public class ExecutionOptions {
         return partition;
     }
 
-    public @Nullable JobExecutorType executorType() {
+    public JobExecutorType executorType() {
         return executorType;
     }
 

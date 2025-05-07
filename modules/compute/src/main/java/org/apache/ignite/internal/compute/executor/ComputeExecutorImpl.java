@@ -124,7 +124,7 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     }
 
     private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
-            @Nullable JobExecutorType executorType,
+            JobExecutorType executorType,
             String jobClassName,
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
