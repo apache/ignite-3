@@ -179,7 +179,7 @@ public class IgniteTableImpl extends AbstractIgniteDataSource implements IgniteT
     /** {@inheritDoc} */
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
-        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+        return IgniteLogicalTableScan.create(cluster, traitSet, hints, relOptTbl, null, null, null, null);
     }
 
     /** {@inheritDoc} */

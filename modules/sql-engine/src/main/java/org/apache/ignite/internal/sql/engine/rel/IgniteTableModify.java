@@ -28,6 +28,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.jetbrains.annotations.Nullable;
@@ -144,6 +145,29 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        List<RexNode> sourceExprList = getSourceExpressionList();
+
+        if (sourceExprList != null) {
+            List<RexNode> newSourceExprList = shuttle.apply(sourceExprList);
+            return new IgniteTableModify(
+                    sourceId,
+                    getCluster(),
+                    traitSet,
+                    getTable(),
+                    input,
+                    getOperation(),
+                    getUpdateColumnList(),
+                    newSourceExprList,
+                    isFlattened()
+            );
+        } else {
+            return this;
+        }
     }
 
     /** {@inheritDoc} */

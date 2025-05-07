@@ -15,17 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+namespace Apache.Ignite.Internal;
 
-import java.nio.ByteBuffer;
+using Ignite.Compute;
 
-/**
- * Always fails with an exception.
- */
-class BrokenPointerWrapping implements PointerWrapping {
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        throw new RuntimeException(
-                "All alternatives for a new DirectByteBuffer() creation failed: " + FeatureChecker.JAVA_STARTUP_PARAMS_WARN);
-    }
-}
+/// <summary>
+/// Ignite API accessor.
+/// </summary>
+/// <param name="Ignite">Ignite.</param>
+internal sealed record IgniteApiAccessor(IIgnite Ignite) : IJobExecutionContext;

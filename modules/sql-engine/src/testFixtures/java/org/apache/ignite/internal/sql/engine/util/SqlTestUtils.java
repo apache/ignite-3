@@ -45,8 +45,10 @@ import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
@@ -96,6 +98,8 @@ public class SqlTestUtils {
 
     private static final EnumMap<ColumnType, SqlTypeName> COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP = new EnumMap<>(ColumnType.class);
 
+    private static final Map<Integer, DateTimeFormatter> SQL_TIME_FORMATTERS = new HashMap<>();
+
     public static final DateTimeFormatter SQL_CONFORMANT_DATETIME_FORMATTER = new DateTimeFormatterBuilder()
                 .parseCaseInsensitive()
                 .append(ISO_LOCAL_DATE)
@@ -125,6 +129,14 @@ public class SqlTestUtils {
 
         for (ColumnType value : ColumnType.values()) {
             assert COLUMN_TYPE_TO_SQL_TYPE_NAME_MAP.containsKey(value) : "absent type is " + value;
+        }
+
+        for (int i = 0; i <= 9; i++) {
+            if (i == 0) {
+                SQL_TIME_FORMATTERS.put(i, DateTimeFormatter.ofPattern("HH:mm:ss"));
+            } else {
+                SQL_TIME_FORMATTERS.put(i, DateTimeFormatter.ofPattern("HH:mm:ss." + "S".repeat(i)));
+            }
         }
     }
 
@@ -391,16 +403,18 @@ public class SqlTestUtils {
      * @param type Type of value to generate literal.
      * @return String representation of value as a SQL literal.
      */
-    public static String makeLiteral(Object value, ColumnType type) {
+    public static String makeLiteral(Object value, NativeType type) {
         if (value == null) {
             return "NULL";
         }
 
-        switch (type) {
+        switch (type.spec().asColumnType()) {
             case DECIMAL:
                 return "DECIMAL '" + value + "'";
             case TIME:
-                return "TIME '" + value + "'";
+                LocalTime localTime = (LocalTime) value;
+                TemporalNativeType timeType = (TemporalNativeType) type;
+                return "TIME '" + SQL_TIME_FORMATTERS.get(timeType.precision()).format(localTime) + "'";
             case DATE:
                 return "DATE '" + value + "'";
             case TIMESTAMP:

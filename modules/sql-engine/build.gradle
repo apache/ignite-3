@@ -161,6 +161,7 @@ dependencies {
     testFixturesImplementation libs.jetbrains.annotations
     testFixturesImplementation libs.hamcrest.core
     testFixturesImplementation libs.awaitility
+    testFixturesImplementation libs.junit5.params
 
     constraints {
         api('com.google.protobuf:protobuf-java:4.30.2'){

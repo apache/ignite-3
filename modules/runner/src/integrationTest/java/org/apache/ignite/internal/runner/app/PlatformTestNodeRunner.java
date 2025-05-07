@@ -45,6 +45,7 @@ import static org.apache.ignite.sql.ColumnType.UUID;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import io.netty.util.ResourceLeakDetector;
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -67,9 +68,13 @@ import org.apache.ignite.InitParameters;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
+import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
+import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.commands.ColumnParams;
@@ -98,6 +103,7 @@ import org.apache.ignite.lang.IgniteCheckedException;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.marshalling.UnsupportedObjectTypeMarshallingException;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
 import org.apache.ignite.table.RecordView;
@@ -990,5 +996,59 @@ public class PlatformTestNodeRunner {
 
             return completedFuture(ex.codeAsString());
         }
+    }
+
+    @SuppressWarnings({"DataFlowIssue", "OptionalGetWithoutIsPresent", "unused"})
+    private static class JobRunnerJob implements ComputeJob<JobInfo, Object> {
+        @Override
+        public @Nullable Marshaller<JobInfo, byte[]> inputMarshaller() {
+            return new JsonMarshaller<>(JobInfo.class);
+        }
+
+        @Override
+        public CompletableFuture<Object> executeAsync(JobExecutionContext context, JobInfo arg) {
+            JobExecutionOptions jobOpts = JobExecutionOptions.builder()
+                    .executorType(JobExecutorType.valueOf(arg.jobExecutorType))
+                    .build();
+
+            JobDescriptor<Object, Object> jobDesc = JobDescriptor.builder(arg.typeName)
+                    .units(arg.deploymentUnits.stream().map(u -> {
+                        String[] parts = u.split(":");
+                        String name = parts[0];
+                        String version = parts.length > 1 ? parts[1] : null;
+
+                        return new DeploymentUnit(name, version);
+                    }).collect(toList()))
+                    .options(jobOpts)
+                    .build();
+
+            ClusterNode targetNode = context.ignite()
+                    .clusterNodes()
+                    .stream()
+                    .filter(n -> n.id().equals(arg.nodeId))
+                    .findFirst()
+                    .get();
+
+            JobTarget target = JobTarget.node(targetNode);
+
+            return context.ignite().compute().executeAsync(target, jobDesc, arg.arg);
+        }
+    }
+
+    private static class JobInfo {
+        @JsonProperty
+        String typeName;
+
+        @JsonProperty
+        Object arg;
+
+        @JsonProperty
+        List<String> deploymentUnits;
+
+        @JsonProperty
+        UUID nodeId;
+
+        @JsonProperty
+        String jobExecutorType;
     }
 }

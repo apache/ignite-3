@@ -163,6 +163,12 @@ abstract class AbstractZoneReplicationTest extends IgniteAbstractTest {
                 },
                 30_000
         ));
+
+        @SuppressWarnings("rawtypes")
+        CompletableFuture[] catalogInitFutures = cluster.stream()
+                .map(n -> n.catalogManager.catalogInitializationFuture())
+                .toArray(CompletableFuture[]::new);
+        assertThat(allOf(catalogInitFutures), willCompleteSuccessfully());
     }
 
     Node addNodeToCluster() {

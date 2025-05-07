@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.prepare;
 
+import com.google.common.collect.ImmutableList;
 import java.math.BigDecimal;
 import java.util.List;
 import org.apache.calcite.avatica.util.DateTimeUtils;
@@ -50,6 +51,10 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
 
         // Replace Calcite's alias so it can pass "call to wrong operator" precondition in ReflectiveConvertletTable.addAlias
         addAlias(IgniteSqlOperatorTable.PERCENT_REMAINDER, SqlStdOperatorTable.MOD);
+
+        // Replace plus/minus implementors, because Calcite missed the TIMESTAMP WITH LOCAL TIME ZONE data type.
+        registerOp(SqlStdOperatorTable.PLUS, this::convertPlus);
+        registerOp(SqlStdOperatorTable.MINUS, this::convertMinus);
     }
 
     /** {@inheritDoc} */
@@ -126,6 +131,67 @@ public class IgniteConvertletTable extends ReflectiveConvertletTable {
          */
         static RexNode makeCastMilliseconds(RexBuilder builder, RelDataType type, RexNode exp) {
             return builder.ensureType(type, builder.decodeIntervalOrDecimal(exp), false);
+        }
+    }
+
+    /** Convertlet that handles the {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} data type. */
+    private RexNode convertPlus(
+            IgniteConvertletTable this,
+            SqlRexContext cx, SqlCall call) {
+        final RexNode rex = StandardConvertletTable.INSTANCE.convertCall(cx, call);
+        switch (rex.getType().getSqlTypeName()) {
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                // Use special "+" operator for datetime + interval.
+                // Re-order operands, if necessary, so that interval is second.
+                final RexBuilder rexBuilder = cx.getRexBuilder();
+                List<RexNode> operands = ((RexCall) rex).getOperands();
+                if (operands.size() == 2) {
+                    final SqlTypeName sqlTypeName = operands.get(0).getType().getSqlTypeName();
+                    switch (sqlTypeName) {
+                        case INTERVAL_YEAR:
+                        case INTERVAL_YEAR_MONTH:
+                        case INTERVAL_MONTH:
+                        case INTERVAL_DAY:
+                        case INTERVAL_DAY_HOUR:
+                        case INTERVAL_DAY_MINUTE:
+                        case INTERVAL_DAY_SECOND:
+                        case INTERVAL_HOUR:
+                        case INTERVAL_HOUR_MINUTE:
+                        case INTERVAL_HOUR_SECOND:
+                        case INTERVAL_MINUTE:
+                        case INTERVAL_MINUTE_SECOND:
+                        case INTERVAL_SECOND:
+                            operands = ImmutableList.of(operands.get(1), operands.get(0));
+                            break;
+                        default:
+                            break;
+                    }
+                }
+                return rexBuilder.makeCall(call.getParserPosition(), rex.getType(),
+                        SqlStdOperatorTable.DATETIME_PLUS, operands);
+            default:
+                return rex;
+        }
+    }
+
+    /** Convertlet that handles the {@link SqlTypeName#TIMESTAMP_WITH_LOCAL_TIME_ZONE} data type. */
+    private RexNode convertMinus(
+            IgniteConvertletTable this,
+            SqlRexContext cx, SqlCall call) {
+        RexCall e =
+                (RexCall) StandardConvertletTable.INSTANCE.convertCall(cx, call);
+        switch (e.getOperands().get(0).getType().getSqlTypeName()) {
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case TIMESTAMP_WITH_LOCAL_TIME_ZONE:
+                return StandardConvertletTable.INSTANCE.convertDatetimeMinus(cx, SqlStdOperatorTable.MINUS_DATE,
+                        call);
+            default:
+                return e;
         }
     }
 }

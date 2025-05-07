@@ -150,5 +150,8 @@ idea.project.settings {
         defaults(org.jetbrains.gradle.ext.JUnit) {
             vmParameters = defaultJvmArgs.join(' ')
         }
+        defaults(org.jetbrains.gradle.ext.Application) {
+            jvmArgs = defaultJvmArgs.join(' ')
+        }
     }
 }
