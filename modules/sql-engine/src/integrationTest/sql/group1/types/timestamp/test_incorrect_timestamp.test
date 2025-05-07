@@ -154,4 +154,19 @@ statement error: Invalid default value for column 'TS'
 CREATE TABLE default_overflow(ts TIMESTAMP DEFAULT '9999-12-31 06:00:00');
 
 statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' + INTERVAL 2922000 DAYS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' - INTERVAL 730500 DAYS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' + INTERVAL 70128000 HOURS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' - INTERVAL 17532000 HOURS)
+
+statement error: TIMESTAMP out of range
 INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP + INTERVAL 7999 YEARS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP - INTERVAL 7999 YEARS)

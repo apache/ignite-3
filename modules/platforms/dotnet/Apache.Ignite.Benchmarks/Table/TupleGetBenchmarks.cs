@@ -20,7 +20,6 @@ namespace Apache.Ignite.Benchmarks.Table
     using System.Threading.Tasks;
     using BenchmarkDotNet.Attributes;
     using Ignite.Table;
-    using Tests;
 
     /// <summary>
     /// Results on i9-12900H, .NET SDK 6.0.419, Ubuntu 22.04:
@@ -29,19 +28,17 @@ namespace Apache.Ignite.Benchmarks.Table
     /// |    Get | 113.8 us | 1.74 us | 1.45 us |.
     /// </summary>
     [SimpleJob]
-    public class TupleGetBenchmarks
+    public class TupleGetBenchmarks : ServerBenchmarkBase
     {
-        private JavaServer? _javaServer;
-        private IIgniteClient? _client;
         private IRecordView<IIgniteTuple> _table = null!;
         private IgniteTuple _keyTuple = null!;
 
         [GlobalSetup]
-        public async Task GlobalSetup()
+        public override async Task GlobalSetup()
         {
-            _javaServer = await JavaServer.StartAsync();
-            _client = await IgniteClient.StartAsync(new IgniteClientConfiguration("127.0.0.1:" + _javaServer.Port));
-            _table = (await _client.Tables.GetTableAsync("TBL1"))!.RecordBinaryView;
+            await base.GlobalSetup();
+
+            _table = (await Client.Tables.GetTableAsync("TBL1"))!.RecordBinaryView;
 
             var tuple = new IgniteTuple
             {
@@ -55,13 +52,6 @@ namespace Apache.Ignite.Benchmarks.Table
             {
                 ["key"] = 1L
             };
-        }
-
-        [GlobalCleanup]
-        public void GlobalCleanup()
-        {
-            _client?.Dispose();
-            _javaServer?.Dispose();
         }
 
         [Benchmark]

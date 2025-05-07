@@ -15,24 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.util;
+package org.apache.ignite.internal.tx.storage.state;
 
-import java.lang.invoke.MethodHandle;
-import java.nio.ByteBuffer;
+import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_STATE_STORAGE_STOPPED_ERR;
 
 /**
- * Uses constructor of the direct byte buffer with 'length' parameter of type {@code long} to wrap a pointer to unmanaged memory into a
- * direct byte buffer.
+ * Exception that is be thrown when trying to access a closed storage.
  */
-class WrapWithLongDirectBufferConstructor implements PointerWrapping {
-    private final MethodHandle constructor;
+public class TxStateStorageClosedException extends TxStateStorageException {
+    private static final long serialVersionUID = -7988332521347221109L;
 
-    WrapWithLongDirectBufferConstructor(MethodHandle constructor) {
-        this.constructor = constructor;
+    /**
+     * Default constructor.
+     */
+    public TxStateStorageClosedException() {
+        this("Storage is already closed");
     }
 
-    @Override
-    public ByteBuffer wrapPointer(long ptr, int len) {
-        return GridUnsafe.wrapPointerDirectBufferConstructor(ptr, (long) len, constructor);
+    /**
+     * Constructor.
+     *
+     * @param message Error message.
+     */
+    public TxStateStorageClosedException(String message) {
+        super(TX_STATE_STORAGE_STOPPED_ERR, message);
     }
 }

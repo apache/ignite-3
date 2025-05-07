@@ -65,8 +65,7 @@ public class ConfigurationRegistryTest {
                                 List.of(ExtendedFirstRootConfigurationSchema.class),
                                 List.of()
                         ),
-                        new TestConfigurationValidator(),
-                        changer -> {}
+                        new TestConfigurationValidator()
                 )
         );
 
@@ -79,8 +78,7 @@ public class ConfigurationRegistryTest {
                         List.of(ExtendedFirstRootConfigurationSchema.class),
                         List.of()
                 ),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(configRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -99,8 +97,7 @@ public class ConfigurationRegistryTest {
                                 List.of(),
                                 List.of(Second0PolymorphicConfigurationSchema.class)
                         ),
-                        new TestConfigurationValidator(),
-                        changer -> {}
+                        new TestConfigurationValidator()
                 )
         );
 
@@ -115,8 +112,7 @@ public class ConfigurationRegistryTest {
                                 List.of(),
                                 List.of(First0PolymorphicConfigurationSchema.class, ErrorFirst0PolymorphicConfigurationSchema.class)
                         ),
-                        new TestConfigurationValidator(),
-                        changer -> {}
+                        new TestConfigurationValidator()
                 )
         );
 
@@ -135,8 +131,7 @@ public class ConfigurationRegistryTest {
                                 Third1PolymorphicConfigurationSchema.class
                         )
                 ),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(configRegistry.stopAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -150,8 +145,7 @@ public class ConfigurationRegistryTest {
                         List.of(ThirdRootConfiguration.KEY),
                         new TestConfigurationStorage(LOCAL),
                         new ConfigurationTreeGenerator(ThirdRootConfiguration.KEY),
-                        new TestConfigurationValidator(),
-                        changer -> {}
+                        new TestConfigurationValidator()
                 )
         );
 
@@ -178,8 +172,7 @@ public class ConfigurationRegistryTest {
                         List.of(),
                         List.of(Fourth0PolymorphicConfigurationSchema.class)
                 ),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
@@ -211,8 +204,7 @@ public class ConfigurationRegistryTest {
                                 Fourth0PolymorphicConfigurationSchema.class
                         )
                 ),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());
 
@@ -240,8 +232,7 @@ public class ConfigurationRegistryTest {
                 List.of(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
                 storage,
                 new ConfigurationTreeGenerator(FirstRootConfiguration.KEY, SecondRootConfiguration.KEY),
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         assertThat(registry.startAsync(new ComponentContext()), willCompleteSuccessfully());

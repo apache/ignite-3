@@ -15,12 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.compute;
+namespace Apache.Ignite.Compute;
 
-/**
- * Job executor type.
- */
-public enum JobExecutorType { // TODO IGNITE-25116: Move to public API
-    JavaEmbedded,
-    DotNetSidecar
+/// <summary>
+/// Compute job execution context. See <see cref="IComputeJob{TArg,TResult}.ExecuteAsync"/>.
+/// </summary>
+public interface IJobExecutionContext
+{
+    /// <summary>
+    /// Gets the Ignite API entry point.
+    /// </summary>
+    IIgnite Ignite { get; }
 }

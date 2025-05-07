@@ -313,7 +313,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(MinimumRequiredTimeCollectorService.class),
                 mock(Executor.class),
                 placementDriver,
-                clockService
+                clockService,
+                new TablePartitionId(TABLE_ID, PARTITION_ID)
         );
 
         // Update(All)Command handling requires both information about raft group topology and the primary replica,
@@ -542,7 +543,8 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
                 mock(MinimumRequiredTimeCollectorService.class),
                 executor,
                 placementDriver,
-                clockService
+                clockService,
+                new TablePartitionId(TABLE_ID, PARTITION_ID)
         );
 
         txStatePartitionStorage.lastApplied(3L, 1L);

@@ -407,7 +407,8 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                 storage,
                 new ConfigurationTreeGenerator(rootKey),
                 new TestConfigurationValidator(),
-                migrator
+                migrator,
+                s -> false
         );
 
         if (init) {

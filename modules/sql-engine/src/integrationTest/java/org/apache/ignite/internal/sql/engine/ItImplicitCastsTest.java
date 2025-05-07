@@ -32,8 +32,8 @@ import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.IgniteException;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -199,17 +199,17 @@ public class ItImplicitCastsTest extends BaseSqlIntegrationTest {
         }
 
         String lhsLiteral(int idx) {
-            return generateValue(lhs, idx, true);
+            return generateValue(lhs, idx);
         }
 
-        static String generateValue(RelDataType type, int i, boolean literal) {
+        static String generateValue(RelDataType type, int i) {
             if (SqlTypeUtil.isNumeric(type)) {
                 return Integer.toString(i);
             } else if (type.getSqlTypeName() == SqlTypeName.UUID) {
-                return SqlTestUtils.makeLiteral(new UUID(i, i), ColumnType.UUID);
+                return SqlTestUtils.makeLiteral(new UUID(i, i), NativeTypes.UUID);
             } else if (type.getSqlTypeName() == SqlTypeName.CHAR
                     || type.getSqlTypeName() == SqlTypeName.VARCHAR) {
-                return SqlTestUtils.makeLiteral(new UUID(i, i), ColumnType.STRING);
+                return SqlTestUtils.makeLiteral(new UUID(i, i), NativeTypes.STRING);
             } else {
                 throw new IllegalArgumentException("Unsupported type: " + type);
             }

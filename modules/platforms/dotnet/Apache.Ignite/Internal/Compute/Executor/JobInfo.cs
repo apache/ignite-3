@@ -15,17 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metrics.exporters;
+namespace Apache.Ignite.Internal.Compute.Executor;
 
-import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
-import org.apache.ignite.configuration.annotation.Value;
-import org.apache.ignite.internal.metrics.exporters.configuration.ExporterConfigurationSchema;
-
-/**
- * Configuration for test exporter.
- */
-@PolymorphicConfigInstance("test")
-public class TestExporterConfigurationSchema extends ExporterConfigurationSchema {
-    @Value(hasDefault = true)
-    public int port = 0;
-}
+/// <summary>
+/// Job info.
+/// </summary>
+/// <param name="DeploymentUnitPaths">Deployment unit paths.</param>
+/// <param name="JobClassName">Job class name.</param>
+internal sealed record JobInfo(DeploymentUnitPaths DeploymentUnitPaths, string JobClassName);

@@ -89,4 +89,9 @@ public class CompoundModule implements ConfigurationModule {
     public void migrateDeprecatedConfigurations(SuperRootChange superRootChange) {
         modules.forEach(module -> module.migrateDeprecatedConfigurations(superRootChange));
     }
+
+    @Override
+    public Collection<String> deletedPrefixes() {
+        return unionFromModulesExtractedWith(ConfigurationModule::deletedPrefixes);
+    }
 }

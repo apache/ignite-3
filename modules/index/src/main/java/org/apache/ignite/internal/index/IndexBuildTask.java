@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.ArrayList;
@@ -166,17 +167,18 @@ class IndexBuildTask {
     }
 
     private static boolean ignorable(Throwable throwable) {
-        Throwable unwrapped = unwrapCause(throwable);
-
-        // Following exception can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
-        // build continuation. We just don't want to fill our logs with garbage.
-        return unwrapped instanceof PrimaryReplicaMissException
+        return hasCause(
+                throwable,
+                // Following exception can be ignored as IndexBuildController listens for new primary replica appearance, so it will trigger
+                // build continuation. We just don't want to fill our logs with garbage.
+                PrimaryReplicaMissException.class,
                 // Following two can be ignored as they mean that replica is closed (either node is stopping or replica is not needed
                 // on this node anymore).
-                || unwrapped instanceof TrackerClosedException
-                || unwrapped instanceof StorageClosedException
+                TrackerClosedException.class,
+                StorageClosedException.class,
                 // Node is stopping, it's ok.
-                || unwrapped instanceof NodeStoppingException;
+                NodeStoppingException.class
+        );
     }
 
     /** Stops index building. */

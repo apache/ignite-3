@@ -749,7 +749,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
           Expressions.add(
               Expressions.multiply(
                   Expressions.convert_(
-                      Expressions.call(BuiltInMethod.CURRENT_DATE.method, root),
+                      Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
                       long.class),
                   Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
               Expressions.convert_(operand, long.class));
@@ -817,7 +817,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
                       Expressions.add(
                           Expressions.multiply(
                               Expressions.convert_(
-                                  Expressions.call(BuiltInMethod.CURRENT_DATE.method, root),
+                                  Expressions.call(IgniteMethod.CURRENT_DATE.method(), root),
                                   long.class),
                               Expressions.constant(DateTimeUtils.MILLIS_PER_DAY)),
                           Expressions.convert_(operand, long.class)))),

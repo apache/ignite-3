@@ -31,7 +31,11 @@ using Proto.MsgPack;
 /// </summary>
 internal sealed partial class ClientSocket
 {
-    private static async Task HandleServerOpInnerAsync(ServerOp op, PooledBuffer request, PooledArrayBuffer response)
+    private static async Task HandleServerOpInnerAsync(
+        ServerOp op,
+        PooledBuffer request,
+        PooledArrayBuffer response,
+        ClientSocket socket)
     {
         switch (op)
         {
@@ -40,7 +44,8 @@ internal sealed partial class ClientSocket
                 break;
 
             case ServerOp.ComputeJobExec:
-                await ComputeJobExecutor.ExecuteJobAsync(request, response).ConfigureAwait(false);
+                IgniteApiAccessor api = await socket._config.ApiTask.ConfigureAwait(false);
+                await ComputeJobExecutor.ExecuteJobAsync(request, response, api).ConfigureAwait(false);
                 break;
 
             case ServerOp.ComputeJobCancel:
@@ -49,7 +54,6 @@ internal sealed partial class ClientSocket
                 break;
 
             case ServerOp.DeploymentUnitsUndeploy:
-                // TODO IGNITE-25115 Implement platform job executor.
                 response.MessageWriter.Write(false);
                 break;
 
@@ -82,7 +86,7 @@ internal sealed partial class ClientSocket
 
         try
         {
-            await HandleServerOpInnerAsync(op, request, response).ConfigureAwait(false);
+            await HandleServerOpInnerAsync(op, request, response, this).ConfigureAwait(false);
 
             await SendServerOpResponseAsync(requestId, response).ConfigureAwait(false);
         }

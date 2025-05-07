@@ -63,7 +63,7 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
 
         long newPeriod = period();
 
-        if (period != newPeriod) {
+        if (fut == null || period != newPeriod) {
             if (fut != null) {
                 fut.cancel(false);
             }
@@ -86,6 +86,8 @@ public abstract class PushMetricExporter<CfgT extends ExporterView> extends Basi
     public synchronized void stop() {
         if (fut != null) {
             fut.cancel(false);
+
+            fut = null;
         }
 
         if (scheduler != null) {

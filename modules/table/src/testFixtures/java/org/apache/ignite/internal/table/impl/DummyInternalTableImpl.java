@@ -535,7 +535,8 @@ public class DummyInternalTableImpl extends InternalTableImpl {
                 mock(MinimumRequiredTimeCollectorService.class),
                 mock(Executor.class),
                 placementDriver,
-                clockService
+                clockService,
+                enabledColocation ? zonePartitionId : tablePartitionId
         );
 
         if (enabledColocation) {
