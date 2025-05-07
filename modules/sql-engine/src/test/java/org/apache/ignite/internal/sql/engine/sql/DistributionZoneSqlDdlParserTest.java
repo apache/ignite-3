@@ -267,7 +267,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void alterZoneSet() {
-        IgniteSqlAlterZone alterZoneSet = parseAlterZone("alter zone a.test_zone set (replicas 2)");
+        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (replicas 2)");
         assertFalse(alterZoneSet.ifExists());
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (REPLICAS 2)";
@@ -279,7 +279,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void alterZoneIfExistsSet() {
-        IgniteSqlAlterZone alterZoneSet = parseAlterZone("alter zone if exists a.test_zone set (replicas 2)");
+        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone if exists a.test_zone set (replicas 2)");
         assertTrue(alterZoneSet.ifExists());
 
         String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET (REPLICAS 2)";
@@ -291,7 +291,7 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
      */
     @Test
     public void alterZoneSetOptions() {
-        IgniteSqlAlterZone alterZoneSet = parseAlterZone(
+        IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone(
                 "alter zone a.test_zone set ("
                         + "REPLICAS 2, "
                         + "PARTITIONS 3, "
@@ -350,10 +350,10 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     /**
      * Parse ALTER ZONE SET statement.
      */
-    private static IgniteSqlAlterZone parseAlterZone(String stmt) {
+    private static IgniteSqlAlterZoneSet parseAlterZone(String stmt) {
         SqlNode node = parse(stmt);
 
-        return assertInstanceOf(IgniteSqlAlterZone.class, node);
+        return assertInstanceOf(IgniteSqlAlterZoneSet.class, node);
     }
 
     /**

@@ -119,7 +119,6 @@ import org.apache.ignite.internal.sql.engine.prepare.PlanningContext;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn;
-import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZone;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSetDefault;
@@ -266,10 +265,6 @@ public class DdlSqlToCommandConverter {
 
         if (ddlNode instanceof IgniteSqlAlterZoneSet) {
             return convertAlterZoneSet((IgniteSqlAlterZoneSet) ddlNode, ctx);
-        }
-
-        if (ddlNode instanceof IgniteSqlAlterZone) {
-            return convertAlterZone((IgniteSqlAlterZone) ddlNode, ctx);
         }
 
         if (ddlNode instanceof IgniteSqlAlterZoneSetDefault) {
@@ -704,7 +699,7 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : createZoneNode.createOptionList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder, true);
+            updateZoneOption(option, remainingKnownOptions, zoneOptionInfos, createReplicasOptionInfo, ctx, builder);
         }
 
         List<StorageProfileParams> profiles = extractProfiles(createZoneNode.storageProfiles());
@@ -728,27 +723,7 @@ public class DdlSqlToCommandConverter {
         for (SqlNode optionNode : alterZoneSet.alterOptionsList().getList()) {
             IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
 
-            updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder, true);
-        }
-
-        return builder.build();
-    }
-
-    /**
-     * Converts the given '{@code ALTER ZONE}' AST to the {@link AlterZoneCommand} catalog command.
-     */
-    private CatalogCommand convertAlterZone(IgniteSqlAlterZone alterZone, PlanningContext ctx) {
-        AlterZoneCommandBuilder builder = AlterZoneCommand.builder();
-
-        builder.zoneName(deriveObjectName(alterZone.name(), ctx, "zoneName"));
-        builder.ifExists(alterZone.ifExists());
-
-        Set<String> remainingKnownOptions = new HashSet<>(knownZoneOptionNames);
-
-        for (SqlNode optionNode : alterZone.alterOptionsList().getList()) {
-            IgniteSqlZoneOption option = (IgniteSqlZoneOption) optionNode;
-
-            updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder, false);
+            updateZoneOption(option, remainingKnownOptions, alterZoneOptionInfos, alterReplicasOptionInfo, ctx, builder);
         }
 
         return builder.build();
@@ -828,8 +803,7 @@ public class DdlSqlToCommandConverter {
             Map<ZoneOptionEnum, DdlOptionInfo<S, ?>> optionInfos,
             DdlOptionInfo<S, Integer> replicasOptionInfo,
             PlanningContext ctx,
-            S target,
-            boolean obsoleteMode
+            S target
     ) {
         assert option.key().isSimple() : option.key();
 
@@ -838,14 +812,14 @@ public class DdlSqlToCommandConverter {
         if (!knownZoneOptionNames.contains(optionName)) {
             throw unexpectedZoneOption(ctx, optionName);
         } else if (!remainingKnownOptions.remove(optionName)) {
-            throw duplicateZoneOption(ctx, obsoleteMode ? optionName : ZoneOptionEnum.valueOf(optionName).sqlName);
+            throw duplicateZoneOption(ctx, ZoneOptionEnum.valueOf(optionName).sqlName);
         }
 
         ZoneOptionEnum zoneOption = ZoneOptionEnum.valueOf(optionName);
         DdlOptionInfo<S, ?> zoneOptionInfo = optionInfos.get(zoneOption);
 
         // Options infos doesn't contain REPLICAS, it's handled separately
-        assert zoneOptionInfo != null || zoneOption == REPLICAS : obsoleteMode ? zoneOption : zoneOption.sqlName;
+        assert zoneOptionInfo != null || zoneOption == REPLICAS : zoneOption.sqlName;
 
         assert option.value() instanceof SqlLiteral : option.value();
         SqlLiteral literal = (SqlLiteral) option.value();

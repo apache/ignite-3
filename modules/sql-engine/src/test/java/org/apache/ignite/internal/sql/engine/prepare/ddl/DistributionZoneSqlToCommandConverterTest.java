@@ -503,11 +503,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
         assertThat(node, instanceOf(SqlDdl.class));
 
-        if (obsolete) {
-            expectDuplicateOptionError((SqlDdl) node, "DATA_NODES_AUTO_ADJUST");
-        } else {
-            expectDuplicateOptionError((SqlDdl) node, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.sqlName);
-        }
+        expectDuplicateOptionError((SqlDdl) node, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST.sqlName);
     }
 
     @Test

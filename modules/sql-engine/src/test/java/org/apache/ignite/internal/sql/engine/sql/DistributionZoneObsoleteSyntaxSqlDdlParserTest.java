@@ -176,7 +176,7 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone a.test_zone set replicas=2");
         assertFalse(alterZoneSet.ifExists());
 
-        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET REPLICAS 2";
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (REPLICAS 2)";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -188,7 +188,7 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZoneSet("alter zone if exists a.test_zone set replicas=2");
         assertTrue(alterZoneSet.ifExists());
 
-        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET REPLICAS 2";
+        String expectedStmt = "ALTER ZONE IF EXISTS \"A\".\"TEST_ZONE\" SET (REPLICAS 2)";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 
@@ -216,12 +216,12 @@ public class DistributionZoneObsoleteSyntaxSqlDdlParserTest extends AbstractPars
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_FILTER, "(\"US\" || \"EU\") && \"SSD\"");
         assertThatZoneOptionPresent(optList, ZoneOptionEnum.DATA_NODES_AUTO_ADJUST, 1);
 
-        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET "
+        String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET ("
                 + "REPLICAS 2, "
                 + "NODES FILTER '(\"US\" || \"EU\") && \"SSD\"', "
                 + "AUTO ADJUST 1, "
                 + "AUTO SCALE UP 2, "
-                + "AUTO SCALE DOWN 3";
+                + "AUTO SCALE DOWN 3)";
         expectUnparsed(alterZoneSet, expectedStmt);
     }
 

@@ -56,7 +56,6 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCommitTransaction",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIntervalTypeNameSpec",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlIndexType",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZone",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneSet",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterZoneRenameTo",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlTypeNameSpec",
