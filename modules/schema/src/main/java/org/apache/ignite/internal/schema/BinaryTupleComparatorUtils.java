@@ -122,6 +122,12 @@ class BinaryTupleComparatorUtils {
         byte[] bytes = tuple.bytesValue(begin, begin + trimmedSize);
         char[] cmpArray = cmp.toCharArray();
 
+        if (bytes.length < trimmedSize) {
+            assert bytes.length == trimmedSize - 1 : "Only one first byte can have a special value.";
+
+            fullSrtLength--;
+        }
+
         // Fast pass for ASCII string.
         int asciiResult = compareAsciiSequences(
                 bytes,
@@ -226,7 +232,7 @@ class BinaryTupleComparatorUtils {
             throw new IllegalArgumentException("Invalid UTF-8");
         }
 
-        if (idx[0] + remainingBytes >= bytes.length) {
+        if (idx[0] + remainingBytes > bytes.length) {
             return -1;
         }
 
