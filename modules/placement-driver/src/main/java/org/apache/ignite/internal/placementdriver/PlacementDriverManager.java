@@ -256,18 +256,12 @@ public class PlacementDriverManager implements IgniteComponent {
 
     /** Takes over active actor of placement driver group. */
     private void takeOverActiveActorBusy() {
-        LOG.info("Placement driver active actor is starting.");
-
         leaseUpdater.activate();
     }
 
     /** Steps down as active actor. */
     private void stepDownActiveActorBusy() {
-        if (leaseUpdater.active()) {
-            LOG.info("Placement driver active actor is stopping.");
-
-            leaseUpdater.deactivate();
-        }
+        leaseUpdater.deactivate();
     }
 
     @TestOnly
