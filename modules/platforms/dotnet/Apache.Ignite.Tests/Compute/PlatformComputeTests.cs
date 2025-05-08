@@ -24,6 +24,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Marshalling;
+using Ignite.Table;
 using Network;
 using NodaTime;
 using NUnit.Framework;
@@ -235,6 +236,26 @@ public class PlatformComputeTests : IgniteTestsBase
 
         // Default context + current job context, all others should be unloaded.
         Assert.AreEqual(2, assemblyLoadContextCount);
+    }
+
+    [Test]
+    public async Task TestTupleWithSchemaRoundTrip()
+    {
+        // TODO: All types.
+        var tuple = new IgniteTuple
+        {
+            ["int"] = 1,
+            ["string"] = "Hello",
+            ["bool"] = true,
+            ["decimal"] = 123.456m,
+            ["date"] = LocalDate.FromDateTime(DateTime.Now),
+            ["time"] = LocalTime.Midnight,
+            ["guid"] = Guid.NewGuid()
+        };
+
+        var res = (IIgniteTuple)(await ExecJobAsync(DotNetJobs.Echo, tuple))!;
+
+        Assert.AreEqual(tuple, res);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
