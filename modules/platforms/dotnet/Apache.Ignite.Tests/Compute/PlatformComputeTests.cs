@@ -266,7 +266,7 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestNestedTupleWithSchemaRoundTrip()
+    public async Task TestDeepNestedTupleWithSchemaRoundTrip()
     {
         var tuple = TestCases.GetNestedTuple(100);
         var res = await ExecJobAsync(DotNetJobs.Echo, tuple);
