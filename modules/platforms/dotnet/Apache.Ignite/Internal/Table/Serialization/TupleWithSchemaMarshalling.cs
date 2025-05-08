@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System.Buffers.Binary;
+using Buffers;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
@@ -51,8 +52,12 @@ internal static class TupleWithSchemaMarshalling
 
             if (fieldValue is IIgniteTuple nestedTuple)
             {
+                using var nestedTupleBuf = new PooledArrayBuffer();
+                var nestedTupleWriter = nestedTupleBuf.MessageWriter;
+                Pack(ref nestedTupleWriter, nestedTuple);
+
+                valueBuilder.AppendBytes(nestedTupleBuf.GetWrittenMemory().Span);
                 schemaBuilder.AppendInt(TypeIdTuple);
-                Pack(ref w, nestedTuple);
             }
             else
             {

@@ -242,7 +242,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestTupleWithSchemaRoundTrip()
     {
         var tuple = TestCases.GetTupleWithAllFieldTypes();
-        tuple["nestedTuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
 
         var expectedTuple = Enumerable.Range(0, tuple.FieldCount).Aggregate(
             seed: new IgniteTuple(),
