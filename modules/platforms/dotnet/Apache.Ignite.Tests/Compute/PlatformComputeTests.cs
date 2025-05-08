@@ -265,6 +265,16 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual(expectedTuple, res);
     }
 
+    [Test]
+    public async Task TestNestedTupleWithSchemaRoundTrip()
+    {
+        var tuple = TestCases.GetNestedTuple(100);
+        var res = await ExecJobAsync(DotNetJobs.Echo, tuple);
+
+        Assert.AreEqual(tuple, res);
+        StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res?.ToString());
+    }
+
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;

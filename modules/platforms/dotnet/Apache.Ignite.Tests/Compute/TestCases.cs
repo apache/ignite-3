@@ -74,4 +74,19 @@ public static class TestCases
 
         return res;
     }
+
+    public static IIgniteTuple GetNestedTuple(int depth)
+    {
+        var res = new IgniteTuple { ["id"] = "root" };
+        var current = res;
+
+        for (var i = 1; i <= depth; i++)
+        {
+            var nested = new IgniteTuple { ["id"] = i };
+            current[$"child{i}"] = nested;
+            current = nested;
+        }
+
+        return res;
+    }
 }
