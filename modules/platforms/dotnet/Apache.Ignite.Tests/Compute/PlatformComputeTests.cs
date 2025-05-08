@@ -68,7 +68,7 @@ public class PlatformComputeTests : IgniteTestsBase
     {
         var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
         var jobTarget = BroadcastJobTarget.Nodes(
-            await GetClusterNodeAsync("_1"),
+            await GetClusterNodeAsync(),
             await GetClusterNodeAsync("_2"),
             await GetClusterNodeAsync("_3"));
 
