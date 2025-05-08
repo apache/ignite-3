@@ -19,6 +19,7 @@ namespace Apache.Ignite.Tests.Compute;
 
 using System;
 using System.Collections.Generic;
+using Ignite.Table;
 using NodaTime;
 
 /// <summary>
@@ -54,4 +55,23 @@ public static class TestCases
         Guid.Empty,
         new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }),
     ];
+
+    public static IIgniteTuple GetTupleWithAllFieldTypes(Func<object, bool>? filter = null)
+    {
+        var res = new IgniteTuple();
+
+        for (var i = 0; i < SupportedArgs.Count; i++)
+        {
+            var val = SupportedArgs[i];
+
+            if (filter != null && !filter(val))
+            {
+                continue;
+            }
+
+            res[$"v{i}"] = val;
+        }
+
+        return res;
+    }
 }

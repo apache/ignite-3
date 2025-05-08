@@ -241,22 +241,20 @@ public class PlatformComputeTests : IgniteTestsBase
     [Test]
     public async Task TestTupleWithSchemaRoundTrip()
     {
-        // TODO: All types.
-        // TODO: Nested tuples.
-        var tuple = new IgniteTuple
-        {
-            ["int"] = 1,
-            ["string"] = "Hello",
-            ["bool"] = true,
-            ["decimal"] = new BigDecimal(123.456m),
-            ["date"] = LocalDate.FromDateTime(DateTime.Now),
-            ["time"] = LocalTime.Midnight,
-            ["guid"] = Guid.NewGuid()
-        };
+        var tuple = TestCases.GetTupleWithAllFieldTypes();
+        tuple["nestedTuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+
+        var expectedTuple = Enumerable.Range(0, tuple.FieldCount).Aggregate(
+            seed: new IgniteTuple(),
+            (acc, i) =>
+            {
+                acc[tuple.GetName(i)] = tuple[i] is decimal d ? new BigDecimal(d) : tuple[i];
+                return acc;
+            });
 
         var res = (IIgniteTuple)(await ExecJobAsync(DotNetJobs.Echo, tuple))!;
 
-        Assert.AreEqual(tuple, res);
+        Assert.AreEqual(expectedTuple, res);
     }
 
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
