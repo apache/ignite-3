@@ -64,6 +64,27 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestBroadcastJob()
+    {
+        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = BroadcastJobTarget.Nodes(
+            await GetClusterNodeAsync("_1"),
+            await GetClusterNodeAsync("_2"),
+            await GetClusterNodeAsync("_3"));
+
+        var jobExec = await Client.Compute.SubmitBroadcastAsync(
+            jobTarget,
+            jobDesc,
+            "Hello world!");
+
+        foreach (var job in jobExec.JobExecutions)
+        {
+            var res = await job.GetResultAsync();
+            Assert.AreEqual("Hello world!", res);
+        }
+    }
+
+    [Test]
     [TestCaseSource(nameof(ArgTypesTestCases))]
     public async Task TestAllSupportedArgTypes(object val)
     {
