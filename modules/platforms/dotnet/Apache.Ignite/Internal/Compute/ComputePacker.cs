@@ -22,6 +22,7 @@ using System.Buffers;
 using Ignite.Table;
 using Marshalling;
 using Proto.MsgPack;
+using Table.Serialization;
 
 /// <summary>
 /// Compute packer utils.
@@ -68,11 +69,11 @@ internal static class ComputePacker
             return;
         }
 
-        if (obj is IIgniteTuple)
+        if (obj is IIgniteTuple tuple)
         {
-            // TODO: IGNITE-23033 .NET: Thin 3.0: Support tuples with schemas in Compute
             w.Write(Tuple);
-            throw new NotImplementedException("IGNITE-23033");
+            TupleWithSchemaMarshalling.Pack(ref w, tuple);
+            return;
         }
 
         w.Write(Native);
