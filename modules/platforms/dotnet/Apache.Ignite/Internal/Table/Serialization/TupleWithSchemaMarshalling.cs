@@ -17,7 +17,9 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization;
 
+using Ignite.Sql;
 using Ignite.Table;
+using Proto.BinaryTuple;
 using Proto.MsgPack;
 
 /// <summary>
@@ -25,12 +27,34 @@ using Proto.MsgPack;
 /// </summary>
 internal static class TupleWithSchemaMarshalling
 {
+    private const int TypeIdTuple = -1;
+
     /// <summary>
     /// Packs tuple with schema.
     /// </summary>
     /// <param name="w">Packer.</param>
     /// <param name="tuple">Tuple.</param>
-    internal static void Pack(ref MsgPackWriter w, IIgniteTuple tuple)
+    public static void Pack(ref MsgPackWriter w, IIgniteTuple tuple)
     {
+        int size = tuple.FieldCount;
+
+        using var schemaBuilder = new BinaryTupleBuilder(size * 2);
+        using var valueBuilder = new BinaryTupleBuilder(size);
+
+        for (int i = 0; i < size; i++)
+        {
+            var fieldName = tuple.GetName(i);
+            var fieldValue = tuple[i];
+
+            schemaBuilder.AppendString(fieldName);
+        }
+    }
+
+    private static int GetColumnTypeId(object? val)
+    {
+        if (val is IIgniteTuple)
+        {
+            return TypeIdTuple;
+        }
     }
 }
