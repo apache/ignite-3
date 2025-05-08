@@ -138,6 +138,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRe
 import org.apache.ignite.internal.eventlog.api.EventLog;
 import org.apache.ignite.internal.eventlog.config.schema.EventLogExtensionConfiguration;
 import org.apache.ignite.internal.eventlog.impl.EventLogImpl;
+import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorExtensionConfiguration;
@@ -1532,6 +1533,8 @@ public class IgniteImpl implements Ignite {
                 }, joinExecutor)
                 .thenComposeAsync(v -> {
                     LOG.info("Components started, performing recovery");
+
+                    failureManager.process(new FailureContext(new Exception("Provoking")));
 
                     LOG.info("Cluster configuration: {}", convertToHoconString(clusterCfgMgr.configurationRegistry()));
 
