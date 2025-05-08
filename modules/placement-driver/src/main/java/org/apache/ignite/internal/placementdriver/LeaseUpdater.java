@@ -578,7 +578,7 @@ public class LeaseUpdater {
                 if (clockService.before(lease.getExpirationTime(), currentTime)
                         && !groupsAmongCurrentStableAndPendingAssignments.contains(groupId)) {
                     iter.remove();
-                    leaseNegotiator.cancelAgreement(lease.replicationGroupId());
+                    leaseNegotiator.cancelAgreement(groupId);
                 } else if (prolongableLeaseGroupIds.contains(groupId)) {
                     entry.setValue(prolongLease(lease, newExpirationTimestamp));
                 }
