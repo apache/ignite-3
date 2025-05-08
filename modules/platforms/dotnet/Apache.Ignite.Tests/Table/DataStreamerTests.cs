@@ -881,6 +881,13 @@ public class DataStreamerTests : IgniteTestsBase
         Assert.Less(streamedData.Count(x => x.HasValue), Count / 2);
     }
 
+    [Test]
+    public async Task TestReceiverWithNestedTuples()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count, TimeSpan? delay = null)
     {
         for (var i = 0; i < count; i++)
