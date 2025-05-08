@@ -349,7 +349,7 @@ internal readonly ref struct MsgPackWriter
     public Span<byte> WriteBinaryHeaderAndGetSpan(int length)
     {
         WriteBinaryHeader(length);
-        return Buf.GetSpan(length);
+        return Buf.GetSpanAndAdvance(length);
     }
 
     /// <summary>
