@@ -64,12 +64,14 @@ internal static class TupleWithSchemaMarshalling
         var valueMem = valueBuilder.Build();
 
         // Size: int32 (tuple size), int32 (value offset), schema, value.
-        var totalSize = 4 + 4 + schemaMem.Length + valueMem.Length;
+        var schemaOffset = 8;
+        var valueOffset = schemaOffset + schemaMem.Length;
+        var totalSize = valueOffset + valueMem.Length;
         var targetSpan = w.WriteBinaryHeaderAndGetSpan(totalSize);
 
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan, size);
-        BinaryPrimitives.WriteInt32LittleEndian(targetSpan[4..], schemaMem.Length);
-        schemaMem.Span.CopyTo(targetSpan[8..]);
-        valueMem.Span.CopyTo(targetSpan[(8 + schemaMem.Length)..]);
+        BinaryPrimitives.WriteInt32LittleEndian(targetSpan[4..], valueOffset);
+        schemaMem.Span.CopyTo(targetSpan[schemaOffset..]);
+        valueMem.Span.CopyTo(targetSpan[valueOffset..]);
     }
 }
