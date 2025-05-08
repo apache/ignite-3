@@ -140,12 +140,39 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("10000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
                 dateTime("10000000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
 
-                dateTime("20-01-01", "RR-MM-dd", LocalDate.of(2020, 1, 1), null),
-                dateTime("2000-01-01", "RRRR-MM-dd", LocalDate.of(2000, 1, 1), null),
-                dateTime("20-01-01", "RRRR-MM-dd", LocalDate.of(20, 1, 1), null)
-
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25319 parse accepts incorrect year, month, day fields.
                 /*
+                TODO https://issues.apache.org/jira/browse/IGNITE-25339 Incorrect parsing of RR/RRRR
+
+                dateTime("01-01-01", "RR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("49-01-01", "RR-MM-dd", LocalDate.of(2049, 1, 1), null),
+                */
+                dateTime("51-01-01", "RR-MM-dd", LocalDate.of(1951, 1, 1), null),
+
+                /*
+                TODO https://issues.apache.org/jira/browse/IGNITE-25339 Incorrect parsing of RR/RRRR
+
+                dateTime("01-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("49-01-01", "RRRR-MM-dd", LocalDate.of(2049, 1, 1), null),
+                dateTime("51-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
+                */
+                dateTime("2001-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("2049-01-01", "RRRR-MM-dd", LocalDate.of(2049, 1, 1), null),
+                dateTime("2051-01-01", "RRRR-MM-dd", LocalDate.of(2051, 1, 1), null),
+                dateTime("1951-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
+
+                /*
+                TODO https://issues.apache.org/jira/browse/IGNITE-25339 Incorrect parsing of RR/RRRR
+
+                dateTime("001-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("1-01-01", "RRRR-MM-dd", LocalDate.of(2001, 1, 1), null),
+                dateTime("51-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null),
+                dateTime("051-01-01", "RRRR-MM-dd", LocalDate.of(1951, 1, 1), null)
+                */
+                dateTime("151-01-01", "RRRR-MM-dd", LocalDate.of(151, 1, 1), null)
+
+                /*
+                TODO https://issues.apache.org/jira/browse/IGNITE-25319 parse accepts incorrect year, month, day fields.
+
                 dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
                 dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
                 dateTime("2000-5-07", "yyyyy-M-dd", null, "Invalid format"),
@@ -166,7 +193,7 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("0-0-0", "yyyy-MM-dd", null, "DATE out of range"),
                 dateTime("0000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
                 dateTime("-01-01-01", "yyyy-MM-dd", null, "DATE out of range")
-                 */
+                */
         );
     }
 
@@ -287,10 +314,11 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("22:02:03", "hh:mm:ss.ff10", null, "Invalid format"),
 
                 dateTime("23:02:03.123", "hh24:mi:ss", null, "Invalid format")
-                /* TODO https://issues.apache.org/jira/browse/IGNITE-25315 Max length of a fractional part is ignored
+                /*
+                TODO https://issues.apache.org/jira/browse/IGNITE-25315 Max length of a fractional part is ignored
                 dateTime("23:02:03.12", "hh24:mi:ss.ff3", null, "Invalid format"),
                 dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Invalid format")
-                 */
+                */
         );
     }
 
