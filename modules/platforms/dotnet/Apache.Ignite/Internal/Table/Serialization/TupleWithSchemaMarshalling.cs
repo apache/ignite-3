@@ -17,12 +17,12 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization;
 
+using System;
 using System.Buffers;
 using System.Buffers.Binary;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
-using Proto.MsgPack;
 
 /// <summary>
 /// Tuple with schema marshalling - see also o.a.i.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling.
@@ -80,12 +80,10 @@ internal static class TupleWithSchemaMarshalling
     /// <summary>
     /// Unpacks tuple with schema.
     /// </summary>
-    /// <param name="r">Reader.</param>
+    /// <param name="span">Bytes.</param>
     /// <returns>Tuple.</returns>
-    public static IgniteTuple Unpack(ref MsgPackReader r)
+    public static IgniteTuple Unpack(ReadOnlySpan<byte> span)
     {
-        var span = r.ReadBinary();
-
         var elementCount = BinaryPrimitives.ReadInt32LittleEndian(span);
         var valueOffset = BinaryPrimitives.ReadInt32LittleEndian(span[4..]);
 
@@ -104,9 +102,7 @@ internal static class TupleWithSchemaMarshalling
 
             if (fieldTypeId == TypeIdTuple)
             {
-                var nestedTupleBytes = valueReader.GetBytesSpan(i);
-                var nestedTupleReader = new MsgPackReader(nestedTupleBytes);
-                res[fieldName] = Unpack(ref nestedTupleReader);
+                res[fieldName] = Unpack(valueReader.GetBytesSpan(i));
             }
             else
             {
