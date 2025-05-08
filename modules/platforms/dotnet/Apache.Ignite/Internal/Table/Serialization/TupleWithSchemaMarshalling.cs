@@ -17,8 +17,8 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization;
 
+using System.Buffers;
 using System.Buffers.Binary;
-using Buffers;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
@@ -36,7 +36,7 @@ internal static class TupleWithSchemaMarshalling
     /// </summary>
     /// <param name="w">Packer.</param>
     /// <param name="tuple">Tuple.</param>
-    public static void Pack(ref MsgPackWriter w, IIgniteTuple tuple)
+    public static void Pack(IBufferWriter<byte> w, IIgniteTuple tuple)
     {
         int elementCount = tuple.FieldCount;
 
@@ -52,11 +52,7 @@ internal static class TupleWithSchemaMarshalling
 
             if (fieldValue is IIgniteTuple nestedTuple)
             {
-                using var nestedTupleBuf = new PooledArrayBuffer();
-                var nestedTupleWriter = nestedTupleBuf.MessageWriter;
-                Pack(ref nestedTupleWriter, nestedTuple);
-
-                valueBuilder.AppendBytes(nestedTupleBuf.GetWrittenMemory().Span);
+                valueBuilder.AppendBytes(static (bufWriter, arg) => Pack(bufWriter, arg), nestedTuple);
                 schemaBuilder.AppendInt(TypeIdTuple);
             }
             else
@@ -73,7 +69,7 @@ internal static class TupleWithSchemaMarshalling
         var schemaOffset = 8;
         var valueOffset = schemaOffset + schemaMem.Length;
         var totalSize = valueOffset + valueMem.Length;
-        var targetSpan = w.WriteBinaryHeaderAndGetSpan(totalSize);
+        var targetSpan = w.GetSpan(totalSize);
 
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan, elementCount);
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan[4..], valueOffset);

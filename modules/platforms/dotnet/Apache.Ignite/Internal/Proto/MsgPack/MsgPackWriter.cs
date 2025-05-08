@@ -342,17 +342,6 @@ internal readonly ref struct MsgPackWriter
     }
 
     /// <summary>
-    /// Writes a binary header and returns a span to write binary data.
-    /// </summary>
-    /// <param name="length">Payload length.</param>
-    /// <returns>Span to write to.</returns>
-    public Span<byte> WriteBinaryHeaderAndGetSpan(int length)
-    {
-        WriteBinaryHeader(length);
-        return Buf.GetSpanAndAdvance(length);
-    }
-
-    /// <summary>
     /// Appends bytes using <see cref="IBufferWriter{T}"/> directly to the underlying buffer, avoiding extra copying.
     /// </summary>
     /// <param name="action">Appender action.</param>

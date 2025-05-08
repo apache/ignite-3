@@ -72,7 +72,7 @@ internal static class ComputePacker
         if (obj is IIgniteTuple tuple)
         {
             w.Write(Tuple);
-            TupleWithSchemaMarshalling.Pack(ref w, tuple);
+            w.Write(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tuple);
             return;
         }
 
