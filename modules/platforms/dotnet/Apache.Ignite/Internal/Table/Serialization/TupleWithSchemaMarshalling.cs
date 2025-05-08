@@ -47,14 +47,20 @@ internal static class TupleWithSchemaMarshalling
             var fieldValue = tuple[i];
 
             schemaBuilder.AppendString(fieldName);
+
+            if (fieldValue is IIgniteTuple nestedTuple)
+            {
+                schemaBuilder.AppendInt(TypeIdTuple);
+
+                // TODO: Nested tuple.
+                valueBuilder.AppendBinaryTuple(nestedTuple);
+            }
+            else
+            {
+                var typeId = valueBuilder.AppendObjectAndGetType(fieldValue);
+                schemaBuilder.AppendInt((int)typeId);
+            }
         }
     }
 
-    private static int GetColumnTypeId(object? val)
-    {
-        if (val is IIgniteTuple)
-        {
-            return TypeIdTuple;
-        }
-    }
 }
