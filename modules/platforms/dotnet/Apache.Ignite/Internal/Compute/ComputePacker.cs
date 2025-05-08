@@ -100,7 +100,7 @@ internal static class ComputePacker
         // TODO IGNITE-25337 Automatic POCO serialization.
         return type switch
         {
-            Tuple => (T)(object)TupleWithSchemaMarshalling.Unpack(ref r),
+            Tuple => (T)(object)TupleWithSchemaMarshalling.Unpack(r.ReadBinary()),
             MarshallerObject => Unmarshal(ref r, marshaller),
             _ => (T)r.ReadObjectFromBinaryTuple()!
         };
