@@ -157,7 +157,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
     void testLocalPartitionStateTable() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -236,7 +235,6 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
     void testGlobalPartitionStateTable() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());

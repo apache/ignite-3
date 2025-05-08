@@ -35,15 +35,23 @@ import org.apache.ignite.internal.systemview.api.SystemViews;
 
 /** Helper class for disaster recovery system views. */
 class DisasterRecoverySystemViews {
-    private static final Comparator<GlobalTablePartitionState> GLOBAL_PARTITION_STATE_COMPARATOR =
+    private static final Comparator<GlobalTablePartitionState> GLOBAL_TABLE_PARTITION_STATE_COMPARATOR =
             comparing((GlobalTablePartitionState state) -> state.tableName).thenComparingInt(state -> state.partitionId);
 
-    private static final Comparator<SystemViewLocalPartitionState> SYSTEM_VIEW_LOCAL_PARTITION_STATE_COMPARATOR =
-            comparing((SystemViewLocalPartitionState state) -> state.state.tableName)
+    private static final Comparator<SystemViewLocalTablePartitionState> SYSTEM_VIEW_LOCAL_PARTITION_STATE_COMPARATOR =
+            comparing((SystemViewLocalTablePartitionState state) -> state.state.tableName)
                     .thenComparingInt(state -> state.state.partitionId)
                     .thenComparing(state -> state.nodeName);
 
-    static SystemView<?> createGlobalPartitionStatesSystemView(DisasterRecoveryManager manager) {
+    private static final Comparator<GlobalPartitionState> GLOBAL_ZONE_PARTITION_STATE_COMPARATOR =
+            comparing((GlobalPartitionState state) -> state.zoneName).thenComparingInt(state -> state.partitionId);
+
+    private static final Comparator<SystemViewLocalZonePartitionState> SYSTEM_VIEW_LOCAL_ZONE_PARTITION_STATE_COMPARATOR =
+            comparing((SystemViewLocalZonePartitionState state) -> state.state.zoneName)
+                    .thenComparingInt(state -> state.state.partitionId)
+                    .thenComparing(state -> state.nodeName);
+
+    static SystemView<?> createGlobalTablePartitionStatesSystemView(DisasterRecoveryManager manager) {
         return SystemViews.<GlobalTablePartitionState>clusterViewBuilder()
                 .name("GLOBAL_PARTITION_STATES")
                 .addColumn("ZONE_NAME", STRING, state -> state.zoneName)
@@ -58,12 +66,12 @@ class DisasterRecoverySystemViews {
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("STATE", STRING, state -> state.state.name())
                 // End of legacy columns list. New columns must be added below this line.
-                .dataProvider(systemViewPublisher(() -> globalPartitionStatesAsync(manager)))
+                .dataProvider(systemViewPublisher(() -> globalTablePartitionStatesAsync(manager)))
                 .build();
     }
 
-    static SystemView<?> createLocalPartitionStatesSystemView(DisasterRecoveryManager manager) {
-        return SystemViews.<SystemViewLocalPartitionState>clusterViewBuilder()
+    static SystemView<?> createLocalTablePartitionStatesSystemView(DisasterRecoveryManager manager) {
+        return SystemViews.<SystemViewLocalTablePartitionState>clusterViewBuilder()
                 .name("LOCAL_PARTITION_STATES")
                 .addColumn("NODE_NAME", STRING, state -> state.nodeName)
                 .addColumn("ZONE_NAME", STRING, state -> state.state.zoneName)
@@ -79,7 +87,31 @@ class DisasterRecoverySystemViews {
                 //  They are kept for compatibility with 3.0 version, to allow columns being found by their old names.
                 .addColumn("STATE", STRING, state -> state.state.state.name())
                 // End of legacy columns list. New columns must be added below this line.
-                .dataProvider(systemViewPublisher(() -> localPartitionStatesAsync(manager)))
+                .dataProvider(systemViewPublisher(() -> localTablePartitionStatesAsync(manager)))
+                .build();
+    }
+
+    static SystemView<?> createGlobalZonePartitionStatesSystemView(DisasterRecoveryManager manager) {
+        return SystemViews.<GlobalPartitionState>clusterViewBuilder()
+                .name("GLOBAL_ZONE_PARTITION_STATES")
+                .addColumn("ZONE_NAME", STRING, state -> state.zoneName)
+                .addColumn("PARTITION_ID", INT32, state -> state.partitionId)
+                .addColumn("PARTITION_STATE", STRING, state -> state.state.name())
+                .addColumn("ZONE_ID", INT32, state -> state.zoneId)
+                .dataProvider(systemViewPublisher(() -> globalZonePartitionStatesAsync(manager)))
+                .build();
+    }
+
+    static SystemView<?> createLocalZonePartitionStatesSystemView(DisasterRecoveryManager manager) {
+        return SystemViews.<SystemViewLocalZonePartitionState>clusterViewBuilder()
+                .name("LOCAL_ZONE_PARTITION_STATES")
+                .addColumn("NODE_NAME", STRING, state -> state.nodeName)
+                .addColumn("ZONE_NAME", STRING, state -> state.state.zoneName)
+                .addColumn("PARTITION_ID", INT32, state -> state.state.partitionId)
+                .addColumn("PARTITION_STATE", STRING, state -> state.state.state.name())
+                .addColumn("ESTIMATED_ROWS", INT64, state -> state.state.estimatedRows)
+                .addColumn("ZONE_ID", INT32, state -> state.state.zoneId)
+                .dataProvider(systemViewPublisher(() -> localZonePartitionStatesAsync(manager)))
                 .build();
     }
 
@@ -91,28 +123,59 @@ class DisasterRecoverySystemViews {
         };
     }
 
-    private static CompletableFuture<Iterator<GlobalTablePartitionState>> globalPartitionStatesAsync(DisasterRecoveryManager manager) {
+    private static CompletableFuture<Iterator<GlobalTablePartitionState>> globalTablePartitionStatesAsync(DisasterRecoveryManager manager) {
         return manager.globalTablePartitionStates(Set.of(), Set.of()).thenApply(states -> states.values().stream()
-                .sorted(GLOBAL_PARTITION_STATE_COMPARATOR)
+                .sorted(GLOBAL_TABLE_PARTITION_STATE_COMPARATOR)
                 .iterator()
         );
     }
 
-    private static CompletableFuture<Iterator<SystemViewLocalPartitionState>> localPartitionStatesAsync(DisasterRecoveryManager manager) {
+    private static CompletableFuture<Iterator<SystemViewLocalTablePartitionState>> localTablePartitionStatesAsync(
+            DisasterRecoveryManager manager
+    ) {
         return manager.localTablePartitionStates(Set.of(), Set.of(), Set.of()).thenApply(states -> states.values().stream()
                 .flatMap(statesByNodeName -> statesByNodeName.entrySet().stream())
-                .map(nodeStates -> new SystemViewLocalPartitionState(nodeStates.getKey(), nodeStates.getValue()))
+                .map(nodeStates -> new SystemViewLocalTablePartitionState(nodeStates.getKey(), nodeStates.getValue()))
                 .sorted(SYSTEM_VIEW_LOCAL_PARTITION_STATE_COMPARATOR)
                 .iterator()
         );
     }
 
-    private static class SystemViewLocalPartitionState {
+    private static CompletableFuture<Iterator<GlobalPartitionState>> globalZonePartitionStatesAsync(DisasterRecoveryManager manager) {
+        return manager.globalPartitionStates(Set.of(), Set.of()).thenApply(states -> states.values().stream()
+                .sorted(GLOBAL_ZONE_PARTITION_STATE_COMPARATOR)
+                .iterator()
+        );
+    }
+
+    private static CompletableFuture<Iterator<SystemViewLocalZonePartitionState>> localZonePartitionStatesAsync(
+            DisasterRecoveryManager manager
+    ) {
+        return manager.localPartitionStates(Set.of(), Set.of(), Set.of()).thenApply(states -> states.values().stream()
+                .flatMap(statesByNodeName -> statesByNodeName.entrySet().stream())
+                .map(nodeStates -> new SystemViewLocalZonePartitionState(nodeStates.getKey(), nodeStates.getValue()))
+                .sorted(SYSTEM_VIEW_LOCAL_ZONE_PARTITION_STATE_COMPARATOR)
+                .iterator()
+        );
+    }
+
+    private static class SystemViewLocalTablePartitionState {
         private final String nodeName;
 
         private final LocalTablePartitionState state;
 
-        private SystemViewLocalPartitionState(String nodeName, LocalTablePartitionState state) {
+        private SystemViewLocalTablePartitionState(String nodeName, LocalTablePartitionState state) {
+            this.nodeName = nodeName;
+            this.state = state;
+        }
+    }
+
+    private static class SystemViewLocalZonePartitionState {
+        private final String nodeName;
+
+        private final LocalPartitionState state;
+
+        private SystemViewLocalZonePartitionState(String nodeName, LocalPartitionState state) {
             this.nodeName = nodeName;
             this.state = state;
         }
