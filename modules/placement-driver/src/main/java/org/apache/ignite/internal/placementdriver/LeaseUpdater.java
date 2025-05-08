@@ -199,6 +199,8 @@ public class LeaseUpdater {
                 return;
             }
 
+            LOG.info("Placement driver active actor is starting.");
+
             leaseNegotiator = new LeaseNegotiator(clusterService);
 
             updaterThread = new IgniteThread(nodeName, "lease-updater", updater);
@@ -221,6 +223,8 @@ public class LeaseUpdater {
             if (!active.compareAndSet(true, false)) {
                 return;
             }
+
+            LOG.info("Placement driver active actor is stopping.");
 
             leaseNegotiator = null;
 
@@ -574,6 +578,7 @@ public class LeaseUpdater {
                 if (clockService.before(lease.getExpirationTime(), currentTime)
                         && !groupsAmongCurrentStableAndPendingAssignments.contains(groupId)) {
                     iter.remove();
+                    leaseNegotiator.cancelAgreement(groupId);
                 } else if (prolongableLeaseGroupIds.contains(groupId)) {
                     entry.setValue(prolongLease(lease, newExpirationTimestamp));
                 }
