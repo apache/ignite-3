@@ -17,7 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization;
 
-using Ignite.Sql;
+using System.Buffers.Binary;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
@@ -51,9 +51,7 @@ internal static class TupleWithSchemaMarshalling
             if (fieldValue is IIgniteTuple nestedTuple)
             {
                 schemaBuilder.AppendInt(TypeIdTuple);
-
-                // TODO: Nested tuple.
-                valueBuilder.AppendBinaryTuple(nestedTuple);
+                Pack(ref w, nestedTuple);
             }
             else
             {
@@ -61,6 +59,17 @@ internal static class TupleWithSchemaMarshalling
                 schemaBuilder.AppendInt((int)typeId);
             }
         }
-    }
 
+        var schemaMem = schemaBuilder.Build();
+        var valueMem = valueBuilder.Build();
+
+        // Size: int32 (tuple size), int32 (value offset), schema, value.
+        var totalSize = 4 + 4 + schemaMem.Length + valueMem.Length;
+        var targetSpan = w.WriteBinaryHeaderAndGetSpan(totalSize);
+
+        BinaryPrimitives.WriteInt32LittleEndian(targetSpan, size);
+        BinaryPrimitives.WriteInt32LittleEndian(targetSpan[4..], schemaMem.Length);
+        schemaMem.Span.CopyTo(targetSpan[8..]);
+        valueMem.Span.CopyTo(targetSpan[(8 + schemaMem.Length)..]);
+    }
 }

@@ -23,8 +23,6 @@ using System.Buffers.Binary;
 using System.Collections.Generic;
 using BinaryTuple;
 using Buffers;
-using Ignite.Sql;
-using Marshalling;
 
 /// <summary>
 /// MsgPack writer. Wraps <see cref="PooledArrayBuffer"/>. Writer index is kept by the buffer, so this struct is readonly.
@@ -341,6 +339,17 @@ internal readonly ref struct MsgPackWriter
     {
         WriteBinaryHeader(span.Length);
         span.CopyTo(Buf.GetSpanAndAdvance(span.Length));
+    }
+
+    /// <summary>
+    /// Writes a binary header and returns a span to write binary data.
+    /// </summary>
+    /// <param name="length">Payload length.</param>
+    /// <returns>Span to write to.</returns>
+    public Span<byte> WriteBinaryHeaderAndGetSpan(int length)
+    {
+        WriteBinaryHeader(length);
+        return Buf.GetSpan(length);
     }
 
     /// <summary>
