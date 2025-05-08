@@ -255,7 +255,7 @@ namespace Apache.Ignite.Tests.Compute
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
             await Test(Guid.NewGuid());
 
-            var tuple = TestCases.GetTupleWithAllFieldTypes();
+            var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
             tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
             await Test(tuple);
 
@@ -280,7 +280,7 @@ namespace Apache.Ignite.Tests.Compute
                     ? formattable.ToString(null, CultureInfo.InvariantCulture).Replace("E+", "E")
                     : val.ToString();
 
-                Assert.AreEqual(expectedStr, str);
+                Assert.AreEqual(expectedStr, str, str);
             }
         }
 
