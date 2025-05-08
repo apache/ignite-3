@@ -28,6 +28,7 @@ import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
+import static java.util.stream.Collectors.toUnmodifiableSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
@@ -90,6 +91,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -427,8 +429,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private StreamerReceiverRunner streamerReceiverRunner;
 
     private final CompletableFuture<Void> readyToProcessReplicaStarts = new CompletableFuture<>();
-
-    private final Map<Integer, Set<TableImpl>> tablesPerZone = new ConcurrentHashMap<>();
 
     /** Configuration of rebalance retries delay. */
     private final SystemDistributedConfigurationPropertyHolder<Integer> rebalanceRetryDelayConfiguration;
@@ -868,8 +868,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-19913 Possible performance degradation.
         return createPartsFut.thenAccept(ignore -> {
             startedTables.put(tableId, table);
-
-            addTableToZone(zoneDescriptor.id(), table);
         });
     }
 
@@ -3185,20 +3183,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     }
 
     private Set<TableImpl> zoneTablesRawSet(int zoneId) {
-        return tablesPerZone.getOrDefault(zoneId, Set.of());
-    }
-
-    private void addTableToZone(int zoneId, TableImpl table) {
-        tablesPerZone.compute(zoneId, (id, tbls) -> {
-            if (tbls == null) {
-                // Using a concurrent set as a value as it can be read (and iterated over) without any synchronization by external callers.
-                tbls = ConcurrentHashMap.newKeySet();
-            }
-
-            tbls.add(table);
-
-            return tbls;
-        });
+        return startedTables.values().stream().filter(table -> table.zoneId() == zoneId).collect(toUnmodifiableSet());
     }
 
     private static class TableClosedException extends IgniteInternalException {
