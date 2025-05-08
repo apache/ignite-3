@@ -580,12 +580,24 @@ public class TxStateRocksDbPartitionStorage implements TxStatePartitionStorage {
     }
 
     @Override
-    public void snapshotInfo(byte[] snapshotInfo, long index, long term) {
-        updateData(writeBatch -> {
-            metaStorage.updateSnapshotInfo(writeBatch, snapshotInfo);
+    public void snapshotInfo(byte[] snapshotInfo) {
+        busy(() -> {
+            throwExceptionIfStorageInProgressOfRebalance();
+
+            try (WriteBatch writeBatch = new WriteBatch()) {
+                metaStorage.updateSnapshotInfo(writeBatch, snapshotInfo);
+
+                sharedStorage.db().write(sharedStorage.writeOptions, writeBatch);
+            } catch (RocksDBException e) {
+                throw new TxStateStorageException(
+                        TX_STATE_STORAGE_ERR,
+                        format("Failed to update data in the storage: [{}]", createStorageInfo()),
+                        e
+                );
+            }
 
             return null;
-        }, index, term);
+        });
     }
 
     @Override
