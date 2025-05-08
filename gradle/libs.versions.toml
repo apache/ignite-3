@@ -89,7 +89,7 @@ tree-sitter-hocon = "master-a"
 otel = "1.49.0"
 spring-boot = "3.4.5"
 spring-data = "3.4.5"
-testcontainers = "1.19.0"
+testcontainers = "1.21.0"
 
 #Tools
 pmdTool = "6.55.0"
