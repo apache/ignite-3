@@ -247,7 +247,7 @@ public class PlatformComputeTests : IgniteTestsBase
             ["int"] = 1,
             ["string"] = "Hello",
             ["bool"] = true,
-            ["decimal"] = 123.456m,
+            ["decimal"] = new BigDecimal(123.456m),
             ["date"] = LocalDate.FromDateTime(DateTime.Now),
             ["time"] = LocalTime.Midnight,
             ["guid"] = Guid.NewGuid()
