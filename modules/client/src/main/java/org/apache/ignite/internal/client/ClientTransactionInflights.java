@@ -28,6 +28,7 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
+ * Client transaction inflights tracker.
  */
 public class ClientTransactionInflights {
     /** Hint for maximum concurrent txns. */
@@ -84,6 +85,12 @@ public class ClientTransactionInflights {
         }
     }
 
+    /**
+     * Get finish future.
+     *
+     * @param txId Transaction id.
+     * @return The future.
+     */
     public CompletableFuture<Void> finishFuture(UUID txId) {
         // No new operations can be enlisted an this point, so concurrent inflights counter can only go down.
         TxContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
@@ -106,6 +113,9 @@ public class ClientTransactionInflights {
         return ctx0.finishFut;
     }
 
+    /**
+     * Transaction inflights context.
+     */
     public static class TxContext {
         public CompletableFuture<Void> finishFut;
         public long inflights = 0;

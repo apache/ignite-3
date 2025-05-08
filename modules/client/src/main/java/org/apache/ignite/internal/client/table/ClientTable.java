@@ -22,6 +22,7 @@ import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
+import static org.apache.ignite.internal.client.tx.ClientLazyTransaction.ensureStarted;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -39,6 +40,7 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.client.RetryPolicy;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
@@ -53,7 +55,6 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
 import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
-import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -486,10 +487,12 @@ public class ClientTable implements Table {
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
 
-                    return ClientLazyTransaction.ensureStarted(tx, ch,
-                            () -> getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true)).thenCompose(tx0 -> {
-                        @Nullable PartitionMapping forOp = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema,
-                                tx0 == null); // Force coordinator mode for implicit transactions.
+                    Supplier<PartitionMapping> sup =
+                            () -> getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true);
+                    return ensureStarted(tx, ch, sup).thenCompose(tx0 -> {
+                        // Force coordinator mode for implicit transactions.
+                        @Nullable PartitionMapping forOp =
+                                getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, tx0 == null);
 
                         WriteContext ctx = new WriteContext();
                         // Force proxy mode for requests collocated with coordinator to reduce passed enlistment info on commit.

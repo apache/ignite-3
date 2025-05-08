@@ -19,12 +19,9 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET;
 
-import java.util.function.Consumer;
 import org.apache.ignite.internal.network.annotations.Transferable;
-import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
 import org.apache.ignite.internal.replicator.message.TableAware;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Read-write single-row replica request.
