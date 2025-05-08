@@ -26,12 +26,15 @@ using Ignite.Compute;
 using Ignite.Marshalling;
 using Ignite.Table;
 using Network;
-using NodaTime;
 using NUnit.Framework;
 using TestHelpers;
 
 /// <summary>
 /// Tests for platform compute (non-Java jobs).
+/// <para />
+/// Development and debugging:
+/// - Changing test code, job code: no need to restart Ignite.
+/// - Changing core code: restart Ignite servers and do a full .NET solution rebuild to reflect the changes in .NET compute executor.
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
