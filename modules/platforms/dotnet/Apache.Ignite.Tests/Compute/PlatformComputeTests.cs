@@ -242,6 +242,7 @@ public class PlatformComputeTests : IgniteTestsBase
     public async Task TestTupleWithSchemaRoundTrip()
     {
         // TODO: All types.
+        // TODO: Nested tuples.
         var tuple = new IgniteTuple
         {
             ["int"] = 1,
