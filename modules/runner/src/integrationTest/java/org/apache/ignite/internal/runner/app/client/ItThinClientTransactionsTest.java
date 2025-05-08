@@ -482,6 +482,30 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return keys;
     }
 
+    private List<Tuple> retainSinglePartitionKeys(List<Tuple> list, int count) {
+        List<Tuple> keys = new ArrayList<>();
+
+        Partition part0 = null;
+
+        for (Tuple t : list) {
+            Partition part = table().partitionManager().partitionAsync(t).join();
+
+            if (part0 == null) {
+                part0 = part;
+            }
+
+            if (part.equals(part0)) {
+                keys.add(t);
+            }
+
+            if (keys.size() == count) {
+                break;
+            }
+        }
+
+        return keys;
+    }
+
     @Test
     void testAssignmentLoadedDuringTransaction() {
         // Wait for assignments.
@@ -621,7 +645,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
         List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(510, 10, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember());
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
@@ -633,24 +657,40 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         table.keyValueView().put(tx0, k, v);
 
         // All other operations are directly mapped.
-        Tuple k1 = tuples1.get(0);
-        Tuple v1 = val(tuples1.get(0).intValue(0) + "");
+        int val = 0;
+        Tuple k1 = tuples1.get(val);
+        Tuple v1 = val(tuples1.get(val).intValue(0) + "");
 
-        Tuple k2 = tuples1.get(1);
-        Tuple v2 = val(tuples1.get(1).intValue(0) + "");
+        val++;
+        Tuple k2 = tuples1.get(val);
+        Tuple v2 = val(tuples1.get(val).intValue(0) + "");
+
+        val++;
+        Tuple k3 = tuples1.get(val);
+        Tuple v3 = val(tuples1.get(val).intValue(0) + "");
 
         Map<Tuple, Tuple> batch0 = new HashMap<>();
-        batch0.put(tuples1.get(2), val(tuples1.get(2).intValue(0) + ""));
-        batch0.put(tuples1.get(3), val(tuples1.get(3).intValue(0) + ""));
+        val++;
+        batch0.put(tuples1.get(val), val(tuples1.get(val).intValue(0) + ""));
+        val++;
+        batch0.put(tuples1.get(val), val(tuples1.get(val).intValue(0) + ""));
 
-        table.keyValueView().put(tx0, k1, v1);
-        assertTrue(Tuple.equals(v1, table.keyValueView().get(tx0, k1)));
-        assertTrue(table.keyValueView().putIfAbsent(tx0, k2, v2));
+        table.keyValueView().put(tx0, k1, v1); // Write
+        assertTrue(Tuple.equals(v1, table.keyValueView().get(tx0, k1))); // Read
+        assertTrue(table.keyValueView().putIfAbsent(tx0, k2, v2)); // Write
+        assertFalse(table.keyValueView().putIfAbsent(tx0, k2, v2)); // No-op write.
+
+        table.keyValueView().putAll(tx0, batch0); // Write in proxy mode.
+        Map<Tuple, Tuple> readBack = table.keyValueView().getAll(tx0, batch0.keySet());
+        assertEquals(2, readBack.size());
+
+        assertTrue(Tuple.equals(v1, table.keyValueView().getAndPut(tx0, k1, v2))); // Write
+        assertTrue(Tuple.equals(v2, table.keyValueView().get(tx0, k1))); // Read
 
         tx0.commit();
 
-        Mockito.verify(spyed, Mockito.times(2)).addInflight(tx0.startedTx().txId());
-        Mockito.verify(spyed, Mockito.times(2)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
+        Mockito.verify(spyed, Mockito.times(4)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(4)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
         for (Entry<Tuple, Tuple> entry : data.entrySet()) {
             table.keyValueView().put(null, entry.getKey(), entry.getValue());

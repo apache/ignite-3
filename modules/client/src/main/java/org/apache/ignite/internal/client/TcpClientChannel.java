@@ -87,7 +87,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
             ProtocolBitmaskFeature.USER_ATTRIBUTES,
             ProtocolBitmaskFeature.TABLE_GET_REQS_USE_QUALIFIED_NAME,
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
-            ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB
+            ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
+            ProtocolBitmaskFeature.TX_DELAYED_ACKS
     ));
 
     /** Minimum supported heartbeat interval. */
@@ -519,6 +520,7 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
         CompletableFuture<PayloadInputChannel> handler = notificationHandlers.remove(id);
 
         if (handler == null) {
+            // Default notification handler. Used to deliver delayed replication acks.
             UUID txId = unpacker.unpackUuid();
             inflights.removeInflight(txId, err);
 

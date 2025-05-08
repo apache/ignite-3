@@ -397,7 +397,7 @@ public class ClientTableCommon {
 
             if (state == TxState.ABORTED) {
                 // No-op enlistment.
-                out.packString(null);
+                out.packNil();
             } else {
                 // Remote tx carries operation enlistment info.
                 PendingTxPartitionEnlistment token = tx.enlistedPartition(null);

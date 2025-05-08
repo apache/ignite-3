@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.util.BitSet;
+
 /**
  * Client operation codes.
  */
@@ -206,6 +208,25 @@ public class ClientOp {
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_END = 2000;
 
+    /** Write mask. */
+    private static final BitSet WRITE_MASK = new BitSet(64);
+
+    static {
+        WRITE_MASK.set(TUPLE_UPSERT);
+        WRITE_MASK.set(TUPLE_GET_AND_UPSERT);
+        WRITE_MASK.set(TUPLE_INSERT);
+        WRITE_MASK.set(TUPLE_REPLACE);
+        WRITE_MASK.set(TUPLE_REPLACE_EXACT);
+        WRITE_MASK.set(TUPLE_GET_AND_REPLACE);
+        WRITE_MASK.set(TUPLE_DELETE);
+        WRITE_MASK.set(TUPLE_DELETE_EXACT);
+        WRITE_MASK.set(TUPLE_GET_AND_DELETE);
+        WRITE_MASK.set(TUPLE_UPSERT_ALL);
+        WRITE_MASK.set(TUPLE_INSERT_ALL);
+        WRITE_MASK.set(TUPLE_DELETE_ALL);
+        WRITE_MASK.set(TUPLE_DELETE_ALL_EXACT);
+    }
+
     /**
      * Test if operation is write.
      *
@@ -213,19 +234,6 @@ public class ClientOp {
      * @return The status.
      */
     public static boolean isWrite(int opCode) {
-        return opCode == TABLES_GET
-                || opCode == TUPLE_UPSERT
-                || opCode == TUPLE_GET_AND_UPSERT
-                || opCode == TUPLE_INSERT
-                || opCode == TUPLE_REPLACE
-                || opCode == TUPLE_REPLACE_EXACT
-                || opCode == TUPLE_GET_AND_REPLACE
-                || opCode == TUPLE_DELETE
-                || opCode == TUPLE_DELETE_EXACT
-                || opCode == TUPLE_GET_AND_DELETE
-                || opCode == TUPLE_UPSERT_ALL
-                || opCode == TUPLE_INSERT_ALL
-                || opCode == TUPLE_DELETE_ALL
-                || opCode == TUPLE_DELETE_ALL_EXACT;
+        return WRITE_MASK.get(opCode);
     }
 }

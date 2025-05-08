@@ -67,8 +67,8 @@ public class ClientTransactionInflights {
 
             ctx.removeInflight(txId);
 
-            if (t != null) {
-                ctx.err = t; // addSuppressed ?
+            if (t != null && ctx.err == null) {
+                ctx.err = t; // Retain only first exception.
             }
 
             return ctx;
@@ -87,8 +87,8 @@ public class ClientTransactionInflights {
     public CompletableFuture<Void> finishFuture(UUID txId) {
         // No new operations can be enlisted an this point, so concurrent inflights counter can only go down.
         TxContext ctx0 = txCtxMap.compute(txId, (uuid, ctx) -> {
-            if (ctx == null) { // No operations were enlisted.
-                return null;
+            if (ctx == null) {
+                return null; // Empty transaction.
             }
 
             if (ctx.finishFut == null) {

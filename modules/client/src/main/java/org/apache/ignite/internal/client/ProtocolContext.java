@@ -65,7 +65,8 @@ public class ProtocolContext {
             long serverIdleTimeout,
             ClusterNode clusterNode,
             List<UUID> clusterIds,
-            String clusterName) {
+            String clusterName
+    ) {
         this.ver = ver;
         this.features = Collections.unmodifiableSet(features != null ? features : EnumSet.noneOf(ProtocolBitmaskFeature.class));
         this.serverIdleTimeout = serverIdleTimeout;

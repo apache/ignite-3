@@ -360,7 +360,6 @@ public class ClientTransaction implements Transaction {
 
             boolean[] first = {false};
 
-            // TODO FIXME remove new object.
             TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
 
             CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
@@ -377,7 +376,6 @@ public class ClientTransaction implements Transaction {
             // Re-check after unlock.
             checkEnlistPossible();
 
-            // TODO: get rid of this comparison.
             if (ClientOp.isWrite(opCode)) {
                 ch.inflights().addInflight(txId);
             }
