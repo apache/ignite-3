@@ -69,7 +69,9 @@ internal static class TupleWithSchemaMarshalling
         var schemaOffset = 8;
         var valueOffset = schemaOffset + schemaMem.Length;
         var totalSize = valueOffset + valueMem.Length;
+
         var targetSpan = w.GetSpan(totalSize);
+        w.Advance(totalSize);
 
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan, elementCount);
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan[4..], valueOffset);
