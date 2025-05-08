@@ -47,7 +47,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Platform compute executor (respond to server calls for job execution).
      */
-    PLATFORM_COMPUTE_EXECUTOR(4);
+    PLATFORM_COMPUTE_EXECUTOR(4),
+
+    /**
+     * Delayed ack optimization for directly mapped transactions.
+     */
+    TX_DELAYED_ACKS(5);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

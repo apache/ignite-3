@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -224,7 +225,7 @@ public class ClientTransaction implements Transaction {
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+            if (!isReadOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
                 w.out().packLong(tracker.get().longValue());
                 w.out().packInt(enlisted.size());
                 for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
@@ -270,7 +271,7 @@ public class ClientTransaction implements Transaction {
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+            if (!isReadOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
                 w.out().packInt(enlisted.size());
                 for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
                     w.out().packInt(entry.getKey().tableId());

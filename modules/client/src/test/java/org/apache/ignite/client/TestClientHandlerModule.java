@@ -214,6 +214,8 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         BitSet features = BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()});
         features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING.featureId());
+        features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
+        features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
 
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override

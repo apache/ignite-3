@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
@@ -859,15 +860,15 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics, igniteTables,
-                        clientContext.hasFeature(TX_DIRECT_MAPPING));
+                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService, igniteTables,
-                        clientContext.hasFeature(TX_DIRECT_MAPPING));
+                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources, metrics, igniteTables,
-                        clientContext.hasFeature(TX_DIRECT_MAPPING));
+                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, out, compute, clusterService, notificationSender(requestId),

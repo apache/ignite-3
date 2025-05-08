@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -496,7 +497,9 @@ public class ClientTable implements Table {
 
                         return ch.serviceAsync(opCode,
                                         (opCh) -> tx0 == null || tx0.isReadOnly() || ctx.pm == null
-                                                || !opCh.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
+                                                || !opCh.protocolContext()
+                                                .allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)
+                                                ? nullCompletedFuture()
                                                 : tx0.enlistFuture(ch, opCh, ctx, opCode),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
