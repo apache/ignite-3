@@ -20,6 +20,8 @@ package org.apache.ignite.internal.distributionzones;
 import java.util.Objects;
 import java.util.Set;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 
 /**
  * Class representing a single entry in the history of data nodes.
@@ -27,6 +29,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 public class DataNodesHistoryEntry {
     private final HybridTimestamp timestamp;
 
+    @IgniteToStringInclude
     private final Set<NodeWithAttributes> dataNodes;
 
     /**
@@ -73,5 +76,10 @@ public class DataNodesHistoryEntry {
     @Override
     public int hashCode() {
         return Objects.hash(timestamp, dataNodes);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(DataNodesHistoryEntry.class, this);
     }
 }

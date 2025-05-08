@@ -128,9 +128,8 @@ INSERT INTO timestamp_t VALUES TIMESTAMPADD(SECOND, -1, TIMESTAMP '0001-01-01 18
 statement error: Timestamp literal 'TIMESTAMP '0001-01-01 17:59:59.999999999'' out of range
 INSERT INTO timestamp_t VALUES (TIMESTAMP '0001-01-01 17:59:59.999999999')
 
-# TODO https://issues.apache.org/jira/browse/IGNITE-24934 The value '0001-01-01 17:59:59.999999999' must not be rounded up
 statement error: TIMESTAMP out of range
-INSERT INTO timestamp_t VALUES ('0001-01-01 17:59:59.999'::TIMESTAMP)
+INSERT INTO timestamp_t VALUES ('0001-01-01 17:59:59.999999999'::TIMESTAMP)
 
 statement error: Invalid default value for column 'TS'
 CREATE TABLE default_overflow(ts TIMESTAMP DEFAULT '0001-01-01 17:59:59.999999999');
@@ -155,4 +154,19 @@ statement error: Invalid default value for column 'TS'
 CREATE TABLE default_overflow(ts TIMESTAMP DEFAULT '9999-12-31 06:00:00');
 
 statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' + INTERVAL 2922000 DAYS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' - INTERVAL 730500 DAYS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' + INTERVAL 70128000 HOURS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (TIMESTAMP '2000-01-01 00:00:00' - INTERVAL 17532000 HOURS)
+
+statement error: TIMESTAMP out of range
 INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP + INTERVAL 7999 YEARS)
+
+statement error: TIMESTAMP out of range
+INSERT INTO timestamp_t VALUES (LOCALTIMESTAMP - INTERVAL 7999 YEARS)

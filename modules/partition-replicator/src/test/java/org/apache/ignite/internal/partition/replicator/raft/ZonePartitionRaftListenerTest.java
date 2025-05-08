@@ -27,6 +27,7 @@ import static org.hamcrest.Matchers.is;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -41,10 +42,14 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.ZonePartitionKey;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.OutgoingSnapshotsManager;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.PartitionSnapshots;
+import org.apache.ignite.internal.placementdriver.LeasePlacementDriver;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationSerializer;
 import org.apache.ignite.internal.raft.WriteCommand;
@@ -363,6 +368,13 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     }
 
     private PartitionListener partitionListener(int tableId) {
+        LeasePlacementDriver placementDriver = mock(LeasePlacementDriver.class);
+        lenient().when(placementDriver.getCurrentPrimaryReplica(any(), any())).thenReturn(null);
+
+        HybridClock clock = new HybridClockImpl();
+        ClockService clockService = mock(ClockService.class);
+        lenient().when(clockService.current()).thenReturn(clock.current());
+
         return new PartitionListener(
                 txManager,
                 new SnapshotAwarePartitionDataStorage(
@@ -380,7 +392,10 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(IndexMetaStorage.class),
                 UUID.randomUUID(),
                 mock(MinimumRequiredTimeCollectorService.class),
-                mock(Executor.class)
+                mock(Executor.class),
+                placementDriver,
+                clockService,
+                new ZonePartitionId(ZONE_ID, PARTITION_ID)
         );
     }
 

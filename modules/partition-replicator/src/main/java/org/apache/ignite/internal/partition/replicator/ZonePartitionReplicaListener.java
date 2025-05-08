@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.partition.replicator;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.CompletableFuture.failedFuture;
 
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +29,7 @@ import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -257,14 +259,14 @@ public class ZonePartitionReplicaListener implements ReplicaListener {
                     ReplicaTableProcessor replicaProcessor = replicaProcessors.get(tableId);
 
                     if (replicaProcessor == null) {
-                        // Most of the times this condition should be false. This logging message is added in case a request got stuck
+                        // Most of the times this condition should be false. This block handles a case when a request got stuck
                         // somewhere while being replicated and arrived on this node after the target table had been removed.
                         // In this case we ignore the command, which should be safe to do, because the underlying storage was destroyed
-                        // anyway.
-                        LOG.warn("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
+                        // anyway, but we still return an exception.
+                        LOG.debug("Replica processor for table ID {} not found. Command will be ignored: {}", tableId,
                                 request.toStringForLightLogging());
 
-                        return completedFuture(new ReplicaResult(null, null));
+                        return failedFuture(new ComponentStoppingException("Table is already destroyed [tableId=" + tableId + "]"));
                     }
 
                     return replicaProcessor.process(request, replicaPrimacy, senderId);

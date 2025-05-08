@@ -199,6 +199,9 @@ namespace Apache.Ignite
 
             /// <summary> HandshakeHeader error. </summary>
             public const int HandshakeHeader = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> ServerToClientRequest error. </summary>
+            public const int ServerToClientRequest = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Sql errors. </summary>
@@ -599,6 +602,9 @@ namespace Apache.Ignite
 
             /// <summary> ComputeJobCancelled error. </summary>
             public const int ComputeJobCancelled = (GroupCode << 16) | (14 & 0xFFFF);
+
+            /// <summary> ComputePlatformExecutor error. </summary>
+            public const int ComputePlatformExecutor = (GroupCode << 16) | (15 & 0xFFFF);
         }
 
         /// <summary> Catalog errors. </summary>

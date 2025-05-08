@@ -308,7 +308,7 @@ class ItMapReduceTest extends ClusterPerClassIntegrationTest {
             TaskState stateBeforeSplit,
             Matcher<Instant> finishTimeMatcher
     ) {
-        assertThat(taskExecution.stateAsync(), willBe(taskStateWithStatusAndCreateTimeStartTimeFinishTime(
+        await().until(taskExecution::stateAsync, willBe(taskStateWithStatusAndCreateTimeStartTimeFinishTime(
                 is(status),
                 is(stateBeforeSplit.createTime()),
                 is(stateBeforeSplit.startTime()),

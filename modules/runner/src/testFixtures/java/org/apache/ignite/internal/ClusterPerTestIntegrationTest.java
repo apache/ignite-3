@@ -25,6 +25,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -34,6 +36,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
@@ -41,6 +44,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 
 /**
  * Abstract integration test that starts and stops a cluster per test method.
@@ -128,7 +134,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
         cluster = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0) {
-            cluster.startAndInit(initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
+            cluster.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::customizeInitParameters);
         }
     }
 
@@ -156,7 +162,7 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
     }
 
     protected int[] cmgMetastoreNodes() {
-        return new int[] { 0 };
+        return new int[]{0};
     }
 
     protected void customizeInitParameters(InitParametersBuilder builder) {
@@ -280,5 +286,37 @@ public abstract class ClusterPerTestIntegrationTest extends BaseIgniteAbstractTe
 
     protected static ClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+    /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
+    @RegisterExtension
+    ClusterStateDumpingExtension testFailureHook = new ClusterStateDumpingExtension();
+
+    private static class ClusterStateDumpingExtension implements TestExecutionExceptionHandler {
+        @Override
+        public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
+            if (DumpThreadsOnTimeout.isJunitMethodTimeout(throwable)) {
+                Optional<Object> testInstance = context.getTestInstance().filter(ClusterPerTestIntegrationTest.class::isInstance);
+
+                assert testInstance.isPresent();
+
+                try {
+                    dumpClusterState((ClusterPerTestIntegrationTest) testInstance.get());
+                } catch (Throwable suppressed) {
+                    // Add to suppressed if smth goes wrong.
+                    throwable.addSuppressed(suppressed);
+                }
+            }
+
+            // Re-throw original exception to fail the test.
+            throw throwable;
+        }
+
+        private static void dumpClusterState(ClusterPerTestIntegrationTest testInstance) throws Throwable {
+            List<Ignite> nodes = testInstance.runningNodes().collect(Collectors.toList());
+            for (Ignite node : nodes) {
+                unwrapIgniteImpl(node).dumpClusterState();
+            }
+        }
     }
 }

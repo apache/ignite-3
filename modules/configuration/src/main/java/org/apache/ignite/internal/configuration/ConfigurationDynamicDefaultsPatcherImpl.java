@@ -23,6 +23,7 @@ import com.typesafe.config.ConfigRenderOptions;
 import java.util.List;
 import org.apache.ignite.configuration.ConfigurationDynamicDefaultsPatcher;
 import org.apache.ignite.configuration.ConfigurationModule;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.hocon.HoconConverter;
@@ -62,6 +63,7 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
 
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(true)
+                .includeDeprecated(true)
                 .maskSecretValues(false)
                 .skipEmptyValues(true)
                 .build();
@@ -75,7 +77,9 @@ public class ConfigurationDynamicDefaultsPatcherImpl implements ConfigurationDyn
     private SuperRoot convertToSuperRoot(String hocon) {
         try {
             Config config = ConfigFactory.parseString(hocon);
-            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root());
+            KeyIgnorer keyIgnorer = KeyIgnorer.fromDeletedPrefixes(configurationModule.deletedPrefixes());
+
+            ConfigurationSource hoconSource = HoconConverter.hoconSource(config.root(), keyIgnorer);
 
             SuperRoot superRoot = generator.createSuperRoot();
             hoconSource.descend(superRoot);

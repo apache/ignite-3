@@ -30,6 +30,7 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.ConfigurationTree;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
 import org.apache.ignite.configuration.notifications.ConfigurationListener;
@@ -47,6 +48,7 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration registry.
@@ -61,25 +63,43 @@ public class ConfigurationRegistry implements IgniteComponent {
     /** Configuration change handler. */
     private final ConfigurationChanger changer;
 
-    /**
-     * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param generator                   Configuration tree generator.
-     * @param configurationValidator      Configuration validator.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type, or if the schema or its
-     *                                  extensions are not valid.
-     */
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
+
+    /** Constructor. */
+    @TestOnly
     public ConfigurationRegistry(
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
     ) {
+        this(rootKeys, storage, generator, configurationValidator, c -> {}, s -> false);
+    }
+
+    /**
+     * Constructor.
+     */
+    public ConfigurationRegistry(
+            Collection<RootKey<?, ?>> rootKeys,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator configurationValidator,
+            ConfigurationMigrator migrator,
+            KeyIgnorer keyIgnorer
+    ) {
         checkConfigurationType(rootKeys, storage);
 
-        changer = new ConfigurationChanger(notificationUpdateListener(), rootKeys, storage, configurationValidator) {
+        this.keyIgnorer = keyIgnorer;
+
+        changer = new ConfigurationChanger(
+                notificationUpdateListener(),
+                rootKeys,
+                storage,
+                configurationValidator,
+                migrator,
+                keyIgnorer
+        ) {
             @Override
             public InnerNode createRootNode(RootKey<?, ?> rootKey) {
                 return generator.instantiateNode(rootKey.schemaClass());
@@ -229,6 +249,11 @@ public class ConfigurationRegistry implements IgniteComponent {
                 return CompletableFuture.allOf(resultFutures);
             }
         };
+    }
+
+    /** Determines if key should be ignored. */
+    public KeyIgnorer keyIgnorer() {
+        return keyIgnorer;
     }
 
     /**

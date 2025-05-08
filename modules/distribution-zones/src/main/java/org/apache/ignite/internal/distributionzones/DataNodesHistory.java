@@ -27,6 +27,8 @@ import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.tostring.IgniteToStringInclude;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
 import org.apache.ignite.internal.util.io.IgniteDataOutput;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.versioned.VersionedSerializer;
  * Data nodes history. Is actually a map of timestamps to sets of nodes with their attributes.
  */
 public class DataNodesHistory {
+    @IgniteToStringInclude
     private final NavigableMap<HybridTimestamp, Set<NodeWithAttributes>> history;
 
     public DataNodesHistory() {
@@ -88,7 +91,6 @@ public class DataNodesHistory {
         Map.Entry<HybridTimestamp, Set<NodeWithAttributes>> entry = history.floorEntry(timestamp);
 
         if (entry == null) {
-
             return new DataNodesHistoryEntry(HybridTimestamp.MIN_VALUE, emptySet());
         }
 
@@ -97,7 +99,7 @@ public class DataNodesHistory {
 
     @Override
     public String toString() {
-        return "DataNodesHistory [history=" + history + "].";
+        return S.toString(DataNodesHistory.class, this);
     }
 
     @Override

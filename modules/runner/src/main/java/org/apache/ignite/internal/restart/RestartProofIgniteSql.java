@@ -182,23 +182,43 @@ class RestartProofIgniteSql implements IgniteSql, Wrapper {
     }
 
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, String dmlQuery, BatchedArguments batch) {
-        return attachmentLock.attached(ignite -> ignite.sql().executeBatch(transaction, dmlQuery, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String dmlQuery,
+            BatchedArguments batch
+    ) {
+        return attachmentLock.attached(ignite -> ignite.sql().executeBatch(transaction, cancellationToken, dmlQuery, batch));
     }
 
     @Override
-    public long[] executeBatch(@Nullable Transaction transaction, Statement dmlStatement, BatchedArguments batch) {
-        return attachmentLock.attached(ignite -> ignite.sql().executeBatch(transaction, dmlStatement, batch));
+    public long[] executeBatch(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement dmlStatement,
+            BatchedArguments batch
+    ) {
+        return attachmentLock.attached(ignite -> ignite.sql().executeBatch(transaction, cancellationToken, dmlStatement, batch));
     }
 
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, String query, BatchedArguments batch) {
-        return attachmentLock.attachedAsync(ignite -> ignite.sql().executeBatchAsync(transaction, query, batch));
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            String query,
+            BatchedArguments batch
+    ) {
+        return attachmentLock.attachedAsync(ignite -> ignite.sql().executeBatchAsync(transaction, cancellationToken, query, batch));
     }
 
     @Override
-    public CompletableFuture<long[]> executeBatchAsync(@Nullable Transaction transaction, Statement statement, BatchedArguments batch) {
-        return attachmentLock.attachedAsync(ignite -> ignite.sql().executeBatchAsync(transaction, statement, batch));
+    public CompletableFuture<long[]> executeBatchAsync(
+            @Nullable Transaction transaction,
+            @Nullable CancellationToken cancellationToken,
+            Statement statement,
+            BatchedArguments batch
+    ) {
+        return attachmentLock.attachedAsync(ignite -> ignite.sql().executeBatchAsync(transaction, cancellationToken, statement, batch));
     }
 
     @Override

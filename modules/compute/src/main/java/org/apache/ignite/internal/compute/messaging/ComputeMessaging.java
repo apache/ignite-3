@@ -237,7 +237,7 @@ public class ComputeMessaging {
     }
 
     private void processJobResultRequest(JobResultRequest request, ClusterNode sender, long correlationId) {
-        executionManager.resultAsync(request.jobId())
+        executionManager.localResultAsync(request.jobId())
                 .whenComplete((result, err) -> sendJobResultResponse((ComputeJobDataHolder) result, err, sender, correlationId));
     }
 

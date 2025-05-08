@@ -43,7 +43,7 @@ public class IgniteSystemViewImpl extends AbstractIgniteDataSource implements Ig
     /** {@inheritDoc} */
     @Override
     protected TableScan toRel(RelOptCluster cluster, RelTraitSet traitSet, RelOptTable relOptTbl, List<RelHint> hints) {
-        return IgniteLogicalSystemViewScan.create(cluster, traitSet, hints, relOptTbl, null, null, null);
+        return IgniteLogicalSystemViewScan.create(cluster, traitSet, hints, relOptTbl, null, null, null, null);
     }
 
     private static final class SystemViewStatistic implements Statistic {

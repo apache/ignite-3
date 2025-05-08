@@ -36,6 +36,8 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.InitParametersBuilder;
@@ -44,6 +46,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -52,6 +55,7 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
@@ -67,6 +71,9 @@ import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.extension.ExtensionContext;
+import org.junit.jupiter.api.extension.RegisterExtension;
+import org.junit.jupiter.api.extension.TestExecutionExceptionHandler;
 
 /**
  * Abstract basic integration test that starts a cluster once for all the tests it runs.
@@ -118,7 +125,7 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CLUSTER = new Cluster(clusterConfiguration.build());
 
         if (initialNodes() > 0 && needInitializeCluster()) {
-            CLUSTER.startAndInit(initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
+            CLUSTER.startAndInit(testInfo, initialNodes(), cmgMetastoreNodes(), this::configureInitParameters);
         }
     }
 
@@ -173,8 +180,14 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     /** Drops all visible tables. */
     protected static void dropAllTables() {
-        for (Table t : CLUSTER.aliveNode().tables().tables()) {
-            sql("DROP TABLE " + t.name());
+        Ignite aliveNode = CLUSTER.aliveNode();
+        String dropTablesScript = aliveNode.tables().tables().stream()
+                .map(Table::name)
+                .map(name -> "DROP TABLE " + name)
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropTablesScript.isEmpty()) {
+            sqlScript(dropTablesScript);
         }
     }
 
@@ -187,10 +200,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         Catalog latestCatalog = catalogManager.catalog(catalogManager.latestCatalogVersion());
         assert latestCatalog != null;
 
-        latestCatalog.schemas().stream()
-                .filter(schema -> !CatalogUtils.SYSTEM_SCHEMAS.contains(schema.name()))
-                .filter(schema -> !SqlCommon.DEFAULT_SCHEMA_NAME.equals(schema.name()))
-                .forEach(schema -> sql("DROP SCHEMA " + quoteIfNeeded(schema.name()) + " CASCADE"));
+        String dropSchemasScript = latestCatalog.schemas().stream()
+                .map(CatalogSchemaDescriptor::name)
+                .filter(Predicate.not(CatalogUtils.SYSTEM_SCHEMAS::contains))
+                .filter(Predicate.not(SqlCommon.DEFAULT_SCHEMA_NAME::equals))
+                .map(name -> "DROP SCHEMA " + quoteIfNeeded(name) + " CASCADE")
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropSchemasScript.isEmpty()) {
+            aliveNode.sql().executeScript(dropSchemasScript);
+        }
     }
 
     /** Drops all visible zones. */
@@ -198,12 +217,18 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         CatalogManager catalogManager = unwrapIgniteImpl(CLUSTER.aliveNode()).catalogManager();
         Catalog catalog = Objects.requireNonNull(catalogManager.catalog(catalogManager.latestCatalogVersion()));
         CatalogZoneDescriptor defaultZone = catalog.defaultZone();
-        for (CatalogZoneDescriptor z : catalog.zones()) {
-            String zoneName = z.name();
-            if (defaultZone != null && zoneName.equals(defaultZone.name())) {
-                continue;
-            }
-            sql("DROP ZONE " + zoneName);
+
+        Predicate<String> isNotDefaultZone = defaultZone == null ? zoneName -> true
+                : Predicate.not(defaultZone.name()::equals);
+
+        String dropZonesScript = catalog.zones().stream()
+                .map(CatalogZoneDescriptor::name)
+                .filter(isNotDefaultZone)
+                .map(name -> "DROP ZONE " + quoteIfNeeded(name))
+                .collect(Collectors.joining(";\n"));
+
+        if (!dropZonesScript.isEmpty()) {
+            sqlScript(dropZonesScript);
         }
     }
 
@@ -571,5 +596,36 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
     protected static ClusterNode clusterNode(Ignite node) {
         return unwrapIgniteImpl(node).node();
+    }
+
+
+    /** Ad-hoc registered extension for dumping cluster state in case of test failure. */
+    @RegisterExtension
+    static ClusterStateDumpingExtension testFailureHook = new ClusterStateDumpingExtension();
+
+    private static class ClusterStateDumpingExtension implements TestExecutionExceptionHandler {
+        @Override
+        public void handleTestExecutionException(ExtensionContext context, Throwable throwable) throws Throwable {
+            if (DumpThreadsOnTimeout.isJunitMethodTimeout(throwable)) {
+                assert context.getTestInstance().filter(ClusterPerClassIntegrationTest.class::isInstance).isPresent();
+
+                try {
+                    dumpClusterState();
+                } catch (Throwable suppressed) {
+                    // Add to suppressed if smth goes wrong.
+                    throwable.addSuppressed(suppressed);
+                }
+            }
+
+            // Re-throw original exception to fail the test.
+            throw throwable;
+        }
+
+        private static void dumpClusterState() {
+            List<Ignite> nodes = CLUSTER.runningNodes().collect(Collectors.toList());
+            for (Ignite node : nodes) {
+                unwrapIgniteImpl(node).dumpClusterState();
+            }
+        }
     }
 }

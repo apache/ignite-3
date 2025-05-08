@@ -27,6 +27,9 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.pendingPartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
@@ -80,8 +83,6 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
-import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -408,8 +409,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     @Test
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24232
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     @MuteFailureManagerLogging
     void testManualRebalanceRecovery() throws Exception {
@@ -1497,7 +1496,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {
@@ -2115,48 +2114,5 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         int nodes() default INITIAL_NODES;
 
         ConsistencyMode consistencyMode() default ConsistencyMode.STRONG_CONSISTENCY;
-    }
-
-
-    /**
-     * Returns stable partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Stable partition assignments key.
-     */
-    public static ByteArray stablePartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.stablePartAssignmentsKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.stablePartAssignmentsKey((TablePartitionId) partitionGroupId);
-        }
-    }
-
-    /**
-     * Returns pending partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Pending partition assignments key.
-     */
-    public static ByteArray pendingPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.pendingPartAssignmentsQueueKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.pendingPartAssignmentsQueueKey((TablePartitionId) partitionGroupId);
-        }
-    }
-
-    /**
-     * Returns planned partition assignments key.
-     *
-     * @param partitionGroupId Partition group identifier.
-     * @return Planned partition assignments key.
-     */
-    public static ByteArray plannedPartitionAssignmentsKey(PartitionGroupId partitionGroupId) {
-        if (enabledColocation()) {
-            return ZoneRebalanceUtil.plannedPartAssignmentsKey((ZonePartitionId) partitionGroupId);
-        } else {
-            return RebalanceUtil.plannedPartAssignmentsKey((TablePartitionId) partitionGroupId);
-        }
     }
 }

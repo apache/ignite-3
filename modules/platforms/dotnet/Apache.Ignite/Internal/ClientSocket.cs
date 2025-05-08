@@ -19,7 +19,6 @@ namespace Apache.Ignite.Internal
 {
     using System;
     using System.Buffers.Binary;
-    using System.Collections;
     using System.Collections.Concurrent;
     using System.Diagnostics;
     using System.Diagnostics.CodeAnalysis;
@@ -30,6 +29,7 @@ namespace Apache.Ignite.Internal
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
+    using Compute.Executor;
     using Ignite.Network;
     using Microsoft.Extensions.Logging;
     using Network;
@@ -45,6 +45,16 @@ namespace Apache.Ignite.Internal
         /** General-purpose client type code. */
         private const byte ClientType = 2;
 
+        /** Features supported by the client. */
+        private const ProtocolBitmaskFeature Features =
+            ProtocolBitmaskFeature.UserAttributes |
+            ProtocolBitmaskFeature.TableReqsUseQualifiedName |
+            ProtocolBitmaskFeature.PlatformComputeJob |
+            ProtocolBitmaskFeature.PlatformComputeExecutor;
+
+        /** Features as byte array */
+        private static readonly byte[] FeatureBytes = [(byte)Features];
+
         /** Version 3.0.0. */
         private static readonly ClientProtocolVersion Ver300 = new(3, 0, 0);
 
@@ -59,6 +69,9 @@ namespace Apache.Ignite.Internal
 
         /** Underlying stream. */
         private readonly Stream _stream;
+
+        /** Configuration. */
+        private readonly IgniteClientConfigurationInternal _config;
 
         /** Current async operations, map from request id. */
         private readonly ConcurrentDictionary<long, TaskCompletionSource<PooledBuffer>> _requests = new();
@@ -120,22 +133,23 @@ namespace Apache.Ignite.Internal
         /// <param name="logger">Logger.</param>
         private ClientSocket(
             Stream stream,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configuration,
             ConnectionContext connectionContext,
             IClientSocketEventListener listener,
             ILogger logger)
         {
             _stream = stream;
             ConnectionContext = connectionContext;
+            _config = configuration;
             _listener = listener;
             _logger = logger;
-            _socketTimeout = configuration.SocketTimeout;
-            _operationTimeout = configuration.OperationTimeout;
+            _socketTimeout = configuration.Configuration.SocketTimeout;
+            _operationTimeout = configuration.Configuration.OperationTimeout;
 
             MetricsContext = connectionContext.ClusterNode.MetricsContext ??
                              throw new InvalidOperationException("Metrics context is missing.");
 
-            _heartbeatInterval = GetHeartbeatInterval(configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
+            _heartbeatInterval = GetHeartbeatInterval(configuration.Configuration.HeartbeatInterval, connectionContext.IdleTimeout, _logger);
 
             // ReSharper disable once AsyncVoidLambda (timer callback)
             _heartbeatTimer = new Timer(
@@ -163,7 +177,7 @@ namespace Apache.Ignite.Internal
         /// Connects the socket to the specified endpoint and performs handshake.
         /// </summary>
         /// <param name="endPoint">Specific endpoint to connect to.</param>
-        /// <param name="configuration">Configuration.</param>
+        /// <param name="configurationInternal">Configuration.</param>
         /// <param name="listener">Event listener.</param>
         /// <returns>A <see cref="Task{TResult}"/> representing the result of the asynchronous operation.</returns>
         [SuppressMessage(
@@ -174,9 +188,11 @@ namespace Apache.Ignite.Internal
         [SuppressMessage("Design", "CA1031:Do not catch general exception types", Justification = "Reviewed")]
         public static async Task<ClientSocket> ConnectAsync(
             SocketEndpoint endPoint,
-            IgniteClientConfiguration configuration,
+            IgniteClientConfigurationInternal configurationInternal,
             IClientSocketEventListener listener)
         {
+            var configuration = configurationInternal.Configuration;
+
             using var cts = new CancellationTokenSource();
             var logger = configuration.LoggerFactory.CreateLogger(typeof(ClientSocket).FullName! + "-" +
                                                                   Interlocked.Increment(ref _socketId));
@@ -220,7 +236,7 @@ namespace Apache.Ignite.Internal
 
                 logger.LogHandshakeSucceededDebug(socket.RemoteEndPoint, context);
 
-                return new ClientSocket(stream, configuration, context, listener, logger);
+                return new ClientSocket(stream, configurationInternal, context, listener, logger);
             }
             catch (Exception ex)
             {
@@ -555,11 +571,11 @@ namespace Apache.Ignite.Internal
 
             w.Write(ClientType); // Client type: general purpose.
 
-            w.WriteBinaryHeader(0); // Features.
+            w.Write(FeatureBytes);
 
             if (configuration.Authenticator != null)
             {
-                w.Write(3); // Extensions.
+                w.Write(3); // Extensions map size.
 
                 w.Write(HandshakeExtensions.AuthenticationType);
                 w.Write(configuration.Authenticator.Type);
@@ -569,6 +585,14 @@ namespace Apache.Ignite.Internal
 
                 w.Write(HandshakeExtensions.AuthenticationSecret);
                 w.Write((string?)configuration.Authenticator.Secret);
+            }
+            else if (ComputeJobExecutor.IgniteComputeExecutorId != null)
+            {
+                // Mutually exclusive with authenticator.
+                w.Write(1); // Extensions map size.
+
+                w.Write(HandshakeExtensions.ComputeExecutorId);
+                w.Write(ComputeJobExecutor.IgniteComputeExecutorId);
             }
             else
             {
@@ -841,6 +865,15 @@ namespace Apache.Ignite.Internal
             HandlePartitionAssignmentChange(flags, ref reader);
             HandleObservableTimestamp(ref reader);
 
+            if ((flags & ResponseFlags.ServerOp) != 0)
+            {
+                Debug.Assert((flags & ResponseFlags.Error) == 0, "Server op should not have an exception.");
+                var serverOp = (ServerOp)reader.ReadInt32();
+                response.Position += reader.Consumed;
+
+                return QueueServerOp(requestId, serverOp, response);
+            }
+
             var exception = (flags & ResponseFlags.Error) != 0 ? ReadError(ref reader) : null;
             response.Position += reader.Consumed;
 
@@ -981,6 +1014,12 @@ namespace Apache.Ignite.Internal
                 }
 
                 Metrics.ConnectionsActiveDecrement();
+
+                if (ComputeJobExecutor.IgniteComputeExecutorId != null)
+                {
+                    // Shut down the executor process on disconnect.
+                    Environment.Exit(0);
+                }
             }
         }
     }

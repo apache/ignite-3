@@ -18,16 +18,20 @@
 package org.apache.ignite.internal.compute.executor;
 
 import static org.apache.ignite.internal.compute.ComputeUtils.getJobExecuteArgumentType;
+import static org.apache.ignite.internal.compute.ComputeUtils.jobClass;
 import static org.apache.ignite.internal.compute.ComputeUtils.unmarshalOrNotIfNull;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
@@ -36,6 +40,8 @@ import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
+import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.internal.compute.executor.platform.dotnet.DotNetComputeExecutor;
 import org.apache.ignite.internal.compute.loader.JobClassLoader;
 import org.apache.ignite.internal.compute.queue.PriorityQueueExecutor;
 import org.apache.ignite.internal.compute.queue.QueueExecution;
@@ -43,6 +49,7 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
 import org.apache.ignite.internal.compute.task.JobSubmitter;
 import org.apache.ignite.internal.compute.task.TaskExecutionContextImpl;
 import org.apache.ignite.internal.compute.task.TaskExecutionInternal;
+import org.apache.ignite.internal.deployunit.DisposableDeploymentUnit;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
@@ -66,6 +73,8 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
     private PriorityQueueExecutor executorService;
 
+    private @Nullable DotNetComputeExecutor dotNetComputeExecutor;
+
     /**
      * Constructor.
      *
@@ -86,10 +95,14 @@ public class ComputeExecutorImpl implements ComputeExecutor {
         this.topologyService = topologyService;
     }
 
+    public void setPlatformComputeTransport(PlatformComputeTransport transport) {
+        this.dotNetComputeExecutor = new DotNetComputeExecutor(transport);
+    }
+
     @Override
-    public <T, R> JobExecutionInternal<ComputeJobDataHolder> executeJob(
+    public JobExecutionInternal<ComputeJobDataHolder> executeJob(
             ExecutionOptions options,
-            Class<? extends ComputeJob<T, R>> jobClass,
+            String jobClassName,
             JobClassLoader classLoader,
             ComputeJobDataHolder input
     ) {
@@ -97,17 +110,71 @@ public class ComputeExecutorImpl implements ComputeExecutor {
 
         AtomicBoolean isInterrupted = new AtomicBoolean();
         JobExecutionContext context = new JobExecutionContextImpl(ignite, isInterrupted, classLoader, options.partition());
-        ComputeJob<T, R> jobInstance = ComputeUtils.instantiateJob(jobClass);
-        Marshaller<T, byte[]> inputMarshaller = jobInstance.inputMarshaller();
-        Marshaller<R, byte[]> resultMarshaller = jobInstance.resultMarshaller();
+
+        Callable<CompletableFuture<ComputeJobDataHolder>> jobCallable = getJobCallable(
+                options.executorType(), jobClassName, classLoader, input, context);
 
         QueueExecution<ComputeJobDataHolder> execution = executorService.submit(
-                unmarshalExecMarshal(input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller),
+                jobCallable,
                 options.priority(),
                 options.maxRetries()
         );
 
         return new JobExecutionInternal<>(execution, isInterrupted, null, false, topologyService.localMember());
+    }
+
+    private Callable<CompletableFuture<ComputeJobDataHolder>> getJobCallable(
+            JobExecutorType executorType,
+            String jobClassName,
+            JobClassLoader classLoader,
+            ComputeJobDataHolder input,
+            JobExecutionContext context) {
+        executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
+
+        switch (executorType) {
+            case JAVA_EMBEDDED:
+                return getJavaJobCallable(jobClassName, classLoader, input, context);
+
+            case DOTNET_SIDECAR:
+                DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+
+                if (dotNetExec == null) {
+                    throw new IllegalStateException("DotNetComputeExecutor is not set");
+                }
+
+                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+
+            default:
+                throw new IllegalArgumentException("Unsupported executor type: " + executorType);
+        }
+    }
+
+    private static ArrayList<String> getDeploymentUnitPaths(JobClassLoader classLoader) {
+        ArrayList<String> unitPaths = new ArrayList<>();
+
+        for (DisposableDeploymentUnit unit : classLoader.units()) {
+            try {
+                unitPaths.add(unit.path().toRealPath().toString());
+            } catch (IOException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return unitPaths;
+    }
+
+    private static Callable<CompletableFuture<ComputeJobDataHolder>> getJavaJobCallable(
+            String jobClassName,
+            JobClassLoader classLoader,
+            ComputeJobDataHolder input,
+            JobExecutionContext context) {
+        Class<ComputeJob<Object, Object>> jobClass = jobClass(classLoader, jobClassName);
+        ComputeJob<Object, Object> jobInstance = ComputeUtils.instantiateJob(jobClass);
+
+        Marshaller<Object, byte[]> inputMarshaller = jobInstance.inputMarshaller();
+        Marshaller<Object, byte[]> resultMarshaller = jobInstance.resultMarshaller();
+
+        return unmarshalExecMarshal(
+                input, jobClass, jobInstance, context, inputMarshaller, resultMarshaller);
     }
 
     private static <T, R> Callable<CompletableFuture<ComputeJobDataHolder>> unmarshalExecMarshal(
@@ -156,5 +223,10 @@ public class ComputeExecutorImpl implements ComputeExecutor {
     public void stop() {
         stateMachine.stop();
         executorService.shutdown();
+
+        DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+        if (dotNetExec != null) {
+            dotNetExec.stop();
+        }
     }
 }

@@ -28,6 +28,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Extensions.Caching.I
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Extensions.Caching.Ignite.Tests", "Apache.Extensions.Caching.Ignite.Tests\Apache.Extensions.Caching.Ignite.Tests.csproj", "{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Apache.Ignite.Internal.ComputeExecutor", "Apache.Ignite.Internal.ComputeExecutor\Apache.Ignite.Internal.ComputeExecutor.csproj", "{63E709E0-04FD-4FE0-8787-845106E98AB3}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -61,5 +63,9 @@ Global
 		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F9214A37-C4CC-46CB-95A0-A5D2246BD32A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{63E709E0-04FD-4FE0-8787-845106E98AB3}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

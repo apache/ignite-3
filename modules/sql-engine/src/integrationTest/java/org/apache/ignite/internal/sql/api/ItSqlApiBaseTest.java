@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.api;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.asStream;
@@ -244,11 +243,6 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
     /** Check correctness of implicit and explicit transactions. */
     @Test
     public void checkTransactionsWithDml() {
-        if (enabledColocation()) {
-            // TODO https://issues.apache.org/jira/browse/IGNITE-24886 Test fails in case of enabledColocation
-            return;
-        }
-
         IgniteSql sql = igniteSql();
 
         sql("CREATE TABLE TEST(ID INT PRIMARY KEY, VAL0 INT)");
@@ -1222,6 +1216,9 @@ public abstract class ItSqlApiBaseTest extends BaseSqlIntegrationTest {
 
     @Test
     public abstract void cancelQueryString() throws InterruptedException;
+
+    @Test
+    public abstract void cancelBatch() throws InterruptedException;
 
     @Test
     public void cancelQueryBeforeExecution() {

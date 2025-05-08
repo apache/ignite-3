@@ -23,6 +23,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.PriorityQueue;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
 import org.apache.ignite.internal.sql.engine.util.IgniteMath;
 import org.apache.ignite.internal.util.BoundedPriorityQueue;
@@ -146,6 +147,14 @@ public class SortNode<RowT> extends AbstractNode<RowT> implements SingleNode<Row
         waiting = NOT_WAITING;
 
         flush();
+    }
+
+    @Override
+    protected void dumpDebugInfo0(IgniteStringBuilder buf) {
+        buf.app("class=").app(getClass().getSimpleName())
+                .app(", requested=").app(requested)
+                .app(", waiting=").app(waiting)
+                .app(", limit=").app(limit);
     }
 
     private void flush() throws Exception {

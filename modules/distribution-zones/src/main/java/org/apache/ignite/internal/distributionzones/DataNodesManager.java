@@ -843,16 +843,11 @@ public class DataNodesManager {
         HybridTimestamp newTimestamp = timestamp;
 
         if (scaleUpTriggerTime <= timestampLong) {
-            newTimestamp = scaleUpTimer.timeToTrigger();
             dataNodes.addAll(filterDataNodes(scaleUpTimer.nodes(), zoneDescriptor));
         }
 
         if (scaleDownTriggerTime <= timestampLong) {
             dataNodes.removeAll(scaleDownTimer.nodes());
-
-            if (scaleDownTriggerTime > scaleUpTriggerTime) {
-                newTimestamp = scaleDownTimer.timeToTrigger();
-            }
         }
 
         return new DataNodesHistoryEntry(newTimestamp, dataNodes);

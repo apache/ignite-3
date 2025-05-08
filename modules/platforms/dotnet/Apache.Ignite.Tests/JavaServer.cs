@@ -36,7 +36,7 @@ namespace Apache.Ignite.Tests
 
         private const int DefaultClientPort = 10942;
 
-        private const int ConnectTimeoutSeconds = 120;
+        private const int ConnectTimeoutSeconds = 4 * 60;
 
         private const string GradleCommandExec = ":ignite-runner:runnerPlatformTest"
           + " -x compileJava -x compileTestFixturesJava -x compileIntegrationTestJava -x compileTestJava --parallel";
@@ -158,7 +158,8 @@ namespace Apache.Ignite.Tests
                     WorkingDirectory = TestUtils.RepoRootDir,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
-                    RedirectStandardInput = true
+                    RedirectStandardInput = true,
+                    Environment = { ["IGNITE_COMPUTE_EXECUTOR_SERVER_SSL_SKIP_CERTIFICATE_VALIDATION"] = "true" }
                 }
             };
 

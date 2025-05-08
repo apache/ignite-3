@@ -21,6 +21,7 @@ import com.typesafe.config.ConfigObject;
 import com.typesafe.config.ConfigValue;
 import com.typesafe.config.impl.ConfigImpl;
 import java.util.List;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.ConfigurationConverter;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
@@ -45,6 +46,7 @@ public class HoconConverter {
     ) {
         ConverterToMapVisitor visitor = ConverterToMapVisitor.builder()
                 .includeInternal(false)
+                .includeDeprecated(false)
                 .maskSecretValues(true)
                 .build();
         return represent(root, path, visitor);
@@ -75,6 +77,17 @@ public class HoconConverter {
      * @return HOCON-based configuration source.
      */
     public static ConfigurationSource hoconSource(ConfigObject hoconCfg) {
-        return new HoconObjectConfigurationSource(null, List.of(), hoconCfg);
+        return hoconSource(hoconCfg, s -> false);
+    }
+
+    /**
+     * Returns HOCON-based configuration source.
+     *
+     * @param hoconCfg HOCON that has to be converted to the configuration source.
+     * @param keyIgnorer Determines if key should be ignored.
+     * @return HOCON-based configuration source.
+     */
+    public static ConfigurationSource hoconSource(ConfigObject hoconCfg, KeyIgnorer keyIgnorer) {
+        return new HoconObjectConfigurationSource(null, keyIgnorer, List.of(), hoconCfg);
     }
 }

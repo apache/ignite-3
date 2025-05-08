@@ -72,6 +72,7 @@ namespace Apache.Ignite.Internal.Proto
                 ClientOp.StreamerBatchSend => ClientOperationType.StreamerBatchSend,
                 ClientOp.PrimaryReplicasGet => ClientOperationType.PrimaryReplicasGet,
                 ClientOp.StreamerWithReceiverBatchSend => ClientOperationType.StreamerBatchSend,
+                ClientOp.ServerOpResponse => null,
 
                 // Do not return null from default arm intentionally so we don't forget to update this when new ClientOp values are added.
                 // ReSharper disable once PatternIsRedundant

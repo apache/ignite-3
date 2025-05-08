@@ -23,6 +23,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.internal.configuration.storage.ConfigurationStorage;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -34,21 +35,28 @@ public class TestConfigurationChanger extends ConfigurationChanger {
     /** Runtime implementations generator for node classes. */
     private final ConfigurationTreeGenerator generator;
 
+    /** Constructor. */
+    public TestConfigurationChanger(
+            Collection<RootKey<?, ?>> rootKeys,
+            ConfigurationStorage storage,
+            ConfigurationTreeGenerator generator,
+            ConfigurationValidator validator
+    ) {
+        this(rootKeys, storage, generator, validator, c -> {}, s -> false);
+    }
+
     /**
      * Constructor.
-     *
-     * @param rootKeys                    Configuration root keys.
-     * @param storage                     Configuration storage.
-     * @param generator                   Runtime implementations tree generator for node classes.
-     * @throws IllegalArgumentException If the configuration type of the root keys is not equal to the storage type.
      */
     public TestConfigurationChanger(
             Collection<RootKey<?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
-            ConfigurationValidator configurationValidator
+            ConfigurationValidator validator,
+            ConfigurationMigrator migrator,
+            KeyIgnorer keyIgnorer
     ) {
-        super(noOpListener(), rootKeys, storage, configurationValidator);
+        super(noOpListener(), rootKeys, storage, validator, migrator, keyIgnorer);
 
         this.generator = generator;
     }
