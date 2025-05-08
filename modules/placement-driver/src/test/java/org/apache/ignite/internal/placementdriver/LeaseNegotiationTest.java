@@ -423,23 +423,29 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
     @Test
     public void testLeaseAgreementCleanup() throws Exception {
         CompletableFuture<?> timedOutGroupLgmReceived = new CompletableFuture<>();
+        CompletableFuture<?> removedGroupLgmReceived = new CompletableFuture<>();
+
+        PartitionGroupId timedOutGroup = replicationGroupId(1, 1);
+        PartitionGroupId removedGroup = replicationGroupId(1, 2);
+        byte[] assignmentBytes = Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp);
 
         leaseGrantedMessageHandler = (n, lgm) -> {
             if (lgm.groupId().equals(groupId)) {
                 return completedFuture(createLeaseGrantedMessageResponse(true));
-            } else {
+            } else if (lgm.groupId().equals(timedOutGroup)) {
                 timedOutGroupLgmReceived.complete(null);
 
                 // Return a future that will never be completed, to trigger the agreement timeout.
                 return new CompletableFuture<>();
+            } else {
+                removedGroupLgmReceived.complete(null);
+                return new CompletableFuture<>();
             }
         };
 
-        PartitionGroupId timedOutGroup = replicationGroupId(1, 1);
-        byte[] assignmentBytes = Assignments.toBytes(Set.of(forPeer(NODE_0_NAME)), assignmentsTimestamp);
-
         metaStorageManager.put(stableAssignmentsKey(groupId), assignmentBytes);
         metaStorageManager.put(stableAssignmentsKey(timedOutGroup), assignmentBytes);
+        metaStorageManager.put(stableAssignmentsKey(removedGroup), assignmentBytes);
 
         // Wait for accepted lease for groupId.
         assertTrue(waitForCondition(
@@ -448,11 +454,14 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         ));
 
         assertThat(timedOutGroupLgmReceived, willSucceedFast());
+        assertThat(removedGroupLgmReceived, willSucceedFast());
+
+        metaStorageManager.remove(stableAssignmentsKey(removedGroup));
 
         LeaseNegotiator leaseNegotiator = getFieldValue(leaseUpdater, "leaseNegotiator");
         Map agreementsMap = getFieldValue(leaseNegotiator, "leaseToNegotiate");
 
-        assertTrue(waitForCondition(() -> agreementsMap.isEmpty(), 30_000));
+        assertTrue(waitForCondition(() -> agreementsMap.isEmpty(), 10_000));
     }
 
     @Test
@@ -468,7 +477,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         waitForAcceptedLease();
         assertTrue(waitForCondition(() -> getAllLeasesFromMs().stream().allMatch(Lease::isAccepted), 3_000));
 
-        metaStorageManager.remove(stableAssignmentsKey(groupId0));
+        metaStorageManager.remove(stableAssignmentsKey(groupId1));
 
         assertTrue(waitForCondition(() -> {
             Collection<Lease> leases = getAllLeasesFromMs();
