@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System.Buffers.Binary;
+using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
@@ -36,12 +37,12 @@ internal static class TupleWithSchemaMarshalling
     /// <param name="tuple">Tuple.</param>
     public static void Pack(ref MsgPackWriter w, IIgniteTuple tuple)
     {
-        int size = tuple.FieldCount;
+        int elementCount = tuple.FieldCount;
 
-        using var schemaBuilder = new BinaryTupleBuilder(size * 2);
-        using var valueBuilder = new BinaryTupleBuilder(size);
+        using var schemaBuilder = new BinaryTupleBuilder(elementCount * 2);
+        using var valueBuilder = new BinaryTupleBuilder(elementCount);
 
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < elementCount; i++)
         {
             var fieldName = tuple.GetName(i);
             var fieldValue = tuple[i];
@@ -69,7 +70,7 @@ internal static class TupleWithSchemaMarshalling
         var totalSize = valueOffset + valueMem.Length;
         var targetSpan = w.WriteBinaryHeaderAndGetSpan(totalSize);
 
-        BinaryPrimitives.WriteInt32LittleEndian(targetSpan, size);
+        BinaryPrimitives.WriteInt32LittleEndian(targetSpan, elementCount);
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan[4..], valueOffset);
         schemaMem.Span.CopyTo(targetSpan[schemaOffset..]);
         valueMem.Span.CopyTo(targetSpan[valueOffset..]);
@@ -82,6 +83,36 @@ internal static class TupleWithSchemaMarshalling
     /// <returns>Tuple.</returns>
     public static IgniteTuple Unpack(ref MsgPackReader r)
     {
-        throw new System.NotImplementedException();
+        var span = r.ReadBinary();
+
+        var elementCount = BinaryPrimitives.ReadInt32LittleEndian(span);
+        var valueOffset = BinaryPrimitives.ReadInt32LittleEndian(span[4..]);
+
+        var schemaBytes = span[8..valueOffset];
+        var valueBytes = span[valueOffset..];
+
+        var res = new IgniteTuple(elementCount);
+
+        var schemaReader = new BinaryTupleReader(schemaBytes, elementCount * 2);
+        var valueReader = new BinaryTupleReader(valueBytes, elementCount);
+
+        for (int i = 0; i < elementCount; i++)
+        {
+            var fieldName = schemaReader.GetString(i * 2);
+            var fieldTypeId = schemaReader.GetInt(i * 2 + 1);
+
+            if (fieldTypeId == TypeIdTuple)
+            {
+                var nestedTupleBytes = valueReader.GetBytesSpan(i);
+                var nestedTupleReader = new MsgPackReader(nestedTupleBytes);
+                res[fieldName] = Unpack(ref nestedTupleReader);
+            }
+            else
+            {
+                res[fieldName] = valueReader.GetObject(i, (ColumnType)fieldTypeId);
+            }
+        }
+
+        return res;
     }
 }
