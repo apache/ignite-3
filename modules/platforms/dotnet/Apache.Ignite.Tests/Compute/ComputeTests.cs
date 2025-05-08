@@ -222,7 +222,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestAllSupportedArgTypes()
+        public async Task TestAllSupportedArgTypesToString()
         {
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);

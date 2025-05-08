@@ -86,7 +86,7 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    [TestCaseSource(nameof(ArgTypesTestCases))]
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestAllSupportedArgTypes(object val)
     {
         var result = await ExecJobAsync(DotNetJobs.Echo, val);
@@ -273,35 +273,6 @@ public class PlatformComputeTests : IgniteTestsBase
 
         return new DeploymentUnit(unitId0, unitVersion0);
     }
-
-    private static IEnumerable<object> ArgTypesTestCases() => [
-        sbyte.MinValue,
-        sbyte.MaxValue,
-        short.MinValue,
-        short.MaxValue,
-        int.MinValue,
-        int.MaxValue,
-        long.MinValue,
-        long.MaxValue,
-        float.MinValue,
-        float.MaxValue,
-        double.MinValue,
-        double.MaxValue,
-        123.456m,
-        -123.456m,
-        decimal.MinValue,
-        decimal.MaxValue,
-        new BigDecimal(long.MinValue, 10),
-        new BigDecimal(long.MaxValue, 20),
-        new byte[] { 1, 255 },
-        "Ignite 🔥",
-        LocalDate.MinIsoValue,
-        LocalTime.Noon,
-        LocalDateTime.MaxIsoValue,
-        Instant.FromUtc(2001, 3, 4, 5, 6),
-        Guid.Empty,
-        new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }),
-    ];
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
