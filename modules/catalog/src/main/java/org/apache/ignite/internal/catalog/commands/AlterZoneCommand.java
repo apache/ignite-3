@@ -180,10 +180,10 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
 
         if (quorumSize > maxQuorum) {
-            LOG.info("Quorum size adjusted from {} to {}.", quorumSize, maxQuorum);
+            LOG.info("Quorum size adjusted from {} to {} because is exceeds the maximum quorum value.", quorumSize, maxQuorum);
             return maxQuorum;
         } else if (quorumSize < minQuorum) {
-            LOG.info("Quorum size adjusted from {} to {}.", quorumSize, minQuorum);
+            LOG.info("Quorum size adjusted from {} to {} because it is less than the minimum quorum value.", quorumSize, minQuorum);
             return minQuorum;
         }
         return quorumSize;
