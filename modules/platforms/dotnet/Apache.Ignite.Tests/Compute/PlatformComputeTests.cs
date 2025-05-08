@@ -32,9 +32,14 @@ using TestHelpers;
 /// <summary>
 /// Tests for platform compute (non-Java jobs).
 /// <para />
-/// Development and debugging:
+/// Development:
 /// - Changing test code, job code: no need to restart Ignite.
 /// - Changing core code: restart Ignite servers and do a full .NET solution rebuild to reflect the changes in .NET compute executor.
+/// <para />
+/// Debugging:
+/// - Run tests once so that .NET executor processes are started.
+/// - Attach to the executor processes.
+/// - Run tests again to debug the executor.
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
