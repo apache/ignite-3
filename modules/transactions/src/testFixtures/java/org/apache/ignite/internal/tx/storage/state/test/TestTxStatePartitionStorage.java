@@ -317,13 +317,10 @@ public class TestTxStatePartitionStorage implements TxStatePartitionStorage {
     }
 
     @Override
-    public void snapshotInfo(byte[] snapshotInfo, long index, long term) {
+    public void snapshotInfo(byte[] snapshotInfo) {
         checkStorageClosedOrInProgressOfRebalance();
 
         this.snapshotInfo = snapshotInfo;
-
-        lastAppliedIndex = index;
-        lastAppliedTerm = term;
     }
 
     @Override
