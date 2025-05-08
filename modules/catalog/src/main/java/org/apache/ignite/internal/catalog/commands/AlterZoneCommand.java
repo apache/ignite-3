@@ -180,9 +180,21 @@ public class AlterZoneCommand extends AbstractZoneCommand {
         int maxQuorum = max(minQuorum, (int) (round(replicas / 2.0)));
 
         if (quorumSize > maxQuorum) {
+            if (this.quorumSize != null) {
+                throw new CatalogValidationException(
+                        "Quorum size exceeds the maximum quorum value: [quorum size={}, min={}, max={}, replicas count={}].",
+                        quorumSize, minQuorum, maxQuorum, replicas
+                );
+            }
             LOG.info("Quorum size adjusted from {} to {} because is exceeds the maximum quorum value.", quorumSize, maxQuorum);
             return maxQuorum;
         } else if (quorumSize < minQuorum) {
+            if (this.quorumSize != null) {
+                throw new CatalogValidationException(
+                        "Quorum size is less than the minimum quorum value: [quorum size={}, min={}, max={}, replicas count={}].",
+                        quorumSize, minQuorum, maxQuorum, replicas
+                );
+            }
             LOG.info("Quorum size adjusted from {} to {} because it is less than the minimum quorum value.", quorumSize, minQuorum);
             return minQuorum;
         }

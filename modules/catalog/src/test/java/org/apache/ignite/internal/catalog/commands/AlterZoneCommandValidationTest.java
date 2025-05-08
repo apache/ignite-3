@@ -154,13 +154,21 @@ public class AlterZoneCommandValidationTest extends AbstractCommandValidationTes
             int minQuorumSize,
             int maxQuorumSize
     ) {
-        // Quorum size less than minimum and greater than maximum is automatically adjusted
-        // The only exception is quorum size of 0, which is invalid in any case
-        if (minQuorumSize != 1) {
-            assertThat(getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(minQuorumSize - 1)).quorumSize(),
-                    is(minQuorumSize));
-        }
-        assertThat(getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)).quorumSize(), is(maxQuorumSize));
+        String errorMessageFragmentMinQuorum = minQuorumSize > 1
+                ? "Quorum size is less than the minimum quorum value"
+                : "Invalid quorum size"; // Special case when quorum size of 0 is rejected earlier.
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(minQuorumSize - 1)),
+                errorMessageFragmentMinQuorum
+        );
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)),
+                "Quorum size exceeds the maximum quorum value"
+        );
 
         for (int i = minQuorumSize; i <= maxQuorumSize; i++) {
             assertThat(getZoneDescriptor(alterZoneBuilder().replicas(replicas).quorumSize(i)).quorumSize(), is(i));
