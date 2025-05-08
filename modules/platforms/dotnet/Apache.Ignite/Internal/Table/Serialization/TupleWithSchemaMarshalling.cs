@@ -45,8 +45,8 @@ internal static class TupleWithSchemaMarshalling
 
         for (int i = 0; i < elementCount; i++)
         {
-            var fieldName = tuple.GetName(i);
-            var fieldValue = tuple[i];
+            string fieldName = tuple.GetName(i);
+            object? fieldValue = tuple[i];
 
             schemaBuilder.AppendString(fieldName);
 
@@ -57,20 +57,20 @@ internal static class TupleWithSchemaMarshalling
             }
             else
             {
-                var typeId = valueBuilder.AppendObjectAndGetType(fieldValue);
+                ColumnType typeId = valueBuilder.AppendObjectAndGetType(fieldValue);
                 schemaBuilder.AppendInt((int)typeId);
             }
         }
 
-        var schemaMem = schemaBuilder.Build();
-        var valueMem = valueBuilder.Build();
+        Memory<byte> schemaMem = schemaBuilder.Build();
+        Memory<byte> valueMem = valueBuilder.Build();
 
         // Size: int32 (tuple size), int32 (value offset), schema, value.
         var schemaOffset = 8;
         var valueOffset = schemaOffset + schemaMem.Length;
         var totalSize = valueOffset + valueMem.Length;
 
-        var targetSpan = w.GetSpan(totalSize);
+        Span<byte> targetSpan = w.GetSpan(totalSize);
         w.Advance(totalSize);
 
         BinaryPrimitives.WriteInt32LittleEndian(targetSpan, elementCount);
@@ -86,11 +86,11 @@ internal static class TupleWithSchemaMarshalling
     /// <returns>Tuple.</returns>
     public static IgniteTuple Unpack(ReadOnlySpan<byte> span)
     {
-        var elementCount = BinaryPrimitives.ReadInt32LittleEndian(span);
-        var valueOffset = BinaryPrimitives.ReadInt32LittleEndian(span[4..]);
+        int elementCount = BinaryPrimitives.ReadInt32LittleEndian(span);
+        int valueOffset = BinaryPrimitives.ReadInt32LittleEndian(span[4..]);
 
-        var schemaBytes = span[8..valueOffset];
-        var valueBytes = span[valueOffset..];
+        ReadOnlySpan<byte> schemaBytes = span[8..valueOffset];
+        ReadOnlySpan<byte> valueBytes = span[valueOffset..];
 
         var res = new IgniteTuple(elementCount);
 
@@ -99,8 +99,8 @@ internal static class TupleWithSchemaMarshalling
 
         for (int i = 0; i < elementCount; i++)
         {
-            var fieldName = schemaReader.GetString(i * 2);
-            var fieldTypeId = schemaReader.GetInt(i * 2 + 1);
+            string fieldName = schemaReader.GetString(i * 2);
+            int fieldTypeId = schemaReader.GetInt(i * 2 + 1);
 
             if (fieldTypeId == TypeIdTuple)
             {
