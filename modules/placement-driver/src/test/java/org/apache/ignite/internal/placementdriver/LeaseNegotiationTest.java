@@ -477,7 +477,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         waitForAcceptedLease();
         assertTrue(waitForCondition(() -> getAllLeasesFromMs().stream().allMatch(Lease::isAccepted), 3_000));
 
-        metaStorageManager.remove(stableAssignmentsKey(groupId1));
+        metaStorageManager.remove(stableAssignmentsKey(groupId0));
 
         assertTrue(waitForCondition(() -> {
             Collection<Lease> leases = getAllLeasesFromMs();
