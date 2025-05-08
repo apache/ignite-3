@@ -689,6 +689,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         tx0.commit();
 
+        // Expecting each write operation to trigger add/remove events.
         Mockito.verify(spyed, Mockito.times(4)).addInflight(tx0.startedTx().txId());
         Mockito.verify(spyed, Mockito.times(4)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
