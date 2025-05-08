@@ -1,0 +1,137 @@
+<beans xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.springframework.org/schema/beans"
+       xsi:schemaLocation="http://www.springframework.org/schema/beans         http://www.springframework.org/schema/beans/spring-beans.xsd">
+    <bean class="org.apache.ignite.configuration.IgniteConfiguration">
+        <!--
+    Explicitly configure TCP discovery SPI to provide list of initial
+    nodes from the second cluster.
+    -->
+        <property name="discoverySpi">
+            <bean class="org.apache.ignite.spi.discovery.tcp.TcpDiscoverySpi">
+                <!-- Initial local port to listen to. -->
+                <property name="localPort" value="49500"/>
+                <!-- Changing local port range. This is an optional action. -->
+                <property name="localPortRange" value="20"/>
+                <!-- Setting up IP finder for this cluster -->
+                <property name="ipFinder">
+                    <bean class="org.apache.ignite.spi.discovery.tcp.ipfinder.vm.TcpDiscoveryVmIpFinder">
+                        <property name="addresses">
+                            <list>
+                                <!--
+                Addresses and port range of the nodes from the second cluster.
+                127.0.0.1 can be replaced with actual IP addresses or host names. Port range is optional.
+                -->
+                                <value>127.0.0.1:49500..49520</value>
+                                <value>127.0.0.1:4500..5000</value>
+                            </list>
+                        </property>
+                    </bean>
+                </property>
+            </bean>
+        </property>
+        <!--
+    Explicitly configure TCP communication SPI changing local port number
+    for the nodes from the second cluster.
+    -->
+        <property name="communicationSpi">
+            <bean class="org.apache.ignite.spi.communication.tcp.TcpCommunicationSpi">
+                <property name="localPort" value="49100"/>
+            </bean>
+        </property>
+
+
+        <property name="sslContextFactory">
+            <bean class="org.apache.ignite.ssl.SslContextFactory">
+                <property name="keyStoreFilePath" value="keystore/node.jks"/>
+                <property name="keyStorePassword" value="123456"/>
+                <property name="trustStoreFilePath" value="keystore/trust.jks"/>
+                <property name="trustStorePassword" value="123456"/>
+                <property name="protocol" value="TLSv1.3"/>
+            </bean>
+        </property>
+
+        <property name="cacheConfiguration">
+            <list>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <property name="name" value="CityCache2"/>
+
+                    <!-- Setting schema to PUBLIC. Otherwise, you need to add the cache name as a schema name in your
+                    queries -->
+                    <property name="sqlSchema" value="PUBLIC"/>
+
+                    <!-- Setting QueryEntities -->
+                    <property name="queryEntities">
+                        <list>
+                            <bean class="org.apache.ignite.cache.QueryEntity">
+                                <!-- Primary key type -->
+                                <property name="keyType" value="java.lang.Integer"/>
+                                <!-- Value type -->
+                                <property name="valueType" value="org.apache.ignite.demo.model.City"/>
+
+                                <!--
+                                    Listing all the fields that will be visible to the SQL engine and can be specified in
+                                    SELECT and other DML statements.
+                                -->
+                                <property name="fields">
+                                    <map>
+                                        <entry key="countryCode" value="java.lang.String"/>
+                                        <entry key="name" value="java.lang.String"/>
+                                    </map>
+                                </property>
+
+                                <!-- Specifying which of the fields are to be indexed -->
+                                <property name="indexes">
+                                    <list>
+                                        <bean class="org.apache.ignite.cache.QueryIndex">
+                                            <constructor-arg value="countryCode"/>
+                                        </bean>
+                                    </list>
+                                </property>
+                            </bean>
+                        </list>
+                    </property>
+                </bean>
+                <bean class="org.apache.ignite.configuration.CacheConfiguration">
+                    <!-- Set the cache name. -->
+                    <property name="name" value="cacheName"/>
+                    <!-- Set the cache mode. -->
+                    <property name="cacheMode" value="PARTITIONED"/>
+                    <!-- Number of backup copies -->
+                    <property name="backups" value="10"/>
+                </bean>
+            </list>
+        </property>
+
+        <property name="dataStorageConfiguration">
+            <bean class="org.apache.ignite.configuration.DataStorageConfiguration">
+                <!--
+                Default memory region that grows endlessly. Any cache will be bound to this memory region
+                unless another region is set in the cache's configuration.
+                -->
+                <property name="defaultDataRegionConfiguration">
+                    <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                        <property name="name" value="Default_Region"/>
+                        <!-- 100 MB memory region with disabled eviction. -->
+                        <property name="initialSize" value="#{100 * 1024 * 1024}"/>
+                    </bean>
+                </property>
+                <property name="dataRegionConfigurations">
+                    <list>
+                        <!--
+                        40MB memory region with eviction enabled.
+                        -->
+                        <bean class="org.apache.ignite.configuration.DataRegionConfiguration">
+                            <property name="name" value="40MB_Region_Eviction"/>
+                            <!-- Memory region of 20 MB initial size. -->
+                            <property name="initialSize" value="#{20 * 1024 * 1024}"/>
+                            <!-- Maximum size is 40 MB. -->
+                            <property name="maxSize" value="#{40 * 1024 * 1024}"/>
+                            <!-- Enabling eviction for this memory region. -->
+                            <property name="pageEvictionMode" value="RANDOM_2_LRU"/>
+                        </bean>
+                    </list>
+                </property>
+            </bean>
+        </property>
+    </bean>
+</beans>

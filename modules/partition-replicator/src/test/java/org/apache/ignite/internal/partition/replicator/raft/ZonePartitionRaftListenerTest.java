@@ -189,7 +189,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         byte[] snapshotInfoBytes = VersionedSerialization.toBytes(snapshotInfo, PartitionSnapshotInfoSerializer.INSTANCE);
 
-        verify(txStatePartitionStorage).snapshotInfo(snapshotInfoBytes, snapshotInfo.lastAppliedIndex(), snapshotInfo.lastAppliedTerm());
+        verify(txStatePartitionStorage).snapshotInfo(snapshotInfoBytes);
     }
 
     @Test

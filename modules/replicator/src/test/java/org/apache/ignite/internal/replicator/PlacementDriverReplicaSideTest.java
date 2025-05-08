@@ -21,6 +21,7 @@ import static java.lang.System.currentTimeMillis;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -213,7 +214,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
         assertFalse(respFut.isDone());
         leaderElection(LOCAL_NODE);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
     }
 
     @Test
@@ -221,7 +222,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
         assertFalse(respFut.isDone());
         leaderElection(ANOTHER_NODE);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
     }
 
     @Test
@@ -230,7 +231,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
 
         updateIndex(1L);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
 
         LeaseGrantedMessageResponse resp = respFut.join();
         assertTrue(resp.accepted());
@@ -242,7 +243,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(ANOTHER_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut = sendLeaseGranted(hts(10), hts(20), false);
 
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
 
         LeaseGrantedMessageResponse resp = respFut.join();
         assertFalse(resp.accepted());
@@ -257,7 +258,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
 
         updateIndex(1L);
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertTrue(resp0.accepted());
@@ -268,7 +269,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 8), hts(leaseStartTime + 18), false);
 
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
         assertFalse(resp1.accepted());
@@ -282,7 +283,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertTrue(resp0.accepted());
@@ -290,7 +291,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
         assertTrue(resp1.accepted());
@@ -304,7 +305,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(LOCAL_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertTrue(resp0.accepted());
@@ -314,7 +315,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 =
                 sendLeaseGranted(hts(leaseStartTime + 11), hts(leaseStartTime + 20), false);
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
         assertFalse(resp1.accepted());
@@ -330,7 +331,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         assertFalse(respFut.isDone());
 
         updateIndex(1L);
-        assertTrue(respFut.isDone());
+        assertThat(respFut, willSucceedFast());
 
         LeaseGrantedMessageResponse resp = respFut.join();
         assertTrue(resp.accepted());
@@ -347,7 +348,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
         leaderElection(ANOTHER_NODE);
         CompletableFuture<LeaseGrantedMessageResponse> respFut0 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), false);
 
-        assertTrue(respFut0.isDone());
+        assertThat(respFut0, willSucceedFast());
 
         LeaseGrantedMessageResponse resp0 = respFut0.join();
         assertFalse(resp0.accepted());
@@ -359,7 +360,7 @@ public class PlacementDriverReplicaSideTest extends BaseIgniteAbstractTest {
 
         updateIndex(1L);
         CompletableFuture<LeaseGrantedMessageResponse> respFut1 = sendLeaseGranted(hts(leaseStartTime), hts(leaseStartTime + 10), true);
-        assertTrue(respFut1.isDone());
+        assertThat(respFut1, willSucceedFast());
 
         LeaseGrantedMessageResponse resp1 = respFut1.join();
 

@@ -523,11 +523,9 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         assertThat(storage.lastAppliedIndex(), is(3L));
         assertThat(storage.lastAppliedTerm(), is(50L));
 
-        storage.snapshotInfo(SNAPSHOT_INFO, 4, 60);
+        storage.snapshotInfo(SNAPSHOT_INFO);
 
         assertThat(storage.snapshotInfo(), is(SNAPSHOT_INFO));
-        assertThat(storage.lastAppliedIndex(), is(4L));
-        assertThat(storage.lastAppliedTerm(), is(60L));
     }
 
     @Test
@@ -595,7 +593,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
         );
         assertThrowsStorageRebalanceException(
                 TX_STATE_STORAGE_REBALANCE_ERR,
-                () -> storage.snapshotInfo(SNAPSHOT_INFO, 1, 2)
+                () -> storage.snapshotInfo(SNAPSHOT_INFO)
         );
         assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.get(UUID.randomUUID()));
         assertThrowsStorageRebalanceException(TX_STATE_STORAGE_REBALANCE_ERR, () -> storage.remove(UUID.randomUUID(), 100, 500));
@@ -679,7 +677,7 @@ public abstract class AbstractTxStatePartitionStorageTest extends BaseIgniteAbst
 
         storage.committedGroupConfiguration(GROUP_CONFIGURATION, lastAppliedIndex + 1, lastAppliedTerm);
         storage.leaseInfo(LEASE_INFO, lastAppliedIndex + 2, lastAppliedTerm);
-        storage.snapshotInfo(SNAPSHOT_INFO, lastAppliedIndex + 3, lastAppliedTerm);
+        storage.snapshotInfo(SNAPSHOT_INFO);
     }
 
     protected static void fillStorageDuringRebalance(TxStatePartitionStorage storage, List<IgniteBiTuple<UUID, TxMeta>> rows) {

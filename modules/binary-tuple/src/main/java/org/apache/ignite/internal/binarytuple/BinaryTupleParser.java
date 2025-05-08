@@ -136,6 +136,59 @@ public class BinaryTupleParser {
     }
 
     /**
+     * Evaluates a read possibility for the specific element.
+     *
+     * @param index Index of the element.
+     * @return Readability.
+     */
+    public Readability valueReadability(int index) {
+        assert index >= 0;
+        assert index < numElements : "Index out of bounds: " + index + " >= " + numElements;
+
+        int entry = entryBase + index * entrySize;
+
+        if (entry >= buffer.capacity()) {
+            return Readability.NOT_READABLE;
+        }
+
+        int offset = valueBase;
+
+        if (index > 0) {
+            offset += getOffset(entry - entrySize);
+        }
+
+        int nextOffset = valueBase + getOffset(entry);
+
+        if (offset == nextOffset) {
+            return Readability.READABLE;
+        }
+
+        if (offset >=  buffer.capacity()) {
+            return Readability.NOT_READABLE;
+        }
+
+        if (nextOffset > buffer.capacity()) {
+            return Readability.PARTIAL_READABLE;
+        }
+
+        return Readability.READABLE;
+    }
+
+    /**
+     * The class is used to represent a read possibility.
+     */
+    public enum Readability {
+        /** The element is unavailable to read. */
+        NOT_READABLE,
+
+        /** The element is fully available. */
+        READABLE,
+
+        /** Only part of the element is available to read. */
+        PARTIAL_READABLE
+    }
+
+    /**
      * Feeds the receiver with all tuple elements.
      *
      * @param sink Receiver.

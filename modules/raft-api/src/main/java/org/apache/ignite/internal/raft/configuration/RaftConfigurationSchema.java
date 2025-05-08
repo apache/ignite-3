@@ -32,8 +32,7 @@ public class RaftConfigurationSchema {
      * a recipient and installed.
      */
     @Value(hasDefault = true)
-    // TODO: IGNITE-18480 - is 5 minutes a good default?
-    public int installSnapshotTimeoutMillis = 5 * 60 * 1000;
+    public int installSnapshotTimeoutMillis = Integer.MAX_VALUE;
 
     /** Configuration for Raft groups corresponding to table partitions. */
     // TODO: IGNITE-16647 - Volatile RAFT configuration should be moved elsewhere
