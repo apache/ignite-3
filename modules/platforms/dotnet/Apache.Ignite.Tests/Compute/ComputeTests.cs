@@ -222,7 +222,7 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestAllSupportedArgTypesToString()
+        public async Task TestAllSupportedArgTypes()
         {
             await Test(sbyte.MinValue);
             await Test(sbyte.MaxValue);
@@ -255,10 +255,6 @@ namespace Apache.Ignite.Tests.Compute
             await Test(new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }));
             await Test(Guid.NewGuid());
 
-            var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
-            tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
-            await Test(tuple);
-
             async Task Test(object val, string? expectedStr = null)
             {
                 var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
@@ -280,7 +276,7 @@ namespace Apache.Ignite.Tests.Compute
                     ? formattable.ToString(null, CultureInfo.InvariantCulture).Replace("E+", "E")
                     : val.ToString();
 
-                Assert.AreEqual(expectedStr, str, str);
+                Assert.AreEqual(expectedStr, str);
             }
         }
 
@@ -897,6 +893,19 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(arg.Price + 1, res.Price);
 
             Assert.IsNull(nullRes);
+        }
+
+        [Test]
+        public async Task TestTupleWithSchemaRoundTrip()
+        {
+            var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+            tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            Assert.AreEqual(tuple, res);
         }
 
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
