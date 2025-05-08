@@ -74,4 +74,14 @@ internal static class TupleWithSchemaMarshalling
         schemaMem.Span.CopyTo(targetSpan[schemaOffset..]);
         valueMem.Span.CopyTo(targetSpan[valueOffset..]);
     }
+
+    /// <summary>
+    /// Unpacks tuple with schema.
+    /// </summary>
+    /// <param name="r">Reader.</param>
+    /// <returns>Tuple.</returns>
+    public static IgniteTuple Unpack(ref MsgPackReader r)
+    {
+        throw new System.NotImplementedException();
+    }
 }

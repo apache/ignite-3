@@ -76,6 +76,7 @@ internal static class ComputePacker
             return;
         }
 
+        // TODO IGNITE-25337 Automatic POCO serialization.
         w.Write(Native);
         w.WriteObjectAsBinaryTuple(obj);
     }
@@ -96,9 +97,10 @@ internal static class ComputePacker
 
         int type = r.ReadInt32();
 
+        // TODO IGNITE-25337 Automatic POCO serialization.
         return type switch
         {
-            Tuple => throw new NotImplementedException("IGNITE-23033"),
+            Tuple => (T)(object)TupleWithSchemaMarshalling.Unpack(ref r),
             MarshallerObject => Unmarshal(ref r, marshaller),
             _ => (T)r.ReadObjectFromBinaryTuple()!
         };
