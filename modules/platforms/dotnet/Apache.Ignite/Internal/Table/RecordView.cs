@@ -27,7 +27,6 @@ namespace Apache.Ignite.Internal.Table
     using System.Threading.Tasks;
     using Buffers;
     using Common;
-    using Ignite.Compute;
     using Ignite.Sql;
     using Ignite.Table;
     using Ignite.Transactions;
@@ -379,8 +378,9 @@ namespace Apache.Ignite.Internal.Table
                         keyWriter: _ser.Handler,
                         options,
                         resultChannel,
-                        receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                        receiver.DeploymentUnits ?? [],
                         receiver.ReceiverClassName,
+                        receiver.Options ?? ReceiverExecutionOptions.Default,
                         receiverArg,
                         cancellationToken).ConfigureAwait(false);
 
@@ -412,8 +412,9 @@ namespace Apache.Ignite.Internal.Table
                 keyWriter: _ser.Handler,
                 options ?? DataStreamerOptions.Default,
                 resultChannel: null,
-                receiver.DeploymentUnits ?? Array.Empty<DeploymentUnit>(),
+                receiver.DeploymentUnits ?? [],
                 receiver.ReceiverClassName,
+                receiver.Options ?? ReceiverExecutionOptions.Default,
                 receiverArg,
                 cancellationToken).ConfigureAwait(false);
         }

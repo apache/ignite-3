@@ -64,6 +64,7 @@ internal static class DataStreamerWithReceiver
     /// <param name="resultChannel">Channel for results from the receiver. Null when results are not expected.</param>
     /// <param name="units">Deployment units. Can be empty.</param>
     /// <param name="receiverClassName">Java class name of the streamer receiver to execute on the server.</param>
+    /// <param name="receiverExecutionOptions">Receiver options.</param>
     /// <param name="receiverArg">Receiver arg.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <typeparam name="TSource">Source type.</typeparam>
@@ -84,6 +85,7 @@ internal static class DataStreamerWithReceiver
         Channel<TResult>? resultChannel,
         IEnumerable<DeploymentUnit> units,
         string receiverClassName,
+        ReceiverExecutionOptions receiverExecutionOptions,
         TArg receiverArg,
         CancellationToken cancellationToken)
         where TKey : notnull

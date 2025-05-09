@@ -26,19 +26,23 @@ using Compute;
 /// </summary>
 /// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
+/// <param name="Options">Execution options.</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 public sealed record ReceiverDescriptor<TArg>(
     string ReceiverClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null);
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
+    ReceiverExecutionOptions? Options = null);
 
 /// <summary>
 /// Stream receiver descriptor with result type.
 /// </summary>
 /// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
+/// <param name="Options">Execution options.</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
 [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
 public sealed record ReceiverDescriptor<TArg, TResult>(
     string ReceiverClassName,
-    IEnumerable<DeploymentUnit>? DeploymentUnits = null);
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
+    ReceiverExecutionOptions? Options = null);
