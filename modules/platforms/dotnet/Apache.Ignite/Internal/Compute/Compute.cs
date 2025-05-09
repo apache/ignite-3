@@ -329,6 +329,29 @@ namespace Apache.Ignite.Internal.Compute
             return new TaskState(id, status, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
+        private static void ValidateProtocolCompatibility<TArg, TResult>(JobDescriptor<TArg, TResult> jobDescriptor, ClientSocket socket)
+        {
+            if (jobDescriptor.Options?.ExecutorType is not { } executorType)
+            {
+                return;
+            }
+
+            if (executorType == JobExecutionOptions.Default.ExecutorType)
+            {
+                return;
+            }
+
+            if (socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.PlatformComputeJob))
+            {
+                return;
+            }
+
+            var msg = $"{nameof(JobExecutorType)}.{executorType} is not supported " +
+                      $"by server node '{socket.ConnectionContext.ClusterNode}'.";
+
+            throw new IgniteClientException(ErrorGroups.Client.Protocol, msg);
+        }
+
         private JobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
@@ -406,9 +429,11 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            var (buf, _) = await _socket.DoOutInOpAndGetSocketAsync(
+            var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(
                     ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
+
+            ValidateProtocolCompatibility(jobDescriptor, socket);
 
             using var res = buf;
 
