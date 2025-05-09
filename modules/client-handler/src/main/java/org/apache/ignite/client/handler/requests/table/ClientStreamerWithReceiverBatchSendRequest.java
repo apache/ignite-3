@@ -23,6 +23,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -41,12 +42,14 @@ public class ClientStreamerWithReceiverBatchSendRequest {
      * @param in Unpacker.
      * @param out Packer.
      * @param tables Ignite tables.
+     * @param enableExecutionOptions Whether to read execution options.
      * @return Future.
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
-            IgniteTables tables
+            IgniteTables tables,
+            boolean enableExecutionOptions
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
             int partition = in.unpackInt();
@@ -63,8 +66,13 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             payloadBuf.putInt(payloadElementCount);
             in.readPayload(payloadBuf);
 
-            // TODO: Unpack options if feature is supported.
-            ReceiverExecutionOptions options = ReceiverExecutionOptions.DEFAULT;
+            ReceiverExecutionOptions options = enableExecutionOptions
+                    ? ReceiverExecutionOptions.builder()
+                    .priority(in.unpackInt())
+                    .maxRetries(in.unpackInt())
+                    .executorType(JobExecutorType.fromOrdinal(in.unpackInt()))
+                    .build()
+                    : ReceiverExecutionOptions.DEFAULT;
 
             return table.partitionManager()
                     .primaryReplicaAsync(new HashPartition(partition))
