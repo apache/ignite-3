@@ -43,6 +43,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -333,11 +334,17 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         })) {
             resultSet.next();
 
-            assertEquals("01:31:38", resultSet.getString(1));
-            assertEquals("2009-02-14", resultSet.getString(2));
-            assertEquals("2009-02-14 01:31:38.765", resultSet.getString(3));
+            String actual = resultSet.getString(1)
+                    + " | " + resultSet.getString(2)
+                    + " | " + resultSet.getString(3)
+                    + " | " + resultSet.getString(4);
 
-            assertEquals(localDateTime, resultSet.getString(4));
+            String expected = time.format(DateTimeFormatter.ofPattern("HH:mm:ss"))
+                    + " | " + date.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                    + " | " + dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"))
+                    + " | " + localDateTime;
+
+            assertEquals(expected, actual);
         }
     }
 
