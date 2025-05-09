@@ -289,13 +289,12 @@ namespace Apache.Ignite.Internal.Compute
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
-        private static void WriteNodeNames(PooledArrayBuffer buf, IEnumerable<IClusterNode> nodes) =>
+        private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf) =>
             WriteEnumerable(nodes, buf, writerFunc: static (node, buf) => buf.MessageWriter.Write(node.Name));
 
         private static void WriteJob<TArg, TResult>(
             PooledArrayBuffer writer,
-            JobDescriptor<TArg, TResult> jobDescriptor,
-            bool canWriteJobExecType)
+            JobDescriptor<TArg, TResult> jobDescriptor)
         {
             WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
 
@@ -305,21 +304,8 @@ namespace Apache.Ignite.Internal.Compute
             var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
             w.Write(options.Priority);
             w.Write(options.MaxRetries);
-
-            if (canWriteJobExecType)
-            {
-                w.Write((int)options.ExecutorType);
-            }
-            else if (options.ExecutorType != JobExecutionOptions.Default.ExecutorType)
-            {
-                throw new IgniteClientException(
-                    ErrorGroups.Client.ProtocolCompatibility,
-                    $"Job executor type '{options.ExecutorType}' is not supported by the server.");
-            }
+            w.Write((int)options.ExecutorType);
         }
-
-        private static bool CanWriteJobExecType(ClientSocket socket) =>
-            socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.PlatformComputeJob);
 
         private static JobState ReadJobState(MsgPackReader reader)
         {
@@ -417,34 +403,24 @@ namespace Apache.Ignite.Internal.Compute
         {
             IClusterNode node = GetRandomNode(nodes);
 
-            var (buf, _) = await _socket.DoWithRetryAsync(
-                    (nodes, jobDescriptor, arg),
-                    static (_, _) => ClientOp.ComputeExecute,
-                    async static (socket, args) =>
-                    {
-                        using var writer = ProtoCommon.GetMessageWriter();
-                        Write(writer, args, CanWriteJobExecType(socket));
+            using var writer = ProtoCommon.GetMessageWriter();
+            Write();
 
-                        var res = await socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer).ConfigureAwait(false);
-                        return (Buffer: res, Socket: socket);
-                    },
-                    PreferredNode.FromName(node.Name))
+            var (buf, _) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
             using var res = buf;
 
             return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
 
-            static void Write(
-                PooledArrayBuffer writer,
-                (ICollection<IClusterNode> Nodes, JobDescriptor<TArg, TResult> Desc, TArg Arg) args,
-                bool canWriteJobExecType)
+            void Write()
             {
-                WriteNodeNames(writer, args.Nodes);
-                WriteJob(writer, args.Desc, canWriteJobExecType);
+                WriteNodeNames(nodes, writer);
+                WriteJob(writer, jobDescriptor);
 
                 var w = writer.MessageWriter;
-                ComputePacker.PackArgOrResult(ref w, args.Arg, args.Desc.ArgMarshaller);
+                ComputePacker.PackArgOrResult(ref w, arg, jobDescriptor.ArgMarshaller);
             }
         }
 
@@ -527,8 +503,7 @@ namespace Apache.Ignite.Internal.Compute
                 var serializerHandler = serializerHandlerFunc(table);
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
-                // TODO: Feature flag check.
-                WriteJob(bufferWriter, descriptor, true);
+                WriteJob(bufferWriter, descriptor);
 
                 w.WriteObjectAsBinaryTuple(arg);
 
