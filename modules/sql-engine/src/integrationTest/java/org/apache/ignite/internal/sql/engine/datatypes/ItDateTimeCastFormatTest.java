@@ -177,30 +177,30 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
 
                 dateTime("151-01-01", "RRRR-MM-dd", LocalDate.of(151, 1, 1), null),
                 dateTime("177-01-01", "RRRR-MM-dd", LocalDate.of(177, 1, 1), null)
-
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25319 parse accepts incorrect year, month, day fields.
-                /*
-                dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
-                dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
-                dateTime("2000-5-07", "yyyyy-M-dd", null, "Invalid format"),
-                dateTime("2000-005-07", "yyyyy-MMM-dddd", null, "Invalid format"),
-
-                dateTime("100-05-07", "R-MM-dd", null, "Invalid format"),
-                dateTime("100-05-07", "RRR-MM-dd", null, "Invalid format"),
-                dateTime("100-05-07", "RRRRR-MM-dd", null, "Invalid format"),
-                dateTime("201-01-01", "RR-MM-dd", null, "Invalid format"),
-
-                // Different error for in combination with ff/ff0 TIMESTAMP/ TIMESTAMP LTZ: Illegal pattern character 'f'
-                dateTime("2000-005-07", "yyyy-MMM-dd", null, "Invalid format")
-                */
-
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25010
-                /*
-                dateTime("0-0-0", "yyyy-MM-dd", null, "DATE out of range"),
-                dateTime("0000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
-                dateTime("-01-01-01", "yyyy-MM-dd", null, "DATE out of range")
-                */
         );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25319 parse accepts incorrect year, month, day fields.
+        /*
+        dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
+        dateTime("2000-05-07", "yyyy-MM-dddd", null, "Invalid format"),
+        dateTime("2000-5-07", "yyyyy-M-dd", null, "Invalid format"),
+        dateTime("2000-005-07", "yyyyy-MMM-dddd", null, "Invalid format"),
+
+        dateTime("100-05-07", "R-MM-dd", null, "Invalid format"),
+        dateTime("100-05-07", "RRR-MM-dd", null, "Invalid format"),
+        dateTime("100-05-07", "RRRRR-MM-dd", null, "Invalid format"),
+        dateTime("201-01-01", "RR-MM-dd", null, "Invalid format"),
+
+        // Different error for in combination with ff/ff0 TIMESTAMP/ TIMESTAMP LTZ: Illegal pattern character 'f'
+        dateTime("2000-005-07", "yyyy-MMM-dd", null, "Invalid format")
+        */
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25010
+        /*
+        dateTime("0-0-0", "yyyy-MM-dd", null, "DATE out of range"),
+        dateTime("0000-01-01", "yyyy-MM-dd", null, "DATE out of range"),
+        dateTime("-01-01-01", "yyyy-MM-dd", null, "DATE out of range")
+        */
     }
 
     // TIME
@@ -322,13 +322,13 @@ public class ItDateTimeCastFormatTest extends BaseSqlIntegrationTest {
                 dateTime("22:02:03", "hh:mm:ss.ff10", null, "Invalid format"),
 
                 dateTime("23:02:03.123", "hh24:mi:ss", null, "Invalid format")
-
-                // TODO https://issues.apache.org/jira/browse/IGNITE-25315 Max length of a fractional part is ignored
-                /*
-                dateTime("23:02:03.12", "hh24:mi:ss.ff3", null, "Invalid format"),
-                dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Invalid format")
-                */
         );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-25315 Max length of a fractional part is ignored
+        /*
+        dateTime("23:02:03.12", "hh24:mi:ss.ff3", null, "Invalid format"),
+        dateTime("23:02:03.1234", "hh24:mi:ss.ff3", null, "Invalid format")
+        */
     }
 
     @ParameterizedTest
