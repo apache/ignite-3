@@ -435,6 +435,8 @@ namespace Apache.Ignite.Internal.Compute
 
             using var res = buf;
 
+            // TODO: This happens after we send the request - too late.
+            // Add some parameter to validate features before sending?
             ValidateProtocolCompatibility(jobDescriptor, actualSocket);
 
             return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
