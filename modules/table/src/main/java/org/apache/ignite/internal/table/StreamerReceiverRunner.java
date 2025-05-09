@@ -59,5 +59,8 @@ public interface StreamerReceiverRunner {
      * @param deploymentUnits Deployment units.
      * @return Serialized receiver results.
      */
-    CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits);
+    CompletableFuture<byte[]> runReceiverAsync(
+            byte[] payload,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits);
 }
