@@ -317,7 +317,7 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         ZoneId zoneId = ZoneId.of(zone);
 
         Instant now = Instant.ofEpochMilli(1234567898765L);
-        Clock clock = Clock.fixed(now, ZoneId.systemDefault());
+        Clock clock = Clock.fixed(now, ZoneId.of(zone));
         Instant instant = clock.instant();
         LocalDate date = LocalDate.now(clock);
         LocalDateTime dateTime = LocalDateTime.now(clock);
