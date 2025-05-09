@@ -29,6 +29,7 @@ import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.table.IgniteTables;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 
 /**
  * Client streamer batch request.
@@ -62,9 +63,13 @@ public class ClientStreamerWithReceiverBatchSendRequest {
             payloadBuf.putInt(payloadElementCount);
             in.readPayload(payloadBuf);
 
+            // TODO: Unpack options if feature is supported.
+            ReceiverExecutionOptions options = ReceiverExecutionOptions.DEFAULT;
+
             return table.partitionManager()
                     .primaryReplicaAsync(new HashPartition(partition))
-                    .thenCompose(node -> table.internalTable().streamerReceiverRunner().runReceiverAsync(payloadArr, node, deploymentUnits))
+                    .thenCompose(node -> table.internalTable().streamerReceiverRunner()
+                            .runReceiverAsync(payloadArr, node, deploymentUnits, options))
                     .thenAccept(res -> StreamerReceiverSerializer.serializeReceiverResultsForClient(out, returnResults ? res : null));
         });
     }
