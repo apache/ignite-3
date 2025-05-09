@@ -25,6 +25,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
 import java.time.Clock;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
@@ -81,6 +82,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
     private QueryTaskExecutorImpl taskExecutor;
 
+    private final List<ExecutionContext<?>> contexts = new ArrayList<>();
+
     @BeforeEach
     public void beforeTest() {
         var failureProcessor = new FailureManager(new NoOpFailureHandler());
@@ -93,6 +96,8 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
      */
     @AfterEach
     public void afterTest() {
+        contexts.forEach(ExecutionContext::cancel);
+        contexts.clear();
         taskExecutor.stop();
     }
 
@@ -133,7 +138,7 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
 
         FragmentDescription fragmentDesc = getFragmentDescription();
 
-        return new ExecutionContext<>(
+        ExecutionContext<T> executionContext = new ExecutionContext<>(
                 new ExpressionFactoryImpl<>(
                         Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE
                 ),
@@ -149,6 +154,10 @@ public abstract class AbstractExecutionTest<T> extends IgniteAbstractTest {
                 bufferSize,
                 Clock.systemUTC()
         );
+
+        contexts.add(executionContext);
+
+        return executionContext;
     }
 
     protected FragmentDescription getFragmentDescription() {
