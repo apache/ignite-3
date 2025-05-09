@@ -640,6 +640,7 @@ public class ItTxTestCluster {
         List<Set<Assignment>> calculatedAssignments = calculateAssignments(
                 cluster.stream().map(ItTxTestCluster::extractConsistentId).collect(toList()),
                 1,
+                replicas,
                 replicas
         );
 

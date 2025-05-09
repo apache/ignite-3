@@ -114,6 +114,7 @@ public class RebalanceUtilEx {
      * @param dataNodes Data nodes.
      * @param partitions Number of partitions.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
@@ -123,6 +124,7 @@ public class RebalanceUtilEx {
             Collection<String> dataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             TablePartitionId partId,
             WatchEvent event,
             long assignmentsTimestamp
@@ -138,7 +140,13 @@ public class RebalanceUtilEx {
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(
+                dataNodes,
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 

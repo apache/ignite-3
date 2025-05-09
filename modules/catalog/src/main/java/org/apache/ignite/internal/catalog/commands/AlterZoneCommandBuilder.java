@@ -47,6 +47,15 @@ public interface AlterZoneCommandBuilder extends AbstractZoneCommandBuilder<Alte
     AlterZoneCommandBuilder replicas(@Nullable Integer replicas);
 
     /**
+     * Sets the quorum size.
+     *
+     * @param quorumSize Optional quorum size. It depends on the number of replicas and should be in the range from 1 to the
+     *      {@code Math.round(replicas / 2.0) }.
+     * @return This instance.
+     */
+    AlterZoneCommandBuilder quorumSize(@Nullable Integer quorumSize);
+
+    /**
      * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
      *
      * @param adjust Optional timeout.

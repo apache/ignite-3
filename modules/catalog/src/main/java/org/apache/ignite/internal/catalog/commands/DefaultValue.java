@@ -27,6 +27,7 @@ import java.time.LocalTime;
 import java.time.Period;
 import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.io.IgniteDataInput;
@@ -172,6 +173,11 @@ public abstract class DefaultValue {
         @Override
         public int hashCode() {
             return Objects.hash(type, value);
+        }
+
+        @Override
+        public String toString() {
+            return S.toString(this);
         }
     }
 

@@ -48,6 +48,14 @@ public interface CreateZoneCommandBuilder extends AbstractZoneCommandBuilder<Cre
     CreateZoneCommandBuilder replicas(@Nullable Integer replicas);
 
     /**
+     * Sets the quorum size.
+     *
+     * @param quorumSize Optional quorum size, it should be in the range from 1 to the {@code Math.floor((replicas + 1)/2) }.
+     * @return This instance.
+     */
+    CreateZoneCommandBuilder quorumSize(@Nullable Integer quorumSize);
+
+    /**
      * Sets timeout in seconds between node added or node left topology event itself and data nodes switch.
      *
      * @param adjust Optional timeout.

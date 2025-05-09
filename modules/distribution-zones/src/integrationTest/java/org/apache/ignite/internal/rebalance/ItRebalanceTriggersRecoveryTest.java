@@ -26,6 +26,8 @@ import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
+import static org.awaitility.Awaitility.await;
+import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -165,11 +167,13 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         });
 
         // Check that metastore node schedule the rebalance procedure.
-        assertTrue(waitForCondition(
-                (() -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID).equals(Set.of(
-                        Assignment.forPeer(node(2).name()),
-                        Assignment.forPeer(node(1).name())))),
-                10_000));
+        await().timeout(10_000, TimeUnit.MILLISECONDS).until(
+                () -> getPartitionPendingClusterNodes(unwrapIgniteImpl(node(0)), PARTITION_ID),
+                containsInAnyOrder(
+                        Assignment.forPeer(node(1).name()),
+                        Assignment.forPeer(node(2).name())
+                )
+        );
 
         // Remove the pending keys in a barbarian way. So, the rebalance can be triggered only by the recovery logic now.
         removePendingPartAssignmentsQueueKey(TABLE_NAME, PARTITION_ID);

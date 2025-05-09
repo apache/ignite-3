@@ -23,6 +23,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.catalog.events.CatalogEvent.ZONE_ALTER;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.DISTRIBUTION_ZONE_DATA_NODES_HISTORY_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.filterDataNodes;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.nodeNames;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.parseDataNodes;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.zoneDataNodesHistoryPrefix;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.extractZoneId;
@@ -174,9 +175,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
             Map<UUID, NodeWithAttributes> nodesAttributes = distributionZoneManager.nodesAttributes();
 
-            Set<String> filteredDataNodes = filterDataNodes(dataNodesWithAttributes, zoneDescriptor).stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
+            Set<String> filteredDataNodes = nodeNames(filterDataNodes(dataNodesWithAttributes, zoneDescriptor));
 
             if (LOG.isInfoEnabled()) {
                 var matchedNodes = new ArrayList<NodeWithAttributes>();
@@ -212,10 +211,7 @@ public class DistributionZoneRebalanceEngineV2 {
             long revision = evt.entryEvent().newEntry().revision();
             HybridTimestamp timestamp = evt.entryEvent().newEntry().timestamp();
 
-            Set<String> aliveNodes = distributionZoneManager.logicalTopology(revision)
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet());
+            Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(revision));
 
             return triggerZonePartitionsRebalance(
                     zoneDescriptor,
@@ -263,10 +259,7 @@ public class DistributionZoneRebalanceEngineV2 {
 
                     Catalog catalog = catalogService.catalog(catalogVersion);
 
-                    Set<String> aliveNodes = distributionZoneManager.logicalTopology(causalityToken)
-                            .stream()
-                            .map(NodeWithAttributes::nodeName)
-                            .collect(toSet());
+                    Set<String> aliveNodes = nodeNames(distributionZoneManager.logicalTopology(causalityToken));
 
                     return triggerZonePartitionsRebalance(
                             zoneDescriptor,
