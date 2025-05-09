@@ -826,17 +826,24 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestEchoReceiverTuple()
     {
+        var count = 5_000;
+
         var payload = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
         payload["nested"] = new IgniteTuple { ["foo"] = "bar" };
 
-        var res = await PocoView.StreamDataAsync<object, object, object?, object>(
-            new[] { payload }.ToAsyncEnumerable(),
+        List<object> res = await PocoView.StreamDataAsync<object, object, object?, object>(
+            Enumerable.Range(1, count).Select(x => payload).ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
             EchoReceiver,
-            receiverArg: null).SingleAsync();
+            receiverArg: null).ToListAsync();
 
-        Assert.AreEqual(payload, res);
+        Assert.AreEqual(count, res.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            Assert.AreEqual(payload, res[i]);
+        }
     }
 
     [Test]
