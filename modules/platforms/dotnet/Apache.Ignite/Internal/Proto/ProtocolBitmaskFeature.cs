@@ -48,5 +48,10 @@ internal enum ProtocolBitmaskFeature
     /// <summary>
     /// Platform compute executor (respond to server calls for job execution).
     /// </summary>
-    PlatformComputeExecutor = 16
+    PlatformComputeExecutor = 16,
+
+    /// <summary>
+    /// Streamer receiver execution options, including .NET receivers.
+    /// </summary>
+    StreamerReceiverExecutionOptions = 32
 }
