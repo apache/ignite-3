@@ -408,7 +408,17 @@ internal static class DataStreamerWithReceiver
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
-        builder.AppendObjectWithType(arg);
+
+        if (arg is IIgniteTuple tuple)
+        {
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(0); // Scale.
+            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tuple);
+        }
+        else
+        {
+            builder.AppendObjectWithType(arg);
+        }
 
         builder.AppendObjectCollectionWithType(items);
 

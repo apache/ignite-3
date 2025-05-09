@@ -29,7 +29,7 @@ using Proto.BinaryTuple;
 /// </summary>
 internal static class TupleWithSchemaMarshalling
 {
-    private const int TypeIdTuple = -1;
+    public const int TypeIdTuple = -1;
 
     /// <summary>
     /// Packs tuple with schema.
