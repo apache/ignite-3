@@ -22,13 +22,16 @@ using System.Threading.Tasks;
 using Ignite.Compute;
 
 /// <summary>
-///
+/// Internal compute job that executes user-defined data streamer receiver.
 /// </summary>
 internal sealed class StreamerReceiverJob : IComputeJob<byte[], byte[]>
 {
     /// <inheritdoc/>
-    public ValueTask<byte[]> ExecuteAsync(IJobExecutionContext context, byte[] arg, CancellationToken cancellationToken)
+    public async ValueTask<byte[]> ExecuteAsync(IJobExecutionContext context, byte[] arg, CancellationToken cancellationToken)
     {
-        throw new System.NotImplementedException();
+        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+
+        // TODO: Implement
+        return [];
     }
 }
