@@ -56,28 +56,6 @@ public class DataStreamerTests : IgniteTestsBase
 
     private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
-    private static readonly object[] AllSupportedTypes =
-    {
-        true,
-        sbyte.MaxValue,
-        short.MinValue,
-        int.MaxValue,
-        long.MinValue,
-        float.MaxValue,
-        double.MinValue,
-        decimal.One,
-        new BigDecimal(1234, 2),
-        new LocalDate(1234, 5, 6),
-        new LocalTime(12, 3, 4, 567),
-        new LocalDateTime(1234, 5, 6, 7, 8, 9),
-        Instant.FromUnixTimeSeconds(123456),
-        Guid.Empty,
-        "str123",
-        new byte[] { 1, 2, 3 },
-        Period.FromDays(999),
-        Duration.FromSeconds(12345),
-    };
-
     private static int _unknownKey = 333000;
 
     [SetUp]
@@ -805,7 +783,7 @@ public class DataStreamerTests : IgniteTestsBase
             ex.Message);
     }
 
-    [TestCaseSource(nameof(AllSupportedTypes))]
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestEchoReceiverAllDataTypes(object arg)
     {
         var res = await PocoView.StreamDataAsync<object, object, object, object>(
@@ -821,6 +799,13 @@ public class DataStreamerTests : IgniteTestsBase
         }
 
         Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public async Task TestEchoReceiverTuple()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
     }
 
     [Test]
@@ -879,13 +864,6 @@ public class DataStreamerTests : IgniteTestsBase
         // Only part of the data was streamed.
         var streamedData = await TupleView.GetAllAsync(null, Enumerable.Range(0, Count).Select(x => GetTuple(x)));
         Assert.Less(streamedData.Count(x => x.HasValue), Count / 2);
-    }
-
-    [Test]
-    public async Task TestReceiverWithNestedTuples()
-    {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
     }
 
     private static async IAsyncEnumerable<IIgniteTuple> GetFakeServerData(int count, TimeSpan? delay = null)
