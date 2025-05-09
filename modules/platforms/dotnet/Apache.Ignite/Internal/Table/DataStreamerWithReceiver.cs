@@ -480,6 +480,19 @@ internal static class DataStreamerWithReceiver
 
             var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
 
+            if (tuple.GetInt(0) == TupleWithSchemaMarshalling.TypeIdTuple)
+            {
+                int elementCount = tuple.GetInt(1);
+                T[] resultsPooledArr = ArrayPool<T>.Shared.Rent(elementCount);
+
+                for (var i = 0; i < elementCount; i++)
+                {
+                    resultsPooledArr[i] = (T)(object)TupleWithSchemaMarshalling.Unpack(tuple.GetBytesSpan(2 + i));
+                }
+
+                return (resultsPooledArr, elementCount);
+            }
+
             return tuple.GetObjectCollectionWithType<T>();
         }
     }
