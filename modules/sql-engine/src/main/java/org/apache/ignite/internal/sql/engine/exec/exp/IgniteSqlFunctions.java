@@ -550,11 +550,6 @@ public class IgniteSqlFunctions {
         return args1;
     }
 
-//    /** Converts timestamp string into a timestamp with local time zone. */
-//    public static @Nullable Long toTimestampWithLocalTimeZone(@Nullable String v, TimeZone timeZone) {
-//        return SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
-//    }
-
     /** Converts timestamp string into a timestamp with local time zone. */
     public static @Nullable Long toTimestampWithLocalTimeZone(@Nullable String v, String format, TimeZone timeZone) {
         if (v == null) {

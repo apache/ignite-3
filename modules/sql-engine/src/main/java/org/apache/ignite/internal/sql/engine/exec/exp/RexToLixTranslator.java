@@ -845,7 +845,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       return
               Expressions.call(
                       IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
-                      Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(),
+                      Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method,
                           RexImpTable.optimize2(operand,
                               Expressions.call(
                                       IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE.method(),
