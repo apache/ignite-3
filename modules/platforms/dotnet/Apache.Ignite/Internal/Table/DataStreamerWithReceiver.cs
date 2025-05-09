@@ -398,7 +398,7 @@ internal static class DataStreamerWithReceiver
             w.Write(expectResults);
             WriteReceiverPayload(ref w, receiverClassName, receiverArg, items);
 
-            // TODO: Check feature flag.
+            // TODO: Throw unsupported if no feature flag but custom options are present
             w.Write(receiverExecutionOptions.Priority);
             w.Write(receiverExecutionOptions.MaxRetries);
             w.Write((int)receiverExecutionOptions.ExecutorType);

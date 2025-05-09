@@ -304,6 +304,8 @@ namespace Apache.Ignite.Internal.Compute
             var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
             w.Write(options.Priority);
             w.Write(options.MaxRetries);
+
+            // TODO: Throw unsupported if no feature flag but custom options are present
             w.Write((int)options.ExecutorType);
         }
 
