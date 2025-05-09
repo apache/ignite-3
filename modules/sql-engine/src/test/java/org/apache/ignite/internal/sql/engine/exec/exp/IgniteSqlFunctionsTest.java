@@ -531,7 +531,19 @@ public class IgniteSqlFunctionsTest {
                 LocalDateTime.of(2025, 5, 7, 11, 13, 58, 1_000_000),
                 LocalDateTime.of(2025, 5, 7, 11, 13, 58, 123_000_000),
                 LocalDateTime.of(2025, 5, 7, 11, 13, 58, 500_000_000),
-                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 999_000_000)
+                LocalDateTime.of(2025, 5, 7, 11, 13, 58, 999_000_000),
+
+                LocalDateTime.of(2023, 10, 29, 2, 1, 1, 111_000_000),
+                LocalDateTime.of(2023, 10, 29, 3, 1, 1, 111_000_000),
+                LocalDateTime.of(2023, 10, 29, 4, 1, 1, 111_000_000),
+                LocalDateTime.of(2023, 10, 29, 5, 1, 1, 111_000_000),
+
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25342
+                // This time (02:00 - 02:59) does not exist because France switches to the summer time schedule
+                // LocalDateTime.of(2024, 3, 31, 2, 1, 1, 111_000_000),
+                LocalDateTime.of(2024, 3, 31, 3, 1, 1, 111_000_000),
+                LocalDateTime.of(2024, 3, 31, 4, 1, 1, 111_000_000),
+                LocalDateTime.of(2024, 3, 31, 5, 1, 1, 111_000_000)
         );
 
         return zones.stream().flatMap(z -> times.stream().map(t -> Arguments.of(z, t)));
