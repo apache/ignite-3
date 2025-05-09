@@ -54,6 +54,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
@@ -613,7 +614,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return executeAsyncWithFailover(
                 Set.of(node),
                 deploymentUnits,
-                StreamerReceiverJob.class.getName(),
+                getReceiverJobClassName(options.executorType()),
                 jobOptions,
                 SharedComputeUtils.marshalArgOrResult(payload, null),
                 null
@@ -644,6 +645,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             return future.join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
+        }
+    }
+
+    private static String getReceiverJobClassName(JobExecutorType executorType) {
+        switch (executorType) {
+            case JAVA_EMBEDDED:
+                return StreamerReceiverJob.class.getName();
+
+            case DOTNET_SIDECAR:
+                return "Apache.Ignite.Internal.Table.StreamerReceiverJob, Apache.Ignite";
+
+            default:
+                throw new IllegalArgumentException("Unsupported job executor type: " + executorType);
         }
     }
 }
