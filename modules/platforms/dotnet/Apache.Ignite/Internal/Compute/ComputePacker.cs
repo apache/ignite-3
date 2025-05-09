@@ -22,6 +22,7 @@ using System.Buffers;
 using Ignite.Table;
 using Marshalling;
 using Proto.MsgPack;
+using Table.Serialization;
 
 /// <summary>
 /// Compute packer utils.
@@ -68,13 +69,14 @@ internal static class ComputePacker
             return;
         }
 
-        if (obj is IIgniteTuple)
+        if (obj is IIgniteTuple tuple)
         {
-            // TODO: IGNITE-23033 .NET: Thin 3.0: Support tuples with schemas in Compute
             w.Write(Tuple);
-            throw new NotImplementedException("IGNITE-23033");
+            w.Write(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tuple);
+            return;
         }
 
+        // TODO IGNITE-25337 Automatic POCO serialization.
         w.Write(Native);
         w.WriteObjectAsBinaryTuple(obj);
     }
@@ -95,9 +97,10 @@ internal static class ComputePacker
 
         int type = r.ReadInt32();
 
+        // TODO IGNITE-25337 Automatic POCO serialization.
         return type switch
         {
-            Tuple => throw new NotImplementedException("IGNITE-23033"),
+            Tuple => (T)(object)TupleWithSchemaMarshalling.Unpack(r.ReadBinary()),
             MarshallerObject => Unmarshal(ref r, marshaller),
             _ => (T)r.ReadObjectFromBinaryTuple()!
         };
