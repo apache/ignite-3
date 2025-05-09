@@ -409,18 +409,31 @@ internal static class DataStreamerWithReceiver
 
         builder.AppendString(className);
 
-        if (arg is IIgniteTuple tuple)
+        if (arg is IIgniteTuple tupleArg)
         {
             builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
             builder.AppendInt(0); // Scale.
-            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tuple);
+            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tupleArg);
         }
         else
         {
             builder.AppendObjectWithType(arg);
         }
 
-        builder.AppendObjectCollectionWithType(items);
+        if (items[0] is IIgniteTuple)
+        {
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(items.Length);
+
+            foreach (var item in items)
+            {
+                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
+            }
+        }
+        else
+        {
+            builder.AppendObjectCollectionWithType(items);
+        }
 
         w.Write(binaryTupleSize);
         w.Write(builder.Build().Span);

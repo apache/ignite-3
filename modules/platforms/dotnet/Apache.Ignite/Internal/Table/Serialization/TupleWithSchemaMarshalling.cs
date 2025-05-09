@@ -29,6 +29,9 @@ using Proto.BinaryTuple;
 /// </summary>
 internal static class TupleWithSchemaMarshalling
 {
+    /// <summary>
+    /// Type id for <see cref="IIgniteTuple"/>.
+    /// </summary>
     public const int TypeIdTuple = -1;
 
     /// <summary>
