@@ -122,6 +122,8 @@ class BinaryTupleComparatorUtils {
         byte[] bytes = tuple.bytesValue(begin, begin + trimmedSize);
         char[] cmpArray = cmp.toCharArray();
 
+        // The tuple can contain a specific character (VARLEN_EMPTY_BYTE) that is not a part of the value.
+        // In that case the value size in bytes (fullSrtLength) should be reduced by 1.
         if (bytes.length < trimmedSize) {
             assert bytes.length == trimmedSize - 1 : "Only one first byte can have a special value.";
 
