@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Internal.Table;
 
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
@@ -24,6 +25,7 @@ using Ignite.Compute;
 /// <summary>
 /// Internal compute job that executes user-defined data streamer receiver.
 /// </summary>
+[SuppressMessage("ReSharper", "UnusedType.Global", Justification = "Called via reflection from Java.")]
 internal sealed class StreamerReceiverJob : IComputeJob<byte[], byte[]>
 {
     /// <inheritdoc/>
