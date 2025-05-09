@@ -429,13 +429,13 @@ namespace Apache.Ignite.Internal.Compute
             using var writer = ProtoCommon.GetMessageWriter();
             Write();
 
-            var (buf, socket) = await _socket.DoOutInOpAndGetSocketAsync(
+            var (buf, actualSocket) = await _socket.DoOutInOpAndGetSocketAsync(
                     ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
                 .ConfigureAwait(false);
 
-            ValidateProtocolCompatibility(jobDescriptor, socket);
-
             using var res = buf;
+
+            ValidateProtocolCompatibility(jobDescriptor, actualSocket);
 
             return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
 
@@ -491,11 +491,13 @@ namespace Apache.Ignite.Internal.Compute
                     var colocationHash = Write(bufferWriter, table, schema);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                    var (resBuf, _) = await _socket.DoOutInOpAndGetSocketAsync(
+                    var (resBuf, actualSocket) = await _socket.DoOutInOpAndGetSocketAsync(
                             ClientOp.ComputeExecuteColocated, tx: null, bufferWriter, preferredNode, expectNotifications: true)
                         .ConfigureAwait(false);
 
                     using var res = resBuf;
+
+                    ValidateProtocolCompatibility(descriptor, actualSocket);
 
                     return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller);
                 }
