@@ -69,7 +69,7 @@ public class ItRebalanceRecoveryTest extends ClusterPerTestIntegrationTest {
 
         // Change the number of replicas so that the table would get replicated on both nodes.
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE TEST_ZONE SET REPLICAS=2");
+            session.execute(null, "ALTER ZONE TEST_ZONE SET (REPLICAS 2)");
         });
 
         cluster.restartNode(1);

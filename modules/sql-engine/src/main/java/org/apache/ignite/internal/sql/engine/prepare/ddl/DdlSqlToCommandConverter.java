@@ -812,14 +812,14 @@ public class DdlSqlToCommandConverter {
         if (!knownZoneOptionNames.contains(optionName)) {
             throw unexpectedZoneOption(ctx, optionName);
         } else if (!remainingKnownOptions.remove(optionName)) {
-            throw duplicateZoneOption(ctx, optionName);
+            throw duplicateZoneOption(ctx, ZoneOptionEnum.valueOf(optionName).sqlName);
         }
 
         ZoneOptionEnum zoneOption = ZoneOptionEnum.valueOf(optionName);
         DdlOptionInfo<S, ?> zoneOptionInfo = optionInfos.get(zoneOption);
 
         // Options infos doesn't contain REPLICAS, it's handled separately
-        assert zoneOptionInfo != null || zoneOption == REPLICAS : optionName;
+        assert zoneOptionInfo != null || zoneOption == REPLICAS : zoneOption.sqlName;
 
         assert option.value() instanceof SqlLiteral : option.value();
         SqlLiteral literal = (SqlLiteral) option.value();

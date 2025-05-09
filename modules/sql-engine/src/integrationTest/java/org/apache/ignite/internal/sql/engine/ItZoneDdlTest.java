@@ -178,7 +178,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         sql(String.format("CREATE ZONE %s (PARTITIONS 11) STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
 
         IgniteTestUtils.assertThrowsWithCause(
-                () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = 111", ZONE_NAME)),
+                () -> sql(String.format("ALTER ZONE %s SET (PARTITIONS 111)", ZONE_NAME)),
                 CatalogValidationException.class,
                 "Partitions number cannot be altered"
         );
@@ -189,7 +189,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         sql(String.format("CREATE ZONE %s STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
 
         IgniteTestUtils.assertThrowsWithCause(
-                () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = %s", ZONE_NAME, DEFAULT_PARTITION_COUNT + 123)),
+                () -> sql(String.format("ALTER ZONE %s SET (PARTITIONS %s)", ZONE_NAME, DEFAULT_PARTITION_COUNT + 123)),
                 CatalogValidationException.class,
                 "Partitions number cannot be altered"
         );
@@ -200,7 +200,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
         sql(String.format("CREATE ZONE %s (PARTITIONS 11) STORAGE PROFILES ['%s']", ZONE_NAME, DEFAULT_STORAGE_PROFILE));
 
         IgniteTestUtils.assertThrowsWithCause(
-                () -> sql(String.format("ALTER ZONE %s SET PARTITIONS = 11", ZONE_NAME)),
+                () -> sql(String.format("ALTER ZONE %s SET (PARTITIONS 11)", ZONE_NAME)),
                 CatalogValidationException.class,
                 "Partitions number cannot be altered"
         );
@@ -298,7 +298,7 @@ public class ItZoneDdlTest extends ClusterPerClassIntegrationTest {
 
     private static void tryToAlterZone(String zoneName, int dataNodesAutoAdjust, boolean failIfNotExists) {
         sql(String.format(
-                "ALTER ZONE %s SET DATA_NODES_AUTO_ADJUST=%s",
+                "ALTER ZONE %s SET (AUTO ADJUST %s)",
                 failIfNotExists ? zoneName : "IF EXISTS " + zoneName, dataNodesAutoAdjust
         ));
     }

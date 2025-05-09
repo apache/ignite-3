@@ -56,6 +56,6 @@ class ItIndexRegistrationAndRebalanceConcurrencyTest extends ClusterPerTestInteg
     }
 
     private static void initiateRebalanceOnTestZone(Ignite ignite) {
-        ignite.sql().executeScript("ALTER ZONE " + TEST_ZONE_NAME + " SET replicas=2");
+        ignite.sql().executeScript("ALTER ZONE " + TEST_ZONE_NAME + " SET (replicas 2)");
     }
 }

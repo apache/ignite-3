@@ -69,7 +69,14 @@ public class IgniteSqlAlterZoneSet extends IgniteAbstractSqlAlterZone {
     protected void unparseAlterZoneOperation(SqlWriter writer, int leftPrec, int rightPrec) {
         writer.keyword("SET");
 
-        optionList.unparse(writer, 0, 0);
+        if (!optionList.isEmpty()) {
+            SqlWriter.Frame frame = writer.startList("(", ")");
+            for (SqlNode c : optionList) {
+                writer.sep(",");
+                c.unparse(writer, 0, 0);
+            }
+            writer.endList(frame);
+        }
     }
 
     /** The list of modification options. **/

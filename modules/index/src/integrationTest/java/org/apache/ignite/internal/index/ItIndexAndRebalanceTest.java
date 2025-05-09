@@ -87,7 +87,7 @@ public class ItIndexAndRebalanceTest extends BaseSqlIntegrationTest {
     }
 
     private static void changeZoneReplicas(String zoneName, int replicas) {
-        sql(format("ALTER ZONE {} SET REPLICAS={}", zoneName, replicas));
+        sql(format("ALTER ZONE {} SET (REPLICAS {})", zoneName, replicas));
     }
 
     private static void waitForStableAssignmentsChangeInMetastore(

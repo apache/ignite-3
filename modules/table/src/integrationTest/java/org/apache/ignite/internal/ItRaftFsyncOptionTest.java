@@ -98,6 +98,6 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
         CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
         CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
 
-        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
+        node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }
 }
