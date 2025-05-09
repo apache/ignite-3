@@ -397,6 +397,11 @@ internal static class DataStreamerWithReceiver
             var expectResults = resultChannel != null;
             w.Write(expectResults);
             WriteReceiverPayload(ref w, receiverClassName, receiverArg, items);
+
+            // TODO: Check feature flag.
+            w.Write(receiverExecutionOptions.Priority);
+            w.Write(receiverExecutionOptions.MaxRetries);
+            w.Write((int)receiverExecutionOptions.ExecutorType);
         }
     }
 
