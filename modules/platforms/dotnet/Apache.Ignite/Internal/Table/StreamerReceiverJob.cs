@@ -17,10 +17,13 @@
 
 namespace Apache.Ignite.Internal.Table;
 
+using System;
+using System.Buffers.Binary;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Proto.BinaryTuple;
 
 /// <summary>
 /// Internal compute job that executes user-defined data streamer receiver.
@@ -32,6 +35,8 @@ internal sealed class StreamerReceiverJob : IComputeJob<byte[], byte[]>
     public async ValueTask<byte[]> ExecuteAsync(IJobExecutionContext context, byte[] arg, CancellationToken cancellationToken)
     {
         await Task.Delay(1, cancellationToken).ConfigureAwait(false);
+        var payloadElementCount = BinaryPrimitives.ReadInt32LittleEndian(arg);
+        var reader = new BinaryTupleReader(arg.AsSpan()[4..], payloadElementCount);
 
         // TODO: Implement
         return [];
