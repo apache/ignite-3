@@ -63,7 +63,9 @@ import org.apache.ignite.lang.ErrorGroups.Common;
 import org.apache.ignite.lang.IgniteException;
 import org.jetbrains.annotations.TestOnly;
 
-/** Sink that writes events to the log using any logging framework the user has configured. */
+/**
+ * Sink that sends events to an external web server.
+ */
 class WebhookSink implements Sink<WebhookSinkView> {
     private static final IgniteLogger LOG = Loggers.forClass(WebhookSink.class);
 
