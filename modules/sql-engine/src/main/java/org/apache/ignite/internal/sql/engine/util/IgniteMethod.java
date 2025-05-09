@@ -150,6 +150,12 @@ public enum IgniteMethod {
      */
     CURRENT_DATE(IgniteSqlDateTimeUtils.class, "currentDate", DataContext.class),
 
+    /**
+     * SQL CAST(? AS TIMESTAMP WITH LOCAL TIME ZONE FORMAT {@code format}). The same as
+     * {@link SqlFunctions#timeWithLocalTimeZoneToTimestampWithLocalTimeZone} but accepts date format literal.
+     */
+    TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE(IgniteSqlFunctions.class,
+            "toTimestampWithLocalTimeZone", String.class, String.class, TimeZone.class),
     ;
 
     private final Method method;
