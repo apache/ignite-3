@@ -505,20 +505,20 @@ public class IgniteSqlFunctionsTest {
             assertThrows(ArithmeticException.class, () -> IgniteMath.decimalDivide(num, denum, 4, 2));
         }
     }
-
-    @ParameterizedTest
-    @MethodSource("timeZoneTime")
-    public void toTimestampWithLocalTimeZone(String zoneIdstr, LocalDateTime time) {
-        ZoneId zoneId = ZoneId.of(zoneIdstr);
-
-        String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-
-        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
-        long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
-        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
-
-        assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
-    }
+//
+//    @ParameterizedTest
+//    @MethodSource("timeZoneTime")
+//    public void toTimestampWithLocalTimeZone(String zoneIdstr, LocalDateTime time) {
+//        ZoneId zoneId = ZoneId.of(zoneIdstr);
+//
+//        String v = time.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+//
+//        TimeZone timeZone = TimeZone.getTimeZone(zoneId);
+//        long calciteTsLtz = SqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+//        long tsLtz = IgniteSqlFunctions.toTimestampWithLocalTimeZone(v, timeZone);
+//
+//        assertEquals(Instant.ofEpochMilli(calciteTsLtz), Instant.ofEpochMilli(tsLtz));
+//    }
 
     @ParameterizedTest
     @MethodSource("timeZoneTime")

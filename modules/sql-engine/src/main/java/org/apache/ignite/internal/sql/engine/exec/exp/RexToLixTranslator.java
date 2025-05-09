@@ -793,7 +793,7 @@ public class RexToLixTranslator implements RexVisitor<RexToLixTranslator.Result>
       if (Expressions.isConstantNull(format)) {
         return Expressions.call(
                 IgniteMethod.TO_TIMESTAMP_LTZ_EXACT.method(),
-                Expressions.call(IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method(), operand, getTimeZone)
+                Expressions.call(BuiltInMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE.method, operand, getTimeZone)
         );
       } else {
         return Expressions.call(
