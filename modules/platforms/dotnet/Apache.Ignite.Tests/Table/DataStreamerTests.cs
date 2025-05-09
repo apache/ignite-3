@@ -40,6 +40,8 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
 
+    private const string EchoReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoReceiver";
+
     private const string EchoArgsReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoArgsReceiver";
 
     private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
@@ -53,6 +55,8 @@ public class DataStreamerTests : IgniteTestsBase
     private static readonly ReceiverDescriptor<string?, string> TestReceiver = new(TestReceiverClassName);
 
     private static readonly ReceiverDescriptor<object?> TestReceiverNoResults = new(TestReceiverClassName);
+
+    private static readonly ReceiverDescriptor<object?, object> EchoReceiver = new(EchoReceiverClassName);
 
     private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
@@ -784,7 +788,25 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
-    public async Task TestEchoReceiverAllDataTypes(object arg)
+    public async Task TestEchoReceiverAllDataTypes(object payload)
+    {
+        var res = await PocoView.StreamDataAsync<object, object, object?, object>(
+            new[] { payload }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            EchoReceiver,
+            receiverArg: null).SingleAsync();
+
+        if (payload is decimal dec)
+        {
+            payload = new BigDecimal(dec);
+        }
+
+        Assert.AreEqual(payload, res);
+    }
+
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    public async Task TestEchoArgsReceiverAllDataTypes(object arg)
     {
         var res = await PocoView.StreamDataAsync<object, object, object, object>(
             new object[] { 1 }.ToAsyncEnumerable(),
