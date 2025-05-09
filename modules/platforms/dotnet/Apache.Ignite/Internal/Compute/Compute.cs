@@ -425,7 +425,7 @@ namespace Apache.Ignite.Internal.Compute
                         using var writer = ProtoCommon.GetMessageWriter();
                         Write(writer, args, CanWriteJobExecType(socket));
 
-                        var res = await socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer).ConfigureAwait(false);
+                        var res = await socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, expectNotifications: true).ConfigureAwait(false);
                         return (Buffer: res, Socket: socket);
                     },
                     PreferredNode.FromName(node.Name))
