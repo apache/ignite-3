@@ -115,25 +115,25 @@ class BinaryTupleComparatorUtils {
         int end = tuple.end();
 
         ByteBuffer buf = tuple.byteBuffer();
-        int fullSrtLength = end - begin;
-        int trimmedSize = Math.min(fullSrtLength, buf.capacity() - begin);
+        int fullStrLength = end - begin;
+        int trimmedSize = Math.min(fullStrLength, buf.capacity() - begin);
 
         // Copying the direct byte buffer and then accessing it is better for performance than comparing with access by index in the buffer.
         byte[] bytes = tuple.bytesValue(begin, begin + trimmedSize);
         char[] cmpArray = cmp.toCharArray();
 
         // The tuple can contain a specific character (VARLEN_EMPTY_BYTE) that is not a part of the value.
-        // In that case the value size in bytes (fullSrtLength) should be reduced by 1.
+        // In that case the value size in bytes (fullStrLength) should be reduced by 1.
         if (bytes.length < trimmedSize) {
             assert bytes.length == trimmedSize - 1 : "Only one first byte can have a special value.";
 
-            fullSrtLength--;
+            fullStrLength--;
         }
 
         // Fast pass for ASCII string.
         int asciiResult = compareAsciiSequences(
                 bytes,
-                fullSrtLength,
+                fullStrLength,
                 cmpArray,
                 ignoreCase
         );
@@ -145,7 +145,7 @@ class BinaryTupleComparatorUtils {
         // If the string contains non-ASCII characters, we compare it as a Unicode string.
         return fullUnicodeCompare(
                 bytes,
-                fullSrtLength,
+                fullStrLength,
                 cmpArray,
                 ignoreCase
         );
@@ -156,7 +156,7 @@ class BinaryTupleComparatorUtils {
      * The comparison performs a Unicode-aware lexicographical comparison.
      *
      * @param bytes The byte array containing a UTF-8 encoded string.
-     * @param fullSrtLength The full length of the string, which had been truncated in the byte array.
+     * @param fullStrLength The full length of the string, which had been truncated in the byte array.
      * @param cmpArray The character array to compare against.
      * @param ignoreCase A flag indicating whether the comparison should ignore case differences.
      * @return 0 if the strings are equal, a negative value if the byte array represents a string that is
@@ -165,7 +165,7 @@ class BinaryTupleComparatorUtils {
      */
     private static int fullUnicodeCompare(
             byte[] bytes,
-            int fullSrtLength,
+            int fullStrLength,
             char[] cmpArray,
             boolean ignoreCase
     ) {
@@ -197,12 +197,12 @@ class BinaryTupleComparatorUtils {
             }
         }
 
-        if (fullSrtLength > bytes.length && cmpArray.length > i) {
+        if (fullStrLength > bytes.length && cmpArray.length > i) {
             // Comparison is not completed yet. Both strings have more characters.
             return 0;
         }
 
-        return fullSrtLength == bytes.length && cmpArray.length == i ? 0 : fullSrtLength == bytes.length ? -1 : 1;
+        return fullStrLength == bytes.length && cmpArray.length == i ? 0 : fullStrLength == bytes.length ? -1 : 1;
     }
 
     /**
@@ -260,7 +260,7 @@ class BinaryTupleComparatorUtils {
      * The comparison is performed lexicographically.
      *
      * @param bytes The byte array representation of the ASCII sequence to be compared.
-     * @param fullSrtLength The full length of the string, which had been truncated in the byte array.
+     * @param fullStrLength The full length of the string, which had been truncated in the byte array.
      * @param cmpArray The character array to compare against the byte array content.
      * @param ignoreCase Flag indicating whether the comparison should be case-insensitive.
      * @return A negative value if the byte array sequence is lexicographically less
@@ -270,7 +270,7 @@ class BinaryTupleComparatorUtils {
      */
     private static int compareAsciiSequences(
             byte[] bytes,
-            int fullSrtLength,
+            int fullStrLength,
             char[] cmpArray,
             boolean ignoreCase
     ) {
@@ -302,11 +302,11 @@ class BinaryTupleComparatorUtils {
             }
         }
 
-        if (fullSrtLength > remaining && cmpArray.length > remaining) {
+        if (fullStrLength > remaining && cmpArray.length > remaining) {
             // Comparison is not completed yet. Both strings have more characters.
             return 0;
         }
 
-        return signum(fullSrtLength - cmpArray.length);
+        return signum(fullStrLength - cmpArray.length);
     }
 }
