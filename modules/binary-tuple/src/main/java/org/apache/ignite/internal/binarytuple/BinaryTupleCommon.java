@@ -19,6 +19,7 @@ package org.apache.ignite.internal.binarytuple;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.ByteBuffer;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 
 /**
@@ -122,5 +123,89 @@ public class BinaryTupleCommon {
         }
 
         return value;
+    }
+
+    /**
+     * Gets a function that reads the field offset.
+     *
+     * @param entrySize Offset table entry size.
+     * @return Offset calculation function.
+     */
+    public static OffsetReadFunction offsetReadFunction(int entrySize) {
+        switch (entrySize) {
+            case Byte.BYTES:
+                return BinaryTupleCommon::readByteOffset;
+            case Short.BYTES:
+                return BinaryTupleCommon::readShortOffset;
+            case Integer.BYTES:
+                return BinaryTupleCommon::readIntOffset;
+            case Long.BYTES:
+                throw new BinaryTupleFormatException("Unsupported offset table size");
+            default:
+                throw new BinaryTupleFormatException("Invalid offset table size");
+        }
+    }
+
+    /**
+     * Gets a function that writes the field offset.
+     *
+     * @param entrySize Offset table entry size.
+     * @return Offset calculation function.
+     */
+    public static OffsetWriteFunction offsetWriteFunction(int entrySize) {
+        switch (entrySize) {
+            case Byte.BYTES:
+                return BinaryTupleCommon::writeByteOffset;
+            case Short.BYTES:
+                return BinaryTupleCommon::writeShortOffset;
+            case Integer.BYTES:
+                return BinaryTupleCommon::writeIntOffset;
+            case Long.BYTES:
+                throw new BinaryTupleFormatException("Unsupported offset table size");
+            default:
+                throw new BinaryTupleFormatException("Invalid offset table size");
+        }
+    }
+
+    private static int readByteOffset(ByteBuffer buffer, int index) {
+        return Byte.toUnsignedInt(buffer.get(index));
+    }
+
+    private static int readShortOffset(ByteBuffer buffer, int index) {
+        return Short.toUnsignedInt(buffer.getShort(index));
+    }
+
+    private static int readIntOffset(ByteBuffer buffer, int index) {
+        int offset = buffer.getInt(index);
+        if (offset < 0) {
+            throw new BinaryTupleFormatException("Unsupported offset table size");
+        }
+        return offset;
+    }
+
+    private static void writeByteOffset(ByteBuffer buffer, int index, int offset) {
+        buffer.put(index, (byte) offset);
+    }
+
+    private static void writeShortOffset(ByteBuffer buffer, int index, int offset) {
+        buffer.putShort(index, (short) offset);
+    }
+
+    private static void writeIntOffset(ByteBuffer buffer, int index, int offset) {
+        buffer.putInt(index, offset);
+    }
+
+    /** Offset read function. */
+    @FunctionalInterface
+    public interface OffsetReadFunction {
+        /** Returns offset of the given column index. */
+        int offset(ByteBuffer buffer, int index);
+    }
+
+    /** Offset write function. */
+    @FunctionalInterface
+    public interface OffsetWriteFunction {
+        /** Writes offset of the given column index. */
+        void offset(ByteBuffer buffer, int index, int offset);
     }
 }
