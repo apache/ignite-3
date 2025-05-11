@@ -53,10 +53,19 @@ public abstract class RpcRequestProcessor<T extends Message> implements RpcProce
             }
         }
         catch (final Throwable t) {
-            LOG.error("handleRequest {} failed", t, request);
+            if (isIgnorable(t)) {
+                LOG.debug("handleRequest {} failed", t, request);
+            } else {
+                LOG.error("handleRequest {} failed", t, request);
+            }
             rpcCtx.sendResponse(RaftRpcFactory.DEFAULT //
                 .newResponse(msgFactory, -1, "handleRequest internal error"));
         }
+    }
+
+    private static boolean isIgnorable(Throwable t) {
+        // It is ok if we lose leadership while a request to us was in flight, there is no need to clutter up the log.
+        return t instanceof IllegalStateException && "Not leader".equals(t.getMessage());
     }
 
     @Override
