@@ -30,6 +30,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleContainer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.schema.BinaryRowImpl;
+import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -54,6 +55,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
     private static final Object POISON_OBJECT = new Object();
 
     private final SchemaDescriptor schema;
+    private final BinaryTupleSchema rowSchema;
+    private final BinaryTupleSchema keySchema;
 
     private final int keyOnlyFixedLengthColumnSize;
     private final int valueOnlyFixedLengthColumnSize;
@@ -65,6 +68,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      */
     public TupleMarshallerImpl(SchemaDescriptor schema) {
         this.schema = schema;
+        rowSchema = BinaryTupleSchema.createRowSchema(schema);
+        keySchema = BinaryTupleSchema.createKeySchema(schema);
 
         keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
                 .map(Column::type)
@@ -102,7 +107,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
                         // BinaryTuple from client has matching schema version, and all values are valid. Use buffer as is.
                         var binaryRow = new BinaryRowImpl(schema.version(), tupleReader.byteBuffer());
-                        return Row.wrapBinaryRow(schema, binaryRow);
+                        return Row.wrapBinaryRow(schema, rowSchema, binaryRow);
                     }
                 }
             }
@@ -186,8 +191,8 @@ public class TupleMarshallerImpl implements TupleMarshaller {
         }
 
         return part == TuplePart.KEY
-                ? Row.wrapKeyOnlyBinaryRow(schema, rowBuilder.build())
-                : Row.wrapBinaryRow(schema, rowBuilder.build());
+                ? Row.wrapKeyOnlyBinaryRow(schema, keySchema, rowBuilder.build())
+                : Row.wrapBinaryRow(schema, rowSchema, rowBuilder.build());
     }
 
     void gatherStatistics(

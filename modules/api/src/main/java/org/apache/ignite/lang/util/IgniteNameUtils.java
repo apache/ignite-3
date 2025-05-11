@@ -38,7 +38,11 @@ public final class IgniteNameUtils {
      * @return Unquoted identifier or identifier is cast to upper case. "tbl0" -&gt; "TBL0", "\"Tbl0\"" -&gt; "Tbl0".
      */
     public static String parseIdentifier(String identifier) {
-        ensureNotNullAndNotEmpty(identifier, "name");
+        ensureNotNullAndNotEmpty(identifier, "identifier");
+
+        if (identifier.indexOf('"') < 0) { // Fast-path without StringBuilder for unquoted names.
+            return parseUnquotedIdentifier(identifier);
+        }
 
         var tokenizer = new Tokenizer(identifier);
 
@@ -149,11 +153,11 @@ public final class IgniteNameUtils {
 
     /** Wraps the given name with double quotes. */
     private static String quote(String name) {
-        if (name.chars().noneMatch(cp -> cp == '\"')) {
+        if (name.indexOf('\"') < 0) {
             return '\"' + name + '\"';
         }
 
-        StringBuilder sb = new StringBuilder(name.length() + 2).append('\"');
+        StringBuilder sb = new StringBuilder(name.length() + 4).append('\"');
         for (int currentPosition = 0; currentPosition < name.length(); currentPosition++) {
             char ch = name.charAt(currentPosition);
             if (ch == '\"') {
@@ -172,6 +176,25 @@ public final class IgniteNameUtils {
         if (argument.isEmpty()) {
             throw new IllegalArgumentException("Argument \"" + argumentName + "\" can't be empty.");
         }
+    }
+
+    private static String parseUnquotedIdentifier(String identifier) {
+        if (identifier.indexOf('.') >= 0 || identifier.indexOf(' ') >= 0) {
+            throw new IllegalArgumentException("Fully qualified name is not expected [name=" + identifier + "]");
+        }
+
+        if (!identifierStart(identifier.codePointAt(0))) {
+            throw new IllegalArgumentException("Malformed identifier [identifier=" + identifier + ", pos=0]");
+        }
+
+        for (int i = 1; i < identifier.length(); i++) {
+            int codePoint = identifier.codePointAt(i);
+            if (!identifierStart(codePoint) && !identifierExtend(codePoint)) {
+                throw new IllegalArgumentException("Malformed identifier [identifier=" + identifier + ", pos=" + i + ']');
+            }
+        }
+
+        return identifier.toUpperCase();
     }
 
     /**
