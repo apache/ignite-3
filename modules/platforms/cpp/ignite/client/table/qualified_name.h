@@ -58,7 +58,7 @@ public:
      * @param object_name Object name. Cannot be empty.
      * @return A new instance of a qualified_name class.
      */
-    static qualified_name create(std::string schema_name, std::string object_name);
+    static qualified_name create(std::string_view schema_name, std::string_view object_name);
 
     /**
      * Create a new instance of a qualified_name class from a string.

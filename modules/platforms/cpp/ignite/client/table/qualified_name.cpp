@@ -103,6 +103,22 @@ std::string unquote(std::string_view &identifier)
 }
 
 /**
+ * Parses the specified identifier.
+ *
+ * @param identifier Identifier
+ * @return Parsed identifier.
+ */
+std::string parse_identifier(std::string_view &identifier)
+{
+    auto separator_num =
+        std::count(identifier.begin(), identifier.end(), qualified_name::SEPARATOR_CHAR);
+
+    detail::arg_check::is_true(separator_num == 0, "Unexpected separator in identifier: " + std::string{identifier});
+
+    return unquote(identifier);
+}
+
+/**
  * Check whether the char is an identifier extend is U+00B7, or any character in the Unicode General Category classes
  * "Mn", "Mc", "Nd", "Pc", or "Cf".
  *
@@ -126,15 +142,14 @@ bool is_identifier_extend(char32_t codepoint) {
 
 namespace ignite {
 
-qualified_name qualified_name::create(std::string schema_name, std::string object_name) {
+qualified_name qualified_name::create(std::string_view schema_name, std::string_view object_name) {
     detail::arg_check::container_non_empty(object_name, "Object name");
 
     if (schema_name.empty()) {
         schema_name = DEFAULT_SCHEMA_NAME;
     }
 
-    // TODO: Parse names here.
-    return {std::move(schema_name), std::move(object_name)};
+    return {parse_identifier(schema_name), parse_identifier(object_name)};
 }
 
 qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) {
@@ -144,7 +159,7 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
         std::count(simple_or_canonical_name.begin(), simple_or_canonical_name.end(), qualified_name::SEPARATOR_CHAR);
 
     if (separator_num == 0) {
-        return create({}, unquote(simple_or_canonical_name));
+        return create({}, simple_or_canonical_name);
     }
 
     detail::arg_check::is_true(separator_num == 1,
@@ -154,7 +169,7 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
     detail::arg_check::container_non_empty(schema_name, "Schema part of the canonical name");
     detail::arg_check::container_non_empty(object_name, "Object part of the canonical name");
 
-    return create(unquote(schema_name), unquote(object_name));
+    return create(schema_name, object_name);
 }
 
 std::string qualified_name::quote_if_needed(std::string_view name) {
