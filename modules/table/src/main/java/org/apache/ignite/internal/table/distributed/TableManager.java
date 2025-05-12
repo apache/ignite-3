@@ -2623,7 +2623,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             try {
                 mvPartition = internalTable.storage().getMvPartition(partitionId);
             } catch (StorageClosedException e) {
-                throw new TableClosedException(table.tableId(), e);
+                return failedFuture(new TableClosedException(table.tableId(), e));
             }
 
             return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))
