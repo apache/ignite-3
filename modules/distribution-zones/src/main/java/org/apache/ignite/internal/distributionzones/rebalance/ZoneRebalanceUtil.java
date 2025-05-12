@@ -107,8 +107,6 @@ public class ZoneRebalanceUtil {
 
     public static final String ZONE_ASSIGNMENTS_CHAIN_PREFIX = "zone.assignments.chain.";
 
-    public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ZONE_ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
-
     /**
      * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */

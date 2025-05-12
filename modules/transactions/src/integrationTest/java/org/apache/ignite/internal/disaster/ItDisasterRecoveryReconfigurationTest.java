@@ -1356,12 +1356,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
 
-        CompletableFuture<?> updateFuture;
-        if (enabledColocation()) {
-            updateFuture = disasterRecoveryManager.resetPartitions(zoneName, emptySet(), true, -1);
-        } else {
-            updateFuture = disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
-        }
+        CompletableFuture<Void> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
