@@ -73,6 +73,17 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     }
 
     [Test]
+    public async Task TestEchoReceiverTupleWithSchema()
+    {
+        var arg = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        List<object> items = [arg];
+
+        var res = await RunEchoReceiver(items);
+
+        Assert.AreEqual(items, res);
+    }
+
+    [Test]
     public void TestMissingClass()
     {
         var receiverDesc = new ReceiverDescriptor<object, object>("BadClass")
