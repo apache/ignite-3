@@ -39,13 +39,15 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [OneTimeTearDown]
     public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
 
-    [Test]
-    public async Task TestEchoReceiverAllDataTypes()
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    public async Task TestEchoReceiverAllDataTypes(object item)
     {
-        var items = TestCases.SupportedArgs;
+        List<object> items = [item, item];
         var res = await RunEchoReceiver(items);
 
-        CollectionAssert.AreEqual(items, res);
+        var expected = items.Select(x => x is decimal dec ? new BigDecimal(dec) : x).ToList();
+
+        CollectionAssert.AreEqual(expected, res);
     }
 
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
