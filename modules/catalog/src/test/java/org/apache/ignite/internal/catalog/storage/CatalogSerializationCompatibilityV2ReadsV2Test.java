@@ -17,14 +17,6 @@
 
 package org.apache.ignite.internal.catalog.storage;
 
-import static org.apache.ignite.internal.catalog.storage.TestCatalogObjectDescriptors.STORAGE_PROFILES;
-
-import java.util.ArrayList;
-import java.util.List;
-import org.apache.ignite.internal.catalog.commands.CatalogUtils;
-import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
-import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
-
 /**
  * Tests for catalog storage objects. Protocol version 2 reads protocol 2.
  */
@@ -48,58 +40,5 @@ public class CatalogSerializationCompatibilityV2ReadsV2Test extends CatalogSeria
     @Override
     protected boolean expectExactVersion() {
         return true;
-    }
-
-    @Override
-    protected List<CatalogZoneDescriptor> zones() {
-        return zonesV2();
-    }
-
-    private List<CatalogZoneDescriptor> zonesV2() {
-        List<CatalogZoneDescriptor> list = new ArrayList<>();
-
-        list.add(new CatalogZoneDescriptor(
-                state.id(),
-                state.name("ZONE"),
-                1,
-                2,
-                2,
-                3,
-                4,
-                5,
-                CatalogUtils.DEFAULT_FILTER,
-                STORAGE_PROFILES.get(0),
-                ConsistencyMode.STRONG_CONSISTENCY
-        ));
-
-        list.add(new CatalogZoneDescriptor(
-                state.id(),
-                state.name("ZONE"),
-                6,
-                5,
-                3,
-                3,
-                2,
-                1,
-                "$[?(@.region == \"europe\")]",
-                STORAGE_PROFILES.get(0),
-                ConsistencyMode.HIGH_AVAILABILITY
-        ));
-
-        list.add(new CatalogZoneDescriptor(
-                state.id(),
-                state.name("ZONE"),
-                6,
-                10,
-                5,
-                3,
-                2,
-                1,
-                CatalogUtils.DEFAULT_FILTER,
-                STORAGE_PROFILES.get(1),
-                ConsistencyMode.HIGH_AVAILABILITY
-        ));
-
-        return list;
     }
 }
