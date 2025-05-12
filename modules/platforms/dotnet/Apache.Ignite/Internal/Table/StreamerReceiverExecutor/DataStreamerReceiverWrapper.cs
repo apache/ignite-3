@@ -19,10 +19,12 @@ namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Compute;
+using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Serialization;
@@ -44,10 +46,8 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
         PooledArrayBuffer responseBuf,
         CancellationToken cancellationToken)
     {
+        var (page, arg) = ReadPageAndArg(argBuf);
         TReceiver receiver = new TReceiver();
-        List<TItem> page = ReadPage();
-
-        TArg arg = ReadArg();
 
         try
         {
@@ -67,21 +67,56 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             }
         }
 
-        (List<TItem> Page, TArg Arg) ReadPageAndArg()
-        {
-            BinaryTupleReader receiverInfo = StreamerReceiverJob.GetReceiverInfoReaderFast(argBuf);
 
-            var arg = ReadArg(receiverInfo, 1);
-        }
-
-        void WriteRes(ICollection<TResult> res)
+        void WriteRes(ICollection<TResult>? res)
         {
             var writer = responseBuf.MessageWriter;
+
+            // TODO: Collection.
             ComputePacker.PackArgOrResult(ref writer, res, null);
         }
     }
 
-    private static object? ReadArg(BinaryTupleReader reader, int index)
+    private static (List<TItem> Page, TArg Arg) ReadPageAndArg(PooledBuffer argBuf)
+    {
+        BinaryTupleReader receiverInfo = StreamerReceiverJob.GetReceiverInfoReaderFast(argBuf);
+
+        object? argObj = ReadArg(ref receiverInfo, 1);
+        List<TItem> items = ReadPage(ref receiverInfo);
+
+        return (items, (TArg)argObj!);
+    }
+
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private method.")]
+    private static List<TItem> ReadPage(ref BinaryTupleReader receiverInfo)
+    {
+        int itemType = receiverInfo.GetInt(4);
+        int itemCount = receiverInfo.GetInt(5);
+
+        List<TItem> items = new List<TItem>(itemCount);
+
+        if (itemType == TupleWithSchemaMarshalling.TypeIdTuple)
+        {
+            for (int i = 0; i < itemCount; i++)
+            {
+                IgniteTuple tuple = TupleWithSchemaMarshalling.Unpack(receiverInfo.GetBytesSpan(i + 6));
+                items.Add((TItem)(object)tuple);
+            }
+        }
+        else
+        {
+            ColumnType colType = (ColumnType)itemType;
+            for (int i = 0; i < itemCount; i++)
+            {
+                object? item = receiverInfo.GetObject(i + 6, colType);
+                items.Add((TItem)item!);
+            }
+        }
+
+        return items;
+    }
+
+    private static object? ReadArg(ref BinaryTupleReader reader, int index)
     {
         if (reader.IsNull(index))
         {
