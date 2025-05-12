@@ -31,8 +31,6 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.assignmentsChainKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -83,6 +81,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.configuration.SystemDistributedExtensionConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
+import org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.lang.RunnableX;
@@ -120,7 +120,6 @@ import org.apache.ignite.internal.table.distributed.disaster.GlobalTablePartitio
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -1285,8 +1284,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 7, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testAssignmentsChainUpdate() throws Exception {
         int partId = 0;
 
@@ -1358,8 +1355,16 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         stopNodesInParallel(1, 2);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
-        CompletableFuture<?> updateFuture =
-                disasterRecoveryManager.resetTablePartitions(zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+
+        CompletableFuture<Void> updateFuture = TestDisasterRecoveryUtils.resetPartitions(
+                disasterRecoveryManager,
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
 
         assertThat(updateFuture, willCompleteSuccessfully());
 
@@ -1588,8 +1593,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     @Test
     @ZoneParams(nodes = 6, replicas = 3, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24144
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
     void testGracefulRewritesChainAfterForceReset() throws Exception {
         int partId = 0;
 
@@ -2095,8 +2098,14 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private @Nullable AssignmentsChain getAssignmentsChain(IgniteImpl node, int partId) {
-        CompletableFuture<Entry> chainFut = node.metaStorageManager()
-                .get(assignmentsChainKey(new TablePartitionId(tableId, partId)));
+        CompletableFuture<Entry> chainFut;
+        if (enabledColocation()) {
+            chainFut = node.metaStorageManager()
+                    .get(ZoneRebalanceUtil.assignmentsChainKey(new ZonePartitionId(zoneId, partId)));
+        } else {
+            chainFut = node.metaStorageManager()
+                    .get(RebalanceUtil.assignmentsChainKey(new TablePartitionId(tableId, partId)));
+        }
 
         assertThat(chainFut, willCompleteSuccessfully());
 
