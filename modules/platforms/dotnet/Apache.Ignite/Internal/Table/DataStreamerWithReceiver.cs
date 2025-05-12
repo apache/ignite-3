@@ -302,7 +302,7 @@ internal static class DataStreamerWithReceiver
 
             try
             {
-                SerializeBatch(buf, items.AsSpan(0, count), partitionId);
+                SerializeBatch(buf, new ArraySegment<TPayload>(items, 0, count), partitionId);
 
                 // ReSharper disable once AccessToModifiedClosure
                 var preferredNode = PreferredNode.FromName(partitionAssignment[partitionId] ?? string.Empty);
@@ -383,7 +383,7 @@ internal static class DataStreamerWithReceiver
 
         void SerializeBatch<T>(
             PooledArrayBuffer buf,
-            Span<T> items,
+            ArraySegment<T> items,
             int partitionId)
         {
             // T is one of the supported types (numbers, strings, etc).
@@ -405,13 +405,12 @@ internal static class DataStreamerWithReceiver
         }
     }
 
-    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object? arg, Span<T> items)
+    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object? arg, ArraySegment<T> items)
     {
-        Debug.Assert(items.Length > 0, "items.Length > 0");
-        Debug.Assert(!items.IsEmpty, "!items.IsEmpty");
+        Debug.Assert(items.Count > 0, "items.Count > 0");
 
         // className + arg + items size + item type + items.
-        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Length;
+        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Count;
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
@@ -430,7 +429,7 @@ internal static class DataStreamerWithReceiver
         if (items[0] is IIgniteTuple)
         {
             builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-            builder.AppendInt(items.Length);
+            builder.AppendInt(items.Count);
 
             foreach (var item in items)
             {

@@ -51,7 +51,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
 
         try
         {
-            ICollection<TResult>? res = await receiver.ReceiveAsync(page, context, arg, cancellationToken).ConfigureAwait(false);
+            IList<TResult>? res = await receiver.ReceiveAsync(page, context, arg, cancellationToken).ConfigureAwait(false);
 
             WriteRes(res);
         }
@@ -68,7 +68,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
         }
 
 
-        void WriteRes(ICollection<TResult>? res)
+        void WriteRes(IList<TResult>? res)
         {
             var writer = responseBuf.MessageWriter;
 
@@ -80,7 +80,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
 
             int resTupleElementCount = res.Count + 2;
             var builder = new BinaryTupleBuilder(resTupleElementCount);
-            builder.AppendObjectCollectionWithType<TResult>(res);
+            builder.AppendObjectCollectionWithType(res);
 
             responseBuf.MessageWriter.Write(builder.Build().Span);
         }

@@ -20,6 +20,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
     using System;
     using System.Buffers;
     using System.Buffers.Binary;
+    using System.Collections.Generic;
     using System.Diagnostics;
     using System.Numerics;
     using System.Runtime.InteropServices;
@@ -1095,14 +1096,15 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// </summary>
         /// <param name="collection">Value.</param>
         /// <typeparam name="T">Element type.</typeparam>
-        public void AppendObjectCollectionWithType<T>(Span<T> collection)
+        public void AppendObjectCollectionWithType<T>(IList<T> collection)
         {
             var firstValue = collection[0];
+            var count = collection.Count;
 
             switch (firstValue)
             {
                 case bool:
-                    AppendTypeAndSize(ColumnType.Boolean, collection.Length);
+                    AppendTypeAndSize(ColumnType.Boolean, count);
                     foreach (var item in collection)
                     {
                         AppendBool((bool)(object)item!);
@@ -1111,7 +1113,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case int:
-                    AppendTypeAndSize(ColumnType.Int32, collection.Length);
+                    AppendTypeAndSize(ColumnType.Int32, count);
                     foreach (var item in collection)
                     {
                         AppendInt((int)(object)item!);
@@ -1120,7 +1122,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case long:
-                    AppendTypeAndSize(ColumnType.Int64, collection.Length);
+                    AppendTypeAndSize(ColumnType.Int64, count);
                     foreach (var item in collection)
                     {
                         AppendLong((long)(object)item!);
@@ -1129,7 +1131,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case string:
-                    AppendTypeAndSize(ColumnType.String, collection.Length);
+                    AppendTypeAndSize(ColumnType.String, count);
                     foreach (var item in collection)
                     {
                         AppendString((string)(object)item!);
@@ -1138,7 +1140,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case Guid:
-                    AppendTypeAndSize(ColumnType.Uuid, collection.Length);
+                    AppendTypeAndSize(ColumnType.Uuid, count);
                     foreach (var item in collection)
                     {
                         AppendGuid((Guid)(object)item!);
@@ -1147,7 +1149,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case sbyte:
-                    AppendTypeAndSize(ColumnType.Int8, collection.Length);
+                    AppendTypeAndSize(ColumnType.Int8, count);
                     foreach (var item in collection)
                     {
                         AppendByte((sbyte)(object)item!);
@@ -1156,7 +1158,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case short:
-                    AppendTypeAndSize(ColumnType.Int16, collection.Length);
+                    AppendTypeAndSize(ColumnType.Int16, count);
                     foreach (var item in collection)
                     {
                         AppendShort((short)(object)item!);
@@ -1165,7 +1167,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case float:
-                    AppendTypeAndSize(ColumnType.Float, collection.Length);
+                    AppendTypeAndSize(ColumnType.Float, count);
                     foreach (var item in collection)
                     {
                         AppendFloat((float)(object)item!);
@@ -1174,7 +1176,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case double:
-                    AppendTypeAndSize(ColumnType.Double, collection.Length);
+                    AppendTypeAndSize(ColumnType.Double, count);
                     foreach (var item in collection)
                     {
                         AppendDouble((double)(object)item!);
@@ -1183,7 +1185,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case (byte[]):
-                    AppendTypeAndSize(ColumnType.ByteArray, collection.Length);
+                    AppendTypeAndSize(ColumnType.ByteArray, count);
                     foreach (var item in collection)
                     {
                         AppendBytes((byte[])(object)item!);
@@ -1192,7 +1194,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case decimal:
-                    AppendTypeAndSize(ColumnType.Decimal, collection.Length);
+                    AppendTypeAndSize(ColumnType.Decimal, count);
                     foreach (var item in collection)
                     {
                         AppendDecimal((decimal)(object)item!, int.MaxValue);
@@ -1201,7 +1203,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case BigDecimal:
-                    AppendTypeAndSize(ColumnType.Decimal, collection.Length);
+                    AppendTypeAndSize(ColumnType.Decimal, count);
                     foreach (var item in collection)
                     {
                         AppendBigDecimal((BigDecimal)(object)item!, int.MaxValue);
@@ -1210,7 +1212,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case LocalDate:
-                    AppendTypeAndSize(ColumnType.Date, collection.Length);
+                    AppendTypeAndSize(ColumnType.Date, count);
                     foreach (var item in collection)
                     {
                         AppendDate((LocalDate)(object)item!);
@@ -1219,7 +1221,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case LocalTime:
-                    AppendTypeAndSize(ColumnType.Time, collection.Length);
+                    AppendTypeAndSize(ColumnType.Time, count);
                     foreach (var item in collection)
                     {
                         AppendTime((LocalTime)(object)item!, TemporalTypes.MaxTimePrecision);
@@ -1228,7 +1230,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case LocalDateTime:
-                    AppendTypeAndSize(ColumnType.Datetime, collection.Length);
+                    AppendTypeAndSize(ColumnType.Datetime, count);
                     foreach (var item in collection)
                     {
                         AppendDateTime((LocalDateTime)(object)item!, TemporalTypes.MaxTimePrecision);
@@ -1237,7 +1239,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case Instant:
-                    AppendTypeAndSize(ColumnType.Timestamp, collection.Length);
+                    AppendTypeAndSize(ColumnType.Timestamp, count);
                     foreach (var item in collection)
                     {
                         AppendTimestamp((Instant)(object)item!, TemporalTypes.MaxTimePrecision);
@@ -1246,7 +1248,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case Period:
-                    AppendTypeAndSize(ColumnType.Period, collection.Length);
+                    AppendTypeAndSize(ColumnType.Period, count);
                     foreach (var item in collection)
                     {
                         AppendPeriod((Period)(object)item!);
@@ -1255,7 +1257,7 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     break;
 
                 case Duration:
-                    AppendTypeAndSize(ColumnType.Duration, collection.Length);
+                    AppendTypeAndSize(ColumnType.Duration, count);
                     foreach (var item in collection)
                     {
                         AppendDuration((Duration)(object)item!);
