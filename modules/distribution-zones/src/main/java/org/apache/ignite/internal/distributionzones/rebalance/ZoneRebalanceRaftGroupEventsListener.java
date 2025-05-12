@@ -585,6 +585,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param dataNodes Data nodes.
      * @param partitions Partitions count.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
@@ -594,6 +595,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Collection<String> dataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             ZonePartitionId partId,
             WatchEvent event,
             long assignmentsTimestamp
@@ -609,7 +611,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(
+                dataNodes,
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
