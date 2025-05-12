@@ -135,10 +135,19 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestReceiverError()
+    public void TestReceiverError()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync<object, object, object, object>(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            DotNetReceivers.Error with { DeploymentUnits = [_defaultTestUnit] },
+            receiverArg: "hello");
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
+        Assert.AreEqual(".NET job failed: Error in receiver: hello", ex.Message);
+        Assert.AreEqual("IGN-CATALOG-1", ex.CodeAsString);
+        Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
     [Test]

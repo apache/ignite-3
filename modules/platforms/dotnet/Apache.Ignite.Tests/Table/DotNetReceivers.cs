@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
@@ -32,6 +33,8 @@ public static class DotNetReceivers
     public static readonly ReceiverDescriptor<object, object> Echo = ReceiverDescriptor.Of(new EchoReceiver());
 
     public static readonly ReceiverDescriptor<object, object> EchoArgs = ReceiverDescriptor.Of(new EchoArgsReceiver());
+
+    public static readonly ReceiverDescriptor<object, object> Error = ReceiverDescriptor.Of(new ErrorReceiver());
 
     public class EchoReceiver : IDataStreamerReceiver<object, object, object>
     {
@@ -51,5 +54,15 @@ public static class DotNetReceivers
             object? arg,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult<IList<object>?>([arg!]);
+    }
+
+    public class ErrorReceiver : IDataStreamerReceiver<object, object, object>
+    {
+        public async ValueTask<IList<object>?> ReceiveAsync(IList<object> page, IDataStreamerReceiverContext context, object? arg, CancellationToken cancellationToken)
+        {
+            await Task.Delay(1, cancellationToken);
+
+            throw new IgniteException(Guid.NewGuid(), ErrorGroups.Catalog.Validation, $"Error in receiver: {arg}");
+        }
     }
 }
