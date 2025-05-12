@@ -97,6 +97,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
                 builder.AppendObjectCollectionWithType(res);
             }
 
+            // TODO: Avoid copy below - implement BuildWithPrefix
             Memory<byte> jobResultTupleMem = builder.Build();
 
             // Prepend the size of the tuple.
