@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -654,7 +655,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         // First operation is collocated with txn coordinator and not directly mapped.
         Tuple k = tuples0.get(0);
         Tuple v = val(tuples0.get(0).intValue(0) + "");
-        table.keyValueView().put(tx0, k, v);
+
+        KeyValueView<Tuple, Tuple> view = table.keyValueView();
+        view.put(tx0, k, v);
 
         // All other operations are directly mapped.
         int val = 0;
@@ -665,36 +668,84 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         Tuple k2 = tuples1.get(val);
         Tuple v2 = val(tuples1.get(val).intValue(0) + "");
 
-        val++;
-        Tuple k3 = tuples1.get(val);
-        Tuple v3 = val(tuples1.get(val).intValue(0) + "");
+        int c = 5;
+        int c0 = c;
 
         Map<Tuple, Tuple> batch0 = new HashMap<>();
-        val++;
-        batch0.put(tuples1.get(val), val(tuples1.get(val).intValue(0) + ""));
-        val++;
-        batch0.put(tuples1.get(val), val(tuples1.get(val).intValue(0) + ""));
+        while (c-- > 0) {
+            val++;
+            batch0.put(tuples1.get(val), val(tuples1.get(val).intValue(0) + ""));
+        }
 
-        table.keyValueView().put(tx0, k1, v1); // Write
-        assertTrue(Tuple.equals(v1, table.keyValueView().get(tx0, k1))); // Read
-        assertTrue(table.keyValueView().putIfAbsent(tx0, k2, v2)); // Write
-        assertFalse(table.keyValueView().putIfAbsent(tx0, k2, v2)); // No-op write.
+        view.put(tx0, k1, v1); // Write
+        assertTrue(Tuple.equals(v1, view.get(tx0, k1))); // Read
+        assertTrue(view.putIfAbsent(tx0, k2, v2)); // Write
+        assertFalse(view.putIfAbsent(tx0, k2, v2)); // No-op write.
 
-        table.keyValueView().putAll(tx0, batch0); // Write in proxy mode.
-        Map<Tuple, Tuple> readBack = table.keyValueView().getAll(tx0, batch0.keySet());
-        assertEquals(2, readBack.size());
+        view.putAll(tx0, batch0); // Write in proxy mode.
+        Map<Tuple, Tuple> readBack = view.getAll(tx0, batch0.keySet()); // Read.
+        assertEquals(c0, readBack.size());
 
-        assertTrue(Tuple.equals(v1, table.keyValueView().getAndPut(tx0, k1, v2))); // Write
-        assertTrue(Tuple.equals(v2, table.keyValueView().get(tx0, k1))); // Read
+        assertTrue(Tuple.equals(v1, view.getAndPut(tx0, k1, v2))); // Write
+        assertTrue(Tuple.equals(v2, view.get(tx0, k1))); // Read
+
+        assertTrue(Tuple.equals(v2, view.getAndRemove(tx0, k1))); // Write
+        assertNull(view.get(tx0, k1)); // Read
+        assertNull(view.getAndRemove(tx0, k1)); // No-op write
+
+        assertNull(view.getAndReplace(tx0, k1, v1)); // No-op write
+        assertTrue(Tuple.equals(v2, view.getAndReplace(tx0, k2, v1))); // Write
+        assertTrue(Tuple.equals(v1, view.get(tx0, k2))); // Read
+
+        assertFalse(view.remove(tx0, k1)); // No-op write
+        Tuple kRmv = batch0.keySet().iterator().next();
+        Tuple rmv = batch0.remove(kRmv);
+        assertTrue(view.remove(tx0, kRmv)); // Write
+        Tuple kRmv2 = batch0.keySet().iterator().next();
+        Tuple rmv2 = batch0.remove(kRmv2);
+        assertFalse(view.remove(tx0, kRmv2, v1)); // No-op write
+        assertTrue(view.remove(tx0, kRmv2, rmv2)); // Write
+
+        Tuple kRmv3 = batch0.keySet().iterator().next();
+        batch0.remove(kRmv3);
+        assertEquals(0, view.removeAll(tx0, batch0.keySet()).size()); // Proxy write
+        assertEquals(2, view.removeAll(tx0, batch0.keySet()).size()); // Proxy no-op write
+
+        assertTrue(view.replace(tx0, kRmv3, v1)); // Write
+        assertFalse(view.replace(tx0, kRmv2, v1)); // No-op write
+
+        assertTrue(view.replace(tx0, kRmv3, v1, v2)); // Write
+        assertFalse(view.replace(tx0, kRmv3, v1, v2)); // No-op write
+
+
+        Tuple rec0 = kv(kRmv.intValue(0), rmv.stringValue(0));
+
+        RecordView<Tuple> recView = table.recordView();
+        assertTrue(recView.insert(tx0, rec0)); // Write
+        assertFalse(recView.insert(tx0, rec0)); // No-op write
+
+        List<Tuple> recs = new ArrayList<>();
+        for (Entry<Tuple, Tuple> entry : batch0.entrySet()) {
+            recs.add(kv(entry.getKey().intValue(0), entry.getValue().stringValue(0)));
+        }
+        assertEquals(0, recView.insertAll(tx0, recs).size()); // Proxy write
+        assertEquals(recs.size(), recView.insertAll(tx0, recs).size()); // Proxy no-op write
+
+        assertEquals(0, recView.deleteAllExact(tx0, recs).size()); // Proxy write
+        assertEquals(recs.size(), recView.deleteAllExact(tx0, recs).size()); // Proxy no-op write
+
+        assertTrue(recView.deleteExact(tx0, rec0)); // Write
+        assertFalse(recView.deleteExact(tx0, rec0)); // No-op write
 
         tx0.commit();
 
         // Expecting each write operation to trigger add/remove events.
-        Mockito.verify(spyed, Mockito.times(4)).addInflight(tx0.startedTx().txId());
-        Mockito.verify(spyed, Mockito.times(4)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
+        int exp = 20;
+        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(exp)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
         for (Entry<Tuple, Tuple> entry : data.entrySet()) {
-            table.keyValueView().put(null, entry.getKey(), entry.getValue());
+            view.put(null, entry.getKey(), entry.getValue());
         }
     }
 

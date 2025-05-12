@@ -345,51 +345,46 @@ public class ClientTransaction implements Transaction {
      *
      * @param ch Channel facade.
      * @param opChannel Operation channel.
-     * @param ctx The context.
+     * @param pm Partition mapping.
      * @param opCode Operation code.
      * @return The future.
      */
-    public CompletableFuture<Void> enlistFuture(ReliableChannel ch, ClientChannel opChannel, WriteContext ctx, int opCode) {
-        // Check if direct mapping is applicable.
-        if (ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name()) && hasCommitPartition()) {
-            if (!enlistPartitionLock.readLock().tryLock()) {
-                throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
-            }
-
-            checkEnlistPossible();
-
-            boolean[] first = {false};
-
-            TablePartitionId tablePartitionId = new TablePartitionId(ctx.pm.tableId(), ctx.pm.partition());
-
-            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
-                if (v == null) {
-                    first[0] = true;
-                    return new CompletableFuture<>();
-                } else {
-                    return v;
-                }
-            });
-
-            enlistPartitionLock.readLock().unlock();
-
-            // Re-check after unlock.
-            checkEnlistPossible();
-
-            if (ClientOp.isWrite(opCode)) {
-                ch.inflights().addInflight(txId);
-            }
-
-            if (first[0]) {
-                ctx.enlistmentToken = 0L;
-                // For the first request return completed future.
-                return nullCompletedFuture();
-            } else {
-                return fut.thenAccept(tup -> ctx.enlistmentToken = tup.get2());
-            }
+    public CompletableFuture<IgniteBiTuple<String, Long>> enlistFuture(ReliableChannel ch, ClientChannel opChannel, PartitionMapping pm,
+            int opCode) {
+        if (!enlistPartitionLock.readLock().tryLock()) {
+            throw new TransactionException(TX_ALREADY_FINISHED_ERR, format("Transaction is already finished [tx={}].", this));
         }
 
-        return nullCompletedFuture();
+        checkEnlistPossible();
+
+        boolean[] first = {false};
+
+        TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.compute(tablePartitionId, (k, v) -> {
+            if (v == null) {
+                first[0] = true;
+                return new CompletableFuture<>();
+            } else {
+                return v;
+            }
+        });
+
+        enlistPartitionLock.readLock().unlock();
+
+        // Re-check after unlock.
+        checkEnlistPossible();
+
+        if (ClientOp.isWrite(opCode)) {
+            ch.inflights().addInflight(txId);
+        }
+
+        if (first[0]) {
+            // For the first request return completed future.
+            return CompletableFuture.completedFuture(new IgniteBiTuple<>(null, null));
+        } else {
+            return fut;
+        }
     }
 
     /**
@@ -398,13 +393,24 @@ public class ClientTransaction implements Transaction {
      * @param pm Partition mapping.
      * @param consistentId Consistent id.
      * @param token Enlistment token.
+     * @param noOp No-op flag.
      */
-    public void tryFinishEnlist(PartitionMapping pm, String consistentId, long token) {
+    public void tryFinishEnlist(PartitionMapping pm, @Nullable String consistentId, long token, boolean noOp) {
         if (!hasCommitPartition()) {
             return;
         }
 
         TablePartitionId tablePartitionId = new TablePartitionId(pm.tableId(), pm.partition());
+
+        if (noOp) {
+            CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.remove(tablePartitionId);
+
+            if (fut != null && !fut.isDone()) {
+                fut.complete(new IgniteBiTuple<>(null, 0L));
+            }
+
+            return;
+        }
 
         CompletableFuture<IgniteBiTuple<String, Long>> fut = enlisted.get(tablePartitionId);
 

@@ -42,6 +42,7 @@ import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PartitionMapping;
@@ -449,6 +450,25 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
     }
 
+    private static CompletableFuture<Void> enlistDirect(
+            ClientTransaction tx,
+            ReliableChannel ch,
+            ClientChannel opChannel,
+            WriteContext ctx,
+            int opCode) {
+        return tx.enlistFuture(ch, opChannel, ctx.pm, opCode).thenCompose(tup -> {
+            if (tup.get2() == null) { // First request.
+                ctx.enlistmentToken = 0L;
+                return nullCompletedFuture();
+            } else if (tup.get2() == 0L) { // No-op enlistment result.
+                return enlistDirect(tx, ch, opChannel, ctx, opCode);
+            } else { // Successfull enlistment.
+                ctx.enlistmentToken = tup.get2();
+                return nullCompletedFuture();
+            }
+        });
+    }
+
     /**
      * Performs a schema-based operation.
      *
@@ -499,11 +519,8 @@ public class ClientTable implements Table {
                         ctx.pm = tx0 != null && forOp != null && forOp.nodeConsistentId().equals(tx0.nodeName()) ? null : forOp;
 
                         return ch.serviceAsync(opCode,
-                                        (opCh) -> tx0 == null || tx0.isReadOnly() || ctx.pm == null
-                                                || !opCh.protocolContext()
-                                                .allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)
-                                                ? nullCompletedFuture()
-                                                : tx0.enlistFuture(ch, opCh, ctx, opCode),
+                                        (opCh) -> useDirectMapping(tx0, ctx, opCh) ? enlistDirect(tx0, ch, opCh, ctx, opCode)
+                                                : nullCompletedFuture(),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
                                         resolvePreferredNode(tx0, ctx.pm),
@@ -598,6 +615,15 @@ public class ClientTable implements Table {
         }
     }
 
+    private static boolean useDirectMapping(@Nullable ClientTransaction tx0, WriteContext ctx, ClientChannel opChannel) {
+        // Fulfilling this condition forces proxy mode.
+        boolean proxy = tx0 == null || tx0.isReadOnly() || ctx.pm == null || !opChannel.protocolContext()
+                .allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
+
+        return !proxy && ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name())
+                && tx0.hasCommitPartition();
+    }
+
     private <T> @Nullable Object readSchemaAndReadData(
             ClientSchema knownSchema,
             PayloadInputChannel in,
@@ -615,13 +641,18 @@ public class ClientTable implements Table {
             if (in.in().tryUnpackNil()) {
                 // No-op.
                 in.clientChannel().inflights().removeInflight(tx.txId(), null);
+
+                // Finish enlist on first request only.
+                if (ctx.enlistmentToken == 0) {
+                    tx.tryFinishEnlist(ctx.pm, null, 0, true);
+                }
             } else {
                 String consistentId = in.in().unpackString();
                 long token = in.in().unpackLong();
 
                 // Finish enlist on first request only.
                 if (ctx.enlistmentToken == 0) {
-                    tx.tryFinishEnlist(ctx.pm, consistentId, token);
+                    tx.tryFinishEnlist(ctx.pm, consistentId, token, false);
                 }
             }
         }
