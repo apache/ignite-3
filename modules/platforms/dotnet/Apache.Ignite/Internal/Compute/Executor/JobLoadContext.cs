@@ -21,6 +21,8 @@ using System;
 using System.Reflection;
 using System.Runtime.Loader;
 using Ignite.Compute;
+using Ignite.Table;
+using Table.StreamerReceiverExecutor;
 
 /// <summary>
 /// Job load context.
@@ -35,6 +37,14 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <returns>Job execution delegate.</returns>
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
         CreateWrapper<IComputeJobWrapper>(typeName, typeof(IComputeJob<,>), AssemblyLoadContext);
+
+    /// <summary>
+    /// Gets or creates a receiver delegate for the specified type name.
+    /// </summary>
+    /// <param name="typeName">Receiver type name.</param>
+    /// <returns>Receiver execution delegate.</returns>
+    public IDataStreamerReceiverWrapper CreateReceiverWrapper(string typeName) =>
+        CreateWrapper<IDataStreamerReceiverWrapper>(typeName, typeof(IDataStreamerReceiver<,,>), AssemblyLoadContext);
 
     /// <inheritdoc/>
     public void Dispose() => AssemblyLoadContext.Unload();
