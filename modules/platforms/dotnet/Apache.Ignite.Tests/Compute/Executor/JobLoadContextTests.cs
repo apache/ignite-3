@@ -63,7 +63,7 @@ public class JobLoadContextTests
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await ExecuteJobAsync(DotNetJobs.NoCtor, 1));
 
-        Assert.AreEqual($"No public parameterless constructor for job type '{typeof(DotNetJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
+        Assert.AreEqual($"No public parameterless constructor for type '{typeof(DotNetJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
     }
 
     [Test]
