@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Table;
+namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 
 using System;
 using System.Buffers.Binary;
@@ -23,12 +23,11 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
-using Buffers;
-using Compute;
-using Compute.Executor;
-using Ignite.Table;
-using Proto.BinaryTuple;
-using StreamerReceiverExecutor;
+using Apache.Ignite.Internal.Buffers;
+using Apache.Ignite.Internal.Compute;
+using Apache.Ignite.Internal.Compute.Executor;
+using Apache.Ignite.Internal.Proto.BinaryTuple;
+using Apache.Ignite.Table;
 
 /// <summary>
 /// Internal compute job that executes user-defined data streamer receiver.
