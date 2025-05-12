@@ -72,8 +72,17 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
         {
             var writer = responseBuf.MessageWriter;
 
-            // TODO: Collection.
-            ComputePacker.PackArgOrResult(ref writer, res, null);
+            if (res == null)
+            {
+                writer.WriteNil();
+                return;
+            }
+
+            int resTupleElementCount = res.Count + 2;
+            var builder = new BinaryTupleBuilder(resTupleElementCount);
+            builder.AppendObjectCollectionWithType<TResult>(res);
+
+            responseBuf.MessageWriter.Write(builder.Build().Span);
         }
     }
 
