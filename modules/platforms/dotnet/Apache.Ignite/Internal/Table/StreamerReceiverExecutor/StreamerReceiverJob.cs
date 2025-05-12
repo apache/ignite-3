@@ -21,12 +21,14 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Compute;
 using Compute.Executor;
-using Ignite.Compute;
+using Ignite.Table;
 using Proto.BinaryTuple;
+using StreamerReceiverExecutor;
 
 /// <summary>
 /// Internal compute job that executes user-defined data streamer receiver.
@@ -34,15 +36,27 @@ using Proto.BinaryTuple;
 [SuppressMessage("ReSharper", "UnusedType.Global", Justification = "Called via reflection from Java.")]
 internal static class StreamerReceiverJob
 {
+    /// <summary>
+    /// Executes the receiver job.
+    /// </summary>
+    /// <param name="argBuf">Arg buffer.</param>
+    /// <param name="resBuf">Result buffer.</param>
+    /// <param name="receiverContext">Receiver context.</param>
+    /// <param name="jobLoadContext">Load context.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Task.</returns>
     public static async ValueTask ExecuteJobAsync(
         PooledBuffer argBuf,
         PooledArrayBuffer resBuf,
-        IJobExecutionContext context,
-        JobLoadContext jobLoadContext)
+        IDataStreamerReceiverContext receiverContext,
+        JobLoadContext jobLoadContext,
+        CancellationToken cancellationToken)
     {
         var receiverTypeName = GetReceiverInfoReaderFast(argBuf).GetString(0);
 
-        jobLoadContext.CreateJobWrapper()
+        IDataStreamerReceiverWrapper receiverWrapper = jobLoadContext.CreateReceiverWrapper(receiverTypeName);
+
+        await receiverWrapper.ExecuteAsync(receiverContext, argBuf, resBuf, cancellationToken).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -51,7 +65,7 @@ internal static class StreamerReceiverJob
     /// </summary>
     /// <param name="jobArgBuf">Job argument buffer.</param>
     /// <returns>Binary tuple reader with streamer receiver info.</returns>
-    private static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
+    public static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
     {
         var r = jobArgBuf.GetReader();
 

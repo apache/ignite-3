@@ -23,7 +23,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
-using Ignite.Compute;
 using Table;
 
 /// <summary>
@@ -46,7 +45,7 @@ internal static class ComputeJobExecutor
     internal static async Task ExecuteJobAsync(
         PooledBuffer request,
         PooledArrayBuffer response,
-        IJobExecutionContext context)
+        IgniteApiAccessor context)
     {
         var jobReq = Read(request);
         await ExecuteJobAsync(jobReq, request, response, context).ConfigureAwait(false);
@@ -82,7 +81,7 @@ internal static class ComputeJobExecutor
         JobExecuteRequest req,
         PooledBuffer argBuf,
         PooledArrayBuffer resBuf,
-        IJobExecutionContext context)
+        IgniteApiAccessor context)
     {
         // Unload assemblies after job execution.
         // TODO IGNITE-25257 Cache deployment units and JobLoadContext - see ComputeJobExecutorBenchmarks, expensive.
@@ -93,7 +92,8 @@ internal static class ComputeJobExecutor
         if (req.JobClassName == "Apache.Ignite.Internal.Table.StreamerReceiverJob, Apache.Ignite")
         {
             // Special case for StreamerReceiverJob (avoid extra reflection and allocations for the wrapper).
-            await StreamerReceiverJob.ExecuteJobAsync(argBuf, resBuf, context, jobLoadCtx).ConfigureAwait(false);
+            // TODO IGNITE-25153: Cancellation.
+            await StreamerReceiverJob.ExecuteJobAsync(argBuf, resBuf, context, jobLoadCtx, CancellationToken.None).ConfigureAwait(false);
             return;
         }
 

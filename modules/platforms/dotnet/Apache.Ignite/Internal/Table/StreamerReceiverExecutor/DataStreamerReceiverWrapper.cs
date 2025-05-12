@@ -24,6 +24,8 @@ using System.Threading.Tasks;
 using Buffers;
 using Compute;
 using Ignite.Table;
+using Proto.BinaryTuple;
+using Serialization;
 
 /// <summary>
 /// Wraps a generic receiver to be called from a non-generic context.
@@ -65,15 +67,11 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             }
         }
 
-        List<TItem> ReadPage()
+        (List<TItem> Page, TArg Arg) ReadPageAndArg()
         {
-            throw new NotImplementedException();
-        }
+            BinaryTupleReader receiverInfo = StreamerReceiverJob.GetReceiverInfoReaderFast(argBuf);
 
-        TArg ReadArg()
-        {
-            var reader = argBuf.GetReader();
-            return ComputePacker.UnpackArgOrResult<TArg>(ref reader, null);
+            var arg = ReadArg(receiverInfo, 1);
         }
 
         void WriteRes(ICollection<TResult> res)
@@ -81,5 +79,20 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             var writer = responseBuf.MessageWriter;
             ComputePacker.PackArgOrResult(ref writer, res, null);
         }
+    }
+
+    private static object? ReadArg(BinaryTupleReader reader, int index)
+    {
+        if (reader.IsNull(index))
+        {
+            return null;
+        }
+
+        if (reader.GetInt(index) == TupleWithSchemaMarshalling.TypeIdTuple)
+        {
+            return TupleWithSchemaMarshalling.Unpack(reader.GetBytesSpan(index + 2));
+        }
+
+        return reader.GetObject(index);
     }
 }
