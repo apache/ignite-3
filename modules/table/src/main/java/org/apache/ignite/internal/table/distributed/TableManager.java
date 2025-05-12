@@ -431,6 +431,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
     private final CompletableFuture<Void> readyToProcessReplicaStarts = new CompletableFuture<>();
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-25347
     /** Mapping zone identifier to a collection of tables related to the zone. */
     private final Map<Integer, Set<TableImpl>> tablesPerZone = new HashMap<>();
     /** Locks to synchronize an access to the {@link #tablesPerZone}. */
