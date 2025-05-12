@@ -23,7 +23,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
-using Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
@@ -66,7 +65,6 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
                 disposable.Dispose();
             }
         }
-
 
         void WriteRes(IList<TResult>? res)
         {
