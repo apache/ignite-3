@@ -21,8 +21,6 @@ using System;
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.Loader;
-using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Compute;
@@ -42,41 +40,30 @@ internal static class StreamerReceiverJob
         IJobExecutionContext context,
         JobLoadContext jobLoadContext)
     {
-        ReadArg();
-
-        void ReadArg()
-        {
-            var r = argBuf.GetReader();
-
-            // Excerpt from ComputePacker.
-            int argType = r.ReadInt32();
-            Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
-
-            // Excerpt from ReadObjectFromBinaryTuple.
-            var tupleSpan = r.ReadBinary();
-            var binTuple = new BinaryTupleReader(tupleSpan, 3);
-
-            var receiverInfoSpan = binTuple.GetBytesSpan(2).ToArray();
-        }
+        var receiverTypeName = GetReceiverInfoReaderFast(argBuf).GetString(0);
     }
 
-    /// <inheritdoc/>
-    public async ValueTask<byte[]> ExecuteAsync(IJobExecutionContext context, byte[] arg, CancellationToken cancellationToken)
+    /// <summary>
+    /// Unwraps receiver info from the job argument buffer.
+    /// Performs simple offset calculations and can be called multiple times.
+    /// </summary>
+    /// <param name="jobArgBuf">Job argument buffer.</param>
+    /// <returns>Binary tuple reader with streamer receiver info.</returns>
+    private static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
     {
-        await Task.Delay(1, cancellationToken).ConfigureAwait(false);
-        var payloadElementCount = BinaryPrimitives.ReadInt32LittleEndian(arg);
-        var receiverTypeName = ReadTypeName();
+        var r = jobArgBuf.GetReader();
 
-        // TODO: Use out load context to instantiate the receiver wrapper.
-        AssemblyLoadContext.GetLoadContext(GetType().Assembly)
+        // Excerpt from ComputePacker.
+        int argType = r.ReadInt32();
+        Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
 
-        // TODO: Implement
-        return [];
+        // Excerpt from ReadObjectFromBinaryTuple.
+        ReadOnlySpan<byte> tupleSpan = r.ReadBinary();
+        var binTuple = new BinaryTupleReader(tupleSpan, 3);
 
-        string ReadTypeName()
-        {
-            var reader = new BinaryTupleReader(arg.AsSpan()[4..], payloadElementCount);
-            return reader.GetString(0);
-        }
+        ReadOnlySpan<byte> receiverInfoSpan = binTuple.GetBytesSpan(2);
+        int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
+
+        return new BinaryTupleReader(receiverInfoSpan, receiverElementCount);
     }
 }
