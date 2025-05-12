@@ -61,28 +61,26 @@ public:
     static qualified_name create(std::string schema_name, std::string object_name);
 
     /**
-     * Create a new instance of a qualified_name class with default schema.
+     * Create a new instance of a qualified_name class from a string.
      *
-     * @param object_name Object name. Cannot be empty.
+     * @param simple_or_canonical_name Simple or canonical name. Cannot be empty.
      * @return A new instance of a qualified_name class.
      */
-    static qualified_name from_simple(std::string object_name) {
-        return create({}, std::move(object_name));
-    }
+    static qualified_name parse(std::string_view simple_or_canonical_name);
 
     /**
      * Gets the schema name.
      *
      * @return schema name.
      */
-    const std::string& schema_name() const { return m_schema_name; }
+    const std::string& get_schema_name() const { return m_schema_name; }
 
     /**
      * Gets the object name.
      *
      * @return Object name.
      */
-    const std::string& object_name() const { return m_object_name; }
+    const std::string& get_object_name() const { return m_object_name; }
 
     /**
      * Gets a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double
@@ -90,7 +88,7 @@ public:
      *
      * @return A fully qualified name in canonical form.
      */
-    std::string canonical_name() const {
+    std::string get_canonical_name() const {
         return quote_if_needed(m_object_name) + SEPARATOR_CHAR + quote_if_needed(m_object_name);
     }
 
