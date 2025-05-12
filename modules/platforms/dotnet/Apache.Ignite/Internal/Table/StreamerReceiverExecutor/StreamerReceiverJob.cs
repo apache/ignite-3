@@ -41,6 +41,8 @@ internal static class StreamerReceiverJob
         JobLoadContext jobLoadContext)
     {
         var receiverTypeName = GetReceiverInfoReaderFast(argBuf).GetString(0);
+
+        jobLoadContext.CreateJobWrapper()
     }
 
     /// <summary>
