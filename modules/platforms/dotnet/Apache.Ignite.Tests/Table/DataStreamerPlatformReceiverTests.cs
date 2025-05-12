@@ -42,17 +42,21 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestEchoArgsReceiverAllDataTypes(object arg)
     {
-        var res = await PocoView.StreamDataAsync<object, object, object, object>(
-            new object[] { 1 }.ToAsyncEnumerable(),
-            keySelector: _ => new Poco(),
-            payloadSelector: x => x.ToString()!,
-            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
-            receiverArg: arg).SingleAsync();
+        var res = await RunEchoArgReceiver(arg);
 
         if (arg is decimal dec)
         {
             arg = new BigDecimal(dec);
         }
+
+        Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public async Task TestEchoArgsReceiverTupleWithSchema()
+    {
+        var arg = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        var res = await RunEchoArgReceiver(arg);
 
         Assert.AreEqual(arg, res);
     }
@@ -78,5 +82,15 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
         Assert.AreEqual(".NET job failed: Type 'BadClass' not found in the specified deployment units.", ex.Message);
         Assert.AreEqual(1, ex.FailedItems.Count);
+    }
+
+    private async Task<object> RunEchoArgReceiver(object arg)
+    {
+        return await PocoView.StreamDataAsync<object, object, object, object>(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
+            receiverArg: arg).SingleAsync();
     }
 }
