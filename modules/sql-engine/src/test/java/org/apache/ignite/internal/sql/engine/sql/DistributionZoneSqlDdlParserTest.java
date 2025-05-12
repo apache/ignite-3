@@ -281,11 +281,13 @@ public class DistributionZoneSqlDdlParserTest extends AbstractParserTest {
     public void alterZoneSetReplicas() {
         IgniteSqlAlterZoneSet alterZoneSet = parseAlterZone("alter zone a.test_zone set (replicas 2)");
         IgniteSqlAlterZoneSet alterZoneSetOneParam = parseAlterZone("alter zone a.test_zone set replicas 2");
+        IgniteSqlAlterZoneSet alterZoneSetOneEqParam = parseAlterZone("alter zone a.test_zone set replicas = 2");
         assertFalse(alterZoneSet.ifExists());
 
         String expectedStmt = "ALTER ZONE \"A\".\"TEST_ZONE\" SET (REPLICAS 2)";
         expectUnparsed(alterZoneSet, expectedStmt);
         expectUnparsed(alterZoneSetOneParam, expectedStmt);
+        expectUnparsed(alterZoneSetOneEqParam, expectedStmt);
     }
 
     @Test
