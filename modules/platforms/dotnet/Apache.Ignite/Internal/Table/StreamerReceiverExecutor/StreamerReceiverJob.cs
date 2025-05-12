@@ -79,6 +79,6 @@ internal static class StreamerReceiverJob
         ReadOnlySpan<byte> receiverInfoSpan = binTuple.GetBytesSpan(2);
         int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
 
-        return new BinaryTupleReader(receiverInfoSpan, receiverElementCount);
+        return new BinaryTupleReader(receiverInfoSpan[4..], receiverElementCount);
     }
 }
