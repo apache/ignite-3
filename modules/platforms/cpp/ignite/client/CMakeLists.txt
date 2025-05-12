@@ -29,6 +29,7 @@ set(SOURCES
     sql/sql.cpp
     sql/result_set.cpp
     table/key_value_view.cpp
+    table/qualified_name.cpp
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
@@ -77,6 +78,7 @@ set(PUBLIC_HEADERS
     sql/sql_statement.h
     table/ignite_tuple.h
     table/key_value_view.h
+    table/qualified_name.h
     table/record_view.h
     table/table.h
     table/tables.h
@@ -94,6 +96,7 @@ set(LIBRARIES
     ignite-tuple
     ignite-network
     ignite-protocol
+    uni-algo::uni-algo
 )
 
 set(_target_libs ${TARGET} ${TARGET}-obj)
@@ -109,6 +112,7 @@ foreach(_target_lib IN LISTS _target_libs)
     target_link_libraries(${_target_lib} ${LIBRARIES})
 endforeach()
 unset(_target_libs)
+
 
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
