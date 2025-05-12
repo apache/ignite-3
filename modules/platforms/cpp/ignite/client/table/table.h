@@ -19,6 +19,7 @@
 
 #include "ignite/client/table/ignite_tuple.h"
 #include "ignite/client/table/key_value_view.h"
+#include "ignite/client/table/qualified_name.h"
 #include "ignite/client/table/record_view.h"
 #include "ignite/common/detail/config.h"
 
@@ -35,7 +36,7 @@ class tables_impl;
 } // namespace detail
 
 /**
- * Table view.
+ * Table.
  */
 class table {
     friend class detail::table_impl;
