@@ -107,10 +107,31 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     }
 
     [Test]
-    public async Task TestMissingAssembly()
+    public void TestMissingAssembly()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var receiverDesc = new ReceiverDescriptor<object>("MyClass, BadAssembly")
+        {
+            Options = new ReceiverExecutionOptions
+            {
+                ExecutorType = JobExecutorType.DotNetSidecar
+            }
+        };
+
+        var task = PocoView.StreamDataAsync<object, object, object>(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            receiverDesc,
+            receiverArg: "arg");
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await task);
+
+        Assert.AreEqual(
+            ".NET job failed: Could not load file or assembly 'BadAssembly, Culture=neutral, PublicKeyToken=null'. " +
+            "The system cannot find the file specified.",
+            ex.Message.Trim());
+
+        Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
     [Test]
