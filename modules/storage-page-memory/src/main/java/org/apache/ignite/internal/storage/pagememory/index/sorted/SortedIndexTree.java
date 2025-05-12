@@ -29,6 +29,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.io.BplusIo;
 import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.schema.BinaryTupleComparator;
+import org.apache.ignite.internal.schema.PartialBinaryTupleMatcher;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeInnerIo;
 import org.apache.ignite.internal.storage.pagememory.index.sorted.io.SortedIndexTreeIo;
@@ -51,6 +52,9 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
      */
     @Nullable
     private final BinaryTupleComparator binaryTupleComparator;
+
+    @Nullable
+    private final PartialBinaryTupleMatcher partialBinaryTupleMatcher;
 
     /** Inline size in bytes. */
     private final int inlineSize;
@@ -89,6 +93,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
                 : readInlineSizeFromMetaIo();
         this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = StorageUtils.binaryTupleComparator(indexDescriptor.columns());
+        this.partialBinaryTupleMatcher = StorageUtils.partialBinaryTupleComparator(indexDescriptor.columns());
 
         init(initNew);
     }
@@ -120,6 +125,7 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         this.inlineSize = readInlineSizeFromMetaIo();
         this.dataPageReader = new DataPageReader(pageMem, grpId);
         this.binaryTupleComparator = null;
+        this.partialBinaryTupleMatcher = null;
 
         init(false);
     }
@@ -204,7 +210,15 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
             throws IgniteInternalCheckedException {
         SortedIndexTreeIo sortedIndexTreeIo = (SortedIndexTreeIo) io;
 
-        return sortedIndexTreeIo.compare(dataPageReader, getBinaryTupleComparator(), partId, pageAddr, idx, row);
+        return sortedIndexTreeIo.compare(
+                dataPageReader,
+                getBinaryTupleComparator(),
+                getPartialBinaryTupleComparator(),
+                partId,
+                pageAddr,
+                idx,
+                row
+        );
     }
 
     @Override
@@ -257,5 +271,14 @@ public class SortedIndexTree extends BplusTree<SortedIndexRowKey, SortedIndexRow
         assert binaryTupleComparator != null : "This index tree must only be used for destruction during recovery";
 
         return binaryTupleComparator;
+    }
+
+    /**
+     * Returns comparator of index columns {@link BinaryTuple}s.
+     */
+    PartialBinaryTupleMatcher getPartialBinaryTupleComparator() {
+        assert partialBinaryTupleMatcher != null : "This index tree must only be used for destruction during recovery";
+
+        return partialBinaryTupleMatcher;
     }
 }

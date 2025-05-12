@@ -408,9 +408,32 @@ internal static class DataStreamerWithReceiver
         using var builder = new BinaryTupleBuilder(binaryTupleSize);
 
         builder.AppendString(className);
-        builder.AppendObjectWithType(arg);
 
-        builder.AppendObjectCollectionWithType(items);
+        if (arg is IIgniteTuple tupleArg)
+        {
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(0); // Scale.
+            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tupleArg);
+        }
+        else
+        {
+            builder.AppendObjectWithType(arg);
+        }
+
+        if (items[0] is IIgniteTuple)
+        {
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(items.Length);
+
+            foreach (var item in items)
+            {
+                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
+            }
+        }
+        else
+        {
+            builder.AppendObjectCollectionWithType(items);
+        }
 
         w.Write(binaryTupleSize);
         w.Write(builder.Build().Span);
@@ -456,6 +479,19 @@ internal static class DataStreamerWithReceiver
             }
 
             var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
+
+            if (tuple.GetInt(0) == TupleWithSchemaMarshalling.TypeIdTuple)
+            {
+                int elementCount = tuple.GetInt(1);
+                T[] resultsPooledArr = ArrayPool<T>.Shared.Rent(elementCount);
+
+                for (var i = 0; i < elementCount; i++)
+                {
+                    resultsPooledArr[i] = (T)(object)TupleWithSchemaMarshalling.Unpack(tuple.GetBytesSpan(2 + i));
+                }
+
+                return (resultsPooledArr, elementCount);
+            }
 
             return tuple.GetObjectCollectionWithType<T>();
         }
