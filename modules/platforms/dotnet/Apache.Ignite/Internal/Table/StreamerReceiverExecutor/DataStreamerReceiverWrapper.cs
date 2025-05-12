@@ -23,6 +23,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
+using Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
@@ -80,7 +81,9 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             var builder = new BinaryTupleBuilder(resTupleElementCount);
             builder.AppendObjectCollectionWithType(res);
 
-            responseBuf.MessageWriter.Write(builder.Build().Span);
+            Memory<byte> jobResultBytes = builder.Build();
+
+            ComputePacker.PackArgOrResult(ref writer, jobResultBytes, null);
         }
     }
 
