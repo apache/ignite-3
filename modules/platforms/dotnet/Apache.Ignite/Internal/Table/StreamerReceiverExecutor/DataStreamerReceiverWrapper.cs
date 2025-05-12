@@ -80,7 +80,22 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
 
             int resTupleElementCount = res.Count + 2;
             var builder = new BinaryTupleBuilder(resTupleElementCount);
-            builder.AppendObjectCollectionWithType(res);
+
+            if (res.Count > 0 && res[0] is IIgniteTuple)
+            {
+                // TODO: Deduplicate this.
+                builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+                builder.AppendInt(res.Count);
+
+                foreach (var item in res)
+                {
+                    builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
+                }
+            }
+            else
+            {
+                builder.AppendObjectCollectionWithType(res);
+            }
 
             Memory<byte> jobResultTupleMem = builder.Build();
 
