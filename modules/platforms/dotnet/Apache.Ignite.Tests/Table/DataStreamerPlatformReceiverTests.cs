@@ -24,12 +24,21 @@ using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using NUnit.Framework;
+using TestHelpers;
 
 /// <summary>
 /// Tests for data streamer with .NET receiver.
 /// </summary>
 public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 {
+    private DeploymentUnit _defaultTestUnit = null!;
+
+    [OneTimeSetUp]
+    public async Task DeployDefaultUnit() => _defaultTestUnit = await ManagementApi.DeployTestsAssembly();
+
+    [OneTimeTearDown]
+    public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
+
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestEchoArgsReceiverAllDataTypes(object arg)
     {

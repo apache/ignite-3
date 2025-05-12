@@ -51,7 +51,7 @@ public class PlatformComputeTests : IgniteTestsBase
     private DeploymentUnit _defaultTestUnit = null!;
 
     [OneTimeSetUp]
-    public async Task DeployDefaultUnit() => _defaultTestUnit = await DeployTestsAssembly();
+    public async Task DeployDefaultUnit() => _defaultTestUnit = await ManagementApi.DeployTestsAssembly();
 
     [OneTimeTearDown]
     public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
@@ -273,21 +273,6 @@ public class PlatformComputeTests : IgniteTestsBase
 
         Assert.AreEqual(tuple, res);
         StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res?.ToString());
-    }
-
-    private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
-    {
-        var testsDll = typeof(PlatformComputeTests).Assembly.Location;
-
-        var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
-        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
-
-        await ManagementApi.UnitDeploy(
-            unitId: unitId0,
-            unitVersion: unitVersion0,
-            unitContent: [testsDll]);
-
-        return new DeploymentUnit(unitId0, unitVersion0);
     }
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)

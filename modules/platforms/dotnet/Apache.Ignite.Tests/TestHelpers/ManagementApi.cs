@@ -27,6 +27,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using Apache.Ignite.Compute;
 using Internal.Common;
+using NUnit.Framework;
 
 /// <summary>
 /// Ignite management REST API wrapper.
@@ -91,6 +92,21 @@ public static class ManagementApi
     {
         using var client = new HttpClient();
         await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).Uri);
+    }
+
+    public static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
+    {
+        var testsDll = typeof(ManagementApi).Assembly.Location;
+
+        var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
+        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
+
+        await UnitDeploy(
+            unitId: unitId0,
+            unitVersion: unitVersion0,
+            unitContent: [testsDll]);
+
+        return new DeploymentUnit(unitId0, unitVersion0);
     }
 
     private static async Task<DeploymentUnitStatus[]?> GetUnitStatus(string unitId)
