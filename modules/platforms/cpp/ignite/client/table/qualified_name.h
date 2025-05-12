@@ -40,13 +40,13 @@ namespace ignite {
 class qualified_name {
 public:
     /** Default schema name. */
-    static constexpr std::string_view DEFAULT_SCHEMA_NAME = sql_statement::DEFAULT_SCHEMA;
+    IGNITE_API static constexpr std::string_view DEFAULT_SCHEMA_NAME = sql_statement::DEFAULT_SCHEMA;
 
     /** Separator character between schema and object names. */
-    static constexpr char SEPARATOR_CHAR = '.';
+    IGNITE_API static constexpr char SEPARATOR_CHAR = '.';
 
     /** Quote character for identifiers. */
-    static constexpr char QUOTE_CHAR = '"';
+    IGNITE_API static constexpr char QUOTE_CHAR = '"';
 
     // Default
     qualified_name() = default;
@@ -58,7 +58,7 @@ public:
      * @param object_name Object name. Cannot be empty.
      * @return A new instance of a qualified_name class.
      */
-    static qualified_name create(std::string_view schema_name, std::string_view object_name);
+    [[nodiscard]] IGNITE_API static qualified_name create(std::string_view schema_name, std::string_view object_name);
 
     /**
      * Create a new instance of a qualified_name class from a string.
@@ -66,21 +66,21 @@ public:
      * @param simple_or_canonical_name Simple or canonical name. Cannot be empty.
      * @return A new instance of a qualified_name class.
      */
-    static qualified_name parse(std::string_view simple_or_canonical_name);
+    [[nodiscard]] IGNITE_API static qualified_name parse(std::string_view simple_or_canonical_name);
 
     /**
      * Gets the schema name.
      *
      * @return schema name.
      */
-    const std::string& get_schema_name() const { return m_schema_name; }
+    [[nodiscard]] const std::string& get_schema_name() const { return m_schema_name; }
 
     /**
      * Gets the object name.
      *
      * @return Object name.
      */
-    const std::string& get_object_name() const { return m_object_name; }
+    [[nodiscard]] const std::string& get_object_name() const { return m_object_name; }
 
     /**
      * Gets a fully qualified name in canonical form, that is, enclosing each part of the identifier chain in double
@@ -88,7 +88,7 @@ public:
      *
      * @return A fully qualified name in canonical form.
      */
-    std::string get_canonical_name() const {
+    [[nodiscard]] std::string get_canonical_name() const {
         return quote_if_needed(m_object_name) + SEPARATOR_CHAR + quote_if_needed(m_object_name);
     }
 
@@ -110,7 +110,7 @@ private:
      * @param name Name.
      * @return Quoted name.
      */
-    static std::string quote_if_needed(std::string_view name);
+    [[nodiscard]] IGNITE_API static std::string quote_if_needed(std::string_view name);
 
     /** Schema name. */
     std::string m_schema_name;
