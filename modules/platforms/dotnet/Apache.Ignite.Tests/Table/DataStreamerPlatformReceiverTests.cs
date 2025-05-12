@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Tests.Table;
 
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
@@ -53,5 +54,28 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         }
 
         Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public void TestMissingClass()
+    {
+        var receiverDesc = new ReceiverDescriptor<object, object>("BadClass")
+        {
+            Options = new ReceiverExecutionOptions
+            {
+                ExecutorType = JobExecutorType.DotNetSidecar
+            }
+        };
+
+        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync<object, object, object, object>(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            receiverDesc,
+            receiverArg: "arg");
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
+        Assert.AreEqual(".NET job failed: Type 'BadClass' not found in the specified deployment units.", ex.Message);
+        Assert.AreEqual(1, ex.FailedItems.Count);
     }
 }
