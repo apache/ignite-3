@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
@@ -81,9 +82,25 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             var builder = new BinaryTupleBuilder(resTupleElementCount);
             builder.AppendObjectCollectionWithType(res);
 
-            Memory<byte> jobResultBytes = builder.Build();
+            Memory<byte> jobResultTupleMem = builder.Build();
 
-            ComputePacker.PackArgOrResult(ref writer, jobResultBytes, null);
+            // Prepend the size of the tuple.
+            var jobResultSize = jobResultTupleMem.Length + 4;
+            byte[] jobResultBytes = ByteArrayPool.Rent(jobResultSize);
+
+            try
+            {
+                var jobResultMem = jobResultBytes.AsMemory(0, jobResultSize);
+
+                BinaryPrimitives.WriteInt32LittleEndian(jobResultMem.Span, resTupleElementCount);
+                jobResultTupleMem.CopyTo(jobResultMem[4..]);
+
+                ComputePacker.PackArgOrResult(ref writer, jobResultMem, null);
+            }
+            finally
+            {
+                ByteArrayPool.Return(jobResultBytes);
+            }
         }
     }
 
