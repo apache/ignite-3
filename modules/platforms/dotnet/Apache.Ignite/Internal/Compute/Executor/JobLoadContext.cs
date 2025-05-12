@@ -36,7 +36,8 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <param name="typeName">Job type name.</param>
     /// <returns>Job execution delegate.</returns>
     public IComputeJobWrapper CreateJobWrapper(string typeName) =>
-        CreateWrapper<IComputeJobWrapper>(typeName, typeof(IComputeJob<,>), AssemblyLoadContext);
+        CreateWrapper<IComputeJobWrapper>(
+            typeName, typeof(IComputeJob<,>), typeof(ComputeJobWrapper<,,>), AssemblyLoadContext);
 
     /// <summary>
     /// Gets or creates a receiver delegate for the specified type name.
@@ -44,20 +45,21 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     /// <param name="typeName">Receiver type name.</param>
     /// <returns>Receiver execution delegate.</returns>
     public IDataStreamerReceiverWrapper CreateReceiverWrapper(string typeName) =>
-        CreateWrapper<IDataStreamerReceiverWrapper>(typeName, typeof(IDataStreamerReceiver<,,>), AssemblyLoadContext);
+        CreateWrapper<IDataStreamerReceiverWrapper>(
+            typeName, typeof(IDataStreamerReceiver<,,>), typeof(DataStreamerReceiverWrapper<,,,>), AssemblyLoadContext);
 
     /// <inheritdoc/>
     public void Dispose() => AssemblyLoadContext.Unload();
 
-    private static T CreateWrapper<T>(string typeName, Type openInterfaceType, AssemblyLoadContext ctx)
+    private static T CreateWrapper<T>(string wrappedTypeName, Type openInterfaceType, Type openWrapperType, AssemblyLoadContext ctx)
     {
-        var type = LoadType(typeName, ctx);
+        var type = LoadType(wrappedTypeName, ctx);
         var closedInterfaceType = FindInterface(type, openInterfaceType);
 
         try
         {
             var genericArgs = closedInterfaceType.GenericTypeArguments;
-            var jobWrapperType = typeof(ComputeJobWrapper<,,>).MakeGenericType([type, .. genericArgs]);
+            var jobWrapperType = openWrapperType.MakeGenericType([type, .. genericArgs]);
 
             return (T)Activator.CreateInstance(jobWrapperType)!;
         }
@@ -65,7 +67,7 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         {
             if (type.GetConstructor(BindingFlags.Public, []) == null)
             {
-                throw new InvalidOperationException($"No public parameterless constructor for type '{typeName}'", e);
+                throw new InvalidOperationException($"No public parameterless constructor for type '{wrappedTypeName}'", e);
             }
 
             throw;
