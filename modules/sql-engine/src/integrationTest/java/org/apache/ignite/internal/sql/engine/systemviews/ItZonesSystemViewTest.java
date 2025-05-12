@@ -100,7 +100,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 DEFAULT_CONSISTENCY_MODE.name()
         ).check();
 
-        sql("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 100");
+        sql("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 100)");
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
@@ -177,7 +177,7 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                 ConsistencyMode.HIGH_AVAILABILITY.name()
         ).check();
 
-        sql("ALTER ZONE " + ZONE_NAME + " SET REPLICAS = 100");
+        sql("ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 100)");
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,
@@ -210,8 +210,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
 
         assertThrows(
                 SqlException.class,
-                () -> sql("ALTER ZONE " + ZONE_NAME + " SET CONSISTENCY_MODE = 'HIGH_AVAILABILITY'"),
-                "CONSISTENCY_MODE");
+                () -> sql("ALTER ZONE " + ZONE_NAME + " SET (CONSISTENCY MODE 'HIGH_AVAILABILITY')"),
+                "CONSISTENCY MODE");
 
         assertQuery(selectFromZonesSystemView(ZONE_NAME)).returns(
                 ZONE_NAME,

@@ -307,7 +307,7 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
     }
 
     private static String alterZoneSql(String filter) {
-        return String.format("ALTER ZONE \"%s\" SET \"DATA_NODES_FILTER\" = '%s'", ZONE_NAME, filter);
+        return String.format("ALTER ZONE \"%s\" SET (NODES FILTER '%s')", ZONE_NAME, filter);
     }
 
     private static String createTableSql() {

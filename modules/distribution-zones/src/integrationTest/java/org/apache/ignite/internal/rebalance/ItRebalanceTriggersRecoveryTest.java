@@ -120,7 +120,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
+            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET (NODES FILTER '$[?(@.zone == \"global\")]')");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -163,7 +163,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         WatchListenerInhibitor.metastorageEventsInhibitor(cluster.node(2)).startInhibit();
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET REPLICAS=2");
+            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 2)");
         });
 
         // Check that metastore node schedule the rebalance procedure.
@@ -206,7 +206,7 @@ public class ItRebalanceTriggersRecoveryTest extends ClusterPerTestIntegrationTe
         stopNode(3);
 
         cluster.doInSession(0, session -> {
-            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET REPLICAS=2, DATA_NODES_FILTER='$[?(@.zone == \"global\")]'");
+            session.execute(null, "ALTER ZONE " + ZONE_NAME + " SET (REPLICAS 2, NODES FILTER '$[?(@.zone == \"global\")]')");
         });
 
         // Check that new replica from 'global' zone received the data and rebalance really happened.
