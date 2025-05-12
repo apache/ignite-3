@@ -142,6 +142,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::CONNECTION:
         case error::code::PROTOCOL:
         case error::code::PROTOCOL_COMPATIBILITY:
+        case error::code::SERVER_TO_CLIENT_REQUEST:
             return sql_state::S08001_CANNOT_CONNECT;
         case error::code::TABLE_ID_NOT_FOUND:
             return sql_state::S42S02_TABLE_OR_VIEW_NOT_FOUND;
@@ -276,6 +277,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::NODE_NOT_FOUND:
         case error::code::MARSHALLING_TYPE_MISMATCH:
         case error::code::COMPUTE_JOB_CANCELLED:
+        case error::code::COMPUTE_PLATFORM_EXECUTOR:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Catalog group. Group code: 17

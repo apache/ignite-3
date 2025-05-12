@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.handlers;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -34,6 +35,8 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxMeta;
 import org.apache.ignite.internal.tx.message.TxCleanupRecoveryRequest;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageClosedException;
+import org.apache.ignite.internal.tx.storage.state.TxStateStorageDestroyedException;
 import org.apache.ignite.internal.util.Cursor;
 
 /**
@@ -104,8 +107,11 @@ public class TxCleanupRecoveryRequestHandler {
                 });
             }
         } catch (IgniteInternalException e) {
-            String errorMessage = String.format("Failed to scan transaction state storage [commitPartition=%s].", replicationGroupId);
-            failureProcessor.process(new FailureContext(e, errorMessage));
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25302 - remove this IF after proper stop is implemented.
+            if (!hasCause(e, TxStateStorageClosedException.class, TxStateStorageDestroyedException.class)) {
+                String errorMessage = String.format("Failed to scan transaction state storage [commitPartition=%s].", replicationGroupId);
+                failureProcessor.process(new FailureContext(e, errorMessage));
+            }
         }
 
         LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);

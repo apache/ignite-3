@@ -35,9 +35,16 @@ namespace Apache.Ignite
         {
             IgniteArgumentCheck.NotNull(configuration);
 
-            var socket = await ClientFailoverSocket.ConnectAsync(configuration).ConfigureAwait(false);
+            var apiTaskSource = new TaskCompletionSource<IgniteApiAccessor>();
+            var internalConfig = new IgniteClientConfigurationInternal(
+                new(configuration), // Defensive copy.
+                apiTaskSource.Task);
 
-            return new IgniteClientInternal(socket);
+            var socket = await ClientFailoverSocket.ConnectAsync(internalConfig).ConfigureAwait(false);
+            var client = new IgniteClientInternal(socket);
+
+            apiTaskSource.SetResult(new IgniteApiAccessor(client));
+            return client;
         }
     }
 }

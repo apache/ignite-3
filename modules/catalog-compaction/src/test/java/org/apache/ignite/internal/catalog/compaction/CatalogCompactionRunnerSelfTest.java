@@ -70,6 +70,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.function.IntFunction;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.catalog.Catalog;
@@ -87,6 +88,7 @@ import org.apache.ignite.internal.catalog.compaction.message.AvailablePartitions
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMessagesFactory;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesRequest;
 import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionMinimumTimesResponse;
+import org.apache.ignite.internal.catalog.compaction.message.CatalogCompactionPrepareUpdateTxBeginTimeMessage;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalNode;
@@ -96,6 +98,7 @@ import org.apache.ignite.internal.distributionzones.rebalance.RebalanceMinimumRe
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.index.IndexNodeFinishedRwTransactionsChecker;
+import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.MessagingService;
@@ -112,9 +115,11 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeCollectorService;
+import org.apache.ignite.internal.testframework.log4j2.LogInspector;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.logging.log4j.Level;
 import org.awaitility.Awaitility;
 import org.hamcrest.Matcher;
 import org.hamcrest.Matchers;
@@ -137,6 +142,7 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
     private static final LogicalNode NODE4 = new LogicalNode(nodeId(4), "node4", new NetworkAddress("localhost", 123));
 
     private static final List<LogicalNode> logicalNodes = List.of(NODE1, NODE2, NODE3);
+    private static final Pattern CATALOG_COMPACTION_ITERATION_HAS_FAILED = Pattern.compile(".*Catalog compaction iteration has failed.*");
 
     private final AtomicReference<ClusterNode> coordinatorNodeHolder = new AtomicReference<>();
 
@@ -886,6 +892,32 @@ public class CatalogCompactionRunnerSelfTest extends AbstractCatalogCompactionTe
             verify(replicaService, times(0)).invoke(eq(NODE2.name()), any(ReplicaRequest.class));
             verify(replicaService, times(replicationGroupsMultiplier * 8)).invoke(eq(NODE3.name()), any(ReplicaRequest.class));
         }
+    }
+
+    @Test
+    public void compactionRunnerShouldNotLogNodeStoppingExceptionWithWarnLevel() {
+        Catalog catalog = prepareCatalogWithTables();
+        CatalogCompactionRunner compactor = createRunner(NODE1, NODE1, (n) -> catalog.time(), logicalNodes, logicalNodes);
+
+        when(messagingService.send(any(ClusterNode.class), any(CatalogCompactionPrepareUpdateTxBeginTimeMessage.class)))
+                .thenReturn(CompletableFuture.failedFuture(new NodeStoppingException("This is expected")));
+
+        LogInspector logInspector = new LogInspector(
+                CatalogCompactionRunner.class.getName(),
+                evt -> CATALOG_COMPACTION_ITERATION_HAS_FAILED.matcher(evt.getMessage().getFormattedMessage()).matches()
+                        && evt.getLevel() == Level.WARN
+        );
+
+        logInspector.start();
+        try {
+            compactor.triggerCompaction(HybridTimestamp.hybridTimestamp(catalog.time()));
+
+            Assertions.assertThrows(NodeStoppingException.class, () -> await(compactor.lastRunFuture()));
+        } finally {
+            logInspector.stop();
+        }
+
+        assertThat(logInspector.isMatched(), is(false));
     }
 
     @Test

@@ -21,11 +21,13 @@ import static com.typesafe.config.ConfigValueType.BOOLEAN;
 import static com.typesafe.config.ConfigValueType.NUMBER;
 import static com.typesafe.config.ConfigValueType.STRING;
 import static java.lang.String.format;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
 
 import com.typesafe.config.ConfigValue;
 import java.util.List;
 import java.util.UUID;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.internal.configuration.TypeUtils;
 import org.apache.ignite.internal.configuration.tree.ConfigurationSource;
 import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
@@ -44,18 +46,23 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
      */
     private final ConfigValue hoconCfgValue;
 
+    /** Determines if key should be ignored. */
+    private final KeyIgnorer keyIgnorer;
+
     /**
      * Creates a {@link ConfigurationSource} from the given HOCON object representing a primitive type.
      *
-     * @param path          current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
-     *                      object
+     * @param keyIgnorer Determines if key should be ignored.
+     * @param path current path inside the top-level HOCON object. Can be empty if the given {@code hoconCfgValue} is the top-level
+     *         object
      * @param hoconCfgValue HOCON object
      */
-    HoconPrimitiveConfigurationSource(List<String> path, ConfigValue hoconCfgValue) {
+    HoconPrimitiveConfigurationSource(KeyIgnorer keyIgnorer, List<String> path, ConfigValue hoconCfgValue) {
         assert !path.isEmpty();
 
         this.path = path;
         this.hoconCfgValue = hoconCfgValue;
+        this.keyIgnorer = keyIgnorer;
     }
 
     @Override
@@ -75,6 +82,10 @@ class HoconPrimitiveConfigurationSource implements ConfigurationSource {
             throw new IllegalArgumentException(
                     format("'%s' is expected to be a composite configuration node, not a single value", join(path))
             );
+        }
+
+        if (keyIgnorer.shouldIgnore(join(appendKey(path, fieldName)))) {
+            return;
         }
 
         node.construct(fieldName, this, false);

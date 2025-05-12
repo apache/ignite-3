@@ -248,7 +248,7 @@ public interface TxStatePartitionStorage extends ManuallyCloseable {
     /**
      * Updates the current snapshot information.
      */
-    void snapshotInfo(byte[] snapshotInfo, long index, long term);
+    void snapshotInfo(byte[] snapshotInfo);
 
     /**
      * Returns the current snapshot information of {@code null} if it was never saved.

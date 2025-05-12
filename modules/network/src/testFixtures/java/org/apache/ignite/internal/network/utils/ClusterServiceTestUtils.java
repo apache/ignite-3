@@ -221,8 +221,7 @@ public class ClusterServiceTestUtils {
                 Collections.singleton(NodeConfiguration.KEY),
                 new TestConfigurationStorage(ConfigurationType.LOCAL),
                 generator,
-                new TestConfigurationValidator(),
-                changer -> {}
+                new TestConfigurationValidator()
         );
 
         NetworkConfiguration networkConfiguration = nodeConfigurationMgr.configurationRegistry()

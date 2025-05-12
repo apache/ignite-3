@@ -40,6 +40,8 @@ public class DataStreamerTests : IgniteTestsBase
 {
     private const string TestReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$TestReceiver";
 
+    private const string EchoReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoReceiver";
+
     private const string EchoArgsReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$EchoArgsReceiver";
 
     private const string UpsertElementTypeNameReceiverClassName = ComputeTests.PlatformTestNodeRunner + "$UpsertElementTypeNameReceiver";
@@ -54,29 +56,9 @@ public class DataStreamerTests : IgniteTestsBase
 
     private static readonly ReceiverDescriptor<object?> TestReceiverNoResults = new(TestReceiverClassName);
 
-    private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
+    private static readonly ReceiverDescriptor<object?, object> EchoReceiver = new(EchoReceiverClassName);
 
-    private static readonly object[] AllSupportedTypes =
-    {
-        true,
-        sbyte.MaxValue,
-        short.MinValue,
-        int.MaxValue,
-        long.MinValue,
-        float.MaxValue,
-        double.MinValue,
-        decimal.One,
-        new BigDecimal(1234, 2),
-        new LocalDate(1234, 5, 6),
-        new LocalTime(12, 3, 4, 567),
-        new LocalDateTime(1234, 5, 6, 7, 8, 9),
-        Instant.FromUnixTimeSeconds(123456),
-        Guid.Empty,
-        "str123",
-        new byte[] { 1, 2, 3 },
-        Period.FromDays(999),
-        Duration.FromSeconds(12345),
-    };
+    private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
     private static int _unknownKey = 333000;
 
@@ -805,8 +787,26 @@ public class DataStreamerTests : IgniteTestsBase
             ex.Message);
     }
 
-    [TestCaseSource(nameof(AllSupportedTypes))]
-    public async Task TestEchoReceiverAllDataTypes(object arg)
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    public async Task TestEchoReceiverAllDataTypes(object payload)
+    {
+        var res = await PocoView.StreamDataAsync<object, object, object?, object>(
+            new[] { payload }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            EchoReceiver,
+            receiverArg: null).SingleAsync();
+
+        if (payload is decimal dec)
+        {
+            payload = new BigDecimal(dec);
+        }
+
+        Assert.AreEqual(payload, res);
+    }
+
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    public async Task TestEchoArgsReceiverAllDataTypes(object arg)
     {
         var res = await PocoView.StreamDataAsync<object, object, object, object>(
             new object[] { 1 }.ToAsyncEnumerable(),
@@ -819,6 +819,45 @@ public class DataStreamerTests : IgniteTestsBase
         {
             arg = new BigDecimal(dec);
         }
+
+        Assert.AreEqual(arg, res);
+    }
+
+    [Test]
+    public async Task TestEchoReceiverTuple()
+    {
+        var count = 5_000;
+
+        var payload = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        payload["nested"] = new IgniteTuple { ["foo"] = "bar" };
+
+        List<object> res = await PocoView.StreamDataAsync<object, object, object?, object>(
+            Enumerable.Range(1, count).Select(x => payload).ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            EchoReceiver,
+            receiverArg: null).ToListAsync();
+
+        Assert.AreEqual(count, res.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            Assert.AreEqual(payload, res[i]);
+        }
+    }
+
+    [Test]
+    public async Task TestEchoArgsReceiverTuple()
+    {
+        var arg = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+        arg["nested"] = new IgniteTuple { ["foo"] = "bar" };
+
+        var res = await PocoView.StreamDataAsync<object, object, object, object>(
+            new object[] { 1 }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x.ToString()!,
+            EchoArgsReceiver,
+            receiverArg: arg).SingleAsync();
 
         Assert.AreEqual(arg, res);
     }

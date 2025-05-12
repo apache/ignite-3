@@ -999,6 +999,98 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         }
 
         /// <summary>
+        /// Appends an object without type code and returns type.
+        /// </summary>
+        /// <param name="value">Value.</param>
+        /// <returns>Resulting column type.</returns>
+        public ColumnType AppendObjectAndGetType(
+            object? value)
+        {
+            switch (value)
+            {
+                case null:
+                    AppendNull(); // Value.
+                    return ColumnType.Null;
+
+                case bool b:
+                    AppendBool(b);
+                    return ColumnType.Boolean;
+
+                case int i32:
+                    AppendInt(i32);
+                    return ColumnType.Int32;
+
+                case long i64:
+                    AppendLong(i64);
+                    return ColumnType.Int64;
+
+                case string str:
+                    AppendString(str);
+                    return ColumnType.String;
+
+                case Guid uuid:
+                    AppendGuid(uuid);
+                    return ColumnType.Uuid;
+
+                case sbyte i8:
+                    AppendByte(i8);
+                    return ColumnType.Int8;
+
+                case short i16:
+                    AppendShort(i16);
+                    return ColumnType.Int16;
+
+                case float f32:
+                    AppendFloat(f32);
+                    return ColumnType.Float;
+
+                case double f64:
+                    AppendDouble(f64);
+                    return ColumnType.Double;
+
+                case byte[] bytes:
+                    AppendBytes(bytes);
+                    return ColumnType.ByteArray;
+
+                case decimal dec:
+                    var bigDec0 = new BigDecimal(dec);
+                    AppendBigDecimal(bigDec0, bigDec0.Scale);
+                    return ColumnType.Decimal;
+
+                case BigDecimal bigDec:
+                    AppendBigDecimal(bigDec, bigDec.Scale);
+                    return ColumnType.Decimal;
+
+                case LocalDate localDate:
+                    AppendDate(localDate);
+                    return ColumnType.Date;
+
+                case LocalTime localTime:
+                    AppendTime(localTime, TemporalTypes.MaxTimePrecision);
+                    return ColumnType.Time;
+
+                case LocalDateTime localDateTime:
+                    AppendDateTime(localDateTime, TemporalTypes.MaxTimePrecision);
+                    return ColumnType.Datetime;
+
+                case Instant instant:
+                    AppendTimestamp(instant, TemporalTypes.MaxTimePrecision);
+                    return ColumnType.Timestamp;
+
+                case Period period:
+                    AppendPeriod(period);
+                    return ColumnType.Period;
+
+                case Duration duration:
+                    AppendDuration(duration);
+                    return ColumnType.Duration;
+
+                default:
+                    throw new IgniteClientException(ErrorGroups.Client.Protocol, "Unsupported type: " + value.GetType());
+            }
+        }
+
+        /// <summary>
         /// Appends an object.
         /// </summary>
         /// <param name="collection">Value.</param>

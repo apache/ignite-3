@@ -21,10 +21,10 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLA
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
-import static org.apache.ignite.lang.ErrorGroups.Client.CONNECTION_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Client.SERVER_TO_CLIENT_REQUEST_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 
 import io.netty.buffer.ByteBuf;
@@ -397,7 +397,7 @@ public class ClientInboundMessageHandler
 
         // Cancel all pending requests. New requests will fail due to closed connection.
         for (var fut : serverToClientRequests.values()) {
-            fut.completeExceptionally(new IgniteException(CONNECTION_ERR, "Connection closed"));
+            fut.completeExceptionally(new IgniteException(SERVER_TO_CLIENT_REQUEST_ERR, "Connection lost"));
         }
 
         super.channelInactive(ctx);
@@ -428,10 +428,15 @@ public class ClientInboundMessageHandler
 
                 if (computeConnFut == null) {
                     var msg = "Invalid compute executor ID, client connection rejected [connectionId=" + connectionId
-                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]: " + computeExecutorId;
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + ", executorId=" + computeExecutorId + "]";
+
+                    LOG.debug(msg);
 
                     handshakeError(ctx, packer, new IgniteException(PROTOCOL_ERR, msg));
                 } else {
+                    LOG.debug("Compute executor connected [connectionId=" + connectionId
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + ", executorId=" + computeExecutorId + "]");
+
                     // Bypass authentication for compute executor connections.
                     handshakeSuccess(ctx, packer, UserDetails.UNKNOWN, clientFeatures, clientVer, clientCode);
 
@@ -1266,7 +1271,7 @@ public class ClientInboundMessageHandler
             boolean error = ServerOpResponseFlags.getErrorFlag(flags);
 
             if (!error) {
-                fut.complete(in);
+                fut.complete(in.retain());
             } else {
                 Throwable err = readErrorFromClient(requestId, in);
                 fut.completeExceptionally(err);
@@ -1314,7 +1319,11 @@ public class ClientInboundMessageHandler
                         packer.packBoolean(false); // Retain deployment units in cache.
                         ClientComputeJobPacker.packJobArgument(arg, null, packer);
                     })
-                    .thenApply(ClientComputeJobUnpacker::unpackJobArgumentWithoutMarshaller);
+                    .thenApply(unpacker -> {
+                        try (unpacker) {
+                            return ClientComputeJobUnpacker.unpackJobArgumentWithoutMarshaller(unpacker);
+                        }
+                    });
         }
 
         @Override
@@ -1329,6 +1338,17 @@ public class ClientInboundMessageHandler
             return sendServerToClientRequest(ServerOp.DEPLOYMENT_UNITS_UNDEPLOY,
                     packer -> packDeploymentUnitPaths(deploymentUnitPaths, packer))
                     .thenApply(ClientMessageUnpacker::unpackBoolean);
+        }
+
+        @Override
+        public void close() {
+            closeConnection();
+        }
+
+        @Override
+        public boolean isActive() {
+            ChannelHandlerContext ctx = channelHandlerContext;
+            return ctx != null && ctx.channel().isActive();
         }
 
         private void packDeploymentUnitPaths(List<String> deploymentUnitPaths, ClientMessagePacker packer) {

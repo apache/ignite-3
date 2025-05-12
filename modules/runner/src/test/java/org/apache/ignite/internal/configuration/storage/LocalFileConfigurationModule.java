@@ -19,6 +19,7 @@ package org.apache.ignite.internal.configuration.storage;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import org.apache.ignite.configuration.ConfigurationModule;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -35,5 +36,10 @@ class LocalFileConfigurationModule implements ConfigurationModule {
     @Override
     public Collection<RootKey<?, ?>> rootKeys() {
         return List.of(TopConfiguration.KEY);
+    }
+
+    @Override
+    public Collection<String> deletedPrefixes() {
+        return Set.of("top.deleted_property");
     }
 }

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.compute.executor.platform.dotnet;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -38,14 +39,21 @@ import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConnection;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.lang.ErrorGroups.Client;
 import org.apache.ignite.lang.ErrorGroups.Common;
+import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.TraceableException;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * .NET compute executor.
  */
 public class DotNetComputeExecutor {
+    private static final IgniteLogger LOG = Loggers.forClass(DotNetComputeExecutor.class);
+
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
 
     private static final String DOTNET_BINARY_PATH = resolveDotNetBinaryPath();
@@ -110,11 +118,28 @@ public class DotNetComputeExecutor {
         long jobId = jobIdGen.incrementAndGet();
 
         return getPlatformComputeConnectionWithRetryAsync()
-                .thenCompose(conn -> conn.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input));
+                .thenCompose(conn -> conn.connectionFut()
+                        .thenCompose(c -> c.executeJobAsync(jobId, deploymentUnitPaths, jobClassName, input))
+                        .exceptionally(e -> {
+                            var cause = unwrapCause(e);
+
+                            if (cause instanceof TraceableException) {
+                                TraceableException te = (TraceableException) cause;
+
+                                if (te.code() == Client.SERVER_TO_CLIENT_REQUEST_ERR) {
+                                    Throwable cause2 = handleTransportError(conn.process(), cause);
+                                    throw new IgniteException(te.traceId(), te.code(), ".NET compute executor connection lost", cause2);
+                                } else {
+                                    throw new IgniteException(te.traceId(), te.code(), ".NET job failed: " + cause.getMessage(), e);
+                                }
+                            }
+
+                            throw new IgniteException(Compute.COMPUTE_JOB_FAILED_ERR, ".NET job failed: " + cause.getMessage(), e);
+                        }));
     }
 
-    private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnectionWithRetryAsync() {
-        CompletableFuture<PlatformComputeConnection> fut = new CompletableFuture<>();
+    private CompletableFuture<DotNetExecutorProcess> getPlatformComputeConnectionWithRetryAsync() {
+        CompletableFuture<DotNetExecutorProcess> fut = new CompletableFuture<>();
 
         getPlatformComputeConnectionWithRetryAsync(fut, null);
 
@@ -122,7 +147,7 @@ public class DotNetComputeExecutor {
     }
 
     private void getPlatformComputeConnectionWithRetryAsync(
-            CompletableFuture<PlatformComputeConnection> fut,
+            CompletableFuture<DotNetExecutorProcess> fut,
             @Nullable List<Throwable> errors) {
         getPlatformComputeConnection()
                 .handle((res, e) -> {
@@ -151,18 +176,16 @@ public class DotNetComputeExecutor {
                 });
     }
 
-    private CompletableFuture<PlatformComputeConnection> getPlatformComputeConnection() {
-        CompletableFuture<PlatformComputeConnection> fut = new CompletableFuture<>();
+    private CompletableFuture<DotNetExecutorProcess> getPlatformComputeConnection() {
+        CompletableFuture<DotNetExecutorProcess> fut = new CompletableFuture<>();
 
         DotNetExecutorProcess proc = ensureProcessStarted();
-
-        proc.process().onExit().thenRun(() -> fut.completeExceptionally(handleTransportError(proc.process(), null)));
 
         proc.connectionFut()
                 .orTimeout(PROCESS_START_TIMEOUT_MS, TimeUnit.MILLISECONDS)
                 .handle((res, e) -> {
-                    if (e == null) {
-                        fut.complete(res);
+                    if (e == null && res.isActive()) {
+                        fut.complete(proc);
                     } else {
                         fut.completeExceptionally(handleTransportError(proc.process(), e));
                     }
@@ -173,7 +196,9 @@ public class DotNetComputeExecutor {
         return fut;
     }
 
-    private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
+    private static Throwable handleTransportError(Process proc, Throwable cause) {
+        Throwable cause0 = unwrapCause(cause);
+
         String output = getProcessOutputTail(proc, 10_000);
 
         if (proc.isAlive()) {
@@ -181,7 +206,17 @@ public class DotNetComputeExecutor {
             proc.destroyForcibly();
         }
 
-        return new RuntimeException(".NET executor process failed to establish connection with the server: " + output, cause);
+        if (cause0 instanceof TraceableException) {
+            TraceableException te = (TraceableException) cause;
+
+            if (te.code() == Client.PROTOCOL_COMPATIBILITY_ERR) {
+                return cause;
+            }
+        }
+
+        return new IgniteException(
+                Compute.COMPUTE_PLATFORM_EXECUTOR_ERR,
+                ".NET executor process failed to establish connection with the server: " + output, cause);
     }
 
     private static String getProcessOutputTail(Process proc, int tail) {
@@ -202,7 +237,7 @@ public class DotNetComputeExecutor {
     }
 
     private synchronized DotNetExecutorProcess ensureProcessStarted() {
-        if (process == null || !process.process().isAlive()) {
+        if (isDead(process)) {
             // 0. Generate a new secure id for every new process to prevent replay attacks.
             String executorId = generateSecureRandomId();
 
@@ -210,12 +245,37 @@ public class DotNetComputeExecutor {
             CompletableFuture<PlatformComputeConnection> fut = transport.registerComputeExecutorId(executorId);
 
             // 2. Start the process. It connects to the server, passes the id, and the server knows it is the right one.
-            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, DOTNET_BINARY_PATH);
+            String dotnetBinaryPath = DOTNET_BINARY_PATH;
+            LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
+            Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
+
+            proc.onExit().thenRun(() -> {
+                if (!fut.completeExceptionally(handleTransportError(
+                        proc, new IgniteException(Compute.COMPUTE_PLATFORM_EXECUTOR_ERR, ".NET executor process exited")))) {
+                    // Process exited after the connection was established - close the connection.
+                    fut.thenAccept(PlatformComputeConnection::close);
+                }
+            });
 
             process = new DotNetExecutorProcess(proc, fut);
         }
 
         return process;
+    }
+
+    private static boolean isDead(DotNetExecutorProcess proc) {
+        if (proc == null) {
+            return true;
+        }
+
+        if (!proc.process().isAlive()) {
+            return true;
+        }
+
+        var conn = proc.connectionFut().getNow(null);
+
+        // Connection was established previously, but is now closed.
+        return conn != null && !conn.isActive();
     }
 
     @SuppressWarnings("UseOfProcessBuilder")

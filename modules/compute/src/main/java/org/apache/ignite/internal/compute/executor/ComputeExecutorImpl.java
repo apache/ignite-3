@@ -31,13 +31,13 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.JobExecutionContext;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.task.MapReduceTask;
 import org.apache.ignite.compute.task.TaskExecutionContext;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.ComputeUtils;
 import org.apache.ignite.internal.compute.ExecutionOptions;
 import org.apache.ignite.internal.compute.JobExecutionContextImpl;
-import org.apache.ignite.internal.compute.JobExecutorType;
 import org.apache.ignite.internal.compute.SharedComputeUtils;
 import org.apache.ignite.internal.compute.configuration.ComputeConfiguration;
 import org.apache.ignite.internal.compute.executor.platform.PlatformComputeTransport;
@@ -129,23 +129,20 @@ public class ComputeExecutorImpl implements ComputeExecutor {
             JobClassLoader classLoader,
             ComputeJobDataHolder input,
             JobExecutionContext context) {
-        DotNetComputeExecutor dotNetExec0 = dotNetComputeExecutor;
-
-        // TODO IGNITE-25116: Remove.
-        if (jobClassName.startsWith("TEST_ONLY_DOTNET_JOB:") && dotNetExec0 != null) {
-            return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName.substring(21), input, context);
-        }
+        executorType = executorType == null ? JobExecutorType.JAVA_EMBEDDED : executorType;
 
         switch (executorType) {
-            case JavaEmbedded:
+            case JAVA_EMBEDDED:
                 return getJavaJobCallable(jobClassName, classLoader, input, context);
 
-            case DotNetSidecar:
-                if (dotNetExec0 == null) {
+            case DOTNET_SIDECAR:
+                DotNetComputeExecutor dotNetExec = dotNetComputeExecutor;
+
+                if (dotNetExec == null) {
                     throw new IllegalStateException("DotNetComputeExecutor is not set");
                 }
 
-                return dotNetExec0.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
+                return dotNetExec.getJobCallable(getDeploymentUnitPaths(classLoader), jobClassName, input, context);
 
             default:
                 throw new IllegalArgumentException("Unsupported executor type: " + executorType);
