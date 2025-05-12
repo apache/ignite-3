@@ -57,7 +57,7 @@ import org.apache.ignite.sql.ColumnType;
  */
 final class TestCatalogObjectDescriptors {
 
-    private static final List<CatalogStorageProfilesDescriptor> STORAGE_PROFILES = List.of(
+    static final List<CatalogStorageProfilesDescriptor> STORAGE_PROFILES = List.of(
             new CatalogStorageProfilesDescriptor(
                     List.of(new CatalogStorageProfileDescriptor("S1"))
             ),
@@ -68,14 +68,16 @@ final class TestCatalogObjectDescriptors {
 
     private static final ZoneId ZONE = ZoneId.of("Europe/Paris");
 
-    static List<CatalogZoneDescriptor> zones(TestDescriptorState state) {
+    static List<CatalogZoneDescriptor> zonesWithDefaultQuorumSize(TestDescriptorState state) {
         List<CatalogZoneDescriptor> list = new ArrayList<>();
 
+        int defaultQuorumSize = 2;
         list.add(new CatalogZoneDescriptor(
                 state.id(),
                 state.name("ZONE"),
                 1,
                 2,
+                defaultQuorumSize,
                 3,
                 4,
                 5,
@@ -89,6 +91,7 @@ final class TestCatalogObjectDescriptors {
                 state.name("ZONE"),
                 5,
                 4,
+                defaultQuorumSize,
                 3,
                 2,
                 1,
@@ -100,6 +103,7 @@ final class TestCatalogObjectDescriptors {
         list.add(new CatalogZoneDescriptor(state.id(), state.name("ZONE"),
                 5,
                 4,
+                defaultQuorumSize,
                 3,
                 2,
                 1,

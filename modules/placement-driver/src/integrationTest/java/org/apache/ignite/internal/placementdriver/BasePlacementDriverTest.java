@@ -59,7 +59,7 @@ abstract class BasePlacementDriverTest extends IgniteAbstractTest {
             int tableOrZoneId,
             List<String> dataNodes,
             long assignmentsTimestamp) {
-        List<Set<Assignment>> assignments = calculateAssignments(dataNodes, 1, dataNodes.size());
+        List<Set<Assignment>> assignments = calculateAssignments(dataNodes, 1, dataNodes.size(), dataNodes.size());
 
         Map<ByteArray, byte[]> partitionAssignments = new HashMap<>(assignments.size());
 

@@ -364,6 +364,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         CatalogCommand alterCmd = AlterZoneCommand.builder()
                 .zoneName(zoneName)
                 .replicas(2)
+                .quorumSize(2) // need to adjust the quorum size as well in accordance with new replicas count
                 .dataNodesAutoAdjustScaleUp(3)
                 .dataNodesAutoAdjustScaleDown(4)
                 .filter("newExpression")
@@ -385,6 +386,7 @@ public class CatalogZoneTest extends BaseCatalogManagerTest {
         assertEquals(zoneName, zone.name());
         assertEquals(42, zone.partitions());
         assertEquals(2, zone.replicas());
+        assertEquals(2, zone.quorumSize());
         assertEquals(INFINITE_TIMER_VALUE, zone.dataNodesAutoAdjust());
         assertEquals(3, zone.dataNodesAutoAdjustScaleUp());
         assertEquals(4, zone.dataNodesAutoAdjustScaleDown());

@@ -24,13 +24,22 @@ using System.Linq;
 using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Marshalling;
+using Ignite.Table;
 using Network;
-using NodaTime;
 using NUnit.Framework;
 using TestHelpers;
 
 /// <summary>
 /// Tests for platform compute (non-Java jobs).
+/// <para />
+/// Development:
+/// - Changing test code, job code: no need to restart Ignite.
+/// - Changing core code: restart Ignite servers and do a full .NET solution rebuild to reflect the changes in .NET compute executor.
+/// <para />
+/// Debugging:
+/// - Run tests once so that .NET executor processes are started.
+/// - Attach to the executor processes.
+/// - Run tests again to debug the executor.
 /// </summary>
 public class PlatformComputeTests : IgniteTestsBase
 {
@@ -64,7 +73,28 @@ public class PlatformComputeTests : IgniteTestsBase
     }
 
     [Test]
-    [TestCaseSource(nameof(ArgTypesTestCases))]
+    public async Task TestBroadcastJob()
+    {
+        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_defaultTestUnit] };
+        var jobTarget = BroadcastJobTarget.Nodes(
+            await GetClusterNodeAsync(),
+            await GetClusterNodeAsync("_2"),
+            await GetClusterNodeAsync("_3"));
+
+        var jobExec = await Client.Compute.SubmitBroadcastAsync(
+            jobTarget,
+            jobDesc,
+            "Hello world!");
+
+        foreach (var job in jobExec.JobExecutions)
+        {
+            var res = await job.GetResultAsync();
+            Assert.AreEqual("Hello world!", res);
+        }
+    }
+
+    [Test]
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestAllSupportedArgTypes(object val)
     {
         var result = await ExecJobAsync(DotNetJobs.Echo, val);
@@ -216,6 +246,35 @@ public class PlatformComputeTests : IgniteTestsBase
         Assert.AreEqual(2, assemblyLoadContextCount);
     }
 
+    [Test]
+    public async Task TestTupleWithSchemaRoundTrip()
+    {
+        var tuple = TestCases.GetTupleWithAllFieldTypes();
+        tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+
+        var expectedTuple = Enumerable.Range(0, tuple.FieldCount).Aggregate(
+            seed: new IgniteTuple(),
+            (acc, i) =>
+            {
+                acc[tuple.GetName(i)] = tuple[i] is decimal d ? new BigDecimal(d) : tuple[i];
+                return acc;
+            });
+
+        var res = (IIgniteTuple)(await ExecJobAsync(DotNetJobs.Echo, tuple))!;
+
+        Assert.AreEqual(expectedTuple, res);
+    }
+
+    [Test]
+    public async Task TestDeepNestedTupleWithSchemaRoundTrip()
+    {
+        var tuple = TestCases.GetNestedTuple(100);
+        var res = await ExecJobAsync(DotNetJobs.Echo, tuple);
+
+        Assert.AreEqual(tuple, res);
+        StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res?.ToString());
+    }
+
     private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
     {
         var testsDll = typeof(PlatformComputeTests).Assembly.Location;
@@ -230,35 +289,6 @@ public class PlatformComputeTests : IgniteTestsBase
 
         return new DeploymentUnit(unitId0, unitVersion0);
     }
-
-    private static IEnumerable<object> ArgTypesTestCases() => [
-        sbyte.MinValue,
-        sbyte.MaxValue,
-        short.MinValue,
-        short.MaxValue,
-        int.MinValue,
-        int.MaxValue,
-        long.MinValue,
-        long.MaxValue,
-        float.MinValue,
-        float.MaxValue,
-        double.MinValue,
-        double.MaxValue,
-        123.456m,
-        -123.456m,
-        decimal.MinValue,
-        decimal.MaxValue,
-        new BigDecimal(long.MinValue, 10),
-        new BigDecimal(long.MaxValue, 20),
-        new byte[] { 1, 255 },
-        "Ignite 🔥",
-        LocalDate.MinIsoValue,
-        LocalTime.Noon,
-        LocalDateTime.MaxIsoValue,
-        Instant.FromUtc(2001, 3, 4, 5, 6),
-        Guid.Empty,
-        new Guid(new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16 }),
-    ];
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {

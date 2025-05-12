@@ -413,7 +413,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     void testManualRebalanceRecovery() throws Exception {
         int partId = 0;
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         IgniteImpl node0 = igniteImpl(0);
         int catalogVersion = node0.catalogManager().latestCatalogVersion();
@@ -753,7 +753,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     @ZoneParams(nodes = 5, replicas = 3, partitions = 1)
     public void testPlannedIsOverwritten() throws Exception {
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
         int partId = 0;
 
         IgniteImpl node0 = igniteImpl(0);
@@ -795,7 +795,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 2));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, 2));
 
         Assignments assignmentsPlannedReplaced = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
@@ -869,7 +869,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         IgniteImpl node1 = igniteImpl(1);
 
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         awaitPrimaryReplica(node0, partId);
 
@@ -941,7 +941,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         stopNode(4);
 
@@ -1001,11 +1001,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         Assignments allAssignments = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
+                Assignment.forLearner(node(1).name()),
                 Assignment.forPeer(node(2).name()),
                 Assignment.forPeer(node(3).name()),
                 Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
+                Assignment.forLearner(node(5).name()),
                 Assignment.forPeer(node(6).name())
         ), timestamp);
 
@@ -1051,7 +1051,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(errors, is(empty()));
 
         // Disable scale down.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         // Now followerNodes has 4 elements - without the leader and two blocked nodes. Stop them all.
         int[] nodesToStop = followerNodes.stream()
@@ -1090,7 +1090,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
         // Wait for the new stable assignments to take effect.
-        executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
+        executeSql(format("ALTER ZONE %s SET (replicas %d)", zoneName, 3));
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
@@ -1138,12 +1138,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
         Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
+                Assignment.forLearner(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(2).name()),
                 Assignment.forPeer(node(3).name()),
                 Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
+                Assignment.forLearner(node(5).name()),
                 Assignment.forPeer(node(6).name())
         ), timestamp);
 
@@ -1179,7 +1179,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertThat(errors, is(empty()));
 
         // Disable scale down.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         List<String> nodeNamesToStop = new ArrayList<>(followerNodes);
         // Make sure there are 4 elements in this list.
@@ -1222,7 +1222,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertPlannedAssignments(node0, partId, assignmentsPlanned);
 
         // Wait for the new stable assignments to take effect.
-        executeSql(format("ALTER ZONE %s SET replicas=%d", zoneName, 3));
+        executeSql(format("ALTER ZONE %s SET (replicas %d)", zoneName, 3));
 
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.AVAILABLE);
 
@@ -1333,7 +1333,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertIndexAndTermInLastChainLink(node0, partId);
 
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         // Disable automatic rebalance since we want to restore replica factor.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
@@ -1431,7 +1431,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         awaitPrimaryReplica(node0, partId);
 
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
@@ -1514,7 +1514,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Disable automatic reset since we want to check manual ones.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
@@ -1603,7 +1603,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Disable automatic reset since we want to check manual ones.
         setDistributionResetTimeout(node0, INFINITE_TIMER_VALUE);
         // Disable scale down to avoid unwanted rebalance.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, INFINITE_TIMER_VALUE));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, INFINITE_TIMER_VALUE));
 
         assertRealAssignments(node0, partId, 2, 3, 5);
 
@@ -1646,7 +1646,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(initialAssignments, link2Assignments));
 
         // Return back scale down.
-        executeSql(format("ALTER ZONE %s SET data_nodes_auto_adjust_scale_down=%d", zoneName, 1));
+        executeSql(format("ALTER ZONE %s SET (auto scale down %d)", zoneName, 1));
 
         // Now stop one and check graceful rebalance.
         logger().info("Stopping nodes [ids={}].", 1);

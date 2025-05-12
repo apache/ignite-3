@@ -844,7 +844,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             if (readOnly) {
                 // Any node from assignments will do it.
                 Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().clusterNodes().stream().map(
-                        ClusterNode::name).collect(Collectors.toList()), 0, 1, 1);
+                        ClusterNode::name).collect(Collectors.toList()), 0, 1, 1, 1);
 
                 assertFalse(assignments.isEmpty());
 
