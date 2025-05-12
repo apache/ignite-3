@@ -32,10 +32,10 @@ import org.jetbrains.annotations.TestOnly;
  */
 public class ClientTransactionInflights {
     /** Hint for maximum concurrent txns. */
-    private static final int MAX_CONCURRENT_TXNS = 1024;
+    private static final int MAX_CONCURRENT_TXNS_HINT = 1024;
 
     /** Txn contexts. */
-    private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS);
+    private final ConcurrentHashMap<UUID, TxContext> txCtxMap = new ConcurrentHashMap<>(MAX_CONCURRENT_TXNS_HINT);
 
     /**
      * Registers the inflight update for a transaction.
@@ -99,8 +99,11 @@ public class ClientTransactionInflights {
             }
 
             if (ctx.finishFut == null) {
-                ctx.finishFut =
-                        ctx.err != null ? failedFuture(ctx.err) : ctx.inflights == 0 ? nullCompletedFuture() : new CompletableFuture<>();
+                if (ctx.err != null) {
+                    ctx.finishFut = failedFuture(ctx.err);
+                } else {
+                    ctx.finishFut = ctx.inflights == 0 ? nullCompletedFuture() : new CompletableFuture<>();
+                }
             }
 
             return ctx;

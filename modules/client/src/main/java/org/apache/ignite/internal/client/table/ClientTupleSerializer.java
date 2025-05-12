@@ -491,7 +491,7 @@ public class ClientTupleSerializer {
                 return hash;
             }
 
-            // Temporary disable direct mapping for batches.
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25348 Enable batch splitting for direct mappings.
             if (iter.hasNext()) {
                 return null;
             }
