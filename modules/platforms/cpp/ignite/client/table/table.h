@@ -53,11 +53,18 @@ public:
     table &operator=(const table &) = delete;
 
     /**
-     * Gets table name.
+     * Gets the table name.
      *
      * @return Table name.
      */
     [[nodiscard]] IGNITE_API const std::string &get_name() const noexcept;
+
+    /**
+     * Gets the table qualified name.
+     *
+     * @return Table qualified name.
+     */
+    [[nodiscard]] IGNITE_API const qualified_name &get_qualified_name() const noexcept;
 
     /**
      * Gets the record binary view.

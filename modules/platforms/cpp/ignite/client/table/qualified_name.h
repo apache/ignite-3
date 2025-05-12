@@ -88,8 +88,11 @@ public:
      *
      * @return A fully qualified name in canonical form.
      */
-    [[nodiscard]] std::string get_canonical_name() const {
-        return quote_if_needed(m_object_name) + SEPARATOR_CHAR + quote_if_needed(m_object_name);
+    [[nodiscard]] const std::string& get_canonical_name() const {
+        if (m_canonical_name.empty()) {
+            m_canonical_name = quote_if_needed(m_object_name) + SEPARATOR_CHAR + quote_if_needed(m_object_name);
+        }
+        return m_canonical_name;
     }
 
 private:
@@ -117,5 +120,8 @@ private:
 
     /** Object name. */
     std::string m_object_name;
+
+    /** Canonical name. */
+    mutable std::string m_canonical_name;
 };
 } // namespace ignite
