@@ -106,6 +106,34 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
+    [Test]
+    public async Task TestMissingAssembly()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public async Task TestReceiverError()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public async Task TestRunDotNetReceiverFromJava()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
+    [Test]
+    public async Task TestIgniteApiAccessFromReceiver()
+    {
+        await Task.Delay(1);
+        Assert.Fail("TODO");
+    }
+
     private async Task<object> RunEchoArgReceiver(object arg) =>
         await PocoView.StreamDataAsync<object, object, object, object>(
             new object[] { "unused" }.ToAsyncEnumerable(),
