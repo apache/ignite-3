@@ -61,17 +61,19 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         /// <param name="numElements">Capacity.</param>
         /// <param name="totalValueSize">Total value size, -1 when unknown.</param>
         /// <param name="hashedColumnsPredicate">A predicate that returns true for colocation column indexes.
-        /// Pass null when colocation hash is not needed.</param>
+        /// Pass null when a colocation hash is not needed.</param>
+        /// <param name="prefixSize">Buffer prefix size. Reserves space for additional data in the resulting buffer.</param>
         public BinaryTupleBuilder(
             int numElements,
             int totalValueSize = -1,
-            IHashedColumnIndexProvider? hashedColumnsPredicate = null)
+            IHashedColumnIndexProvider? hashedColumnsPredicate = null,
+            int prefixSize = 0)
         {
             Debug.Assert(numElements >= 0, "numElements >= 0");
 
             _numElements = numElements;
             _hashedColumnsPredicate = hashedColumnsPredicate;
-            _buffer = new();
+            _buffer = new(prefixSize: prefixSize);
             _elementIndex = 0;
 
             // Reserve buffer for individual hash codes.

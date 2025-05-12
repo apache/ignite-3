@@ -79,7 +79,9 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             }
 
             int resTupleElementCount = res.Count + 2;
-            var builder = new BinaryTupleBuilder(resTupleElementCount);
+
+            // Reserve a 4-byte prefix for resTupleElementCount.
+            var builder = new BinaryTupleBuilder(resTupleElementCount, prefixSize: 4);
 
             if (res.Count > 0 && res[0] is IIgniteTuple)
             {
@@ -97,26 +99,9 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
                 builder.AppendObjectCollectionWithType(res);
             }
 
-            // TODO: Avoid copy below - implement BuildWithPrefix
-            Memory<byte> jobResultTupleMem = builder.Build();
-
-            // Prepend the size of the tuple.
-            var jobResultSize = jobResultTupleMem.Length + 4;
-            byte[] jobResultBytes = ByteArrayPool.Rent(jobResultSize);
-
-            try
-            {
-                var jobResultMem = jobResultBytes.AsMemory(0, jobResultSize);
-
-                BinaryPrimitives.WriteInt32LittleEndian(jobResultMem.Span, resTupleElementCount);
-                jobResultTupleMem.CopyTo(jobResultMem[4..]);
-
-                ComputePacker.PackArgOrResult(ref writer, jobResultMem, null);
-            }
-            finally
-            {
-                ByteArrayPool.Return(jobResultBytes);
-            }
+            Memory<byte> jobResultTupleMemWithPrefix = builder.Build();
+            BinaryPrimitives.WriteInt32LittleEndian(jobResultTupleMemWithPrefix.Span, resTupleElementCount);
+            ComputePacker.PackArgOrResult(ref writer, jobResultTupleMemWithPrefix, null);
         }
     }
 
