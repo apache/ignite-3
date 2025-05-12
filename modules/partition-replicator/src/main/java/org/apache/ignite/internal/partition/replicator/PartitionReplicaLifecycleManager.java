@@ -200,6 +200,7 @@ public class PartitionReplicaLifecycleManager extends
 
     private final Set<ZonePartitionId> replicationGroupIds = ConcurrentHashMap.newKeySet();
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-25347
     /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
     private final Map<Integer, NaiveAsyncReadWriteLock> zonePartitionsLocks = new ConcurrentHashMap<>();
 
