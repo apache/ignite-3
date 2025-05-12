@@ -953,6 +953,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
                     AppendBytes(bytes);
                     break;
 
+                case Memory<byte> memBytes:
+                    AppendTypeAndScale(ColumnType.ByteArray);
+                    AppendBytes(memBytes.Span);
+                    break;
+
                 case decimal dec:
                     var bigDec0 = new BigDecimal(dec);
                     AppendTypeAndScale(ColumnType.Decimal, bigDec0.Scale);
