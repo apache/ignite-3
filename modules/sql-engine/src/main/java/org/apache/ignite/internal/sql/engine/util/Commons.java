@@ -128,7 +128,9 @@ import org.jetbrains.annotations.TestOnly;
  */
 public final class Commons {
     public static final String IMPLICIT_PK_COL_NAME = "__p_key";
-    public static final String PART_COL_NAME = "__part";
+    public static final String PART_COL_NAME = "__PART";
+    // Old name for partition column. Kept for backward compatibility.
+    public static final String PART_COL_NAME_LEGACY = "__part";
 
     public static final int IN_BUFFER_SIZE = 512;
 

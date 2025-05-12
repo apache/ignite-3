@@ -1291,7 +1291,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
 
     public static boolean isSystemFieldName(String alias) {
         return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
-                || alias.equals(Commons.PART_COL_NAME);
+                || alias.equals(Commons.PART_COL_NAME)
+                || alias.equals(Commons.PART_COL_NAME_LEGACY);
     }
 
     // We use these scopes to filter out valid usages of a ROW operator.
