@@ -46,7 +46,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
-            DotNetReceivers.EchoArgs,
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: arg).SingleAsync();
 
         if (arg is decimal dec)
