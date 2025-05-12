@@ -114,14 +114,10 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private Int2ObjectMap<VirtualColumn> createVirtualColumns(BitSet requiredColumns, int partId) {
         Int2ObjectMap<VirtualColumn> columnsMap = new Int2ObjectArrayMap<>(virtualColumnsFactory.size());
 
-        for (
-                int columnIndex = requiredColumns.nextSetBit(schemaDescriptor.length());
-                columnIndex >= 0;
-                columnIndex = requiredColumns.nextSetBit(columnIndex + 1)
-        ) {
-            columnsMap.put(columnIndex, virtualColumnsFactory.get(columnIndex).apply(partId));
+        for (int i = requiredColumns.nextSetBit(schemaDescriptor.length()); i >= 0; i = requiredColumns.nextSetBit(i + 1)) {
+            columnsMap.put(i, virtualColumnsFactory.get(i).apply(partId));
 
-            if (columnIndex == Integer.MAX_VALUE) {
+            if (i == Integer.MAX_VALUE) {
                 break; // Avoid overflow.
             }
         }
