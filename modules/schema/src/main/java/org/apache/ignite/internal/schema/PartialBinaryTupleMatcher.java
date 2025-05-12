@@ -27,6 +27,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Arrays;
 import java.util.List;
+import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -153,7 +154,11 @@ public class PartialBinaryTupleMatcher {
             case BYTES: {
                 partialTuple.seek(index);
 
-                byte[] part = partialTuple.bytesValue(partialTuple.begin(), partialTuple.byteBuffer().capacity());
+                int begin = partialTuple.begin();
+                int end = partialTuple.end();
+                int trimmedSize = Math.min(end - begin, partialTuple.byteBuffer().capacity() - begin);
+
+                byte[] part = partialTuple.bytesValue(begin, begin + trimmedSize);
 
                 byte[] cmp = getTrimmedBytes(tuple2, index, part.length);
 
@@ -182,6 +187,11 @@ public class PartialBinaryTupleMatcher {
 
         int begin = tuple.begin();
         int end = tuple.end();
+
+        if (tuple.byteBuffer().get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            maxLength++;
+        }
+
         int trimmedSize = Math.min(end - begin, maxLength);
 
         return tuple.bytesValue(begin, begin + trimmedSize);
