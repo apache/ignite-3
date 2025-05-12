@@ -19,9 +19,14 @@ namespace Apache.Ignite.Internal.Table;
 
 using System;
 using System.Buffers.Binary;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
+using Buffers;
+using Compute;
+using Compute.Executor;
 using Ignite.Compute;
 using Proto.BinaryTuple;
 
@@ -29,16 +34,49 @@ using Proto.BinaryTuple;
 /// Internal compute job that executes user-defined data streamer receiver.
 /// </summary>
 [SuppressMessage("ReSharper", "UnusedType.Global", Justification = "Called via reflection from Java.")]
-internal sealed class StreamerReceiverJob : IComputeJob<byte[], byte[]>
+internal static class StreamerReceiverJob
 {
+    public static async ValueTask ExecuteJobAsync(
+        PooledBuffer argBuf,
+        PooledArrayBuffer resBuf,
+        IJobExecutionContext context,
+        JobLoadContext jobLoadContext)
+    {
+        ReadArg();
+
+        void ReadArg()
+        {
+            var r = argBuf.GetReader();
+
+            // Excerpt from ComputePacker.
+            int argType = r.ReadInt32();
+            Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
+
+            // Excerpt from ReadObjectFromBinaryTuple.
+            var tupleSpan = r.ReadBinary();
+            var binTuple = new BinaryTupleReader(tupleSpan, 3);
+
+            var receiverInfoSpan = binTuple.GetBytesSpan(2).ToArray();
+        }
+    }
+
     /// <inheritdoc/>
     public async ValueTask<byte[]> ExecuteAsync(IJobExecutionContext context, byte[] arg, CancellationToken cancellationToken)
     {
         await Task.Delay(1, cancellationToken).ConfigureAwait(false);
         var payloadElementCount = BinaryPrimitives.ReadInt32LittleEndian(arg);
-        var reader = new BinaryTupleReader(arg.AsSpan()[4..], payloadElementCount);
+        var receiverTypeName = ReadTypeName();
+
+        // TODO: Use out load context to instantiate the receiver wrapper.
+        AssemblyLoadContext.GetLoadContext(GetType().Assembly)
 
         // TODO: Implement
         return [];
+
+        string ReadTypeName()
+        {
+            var reader = new BinaryTupleReader(arg.AsSpan()[4..], payloadElementCount);
+            return reader.GetString(0);
+        }
     }
 }

@@ -24,6 +24,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
 using Ignite.Compute;
+using Table;
 
 /// <summary>
 /// Compute executor utilities.
@@ -86,9 +87,17 @@ internal static class ComputeJobExecutor
         // Unload assemblies after job execution.
         // TODO IGNITE-25257 Cache deployment units and JobLoadContext - see ComputeJobExecutorBenchmarks, expensive.
         using JobLoadContext jobLoadCtx = DeploymentUnitLoader.GetJobLoadContext(req.DeploymentUnitPaths);
-        IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
 
         resBuf.MessageWriter.Write(0); // Response flags: success.
+
+        if (req.JobClassName == "Apache.Ignite.Internal.Table.StreamerReceiverJob, Apache.Ignite")
+        {
+            // Special case for StreamerReceiverJob (avoid extra reflection and allocations for the wrapper).
+            await StreamerReceiverJob.ExecuteJobAsync(argBuf, resBuf, context, jobLoadCtx).ConfigureAwait(false);
+            return;
+        }
+
+        IComputeJobWrapper jobWrapper = jobLoadCtx.CreateJobWrapper(req.JobClassName);
 
         // TODO IGNITE-25153: Cancellation.
         await jobWrapper.ExecuteAsync(context, argBuf, resBuf, CancellationToken.None).ConfigureAwait(false);
