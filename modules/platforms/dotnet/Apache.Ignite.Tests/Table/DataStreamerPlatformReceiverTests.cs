@@ -39,6 +39,15 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [OneTimeTearDown]
     public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
 
+    [Test]
+    public async Task TestEchoReceiverAllDataTypes()
+    {
+        var items = TestCases.SupportedArgs;
+        var res = await RunEchoReceiver(items);
+
+        CollectionAssert.AreEqual(items, res);
+    }
+
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestEchoArgsReceiverAllDataTypes(object arg)
     {
@@ -84,13 +93,19 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
-    private async Task<object> RunEchoArgReceiver(object arg)
-    {
-        return await PocoView.StreamDataAsync<object, object, object, object>(
-            new object[] { 1 }.ToAsyncEnumerable(),
+    private async Task<object> RunEchoArgReceiver(object arg) =>
+        await PocoView.StreamDataAsync<object, object, object, object>(
+            new object[] { "unused" }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
-            payloadSelector: x => x.ToString()!,
+            payloadSelector: _ => "unused",
             DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: arg).SingleAsync();
-    }
+
+    private async Task<List<object>> RunEchoReceiver(List<object> items) =>
+        await PocoView.StreamDataAsync<object, object, object, object>(
+            items.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            DotNetReceivers.Echo with { DeploymentUnits = [_defaultTestUnit] },
+            receiverArg: "unused").ToListAsync();
 }

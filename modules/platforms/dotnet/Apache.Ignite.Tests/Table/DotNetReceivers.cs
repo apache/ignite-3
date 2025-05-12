@@ -29,7 +29,19 @@ using Ignite.Table;
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public static class DotNetReceivers
 {
+    public static readonly ReceiverDescriptor<object, object> Echo = ReceiverDescriptor.Of(new EchoReceiver());
+
     public static readonly ReceiverDescriptor<object, object> EchoArgs = ReceiverDescriptor.Of(new EchoArgsReceiver());
+
+    public class EchoReceiver : IDataStreamerReceiver<object, object, object>
+    {
+        public ValueTask<IList<object>?> ReceiveAsync(
+            IList<object> page,
+            IDataStreamerReceiverContext context,
+            object? arg,
+            CancellationToken cancellationToken) =>
+            ValueTask.FromResult(page)!;
+    }
 
     public class EchoArgsReceiver : IDataStreamerReceiver<object, object, object>
     {
