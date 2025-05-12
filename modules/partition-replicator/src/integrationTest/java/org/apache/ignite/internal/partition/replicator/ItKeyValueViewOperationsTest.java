@@ -50,7 +50,7 @@ public class ItKeyValueViewOperationsTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1, 1).toArray()[0];
 
         node = getNode(replicaAssignment.consistentId());
 

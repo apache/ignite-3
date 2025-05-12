@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.descriptors;
 
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultQuorumSize;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.MIN_VALUE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 
@@ -71,6 +72,7 @@ public class CatalogZoneDescriptorSerializers {
                     name,
                     partitions,
                     replicas,
+                    defaultQuorumSize(replicas),
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
@@ -118,6 +120,7 @@ public class CatalogZoneDescriptorSerializers {
 
             int partitions = input.readVarIntAsInt();
             int replicas = input.readVarIntAsInt();
+            int quorumSize = input.readVarIntAsInt();
             int dataNodesAutoAdjust = input.readVarIntAsInt();
             int dataNodesAutoAdjustScaleUp = input.readVarIntAsInt();
             int dataNodesAutoAdjustScaleDown = input.readVarIntAsInt();
@@ -129,6 +132,7 @@ public class CatalogZoneDescriptorSerializers {
                     name,
                     partitions,
                     replicas,
+                    quorumSize,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,
                     dataNodesAutoAdjustScaleDown,
@@ -149,6 +153,7 @@ public class CatalogZoneDescriptorSerializers {
 
             output.writeVarInt(descriptor.partitions());
             output.writeVarInt(descriptor.replicas());
+            output.writeVarInt(descriptor.quorumSize());
             output.writeVarInt(descriptor.dataNodesAutoAdjust());
             output.writeVarInt(descriptor.dataNodesAutoAdjustScaleUp());
             output.writeVarInt(descriptor.dataNodesAutoAdjustScaleDown());
