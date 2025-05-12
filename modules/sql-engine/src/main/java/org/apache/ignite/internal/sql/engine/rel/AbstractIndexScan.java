@@ -78,12 +78,13 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
             RelOptTable table,
             String idxName,
             IgniteIndex.Type type,
+            @Nullable List<String> names,
             @Nullable List<RexNode> proj,
             @Nullable RexNode cond,
             @Nullable List<SearchBounds> searchBounds,
             @Nullable ImmutableBitSet reqColumns
     ) {
-        super(cluster, traitSet, hints, table, proj, cond, reqColumns);
+        super(cluster, traitSet, hints, table, names, proj, cond, reqColumns);
 
         this.idxName = idxName;
         this.type = type;

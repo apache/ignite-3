@@ -533,7 +533,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
 
             // Server features
             BitSet expected = new BitSet();
-            expected.set(1, 3);
+            expected.set(1, 4);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();

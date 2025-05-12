@@ -36,20 +36,21 @@ public class PartitionDistributionUtils {
      * @param dataNodes Data nodes.
      * @param partitions Partitions count.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @return List assignments by partition.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24391 pass the consensus group size as the parameter here
     public static List<Set<Assignment>> calculateAssignments(
             Collection<String> dataNodes,
             int partitions,
-            int replicas
+            int replicas,
+            int consensusGroupSize
     ) {
         return DISTRIBUTION_ALGORITHM.assignPartitions(
                 dataNodes,
                 emptyList(),
                 partitions,
                 replicas,
-                replicas
+                consensusGroupSize
         );
     }
 
@@ -60,16 +61,17 @@ public class PartitionDistributionUtils {
      * @param partitionId Partition id.
      * @param partitions Partitions count.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @return Set of assignments.
      */
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24391 pass the consensus group size as the parameter here
     public static Set<Assignment> calculateAssignmentForPartition(
             Collection<String> dataNodes,
             int partitionId,
             int partitions,
-            int replicas
+            int replicas,
+            int consensusGroupSize
     ) {
-        List<Set<Assignment>> assignments = DISTRIBUTION_ALGORITHM.assignPartitions(dataNodes, emptyList(), partitions, replicas, replicas);
+        List<Set<Assignment>> assignments = calculateAssignments(dataNodes, partitions, replicas, consensusGroupSize);
 
         return assignments.get(partitionId);
     }

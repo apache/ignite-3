@@ -755,7 +755,8 @@ public class PartitionReplicaLifecycleManager extends
                         dataNodes,
                         zonePartitionId.partitionId(),
                         zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas()
+                        zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize()
                 ));
     }
 
@@ -829,7 +830,7 @@ public class PartitionReplicaLifecycleManager extends
         return metaStorageMgr
                 .invoke(condition, partitionAssignments, Collections.emptyList())
                 .whenComplete((invokeResult, e) -> {
-                    if (e != null) {
+                    if (e != null && !hasCause(e, NodeStoppingException.class)) {
                         String errorMessage = String.format(
                                 "Couldn't write assignments [assignmentsList=%s] to metastore during invoke.",
                                 assignmentListToString(newAssignments)
@@ -877,7 +878,7 @@ public class PartitionReplicaLifecycleManager extends
                                     return realAssignments;
                                 })
                                 .whenComplete((realAssignments, e) -> {
-                                    if (e != null) {
+                                    if (e != null && !hasCause(e, NodeStoppingException.class)) {
                                         String errorMessage = String.format(
                                                 "Couldn't get assignments from metastore for zone [zoneId=%s].",
                                                 zoneId
@@ -912,10 +913,15 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = catalog.time();
 
             return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> calculateAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
-                            .stream()
-                            .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
-                            .collect(toList())
+                    .thenApply(dataNodes -> calculateAssignments(
+                                    dataNodes,
+                                    zoneDescriptor.partitions(),
+                                    zoneDescriptor.replicas(),
+                                    zoneDescriptor.consensusGroupSize()
+                            )
+                                    .stream()
+                                    .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
+                                    .collect(toList())
                     )
                     .whenComplete((assignments, e) -> {
                         if (e == null && LOG.isInfoEnabled()) {
@@ -1018,6 +1024,7 @@ public class PartitionReplicaLifecycleManager extends
                         dataNodes,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         replicaGrpId,
                         evt,
                         assignmentsTimestamp

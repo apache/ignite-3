@@ -24,10 +24,8 @@ import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConne
  * Represents a .NET executor process.
  */
 class DotNetExecutorProcess {
-    /** .NET process. Uses computeExecutorId above. */
     private final Process process;
 
-    /** .NET process connection future. Uses computeExecutorId above. */
     private final CompletableFuture<PlatformComputeConnection> connectionFut;
 
     DotNetExecutorProcess(Process process, CompletableFuture<PlatformComputeConnection> connectionFut) {

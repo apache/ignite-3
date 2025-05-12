@@ -43,6 +43,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.sql.engine.rel.logical.IgniteLogicalIndexScan;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Schema object representing an Index.
@@ -147,6 +148,7 @@ public class IgniteIndex {
     public IgniteLogicalIndexScan toRel(
             RelOptCluster cluster,
             RelOptTable relOptTable,
+            @Nullable List<String> names,
             List<RexNode> proj,
             RexNode condition,
             ImmutableBitSet requiredCols
@@ -155,7 +157,7 @@ public class IgniteIndex {
                 .replace(tableDistribution)
                 .replace(type() == Type.HASH ? RelCollations.EMPTY : collation);
 
-        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, proj, condition, requiredCols);
+        return IgniteLogicalIndexScan.create(cluster, traitSet, relOptTable, name, names, proj, condition, requiredCols);
     }
 
     static RelCollation createIndexCollation(CatalogIndexDescriptor descriptor, CatalogTableDescriptor tableDescriptor) {

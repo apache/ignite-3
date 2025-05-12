@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Map;
+import java.util.NoSuchElementException;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -236,7 +237,13 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
             );
             throw new DuplicateConsistentIdException(consistentId);
         }
-        return nodes.values().iterator().next();
+
+        try {
+            return nodes.values().iterator().next();
+        } catch (NoSuchElementException e) {
+            // It was concurrently removed.
+            return null;
+        }
     }
 
     /** {@inheritDoc} */

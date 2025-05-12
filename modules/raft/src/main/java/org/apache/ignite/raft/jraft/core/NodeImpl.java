@@ -3048,7 +3048,7 @@ public class NodeImpl implements Node, RaftServerService {
             long latency = Utils.monotonicMs() - this.startMs;
             NodeImpl.this.metrics.recordLatency("pre-vote", latency);
             if (!status.isOk()) {
-                LOG.warn("Node {} PreVote to {} latency={} error: {}.", getNodeId(), this.peer, status, latency);
+                LOG.warn("Node {} PreVote to {} latency={} error: {}.", getNodeId(), this.peer, latency, status);
             }
             else {
                 handlePreVoteResponse(this.peer, this.term, getResponse());

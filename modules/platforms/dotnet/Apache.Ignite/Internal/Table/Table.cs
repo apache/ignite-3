@@ -100,7 +100,7 @@ namespace Apache.Ignite.Internal.Table
             QualifiedName = qualifiedName;
             Id = id;
 
-            _logger = socket.Configuration.LoggerFactory.CreateLogger<Table>();
+            _logger = socket.Configuration.Configuration.LoggerFactory.CreateLogger<Table>();
 
             RecordBinaryView = new RecordView<IIgniteTuple>(
                 this,

@@ -40,6 +40,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.apache.ignite.configuration.KeyIgnorer;
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
@@ -91,14 +92,16 @@ public class LocalFileConfigurationStorageTest {
 
     @BeforeEach
     void before() {
-        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, new LocalFileConfigurationModule());
+        LocalFileConfigurationModule module = new LocalFileConfigurationModule();
+        storage = new LocalFileConfigurationStorage(getConfigFile(), treeGenerator, module);
 
         changer = new TestConfigurationChanger(
                 List.of(TopConfiguration.KEY),
                 storage,
                 treeGenerator,
                 new ConfigurationValidatorImpl(treeGenerator, Set.of()),
-                change -> {}
+                change -> {},
+                KeyIgnorer.fromDeletedPrefixes(module.deletedPrefixes())
         );
     }
 
@@ -557,6 +560,19 @@ public class LocalFileConfigurationStorageTest {
                 changer::start,
                 "Validation did not pass for keys: [top.inner.boolVal, Duplicated key]"
         );
+    }
+
+    @Test
+    void testReadDataOnStartupWithDeletedProperty() throws IOException {
+        // Given config in JSON format
+        String fileContent = "top.deleted_property = 3";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Storage ignores deleted property.
+        assertDoesNotThrow(changer::start);
     }
 
     private String configFileContent() throws IOException {

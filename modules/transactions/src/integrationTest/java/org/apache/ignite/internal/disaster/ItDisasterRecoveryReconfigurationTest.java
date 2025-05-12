@@ -1002,11 +1002,11 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         Assignments allAssignments = Assignments.of(Set.of(
                 Assignment.forPeer(node(0).name()),
-                Assignment.forPeer(node(1).name()),
+                Assignment.forLearner(node(1).name()),
                 Assignment.forPeer(node(2).name()),
                 Assignment.forPeer(node(3).name()),
                 Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
+                Assignment.forLearner(node(5).name()),
                 Assignment.forPeer(node(6).name())
         ), timestamp);
 
@@ -1139,12 +1139,12 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertRealAssignments(node0, partId, 0, 1, 2, 3, 4, 5, 6);
 
         Assignments allAssignments = Assignments.of(Set.of(
-                Assignment.forPeer(node(0).name()),
+                Assignment.forLearner(node(0).name()),
                 Assignment.forPeer(node(1).name()),
                 Assignment.forPeer(node(2).name()),
                 Assignment.forPeer(node(3).name()),
                 Assignment.forPeer(node(4).name()),
-                Assignment.forPeer(node(5).name()),
+                Assignment.forLearner(node(5).name()),
                 Assignment.forPeer(node(6).name())
         ), timestamp);
 
@@ -1496,7 +1496,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(allAssignments, link2Assignments, link3Assignments));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24111")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25285")
     @Test
     @ZoneParams(nodes = 7, replicas = 7, partitions = 1, consistencyMode = ConsistencyMode.HIGH_AVAILABILITY)
     void testSecondResetRewritesUnfinishedFirstPhaseReset() throws Exception {

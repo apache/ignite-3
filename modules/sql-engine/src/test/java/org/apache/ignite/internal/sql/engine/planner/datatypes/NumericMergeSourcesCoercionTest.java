@@ -17,29 +17,18 @@
 
 package org.apache.ignite.internal.sql.engine.planner.datatypes;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.stream.Stream;
-import org.apache.calcite.rel.RelNode;
-import org.apache.calcite.rex.RexCall;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.NumericPair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.TypePair;
 import org.apache.ignite.internal.sql.engine.planner.datatypes.utils.Types;
-import org.apache.ignite.internal.sql.engine.rel.AbstractIgniteJoin;
-import org.apache.ignite.internal.sql.engine.rel.IgniteProject;
-import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
-import org.apache.ignite.internal.sql.engine.rel.IgniteTableModify;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.hamcrest.BaseMatcher;
-import org.hamcrest.Description;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -565,32 +554,5 @@ public class NumericMergeSourcesCoercionTest extends BaseTypeCoercionTest {
         );
 
         return argsForMergeWithColumnAsValue().map(v -> diff.getOrDefault(v.get()[0], v));
-    }
-
-    private static Matcher<IgniteRel> mergeOperandMatcher(Matcher<RexNode> matcher) {
-        return new BaseMatcher<>() {
-            @Override
-            public boolean matches(Object actual) {
-                RelNode input = ((IgniteTableModify) actual).getInput();
-
-                List<RexNode> operands = null;
-                if (input instanceof IgniteProject) {
-                    operands = ((IgniteProject) input).getProjects();
-                } else if (input instanceof AbstractIgniteJoin) {
-                    RexCall condition = ((RexCall) ((AbstractIgniteJoin) input).getCondition());
-                    operands = condition.getOperands();
-                }
-
-                RexNode operand = Objects.requireNonNull(operands).get(1);
-                assertThat(operand, matcher);
-
-                return true;
-            }
-
-            @Override
-            public void describeTo(Description description) {
-
-            }
-        };
     }
 }

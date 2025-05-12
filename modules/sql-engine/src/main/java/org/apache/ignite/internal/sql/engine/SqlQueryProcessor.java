@@ -44,6 +44,7 @@ import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalException;
+import org.apache.ignite.internal.lang.IgniteStringBuilder;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -609,5 +610,11 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         public CancellableOperationType type() {
             return CancellableOperationType.QUERY;
         }
+    }
+
+    @TestOnly
+    @Override
+    public void dumpState(IgniteStringBuilder writer, String indent) {
+        queryExecutor.dumpState(writer, indent);
     }
 }

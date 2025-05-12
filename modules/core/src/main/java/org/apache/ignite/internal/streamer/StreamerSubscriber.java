@@ -167,11 +167,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     /** {@inheritDoc} */
     @Override
-    public synchronized void onNext(E item) {
-        if (closed) {
-            throw new IllegalStateException("Streamer is closed, can't add items.");
-        }
-
+    public void onNext(E item) {
         pendingItemCount.decrementAndGet();
 
         T key = keyFunc.apply(item);
@@ -181,7 +177,14 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
                 partition,
                 p -> new StreamerBuffer<>(options.pageSize(), items -> enlistBatch(p, items)));
 
-        buf.add(item);
+        synchronized (this) {
+            if (closed) {
+                throw new IllegalStateException("Streamer is closed, can't add items.");
+            }
+
+            buf.add(item);
+        }
+
         this.metrics.streamerItemsQueuedAdd(1);
 
         requestMore();

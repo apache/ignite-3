@@ -728,6 +728,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     void testRebalanceWithTheSameNodes() throws Exception {
         Node node = getNode(0);
 
@@ -961,8 +962,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
             dataNodes.add(getNode(i).name);
         }
 
-        Set<Assignment> pendingAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 2);
-        Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3);
+        Set<Assignment> pendingAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 2, 2);
+        Set<Assignment> plannedAssignments = calculateAssignmentForPartition(dataNodes, 0, 1, 3, 3);
 
         Node node0 = getNode(0);
         TableViewInternal table = unwrapTableViewInternal(node0.tableManager.table(TABLE_NAME));
@@ -1000,7 +1001,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
 
     private void waitPartitionAssignmentsSyncedToExpected(String tableName, int partNum, int replicasNum) throws Exception {
         assertTrue(waitForCondition(
-                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, tableName, partNum).size() == replicasNum),
+                () -> nodes.stream().allMatch(n -> getPartitionStableAssignments(n, tableName, partNum).size() == replicasNum
+                        && getPartitionPendingAssignments(n, tableName, partNum).isEmpty()),
                 (long) AWAIT_TIMEOUT_MILLIS * nodes.size()
         ));
 
@@ -1082,24 +1084,40 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
     private static Set<Assignment> getPartitionStableAssignments(Node node, String tableName, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
 
+        var stableAssignmentsFuture = stablePartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(stableAssignmentsFuture, willCompleteSuccessfully());
+
         return Optional
-                .ofNullable(stablePartitionAssignments(node.metaStorageManager, table, partNum).join())
+                .ofNullable(stableAssignmentsFuture.join())
+                .orElse(Set.of());
+    }
+
+    private static Set<Assignment> getPartitionPendingAssignments(Node node, String tableName, int partNum) {
+        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(tableName));
+
+        var pendingAssignmentsFuture =  pendingPartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(pendingAssignmentsFuture, willCompleteSuccessfully());
+
+        return Optional
+                .ofNullable(pendingAssignmentsFuture.join())
                 .orElse(Set.of());
     }
 
     private static Set<Assignment> getPartitionPendingAssignments(Node node, int partNum) {
-        TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
-
-        return Optional
-                .ofNullable(pendingPartitionAssignments(node.metaStorageManager, table, partNum).join())
-                .orElse(Set.of());
+        return getPartitionPendingAssignments(node, TABLE_NAME, partNum);
     }
 
     private static Set<Assignment> getPartitionPlannedAssignments(Node node, int partNum) {
         TableViewInternal table = unwrapTableViewInternal(node.tableManager.table(TABLE_NAME));
 
+        var plannedAssignmentsFuture = plannedPartitionAssignments(node.metaStorageManager, table, partNum);
+
+        assertThat(plannedAssignmentsFuture, willCompleteSuccessfully());
+
         return Optional
-                .ofNullable(plannedPartitionAssignments(node.metaStorageManager, table, partNum).join())
+                .ofNullable(plannedAssignmentsFuture.join())
                 .orElse(Set.of());
     }
 
@@ -1223,8 +1241,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     List.of(NodeConfiguration.KEY),
                     new LocalFileConfigurationStorage(configPath, nodeCfgGenerator, null),
                     nodeCfgGenerator,
-                    new TestConfigurationValidator(),
-                    changer -> {}
+                    new TestConfigurationValidator()
             );
 
             clusterService = ClusterServiceTestUtils.clusterService(
@@ -1377,8 +1394,7 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     clusterCfgGenerator,
                     ConfigurationValidatorImpl.withDefaultValidators(
                             clusterCfgGenerator, Set.of(new NonNegativeIntegerNumberSystemPropertyValueValidator(REBALANCE_RETRY_DELAY_MS))
-                    ),
-                    changer -> {}
+                    )
             );
 
             ConfigurationRegistry clusterConfigRegistry = clusterCfgMgr.configurationRegistry();

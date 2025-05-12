@@ -186,11 +186,24 @@ public final class Types {
 
     public static final NativeType DECIMAL_MAX_0 = NativeTypes.decimalOf(CatalogUtils.MAX_DECIMAL_PRECISION, 0);
 
+    public static final NativeType TIME_0 = NativeTypes.time(0);
     public static final NativeType TIME_3 = NativeTypes.time(3);
+    public static final NativeType TIME_6 = NativeTypes.time(6);
+    public static final NativeType TIME_9 = NativeTypes.time(9);
 
+    public static final NativeType DATE = NativeTypes.DATE;
+
+    public static final NativeType TIMESTAMP_0 = NativeTypes.datetime(0);
     public static final NativeType TIMESTAMP_3 = NativeTypes.datetime(3);
+    public static final NativeType TIMESTAMP_6 = NativeTypes.datetime(6);
+    public static final NativeType TIMESTAMP_9 = NativeTypes.datetime(9);
+    public static final NativeType TIMESTAMP_DYN_PARAM = NativeTypes.datetime(6);
 
+    public static final NativeType TIMESTAMP_WLTZ_0 = NativeTypes.timestamp(0);
     public static final NativeType TIMESTAMP_WLTZ_3 = NativeTypes.timestamp(3);
+    public static final NativeType TIMESTAMP_WLTZ_6 = NativeTypes.timestamp(6);
+    public static final NativeType TIMESTAMP_WLTZ_9 = NativeTypes.timestamp(9);
+    public static final NativeType TIMESTAMP_WLTZ_DYN_PARAM = NativeTypes.timestamp(6);
 
     public static final NativeType VARCHAR_1 = NativeTypes.stringOf(1);
     public static final NativeType VARCHAR_3 = NativeTypes.stringOf(3);

@@ -1455,7 +1455,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         dataNodes,
                         tablePartitionId.partitionId(),
                         zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas()
+                        zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize()
                 ));
     }
 
@@ -2582,6 +2583,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         dataNodes,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         replicaGrpId,
                         evt,
                         assignmentsTimestamp
@@ -2623,7 +2625,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             try {
                 mvPartition = internalTable.storage().getMvPartition(partitionId);
             } catch (StorageClosedException e) {
-                throw new TableClosedException(table.tableId(), e);
+                return failedFuture(new TableClosedException(table.tableId(), e));
             }
 
             return (mvPartition != null ? completedFuture(mvPartition) : internalTable.storage().createMvPartition(partitionId))

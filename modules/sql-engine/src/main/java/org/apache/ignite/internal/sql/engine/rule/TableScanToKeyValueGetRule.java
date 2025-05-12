@@ -115,6 +115,7 @@ public class TableScanToKeyValueGetRule extends RelRule<TableScanToKeyValueGetRu
                         scan.getTable(),
                         scan.getHints(),
                         expressions,
+                        scan.fieldNames(), 
                         scan.projects(),
                         resultingCondition,
                         scan.requiredColumns()
