@@ -112,7 +112,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -312,7 +312,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -342,7 +342,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(3);
 
         Assignment replicaAssignment = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 1, 3, 3).toArray()[0];
 
         Node node = getNode(replicaAssignment.consistentId());
 
@@ -543,7 +543,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         startCluster(1);
 
         Assignment replicaAssignment1 = (Assignment) calculateAssignmentForPartition(
-                cluster.stream().map(n -> n.name).collect(toList()), 0, 2, 1).toArray()[0];
+                cluster.stream().map(n -> n.name).collect(toList()), 0, 2, 1, 1).toArray()[0];
 
         Node node = getNode(replicaAssignment1.consistentId());
 

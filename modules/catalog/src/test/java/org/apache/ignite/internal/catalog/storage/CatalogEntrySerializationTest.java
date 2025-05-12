@@ -514,6 +514,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
                 zoneName,
                 partitions,
                 3,
+                2, // default
                 1,
                 2,
                 3,
@@ -598,8 +599,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
     private static <T> void assertEqualsRecursive(int version, T expected, T actual) {
         var assertion = BDDAssertions.assertThat(actual)
-                .usingRecursiveComparison()
-                .withFailMessage("version=" + version);
+                .usingRecursiveComparison();
 
         if (version == 1) {
             assertion = assertion.ignoringFieldsMatchingRegexes(UPDATE_TIMESTAMP_FIELD_NAME_REGEX);

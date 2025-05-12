@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.catalog.descriptors;
 
+import static java.lang.Math.min;
 import static org.apache.ignite.internal.catalog.CatalogManager.INITIAL_TIMESTAMP;
 
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
@@ -33,6 +34,9 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
 
     /** Amount of zone replicas. */
     private final int replicas;
+
+    /** Quorum size. */
+    private final int quorumSize;
 
     /** Data nodes auto adjust timeout. */
     private final int dataNodesAutoAdjust;
@@ -64,6 +68,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
 
         return oldDescriptor.partitions != newDescriptor.partitions
                 || oldDescriptor.replicas != newDescriptor.replicas
+                || oldDescriptor.quorumSize != newDescriptor.quorumSize
                 || !oldDescriptor.filter.equals(newDescriptor.filter)
                 || !oldDescriptor.storageProfiles.profiles().equals(newDescriptor.storageProfiles.profiles())
                 || oldDescriptor.consistencyMode != newDescriptor.consistencyMode;
@@ -76,6 +81,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      * @param name Name of the zone.
      * @param partitions Count of partitions in distributions zone.
      * @param replicas Count of partition replicas.
+     * @param quorumSize Quorum size.
      * @param dataNodesAutoAdjust Data nodes auto adjust timeout.
      * @param dataNodesAutoAdjustScaleUp Data nodes auto adjust scale up timeout.
      * @param dataNodesAutoAdjustScaleDown Data nodes auto adjust scale down timeout.
@@ -88,6 +94,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             String name,
             int partitions,
             int replicas,
+            int quorumSize,
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
@@ -95,7 +102,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             CatalogStorageProfilesDescriptor storageProfiles,
             ConsistencyMode consistencyMode
     ) {
-        this(id, name, partitions, replicas, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
+        this(id, name, partitions, replicas, quorumSize, dataNodesAutoAdjust, dataNodesAutoAdjustScaleUp, dataNodesAutoAdjustScaleDown,
                 filter, storageProfiles, INITIAL_TIMESTAMP, consistencyMode);
     }
 
@@ -117,6 +124,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
             String name,
             int partitions,
             int replicas,
+            int quorumSize,
             int dataNodesAutoAdjust,
             int dataNodesAutoAdjustScaleUp,
             int dataNodesAutoAdjustScaleDown,
@@ -129,6 +137,7 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
 
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
         this.dataNodesAutoAdjustScaleDown = dataNodesAutoAdjustScaleDown;
@@ -149,6 +158,22 @@ public class CatalogZoneDescriptor extends CatalogObjectDescriptor implements Ma
      */
     public int replicas() {
         return replicas;
+    }
+
+    /**
+     * Return quorum size. Quorum is the minimal subset of replicas in the consensus group that is required for it to be fully operational
+     * and maintain the data consistency, in the case of Raft it is the majority of voting members.
+     */
+    public int quorumSize() {
+        return quorumSize;
+    }
+
+    /**
+     * Return consensus group size. Consensus group is a subset of replicas of a partition that maintains the data consistency in the
+     * replication group, in the case of Raft it is the set of voting members. Derived from the quorum size.
+     */
+    public int consensusGroupSize() {
+        return min(quorumSize * 2 - 1, replicas);
     }
 
     /**

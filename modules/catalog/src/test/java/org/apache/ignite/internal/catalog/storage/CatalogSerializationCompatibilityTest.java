@@ -25,6 +25,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -36,6 +38,7 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogEntrySerializerProvider;
 import org.apache.ignite.internal.catalog.storage.serialization.CatalogObjectSerializer;
 import org.apache.ignite.internal.catalog.storage.serialization.MarshallableEntry;
+import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshaller;
 import org.apache.ignite.internal.catalog.storage.serialization.UpdateLogMarshallerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.assertj.core.api.BDDAssertions;
@@ -48,11 +51,11 @@ import org.junit.jupiter.api.Test;
 public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTest {
     private static final String UPDATE_TIMESTAMP_FIELD_REGEX = ".*updateTimestamp";
 
-    private final TestDescriptorState state = new TestDescriptorState(42);
+    final TestDescriptorState state = new TestDescriptorState(42);
 
     @Test
     public void snapshotEntry() {
-        List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
+        List<CatalogZoneDescriptor> zones = zones();
         Catalog catalog1 = new Catalog(
                 2367,
                 5675344L,
@@ -73,7 +76,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
                 789879,
                 23432L,
                 2343,
-                TestCatalogObjectDescriptors.zones(state),
+                zones(),
                 TestCatalogObjectDescriptors.schemas(state),
                 null
         );
@@ -94,7 +97,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
     @Test
     public void newZone() {
-        List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
+        List<CatalogZoneDescriptor> zones = zones();
         List<UpdateEntry> entries = zones.stream().map(NewZoneEntry::new).collect(Collectors.toList());
 
         compareEntries(entries, "NewZoneEntry", entryVersion());
@@ -102,7 +105,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
     @Test
     public void alterZone() {
-        List<CatalogZoneDescriptor> zones = TestCatalogObjectDescriptors.zones(state);
+        List<CatalogZoneDescriptor> zones = zones();
         List<UpdateEntry> entries = List.of(
                 new AlterZoneEntry(zones.get(1)),
                 new AlterZoneEntry(zones.get(2))
@@ -314,7 +317,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
     }
 
     protected void compareSnapshotEntry(SnapshotEntry expectedEntry, String fileName, int version) {
-        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, fileName, version);
+        SnapshotEntry actualEntry = checkEntry(SnapshotEntry.class, fileName, version, expectedEntry);
 
         assertEquals(expectedEntry.typeId(), actualEntry.typeId());
         assertEquals(expectedEntry.activationTime(), actualEntry.activationTime(), "activationTime");
@@ -355,7 +358,7 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
     @SuppressWarnings({"unchecked", "rawtypes"})
     private <T extends UpdateEntry> List<T> checkEntries(List<? extends T> entries, String fileName, int version) {
         VersionedUpdate update = new VersionedUpdate(1, 100L, (List<UpdateEntry>) entries);
-        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName, version);
+        VersionedUpdate deserializedUpdate = checkEntry(VersionedUpdate.class, fileName, version, update);
 
         assertEquals(update.version(), deserializedUpdate.version());
         assertEquals(update.typeId(), deserializedUpdate.typeId());
@@ -380,7 +383,11 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
         return false;
     }
 
-    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String entryFileName, int version) {
+    protected List<CatalogZoneDescriptor> zones() {
+        return TestCatalogObjectDescriptors.zonesWithDefaultQuorumSize(state);
+    }
+
+    private <T extends UpdateLogEvent> T checkEntry(Class<T> entryClass, String entryFileName, int version, UpdateLogEvent entry) {
         String fileName = format("{}_{}.bin", entryFileName, version);
         String resourceName = dirName() + "/" + fileName;
 
@@ -393,7 +400,10 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
 
         log.info("Read fileName: {}, class: {}, version: {}", fileName, entryClass.getSimpleName(), version);
 
-        UpdateLogMarshallerImpl marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion());
+        UpdateLogMarshaller marshaller = new UpdateLogMarshallerImpl(provider, protocolVersion());
+
+        // Uncomment this and run tests with corresponding entryVersion to write entry to file
+        // writeEntry(entry, resourceName, marshaller);
 
         byte[] srcBytes;
 
@@ -405,10 +415,21 @@ public class CatalogSerializationCompatibilityTest extends BaseIgniteAbstractTes
             }
             srcBytes = bos.toByteArray();
         } catch (IOException e) {
-            throw new UncheckedIOException("Unable to resource", e);
+            throw new UncheckedIOException("Unable to read resource", e);
         }
 
         return entryClass.cast(marshaller.unmarshall(srcBytes));
+    }
+
+    @SuppressWarnings("unused")
+    private static void writeEntry(UpdateLogEvent entry, String resourceName, UpdateLogMarshaller marshaller) {
+        try {
+            Path resourcePath = Path.of(resourceName);
+            Files.createDirectories(resourcePath.getParent());
+            Files.write(resourcePath, marshaller.marshall(entry));
+        } catch (IOException e) {
+            throw new UncheckedIOException("Unable to write resource", e);
+        }
     }
 
     private static class VersionCheckingProvider implements CatalogEntrySerializerProvider {

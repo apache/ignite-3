@@ -895,6 +895,44 @@ namespace Apache.Ignite.Tests.Compute
             Assert.IsNull(nullRes);
         }
 
+        [Test]
+        public async Task TestTupleWithSchemaRoundTrip()
+        {
+            var tuple = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+            tuple["nested_tuple"] = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            Assert.AreEqual(tuple, res);
+        }
+
+        [Test]
+        public async Task TestDeepNestedTupleWithSchemaRoundTrip()
+        {
+            var tuple = TestCases.GetNestedTuple(100);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<object> resExec = await Client.Compute.SubmitAsync(nodes, EchoJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            Assert.AreEqual(tuple, res);
+            StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res.ToString());
+        }
+
+        [Test]
+        public async Task TestDeepNestedTupleWithSchemaToString()
+        {
+            var tuple = TestCases.GetNestedTuple(100);
+
+            var nodes = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+            IJobExecution<string> resExec = await Client.Compute.SubmitAsync(nodes, ToStringJob, tuple);
+            var res = await resExec.GetResultAsync();
+
+            StringAssert.Contains("[ID=97, CHILD98=TupleImpl [ID=98, CHILD99=TupleImpl [ID=99, CHILD100=TupleImpl [ID=100]]]]]]]]", res);
+        }
+
         private static async Task AssertJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
         {
             JobState? state = await jobExecution.GetStateAsync();
