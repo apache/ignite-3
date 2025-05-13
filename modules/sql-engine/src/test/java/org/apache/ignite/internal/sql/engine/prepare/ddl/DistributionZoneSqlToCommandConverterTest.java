@@ -164,7 +164,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             String sql = withPresent
                     ? "CREATE ZONE test with "
                             + "partitions=2, "
-                            + "replicas=3, "
+                            + "replicas=5, "
+                            + "quorum_size=2, " // non-default value
                             + "distribution_algorithm='rendezvous', "
                             + "data_nodes_filter='$[?(@.region == \"US\")]', "
                             + "data_nodes_auto_adjust=300, "
@@ -182,13 +183,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
             CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, NewZoneEntry.class).descriptor();
 
             assertThat(desc.partitions(), equalTo(2));
-            if (withPresent) {
-                // There's no quorum size with "with" syntax, so keep default
-                assertThat(desc.replicas(), equalTo(3));
-            } else {
-                assertThat(desc.replicas(), equalTo(5));
-                assertThat(desc.quorumSize(), equalTo(2));
-            }
+            assertThat(desc.replicas(), equalTo(5));
+            assertThat(desc.quorumSize(), equalTo(2));
             // TODO https://issues.apache.org/jira/browse/IGNITE-22162
             // assertThat(desc.distributionAlgorithm(), equalTo("rendezvous"));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
