@@ -75,6 +75,7 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -396,6 +397,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
             Lease lease = leaseFromBytes(sync(fut).value(), grpPart0);
+
+            Loggers.forClass(PlacementDriverManagerTest.class).info("!!! lease: " + lease + ", clock: " + nodeClock.now());
 
             return lease.getExpirationTime().compareTo(nodeClock.now()) < 0;
 
