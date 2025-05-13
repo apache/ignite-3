@@ -68,23 +68,26 @@ public class JobLoadContextTests
     public async Task TestDisposableReceiver([Values(true, false)] bool async)
     {
         var receiverType = async ? typeof(AsyncDisposableReceiver) : typeof(DisposableReceiver);
-        var expectedState = async ? "InitializedExecutingExecutedAsyncDisposed" : "InitializedExecutedDisposed";
+        var expectedState = async ? "ExecutedAsyncDisposed" : "ExecutedDisposed";
 
         var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
 
-        var jobArgBytes = WriteReceiverInfo(receiverType.AssemblyQualifiedName!);
+        var id = Guid.NewGuid();
+        var jobArgBytes = WriteReceiverInfo(receiverType.AssemblyQualifiedName!, id);
+
         var argBuf = new PooledBuffer(jobArgBytes, 0, jobArgBytes.Length);
         using var resBuf = new PooledArrayBuffer();
+
         await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
 
-        Assert.IsTrue(DisposedJobStates.TryRemove(Guid.Empty, out var state));
+        Assert.IsTrue(DisposedJobStates.TryRemove(id, out var state));
         Assert.AreEqual(expectedState, state);
 
-        static byte[] WriteReceiverInfo(string typeName)
+        static byte[] WriteReceiverInfo(string typeName, Guid id)
         {
             var items = new object[] { "hello" };
-            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, null, items, prefixSize: 4);
+            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, id, items, prefixSize: 4);
             var receiverInfoMem = receiverInfoBuilder.Build();
             BinaryPrimitives.WriteInt32LittleEndian(receiverInfoMem.Span, receiverInfoBuilder.NumElements);
 
@@ -164,35 +167,46 @@ public class JobLoadContextTests
         }
     }
 
-    private sealed class AsyncDisposableReceiver : IDataStreamerReceiver<object, object, object>, IAsyncDisposable
+    private sealed class AsyncDisposableReceiver : IDataStreamerReceiver<object, Guid, object>, IAsyncDisposable
     {
+        private Guid _id;
+
         public ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
             IDataStreamerReceiverContext context,
-            object arg,
+            Guid arg,
             CancellationToken cancellationToken)
         {
+            _id = arg;
+            DisposedJobStates[_id] = "Executed";
+
             return ValueTask.FromResult<IList<object>?>(null);
         }
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            DisposedJobStates[_id] += "AsyncDisposed";
+            return ValueTask.CompletedTask;
+        }
     }
 
-    private sealed class DisposableReceiver : IDataStreamerReceiver<object, object, object>, IDisposable
+    private sealed class DisposableReceiver : IDataStreamerReceiver<object, Guid, object>, IDisposable
     {
+        private Guid _id;
+
         public ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
             IDataStreamerReceiverContext context,
-            object arg,
+            Guid arg,
             CancellationToken cancellationToken)
         {
+            _id = arg;
+            DisposedJobStates[_id] = "Executed";
+
             return ValueTask.FromResult<IList<object>?>(null);
         }
 
-        public void Dispose()
-        {
-            // TODO
-        }
+        public void Dispose() => DisposedJobStates[_id] += "Disposed";
     }
 
     private class MultiInterfaceJob : IComputeJob<object, Guid>, IComputeJob<int, string>
