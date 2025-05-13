@@ -275,6 +275,16 @@ public class PlatformComputeTests : IgniteTestsBase
         StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res?.ToString());
     }
 
+    [Test]
+    public async Task TestPlatformExecutorWithOldServerThrowsCompatibilityError()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await ExecJobAsync(DotNetJobs.Echo, arg: "test", client: client));
+        Assert.AreEqual("Job executor type 'DotNetSidecar' is not supported by the server.", ex.Message);
+    }
+
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
     {
         var nodeName = ComputeTests.PlatformTestNodeRunner + suffix;
@@ -283,12 +293,14 @@ public class PlatformComputeTests : IgniteTestsBase
         return nodes.First(n => n.Name == nodeName);
     }
 
-    private async Task<TRes> ExecJobAsync<TArg, TRes>(JobDescriptor<TArg, TRes> desc, TArg arg = default!)
+    private async Task<TRes> ExecJobAsync<TArg, TRes>(JobDescriptor<TArg, TRes> desc, TArg arg = default!, IIgniteClient? client = null)
     {
         var jobDesc = desc with { DeploymentUnits = [_defaultTestUnit] };
         var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
 
-        var jobExec = await Client.Compute.SubmitAsync(
+        client ??= Client;
+
+        var jobExec = await client.Compute.SubmitAsync(
             jobTarget,
             jobDesc,
             arg: arg);
