@@ -41,5 +41,5 @@ public interface IDataStreamerReceiver<TItem, TArg, TResult>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of results. Can be null.</returns>
     ValueTask<IList<TResult>?> ReceiveAsync(
-        IList<TItem> page, IDataStreamerReceiverContext context, TArg? arg, CancellationToken cancellationToken);
+        IList<TItem> page, IDataStreamerReceiverContext context, TArg arg, CancellationToken cancellationToken);
 }
