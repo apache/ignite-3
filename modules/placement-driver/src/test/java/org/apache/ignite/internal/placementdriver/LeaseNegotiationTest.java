@@ -76,8 +76,10 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -86,6 +88,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -420,7 +423,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> getAllLeasesFromMs().isEmpty(), 20_000));
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testLeaseAgreementCleanup() throws Exception {
         CompletableFuture<?> timedOutGroupLgmReceived = new CompletableFuture<>();
         CompletableFuture<?> removedGroupLgmReceived = new CompletableFuture<>();
@@ -459,9 +462,26 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         metaStorageManager.remove(stableAssignmentsKey(removedGroup));
 
         LeaseNegotiator leaseNegotiator = getFieldValue(leaseUpdater, "leaseNegotiator");
-        Map agreementsMap = getFieldValue(leaseNegotiator, "leaseToNegotiate");
+        Map<ReplicationGroupId, LeaseAgreement> agreementsMap = getFieldValue(leaseNegotiator, "leaseToNegotiate");
 
-        assertTrue(waitForCondition(() -> agreementsMap.isEmpty(), 10_000));
+        assertNotNull(agreementsMap);
+
+        Lease timedOutAgreementLease = agreementsMap.get(timedOutGroup).getLease();
+
+        try {
+            assertTrue(waitForCondition(() -> {
+                LeaseAgreement t = agreementsMap.get(timedOutGroup);
+                LeaseAgreement r = agreementsMap.get(removedGroup);
+
+                // As the old agreements are cleaned up, they can be replaced with new ones.
+                return (t == null || t.getLease().getStartTime().longValue() > timedOutAgreementLease.getStartTime().longValue())
+                        && r == null;
+            }, 10_000));
+        } catch (AssertionError e) {
+            log.warn("Agreements: timedOutGroup: {}, removedGroup: {}", agreementsMap.get(timedOutGroup), agreementsMap.get(removedGroup));
+
+            throw e;
+        }
     }
 
     @Test
