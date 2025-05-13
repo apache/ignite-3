@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Tests.Compute.Executor;
 
 using System;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Reflection;
@@ -73,8 +74,8 @@ public class JobLoadContextTests
         var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
 
-        var receiverInfo = WriteReceiverInfo(receiverType.AssemblyQualifiedName!);
-        var argBuf = new PooledBuffer(receiverInfo, 0, receiverInfo.Length);
+        var jobArgBytes = WriteReceiverInfo(receiverType.AssemblyQualifiedName!);
+        var argBuf = new PooledBuffer(jobArgBytes, 0, jobArgBytes.Length);
         using var resBuf = new PooledArrayBuffer();
         await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
 
@@ -83,22 +84,14 @@ public class JobLoadContextTests
 
         static byte[] WriteReceiverInfo(string typeName)
         {
-            using var receiverInfoBuf = new PooledArrayBuffer();
-
-            var w = receiverInfoBuf.MessageWriter;
             var items = new object[] { "hello" };
-            StreamerReceiverSerializer.WriteReceiverInfo<object>(ref w, typeName, null, items);
-
-            var receiverInfoBytes = receiverInfoBuf.GetWrittenMemory().ToArray();
+            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, null, items, prefixSize: 4);
+            var receiverInfoMem = receiverInfoBuilder.Build();
+            BinaryPrimitives.WriteInt32LittleEndian(receiverInfoMem.Span, receiverInfoBuilder.NumElements);
 
             using var jobArgBuf = new PooledArrayBuffer();
-            w = jobArgBuf.MessageWriter;
-            w.Write(ComputePacker.Native);
-
-            using var tupleBuilder = new BinaryTupleBuilder(3);
-            tupleBuilder.AppendObjectWithType(receiverInfoBytes);
-
-            w.Write(tupleBuilder.Build().Span);
+            var w = jobArgBuf.MessageWriter;
+            ComputePacker.PackArgOrResult(ref w, receiverInfoMem, null);
 
             return jobArgBuf.GetWrittenMemory().ToArray();
         }

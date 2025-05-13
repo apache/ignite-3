@@ -97,6 +97,11 @@ namespace Apache.Ignite.Internal.Proto.BinaryTuple
         public int ElementIndex => _elementIndex;
 
         /// <summary>
+        /// Gets the number of elements.
+        /// </summary>
+        public int NumElements => _numElements;
+
+        /// <summary>
         /// Gets the hash from column values according to specified <see cref="IHashedColumnIndexProvider"/>.
         /// </summary>
         /// <returns>Column hash according to specified <see cref="IHashedColumnIndexProvider"/>.</returns>

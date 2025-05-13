@@ -50,29 +50,57 @@ internal static class StreamerReceiverSerializer
         object? arg,
         ArraySegment<T> items)
     {
+        using var builder = BuildReceiverInfo(className, arg, items);
+
+        w.Write(builder.NumElements);
+        w.Write(builder.Build().Span);
+    }
+
+    /// <summary>
+    /// Builds receiver info.
+    /// </summary>
+    /// <param name="className">Receiver class name.</param>
+    /// <param name="arg">Receiver argument.</param>
+    /// <param name="items">Receiver items.</param>
+    /// <param name="prefixSize">Builder prefix size.</param>
+    /// <typeparam name="T">Item type.</typeparam>
+    /// <returns>Binary tuple builder.</returns>
+    public static BinaryTupleBuilder BuildReceiverInfo<T>(
+        string className,
+        object? arg,
+        ArraySegment<T> items,
+        int prefixSize = 0)
+    {
         Debug.Assert(items.Count > 0, "items.Count > 0");
 
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.Count;
-        using var builder = new BinaryTupleBuilder(binaryTupleSize);
+        var builder = new BinaryTupleBuilder(binaryTupleSize, prefixSize: prefixSize);
 
-        builder.AppendString(className);
-
-        if (arg is IIgniteTuple tupleArg)
+        try
         {
-            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-            builder.AppendInt(0); // Scale.
-            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tupleArg);
+            builder.AppendString(className);
+
+            if (arg is IIgniteTuple tupleArg)
+            {
+                builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+                builder.AppendInt(0); // Scale.
+                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tupleArg);
+            }
+            else
+            {
+                builder.AppendObjectWithType(arg);
+            }
+
+            AppendCollection(builder, items);
+
+            return builder;
         }
-        else
+        catch (Exception)
         {
-            builder.AppendObjectWithType(arg);
+            builder.Dispose();
+            throw;
         }
-
-        AppendCollection(builder, items);
-
-        w.Write(binaryTupleSize);
-        w.Write(builder.Build().Span);
     }
 
     /// <summary>
