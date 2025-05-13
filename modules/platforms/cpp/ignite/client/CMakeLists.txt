@@ -43,6 +43,7 @@ set(SOURCES
     detail/compute/compute_impl.cpp
     detail/compute/job_execution_impl.cpp
     detail/sql/sql_impl.cpp
+    detail/table/name_utils.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
 )
