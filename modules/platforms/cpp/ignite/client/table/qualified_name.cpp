@@ -33,7 +33,7 @@ qualified_name qualified_name::create(std::string_view schema_name, std::string_
         schema_name = DEFAULT_SCHEMA_NAME;
     }
 
-    return {parse_identifier(schema_name), parse_identifier(object_name)};
+    return {detail::parse_identifier(schema_name), detail::parse_identifier(object_name)};
 }
 
 qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) {
@@ -62,7 +62,7 @@ std::string qualified_name::quote_if_needed(std::string_view name) {
     }
 
     if (!std::isupper(name[0]) && name[0] != '_') {
-        return quote(name);
+        return detail::quote(name);
     }
 
     auto other_chars = name;
@@ -70,8 +70,8 @@ std::string qualified_name::quote_if_needed(std::string_view name) {
 
     auto utf8_view = una::ranges::utf8_view(other_chars);
     for (char32_t cur : utf8_view) {
-        if (!std::isupper(cur) && cur != '_' && !is_identifier_extend(cur)) {
-            return quote(name);
+        if (!std::isupper(cur) && cur != '_' && !detail::is_identifier_extend(cur)) {
+            return detail::quote(name);
         }
     }
 

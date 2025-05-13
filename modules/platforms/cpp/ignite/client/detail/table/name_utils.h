@@ -19,7 +19,7 @@
 
 #include <string_view>
 
-namespace ignite {
+namespace ignite::detail {
 
 /**
  * Quote string.
