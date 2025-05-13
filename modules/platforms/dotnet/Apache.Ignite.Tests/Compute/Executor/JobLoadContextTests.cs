@@ -123,14 +123,12 @@ public class JobLoadContextTests
         var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
 
-        var jobArgBytes = WriteReceiverInfo(receiverType.AssemblyQualifiedName!, arg);
-
-        var argBuf = new PooledBuffer(jobArgBytes, 0, jobArgBytes.Length);
+        using var argBuf = WriteReceiverInfo(receiverType.AssemblyQualifiedName!, arg);
         using var resBuf = new PooledArrayBuffer();
 
         await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
 
-        static byte[] WriteReceiverInfo(string typeName, object arg)
+        static PooledBuffer WriteReceiverInfo(string typeName, object arg)
         {
             var items = new object[] { "hello" };
             using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, arg, items, prefixSize: 4);
@@ -141,7 +139,11 @@ public class JobLoadContextTests
             MsgPackWriter w = jobArgBuf.MessageWriter;
             ComputePacker.PackArgOrResult(ref w, receiverInfoMem, null);
 
-            return jobArgBuf.GetWrittenMemory().ToArray();
+            var resMem = jobArgBuf.GetWrittenMemory();
+            var resBytes = ByteArrayPool.Rent(resMem.Length);
+            resMem.Span.CopyTo(resBytes);
+
+            return new PooledBuffer(resBytes, 0, resMem.Length);
         }
     }
 
