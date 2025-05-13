@@ -483,6 +483,7 @@ namespace Apache.Ignite.Internal.Compute
 
                 try
                 {
+                    // Write the job executor type optimistically, compute hash.
                     using var bufferWriter = ProtoCommon.GetMessageWriter();
                     var colocationHash = Write(bufferWriter, table, schema, key, serializerHandlerFunc, descriptor, arg, true);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
