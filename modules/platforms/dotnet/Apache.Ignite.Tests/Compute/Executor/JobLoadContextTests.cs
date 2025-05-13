@@ -27,7 +27,9 @@ using System.Threading.Tasks;
 using Ignite.Compute;
 using Ignite.Table;
 using Internal.Buffers;
+using Internal.Compute;
 using Internal.Compute.Executor;
+using Internal.Proto.BinaryTuple;
 using Internal.Table.Serialization;
 using NUnit.Framework;
 
@@ -71,7 +73,8 @@ public class JobLoadContextTests
         var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
 
-        var argBuf = new PooledBuffer(WriteReceiverInfo(receiverType.AssemblyQualifiedName!), 0, 0);
+        var receiverInfo = WriteReceiverInfo(receiverType.AssemblyQualifiedName!);
+        var argBuf = new PooledBuffer(receiverInfo, 0, receiverInfo.Length);
         using var resBuf = new PooledArrayBuffer();
         await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
 
@@ -80,13 +83,24 @@ public class JobLoadContextTests
 
         static byte[] WriteReceiverInfo(string typeName)
         {
-            using var argBuf = new PooledArrayBuffer();
+            using var receiverInfoBuf = new PooledArrayBuffer();
 
-            var w = argBuf.MessageWriter;
+            var w = receiverInfoBuf.MessageWriter;
             var items = new object[] { "hello" };
             StreamerReceiverSerializer.WriteReceiverInfo<object>(ref w, typeName, null, items);
 
-            return argBuf.GetWrittenMemory().ToArray();
+            var receiverInfoBytes = receiverInfoBuf.GetWrittenMemory().ToArray();
+
+            using var jobArgBuf = new PooledArrayBuffer();
+            w = jobArgBuf.MessageWriter;
+            w.Write(ComputePacker.Native);
+
+            using var tupleBuilder = new BinaryTupleBuilder(3);
+            tupleBuilder.AppendObjectWithType(receiverInfoBytes);
+
+            w.Write(tupleBuilder.Build().Span);
+
+            return jobArgBuf.GetWrittenMemory().ToArray();
         }
     }
 
