@@ -34,7 +34,6 @@ using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Proto;
-
 using Serialization;
 
 /// <summary>
@@ -92,6 +91,8 @@ internal static class DataStreamerWithReceiver
     {
         IgniteArgumentCheck.NotNull(data);
         DataStreamer.ValidateOptions(options);
+
+        var customReceiverExecutionOptions = receiverExecutionOptions != ReceiverExecutionOptions.Default;
 
         // ConcurrentDictionary is not necessary because we consume the source sequentially.
         // However, locking for batches is required due to auto-flush background task.
@@ -293,7 +294,13 @@ internal static class DataStreamerWithReceiver
                 // Wait for the previous batch for this node to preserve item order.
                 await oldTask.ConfigureAwait(false);
                 (results, int resultsCount) = await SendBatchAsync<TResult>(
-                    table, buf, count, preferredNode, retryPolicy, expectResults: resultChannel != null).ConfigureAwait(false);
+                    table,
+                    buf,
+                    count,
+                    preferredNode,
+                    retryPolicy,
+                    expectResults: resultChannel != null,
+                    customReceiverExecutionOptions).ConfigureAwait(false);
 
                 if (results != null && resultChannel != null)
                 {
@@ -381,7 +388,6 @@ internal static class DataStreamerWithReceiver
             w.Write(expectResults);
             StreamerReceiverSerializer.WriteReceiverInfo(ref w, receiverClassName, receiverArg, items);
 
-            // TODO: Throw unsupported if no feature flag but custom options are present
             w.Write(receiverExecutionOptions.Priority);
             w.Write(receiverExecutionOptions.MaxRetries);
             w.Write((int)receiverExecutionOptions.ExecutorType);
@@ -394,12 +400,27 @@ internal static class DataStreamerWithReceiver
         int count,
         PreferredNode preferredNode,
         IRetryPolicy retryPolicy,
-        bool expectResults)
+        bool expectResults,
+        bool customReceiverExecutionOptions)
     {
-        var (resBuf, socket) = await table.Socket.DoOutInOpAndGetSocketAsync(
-                ClientOp.StreamerWithReceiverBatchSend,
-                tx: null,
-                buf,
+        var (resBuf, socket) = await table.Socket.DoWithRetryAsync(
+                (buf, customReceiverExecutionOptions),
+                static (_, _) => ClientOp.StreamerWithReceiverBatchSend,
+                async static (socket, arg) =>
+                {
+                    if (arg.customReceiverExecutionOptions &&
+                        !socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.PlatformComputeJob))
+                    {
+                        throw new IgniteClientException(
+                            ErrorGroups.Client.ProtocolCompatibility,
+                            $"{nameof(ReceiverExecutionOptions)} are not supported by the server.");
+                    }
+
+                    var res = await socket.DoOutInOpAsync(ClientOp.StreamerWithReceiverBatchSend, arg.buf)
+                        .ConfigureAwait(false);
+
+                    return (res, socket);
+                },
                 preferredNode,
                 retryPolicy)
             .ConfigureAwait(false);
