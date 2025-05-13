@@ -164,7 +164,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
 
         var jobInfo = new JobInfo(
-            TypeName: typeof(DotNetReceivers.EchoReceiver).AssemblyQualifiedName!,
+            TypeName: typeof(DotNetReceivers.UpdateTupleReceiver).AssemblyQualifiedName!,
             Arg: "hello",
             DeploymentUnits: [$"{_defaultTestUnit.Name}:{_defaultTestUnit.Version}"],
             JobExecutorType: "DOTNET_SIDECAR");
@@ -172,7 +172,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(jobTarget, StreamerRunnerJob, jobInfo);
         var res = await jobExec.GetResultAsync();
 
-        Assert.AreEqual("hello", res);
+        Assert.AreEqual("Streaming finished: TupleImpl [VAL=java-test, VAL2=dotnet-test]", res);
     }
 
     [Test]

@@ -39,6 +39,8 @@ public static class DotNetReceivers
     public static readonly ReceiverDescriptor<string, IIgniteTuple> CreateTableAndUpsert =
         ReceiverDescriptor.Of(new CreateTableAndUpsertReceiver());
 
+    public static readonly ReceiverDescriptor<object?, IIgniteTuple> UpdateTuple = ReceiverDescriptor.Of(new UpdateTupleReceiver());
+
     public class EchoReceiver : IDataStreamerReceiver<object, object, object>
     {
         public ValueTask<IList<object>?> ReceiveAsync(
@@ -103,6 +105,23 @@ public static class DotNetReceivers
             await tx.CommitAsync();
 
             return res;
+        }
+    }
+
+    public class UpdateTupleReceiver : IDataStreamerReceiver<IIgniteTuple, object?, IIgniteTuple>
+    {
+        public ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
+            IList<IIgniteTuple> page,
+            IDataStreamerReceiverContext context,
+            object? arg,
+            CancellationToken cancellationToken)
+        {
+            foreach (var rec in page)
+            {
+                rec["val2"] = "dotnet-test";
+            }
+
+            return ValueTask.FromResult<IList<IIgniteTuple>?>(page);
         }
     }
 }
