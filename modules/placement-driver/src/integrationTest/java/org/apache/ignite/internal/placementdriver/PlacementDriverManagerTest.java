@@ -75,7 +75,6 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
-import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
 import org.apache.ignite.internal.metastorage.Entry;
@@ -110,7 +109,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -379,7 +377,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
     @Test
     public void testLeaseholderUpdate() throws Exception {
         assertThat(
-                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimitMillis(200)),
+                replicationConfiguration.change(change -> change.changeLeaseAgreementAcceptanceTimeLimitMillis(2000)),
                 willCompleteSuccessfully()
         );
 
@@ -389,7 +387,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = Set.of();
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
+        String stableAssignmentsPrefix =
+                enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX;
+
+        metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
         // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, 10 seconds are enough, but with
         // colocation, we have to wait longer. After this is sorted out, reduce the timeout back to 10 seconds.
@@ -398,15 +399,13 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             Lease lease = leaseFromBytes(sync(fut).value(), grpPart0);
 
-            Loggers.forClass(PlacementDriverManagerTest.class).info("!!! lease: " + lease + ", clock: " + nodeClock.now());
-
             return lease.getExpirationTime().compareTo(nodeClock.now()) < 0;
 
-        }, 20_000));
+        }, 10_000));
 
         assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 2, 1, 1);
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
+        metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
