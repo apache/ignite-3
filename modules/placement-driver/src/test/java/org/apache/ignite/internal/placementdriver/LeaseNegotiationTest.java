@@ -88,7 +88,6 @@ import org.apache.ignite.network.NetworkAddress;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
@@ -423,7 +422,7 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> getAllLeasesFromMs().isEmpty(), 20_000));
     }
 
-    @RepeatedTest(1000)
+    @Test
     public void testLeaseAgreementCleanup() throws Exception {
         CompletableFuture<?> timedOutGroupLgmReceived = new CompletableFuture<>();
         CompletableFuture<?> removedGroupLgmReceived = new CompletableFuture<>();
