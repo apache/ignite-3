@@ -256,5 +256,5 @@ internal static class StreamerReceiverSerializer
 
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Performance.")]
     [SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1600:Elements should be documented", Justification = "DTO.")]
-    public record ReceiverInfo<TItem, TArg>(List<TItem> Page, TArg Arg);
+    internal record ReceiverInfo<TItem, TArg>(List<TItem> Page, TArg Arg);
 }
