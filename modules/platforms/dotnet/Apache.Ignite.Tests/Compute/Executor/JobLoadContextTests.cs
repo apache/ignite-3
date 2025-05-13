@@ -30,6 +30,7 @@ using Ignite.Table;
 using Internal.Buffers;
 using Internal.Compute;
 using Internal.Compute.Executor;
+using Internal.Proto.MsgPack;
 using Internal.Table.Serialization;
 using NUnit.Framework;
 
@@ -70,33 +71,11 @@ public class JobLoadContextTests
         var receiverType = async ? typeof(AsyncDisposableReceiver) : typeof(DisposableReceiver);
         var expectedState = async ? "ExecutedAsyncDisposed" : "ExecutedDisposed";
 
-        var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
-        var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
-
         var id = Guid.NewGuid();
-        var jobArgBytes = WriteReceiverInfo(receiverType.AssemblyQualifiedName!, id);
-
-        var argBuf = new PooledBuffer(jobArgBytes, 0, jobArgBytes.Length);
-        using var resBuf = new PooledArrayBuffer();
-
-        await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
+        await ExecuteReceiverAsync(receiverType, id);
 
         Assert.IsTrue(DisposedJobStates.TryRemove(id, out var state));
         Assert.AreEqual(expectedState, state);
-
-        static byte[] WriteReceiverInfo(string typeName, Guid id)
-        {
-            var items = new object[] { "hello" };
-            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, id, items, prefixSize: 4);
-            var receiverInfoMem = receiverInfoBuilder.Build();
-            BinaryPrimitives.WriteInt32LittleEndian(receiverInfoMem.Span, receiverInfoBuilder.NumElements);
-
-            using var jobArgBuf = new PooledArrayBuffer();
-            var w = jobArgBuf.MessageWriter;
-            ComputePacker.PackArgOrResult(ref w, receiverInfoMem, null);
-
-            return jobArgBuf.GetWrittenMemory().ToArray();
-        }
     }
 
     [Test]
@@ -124,6 +103,33 @@ public class JobLoadContextTests
         var jobWrapper = jobLoadCtx.CreateJobWrapper(job.JobClassName);
 
         return await JobWrapperHelper.ExecuteAsync<TArg, TResult>(jobWrapper, jobArg);
+    }
+
+    private static async Task ExecuteReceiverAsync(Type receiverType, object arg)
+    {
+        var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+        var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
+
+        var jobArgBytes = WriteReceiverInfo(receiverType.AssemblyQualifiedName!, arg);
+
+        var argBuf = new PooledBuffer(jobArgBytes, 0, jobArgBytes.Length);
+        using var resBuf = new PooledArrayBuffer();
+
+        await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
+
+        static byte[] WriteReceiverInfo(string typeName, object arg)
+        {
+            var items = new object[] { "hello" };
+            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, arg, items, prefixSize: 4);
+            Memory<byte> receiverInfoMem = receiverInfoBuilder.Build();
+            BinaryPrimitives.WriteInt32LittleEndian(receiverInfoMem.Span, receiverInfoBuilder.NumElements);
+
+            using var jobArgBuf = new PooledArrayBuffer();
+            MsgPackWriter w = jobArgBuf.MessageWriter;
+            ComputePacker.PackArgOrResult(ref w, receiverInfoMem, null);
+
+            return jobArgBuf.GetWrittenMemory().ToArray();
+        }
     }
 
     private class DisposableJob : IComputeJob<object, Guid>, IDisposable
