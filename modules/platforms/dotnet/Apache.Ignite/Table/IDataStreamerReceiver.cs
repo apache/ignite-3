@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -27,6 +28,7 @@ using System.Threading.Tasks;
 /// <typeparam name="TItem">Payload item type.</typeparam>
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
+[SuppressMessage("ReSharper", "TypeParameterCanBeVariant", Justification = "Won't be possible later with marshallers.")]
 public interface IDataStreamerReceiver<TItem, TArg, TResult>
 {
     /// <summary>
