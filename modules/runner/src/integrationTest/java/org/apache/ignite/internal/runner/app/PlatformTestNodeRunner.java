@@ -54,6 +54,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -61,6 +62,9 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.Flow;
+import java.util.concurrent.Flow.Subscriber;
+import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
 import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
@@ -1032,6 +1036,7 @@ public class PlatformTestNodeRunner {
         }
     }
 
+    @SuppressWarnings("unused")
     private static class StreamerRunnerJob implements ComputeJob<JobInfo, Object> {
         @Override
         public @Nullable Marshaller<JobInfo, byte[]> inputMarshaller() {
@@ -1053,6 +1058,7 @@ public class PlatformTestNodeRunner {
 
             Tuple key = Tuple.create().set("key", 1L);
             CompletableFuture<Void> fut;
+            List<Tuple> results = Collections.synchronizedList(new ArrayList<>());
 
             try (var publisher = new SubmissionPublisher<Tuple>()) {
                 fut = view.streamData(
@@ -1060,7 +1066,25 @@ public class PlatformTestNodeRunner {
                         t -> key,
                         t -> t,
                         desc,
-                        null,
+                        new Subscriber<>() {
+                            @Override
+                            public void onSubscribe(Subscription subscription) {
+                                subscription.request(Long.MAX_VALUE);
+                            }
+
+                            @Override
+                            public void onNext(Object item) {
+                                results.add((Tuple) item);
+                            }
+
+                            @Override
+                            public void onError(Throwable throwable) {
+                            }
+
+                            @Override
+                            public void onComplete() {
+                            }
+                        },
                         null,
                         null
                 );
@@ -1068,10 +1092,9 @@ public class PlatformTestNodeRunner {
                 publisher.submit(Tuple.create().set("val", "java-test"));
             }
 
-            return fut.thenApply(res -> {
-                // TODO: More information about the results
-                return "Streaming finished.";
-            });
+            return fut.thenApply(unused -> "Streaming finished: " + results.stream()
+                    .map(Object::toString)
+                    .collect(Collectors.joining(",")));
         }
     }
 
