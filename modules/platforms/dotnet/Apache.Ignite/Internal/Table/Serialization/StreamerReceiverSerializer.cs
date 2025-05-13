@@ -22,8 +22,10 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using Buffers;
 using Compute;
+using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
@@ -193,4 +195,69 @@ internal static class StreamerReceiverSerializer
             throw;
         }
     }
+
+    /// <summary>
+    /// Reads the receiver info from the buffer.
+    /// </summary>
+    /// <param name="buf">Buffer.</param>
+    /// <typeparam name="TItem">Item type.</typeparam>
+    /// <typeparam name="TArg">Argument type.</typeparam>
+    /// <returns>Receiver info.</returns>
+    public static ReceiverInfo<TItem, TArg> ReadReceiverInfo<TItem, TArg>(PooledBuffer buf)
+    {
+        BinaryTupleReader receiverInfo = GetReceiverInfoReaderFast(buf);
+
+        var arg = (TArg)ReadArg(ref receiverInfo, 1)!;
+        List<TItem> items = ReadReceiverPage<TItem>(ref receiverInfo);
+
+        return new(items, arg);
+    }
+
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private method.")]
+    private static List<T> ReadReceiverPage<T>(ref BinaryTupleReader receiverInfo)
+    {
+        int itemType = receiverInfo.GetInt(4);
+        int itemCount = receiverInfo.GetInt(5);
+
+        List<T> items = new List<T>(itemCount);
+
+        if (itemType == TupleWithSchemaMarshalling.TypeIdTuple)
+        {
+            for (int i = 0; i < itemCount; i++)
+            {
+                IgniteTuple tuple = TupleWithSchemaMarshalling.Unpack(receiverInfo.GetBytesSpan(i + 6));
+                items.Add((T)(object)tuple);
+            }
+        }
+        else
+        {
+            ColumnType colType = (ColumnType)itemType;
+            for (int i = 0; i < itemCount; i++)
+            {
+                object? item = receiverInfo.GetObject(i + 6, colType);
+                items.Add((T)item!);
+            }
+        }
+
+        return items;
+    }
+
+    private static object? ReadArg(ref BinaryTupleReader reader, int index)
+    {
+        if (reader.IsNull(index))
+        {
+            return null;
+        }
+
+        if (reader.GetInt(index) == TupleWithSchemaMarshalling.TypeIdTuple)
+        {
+            return TupleWithSchemaMarshalling.Unpack(reader.GetBytesSpan(index + 2));
+        }
+
+        return reader.GetObject(index);
+    }
+
+    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Performance.")]
+    [SuppressMessage("StyleCop.CSharp.DocumentationRules", "SA1600:Elements should be documented", Justification = "DTO.")]
+    public record ReceiverInfo<TItem, TArg>(List<TItem> Page, TArg Arg);
 }

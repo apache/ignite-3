@@ -19,13 +19,10 @@ namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
-using Ignite.Sql;
 using Ignite.Table;
-using Proto.BinaryTuple;
 using Serialization;
 
 /// <summary>
@@ -45,7 +42,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
         PooledArrayBuffer responseBuf,
         CancellationToken cancellationToken)
     {
-        var (page, arg) = ReadPageAndArg(argBuf);
+        var (page, arg) = StreamerReceiverSerializer.ReadReceiverInfo<TItem, TArg>(argBuf);
         TReceiver receiver = new TReceiver();
 
         try
@@ -65,59 +62,5 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
                 disposable.Dispose();
             }
         }
-    }
-
-    private static (List<TItem> Page, TArg Arg) ReadPageAndArg(PooledBuffer argBuf)
-    {
-        BinaryTupleReader receiverInfo = StreamerReceiverSerializer.GetReceiverInfoReaderFast(argBuf);
-
-        object? argObj = ReadArg(ref receiverInfo, 1);
-        List<TItem> items = ReadPage(ref receiverInfo);
-
-        return (items, (TArg)argObj!);
-    }
-
-    [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Private method.")]
-    private static List<TItem> ReadPage(ref BinaryTupleReader receiverInfo)
-    {
-        int itemType = receiverInfo.GetInt(4);
-        int itemCount = receiverInfo.GetInt(5);
-
-        List<TItem> items = new List<TItem>(itemCount);
-
-        if (itemType == TupleWithSchemaMarshalling.TypeIdTuple)
-        {
-            for (int i = 0; i < itemCount; i++)
-            {
-                IgniteTuple tuple = TupleWithSchemaMarshalling.Unpack(receiverInfo.GetBytesSpan(i + 6));
-                items.Add((TItem)(object)tuple);
-            }
-        }
-        else
-        {
-            ColumnType colType = (ColumnType)itemType;
-            for (int i = 0; i < itemCount; i++)
-            {
-                object? item = receiverInfo.GetObject(i + 6, colType);
-                items.Add((TItem)item!);
-            }
-        }
-
-        return items;
-    }
-
-    private static object? ReadArg(ref BinaryTupleReader reader, int index)
-    {
-        if (reader.IsNull(index))
-        {
-            return null;
-        }
-
-        if (reader.GetInt(index) == TupleWithSchemaMarshalling.TypeIdTuple)
-        {
-            return TupleWithSchemaMarshalling.Unpack(reader.GetBytesSpan(index + 2));
-        }
-
-        return reader.GetObject(index);
     }
 }
