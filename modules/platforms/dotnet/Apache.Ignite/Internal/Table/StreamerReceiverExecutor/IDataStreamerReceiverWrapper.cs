@@ -33,13 +33,13 @@ internal interface IDataStreamerReceiverWrapper
     /// Executes the receiver.
     /// </summary>
     /// <param name="context">Receiver context.</param>
-    /// <param name="argBuf">The input buffer containing a job argument.</param>
+    /// <param name="requestBuf">The input buffer containing a job argument.</param>
     /// <param name="responseBuf">The output buffer for storing job execution results.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Job result.</returns>
     ValueTask ExecuteAsync(
         IDataStreamerReceiverContext context,
-        PooledBuffer argBuf,
+        PooledBuffer requestBuf,
         PooledArrayBuffer responseBuf,
         CancellationToken cancellationToken);
 }

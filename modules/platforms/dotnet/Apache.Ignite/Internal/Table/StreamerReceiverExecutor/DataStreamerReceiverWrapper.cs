@@ -38,11 +38,11 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
     /// <inheritdoc/>
     public async ValueTask ExecuteAsync(
         IDataStreamerReceiverContext context,
-        PooledBuffer argBuf,
+        PooledBuffer requestBuf,
         PooledArrayBuffer responseBuf,
         CancellationToken cancellationToken)
     {
-        var (page, arg) = StreamerReceiverSerializer.ReadReceiverInfo<TItem, TArg>(argBuf);
+        var (page, arg) = StreamerReceiverSerializer.ReadReceiverInfo<TItem, TArg>(requestBuf);
         TReceiver receiver = new TReceiver();
 
         try

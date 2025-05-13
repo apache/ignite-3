@@ -89,30 +89,6 @@ internal static class StreamerReceiverSerializer
     }
 
     /// <summary>
-    /// Unwraps receiver info from the job argument buffer.
-    /// Performs simple offset calculations and can be called multiple times.
-    /// </summary>
-    /// <param name="jobArgBuf">Job argument buffer.</param>
-    /// <returns>Binary tuple reader with streamer receiver info.</returns>
-    public static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
-    {
-        var r = jobArgBuf.GetReader();
-
-        // Excerpt from ComputePacker.
-        int argType = r.ReadInt32();
-        Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
-
-        // Excerpt from ReadObjectFromBinaryTuple.
-        ReadOnlySpan<byte> tupleSpan = r.ReadBinary();
-        var binTuple = new BinaryTupleReader(tupleSpan, 3);
-
-        ReadOnlySpan<byte> receiverInfoSpan = binTuple.GetBytesSpan(2);
-        int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
-
-        return new BinaryTupleReader(receiverInfoSpan[4..], receiverElementCount);
-    }
-
-    /// <summary>
     /// Writes receiver execution results. Opposite of <see cref="ReadReceiverResults{T}"/>.
     /// </summary>
     /// <param name="w">Writer.</param>
@@ -197,6 +173,14 @@ internal static class StreamerReceiverSerializer
     }
 
     /// <summary>
+    /// Reads the receiver type name.
+    /// </summary>
+    /// <param name="buf">Buffer.</param>
+    /// <returns>Receiver type name.</returns>
+    public static string ReadReceiverTypeName(PooledBuffer buf) =>
+        GetReceiverInfoReaderFast(buf).GetString(0);
+
+    /// <summary>
     /// Reads the receiver info from the buffer.
     /// </summary>
     /// <param name="buf">Buffer.</param>
@@ -255,6 +239,24 @@ internal static class StreamerReceiverSerializer
         }
 
         return reader.GetObject(index);
+    }
+
+    private static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
+    {
+        var r = jobArgBuf.GetReader();
+
+        // Excerpt from ComputePacker.
+        int argType = r.ReadInt32();
+        Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
+
+        // Excerpt from ReadObjectFromBinaryTuple.
+        ReadOnlySpan<byte> tupleSpan = r.ReadBinary();
+        var binTuple = new BinaryTupleReader(tupleSpan, 3);
+
+        ReadOnlySpan<byte> receiverInfoSpan = binTuple.GetBytesSpan(2);
+        int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
+
+        return new BinaryTupleReader(receiverInfoSpan[4..], receiverElementCount);
     }
 
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Performance.")]

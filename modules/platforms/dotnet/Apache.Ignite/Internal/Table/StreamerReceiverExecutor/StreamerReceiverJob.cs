@@ -52,8 +52,7 @@ internal static class StreamerReceiverJob
         JobLoadContext jobLoadContext,
         CancellationToken cancellationToken)
     {
-        var receiverTypeName = StreamerReceiverSerializer.GetReceiverInfoReaderFast(argBuf)
-            .GetString(0);
+        var receiverTypeName = StreamerReceiverSerializer.ReadReceiverTypeName(argBuf);
 
         IDataStreamerReceiverWrapper receiverWrapper = jobLoadContext.CreateReceiverWrapper(receiverTypeName);
 
