@@ -450,25 +450,6 @@ public class ClientTable implements Table {
         return doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, true, provider, null, null, false, tx);
     }
 
-    private static CompletableFuture<Void> enlistDirect(
-            ClientTransaction tx,
-            ReliableChannel ch,
-            ClientChannel opChannel,
-            WriteContext ctx,
-            int opCode) {
-        return tx.enlistFuture(ch, opChannel, ctx.pm, opCode).thenCompose(tup -> {
-            if (tup.get2() == null) { // First request.
-                ctx.enlistmentToken = 0L;
-                return nullCompletedFuture();
-            } else if (tup.get2() == 0L) { // No-op enlistment result.
-                return enlistDirect(tx, ch, opChannel, ctx, opCode);
-            } else { // Successfull enlistment.
-                ctx.enlistmentToken = tup.get2();
-                return nullCompletedFuture();
-            }
-        });
-    }
-
     /**
      * Performs a schema-based operation.
      *
@@ -622,6 +603,25 @@ public class ClientTable implements Table {
 
         return !proxy && ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name())
                 && tx0.hasCommitPartition();
+    }
+
+    private static CompletableFuture<Void> enlistDirect(
+            ClientTransaction tx,
+            ReliableChannel ch,
+            ClientChannel opChannel,
+            WriteContext ctx,
+            int opCode) {
+        return tx.enlistFuture(ch, opChannel, ctx.pm, opCode).thenCompose(tup -> {
+            if (tup.get2() == null) { // First request.
+                ctx.enlistmentToken = 0L;
+                return nullCompletedFuture();
+            } else if (tup.get2() == 0L) { // No-op enlistment result.
+                return enlistDirect(tx, ch, opChannel, ctx, opCode);
+            } else { // Successfull enlistment.
+                ctx.enlistmentToken = tup.get2();
+                return nullCompletedFuture();
+            }
+        });
     }
 
     private <T> @Nullable Object readSchemaAndReadData(
