@@ -68,7 +68,7 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
-            node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET DATA_NODES_AUTO_ADJUST_SCALE_UP = 0", defaultZone.name()));
+            node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
         }
 
         ignite().sql().executeScript("CREATE TABLE IF NOT EXISTS " + TABLE_NAME + " (ID INT PRIMARY KEY, VAL VARCHAR)");
