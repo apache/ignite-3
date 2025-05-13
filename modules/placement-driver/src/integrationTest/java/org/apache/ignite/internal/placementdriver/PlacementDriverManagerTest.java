@@ -392,8 +392,6 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, 10 seconds are enough, but with
-        // colocation, we have to wait longer. After this is sorted out, reduce the timeout back to 10 seconds.
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
