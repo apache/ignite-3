@@ -411,39 +411,8 @@ internal static class DataStreamerWithReceiver
             Metrics.StreamerItemsSent.Add(count, socket.MetricsContext.Tags);
 
             return expectResults
-                ? Read(resBuf.GetReader())
+                ? StreamerReceiverSerializer.ReadReceiverResults<T>(resBuf.GetReader())
                 : (null, 0);
-        }
-
-        static (T[]? ResultsPooledArray, int ResultsCount) Read(MsgPackReader reader)
-        {
-            if (reader.TryReadNil())
-            {
-                return (null, 0);
-            }
-
-            var numElements = reader.ReadInt32();
-            if (numElements == 0)
-            {
-                return (null, 0);
-            }
-
-            var tuple = new BinaryTupleReader(reader.ReadBinary(), numElements);
-
-            if (tuple.GetInt(0) == TupleWithSchemaMarshalling.TypeIdTuple)
-            {
-                int elementCount = tuple.GetInt(1);
-                T[] resultsPooledArr = ArrayPool<T>.Shared.Rent(elementCount);
-
-                for (var i = 0; i < elementCount; i++)
-                {
-                    resultsPooledArr[i] = (T)(object)TupleWithSchemaMarshalling.Unpack(tuple.GetBytesSpan(2 + i));
-                }
-
-                return (resultsPooledArr, elementCount);
-            }
-
-            return tuple.GetObjectCollectionWithType<T>();
         }
     }
 
