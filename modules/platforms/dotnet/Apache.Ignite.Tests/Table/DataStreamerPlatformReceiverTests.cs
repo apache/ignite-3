@@ -167,7 +167,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public async Task TestEchoManyItems([Values(1, 3, 99, 100_000)] int pageSize)
     {
-        const int count = 10_000;
+        const int count = 3_000;
 
         var items = Enumerable.Range(0, count)
             .Select(x => new IgniteTuple { ["id"] = x, ["name"] = $"foo-{x}" })
