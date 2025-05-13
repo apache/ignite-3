@@ -19,10 +19,9 @@ plugins {
     alias(libs.plugins.shadow)
 }
 
+apply plugin: 'signing'
+apply from: "$rootDir/buildscripts/publishing-repos.gradle"
 apply from: "$rootDir/buildscripts/java-core.gradle"
-apply from: "$rootDir/buildscripts/publishing.gradle"
-apply from: "$rootDir/buildscripts/java-junit5.gradle"
-apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
 
 description = 'migration-tools-ignite3-repack'
 
