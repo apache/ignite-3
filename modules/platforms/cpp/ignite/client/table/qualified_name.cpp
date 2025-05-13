@@ -22,8 +22,6 @@
 
 #include "uni_algo/ranges_conv.h"
 
-#include <cctype>
-
 namespace ignite {
 
 qualified_name qualified_name::create(std::string_view schema_name, std::string_view object_name) {
@@ -56,26 +54,14 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
     return create(schema_name, object_name);
 }
 
-std::string qualified_name::quote_if_needed(std::string_view name) {
-    if (name.empty()) {
-        return std::string{name};
+const std::string & qualified_name::get_canonical_name() const {
+    if (m_canonical_name.empty()) {
+        m_canonical_name
+            = detail::quote_if_needed(m_schema_name)
+            + SEPARATOR_CHAR
+            + detail::quote_if_needed(m_object_name);
     }
-
-    if (!std::isupper(name[0]) && name[0] != '_') {
-        return detail::quote(name);
-    }
-
-    auto other_chars = name;
-    other_chars.remove_prefix(1);
-
-    auto utf8_view = una::ranges::utf8_view(other_chars);
-    for (char32_t cur : utf8_view) {
-        if (!std::isupper(cur) && cur != '_' && !detail::is_identifier_extend(cur)) {
-            return detail::quote(name);
-        }
-    }
-
-    return std::string{name};
+    return m_canonical_name;
 }
 
 } // namespace ignite

@@ -88,12 +88,7 @@ public:
      *
      * @return A fully qualified name in canonical form.
      */
-    [[nodiscard]] const std::string& get_canonical_name() const {
-        if (m_canonical_name.empty()) {
-            m_canonical_name = quote_if_needed(m_object_name) + SEPARATOR_CHAR + quote_if_needed(m_object_name);
-        }
-        return m_canonical_name;
-    }
+    [[nodiscard]] const std::string& get_canonical_name() const;
 
 private:
     /**
@@ -105,15 +100,6 @@ private:
     qualified_name(std::string schema_name, std::string object_name)
         : m_schema_name(std::move(schema_name))
         , m_object_name(std::move(object_name)) {}
-
-    /**
-     * Wraps the given name with double quotes if it is not uppercased non-quoted name,
-     * e.g. "myColumn" -> "\"myColumn\"", "MYCOLUMN" -> "MYCOLUMN".
-     *
-     * @param name Name.
-     * @return Quoted name.
-     */
-    [[nodiscard]] IGNITE_API static std::string quote_if_needed(std::string_view name);
 
     /** Schema name. */
     std::string m_schema_name;

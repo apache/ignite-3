@@ -22,4 +22,39 @@
 using namespace ignite;
 using namespace detail;
 
+class client_name_utils_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
 
+TEST_P(client_name_utils_fixture, quote_if_needed) {
+    auto [name, expected] = GetParam();
+
+    EXPECT_EQ(expected, quote_if_needed(name));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_name_utils, client_name_utils_fixture,
+    ::testing::Values(
+        std::make_tuple("foo", "\"foo\""),
+        std::make_tuple("fOo", "\"fOo\""),
+        std::make_tuple("FOO", "FOO"),
+        std::make_tuple("_FOO", "_FOO"),
+        std::make_tuple("_", "_"),
+        std::make_tuple("__", "__"),
+        std::make_tuple("_\xC2\xB7", "_\xC2\xB7"),
+        std::make_tuple("A\xCC\x80", "A\xCC\x80"),
+        std::make_tuple("1o0", "\"1o0\""),
+        std::make_tuple("@#$", "\"@#$\""),
+        std::make_tuple("f16", "\"f16\""),
+        std::make_tuple("F16", "F16"),
+        std::make_tuple("Ff16", "\"Ff16\""),
+        std::make_tuple("FF16", "FF16"),
+        std::make_tuple(" ", "\" \""),
+        std::make_tuple(" F", "\" F\""),
+        std::make_tuple(" ,", "\" ,\""),
+        std::make_tuple("\xF0\x9F\x98\x85", "\"\xF0\x9F\x98\x85\""),
+        std::make_tuple("\"foo\"", "\"\"\"foo\"\"\""),
+        std::make_tuple("\"fOo\"", "\"\"\"fOo\"\"\""),
+        std::make_tuple("\"f.f\"", "\"\"\"f.f\"\"\""),
+        std::make_tuple("foo\"bar\"", "\"foo\"\"bar\"\"\""),
+        std::make_tuple("foo\"bar", "\"foo\"\"bar\"")
+    )
+);

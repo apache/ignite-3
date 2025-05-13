@@ -49,6 +49,28 @@ std::string quote(std::string_view &str) {
     return res;
 }
 
+std::string quote_if_needed(std::string_view name) {
+    if (name.empty()) {
+        return std::string{name};
+    }
+
+    if (!std::isupper(name[0]) && name[0] != '_') {
+        return quote(name);
+    }
+
+    auto other_chars = name;
+    other_chars.remove_prefix(1);
+
+    auto utf8_view = una::ranges::utf8_view(other_chars);
+    for (char32_t cur : utf8_view) {
+        if (!std::isupper(cur) && cur != '_' && !is_identifier_extend(cur)) {
+            return quote(name);
+        }
+    }
+
+    return std::string{name};
+}
+
 std::string unquote(std::string_view &identifier)
 {
     if (identifier.empty())
