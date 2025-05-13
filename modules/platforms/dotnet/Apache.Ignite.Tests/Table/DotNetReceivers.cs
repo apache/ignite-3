@@ -36,6 +36,9 @@ public static class DotNetReceivers
 
     public static readonly ReceiverDescriptor<object, object> Error = ReceiverDescriptor.Of(new ErrorReceiver());
 
+    public static readonly ReceiverDescriptor<string, IIgniteTuple> CreateTableAndInsert =
+        ReceiverDescriptor.Of(new CreateTableAndInsertReceiver());
+
     public class EchoReceiver : IDataStreamerReceiver<object, object, object>
     {
         public ValueTask<IList<object>?> ReceiveAsync(
@@ -58,11 +61,48 @@ public static class DotNetReceivers
 
     public class ErrorReceiver : IDataStreamerReceiver<object, object, object>
     {
-        public async ValueTask<IList<object>?> ReceiveAsync(IList<object> page, IDataStreamerReceiverContext context, object? arg, CancellationToken cancellationToken)
+        public async ValueTask<IList<object>?> ReceiveAsync(
+            IList<object> page,
+            IDataStreamerReceiverContext context,
+            object? arg,
+            CancellationToken cancellationToken)
         {
             await Task.Delay(1, cancellationToken);
 
             throw new IgniteException(Guid.NewGuid(), ErrorGroups.Catalog.Validation, $"Error in receiver: {arg}");
+        }
+    }
+
+    public class CreateTableAndInsertReceiver : IDataStreamerReceiver<int, string, IIgniteTuple>
+    {
+        public async ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
+            IList<int> page,
+            IDataStreamerReceiverContext context,
+            string arg,
+            CancellationToken cancellationToken)
+        {
+            var ignite = context.Ignite;
+
+            var sql = $"CREATE TABLE IF NOT EXISTS {arg} (key INT PRIMARY KEY, val VARCHAR)";
+            await using var queryRes = await ignite.Sql.ExecuteAsync(null, sql);
+
+            ITable table = await ignite.Tables.GetTableAsync(arg) ?? throw new InvalidOperationException();
+            IRecordView<IIgniteTuple> view = table.RecordBinaryView;
+
+            var res = new List<IIgniteTuple>();
+
+            await using var tx = await ignite.Transactions.BeginAsync();
+
+            foreach (var id in page)
+            {
+                var rec = new IgniteTuple { ["key"] = id, ["val"] = $"val-{id}" };
+                await view.InsertAsync(tx, rec);
+                res.Add(rec);
+            }
+
+            await tx.CommitAsync();
+
+            return res;
         }
     }
 }
