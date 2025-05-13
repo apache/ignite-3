@@ -19,13 +19,16 @@ namespace Apache.Ignite.Tests.Compute.Executor;
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Ignite.Table;
 using Internal.Buffers;
 using Internal.Compute.Executor;
+using Internal.Table.Serialization;
 using NUnit.Framework;
 
 /// <summary>
@@ -62,18 +65,29 @@ public class JobLoadContextTests
     [Test]
     public async Task TestDisposableReceiver([Values(true, false)] bool async)
     {
-        var jobType = async ? typeof(AsyncDisposableJob) : typeof(DisposableJob);
+        var receiverType = async ? typeof(AsyncDisposableReceiver) : typeof(DisposableReceiver);
         var expectedState = async ? "InitializedExecutingExecutedAsyncDisposed" : "InitializedExecutedDisposed";
 
         var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
-        var receiverWrapper = loadCtx.CreateReceiverWrapper(jobType.AssemblyQualifiedName!);
+        var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
 
-        using var argBuf = new PooledBuffer([], 0, 0);
+        var argBuf = new PooledBuffer(WriteReceiverInfo(receiverType.AssemblyQualifiedName!), 0, 0);
         using var resBuf = new PooledArrayBuffer();
         await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
 
         Assert.IsTrue(DisposedJobStates.TryRemove(Guid.Empty, out var state));
         Assert.AreEqual(expectedState, state);
+
+        static byte[] WriteReceiverInfo(string typeName)
+        {
+            using var argBuf = new PooledArrayBuffer();
+
+            var w = argBuf.MessageWriter;
+            var items = new object[] { "hello" };
+            StreamerReceiverSerializer.WriteReceiverInfo<object>(ref w, typeName, null, items);
+
+            return argBuf.GetWrittenMemory().ToArray();
+        }
     }
 
     [Test]
@@ -141,6 +155,37 @@ public class JobLoadContextTests
         {
             await Task.Delay(1);
             DisposedJobStates[_id] = _state + "AsyncDisposed";
+        }
+    }
+
+    private sealed class AsyncDisposableReceiver : IDataStreamerReceiver<object, object, object>, IAsyncDisposable
+    {
+        public ValueTask<IList<object>?> ReceiveAsync(
+            IList<object> page,
+            IDataStreamerReceiverContext context,
+            object arg,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<IList<object>?>(null);
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+
+    private sealed class DisposableReceiver : IDataStreamerReceiver<object, object, object>, IDisposable
+    {
+        public ValueTask<IList<object>?> ReceiveAsync(
+            IList<object> page,
+            IDataStreamerReceiverContext context,
+            object arg,
+            CancellationToken cancellationToken)
+        {
+            return ValueTask.FromResult<IList<object>?>(null);
+        }
+
+        public void Dispose()
+        {
+            // TODO
         }
     }
 
