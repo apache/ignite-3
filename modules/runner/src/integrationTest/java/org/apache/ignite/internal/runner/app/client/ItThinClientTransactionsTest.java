@@ -698,27 +698,27 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(Tuple.equals(v1, view.get(tx0, k2))); // Read
 
         assertFalse(view.remove(tx0, k1)); // No-op write
-        Tuple kRmv = batch0.keySet().iterator().next();
-        Tuple rmv = batch0.remove(kRmv);
-        assertTrue(view.remove(tx0, kRmv)); // Write
-        Tuple kRmv2 = batch0.keySet().iterator().next();
-        Tuple rmv2 = batch0.remove(kRmv2);
-        assertFalse(view.remove(tx0, kRmv2, v1)); // No-op write
-        assertTrue(view.remove(tx0, kRmv2, rmv2)); // Write
+        Tuple keyRmv = batch0.keySet().iterator().next();
+        Tuple rmv = batch0.remove(keyRmv);
+        assertTrue(view.remove(tx0, keyRmv)); // Write
+        Tuple keyRmv2 = batch0.keySet().iterator().next();
+        Tuple rmv2 = batch0.remove(keyRmv2);
+        assertFalse(view.remove(tx0, keyRmv2, v1)); // No-op write
+        assertTrue(view.remove(tx0, keyRmv2, rmv2)); // Write
 
-        Tuple kRmv3 = batch0.keySet().iterator().next();
-        batch0.remove(kRmv3);
+        Tuple keyRmv3 = batch0.keySet().iterator().next();
+        batch0.remove(keyRmv3);
         assertEquals(0, view.removeAll(tx0, batch0.keySet()).size()); // Proxy write
         assertEquals(2, view.removeAll(tx0, batch0.keySet()).size()); // Proxy no-op write
 
-        assertTrue(view.replace(tx0, kRmv3, v1)); // Write
-        assertFalse(view.replace(tx0, kRmv2, v1)); // No-op write
+        assertTrue(view.replace(tx0, keyRmv3, v1)); // Write
+        assertFalse(view.replace(tx0, keyRmv2, v1)); // No-op write
 
-        assertTrue(view.replace(tx0, kRmv3, v1, v2)); // Write
-        assertFalse(view.replace(tx0, kRmv3, v1, v2)); // No-op write
+        assertTrue(view.replace(tx0, keyRmv3, v1, v2)); // Write
+        assertFalse(view.replace(tx0, keyRmv3, v1, v2)); // No-op write
 
 
-        Tuple rec0 = kv(kRmv.intValue(0), rmv.stringValue(0));
+        Tuple rec0 = kv(keyRmv.intValue(0), rmv.stringValue(0));
 
         RecordView<Tuple> recView = table.recordView();
         assertTrue(recView.insert(tx0, rec0)); // Write
