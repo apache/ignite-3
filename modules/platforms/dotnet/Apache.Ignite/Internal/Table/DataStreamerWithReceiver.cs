@@ -34,8 +34,7 @@ using Compute;
 using Ignite.Compute;
 using Ignite.Table;
 using Proto;
-using Proto.BinaryTuple;
-using Proto.MsgPack;
+
 using Serialization;
 
 /// <summary>
