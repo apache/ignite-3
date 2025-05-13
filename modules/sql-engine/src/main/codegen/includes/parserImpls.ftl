@@ -758,11 +758,34 @@ SqlNode SqlAlterZone() :
           return new IgniteSqlAlterZoneSetDefault(s.end(this), zoneId, ifExists);
         }
         |
+        LOOKAHEAD(2)
         { s.add(this); } optionList = AlterZoneOptions() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+        |
+        { s.add(this); } optionList = ZoneOptionsList() {
+          return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
+        }
+        |
+        optionList = ZoneOption()
+        {
           return new IgniteSqlAlterZoneSet(s.end(this), zoneId, optionList, ifExists);
         }
       )
     )
+}
+
+SqlNodeList ZoneOption() :
+{
+    List<SqlNode> zoneOptions = new ArrayList<SqlNode>();
+
+    final Span s = Span.of();
+}
+{
+    ZoneElement(zoneOptions)
+    {
+        return new SqlNodeList(zoneOptions, s.end(this));
+    }
 }
 
 SqlNodeList AlterZoneOptions() :

@@ -36,6 +36,7 @@ public class PartitionDistributionServiceTest {
         List<Set<Assignment>> assignments = calculateAssignments(
                 Arrays.asList("node0", "node1"),
                 10,
+                3,
                 3
         );
 
@@ -51,6 +52,7 @@ public class PartitionDistributionServiceTest {
         List<Set<Assignment>> assignments = calculateAssignments(
                 Collections.emptyList(),
                 10,
+                3,
                 3
         );
 
