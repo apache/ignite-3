@@ -372,7 +372,10 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
     @ParameterizedTest(name = "obsolete = {0}")
     @ValueSource(booleans = {true, false})
     public void testAlterZoneCommand(boolean obsolete) throws SqlParseException {
-        CatalogCommand cmd = convert(obsolete ? "ALTER ZONE test SET replicas=3" : "ALTER ZONE test SET (replicas 3)");
+        CatalogCommand cmd = convert(obsolete
+                ? "ALTER ZONE test SET replicas=5, quorum_size=3"
+                : "ALTER ZONE test SET (replicas 5, quorum size 3)"
+        );
 
         assertThat(cmd, instanceOf(AlterZoneCommand.class));
 
@@ -386,7 +389,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         CatalogZoneDescriptor desc = invokeAndGetFirstEntry(cmd, AlterZoneEntry.class).descriptor();
 
         assertThat(desc.name(), equalTo("TEST"));
-        assertThat(desc.replicas(), is(3));
+        assertThat(desc.replicas(), is(5));
+        assertThat(desc.quorumSize(), is(3));
         assertThat(((AlterZoneCommand) cmd).ifExists(), is(false));
     }
 
@@ -406,11 +410,13 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         {
             String sql = obsolete
                     ? "ALTER ZONE test SET "
-                            + "replicas=3, "
+                            + "replicas=5, "
+                            + "quorum_size=3, "
                             + "data_nodes_filter='$[?(@.region == \"US\")]', "
                             + "data_nodes_auto_adjust=300"
                     : "ALTER ZONE test SET "
-                            + "(replicas 3, "
+                            + "(replicas 5, "
+                            + "quorum size 3, "
                             + "nodes filter '$[?(@.region == \"US\")]', "
                             + "auto adjust 300)";
 
@@ -428,7 +434,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
 
             assertThat(desc.name(), equalTo("TEST"));
 
-            assertThat(desc.replicas(), equalTo(3));
+            assertThat(desc.replicas(), equalTo(5));
+            assertThat(desc.quorumSize(), equalTo(3));
             assertThat(desc.filter(), equalTo("$[?(@.region == \"US\")]"));
             assertThat(desc.dataNodesAutoAdjust(), equalTo(300));
         }
