@@ -69,20 +69,7 @@ internal static class StreamerReceiverSerializer
             builder.AppendObjectWithType(arg);
         }
 
-        if (items[0] is IIgniteTuple)
-        {
-            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-            builder.AppendInt(items.Count);
-
-            foreach (var item in items)
-            {
-                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
-            }
-        }
-        else
-        {
-            builder.AppendObjectCollectionWithType(items);
-        }
+        AppendCollection(builder, items);
 
         w.Write(binaryTupleSize);
         w.Write(builder.Build().Span);
@@ -106,22 +93,7 @@ internal static class StreamerReceiverSerializer
 
         // Reserve a 4-byte prefix for resTupleElementCount.
         using var builder = new BinaryTupleBuilder(resTupleElementCount, prefixSize: 4);
-
-        if (res.Count > 0 && res[0] is IIgniteTuple)
-        {
-            // TODO: Deduplicate this.
-            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-            builder.AppendInt(res.Count);
-
-            foreach (var item in res)
-            {
-                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
-            }
-        }
-        else
-        {
-            builder.AppendObjectCollectionWithType(res);
-        }
+        AppendCollection(builder, res);
 
         Memory<byte> jobResultTupleMemWithPrefix = builder.Build();
         BinaryPrimitives.WriteInt32LittleEndian(jobResultTupleMemWithPrefix.Span, resTupleElementCount);
@@ -257,6 +229,29 @@ internal static class StreamerReceiverSerializer
         int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
 
         return new BinaryTupleReader(receiverInfoSpan[4..], receiverElementCount);
+    }
+
+    private static void AppendTupleCollection<T>(BinaryTupleBuilder builder, ICollection<T> items)
+    {
+        builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+        builder.AppendInt(items.Count);
+
+        foreach (var item in items)
+        {
+            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
+        }
+    }
+
+    private static void AppendCollection<T>(BinaryTupleBuilder builder, IList<T> items)
+    {
+        if (items.Count > 0 && items[0] is IIgniteTuple)
+        {
+            AppendTupleCollection(builder, items);
+        }
+        else
+        {
+            builder.AppendObjectCollectionWithType(items);
+        }
     }
 
     [SuppressMessage("Design", "CA1002:Do not expose generic lists", Justification = "Performance.")]
