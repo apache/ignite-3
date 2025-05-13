@@ -163,7 +163,7 @@ internal static class StreamerReceiverSerializer
     {
         BinaryTupleReader receiverInfo = GetReceiverInfoReaderFast(buf);
 
-        var arg = (TArg)ReadArg(ref receiverInfo, 1)!;
+        var arg = (TArg)ReadReceiverArg(ref receiverInfo, 1)!;
         List<TItem> items = ReadReceiverPage<TItem>(ref receiverInfo);
 
         return new(items, arg);
@@ -198,7 +198,7 @@ internal static class StreamerReceiverSerializer
         return items;
     }
 
-    private static object? ReadArg(ref BinaryTupleReader reader, int index)
+    private static object? ReadReceiverArg(ref BinaryTupleReader reader, int index)
     {
         if (reader.IsNull(index))
         {
