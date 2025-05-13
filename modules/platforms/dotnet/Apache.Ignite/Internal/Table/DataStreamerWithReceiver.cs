@@ -380,53 +380,13 @@ internal static class DataStreamerWithReceiver
 
             var expectResults = resultChannel != null;
             w.Write(expectResults);
-            WriteReceiverPayload(ref w, receiverClassName, receiverArg, items);
+            StreamerReceiverSerializer.WriteReceiverInfo(ref w, receiverClassName, receiverArg, items);
 
             // TODO: Throw unsupported if no feature flag but custom options are present
             w.Write(receiverExecutionOptions.Priority);
             w.Write(receiverExecutionOptions.MaxRetries);
             w.Write((int)receiverExecutionOptions.ExecutorType);
         }
-    }
-
-    private static void WriteReceiverPayload<T>(ref MsgPackWriter w, string className, object? arg, ArraySegment<T> items)
-    {
-        Debug.Assert(items.Count > 0, "items.Count > 0");
-
-        // className + arg + items size + item type + items.
-        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Count;
-        using var builder = new BinaryTupleBuilder(binaryTupleSize);
-
-        builder.AppendString(className);
-
-        if (arg is IIgniteTuple tupleArg)
-        {
-            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-            builder.AppendInt(0); // Scale.
-            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tupleArg);
-        }
-        else
-        {
-            builder.AppendObjectWithType(arg);
-        }
-
-        if (items[0] is IIgniteTuple)
-        {
-            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-            builder.AppendInt(items.Count);
-
-            foreach (var item in items)
-            {
-                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
-            }
-        }
-        else
-        {
-            builder.AppendObjectCollectionWithType(items);
-        }
-
-        w.Write(binaryTupleSize);
-        w.Write(builder.Build().Span);
     }
 
     private static async Task<(T[]? ResultsPooledArray, int ResultsCount)> SendBatchAsync<T>(

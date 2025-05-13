@@ -17,10 +17,67 @@
 
 namespace Apache.Ignite.Internal.Table.Serialization;
 
+using System;
+using System.Diagnostics;
+using Ignite.Table;
+using Proto.BinaryTuple;
+using Proto.MsgPack;
+
 /// <summary>
 /// Streamer receiver serializer.
+/// Corresponds to org.apache.ignite.internal.client.proto.StreamerReceiverSerializer.
 /// </summary>
 internal static class StreamerReceiverSerializer
 {
+    /// <summary>
+    /// Writes receiver info.
+    /// </summary>
+    /// <param name="w">Writer.</param>
+    /// <param name="className">Receiver class name.</param>
+    /// <param name="arg">Receiver argument.</param>
+    /// <param name="items">Receiver items.</param>
+    /// <typeparam name="T">Item type.</typeparam>
+    public static void WriteReceiverInfo<T>(
+        ref MsgPackWriter w,
+        string className,
+        object? arg,
+        ArraySegment<T> items)
+    {
+        Debug.Assert(items.Count > 0, "items.Count > 0");
 
+        // className + arg + items size + item type + items.
+        int binaryTupleSize = 1 + 3 + 1 + 1 + items.Count;
+        using var builder = new BinaryTupleBuilder(binaryTupleSize);
+
+        builder.AppendString(className);
+
+        if (arg is IIgniteTuple tupleArg)
+        {
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(0); // Scale.
+            builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, arg), tupleArg);
+        }
+        else
+        {
+            builder.AppendObjectWithType(arg);
+        }
+
+        if (items[0] is IIgniteTuple)
+        {
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(items.Count);
+
+            foreach (var item in items)
+            {
+                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
+            }
+        }
+        else
+        {
+            builder.AppendObjectCollectionWithType(items);
+        }
+
+        w.Write(binaryTupleSize);
+        w.Write(builder.Build().Span);
+    }
 }
