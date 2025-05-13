@@ -160,8 +160,18 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public async Task TestIgniteApiAccessFromReceiver()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var ids = Enumerable.Range(10, 50).ToList();
+        var tableName = nameof(TestIgniteApiAccessFromReceiver);
+
+        var res = await TupleView.StreamDataAsync(
+            data: ids.ToAsyncEnumerable(),
+            keySelector: _ => new IgniteTuple(),
+            payloadSelector: id => id,
+            receiver: DotNetReceivers.CreateTableAndInsert,
+            receiverArg: tableName,
+            options: new DataStreamerOptions { PageSize = 33 }).ToListAsync();
+
+        Assert.AreEqual(ids.Count, res.Count);
     }
 
     [Test]
