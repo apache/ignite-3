@@ -264,7 +264,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
     }
 
-    @ParameterizedTest(name = "with replicas = {0}")
+    @ParameterizedTest(name = "replicas = {0}, expectedQuorum = {1}")
     @MethodSource("defaultQuorum")
     public void testCreateZoneWithQuorumDefault(int replicas, int expectedQuorum) throws SqlParseException {
         String sql = "CREATE ZONE test WITH REPLICAS=" + replicas + ", STORAGE_PROFILES='" + DEFAULT_STORAGE_PROFILE + "'";
@@ -276,7 +276,7 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         assertThat(desc.quorumSize(), equalTo(expectedQuorum));
     }
 
-    private static List<Arguments> quorumSize() {
+    private static List<Arguments> correctQuorumSize() {
         return List.of(
                 Arguments.of(1, 1),
                 Arguments.of(2, 2),
@@ -285,8 +285,8 @@ public class DistributionZoneSqlToCommandConverterTest extends AbstractDdlSqlToC
         );
     }
 
-    @ParameterizedTest(name = "(replicas {0}, quorum size {1})")
-    @MethodSource("quorumSize")
+    @ParameterizedTest(name = "(replicas = {0}, quorum size = {1})")
+    @MethodSource("correctQuorumSize")
     public void testCreateZoneWithQuorum(int replicas, int quorum) throws SqlParseException {
         String sql = "CREATE ZONE test (REPLICAS " + replicas + ", QUORUM SIZE " + quorum
                 + ") STORAGE PROFILES ['" + DEFAULT_STORAGE_PROFILE + "']";

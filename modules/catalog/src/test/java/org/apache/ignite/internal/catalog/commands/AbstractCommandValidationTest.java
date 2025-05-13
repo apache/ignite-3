@@ -95,6 +95,12 @@ abstract class AbstractCommandValidationTest extends BaseIgniteAbstractTest {
         return Stream.of(null, Set.of()).map(Arguments::of);
     }
 
+    /**
+     * Test cases for the create/alter zone parameter validation. The order is: number of replicas, default quorum size, default consensus
+     * group size, minimum quorum size, maximum quorum size.
+     *
+     * @return Stream of arguments for parameterized test.
+     */
     static Stream<Arguments> quorumTable() {
         return Stream.of(
                 Arguments.of(null, 1, 1, 1, 1), // default replicas count is 1

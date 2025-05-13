@@ -153,6 +153,29 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     }
 
     @Test
+    void extremeQuorumSize() {
+        int replicas = Integer.MAX_VALUE; // REPLICAS = ALL
+        int maxQuorumSize = Integer.MAX_VALUE / 2 + 1;
+        int defaultQuorumSize = 3;
+        int defaultConsensusGroupSize = 5;
+
+        String errorMessageFragmentMaxQuorum = "Specified quorum size doesn't fit into the specified replicas count";
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)),
+                errorMessageFragmentMaxQuorum
+        );
+
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(createZoneBuilder().replicas(replicas));
+        assertThat(zoneDescriptor.quorumSize(), is(defaultQuorumSize));
+        assertThat(zoneDescriptor.consensusGroupSize(), is(defaultConsensusGroupSize));
+
+        zoneDescriptor = getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize - 1));
+        assertThat(zoneDescriptor.quorumSize(), is(maxQuorumSize - 1));
+    }
+
+    @Test
     void zoneAutoAdjust() {
         assertThrows(
                 CatalogValidationException.class,
