@@ -18,10 +18,12 @@
 namespace Apache.Ignite.Tests.Table;
 
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
 using Compute;
 using Ignite.Compute;
+using Ignite.Marshalling;
 using Ignite.Table;
 using NUnit.Framework;
 using TestHelpers;
@@ -31,6 +33,12 @@ using TestHelpers;
 /// </summary>
 public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 {
+    private static readonly JobDescriptor<JobInfo, object?> StreamerRunnerJob = new(
+        ComputeTests.PlatformTestNodeRunner + "$StreamerRunnerJob")
+    {
+        ArgMarshaller = new JsonMarshaller<JobInfo>()
+    };
+
     private DeploymentUnit _defaultTestUnit = null!;
 
     [OneTimeSetUp]
@@ -153,8 +161,18 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public async Task TestRunDotNetReceiverFromJava()
     {
-        await Task.Delay(1);
-        Assert.Fail("TODO");
+        var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
+
+        var jobInfo = new JobInfo(
+            TypeName: typeof(DotNetReceivers.EchoReceiver).AssemblyQualifiedName!,
+            Arg: "hello",
+            DeploymentUnits: [$"{_defaultTestUnit.Name}:{_defaultTestUnit.Version}"],
+            JobExecutorType: "DOTNET_SIDECAR");
+
+        var jobExec = await Client.Compute.SubmitAsync(jobTarget, StreamerRunnerJob, jobInfo);
+        var res = await jobExec.GetResultAsync();
+
+        Assert.AreEqual("hello", res);
     }
 
     [Test]
@@ -215,4 +233,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             DotNetReceivers.Echo with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "unused",
             options).ToListAsync();
+
+    [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "JSON")]
+    private record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, string JobExecutorType);
 }
