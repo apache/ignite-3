@@ -15,43 +15,15 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
-
-using System;
+namespace Apache.Ignite.Table;
 
 /// <summary>
-/// Protocol bitmask features.
+/// Data streamer receiver execution context. See <see cref="IDataStreamerReceiver{TItem, TArg,TResult}"/>.
 /// </summary>
-[Flags]
-internal enum ProtocolBitmaskFeature
+public interface IDataStreamerReceiverContext
 {
     /// <summary>
-    /// User attributes in handshake.
+    /// Gets the Ignite API entry point.
     /// </summary>
-    UserAttributes = 1,
-
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
-
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
-
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
-
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16,
-
-    /// <summary>
-    /// Streamer receiver execution options, including .NET receivers.
-    /// </summary>
-    StreamerReceiverExecutionOptions = 32
+    IIgnite Ignite { get; }
 }

@@ -38,6 +38,7 @@ import javax.naming.OperationNotSupportedException;
 import org.apache.ignite.client.handler.FakePlacementDriver;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
+import org.apache.ignite.compute.JobExecutionOptions;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
@@ -62,6 +63,7 @@ import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -555,10 +557,23 @@ public class FakeInternalTable implements InternalTable, StreamerReceiverRunner 
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+    public CompletableFuture<byte[]> runReceiverAsync(
+            byte[] payload,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits,
+            ReceiverExecutionOptions options) {
+        JobExecutionOptions jobOptions = JobExecutionOptions.builder()
+                .priority(options.priority())
+                .maxRetries(options.maxRetries())
+                .executorType(options.executorType())
+                .build();
+
         return compute.executeAsync(
                 JobTarget.node(node),
-                JobDescriptor.builder(StreamerReceiverJob.class).units(deploymentUnits).build(),
+                JobDescriptor.builder(StreamerReceiverJob.class)
+                        .units(deploymentUnits)
+                        .options(jobOptions)
+                        .build(),
                 payload);
     }
 }

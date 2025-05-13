@@ -552,10 +552,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 new KeyValueTupleStreamerPartitionAwarenessProvider(tbl),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 

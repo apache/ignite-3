@@ -469,10 +469,8 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper()),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 
