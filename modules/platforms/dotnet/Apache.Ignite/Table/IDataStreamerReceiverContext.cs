@@ -18,7 +18,7 @@
 namespace Apache.Ignite.Table;
 
 /// <summary>
-/// Compute job execution context. See <see cref="IDataStreamerReceiver{TItem, TArg,TResult}"/>.
+/// Data streamer receiver execution context. See <see cref="IDataStreamerReceiver{TItem, TArg,TResult}"/>.
 /// </summary>
 public interface IDataStreamerReceiverContext
 {
