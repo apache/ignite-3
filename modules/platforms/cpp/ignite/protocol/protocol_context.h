@@ -18,6 +18,7 @@
 #pragma once
 
 #include "ignite/protocol/protocol_version.h"
+#include "ignite/protocol/bitset_span.h"
 
 #include "ignite/common/detail/server_version.h"
 #include "ignite/common/uuid.h"
@@ -85,9 +86,23 @@ public:
     /**
      * Set cluster name.
      *
-     * @param ver Name to set.
+     * @param name Name to set.
      */
     void set_cluster_name(std::string name) { m_cluster_name = std::move(name); }
+
+    /**
+     * Get features.
+     *
+     * @return Features.
+     */
+    [[nodiscard]] bytes_view get_features() const { return m_features; }
+
+    /**
+     * Set features.
+     *
+     * @param features Features.
+     */
+    void set_features(std::vector<std::byte> features) { m_features = std::move(features); }
 
 private:
     /** Protocol version. */
@@ -101,6 +116,9 @@ private:
 
     /** Cluster name. */
     std::string m_cluster_name{};
+
+    /** Features. */
+    std::vector<std::byte> m_features{};
 };
 
 } // namespace ignite::protocol
