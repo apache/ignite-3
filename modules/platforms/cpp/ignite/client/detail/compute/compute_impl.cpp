@@ -340,7 +340,7 @@ void compute_impl::submit_colocated_async(const colocated_job_target &target,
         }
         auto &table_opt = res.value();
         if (!table_opt) {
-            callback({ignite_error("Table does not exist: '" + target.get_table_name() + "'")});
+            callback({ignite_error("Table does not exist: '" + target.get_table_name().get_canonical_name() + "'")});
             return;
         }
 
