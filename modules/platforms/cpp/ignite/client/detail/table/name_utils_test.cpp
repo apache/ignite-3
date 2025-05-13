@@ -16,22 +16,25 @@
  */
 
 #include "ignite/client/detail/table/name_utils.h"
+#include "ignite/client/table/qualified_name.h"
+#include "ignite/common/ignite_error.h"
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 using namespace ignite;
 using namespace detail;
 
-class client_name_utils_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
 
-TEST_P(client_name_utils_fixture, quote_if_needed) {
+TEST_P(quote_if_needed_fixture, quote_if_needed) {
     auto [name, expected] = GetParam();
 
-    EXPECT_EQ(expected, quote_if_needed(name));
+    EXPECT_EQ(expected, quote_if_needed(name, qualified_name::QUOTE_CHAR));
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    client_name_utils, client_name_utils_fixture,
+    client_name_utils, quote_if_needed_fixture,
     ::testing::Values(
         std::make_tuple("foo", "\"foo\""),
         std::make_tuple("fOo", "\"fOo\""),
@@ -57,4 +60,41 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("foo\"bar\"", "\"foo\"\"bar\"\"\""),
         std::make_tuple("foo\"bar", "\"foo\"\"bar\"")
     )
+);
+
+
+class malformed_identifiers_fixture : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(malformed_identifiers_fixture, parse_identifier_malformed) {
+    auto malformed = GetParam();
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) parse_identifier(malformed, qualified_name::QUOTE_CHAR, qualified_name::SEPARATOR_CHAR);
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::ILLEGAL_ARGUMENT);
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_name_utils, malformed_identifiers_fixture,
+    ::testing::Values(
+        " ",
+        "foo-1",
+        "f.f",
+        "f f",
+        "f\"f",
+        "f\"\"f",
+        "\"foo",
+        "\"fo\"o\"",
+        "1o0",
+        "@#$",
+        "\xF0\x9F\x98\x85",
+        "f\xF0\x9F\x98\x85",
+        "$foo",
+        "foo$")
 );

@@ -16,7 +16,6 @@
  */
 
 #include "ignite/client/detail/table/name_utils.h"
-#include "ignite/client/table/qualified_name.h"
 #include "ignite/client/detail/argument_check_utils.h"
 #include "ignite/common/detail/string_utils.h"
 
@@ -26,18 +25,18 @@
 
 namespace ignite::detail {
 
-std::string quote(std::string_view &str) {
-    auto quote_num = std::count(str.begin(), str.end(), qualified_name::QUOTE_CHAR);
+std::string quote(std::string_view &str, char quote_char) {
+    auto quote_num = std::count(str.begin(), str.end(), quote_char);
 
     std::string res;
     res.reserve(str.size() + quote_num + 2);
 
-    res.push_back(qualified_name::QUOTE_CHAR);
+    res.push_back(quote_char);
 
     if (quote_num) {
         for (auto c : str) {
-            if (c == qualified_name::QUOTE_CHAR) {
-                res.push_back(qualified_name::QUOTE_CHAR);
+            if (c == quote_char) {
+                res.push_back(quote_char);
             }
             res.push_back(c);
         }
@@ -45,17 +44,17 @@ std::string quote(std::string_view &str) {
         res.append(str);
     }
 
-    res.push_back(qualified_name::QUOTE_CHAR);
+    res.push_back(quote_char);
     return res;
 }
 
-std::string quote_if_needed(std::string_view name) {
+std::string quote_if_needed(std::string_view name, char quote_char) {
     if (name.empty()) {
         return std::string{name};
     }
 
     if (!std::isupper(name[0]) && name[0] != '_') {
-        return quote(name);
+        return quote(name, quote_char);
     }
 
     auto other_chars = name;
@@ -64,23 +63,23 @@ std::string quote_if_needed(std::string_view name) {
     auto utf8_view = una::ranges::utf8_view(other_chars);
     for (char32_t cur : utf8_view) {
         if (!std::isupper(cur) && cur != '_' && !is_identifier_extend(cur)) {
-            return quote(name);
+            return quote(name, quote_char);
         }
     }
 
     return std::string{name};
 }
 
-std::string unquote(std::string_view &identifier)
+std::string unquote(std::string_view &identifier, char quote_char)
 {
     if (identifier.empty())
         return {};
 
-    if (identifier.front() == qualified_name::QUOTE_CHAR) {
+    if (identifier.front() == quote_char) {
         identifier.remove_prefix(1);
         identifier.remove_suffix(1);
 
-        auto quote_num = std::count(identifier.begin(), identifier.end(), qualified_name::QUOTE_CHAR);
+        auto quote_num = std::count(identifier.begin(), identifier.end(), quote_char);
         if (quote_num == 0)
             return std::string{identifier};
 
@@ -89,12 +88,12 @@ std::string unquote(std::string_view &identifier)
 
         auto ignore_quote = false;
         for (auto c : identifier) {
-            if (ignore_quote && c != qualified_name::QUOTE_CHAR) {
+            if (ignore_quote && c != quote_char) {
                 throw ignite_error(error::code::ILLEGAL_ARGUMENT,
                     "Quoted identifier contains non-escaped quotes: " + std::string(identifier));
             }
 
-            if (c == qualified_name::QUOTE_CHAR) {
+            if (c == quote_char) {
                 if (ignore_quote) {
                     ignore_quote = false;
                     continue;
@@ -110,14 +109,14 @@ std::string unquote(std::string_view &identifier)
     return una::cases::to_uppercase_utf8(identifier);
 }
 
-std::string parse_identifier(std::string_view &identifier)
+std::string parse_identifier(std::string_view identifier, char quote_char, char separator_char)
 {
     auto separator_num =
-        std::count(identifier.begin(), identifier.end(), qualified_name::SEPARATOR_CHAR);
+        std::count(identifier.begin(), identifier.end(), separator_char);
 
-    detail::arg_check::is_true(separator_num == 0, "Unexpected separator in identifier: " + std::string{identifier});
+    arg_check::is_true(separator_num == 0, "Unexpected separator in identifier: " + std::string{identifier});
 
-    return unquote(identifier);
+    return unquote(identifier, quote_char);
 }
 
 bool is_identifier_extend(char32_t codepoint) {

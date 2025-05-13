@@ -31,14 +31,15 @@ qualified_name qualified_name::create(std::string_view schema_name, std::string_
         schema_name = DEFAULT_SCHEMA_NAME;
     }
 
-    return {detail::parse_identifier(schema_name), detail::parse_identifier(object_name)};
+    return {detail::parse_identifier(schema_name, QUOTE_CHAR, SEPARATOR_CHAR),
+        detail::parse_identifier(object_name, QUOTE_CHAR, SEPARATOR_CHAR)};
 }
 
 qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) {
     detail::arg_check::container_non_empty(simple_or_canonical_name, "Object name");
 
     auto separator_num =
-        std::count(simple_or_canonical_name.begin(), simple_or_canonical_name.end(), qualified_name::SEPARATOR_CHAR);
+        std::count(simple_or_canonical_name.begin(), simple_or_canonical_name.end(), SEPARATOR_CHAR);
 
     if (separator_num == 0) {
         return create({}, simple_or_canonical_name);
@@ -57,9 +58,9 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
 const std::string & qualified_name::get_canonical_name() const {
     if (m_canonical_name.empty()) {
         m_canonical_name
-            = detail::quote_if_needed(m_schema_name)
+            = detail::quote_if_needed(m_schema_name, QUOTE_CHAR)
             + SEPARATOR_CHAR
-            + detail::quote_if_needed(m_object_name);
+            + detail::quote_if_needed(m_object_name, QUOTE_CHAR);
     }
     return m_canonical_name;
 }
