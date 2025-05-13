@@ -97,6 +97,19 @@ public class JobLoadContextTests
         Assert.AreEqual("Ambiguous match found for ' Apache.Ignite.Compute.IComputeJob`2[System.Object,System.Guid]'.", ex.Message);
     }
 
+    [Test]
+    public void TestCreateReceiverWrapperWithMultipleReceiverInterfacesThrows()
+    {
+        var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+
+        var ex = Assert.Throws<AmbiguousMatchException>(
+            () => jobLoadCtx.CreateReceiverWrapper(typeof(MultiInterfaceReceiver).AssemblyQualifiedName!));
+
+        Assert.AreEqual(
+            "Ambiguous match found for ' Apache.Ignite.Table.IDataStreamerReceiver`3[System.Int32,System.Int32,System.Int32]'.",
+            ex.Message);
+    }
+
     private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(JobDescriptor<TArg, TResult> job, TArg? jobArg)
     {
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
@@ -222,5 +235,16 @@ public class JobLoadContextTests
 
         public ValueTask<string> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult("x");
+    }
+
+    private class MultiInterfaceReceiver : IDataStreamerReceiver<int, int, int>, IDataStreamerReceiver<int, int, short>
+    {
+        ValueTask<IList<int>?> IDataStreamerReceiver<int, int, int>.ReceiveAsync(
+            IList<int> page, IDataStreamerReceiverContext context, int arg, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
+
+        ValueTask<IList<short>?> IDataStreamerReceiver<int, int, short>.ReceiveAsync(
+            IList<int> page, IDataStreamerReceiverContext context, int arg, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 }
