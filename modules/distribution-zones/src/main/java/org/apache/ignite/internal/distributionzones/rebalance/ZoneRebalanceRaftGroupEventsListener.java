@@ -189,7 +189,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get().value();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId)).value();
 
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
