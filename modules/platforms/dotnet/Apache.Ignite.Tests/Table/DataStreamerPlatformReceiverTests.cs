@@ -163,15 +163,22 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         var ids = Enumerable.Range(10, 50).ToList();
         var tableName = nameof(TestIgniteApiAccessFromReceiver);
 
+        await Client.Sql.ExecuteAsync(null, $"DROP TABLE IF EXISTS {tableName}");
+
         var res = await TupleView.StreamDataAsync(
             data: ids.ToAsyncEnumerable(),
-            keySelector: _ => new IgniteTuple(),
+            keySelector: _ => new IgniteTuple { ["key"] = 1L },
             payloadSelector: id => id,
-            receiver: DotNetReceivers.CreateTableAndInsert,
+            receiver: DotNetReceivers.CreateTableAndUpsert with {DeploymentUnits = [_defaultTestUnit] },
             receiverArg: tableName,
-            options: new DataStreamerOptions { PageSize = 33 }).ToListAsync();
+            options: new DataStreamerOptions { PageSize = 13 }).ToListAsync();
 
         Assert.AreEqual(ids.Count, res.Count);
+
+        await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {tableName}");
+        var rows = await resultSet.ToListAsync();
+
+        Assert.AreEqual(ids.Count, rows.Count);
     }
 
     [Test]

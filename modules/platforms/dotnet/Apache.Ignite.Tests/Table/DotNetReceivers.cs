@@ -36,8 +36,8 @@ public static class DotNetReceivers
 
     public static readonly ReceiverDescriptor<object, object> Error = ReceiverDescriptor.Of(new ErrorReceiver());
 
-    public static readonly ReceiverDescriptor<string, IIgniteTuple> CreateTableAndInsert =
-        ReceiverDescriptor.Of(new CreateTableAndInsertReceiver());
+    public static readonly ReceiverDescriptor<string, IIgniteTuple> CreateTableAndUpsert =
+        ReceiverDescriptor.Of(new CreateTableAndUpsertReceiver());
 
     public class EchoReceiver : IDataStreamerReceiver<object, object, object>
     {
@@ -73,7 +73,7 @@ public static class DotNetReceivers
         }
     }
 
-    public class CreateTableAndInsertReceiver : IDataStreamerReceiver<int, string, IIgniteTuple>
+    public class CreateTableAndUpsertReceiver : IDataStreamerReceiver<int, string, IIgniteTuple>
     {
         public async ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
             IList<int> page,
@@ -96,7 +96,7 @@ public static class DotNetReceivers
             foreach (var id in page)
             {
                 var rec = new IgniteTuple { ["key"] = id, ["val"] = $"val-{id}" };
-                await view.InsertAsync(tx, rec);
+                await view.UpsertAsync(tx, rec);
                 res.Add(rec);
             }
 
