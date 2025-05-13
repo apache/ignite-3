@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import java.util.Objects;
 import org.apache.ignite.compute.JobExecutorType;
 
 /**
@@ -81,6 +82,28 @@ public class ReceiverExecutionOptions {
      */
     public JobExecutorType executorType() {
         return executorType;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(priority, maxRetries, executorType);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+        if (this == obj) {
+            return true;
+        }
+
+        if (obj == null || getClass() != obj.getClass()) {
+            return false;
+        }
+
+        ReceiverExecutionOptions other = (ReceiverExecutionOptions) obj;
+
+        return priority == other.priority
+                && maxRetries == other.maxRetries
+                && executorType == other.executorType;
     }
 
     /** ReceiverExecutionOptions builder. */

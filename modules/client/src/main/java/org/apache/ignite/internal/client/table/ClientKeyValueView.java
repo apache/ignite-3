@@ -741,10 +741,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 new KeyValuePojoStreamerPartitionAwarenessProvider<>(tbl, keySer.mapper()),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 
