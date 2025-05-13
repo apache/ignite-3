@@ -24,6 +24,7 @@ using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Internal.Buffers;
 using Internal.Compute.Executor;
 using NUnit.Framework;
 
@@ -55,6 +56,23 @@ public class JobLoadContextTests
         var execId = await ExecuteJobAsync(jobDesc, null);
 
         Assert.IsTrue(DisposedJobStates.TryRemove(execId, out var state));
+        Assert.AreEqual(expectedState, state);
+    }
+
+    [Test]
+    public async Task TestDisposableReceiver([Values(true, false)] bool async)
+    {
+        var jobType = async ? typeof(AsyncDisposableJob) : typeof(DisposableJob);
+        var expectedState = async ? "InitializedExecutingExecutedAsyncDisposed" : "InitializedExecutedDisposed";
+
+        var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+        var receiverWrapper = loadCtx.CreateReceiverWrapper(jobType.AssemblyQualifiedName!);
+
+        using var argBuf = new PooledBuffer([], 0, 0);
+        using var resBuf = new PooledArrayBuffer();
+        await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
+
+        Assert.IsTrue(DisposedJobStates.TryRemove(Guid.Empty, out var state));
         Assert.AreEqual(expectedState, state);
     }
 
