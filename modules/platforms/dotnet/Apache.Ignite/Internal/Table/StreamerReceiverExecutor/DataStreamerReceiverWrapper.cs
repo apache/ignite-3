@@ -28,6 +28,7 @@ using Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
+using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -54,7 +55,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
         {
             IList<TResult>? res = await receiver.ReceiveAsync(page, context, arg, cancellationToken).ConfigureAwait(false);
 
-            WriteRes(res);
+            StreamerReceiverSerializer.WriteReceiverResults(responseBuf.MessageWriter, res);
         }
         finally
         {
@@ -66,42 +67,6 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
             {
                 disposable.Dispose();
             }
-        }
-
-        void WriteRes(IList<TResult>? res)
-        {
-            var writer = responseBuf.MessageWriter;
-
-            if (res == null)
-            {
-                writer.WriteNil();
-                return;
-            }
-
-            int resTupleElementCount = res.Count + 2;
-
-            // Reserve a 4-byte prefix for resTupleElementCount.
-            var builder = new BinaryTupleBuilder(resTupleElementCount, prefixSize: 4);
-
-            if (res.Count > 0 && res[0] is IIgniteTuple)
-            {
-                // TODO: Deduplicate this.
-                builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
-                builder.AppendInt(res.Count);
-
-                foreach (var item in res)
-                {
-                    builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
-                }
-            }
-            else
-            {
-                builder.AppendObjectCollectionWithType(res);
-            }
-
-            Memory<byte> jobResultTupleMemWithPrefix = builder.Build();
-            BinaryPrimitives.WriteInt32LittleEndian(jobResultTupleMemWithPrefix.Span, resTupleElementCount);
-            ComputePacker.PackArgOrResult(ref writer, jobResultTupleMemWithPrefix, null);
         }
     }
 

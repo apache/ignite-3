@@ -19,7 +19,10 @@ namespace Apache.Ignite.Internal.Table.Serialization;
 
 using System;
 using System.Buffers;
+using System.Buffers.Binary;
+using System.Collections.Generic;
 using System.Diagnostics;
+using Compute;
 using Ignite.Table;
 using Proto.BinaryTuple;
 using Proto.MsgPack;
@@ -83,7 +86,47 @@ internal static class StreamerReceiverSerializer
     }
 
     /// <summary>
-    /// Reads receiver execution results.
+    /// Writes receiver execution results. Opposite of <see cref="ReadReceiverResults{T}"/>.
+    /// </summary>
+    /// <param name="w">Writer.</param>
+    /// <param name="res">Results.</param>
+    /// <typeparam name="T">Result item type.</typeparam>
+    public static void WriteReceiverResults<T>(MsgPackWriter w, IList<T>? res)
+    {
+        if (res == null)
+        {
+            w.WriteNil();
+            return;
+        }
+
+        int resTupleElementCount = res.Count + 2;
+
+        // Reserve a 4-byte prefix for resTupleElementCount.
+        using var builder = new BinaryTupleBuilder(resTupleElementCount, prefixSize: 4);
+
+        if (res.Count > 0 && res[0] is IIgniteTuple)
+        {
+            // TODO: Deduplicate this.
+            builder.AppendInt(TupleWithSchemaMarshalling.TypeIdTuple);
+            builder.AppendInt(res.Count);
+
+            foreach (var item in res)
+            {
+                builder.AppendBytes(static (bufWriter, arg) => TupleWithSchemaMarshalling.Pack(bufWriter, (IIgniteTuple)arg!), item);
+            }
+        }
+        else
+        {
+            builder.AppendObjectCollectionWithType(res);
+        }
+
+        Memory<byte> jobResultTupleMemWithPrefix = builder.Build();
+        BinaryPrimitives.WriteInt32LittleEndian(jobResultTupleMemWithPrefix.Span, resTupleElementCount);
+        ComputePacker.PackArgOrResult(ref w, jobResultTupleMemWithPrefix, null);
+    }
+
+    /// <summary>
+    /// Reads receiver execution results. Opposite of <see cref="WriteReceiverResults{T}"/>.
     /// </summary>
     /// <param name="reader">Reader.</param>
     /// <typeparam name="T">Result element type.</typeparam>
