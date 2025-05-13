@@ -109,6 +109,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -389,6 +390,8 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, 10 seconds are enough, but with
+        // colocation, we have to wait longer. After this is sorted out, reduce the timeout back to 10 seconds.
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
 
@@ -396,7 +399,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
             return lease.getExpirationTime().compareTo(nodeClock.now()) < 0;
 
-        }, 10_000));
+        }, 20_000));
 
         assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 2, 1, 1);
 
