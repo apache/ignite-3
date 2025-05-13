@@ -24,7 +24,7 @@
 #include "uni_algo/prop.h"
 #include "uni_algo/ranges_conv.h"
 
-namespace ignite {
+namespace ignite::detail {
 
 std::string quote(std::string_view &str) {
     auto quote_num = std::count(str.begin(), str.end(), qualified_name::QUOTE_CHAR);
@@ -111,6 +111,6 @@ bool is_identifier_extend(char32_t codepoint) {
         || cat == una::codepoint::general_category::Cf;
 }
 
-} // namespace ignite
+} // namespace ignite::detail
 
 
