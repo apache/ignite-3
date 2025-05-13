@@ -601,6 +601,7 @@ public class PartitionReplicaLifecycleManager extends
                             causalityToken,
                             partitionCount,
                             isVolatileZoneForCatalogVersion(zoneId, catalogVersion),
+                            onNodeRecovery,
                             !onNodeRecovery
                     );
                 } else {
@@ -657,6 +658,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param stableAssignments Stable assignments.
      * @param revision Event's revision.
      * @param partitionCount Number of partitions on the zone.
+     * @param onRecovery Flag indicating whether this replication node is started on node recovery.
      * @return Future that completes when a replica is started.
      */
     private CompletableFuture<?> createZonePartitionReplicationNode(
@@ -666,6 +668,7 @@ public class PartitionReplicaLifecycleManager extends
             long revision,
             int partitionCount,
             boolean isVolatileZone,
+            boolean onRecovery,
             boolean holdingZoneWriteLock
     ) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 We need to integrate PartitionReplicatorNodeRecovery logic here when
@@ -680,7 +683,7 @@ public class PartitionReplicaLifecycleManager extends
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
+            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision, onRecovery);
 
             ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(
                     zonePartitionId,
@@ -1343,6 +1346,7 @@ public class PartitionReplicaLifecycleManager extends
                     revision,
                     zoneDescriptor.partitions(),
                     isVolatileZone(zoneDescriptor),
+                    isRecovery,
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
@@ -1608,7 +1612,7 @@ public class PartitionReplicaLifecycleManager extends
 
                             return fireEvent(
                                     afterReplicaStoppedEvent,
-                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision)
+                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision, false)
                             );
                         });
             } catch (NodeStoppingException e) {
@@ -1738,6 +1742,7 @@ public class PartitionReplicaLifecycleManager extends
                         revision,
                         zoneDescriptor.partitions(),
                         isVolatileZone(zoneDescriptor),
+                        false,
                         false
                 );
             }));

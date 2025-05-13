@@ -74,7 +74,7 @@ fastutil = "8.5.15"
 kryo = "5.6.2"
 bytebuddy = "1.17.5"
 mockServer = "5.15.0"
-archunit = "1.4.0"
+archunit = "1.4.1"
 testkit = "1.12.2"
 openapi = "4.10.0"
 autoService = "1.1.1"
@@ -89,7 +89,7 @@ tree-sitter-hocon = "master-a"
 otel = "1.49.0"
 spring-boot = "3.4.5"
 spring-data = "3.4.5"
-testcontainers = "1.19.0"
+testcontainers = "1.21.0"
 
 #Tools
 pmdTool = "6.55.0"
@@ -109,7 +109,7 @@ checksum = "org.gradle.crypto.checksum:1.4.0"
 setupbuilder = "de.inetsoftware.setupbuilder:8.4.21"
 aggregateJavadoc = "io.freefair.aggregate-javadoc:6.6.3"
 ideaext = "org.jetbrains.gradle.plugin.idea-ext:1.1.10"
-spotbugs = "com.github.spotbugs:6.1.10"
+spotbugs = "com.github.spotbugs:6.1.11"
 jmh = 'me.champeau.jmh:0.7.3'
 jmhReport = 'io.morethan.jmhreport:0.9.6'
 
