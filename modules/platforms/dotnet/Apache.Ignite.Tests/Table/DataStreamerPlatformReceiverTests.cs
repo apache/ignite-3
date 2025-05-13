@@ -175,10 +175,14 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         Assert.AreEqual(ids.Count, res.Count);
 
-        await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {tableName}");
-        var rows = await resultSet.ToListAsync();
+        // TODO IGNITE-24659 Client does not observe table changes from streamer receiver: remove WaitForConditionAsync.
+        await TestUtils.WaitForConditionAsync(async () =>
+        {
+            await using var resultSet = await Client.Sql.ExecuteAsync(null, $"SELECT * FROM {tableName}");
+            var rows = await resultSet.ToListAsync();
 
-        Assert.AreEqual(ids.Count, rows.Count);
+            return rows.Count == ids.Count;
+        });
     }
 
     [Test]
