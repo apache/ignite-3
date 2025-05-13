@@ -38,16 +38,21 @@ qualified_name qualified_name::create(std::string_view schema_name, std::string_
 qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) {
     detail::arg_check::container_non_empty(simple_or_canonical_name, "Object name");
 
-    auto separator_num =
-        std::count(simple_or_canonical_name.begin(), simple_or_canonical_name.end(), SEPARATOR_CHAR);
+    auto utf8_view = una::ranges::utf8_view(simple_or_canonical_name);
+    auto separator_pos = detail::find_separator(
+        simple_or_canonical_name, utf8_view.begin(), utf8_view.end(), QUOTE_CHAR, SEPARATOR_CHAR);
 
-    if (separator_num == 0) {
+    if (separator_pos == utf8_view.end()) {
         return create({}, simple_or_canonical_name);
     }
 
-    detail::arg_check::is_true(separator_num == 1,
+    auto next_separator = detail::find_separator(
+        simple_or_canonical_name, std::next(separator_pos), utf8_view.end(), QUOTE_CHAR, SEPARATOR_CHAR);
+
+    detail::arg_check::is_true(next_separator == utf8_view.end(),
         "Canonical name should have at most two parts: " + std::string{simple_or_canonical_name});
 
+    auto offset = std::distance(utf8_view.begin(), separator_pos);
     auto [schema_name, object_name] = split_once(simple_or_canonical_name, SEPARATOR_CHAR);
     detail::arg_check::container_non_empty(schema_name, "Schema part of the canonical name");
     detail::arg_check::container_non_empty(object_name, "Object part of the canonical name");

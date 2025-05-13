@@ -31,7 +31,10 @@ TEST_P(quote_if_needed_fixture, quote_if_needed) {
     auto [name, expected] = GetParam();
 
     EXPECT_EQ(expected, quote_if_needed(name, qualified_name::QUOTE_CHAR));
+    EXPECT_EQ(name, parse_identifier(quote_if_needed(
+        name, qualified_name::QUOTE_CHAR), qualified_name::QUOTE_CHAR, qualified_name::SEPARATOR_CHAR));
 }
+
 
 INSTANTIATE_TEST_SUITE_P(
     client_name_utils, quote_if_needed_fixture,
@@ -95,6 +98,7 @@ INSTANTIATE_TEST_SUITE_P(
         "@#$",
         "\xF0\x9F\x98\x85",
         "f\xF0\x9F\x98\x85",
+        "A\xF0",
         "$foo",
         "foo$")
 );

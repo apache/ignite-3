@@ -53,7 +53,7 @@ std::string quote_if_needed(std::string_view name, char quote_char) {
         return std::string{name};
     }
 
-    if (!std::isupper(name[0]) && name[0] != '_') {
+    if (!is_normalized_identifier_start(name[0])) {
         return quote(name, quote_char);
     }
 
@@ -62,7 +62,7 @@ std::string quote_if_needed(std::string_view name, char quote_char) {
 
     auto utf8_view = una::ranges::utf8_view(other_chars);
     for (char32_t cur : utf8_view) {
-        if (!std::isupper(cur) && cur != '_' && !is_identifier_extend(cur)) {
+        if (!is_normalized_identifier_start(cur) && !is_identifier_extend(cur)) {
             return quote(name, quote_char);
         }
     }
@@ -88,11 +88,7 @@ std::string unquote(std::string_view &identifier, char quote_char)
 
         auto ignore_quote = false;
         for (auto c : identifier) {
-            if (ignore_quote && c != quote_char) {
-                throw ignite_error(error::code::ILLEGAL_ARGUMENT,
-                    "Quoted identifier contains non-escaped quotes: " + std::string(identifier));
-            }
-
+            // There are no checks as the checks should be conducted before calling this functions.
             if (c == quote_char) {
                 if (ignore_quote) {
                     ignore_quote = false;
@@ -111,10 +107,10 @@ std::string unquote(std::string_view &identifier, char quote_char)
 
 std::string parse_identifier(std::string_view identifier, char quote_char, char separator_char)
 {
-    auto separator_num =
-        std::count(identifier.begin(), identifier.end(), separator_char);
+    auto utf8_view = una::ranges::utf8_view(identifier);
+    auto separator_pos = find_separator(identifier, utf8_view.begin(), utf8_view.end(), quote_char, separator_char);
 
-    arg_check::is_true(separator_num == 0, "Unexpected separator in identifier: " + std::string{identifier});
+    arg_check::is_true(separator_pos == utf8_view.end(), "Unexpected separator in identifier: " + std::string{identifier});
 
     return unquote(identifier, quote_char);
 }

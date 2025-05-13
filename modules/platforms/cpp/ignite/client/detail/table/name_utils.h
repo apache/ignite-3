@@ -17,6 +17,10 @@
 
 #pragma once
 
+#include <locale>
+
+#include "ignite/client/detail/argument_check_utils.h"
+
 #include <string_view>
 
 namespace ignite::detail {
@@ -67,5 +71,97 @@ namespace ignite::detail {
  * @return @c true if the char is an identifier extend.
  */
 [[nodiscard]] bool is_identifier_extend(char32_t codepoint);
+
+/**
+ * Check if the character is the identifier start.
+ *
+ * @param codepoint First codepoint.
+ * @return @c true, if the character can be the first char of the identifier.
+ */
+inline bool is_identifier_start(char32_t codepoint) {
+    return codepoint < 256 && (std::isalpha(codepoint) || codepoint == '_');
+}
+
+/**
+ * Check if the character is the identifier start.
+ *
+ * @param codepoint First codepoint.
+ * @return @c true, if the character can be the first char of the identifier.
+ */
+inline bool is_normalized_identifier_start(char32_t codepoint) {
+    return codepoint < 256 && (std::isupper(codepoint) || codepoint == '_');
+}
+
+/**
+ * Find a separator in the sequence.
+ * @tparam Iterator Iterator type.
+ * @param name The name.
+ * @param begin Beginning iterator.
+ * @param end Ending iterator.
+ * @param quote_char Quote character.
+ * @param separator_char Separator character.
+ * @return
+ */
+template<typename Iterator>
+Iterator find_separator(std::string_view name, Iterator begin, Iterator end, char quote_char, char separator_char) {
+    if (begin == end)
+        return end;
+
+    auto it = begin;
+
+    bool quoted = false;
+    if (*it == quote_char) {
+        quoted = true;
+        ++it;
+    }
+
+    arg_check::is_true(quoted || is_identifier_start(*it), "Invalid identifier start '"
+        + std::to_string(*it) + "' : " + std::string(name)
+        + ". Unquoted identifiers must begin with a letter or an underscore.");
+
+    auto next = std::next(it);
+    for (; it != end; it = next, ++next) {
+        auto codepoint = *it;
+
+        if (codepoint == quote_char) {
+            arg_check::is_true(quoted, "Identifier is not quoted, but contains quote character: '"
+                + std::string(name) + "'");
+
+            // The end of quoted identifier
+            if (next == end)
+                return end;
+
+            // We've found a separator
+            if (*next == separator_char)
+                return next;
+
+            if (*next == quote_char) {
+                ++next;
+                continue;
+            }
+
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Unexpected character '" + std::to_string(*next)
+                + "' after quote: '" + std::string(name) + "'");
+        }
+
+        if (codepoint == separator_char) {
+            if (quoted)
+                continue;
+
+            return it;
+        }
+
+        if (!quoted && !is_identifier_start(codepoint) && !is_identifier_extend(codepoint)) {
+            throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Unexpected character '" + std::to_string(codepoint)
+                + "' in unquoted identefier : '" + std::string(name) + "'");
+        }
+    }
+
+    if (quoted) {
+        throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Missing closing quote: '" + std::string(name) + "'");
+    }
+
+    return end;
+}
 
 } // namespace ignite
