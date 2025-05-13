@@ -217,13 +217,37 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         CollectionAssert.AreEqual(items, res);
     }
 
-    private async Task<object> RunEchoArgReceiver(object arg) =>
-        await PocoView.StreamDataAsync<object, object, object, object>(
+    [Test]
+    public async Task TestPlatformExecutorWithOldServerThrowsCompatibilityError()
+    {
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
+
+        var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
+        var view = table!.RecordBinaryView;
+
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await view.StreamDataAsync<object, object, object, object>(
+            new object[] { "unused" }.ToAsyncEnumerable(),
+            keySelector: _ => new IgniteTuple { ["ID"] = 1 },
+            payloadSelector: _ => "unused",
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
+            receiverArg: "test").SingleAsync());
+
+        Assert.AreEqual("ReceiverExecutionOptions are not supported by the server.", ex.Message);
+        Assert.AreEqual(1, ex.FailedItems.Count);
+    }
+
+    private async Task<object> RunEchoArgReceiver(object arg, IRecordView<Poco>? view = null)
+    {
+        view ??= PocoView;
+
+        return await view.StreamDataAsync<object, object, object, object>(
             new object[] { "unused" }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: _ => "unused",
             DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: arg).SingleAsync();
+    }
 
     private async Task<List<object>> RunEchoReceiver(IEnumerable<object> items, DataStreamerOptions? options = null) =>
         await PocoView.StreamDataAsync<object, object, object, object>(
