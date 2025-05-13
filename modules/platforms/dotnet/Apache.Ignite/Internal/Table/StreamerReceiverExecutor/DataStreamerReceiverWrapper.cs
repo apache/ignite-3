@@ -18,17 +18,14 @@
 namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 
 using System;
-using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Buffers;
-using Compute;
 using Ignite.Sql;
 using Ignite.Table;
 using Proto.BinaryTuple;
-using Proto.MsgPack;
 using Serialization;
 
 /// <summary>
@@ -72,7 +69,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
 
     private static (List<TItem> Page, TArg Arg) ReadPageAndArg(PooledBuffer argBuf)
     {
-        BinaryTupleReader receiverInfo = StreamerReceiverJob.GetReceiverInfoReaderFast(argBuf);
+        BinaryTupleReader receiverInfo = StreamerReceiverSerializer.GetReceiverInfoReaderFast(argBuf);
 
         object? argObj = ReadArg(ref receiverInfo, 1);
         List<TItem> items = ReadPage(ref receiverInfo);

@@ -22,6 +22,7 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Diagnostics;
+using Buffers;
 using Compute;
 using Ignite.Table;
 using Proto.BinaryTuple;
@@ -83,6 +84,30 @@ internal static class StreamerReceiverSerializer
 
         w.Write(binaryTupleSize);
         w.Write(builder.Build().Span);
+    }
+
+    /// <summary>
+    /// Unwraps receiver info from the job argument buffer.
+    /// Performs simple offset calculations and can be called multiple times.
+    /// </summary>
+    /// <param name="jobArgBuf">Job argument buffer.</param>
+    /// <returns>Binary tuple reader with streamer receiver info.</returns>
+    public static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
+    {
+        var r = jobArgBuf.GetReader();
+
+        // Excerpt from ComputePacker.
+        int argType = r.ReadInt32();
+        Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
+
+        // Excerpt from ReadObjectFromBinaryTuple.
+        ReadOnlySpan<byte> tupleSpan = r.ReadBinary();
+        var binTuple = new BinaryTupleReader(tupleSpan, 3);
+
+        ReadOnlySpan<byte> receiverInfoSpan = binTuple.GetBytesSpan(2);
+        int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
+
+        return new BinaryTupleReader(receiverInfoSpan[4..], receiverElementCount);
     }
 
     /// <summary>

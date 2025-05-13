@@ -28,6 +28,7 @@ using Apache.Ignite.Internal.Compute;
 using Apache.Ignite.Internal.Compute.Executor;
 using Apache.Ignite.Internal.Proto.BinaryTuple;
 using Apache.Ignite.Table;
+using Serialization;
 
 /// <summary>
 /// Internal compute job that executes user-defined data streamer receiver.
@@ -51,34 +52,11 @@ internal static class StreamerReceiverJob
         JobLoadContext jobLoadContext,
         CancellationToken cancellationToken)
     {
-        var receiverTypeName = GetReceiverInfoReaderFast(argBuf).GetString(0);
+        var receiverTypeName = StreamerReceiverSerializer.GetReceiverInfoReaderFast(argBuf)
+            .GetString(0);
 
         IDataStreamerReceiverWrapper receiverWrapper = jobLoadContext.CreateReceiverWrapper(receiverTypeName);
 
         await receiverWrapper.ExecuteAsync(receiverContext, argBuf, resBuf, cancellationToken).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// Unwraps receiver info from the job argument buffer.
-    /// Performs simple offset calculations and can be called multiple times.
-    /// </summary>
-    /// <param name="jobArgBuf">Job argument buffer.</param>
-    /// <returns>Binary tuple reader with streamer receiver info.</returns>
-    public static BinaryTupleReader GetReceiverInfoReaderFast(PooledBuffer jobArgBuf)
-    {
-        var r = jobArgBuf.GetReader();
-
-        // Excerpt from ComputePacker.
-        int argType = r.ReadInt32();
-        Debug.Assert(argType == ComputePacker.Native, $"Expected Native type, got: {argType}");
-
-        // Excerpt from ReadObjectFromBinaryTuple.
-        ReadOnlySpan<byte> tupleSpan = r.ReadBinary();
-        var binTuple = new BinaryTupleReader(tupleSpan, 3);
-
-        ReadOnlySpan<byte> receiverInfoSpan = binTuple.GetBytesSpan(2);
-        int receiverElementCount = BinaryPrimitives.ReadInt32LittleEndian(receiverInfoSpan);
-
-        return new BinaryTupleReader(receiverInfoSpan[4..], receiverElementCount);
     }
 }
