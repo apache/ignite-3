@@ -101,4 +101,38 @@ INSTANTIATE_TEST_SUITE_P(
         "A\xF0",
         "$foo",
         "foo$")
+        );
+
+
+class valid_identifiers_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+
+TEST_P(valid_identifiers_fixture, parse_identifier_valid) {
+    auto [name, expected] = GetParam();
+
+    EXPECT_EQ(name, parse_identifier(quote_if_needed(
+        name, qualified_name::QUOTE_CHAR), qualified_name::QUOTE_CHAR, qualified_name::SEPARATOR_CHAR));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_name_utils, valid_identifiers_fixture,
+    ::testing::Values(
+        std::make_tuple("foo", "FOO"),
+        std::make_tuple("fOo", "FOO"),
+        std::make_tuple("FOO", "FOO"),
+        std::make_tuple("fo_o", "FO_O"),
+        std::make_tuple("_foo", "_FOO"),
+        std::make_tuple("_\xC2\xB7", "_\xC2\xB7"),
+        std::make_tuple("A\xCC\x80", "A\xCC\x80"),
+        std::make_tuple("\"FOO\"", "FOO"),
+        std::make_tuple("\"foo\"", "foo"),
+        std::make_tuple("\"fOo\"", "fOo"),
+        std::make_tuple("\"$fOo\"", "$fOo"),
+        std::make_tuple("\"f.f\"", "f.f"),
+        std::make_tuple("\"f\"\"f\"", "f\"f"),
+        std::make_tuple("\" \"", " "),
+        std::make_tuple("\"   \"", "   "),
+        std::make_tuple("\",\"", ","),
+        std::make_tuple("\"\xF0\x9F\x98\x85\"", "\xF0\x9F\x98\x85"),
+        std::make_tuple("\"f\xF0\x9F\x98\x85\"", "f\xF0\x9F\x98\x85")
+    )
 );
