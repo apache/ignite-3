@@ -409,7 +409,7 @@ internal static class DataStreamerWithReceiver
                 async static (socket, arg) =>
                 {
                     if (arg.customReceiverExecutionOptions &&
-                        !socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.PlatformComputeJob))
+                        !socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.StreamerReceiverExecutionOptions))
                     {
                         throw new IgniteClientException(
                             ErrorGroups.Client.ProtocolCompatibility,
