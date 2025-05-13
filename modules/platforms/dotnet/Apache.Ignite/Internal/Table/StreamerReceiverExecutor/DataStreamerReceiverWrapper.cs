@@ -47,7 +47,7 @@ internal sealed class DataStreamerReceiverWrapper<TReceiver, TItem, TArg, TResul
 
         try
         {
-            IList<TResult>? res = await receiver.ReceiveAsync(page, context, arg, cancellationToken).ConfigureAwait(false);
+            IList<TResult>? res = await receiver.ReceiveAsync(page, arg, context, cancellationToken).ConfigureAwait(false);
 
             StreamerReceiverSerializer.WriteReceiverResults(responseBuf.MessageWriter, res);
         }

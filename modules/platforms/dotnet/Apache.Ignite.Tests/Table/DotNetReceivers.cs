@@ -45,8 +45,8 @@ public static class DotNetReceivers
     {
         public ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
+            object arg,
             IDataStreamerReceiverContext context,
-            object? arg,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult(page)!;
     }
@@ -55,8 +55,8 @@ public static class DotNetReceivers
     {
         public ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
+            object arg,
             IDataStreamerReceiverContext context,
-            object? arg,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult<IList<object>?>([arg!]);
     }
@@ -65,8 +65,8 @@ public static class DotNetReceivers
     {
         public async ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
+            object arg,
             IDataStreamerReceiverContext context,
-            object? arg,
             CancellationToken cancellationToken)
         {
             await Task.Delay(1, cancellationToken);
@@ -79,8 +79,8 @@ public static class DotNetReceivers
     {
         public async ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
             IList<int> page,
-            IDataStreamerReceiverContext context,
             string arg,
+            IDataStreamerReceiverContext context,
             CancellationToken cancellationToken)
         {
             var ignite = context.Ignite;
@@ -112,8 +112,8 @@ public static class DotNetReceivers
     {
         public ValueTask<IList<IIgniteTuple>?> ReceiveAsync(
             IList<IIgniteTuple> page,
-            IDataStreamerReceiverContext context,
             object? arg,
+            IDataStreamerReceiverContext context,
             CancellationToken cancellationToken)
         {
             foreach (var rec in page)

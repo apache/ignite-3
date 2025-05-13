@@ -38,10 +38,13 @@ public interface IDataStreamerReceiver<TItem, TArg, TResult>
     /// updating zero or more tables, and returning a result.
     /// </summary>
     /// <param name="page">A page of items. Page size is controlled by <see cref="DataStreamerOptions.PageSize"/>.</param>
-    /// <param name="context">Context.</param>
     /// <param name="arg">Receiver argument.</param>
+    /// <param name="context">Context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A collection of results. Can be null.</returns>
     ValueTask<IList<TResult>?> ReceiveAsync(
-        IList<TItem> page, IDataStreamerReceiverContext context, TArg arg, CancellationToken cancellationToken);
+        IList<TItem> page,
+        TArg arg,
+        IDataStreamerReceiverContext context,
+        CancellationToken cancellationToken);
 }

@@ -194,8 +194,8 @@ public class JobLoadContextTests
 
         public ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
-            IDataStreamerReceiverContext context,
             Guid arg,
+            IDataStreamerReceiverContext context,
             CancellationToken cancellationToken)
         {
             _id = arg;
@@ -217,8 +217,8 @@ public class JobLoadContextTests
 
         public ValueTask<IList<object>?> ReceiveAsync(
             IList<object> page,
-            IDataStreamerReceiverContext context,
             Guid arg,
+            IDataStreamerReceiverContext context,
             CancellationToken cancellationToken)
         {
             _id = arg;
@@ -242,11 +242,11 @@ public class JobLoadContextTests
     private class MultiInterfaceReceiver : IDataStreamerReceiver<int, int, int>, IDataStreamerReceiver<int, int, short>
     {
         ValueTask<IList<int>?> IDataStreamerReceiver<int, int, int>.ReceiveAsync(
-            IList<int> page, IDataStreamerReceiverContext context, int arg, CancellationToken cancellationToken) =>
+            IList<int> page, int arg, IDataStreamerReceiverContext context, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
 
         ValueTask<IList<short>?> IDataStreamerReceiver<int, int, short>.ReceiveAsync(
-            IList<int> page, IDataStreamerReceiverContext context, int arg, CancellationToken cancellationToken) =>
+            IList<int> page, int arg, IDataStreamerReceiverContext context, CancellationToken cancellationToken) =>
             throw new NotImplementedException();
     }
 }
