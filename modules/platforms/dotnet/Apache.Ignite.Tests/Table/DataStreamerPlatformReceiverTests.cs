@@ -164,6 +164,20 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         Assert.Fail("TODO");
     }
 
+    [Test]
+    public async Task TestEchoManyItems([Values(1, 10, 1000, 100_000)] int pageSize)
+    {
+        const int count = 50_000;
+
+        var items = Enumerable.Range(0, count)
+            .Select(x => new IgniteTuple { ["id"] = x, ["name"] = $"foo-{x}" })
+            .ToList();
+
+        var res = await RunEchoReceiver(items);
+
+        CollectionAssert.AreEqual(items, res);
+    }
+
     private async Task<object> RunEchoArgReceiver(object arg) =>
         await PocoView.StreamDataAsync<object, object, object, object>(
             new object[] { "unused" }.ToAsyncEnumerable(),
@@ -172,7 +186,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: arg).SingleAsync();
 
-    private async Task<List<object>> RunEchoReceiver(List<object> items) =>
+    private async Task<List<object>> RunEchoReceiver(IEnumerable<object> items) =>
         await PocoView.StreamDataAsync<object, object, object, object>(
             items.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
