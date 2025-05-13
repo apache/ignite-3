@@ -447,7 +447,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final EventListener<LocalPartitionReplicaEventParameters> onZoneReplicaDestroyedListener = this::onZoneReplicaDestroyed;
 
     private final EventListener<CreateTableEventParameters> onTableCreateListener = enabledColocation
-            ? this::prepareTableResourcesAndLoadToZoneReplica : this::onTableCreate;
+            ? this::loadTableToZoneOnTableCreate : this::onTableCreate;
     private final EventListener<DropTableEventParameters> onTableDropListener = fromConsumer(this::onTableDrop);
     private final EventListener<CatalogEventParameters> onTableAlterListener = this::onTableAlter;
 
@@ -693,54 +693,59 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return inBusyLockAsync(busyLock, () -> readyToProcessReplicaStarts
-                .thenCompose(v -> {
-                    ZonePartitionId zonePartitionId = parameters.zonePartitionId();
-
-                    StampedLock zoneLock = tablesPerZoneLocks.computeIfAbsent(zonePartitionId.zoneId(), id -> new StampedLock());
-                    long stamp = zoneLock.readLock();
-
-                    try {
-                        Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
-
-                        int partitionIndex = zonePartitionId.partitionId();
-                        PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
-
-                        CompletableFuture<?>[] futures = zoneTables.stream()
-                                .map(tbl -> inBusyLockAsync(busyLock, () -> {
-                                    return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
-                                            .thenRun(() -> {
-                                                localPartsByTableId.compute(
-                                                        tbl.tableId(),
-                                                        (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
-                                                );
-                                            })
-                                            .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                                                lowWatermark.getLowWatermarkSafe(lwm ->
-                                                        registerIndexesToTable(
-                                                                tbl,
-                                                                catalogService,
-                                                                singlePartitionIdSet,
-                                                                tbl.schemaView(),
-                                                                lwm
-                                                        )
-                                                );
-
-                                                preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, false);
-                                            }), ioExecutor)
-                                            // If the table is already closed, it's not a problem (probably the node is stopping).
-                                            .exceptionally(ignoreTableClosedException());
-                                }))
-                                .toArray(CompletableFuture[]::new);
-
-                        return allOf(futures).thenAccept(unused -> zoneLock.unlockRead(stamp));
-                    } catch (Throwable t) {
-                        zoneLock.unlockRead(stamp);
-
-                        return failedFuture(t);
-                    }
-                })
+                .thenCompose(v -> beforeZoneReplicaStartedImpl(parameters))
                 .thenApply(unused -> false)
         );
+    }
+
+    private CompletableFuture<Void> beforeZoneReplicaStartedImpl(LocalPartitionReplicaEventParameters parameters) {
+        return inBusyLockAsync(busyLock, () -> {
+            ZonePartitionId zonePartitionId = parameters.zonePartitionId();
+
+            StampedLock zoneLock = tablesPerZoneLocks.computeIfAbsent(zonePartitionId.zoneId(), id -> new StampedLock());
+
+            long stamp = zoneLock.readLock();
+
+            try {
+                Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
+
+                int partitionIndex = zonePartitionId.partitionId();
+
+                PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
+
+                CompletableFuture<?>[] futures = zoneTables.stream()
+                        .map(tbl -> inBusyLockAsync(busyLock, () -> {
+                            return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                                    .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                        localPartsByTableId.compute(
+                                                tbl.tableId(),
+                                                (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
+                                        );
+
+                                        lowWatermark.getLowWatermarkSafe(lwm ->
+                                                registerIndexesToTable(
+                                                        tbl,
+                                                        catalogService,
+                                                        singlePartitionIdSet,
+                                                        tbl.schemaView(),
+                                                        lwm
+                                                )
+                                        );
+
+                                        preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, parameters.onRecovery());
+                                    }), ioExecutor)
+                                    // If the table is already closed, it's not a problem (probably the node is stopping).
+                                    .exceptionally(ignoreTableClosedException());
+                        }))
+                        .toArray(CompletableFuture[]::new);
+
+                return allOf(futures).thenAccept(unused -> zoneLock.unlockRead(stamp));
+            } catch (Throwable t) {
+                zoneLock.unlockRead(stamp);
+
+                return failedFuture(t);
+            }
+        });
     }
 
     private static Function<Throwable, Void> ignoreTableClosedException() {
@@ -814,22 +819,50 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private CompletableFuture<Boolean> prepareTableResourcesAndLoadToZoneReplica(CreateTableEventParameters parameters) {
+    /**
+     * During node recovery pre-populates required internal table structures before zone replicas are started.
+     *
+     * <p>The created resources will then be loaded during replica startup in {@link #beforeZoneReplicaStarted}.
+     */
+    private CompletableFuture<Void> prepareTableResourcesOnRecovery(
+            long causalityToken,
+            CatalogZoneDescriptor zoneDescriptor,
+            CatalogTableDescriptor tableDescriptor,
+            CatalogSchemaDescriptor schemaDescriptor
+    ) {
+        return inBusyLockAsync(busyLock, () -> {
+            TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
+
+            int tableId = tableDescriptor.id();
+
+            tables.put(tableId, table);
+
+            return schemaManager.schemaRegistry(causalityToken, tableId)
+                    .thenAccept(schemaRegistry -> inBusyLock(busyLock, () -> {
+                        table.schemaView(schemaRegistry);
+
+                        addTableToZone(zoneDescriptor.id(), table);
+
+                        startedTables.put(tableId, table);
+                    }));
+        });
+    }
+
+    private CompletableFuture<Boolean> loadTableToZoneOnTableCreate(CreateTableEventParameters parameters) {
         long causalityToken = parameters.causalityToken();
         CatalogTableDescriptor tableDescriptor = parameters.tableDescriptor();
         CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, parameters.catalogVersion());
         CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, parameters.catalogVersion());
 
-        return prepareTableResourcesAndLoadToZoneReplica(causalityToken, zoneDescriptor, tableDescriptor, schemaDescriptor, false)
+        return loadTableToZoneOnTableCreate(causalityToken, zoneDescriptor, tableDescriptor, schemaDescriptor)
                 .thenApply(v -> false);
     }
 
-    private CompletableFuture<Void> prepareTableResourcesAndLoadToZoneReplica(
+    private CompletableFuture<Void> loadTableToZoneOnTableCreate(
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
             CatalogTableDescriptor tableDescriptor,
-            CatalogSchemaDescriptor schemaDescriptor,
-            boolean onNodeRecovery
+            CatalogSchemaDescriptor schemaDescriptor
     ) {
         TableImpl table = createTableImpl(causalityToken, tableDescriptor, zoneDescriptor, schemaDescriptor);
 
@@ -847,7 +880,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         // will call update() on VVs and inside those updates it will chain on the lock acquisition future.
         CompletableFuture<Long> acquisitionFuture = partitionReplicaLifecycleManager.lockZoneForRead(zoneDescriptor.id());
         try {
-            return prepareTableResourcesAndLoadHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, onNodeRecovery, table)
+            return loadTableToZoneOnTableCreateHavingZoneReadLock(acquisitionFuture, causalityToken, zoneDescriptor, table)
                     .whenComplete((res, ex) -> unlockZoneForRead(zoneDescriptor, acquisitionFuture));
         } catch (Throwable e) {
             unlockZoneForRead(zoneDescriptor, acquisitionFuture);
@@ -856,11 +889,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
     }
 
-    private CompletableFuture<Void> prepareTableResourcesAndLoadHavingZoneReadLock(
+    private CompletableFuture<Void> loadTableToZoneOnTableCreateHavingZoneReadLock(
             CompletableFuture<Long> readLockAcquisitionFuture,
             long causalityToken,
             CatalogZoneDescriptor zoneDescriptor,
-            boolean onNodeRecovery,
             TableImpl table
     ) {
         int tableId = table.tableId();
@@ -890,20 +922,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             }
 
             return allOf(localPartsUpdateFuture, tablesByIdFuture).thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                if (onNodeRecovery) {
-                    SchemaRegistry schemaRegistry = table.schemaView();
-                    PartitionSet partitionSet = localPartsByTableId.get(tableId);
-                    // LWM starts updating only after the node is restored.
-                    HybridTimestamp lwm = lowWatermark.getLowWatermark();
-
-                    registerIndexesToTable(table, catalogService, partitionSet, schemaRegistry, lwm);
-                }
-
                 for (int i = 0; i < zoneDescriptor.partitions(); i++) {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
 
                     if (partitionReplicaLifecycleManager.hasLocalPartition(zonePartitionId)) {
-                        preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId, onNodeRecovery);
+                        preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId, false);
                     }
                 }
             }), ioExecutor);
@@ -3097,12 +3120,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(tableDescriptor, ver);
                     CatalogSchemaDescriptor schemaDescriptor = getSchemaDescriptor(tableDescriptor, ver);
 
-                    startTableFuture = prepareTableResourcesAndLoadToZoneReplica(
+                    startTableFuture = prepareTableResourcesOnRecovery(
                             recoveryRevision,
                             zoneDescriptor,
                             tableDescriptor,
-                            schemaDescriptor,
-                            true
+                            schemaDescriptor
                     );
                 } else {
                     startTableFuture = createTableLocally(recoveryRevision, ver, tableDescriptor, true);
