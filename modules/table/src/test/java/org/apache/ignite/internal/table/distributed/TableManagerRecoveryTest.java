@@ -22,6 +22,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createHashIndex;
@@ -54,6 +55,7 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -137,6 +139,7 @@ import org.apache.ignite.internal.table.distributed.raft.MinimumRequiredTimeColl
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
 import org.apache.ignite.internal.tx.impl.RemotelyTriggeredResourceRegistry;
@@ -148,6 +151,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -212,15 +216,18 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     private final DataStorageModule dataStorageModule = createDataStorageModule();
 
+    @BeforeEach
+    void setUp() throws Exception {
+        startComponents();
+    }
+
     @AfterEach
-    void after() throws Exception {
+    void tearDown() throws Exception {
         stopComponents();
     }
 
     @Test
     public void testTableIgnoredOnRecovery() throws Exception {
-        startComponents();
-
         createZone(ZONE_NAME);
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, INDEX_NAME);
@@ -252,8 +259,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     @Test
     public void testTableStartedOnRecovery() throws Exception {
-        startComponents();
-
         createZone(ZONE_NAME);
         createTable(TABLE_NAME);
         createIndex(TABLE_NAME, INDEX_NAME);
@@ -280,8 +285,6 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
     @Test
     public void tablesAreScheduledForRemovalOnRecovery() throws Exception {
-        startComponents();
-
         createSimpleTable(catalogManager, TABLE_NAME);
 
         dropSimpleTable(catalogManager, TABLE_NAME);
@@ -299,6 +302,26 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         lowWatermark.updateLowWatermark(clock.now());
 
         verify(mvTableStorage, timeout(WAIT_TIMEOUT)).destroy();
+    }
+
+    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    @Test
+    public void raftListenersAreRecoveredOnRecovery() throws Exception {
+        int defaultZonePartitions = catalogManager.catalog(catalogManager.latestCatalogVersion())
+                .defaultZone()
+                .partitions();
+
+        createSimpleTable(catalogManager, TABLE_NAME);
+
+        verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
+                .loadTableListenerToZoneReplica(any(), anyInt(), any(), any(), any(), eq(false));
+
+        stopComponents();
+        startComponents();
+
+        // Verify that the listeners were loaded with the correct recovery flag value.
+        verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
+                .loadTableListenerToZoneReplica(any(), anyInt(), any(), any(), any(), eq(true));
     }
 
     /**
@@ -408,7 +431,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 failureProcessor
         );
 
-        partitionReplicaLifecycleManager = new PartitionReplicaLifecycleManager(
+        partitionReplicaLifecycleManager = spy(new PartitionReplicaLifecycleManager(
                 catalogManager,
                 replicaMgr,
                 distributionZoneManager,
@@ -428,7 +451,7 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
                 sm,
                 dsm,
                 outgoingSnapshotManager
-        );
+        ));
 
         tableManager = new TableManager(
                 NODE_NAME,
