@@ -20,6 +20,7 @@ apply from: "$rootDir/buildscripts/publishing.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
 apply from: "$rootDir/buildscripts/java-test-fixtures.gradle"
+apply from: "$rootDir/buildscripts/migration-tools-integration-test.gradle"
 
 description = 'migration-tools-config-converter'
 
@@ -52,5 +53,3 @@ dependencies {
     testFixturesImplementation libs.commons.lang3
     testFixturesImplementation libs.typesafe.config
 }
-
-tasks.integrationTest.dependsOn += ":packaging:docker"
