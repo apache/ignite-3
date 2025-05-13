@@ -495,7 +495,7 @@ namespace Apache.Ignite.Internal.Compute
                             {
                                 if (CanWriteJobExecType(socket))
                                 {
-                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecute, args.bufferWriter, expectNotifications: true)
+                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, args.bufferWriter, expectNotifications: true)
                                         .ConfigureAwait(false);
                                 }
 
@@ -503,7 +503,7 @@ namespace Apache.Ignite.Internal.Compute
                                 using var writer = ProtoCommon.GetMessageWriter();
                                 Write(writer, args.table, args.schema, args.key, args.serializerHandlerFunc, args.descriptor, args.arg, false);
 
-                                return await socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, expectNotifications: true)
+                                return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, writer, expectNotifications: true)
                                     .ConfigureAwait(false);
                             },
                             preferredNode)
