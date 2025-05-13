@@ -17,16 +17,11 @@
 
 namespace Apache.Ignite.Internal.Table.StreamerReceiverExecutor;
 
-using System;
-using System.Buffers.Binary;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 using System.Threading.Tasks;
 using Apache.Ignite.Internal.Buffers;
-using Apache.Ignite.Internal.Compute;
 using Apache.Ignite.Internal.Compute.Executor;
-using Apache.Ignite.Internal.Proto.BinaryTuple;
 using Apache.Ignite.Table;
 using Serialization;
 

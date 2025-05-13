@@ -30,7 +30,6 @@ using Ignite.Table;
 using Internal.Buffers;
 using Internal.Compute;
 using Internal.Compute.Executor;
-using Internal.Proto.BinaryTuple;
 using Internal.Table.Serialization;
 using NUnit.Framework;
 
