@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -467,20 +468,17 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
 
         Lease timedOutAgreementLease = agreementsMap.get(timedOutGroup).getLease();
 
-        try {
-            assertTrue(waitForCondition(() -> {
-                LeaseAgreement t = agreementsMap.get(timedOutGroup);
-                LeaseAgreement r = agreementsMap.get(removedGroup);
+        assertTrue(
+                waitForCondition(() -> {
+                    LeaseAgreement t = agreementsMap.get(timedOutGroup);
+                    LeaseAgreement r = agreementsMap.get(removedGroup);
 
-                // As the old agreements are cleaned up, they can be replaced with new ones.
-                return (t == null || t.getLease().getStartTime().longValue() > timedOutAgreementLease.getStartTime().longValue())
-                        && r == null;
-            }, 10_000));
-        } catch (AssertionError e) {
-            log.warn("Agreements: timedOutGroup: {}, removedGroup: {}", agreementsMap.get(timedOutGroup), agreementsMap.get(removedGroup));
-
-            throw e;
-        }
+                    // As the old agreements are cleaned up, they can be replaced with new ones.
+                    return (t == null || t.getLease().getStartTime().longValue() > timedOutAgreementLease.getStartTime().longValue())
+                            && r == null;
+                }, 10_000),
+                format("Agreements: timedOutGroup: {}, removedGroup: {}", agreementsMap.get(timedOutGroup), agreementsMap.get(removedGroup))
+        );
     }
 
     @Test
