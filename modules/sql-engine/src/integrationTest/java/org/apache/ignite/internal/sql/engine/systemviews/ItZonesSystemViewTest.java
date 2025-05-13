@@ -260,7 +260,6 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("ZONE_NAME").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH).nullable(true),
                         new MetadataMatcher().name("ZONE_PARTITIONS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("ZONE_REPLICAS").type(ColumnType.INT32).nullable(true),
-                        new MetadataMatcher().name("ZONE_QUORUM_SIZE").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_UP").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("DATA_NODES_AUTO_ADJUST_SCALE_DOWN").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("DATA_NODES_FILTER").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH),
@@ -274,7 +273,8 @@ public class ItZonesSystemViewTest extends AbstractSystemViewTest {
                         new MetadataMatcher().name("PARTITIONS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("REPLICAS").type(ColumnType.INT32).nullable(true),
                         new MetadataMatcher().name("CONSISTENCY_MODE").type(ColumnType.STRING).precision(DEFAULT_VARLEN_LENGTH)
-                                .nullable(true)
+                                .nullable(true),
+                        new MetadataMatcher().name("ZONE_QUORUM_SIZE").type(ColumnType.INT32).nullable(true)
                 )
                 .check();
     }
