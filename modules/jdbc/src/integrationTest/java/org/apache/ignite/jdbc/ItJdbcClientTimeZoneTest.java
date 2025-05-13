@@ -212,9 +212,52 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
             }
         }
 
+        TimeZone.setDefault(TimeZone.getTimeZone(origin));
+
+        try (Connection conn = DriverManager.getConnection(URL + "?connectionTimeZone=GMT+1")) {
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery("SELECT ts, ts_tz FROM test where id=1")) {
+                    assertTrue(rs.next());
+
+                    // Session and client time zone are same ("GMT+1").
+                    {
+                        assertEquals(timestamp("1970-01-01T00:00:00"), rs.getTimestamp(1));
+                        assertEquals(LocalTime.of(0, 0, 0), rs.getTime(1).toLocalTime());
+                        assertEquals(LocalDate.of(1970, 1, 1), rs.getDate(1).toLocalDate());
+
+                        assertEquals(timestamp("1970-01-01T00:00:00"), rs.getTimestamp(2));
+                        assertEquals(LocalTime.of(0, 0, 0), rs.getTime(2).toLocalTime());
+                        assertEquals(LocalDate.of(1970, 1, 1), rs.getDate(2).toLocalDate());
+                    }
+                }
+            }
+        }
+
         TimeZone.setDefault(TimeZone.getTimeZone("GMT+2"));
 
         try (Connection conn = DriverManager.getConnection(URL)) {
+            try (Statement stmt = conn.createStatement()) {
+                try (ResultSet rs = stmt.executeQuery("SELECT ts, ts_tz FROM test where id=1")) {
+                    assertTrue(rs.next());
+
+                    // Session time zone was "GMT+1".
+                    // Client time zone is "GMT+2".
+                    {
+                        assertEquals(timestamp("1970-01-01T00:00:00"), rs.getTimestamp(1));
+                        assertEquals(LocalTime.of(0, 0, 0), rs.getTime(1).toLocalTime());
+                        assertEquals(LocalDate.of(1970, 1, 1), rs.getDate(1).toLocalDate());
+
+                        assertEquals(timestamp("1970-01-01T01:00:00"), rs.getTimestamp(2));
+                        assertEquals(LocalTime.of(1, 0, 0), rs.getTime(2).toLocalTime());
+                        assertEquals(LocalDate.of(1970, 1, 1), rs.getDate(2).toLocalDate());
+                    }
+                }
+            }
+        }
+
+        TimeZone.setDefault(TimeZone.getTimeZone(origin));
+
+        try (Connection conn = DriverManager.getConnection(URL + "?connectionTimeZone=GMT+2")) {
             try (Statement stmt = conn.createStatement()) {
                 try (ResultSet rs = stmt.executeQuery("SELECT ts, ts_tz FROM test where id=1")) {
                     assertTrue(rs.next());
