@@ -200,25 +200,9 @@ internal static class DataStreamerWithReceiver
 
         Batch<TSource, TPayload> Add(TSource item)
         {
-            var tupleBuilder = new BinaryTupleBuilder(schema.KeyColumns.Length, hashedColumnsPredicate: schema.HashedColumnIndexProvider);
-
-            try
-            {
-                return Add0(item, ref tupleBuilder);
-            }
-            finally
-            {
-                tupleBuilder.Dispose();
-            }
-        }
-
-        Batch<TSource, TPayload> Add0(TSource item, ref BinaryTupleBuilder tupleBuilder)
-        {
-            // Write key to compute hash.
             var key = keySelector(item);
-            keyWriter.Write(ref tupleBuilder, key, schema, keyOnly: true, Span<byte>.Empty);
-
-            var partitionId = Math.Abs(tupleBuilder.GetHash() % partitionCount);
+            var hash = keyWriter.GetKeyColocationHash(schema, key);
+            var partitionId = Math.Abs(hash % partitionCount);
             var batch = GetOrCreateBatch(partitionId);
 
             var payload = payloadSelector(item);
