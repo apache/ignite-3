@@ -54,6 +54,7 @@ public final class ZonesSystemViewProvider implements CatalogSystemViewProvider 
                 .addColumn("ZONE_NAME", STRING, wrapper -> wrapper.zone.name())
                 .addColumn("ZONE_PARTITIONS", INT32, wrapper -> wrapper.zone.partitions())
                 .addColumn("ZONE_REPLICAS", INT32, wrapper -> wrapper.zone.replicas())
+                .addColumn("ZONE_QUORUM_SIZE", INT32, wrapper -> wrapper.zone.quorumSize())
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_UP", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleUp())
                 .addColumn("DATA_NODES_AUTO_ADJUST_SCALE_DOWN", INT32, wrapper -> wrapper.zone.dataNodesAutoAdjustScaleDown())
                 .addColumn("DATA_NODES_FILTER", STRING, wrapper -> wrapper.zone.filter())

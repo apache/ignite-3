@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.round;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultQuorumSize;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -155,9 +157,9 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
     @Test
     void extremeQuorumSize() {
         int replicas = Integer.MAX_VALUE; // REPLICAS = ALL
-        int maxQuorumSize = Integer.MAX_VALUE / 2 + 1;
-        int defaultQuorumSize = 3;
-        int defaultConsensusGroupSize = 5;
+        int maxQuorumSize = (int) (round(replicas / 2.0));
+        int defaultQuorumSize = defaultQuorumSize(replicas);
+        int defaultConsensusGroupSize = defaultQuorumSize * 2 - 1;
 
         String errorMessageFragmentMaxQuorum = "Specified quorum size doesn't fit into the specified replicas count";
 
