@@ -239,14 +239,15 @@ std::shared_ptr<node_connection> cluster_connection::get_random_channel() {
 }
 
 std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::perform_request_handler(
-    protocol::client_operation op, transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+    const operation_function_type &op_func, transaction_impl *tx, const writer_function_type &wr,
     const std::shared_ptr<response_handler> &handler) {
     if (tx) {
         auto channel = tx->get_connection();
         if (!channel)
             throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Transaction was not started properly");
 
-        auto res = channel->perform_request(op, wr, handler);
+        auto &context = channel->get_protocol_context();
+        auto res = channel->perform_request(op_func(context), wr, handler);
         if (!res)
             throw ignite_error(error::code::CONNECTION, "Connection associated with the transaction is closed");
 
@@ -258,16 +259,17 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
         if (!channel)
             throw ignite_error(error::code::CONNECTION, "No nodes connected");
 
-        auto res = channel->perform_request(op, wr, handler);
+        auto &context = channel->get_protocol_context();
+        auto res = channel->perform_request(op_func(context), wr, handler);
         if (res)
             return {channel, *res};
     }
 }
 
 void cluster_connection::perform_request_raw(protocol::client_operation op, transaction_impl *tx,
-    const std::function<void(protocol::writer &)> &wr, ignite_callback<bytes_view> callback) {
+    const writer_function_type &wr, ignite_callback<bytes_view> callback) {
     auto handler = std::make_shared<response_handler_raw>(std::move(callback));
-    perform_request_handler(op, tx, wr, std::move(handler));
+    perform_request_handler(static_op(op), tx, wr, std::move(handler));
 }
 
 } // namespace ignite::detail

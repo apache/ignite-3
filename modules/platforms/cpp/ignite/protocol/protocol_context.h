@@ -25,6 +25,8 @@
 
 #include <vector>
 
+#include "bitmask_feature.h"
+
 namespace ignite::protocol {
 
 /**
@@ -103,6 +105,16 @@ public:
      * @param features Features.
      */
     void set_features(std::vector<std::byte> features) { m_features = std::move(features); }
+
+    /**
+     * Check if the bitmask feature supported.
+     *
+     * @param feature Bitmask feature to test.
+     * @return Features.
+     */
+    [[nodiscard]] bool is_feature_supported(bitmask_feature feature) const {
+        return bitset_span(m_features).test(static_cast<std::size_t>(feature));
+    }
 
 private:
     /** Protocol version. */
