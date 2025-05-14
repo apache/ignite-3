@@ -318,7 +318,7 @@ public class DdlSqlToCommandConverter {
             if (sqlNode instanceof SqlColumnDeclaration) {
                 String colName = ((SqlColumnDeclaration) sqlNode).name.getSimple();
 
-                if (IgniteSqlValidator.isSystemFieldName(colName)) {
+                if (IgniteSqlValidator.isSystemColumnName(colName)) {
                     throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                             + "Column '" + colName + "' is reserved name.");
                 }
@@ -494,7 +494,7 @@ public class DdlSqlToCommandConverter {
             Boolean nullable = col.dataType.getNullable();
 
             String colName = col.name.getSimple();
-            if (IgniteSqlValidator.isSystemFieldName(colName)) {
+            if (IgniteSqlValidator.isSystemColumnName(colName)) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                         + "Column '" + colName + "' is reserved name.");
             }
