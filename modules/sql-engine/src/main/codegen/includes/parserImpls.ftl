@@ -658,6 +658,12 @@ void ZoneElement(List<SqlNode> zoneOptions) :
           }
       )
       |
+      <QUORUM> { pos = getPos(); } <SIZE> option = UnsignedIntegerLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.QUORUM_SIZE.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
+      |
       <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = NonEmptyCharacterStringLiteral()
       {
           key = new SqlIdentifier(ZoneOptionEnum.DISTRIBUTION_ALGORITHM.name(), pos);

@@ -17,12 +17,14 @@
 
 package org.apache.ignite.internal.catalog.commands;
 
+import static java.lang.Math.round;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_FILTER;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.IMMEDIATE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.INFINITE_TIMER_VALUE;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.MAX_PARTITION_COUNT;
+import static org.apache.ignite.internal.catalog.commands.CatalogUtils.defaultQuorumSize;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -150,6 +152,29 @@ public class CreateZoneCommandValidationTest extends AbstractCommandValidationTe
         for (int i = minQuorumSize; i <= maxQuorumSize; i++) {
             getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(i));
         }
+    }
+
+    @Test
+    void extremeQuorumSize() {
+        int replicas = Integer.MAX_VALUE; // REPLICAS = ALL
+        int maxQuorumSize = (int) (round(replicas / 2.0));
+        int defaultQuorumSize = defaultQuorumSize(replicas);
+        int defaultConsensusGroupSize = defaultQuorumSize * 2 - 1;
+
+        String errorMessageFragmentMaxQuorum = "Specified quorum size doesn't fit into the specified replicas count";
+
+        assertThrows(
+                CatalogValidationException.class,
+                () -> getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize + 1)),
+                errorMessageFragmentMaxQuorum
+        );
+
+        CatalogZoneDescriptor zoneDescriptor = getZoneDescriptor(createZoneBuilder().replicas(replicas));
+        assertThat(zoneDescriptor.quorumSize(), is(defaultQuorumSize));
+        assertThat(zoneDescriptor.consensusGroupSize(), is(defaultConsensusGroupSize));
+
+        zoneDescriptor = getZoneDescriptor(createZoneBuilder().replicas(replicas).quorumSize(maxQuorumSize - 1));
+        assertThat(zoneDescriptor.quorumSize(), is(maxQuorumSize - 1));
     }
 
     @Test
