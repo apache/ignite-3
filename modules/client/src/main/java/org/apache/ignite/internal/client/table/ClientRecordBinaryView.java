@@ -467,10 +467,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 new TupleStreamerPartitionAwarenessProvider(tbl),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 }

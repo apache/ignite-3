@@ -672,7 +672,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
     /** {@inheritDoc} */
     @Override protected void addToSelectList(List<SqlNode> list, Set<String> aliases,
             List<Map.Entry<String, RelDataType>> fieldList, SqlNode exp, SelectScope scope, boolean includeSystemVars) {
-        if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemFieldName(deriveAlias(exp, 0))) {
+        if (includeSystemVars || exp.getKind() != SqlKind.IDENTIFIER || !isSystemColumnName(deriveAlias(exp, 0))) {
             super.addToSelectList(list, aliases, fieldList, exp, scope, includeSystemVars);
         }
     }
@@ -1289,9 +1289,11 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         return (IgniteTypeFactory) typeFactory;
     }
 
-    public static boolean isSystemFieldName(String alias) {
+    /** Returns {@code true} if the given alias is a system column name, {@code false} otherwise. */
+    public static boolean isSystemColumnName(String alias) {
         return (Commons.implicitPkEnabled() && Commons.IMPLICIT_PK_COL_NAME.equals(alias))
-                || alias.equals(Commons.PART_COL_NAME);
+                || alias.equals(Commons.PART_COL_NAME)
+                || alias.equals(Commons.PART_COL_NAME_LEGACY);
     }
 
     // We use these scopes to filter out valid usages of a ROW operator.
@@ -1365,7 +1367,7 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         if (call.getKind() == SqlKind.AS) {
             String alias = deriveAlias(call, 0);
 
-            if (isSystemFieldName(alias)) {
+            if (isSystemColumnName(alias)) {
                 throw newValidationError(call, IgniteResource.INSTANCE.illegalAlias(alias));
             }
         }

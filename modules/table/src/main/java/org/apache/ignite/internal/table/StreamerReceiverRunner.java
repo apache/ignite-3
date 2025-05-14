@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -59,5 +60,9 @@ public interface StreamerReceiverRunner {
      * @param deploymentUnits Deployment units.
      * @return Serialized receiver results.
      */
-    CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits);
+    CompletableFuture<byte[]> runReceiverAsync(
+            byte[] payload,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits,
+            ReceiverExecutionOptions options);
 }

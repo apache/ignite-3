@@ -112,7 +112,7 @@ internal sealed partial class ClientSocket
             var igniteEx = e as IgniteException;
 
             Guid traceId = igniteEx?.TraceId ?? Guid.NewGuid();
-            int code = igniteEx?.ErrorCode ?? ErrorGroups.Compute.ComputeJobFailed;
+            int code = igniteEx?.Code ?? ErrorGroups.Compute.ComputeJobFailed;
             string className = e.GetType().ToString();
             string message = e.Message;
             string? stackTrace = e.StackTrace;

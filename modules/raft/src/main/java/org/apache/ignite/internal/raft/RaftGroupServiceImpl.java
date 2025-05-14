@@ -740,7 +740,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EHOSTDOWN:
             case ESHUTDOWN:
-            case ENODESHUTDOWN: {
+            case ENODESHUTDOWN:
+            case ESTOP: {
                 Peer newTargetPeer = randomNode(retryContext);
 
                 scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer, getShortReasonMessage(retryContext, error)));

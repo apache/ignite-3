@@ -15,43 +15,23 @@
  * limitations under the License.
  */
 
-namespace Apache.Ignite.Internal.Proto;
+namespace Apache.Ignite.Table;
 
-using System;
+using Compute;
 
 /// <summary>
-/// Protocol bitmask features.
+/// Data streamer receiver execution options.
 /// </summary>
-[Flags]
-internal enum ProtocolBitmaskFeature
+/// <param name="Priority">Execution priority.</param>
+/// <param name="MaxRetries">Number of times to retry receiver execution in case of failure, 0 to not retry.</param>
+/// <param name="ExecutorType">>Executor type.</param>
+public sealed record ReceiverExecutionOptions(
+    int Priority = 0,
+    int MaxRetries = 0,
+    JobExecutorType ExecutorType = JobExecutorType.JavaEmbedded)
 {
     /// <summary>
-    /// User attributes in handshake.
+    /// Default job execution options.
     /// </summary>
-    UserAttributes = 1,
-
-    /// <summary>
-    /// Qualified name table requests.
-    /// </summary>
-    TableReqsUseQualifiedName = 2,
-
-    /// <summary>
-    /// Transaction direct mapping.
-    /// </summary>
-    TxDirectMapping = 4,
-
-    /// <summary>
-    /// Platform compute jobs (call non-Java jobs from client).
-    /// </summary>
-    PlatformComputeJob = 8,
-
-    /// <summary>
-    /// Platform compute executor (respond to server calls for job execution).
-    /// </summary>
-    PlatformComputeExecutor = 16,
-
-    /// <summary>
-    /// Streamer receiver execution options, including .NET receivers.
-    /// </summary>
-    StreamerReceiverExecutionOptions = 32
+    public static readonly ReceiverExecutionOptions Default = new();
 }

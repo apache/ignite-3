@@ -387,7 +387,10 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         Set<Assignment> assignments = Set.of();
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
+        String stableAssignmentsPrefix =
+                enabledColocation ? ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX : STABLE_ASSIGNMENTS_PREFIX;
+
+        metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);
@@ -400,7 +403,7 @@ public class PlacementDriverManagerTest extends BasePlacementDriverTest {
 
         assignments = calculateAssignmentForPartition(Collections.singleton(nodeName), 1, 2, 1, 1);
 
-        metaStorageManager.put(fromString(STABLE_ASSIGNMENTS_PREFIX + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
+        metaStorageManager.put(fromString(stableAssignmentsPrefix + grpPart0), Assignments.toBytes(assignments, assignmentsTimestamp));
 
         assertTrue(waitForCondition(() -> {
             CompletableFuture<Entry> fut = metaStorageManager.get(PLACEMENTDRIVER_LEASES_KEY);

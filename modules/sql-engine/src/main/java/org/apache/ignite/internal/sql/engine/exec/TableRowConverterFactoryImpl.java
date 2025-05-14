@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.exec;
 
+import it.unimi.dsi.fastutil.ints.Int2ObjectArrayMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import java.util.BitSet;
@@ -37,7 +38,7 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
     private final SchemaDescriptor schemaDescriptor;
     private final TableRowConverter fullRowConverter;
     private final BitSet tableColumnSet;
-    private IntFunction<VirtualColumn> virtualColumnFactory;
+    private final Int2ObjectArrayMap<IntFunction<VirtualColumn>> virtualColumnsFactory = new Int2ObjectArrayMap<>();
 
     /**
      * Creates a factory from given schema and indexes of primary key.
@@ -64,13 +65,20 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
         tableColumnSet = new BitSet();
         tableColumnSet.set(0, tableDescriptor.columnsCount());
 
-        ColumnDescriptor columnDescriptor = tableDescriptor.columnDescriptor(Commons.PART_COL_NAME);
+        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME));
+        addVirtualColumn(tableDescriptor.columnDescriptor(Commons.PART_COL_NAME_LEGACY));
+    }
 
-        if (columnDescriptor != null) {
-            assert columnDescriptor.virtual();
-
-            virtualColumnFactory = (partId) -> new VirtualColumn(columnDescriptor.logicalIndex(), NativeTypes.INT32, false, partId);
+    private void addVirtualColumn(@Nullable ColumnDescriptor columnDescriptor) {
+        if (columnDescriptor == null) {
+            return;
         }
+
+        assert columnDescriptor.virtual();
+
+        int columnIndex = columnDescriptor.logicalIndex();
+
+        virtualColumnsFactory.put(columnIndex, (partId) -> new VirtualColumn(columnIndex, NativeTypes.INT32, false, partId));
     }
 
     @Override
@@ -99,13 +107,21 @@ public class TableRowConverterFactoryImpl implements TableRowConverterFactory {
                 schemaRegistry,
                 schemaDescriptor,
                 requiredColumns,
-                requireVirtualColumn ? createVirtualColumns(partId) : Int2ObjectMaps.emptyMap()
+                requireVirtualColumn ? createVirtualColumns(requiredColumns, partId) : Int2ObjectMaps.emptyMap()
         );
     }
 
-    private Int2ObjectMap<VirtualColumn> createVirtualColumns(int partId) {
-        VirtualColumn column = virtualColumnFactory.apply(partId);
+    private Int2ObjectMap<VirtualColumn> createVirtualColumns(BitSet requiredColumns, int partId) {
+        Int2ObjectMap<VirtualColumn> columnsMap = new Int2ObjectArrayMap<>(virtualColumnsFactory.size());
 
-        return Int2ObjectMaps.singleton(column.columnIndex(), column);
+        for (int i = requiredColumns.nextSetBit(schemaDescriptor.length()); i >= 0; i = requiredColumns.nextSetBit(i + 1)) {
+            columnsMap.put(i, virtualColumnsFactory.get(i).apply(partId));
+
+            if (i == Integer.MAX_VALUE) {
+                break; // Avoid overflow.
+            }
+        }
+
+        return columnsMap;
     }
 }
