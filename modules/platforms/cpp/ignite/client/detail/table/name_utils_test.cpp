@@ -19,7 +19,6 @@
 #include "ignite/client/table/qualified_name.h"
 #include "ignite/common/ignite_error.h"
 
-#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 using namespace ignite;

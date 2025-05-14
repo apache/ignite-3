@@ -127,3 +127,4 @@ endif()
 
 ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
 ignite_test(name_utils_test DISCOVER SOURCES detail/table/name_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(qualified_name_test DISCOVER SOURCES table/qualified_name_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
