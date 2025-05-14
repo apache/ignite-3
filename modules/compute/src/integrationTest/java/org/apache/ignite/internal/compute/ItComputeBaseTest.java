@@ -111,6 +111,11 @@ public abstract class ItComputeBaseTest extends ClusterPerClassIntegrationTest {
         return node(0).compute();
     }
 
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return super.getNodeBootstrapConfigTemplate() + ", ignite.compute.threadPoolSize = 1";
+    }
+
     @BeforeEach
     public void initCleanState() {
         dropAllSchemas();

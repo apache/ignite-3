@@ -80,6 +80,11 @@ public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     @Client("http://localhost:10300" + COMPUTE_URL)
     HttpClient client;
 
+    @Override
+    protected String getNodeBootstrapConfigTemplate() {
+        return super.getNodeBootstrapConfigTemplate() + ", ignite.compute.threadPoolSize = 1";
+    }
+
     @AfterEach
     void tearDown() {
         // Cancel all jobs and clear states.
