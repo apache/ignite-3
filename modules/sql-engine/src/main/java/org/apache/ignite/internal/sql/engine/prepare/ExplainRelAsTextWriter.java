@@ -119,10 +119,9 @@ public class ExplainRelAsTextWriter extends RelWriterImpl {
             RelDataType rowTypeToResolveExpressions0 = node.getRowType();
             if (object instanceof RelCollation) {
                 // Use source row type to resolve source collation.
-                if (((IgniteRel)((Join) node).getLeft()).collation() == object) {
+                if (((IgniteRel) ((Join) node).getLeft()).collation() == object) {
                     rowTypeToResolveExpressions0 = ((Join) node).getLeft().getRowType();
-                }
-                else if (((IgniteRel)((Join) node).getRight()).collation() == object) {
+                } else if (((IgniteRel) ((Join) node).getRight()).collation() == object) {
                     rowTypeToResolveExpressions0 = ((Join) node).getRight().getRowType();
                 }
             }
