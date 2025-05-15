@@ -417,7 +417,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(coordIdx != -1);
 
         IgniteImpl coord = TestWrappers.unwrapIgniteImpl(server(coordIdx));
-        assertNotNull(coord.txManager().stateMeta(txId), "Transaction expected to be collocated with enlistment");
+        assertNotNull(coord.txManager().stateMeta(txId), "Transaction expected to be colocated with enlistment");
 
         IgniteImpl other = TestWrappers.unwrapIgniteImpl(server(1 - coordIdx));
 
@@ -652,7 +652,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
 
-        // First operation is collocated with txn coordinator and not directly mapped.
+        // First operation is colocated with txn coordinator and not directly mapped.
         Tuple k = tuples0.get(0);
         Tuple v = val(tuples0.get(0).intValue(0) + "");
 

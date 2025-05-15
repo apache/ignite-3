@@ -496,7 +496,7 @@ public class ClientTable implements Table {
                                 getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, tx0 == null);
 
                         WriteContext ctx = new WriteContext();
-                        // Force proxy mode for requests collocated with coordinator to reduce passed enlistment info on commit.
+                        // Force proxy mode for requests colocated with coordinator to reduce passed enlistment info on commit.
                         ctx.pm = tx0 != null && forOp != null && forOp.nodeConsistentId().equals(tx0.nodeName()) ? null : forOp;
 
                         return ch.serviceAsync(opCode,
