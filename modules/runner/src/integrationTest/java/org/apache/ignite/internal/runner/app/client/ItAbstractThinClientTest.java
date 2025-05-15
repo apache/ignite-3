@@ -94,6 +94,8 @@ public abstract class ItAbstractThinClientTest extends BaseIgniteAbstractTest {
                     "ignite {\n"
                             + "  network.port: " + (3344 + i) + ",\n"
                             + "  network.nodeFinder.netClusterNodes: [ \"localhost:3344\" ]\n"
+                            + (i == 1 ? ("  clientConnector.sendServerExceptionStackTraceToClient: true\n"
+                            + "  clientConnector.metricsEnabled: true\n") : "")
                             + "  clientConnector.port: " + (10800 + i) + ",\n"
                             + "  rest.port: " + (10300 + i) + "\n"
                             + "  compute.threadPoolSize: 1\n"
