@@ -50,9 +50,14 @@ public enum ProtocolBitmaskFeature {
     PLATFORM_COMPUTE_EXECUTOR(4),
 
     /**
+     * Streamer receiver execution options.
+     */
+    STREAMER_RECEIVER_EXECUTION_OPTIONS(5),
+
+    /**
      * Delayed ack optimization for directly mapped transactions.
      */
-    TX_DELAYED_ACKS(5);
+    TX_DELAYED_ACKS(6);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

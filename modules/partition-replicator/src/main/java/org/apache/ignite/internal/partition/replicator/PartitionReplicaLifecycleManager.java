@@ -33,9 +33,11 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.ASSIGNMENTS_SWITCH_REDUCE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.PENDING_ASSIGNMENTS_QUEUE_PREFIX_BYTES;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.STABLE_ASSIGNMENTS_PREFIX_BYTES;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.extractZonePartitionId;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsChainGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zoneAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePartitionAssignmentsGetLocally;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.zonePendingAssignmentsGetLocally;
@@ -86,6 +88,7 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogStorageProfileDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.ConsistencyMode;
 import org.apache.ignite.internal.catalog.events.CreateZoneEventParameters;
 import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.utils.SystemDistributedConfigurationPropertyHolder;
@@ -127,6 +130,7 @@ import org.apache.ignite.internal.partition.replicator.schema.CatalogValidationS
 import org.apache.ignite.internal.partition.replicator.schema.ExecutorInclinedSchemaSyncService;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
@@ -200,6 +204,7 @@ public class PartitionReplicaLifecycleManager extends
 
     private final Set<ZonePartitionId> replicationGroupIds = ConcurrentHashMap.newKeySet();
 
+    // TODO https://issues.apache.org/jira/browse/IGNITE-25347
     /** (zoneId -> lock) map to provide concurrent access to the zone replicas list. */
     private final Map<Integer, NaiveAsyncReadWriteLock> zonePartitionsLocks = new ConcurrentHashMap<>();
 
@@ -524,12 +529,13 @@ public class PartitionReplicaLifecycleManager extends
             int zoneId = zoneDescriptor.id();
 
             return getOrCreateAssignments(zoneDescriptor, causalityToken, catalogVersion)
-                    .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, assignments))
+                    .thenCompose(assignments -> writeZoneAssignmentsToMetastore(zoneId, zoneDescriptor.consistencyMode(), assignments))
                     .thenCompose(
                             stableAssignments -> createZoneReplicationNodes(
                                     zoneId,
                                     stableAssignments,
                                     zonePendingAssignmentsGetLocally(metaStorageMgr, zoneId, zoneDescriptor.partitions(), causalityToken),
+                                    zoneAssignmentsChainGetLocally(metaStorageMgr, zoneId, zoneDescriptor.partitions(), causalityToken),
                                     causalityToken,
                                     catalogVersion,
                                     zoneDescriptor.partitions(),
@@ -543,6 +549,7 @@ public class PartitionReplicaLifecycleManager extends
             int zoneId,
             List<Assignments> stableAssignmentsForZone,
             List<@Nullable Assignments> pendingAssignmentsForZone,
+            List<AssignmentsChain> assignmentsChains,
             long causalityToken,
             int catalogVersion,
             int partitionCount,
@@ -558,20 +565,30 @@ public class PartitionReplicaLifecycleManager extends
 
                 Assignments pendingAssignments = pendingAssignmentsForZone.get(partId);
 
-                Assignment localAssignment = localAssignment(stableAssignments);
+                Assignment localAssignmentInStable = localAssignment(stableAssignments);
+
+                AssignmentsChain assignmentsChain = assignmentsChains.get(partId);
 
                 boolean shouldStartPartition;
 
                 if (onNodeRecovery) {
-                    // The condition to start the replica is
-                    // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
-                    // However we check only the right part of this condition here
-                    // since after `startTables` we have a call to `processAssignmentsOnRecovery`,
-                    // which executes pending assignments update and will start required partitions there.
-                    shouldStartPartition = localAssignment != null
-                            && (pendingAssignments == null || !pendingAssignments.force());
+                    if (lastRebalanceWasGraceful(assignmentsChain)) {
+                        // The condition to start the replica is
+                        // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
+                        // However we check only the right part of this condition here
+                        // since after `startTables` we have a call to `processAssignmentsOnRecovery`,
+                        // which executes pending assignments update and will start required partitions there.
+                        shouldStartPartition = localAssignmentInStable != null
+                                && (pendingAssignments == null || !pendingAssignments.force());
+                    } else {
+                        // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874
+                        LOG.warn("Recovery after a forced rebalance for zone is not supported yet [zoneId={}, partitionId={}].",
+                                zoneId, partId);
+                        shouldStartPartition = localAssignmentInStable != null
+                                && (pendingAssignments == null || !pendingAssignments.force());
+                    }
                 } else {
-                    shouldStartPartition = localAssignment != null;
+                    shouldStartPartition = localAssignmentInStable != null;
                 }
 
                 if (shouldStartPartition) {
@@ -579,11 +596,12 @@ public class PartitionReplicaLifecycleManager extends
 
                     partitionsStartFutures[partId] = createZonePartitionReplicationNode(
                             zonePartitionId,
-                            localAssignment,
+                            localAssignmentInStable,
                             stableAssignments,
                             causalityToken,
                             partitionCount,
                             isVolatileZoneForCatalogVersion(zoneId, catalogVersion),
+                            onNodeRecovery,
                             !onNodeRecovery
                     );
                 } else {
@@ -640,6 +658,7 @@ public class PartitionReplicaLifecycleManager extends
      * @param stableAssignments Stable assignments.
      * @param revision Event's revision.
      * @param partitionCount Number of partitions on the zone.
+     * @param onRecovery Flag indicating whether this replication node is started on node recovery.
      * @return Future that completes when a replica is started.
      */
     private CompletableFuture<?> createZonePartitionReplicationNode(
@@ -649,6 +668,7 @@ public class PartitionReplicaLifecycleManager extends
             long revision,
             int partitionCount,
             boolean isVolatileZone,
+            boolean onRecovery,
             boolean holdingZoneWriteLock
     ) {
         // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 We need to integrate PartitionReplicatorNodeRecovery logic here when
@@ -663,7 +683,7 @@ public class PartitionReplicaLifecycleManager extends
 
         Supplier<CompletableFuture<Boolean>> startReplicaSupplier = () -> {
             var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision);
+            var eventParams = new LocalPartitionReplicaEventParameters(zonePartitionId, revision, onRecovery);
 
             ZonePartitionResources zoneResources = zoneResourcesManager.allocateZonePartitionResources(
                     zonePartitionId,
@@ -755,7 +775,8 @@ public class PartitionReplicaLifecycleManager extends
                         dataNodes,
                         zonePartitionId.partitionId(),
                         zoneDescriptor.partitions(),
-                        zoneDescriptor.replicas()
+                        zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize()
                 ));
     }
 
@@ -812,16 +833,31 @@ public class PartitionReplicaLifecycleManager extends
      * @param newAssignments Assignments that should be written.
      * @return Real list of assignments.
      */
-    private CompletableFuture<List<Assignments>> writeZoneAssignmentsToMetastore(int zoneId, List<Assignments> newAssignments) {
+    private CompletableFuture<List<Assignments>> writeZoneAssignmentsToMetastore(
+            int zoneId,
+            ConsistencyMode consistencyMode,
+            List<Assignments> newAssignments
+    ) {
         assert !newAssignments.isEmpty();
+
+        boolean haMode = consistencyMode == ConsistencyMode.HIGH_AVAILABILITY;
 
         List<Operation> partitionAssignments = new ArrayList<>(newAssignments.size());
 
         for (int i = 0; i < newAssignments.size(); i++) {
-            ByteArray stableAssignmentsKey = stablePartAssignmentsKey(new ZonePartitionId(zoneId, i));
+            ZonePartitionId zonePartitionId = new ZonePartitionId(zoneId, i);
+
+            ByteArray stableAssignmentsKey = stablePartAssignmentsKey(zonePartitionId);
             byte[] anAssignment = newAssignments.get(i).toBytes();
             Operation op = put(stableAssignmentsKey, anAssignment);
             partitionAssignments.add(op);
+
+            if (haMode) {
+                ByteArray assignmentsChainKey = assignmentsChainKey(zonePartitionId);
+                byte[] assignmentChain = AssignmentsChain.of(newAssignments.get(i)).toBytes();
+                Operation chainOp = put(assignmentsChainKey, assignmentChain);
+                partitionAssignments.add(chainOp);
+            }
         }
 
         Condition condition = notExists(new ByteArray(toByteArray(partitionAssignments.get(0).key())));
@@ -912,10 +948,15 @@ public class PartitionReplicaLifecycleManager extends
             long assignmentsTimestamp = catalog.time();
 
             return distributionZoneMgr.dataNodes(zoneDescriptor.updateTimestamp(), catalogVersion, zoneDescriptor.id())
-                    .thenApply(dataNodes -> calculateAssignments(dataNodes, zoneDescriptor.partitions(), zoneDescriptor.replicas())
-                            .stream()
-                            .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
-                            .collect(toList())
+                    .thenApply(dataNodes -> calculateAssignments(
+                                    dataNodes,
+                                    zoneDescriptor.partitions(),
+                                    zoneDescriptor.replicas(),
+                                    zoneDescriptor.consensusGroupSize()
+                            )
+                                    .stream()
+                                    .map(assignments -> Assignments.of(assignments, assignmentsTimestamp))
+                                    .collect(toList())
                     )
                     .whenComplete((assignments, e) -> {
                         if (e == null && LOG.isInfoEnabled()) {
@@ -1018,6 +1059,7 @@ public class PartitionReplicaLifecycleManager extends
                         dataNodes,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         replicaGrpId,
                         evt,
                         assignmentsTimestamp
@@ -1246,13 +1288,22 @@ public class PartitionReplicaLifecycleManager extends
         Assignment localAssignmentInPending = localAssignment(pendingAssignments);
         Assignment localAssignmentInStable = localAssignment(stableAssignments);
 
+        AssignmentsChain assignmentsChain = ZoneRebalanceUtil.assignmentsChainGetLocally(metaStorageMgr, replicaGrpId, revision);
+
         boolean shouldStartLocalGroupNode;
         if (isRecovery) {
             // The condition to start the replica is
             // `pending.contains(node) || (stable.contains(node) && !pending.isForce())`.
             // This condition covers the left part of the OR expression.
             // The right part of it is covered in `startLocalPartitionsAndClients`.
-            shouldStartLocalGroupNode = localAssignmentInPending != null;
+            if (lastRebalanceWasGraceful(assignmentsChain)) {
+                shouldStartLocalGroupNode = localAssignmentInPending != null;
+            } else {
+                // TODO: Use logic from https://issues.apache.org/jira/browse/IGNITE-23874.
+                LOG.warn("Recovery after a forced rebalance for zone is not supported yet [zonePartitionId={}].",
+                        replicaGrpId);
+                shouldStartLocalGroupNode = localAssignmentInPending != null;
+            }
         } else {
             shouldStartLocalGroupNode = localAssignmentInPending != null && localAssignmentInStable == null;
         }
@@ -1295,6 +1346,7 @@ public class PartitionReplicaLifecycleManager extends
                     revision,
                     zoneDescriptor.partitions(),
                     isVolatileZone(zoneDescriptor),
+                    isRecovery,
                     false
             );
         } else if (pendingAssignmentsAreForced && localAssignmentInPending != null) {
@@ -1560,7 +1612,7 @@ public class PartitionReplicaLifecycleManager extends
 
                             return fireEvent(
                                     afterReplicaStoppedEvent,
-                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision)
+                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision, false)
                             );
                         });
             } catch (NodeStoppingException e) {
@@ -1690,6 +1742,7 @@ public class PartitionReplicaLifecycleManager extends
                         revision,
                         zoneDescriptor.partitions(),
                         isVolatileZone(zoneDescriptor),
+                        false,
                         false
                 );
             }));
@@ -1764,5 +1817,14 @@ public class PartitionReplicaLifecycleManager extends
         assert resources != null : String.format("Missing resources for zone partition [zonePartitionId=%s]", zonePartitionId);
 
         return resources;
+    }
+
+    /**
+     * For HA zones: Check that last rebalance was graceful (caused by common rebalance triggers, like data nodes change, replica factor
+     * change, etc.) rather than forced (caused by a disaster recovery reset after losing the majority of nodes).
+     */
+    private static boolean lastRebalanceWasGraceful(@Nullable AssignmentsChain assignmentsChain) {
+        // Assignments chain is either empty (when there have been no stable switch yet) or contains a single element in chain.
+        return assignmentsChain == null || assignmentsChain.size() == 1;
     }
 }

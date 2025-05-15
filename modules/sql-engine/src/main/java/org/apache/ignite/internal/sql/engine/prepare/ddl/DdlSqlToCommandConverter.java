@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.D
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DATA_NODES_FILTER;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.DISTRIBUTION_ALGORITHM;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.PARTITIONS;
+import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.QUORUM_SIZE;
 import static org.apache.ignite.internal.sql.engine.prepare.ddl.ZoneOptionEnum.REPLICAS;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToByteExact;
 import static org.apache.ignite.internal.sql.engine.util.IgniteMath.convertToIntExact;
@@ -174,6 +175,8 @@ public class DdlSqlToCommandConverter {
         // CREATE ZONE options.
         zoneOptionInfos = new EnumMap<>(Map.of(
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::partitions),
+                // We can't properly validate quorum size since it depends on the replicas number.
+                QUORUM_SIZE, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, CreateZoneCommandBuilder::quorumSize),
                 // TODO https://issues.apache.org/jira/browse/IGNITE-22162 appropriate setter method should be used.
                 DISTRIBUTION_ALGORITHM, new DdlOptionInfo<>(String.class, null, (builder, params) -> {}),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, CreateZoneCommandBuilder::filter),
@@ -192,6 +195,8 @@ public class DdlSqlToCommandConverter {
         // ALTER ZONE options.
         alterZoneOptionInfos = new EnumMap<>(Map.of(
                 PARTITIONS, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::partitions),
+                // We can't properly validate quorum size since it depends on the replicas number.
+                QUORUM_SIZE, new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::quorumSize),
                 DATA_NODES_FILTER, new DdlOptionInfo<>(String.class, null, AlterZoneCommandBuilder::filter),
                 DATA_NODES_AUTO_ADJUST,
                 new DdlOptionInfo<>(Integer.class, this::checkPositiveNumber, AlterZoneCommandBuilder::dataNodesAutoAdjust),
@@ -318,7 +323,7 @@ public class DdlSqlToCommandConverter {
             if (sqlNode instanceof SqlColumnDeclaration) {
                 String colName = ((SqlColumnDeclaration) sqlNode).name.getSimple();
 
-                if (IgniteSqlValidator.isSystemFieldName(colName)) {
+                if (IgniteSqlValidator.isSystemColumnName(colName)) {
                     throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                             + "Column '" + colName + "' is reserved name.");
                 }
@@ -494,7 +499,7 @@ public class DdlSqlToCommandConverter {
             Boolean nullable = col.dataType.getNullable();
 
             String colName = col.name.getSimple();
-            if (IgniteSqlValidator.isSystemFieldName(colName)) {
+            if (IgniteSqlValidator.isSystemColumnName(colName)) {
                 throw new SqlException(STMT_VALIDATION_ERR, "Failed to validate query. "
                         + "Column '" + colName + "' is reserved name.");
             }
@@ -812,14 +817,14 @@ public class DdlSqlToCommandConverter {
         if (!knownZoneOptionNames.contains(optionName)) {
             throw unexpectedZoneOption(ctx, optionName);
         } else if (!remainingKnownOptions.remove(optionName)) {
-            throw duplicateZoneOption(ctx, optionName);
+            throw duplicateZoneOption(ctx, ZoneOptionEnum.valueOf(optionName).sqlName);
         }
 
         ZoneOptionEnum zoneOption = ZoneOptionEnum.valueOf(optionName);
         DdlOptionInfo<S, ?> zoneOptionInfo = optionInfos.get(zoneOption);
 
         // Options infos doesn't contain REPLICAS, it's handled separately
-        assert zoneOptionInfo != null || zoneOption == REPLICAS : optionName;
+        assert zoneOptionInfo != null || zoneOption == REPLICAS : zoneOption.sqlName;
 
         assert option.value() instanceof SqlLiteral : option.value();
         SqlLiteral literal = (SqlLiteral) option.value();

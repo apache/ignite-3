@@ -18,9 +18,10 @@
 namespace Apache.Ignite.Internal;
 
 using Ignite.Compute;
+using Ignite.Table;
 
 /// <summary>
 /// Ignite API accessor.
 /// </summary>
 /// <param name="Ignite">Ignite.</param>
-internal sealed record IgniteApiAccessor(IIgnite Ignite) : IJobExecutionContext;
+internal sealed record IgniteApiAccessor(IIgnite Ignite) : IJobExecutionContext, IDataStreamerReceiverContext;

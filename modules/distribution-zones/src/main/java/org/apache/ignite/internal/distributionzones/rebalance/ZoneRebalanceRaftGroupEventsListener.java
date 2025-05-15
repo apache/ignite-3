@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.distributionzones.rebalance;
 
+import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.assignmentsChainKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.plannedPartAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
@@ -63,10 +64,13 @@ import org.apache.ignite.internal.metastorage.MetaStorageManager;
 import org.apache.ignite.internal.metastorage.WatchEvent;
 import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
+import org.apache.ignite.internal.metastorage.dsl.Operation;
+import org.apache.ignite.internal.metastorage.dsl.Operations;
 import org.apache.ignite.internal.metastorage.dsl.SimpleCondition;
 import org.apache.ignite.internal.metastorage.dsl.Update;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftError;
@@ -185,7 +189,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 try {
                     rebalanceAttempts.set(0);
 
-                    byte[] pendingAssignmentsBytes = metaStorageMgr.get(pendingPartAssignmentsQueueKey(zonePartitionId)).get().value();
+                    byte[] pendingAssignmentsBytes = metaStorageMgr.getLocally(pendingPartAssignmentsQueueKey(zonePartitionId)).value();
 
                     if (pendingAssignmentsBytes != null) {
                         Set<Assignment> pendingAssignments = AssignmentsQueue.fromBytes(pendingAssignmentsBytes).poll().nodes();
@@ -249,6 +253,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                             stable,
                             zonePartitionId,
                             metaStorageMgr,
+                            term,
+                            index,
                             calculateAssignmentsFn
                     );
                 } finally {
@@ -338,6 +344,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Set<Assignment> stableFromRaft,
             ZonePartitionId zonePartitionId,
             MetaStorageManager metaStorageMgr,
+            long configurationTerm,
+            long configurationIndex,
             BiFunction<ZonePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
         try {
@@ -346,6 +354,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             ByteArray plannedPartAssignmentsKey = plannedPartAssignmentsKey(zonePartitionId);
             ByteArray switchReduceKey = switchReduceKey(zonePartitionId);
             ByteArray switchAppendKey = switchAppendKey(zonePartitionId);
+            ByteArray assignmentsChainKey = assignmentsChainKey(zonePartitionId);
+
             // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
             Map<ByteArray, Entry> values = metaStorageMgr.getAll(
                     Set.of(
@@ -353,7 +363,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                             pendingPartAssignmentsKey,
                             stablePartAssignmentsKey,
                             switchReduceKey,
-                            switchAppendKey
+                            switchAppendKey,
+                            assignmentsChainKey
                     )
             ).get();
 
@@ -362,6 +373,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Entry plannedEntry = values.get(plannedPartAssignmentsKey);
             Entry switchReduceEntry = values.get(switchReduceKey);
             Entry switchAppendEntry = values.get(switchAppendKey);
+            Entry assignmentsChainEntry = values.get(assignmentsChainKey);
 
             Set<Assignment> retrievedStable = readAssignments(stableEntry).nodes();
             Set<Assignment> retrievedSwitchReduce = readAssignments(switchReduceEntry).nodes();
@@ -417,12 +429,23 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             // All conditions combined with AND operator.
             Condition retryPreconditions = and(con1, and(con2, and(con3, con4)));
 
+            long catalogTimestamp = pendingAssignments.timestamp();
+
+            Assignments newStableAssignments = Assignments.of(stableFromRaft, catalogTimestamp);
+
+            Operation assignmentChainChangeOp = handleAssignmentsChainChange(
+                    assignmentsChainKey,
+                    assignmentsChainEntry,
+                    pendingAssignments,
+                    newStableAssignments,
+                    configurationTerm,
+                    configurationIndex
+            );
+
             Update successCase;
             Update failCase;
 
-            long catalogTimestamp = pendingAssignments.timestamp();
-
-            byte[] stableFromRaftByteArray = Assignments.toBytes(stableFromRaft, catalogTimestamp);
+            byte[] stableFromRaftByteArray = newStableAssignments.toBytes();
             byte[] additionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingAddition, catalogTimestamp));
             byte[] reductionByteArray = AssignmentsQueue.toBytes(Assignments.of(calculatedPendingReduction, catalogTimestamp));
             byte[] switchReduceByteArray = Assignments.toBytes(calculatedSwitchReduce, catalogTimestamp);
@@ -433,7 +456,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         put(stablePartAssignmentsKey, stableFromRaftByteArray),
                         put(pendingPartAssignmentsKey, additionByteArray),
                         put(switchReduceKey, switchReduceByteArray),
-                        put(switchAppendKey, switchAppendByteArray)
+                        put(switchAppendKey, switchAppendByteArray),
+                        assignmentChainChangeOp
                 ).yield(SWITCH_APPEND_SUCCESS);
                 failCase = ops().yield(SWITCH_APPEND_FAIL);
             } else if (!calculatedSwitchReduce.isEmpty()) {
@@ -441,7 +465,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         put(stablePartAssignmentsKey, stableFromRaftByteArray),
                         put(pendingPartAssignmentsKey, reductionByteArray),
                         put(switchReduceKey, switchReduceByteArray),
-                        put(switchAppendKey, switchAppendByteArray)
+                        put(switchAppendKey, switchAppendByteArray),
+                        assignmentChainChangeOp
                 ).yield(SWITCH_REDUCE_SUCCESS);
                 failCase = ops().yield(SWITCH_REDUCE_FAIL);
             } else {
@@ -453,7 +478,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                     successCase = ops(
                             put(stablePartAssignmentsKey, stableFromRaftByteArray),
                             put(pendingPartAssignmentsKey, AssignmentsQueue.toBytes(Assignments.fromBytes(plannedEntry.value()))),
-                            remove(plannedPartAssignmentsKey)
+                            remove(plannedPartAssignmentsKey),
+                            assignmentChainChangeOp
                     ).yield(SCHEDULE_PENDING_REBALANCE_SUCCESS);
 
                     failCase = ops().yield(SCHEDULE_PENDING_REBALANCE_FAIL);
@@ -463,7 +489,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                     successCase = ops(
                             put(stablePartAssignmentsKey, stableFromRaftByteArray),
-                            remove(pendingPartAssignmentsKey)
+                            remove(pendingPartAssignmentsKey),
+                            assignmentChainChangeOp
                     ).yield(FINISH_REBALANCE_SUCCESS);
 
                     failCase = ops().yield(FINISH_REBALANCE_FAIL);
@@ -505,6 +532,8 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         stableFromRaft,
                         zonePartitionId,
                         metaStorageMgr,
+                        configurationTerm,
+                        configurationIndex,
                         calculateAssignmentsFn
                 );
 
@@ -585,6 +614,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
      * @param dataNodes Data nodes.
      * @param partitions Partitions count.
      * @param replicas Replicas count.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param partId Partition's raft group id.
      * @param event Assignments switch reduce change event.
      * @return Completable future that signifies the completion of this operation.
@@ -594,6 +624,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             Collection<String> dataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             ZonePartitionId partId,
             WatchEvent event,
             long assignmentsTimestamp
@@ -609,7 +640,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             return nullCompletedFuture();
         }
 
-        Set<Assignment> assignments = calculateAssignmentForPartition(dataNodes, partId.partitionId(), partitions, replicas);
+        Set<Assignment> assignments = calculateAssignmentForPartition(
+                dataNodes,
+                partId.partitionId(),
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         ByteArray pendingKey = pendingPartAssignmentsQueueKey(partId);
 
@@ -657,5 +694,73 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         );
 
         return metaStorageMgr.invoke(resultingOperation).thenApply(unused -> null);
+    }
+
+    private static Operation handleAssignmentsChainChange(
+            ByteArray assignmentsChainKey,
+            Entry assignmentsChainEntry,
+            Assignments pendingAssignments,
+            Assignments stableAssignments,
+            long configurationTerm,
+            long configurationIndex
+    ) {
+        // We write this key only in HA mode. See TableManager.writeTableAssignmentsToMetastore.
+        if (assignmentsChainEntry.value() != null) {
+            AssignmentsChain updatedAssignmentsChain = updateAssignmentsChain(
+                    AssignmentsChain.fromBytes(assignmentsChainEntry.value()),
+                    stableAssignments,
+                    pendingAssignments,
+                    configurationTerm,
+                    configurationIndex
+            );
+            return put(assignmentsChainKey, updatedAssignmentsChain.toBytes());
+        } else {
+            return Operations.noop();
+        }
+    }
+
+    private static AssignmentsChain updateAssignmentsChain(
+            AssignmentsChain assignmentsChain,
+            Assignments newStable,
+            Assignments pendingAssignments,
+            long configurationTerm,
+            long configurationIndex
+    ) {
+        assert assignmentsChain != null : "Assignments chain cannot be null in HA mode.";
+
+        assert assignmentsChain.size() > 0 : "Assignments chain cannot be empty on stable switch.";
+
+        /*
+            This method covers the following case:
+
+            stable = [A,B,C,D,E,F,G]
+            lost A B C D
+
+            stable = [E] pending = [E F G]
+            stable = [E F G]
+
+            E F lost
+            stable = [G]
+
+            on node G restart
+            ms.chain = [A,B,C,D,E,F,G] -> [E,F,G] -> [G]
+
+          on doStableKeySwitch
+              if !pending.force && !pending.secondPhaseOfReset
+                ms.chain = pending/stable // [A,B,C,D,E,F,G]
+              else if !pending.force && pending.secondPhaseOfReset
+                ms.chain.last = stable // [A,B,C,D,E,F,G] -> [E] => [A,B,C,D,E,F,G] -> [E F G]
+              else
+                ms.chain = ms.chain + pending/stable // [A,B,C,D,E,F,G] => [A,B,C,D,E,F,G] -> [E]
+        */
+        if (!pendingAssignments.force() && !pendingAssignments.fromReset()) {
+            return AssignmentsChain.of(configurationTerm, configurationIndex, newStable);
+        } else if (!pendingAssignments.force() && pendingAssignments.fromReset()) {
+            assignmentsChain.replaceLast(newStable, configurationTerm, configurationIndex);
+        } else {
+            assignmentsChain.addLast(newStable, configurationTerm, configurationIndex);
+        }
+
+        return assignmentsChain;
     }
 }

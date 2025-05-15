@@ -289,12 +289,13 @@ namespace Apache.Ignite.Internal.Compute
             BinaryPrimitives.WriteInt32BigEndian(countSpan[1..], count);
         }
 
-        private static void WriteNodeNames(IEnumerable<IClusterNode> nodes, PooledArrayBuffer buf) =>
+        private static void WriteNodeNames(PooledArrayBuffer buf, IEnumerable<IClusterNode> nodes) =>
             WriteEnumerable(nodes, buf, writerFunc: static (node, buf) => buf.MessageWriter.Write(node.Name));
 
         private static void WriteJob<TArg, TResult>(
             PooledArrayBuffer writer,
-            JobDescriptor<TArg, TResult> jobDescriptor)
+            JobDescriptor<TArg, TResult> jobDescriptor,
+            bool canWriteJobExecType)
         {
             WriteUnits(GetUnitsCollection(jobDescriptor.DeploymentUnits), writer);
 
@@ -304,8 +305,21 @@ namespace Apache.Ignite.Internal.Compute
             var options = jobDescriptor.Options ?? JobExecutionOptions.Default;
             w.Write(options.Priority);
             w.Write(options.MaxRetries);
-            w.Write((int)options.ExecutorType);
+
+            if (canWriteJobExecType)
+            {
+                w.Write((int)options.ExecutorType);
+            }
+            else if (options.ExecutorType != JobExecutionOptions.Default.ExecutorType)
+            {
+                throw new IgniteClientException(
+                    ErrorGroups.Client.ProtocolCompatibility,
+                    $"Job executor type '{options.ExecutorType}' is not supported by the server.");
+            }
         }
+
+        private static bool CanWriteJobExecType(ClientSocket socket) =>
+            socket.ConnectionContext.ServerHasFeature(ProtocolBitmaskFeature.PlatformComputeJob);
 
         private static JobState ReadJobState(MsgPackReader reader)
         {
@@ -403,24 +417,31 @@ namespace Apache.Ignite.Internal.Compute
         {
             IClusterNode node = GetRandomNode(nodes);
 
-            using var writer = ProtoCommon.GetMessageWriter();
-            Write();
+            using var buf = await _socket.DoWithRetryAsync(
+                    (nodes, jobDescriptor, arg),
+                    static (_, _) => ClientOp.ComputeExecute,
+                    async static (socket, args) =>
+                    {
+                        using var writer = ProtoCommon.GetMessageWriter();
+                        Write(writer, args, CanWriteJobExecType(socket));
 
-            var (buf, _) = await _socket.DoOutInOpAndGetSocketAsync(
-                    ClientOp.ComputeExecute, tx: null, writer, PreferredNode.FromName(node.Name), expectNotifications: true)
+                        return await socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, expectNotifications: true).ConfigureAwait(false);
+                    },
+                    PreferredNode.FromName(node.Name))
                 .ConfigureAwait(false);
 
-            using var res = buf;
+            return GetJobExecution(buf, readSchema: false, jobDescriptor.ResultMarshaller);
 
-            return GetJobExecution(res, readSchema: false, jobDescriptor.ResultMarshaller);
-
-            void Write()
+            static void Write(
+                PooledArrayBuffer writer,
+                (ICollection<IClusterNode> Nodes, JobDescriptor<TArg, TResult> Desc, TArg Arg) args,
+                bool canWriteJobExecType)
             {
-                WriteNodeNames(nodes, writer);
-                WriteJob(writer, jobDescriptor);
+                WriteNodeNames(writer, args.Nodes);
+                WriteJob(writer, args.Desc, canWriteJobExecType);
 
                 var w = writer.MessageWriter;
-                ComputePacker.PackArgOrResult(ref w, arg, jobDescriptor.ArgMarshaller);
+                ComputePacker.PackArgOrResult(ref w, args.Arg, args.Desc.ArgMarshaller);
             }
         }
 
@@ -462,17 +483,33 @@ namespace Apache.Ignite.Internal.Compute
 
                 try
                 {
+                    // Write the job executor type optimistically, compute hash.
                     using var bufferWriter = ProtoCommon.GetMessageWriter();
-                    var colocationHash = Write(bufferWriter, table, schema);
+                    var colocationHash = Write(bufferWriter, table, schema, key, serializerHandlerFunc, descriptor, arg, true);
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
-                    var (resBuf, _) = await _socket.DoOutInOpAndGetSocketAsync(
-                            ClientOp.ComputeExecuteColocated, tx: null, bufferWriter, preferredNode, expectNotifications: true)
+                    using var resBuf = await _socket.DoWithRetryAsync(
+                            (table, schema, key, serializerHandlerFunc, descriptor, arg, bufferWriter),
+                            static (_, _) => ClientOp.ComputeExecuteColocated,
+                            async static (socket, args) =>
+                            {
+                                if (CanWriteJobExecType(socket))
+                                {
+                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, args.bufferWriter, expectNotifications: true)
+                                        .ConfigureAwait(false);
+                                }
+
+                                // Rewrite the message without a job executor type.
+                                using var writer = ProtoCommon.GetMessageWriter();
+                                Write(writer, args.table, args.schema, args.key, args.serializerHandlerFunc, args.descriptor, args.arg, false);
+
+                                return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, writer, expectNotifications: true)
+                                    .ConfigureAwait(false);
+                            },
+                            preferredNode)
                         .ConfigureAwait(false);
 
-                    using var res = resBuf;
-
-                    return GetJobExecution(res, readSchema: true, descriptor.ResultMarshaller);
+                    return GetJobExecution(resBuf, readSchema: true, descriptor.ResultMarshaller);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -493,7 +530,15 @@ namespace Apache.Ignite.Internal.Compute
                 }
             }
 
-            int Write(PooledArrayBuffer bufferWriter, Table table, Schema schema)
+            static int Write(
+                PooledArrayBuffer bufferWriter,
+                Table table,
+                Schema schema,
+                TKey key,
+                Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
+                JobDescriptor<TArg, TResult> descriptor,
+                TArg arg,
+                bool canWriteJobExecType)
             {
                 var w = bufferWriter.MessageWriter;
 
@@ -503,7 +548,7 @@ namespace Apache.Ignite.Internal.Compute
                 var serializerHandler = serializerHandlerFunc(table);
                 var colocationHash = serializerHandler.Write(ref w, schema, key, keyOnly: true, computeHash: true);
 
-                WriteJob(bufferWriter, descriptor);
+                WriteJob(bufferWriter, descriptor, canWriteJobExecType);
 
                 w.WriteObjectAsBinaryTuple(arg);
 

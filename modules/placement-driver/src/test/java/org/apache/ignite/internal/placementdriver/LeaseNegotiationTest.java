@@ -21,6 +21,7 @@ import static java.util.Collections.emptyList;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.stablePartAssignmentsKey;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.partitiondistribution.Assignment.forPeer;
 import static org.apache.ignite.internal.placementdriver.PlacementDriverManager.PLACEMENTDRIVER_LEASES_KEY;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -76,8 +77,10 @@ import org.apache.ignite.internal.placementdriver.leases.LeaseTracker;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessage;
 import org.apache.ignite.internal.placementdriver.message.LeaseGrantedMessageResponse;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
+import org.apache.ignite.internal.placementdriver.negotiation.LeaseAgreement;
 import org.apache.ignite.internal.placementdriver.negotiation.LeaseNegotiator;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
+import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
@@ -459,9 +462,23 @@ public class LeaseNegotiationTest extends BaseIgniteAbstractTest {
         metaStorageManager.remove(stableAssignmentsKey(removedGroup));
 
         LeaseNegotiator leaseNegotiator = getFieldValue(leaseUpdater, "leaseNegotiator");
-        Map agreementsMap = getFieldValue(leaseNegotiator, "leaseToNegotiate");
+        Map<ReplicationGroupId, LeaseAgreement> agreementsMap = getFieldValue(leaseNegotiator, "leaseToNegotiate");
 
-        assertTrue(waitForCondition(() -> agreementsMap.isEmpty(), 10_000));
+        assertNotNull(agreementsMap);
+
+        Lease timedOutAgreementLease = agreementsMap.get(timedOutGroup).getLease();
+
+        assertTrue(
+                waitForCondition(() -> {
+                    LeaseAgreement t = agreementsMap.get(timedOutGroup);
+                    LeaseAgreement r = agreementsMap.get(removedGroup);
+
+                    // As the old agreements are cleaned up, they can be replaced with new ones.
+                    return (t == null || t.getLease().getStartTime().longValue() > timedOutAgreementLease.getStartTime().longValue())
+                            && r == null;
+                }, 10_000),
+                format("Agreements: timedOutGroup: {}, removedGroup: {}", agreementsMap.get(timedOutGroup), agreementsMap.get(removedGroup))
+        );
     }
 
     @Test

@@ -51,7 +51,7 @@ public class PlatformComputeTests : IgniteTestsBase
     private DeploymentUnit _defaultTestUnit = null!;
 
     [OneTimeSetUp]
-    public async Task DeployDefaultUnit() => _defaultTestUnit = await DeployTestsAssembly();
+    public async Task DeployDefaultUnit() => _defaultTestUnit = await ManagementApi.DeployTestsAssembly();
 
     [OneTimeTearDown]
     public async Task UndeployDefaultUnit() => await ManagementApi.UnitUndeploy(_defaultTestUnit);
@@ -275,19 +275,14 @@ public class PlatformComputeTests : IgniteTestsBase
         StringAssert.Contains("CHILD99 = IgniteTuple { ID = 99, CHILD100 = IgniteTuple { ID = 100 } } } } } } } }", res?.ToString());
     }
 
-    private static async Task<DeploymentUnit> DeployTestsAssembly(string? unitId = null, string? unitVersion = null)
+    [Test]
+    public async Task TestPlatformExecutorWithOldServerThrowsCompatibilityError()
     {
-        var testsDll = typeof(PlatformComputeTests).Assembly.Location;
+        using var server = new FakeServer();
+        using var client = await server.ConnectClientAsync();
 
-        var unitId0 = unitId ?? TestContext.CurrentContext.Test.FullName;
-        var unitVersion0 = unitVersion ?? DateTime.Now.TimeOfDay.ToString(@"m\.s\.f");
-
-        await ManagementApi.UnitDeploy(
-            unitId: unitId0,
-            unitVersion: unitVersion0,
-            unitContent: [testsDll]);
-
-        return new DeploymentUnit(unitId0, unitVersion0);
+        var ex = Assert.ThrowsAsync<IgniteClientException>(async () => await ExecJobAsync(DotNetJobs.Echo, arg: "test", client: client));
+        Assert.AreEqual("Job executor type 'DotNetSidecar' is not supported by the server.", ex.Message);
     }
 
     private async Task<IClusterNode> GetClusterNodeAsync(string? suffix = null)
@@ -298,12 +293,14 @@ public class PlatformComputeTests : IgniteTestsBase
         return nodes.First(n => n.Name == nodeName);
     }
 
-    private async Task<TRes> ExecJobAsync<TArg, TRes>(JobDescriptor<TArg, TRes> desc, TArg arg = default!)
+    private async Task<TRes> ExecJobAsync<TArg, TRes>(JobDescriptor<TArg, TRes> desc, TArg arg = default!, IIgniteClient? client = null)
     {
         var jobDesc = desc with { DeploymentUnits = [_defaultTestUnit] };
         var jobTarget = JobTarget.Node(await GetClusterNodeAsync());
 
-        var jobExec = await Client.Compute.SubmitAsync(
+        client ??= Client;
+
+        var jobExec = await client.Compute.SubmitAsync(
             jobTarget,
             jobDesc,
             arg: arg);

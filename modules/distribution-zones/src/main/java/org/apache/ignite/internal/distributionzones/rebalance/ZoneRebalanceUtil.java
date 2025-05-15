@@ -65,6 +65,7 @@ import org.apache.ignite.internal.metastorage.dsl.Condition;
 import org.apache.ignite.internal.metastorage.dsl.Iif;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.Assignments;
+import org.apache.ignite.internal.partitiondistribution.AssignmentsChain;
 import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -103,6 +104,8 @@ public class ZoneRebalanceUtil {
     private static final String ZONE_PENDING_CHANGE_TRIGGER_PREFIX = "zone.pending.change.trigger.";
 
     static final byte[] ZONE_PENDING_CHANGE_TRIGGER_PREFIX_BYTES = ZONE_PENDING_CHANGE_TRIGGER_PREFIX.getBytes(UTF_8);
+
+    public static final String ZONE_ASSIGNMENTS_CHAIN_PREFIX = "zone.assignments.chain.";
 
     /**
      * Status values for methods like {@link #updatePendingAssignmentsKeys}.
@@ -159,6 +162,7 @@ public class ZoneRebalanceUtil {
      * @param dataNodes Data nodes.
      * @param partitions Number of partitions in a zone.
      * @param replicas Number of replicas for a zone.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param timestamp Timestamp of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
@@ -173,6 +177,7 @@ public class ZoneRebalanceUtil {
             Collection<String> dataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
@@ -190,7 +195,13 @@ public class ZoneRebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(zonePartitionId);
 
-        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                dataNodes,
+                partNum,
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         Set<Assignment> targetAssignmentSet;
 
@@ -395,6 +406,7 @@ public class ZoneRebalanceUtil {
                         dataNodes,
                         zoneDescriptor.partitions(),
                         zoneDescriptor.replicas(),
+                        zoneDescriptor.consensusGroupSize(),
                         storageRevision,
                         storageTimestamp,
                         metaStorageManager,
@@ -454,6 +466,17 @@ public class ZoneRebalanceUtil {
      */
     public static ByteArray pendingChangeTriggerKey(ZonePartitionId zonePartitionId) {
         return new ByteArray(ZONE_PENDING_CHANGE_TRIGGER_PREFIX + zonePartitionId);
+    }
+
+    /**
+     * Key for the graceful restart in HA mode.
+     *
+     * @param partId Unique identifier of a partition.
+     * @return Key for a partition.
+     * @see <a href="https://cwiki.apache.org/confluence/display/IGNITE/IEP-131%3A+Partition+Majority+Unavailability+Handling">HA mode</a>
+     */
+    public static ByteArray assignmentsChainKey(ZonePartitionId partId) {
+        return new ByteArray(ZONE_ASSIGNMENTS_CHAIN_PREFIX + partId);
     }
 
     /**
@@ -697,4 +720,41 @@ public class ZoneRebalanceUtil {
         return (entry == null || entry.empty() || entry.tombstone()) ? null : Assignments.fromBytes(entry.value());
     }
 
+    /**
+     * Returns assignments chains for all table partitions from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zoneId Zone id.
+     * @param numberOfPartitions Number of partitions.
+     * @param revision Revision.
+     * @return Future with table assignments as a value.
+     */
+    public static List<AssignmentsChain> zoneAssignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            int zoneId,
+            int numberOfPartitions,
+            long revision
+    ) {
+        return IntStream.range(0, numberOfPartitions)
+                .mapToObj(p -> assignmentsChainGetLocally(metaStorageManager, new ZonePartitionId(zoneId, p), revision))
+                .collect(toList());
+    }
+
+    /**
+     * Returns assignments chain from meta storage locally.
+     *
+     * @param metaStorageManager Meta storage manager.
+     * @param zonePartitionId Zone partition id.
+     * @param revision Revision.
+     * @return Returns assignments chain from meta storage locally or {@code null} if assignments is absent.
+     */
+    public static @Nullable AssignmentsChain assignmentsChainGetLocally(
+            MetaStorageManager metaStorageManager,
+            ZonePartitionId zonePartitionId,
+            long revision
+    ) {
+        Entry e = metaStorageManager.getLocally(assignmentsChainKey(zonePartitionId), revision);
+
+        return e != null ? AssignmentsChain.fromBytes(e.value()) : null;
+    }
 }

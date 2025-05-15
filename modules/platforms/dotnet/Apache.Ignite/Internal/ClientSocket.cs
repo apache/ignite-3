@@ -50,7 +50,8 @@ namespace Apache.Ignite.Internal
             ProtocolBitmaskFeature.UserAttributes |
             ProtocolBitmaskFeature.TableReqsUseQualifiedName |
             ProtocolBitmaskFeature.PlatformComputeJob |
-            ProtocolBitmaskFeature.PlatformComputeExecutor;
+            ProtocolBitmaskFeature.PlatformComputeExecutor |
+            ProtocolBitmaskFeature.StreamerReceiverExecutionOptions;
 
         /** Features as byte array */
         private static readonly byte[] FeatureBytes = [(byte)Features];

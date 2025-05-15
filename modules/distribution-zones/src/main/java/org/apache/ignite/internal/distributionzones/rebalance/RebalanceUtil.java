@@ -109,8 +109,6 @@ public class RebalanceUtil {
 
     private static final String ASSIGNMENTS_CHAIN_PREFIX = "assignments.chain.";
 
-    public static final byte[] ASSIGNMENTS_CHAIN_PREFIX_BYTES = ASSIGNMENTS_CHAIN_PREFIX.getBytes(UTF_8);
-
     /**
      * Status values for methods like {@link #updatePendingAssignmentsKeys}.
      */
@@ -169,6 +167,7 @@ public class RebalanceUtil {
      * @param dataNodes Data nodes.
      * @param partitions Number of partitions.
      * @param replicas Number of replicas for a table.
+     * @param consensusGroupSize Number of nodes in a consensus group.
      * @param revision Revision of Meta Storage that is specific for the assignment update.
      * @param metaStorageMgr Meta Storage manager.
      * @param partNum Partition id.
@@ -181,6 +180,7 @@ public class RebalanceUtil {
             Collection<String> dataNodes,
             int partitions,
             int replicas,
+            int consensusGroupSize,
             long revision,
             HybridTimestamp timestamp,
             MetaStorageManager metaStorageMgr,
@@ -198,7 +198,13 @@ public class RebalanceUtil {
 
         ByteArray partAssignmentsStableKey = stablePartAssignmentsKey(partId);
 
-        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(dataNodes, partNum, partitions, replicas);
+        Set<Assignment> calculatedAssignments = calculateAssignmentForPartition(
+                dataNodes,
+                partNum,
+                partitions,
+                replicas,
+                consensusGroupSize
+        );
 
         Set<Assignment> targetAssignmentSet;
 
@@ -428,6 +434,7 @@ public class RebalanceUtil {
                     dataNodes,
                     zoneDescriptor.partitions(),
                     zoneDescriptor.replicas(),
+                    zoneDescriptor.consensusGroupSize(),
                     storageRevision,
                     storageTimestamp,
                     metaStorageManager,

@@ -18,6 +18,7 @@
 package org.apache.ignite.client.handler;
 
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
@@ -953,7 +954,11 @@ public class ClientInboundMessageHandler
                 return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, out, igniteTables);
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
-                return ClientStreamerWithReceiverBatchSendRequest.process(in, out, igniteTables);
+                return ClientStreamerWithReceiverBatchSendRequest.process(
+                        in,
+                        out,
+                        igniteTables,
+                        clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
 
             case ClientOp.TABLES_GET_QUALIFIED:
                 return ClientTablesGetQualifiedRequest.process(out, igniteTables).thenRun(() -> {

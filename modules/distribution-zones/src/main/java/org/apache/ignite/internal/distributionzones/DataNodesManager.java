@@ -878,12 +878,7 @@ public class DataNodesManager {
     public CompletableFuture<Set<String>> dataNodes(int zoneId, HybridTimestamp timestamp, @Nullable Integer catalogVersion) {
         DataNodesHistory volatileHistory = dataNodesHistoryVolatile.get(zoneId);
         if (volatileHistory != null && volatileHistory.entryIsPresentAtExactTimestamp(timestamp)) {
-            return completedFuture(volatileHistory.dataNodesForTimestamp(timestamp)
-                    .dataNodes()
-                    .stream()
-                    .map(NodeWithAttributes::nodeName)
-                    .collect(toSet())
-            );
+            return completedFuture(nodeNames(volatileHistory.dataNodesForTimestamp(timestamp).dataNodes()));
         }
 
         if (catalogVersion == null) {
@@ -908,7 +903,7 @@ public class DataNodesManager {
 
                     return entry.dataNodes();
                 }))
-                .thenApply(nodes -> nodes.stream().map(NodeWithAttributes::nodeName).collect(toSet()));
+                .thenApply(DistributionZonesUtil::nodeNames);
     }
 
     private Set<NodeWithAttributes> topologyNodes() {
