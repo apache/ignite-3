@@ -1444,7 +1444,6 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
             if (isValue(schemaField) || isPolymorphicId(schemaField)) {
                 String fieldName = schemaField.getName();
-                String publicName = publicName(schemaField);
 
                 if (isValue(schemaField) && !hasDefault(schemaField)
                         || isPolymorphicId(schemaField) && !schemaField.getAnnotation(PolymorphicId.class).hasDefault()) {

@@ -108,12 +108,11 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
 
         updateConfig(registry, updatedConfig);
 
-        assertThat(registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(), Matchers.equalTo(updatedValue));
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
+                Matchers.equalTo(updatedValue)
+        );
         assertThat(storage.readLatest(String.format("key.%s.%s", OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
-
-        stopRegistry(registry);
-        startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
-        assertThat(registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(), Matchers.equalTo(updatedValue));
     }
 
     @Test

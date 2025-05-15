@@ -337,10 +337,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             protected Object doVisitLeafNode(Field field, String key, Serializable val) {
                 var path = new ArrayList<String>();
 
-                processPath(path, (legacyPath, newPath) -> {
-                    if (!storageData.containsKey(newPath) && storageData.containsKey(legacyPath)) {
-                        res.put(newPath, storageData.get(legacyPath));
-                        res.put(legacyPath, null);
+                processPath(path, (legacyKey, newKey) -> {
+                    if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
+                        res.put(newKey, storageData.get(legacyKey));
+                        res.put(legacyKey, null);
                     }
                 });
 
@@ -734,7 +734,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // We need to ignore deletion of deprecated values.
             ignoreDeleted(changedValues, keyIgnorer);
             // We need to ignore deletion of legacy values.
-            ignoreLegacy(changedValues, oldStorageRoots);
+            ignoreRemovedLegacyKeys(changedValues, oldStorageRoots);
 
             Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
@@ -770,15 +770,15 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         };
     }
 
-    private static void ignoreLegacy(Map<String, ? extends Serializable> changedValues, StorageRoots oldStorageRoots) {
+    private static void ignoreRemovedLegacyKeys(Map<String, ? extends Serializable> changedValues, StorageRoots oldStorageRoots) {
         oldStorageRoots.roots.traverseChildren(new LegacyNamesTrackingConfigurationVisitor<>() {
             @Override
             protected Object doVisitLeafNode(Field field, String key, Serializable val) {
                 var path = new ArrayList<String>();
 
-                processPath(path, (legacyPath, newPath) -> {
-                    if (changedValues.get(legacyPath) == null) {
-                        changedValues.remove(legacyPath);
+                processPath(path, (legacyKey, newKey) -> {
+                    if (changedValues.get(legacyKey) == null) {
+                        changedValues.remove(legacyKey);
                     }
                 });
 

@@ -180,10 +180,10 @@ public abstract class LegacyNamesTrackingConfigurationVisitor<T> implements Conf
     protected void processPath(ArrayList<String> path, BiConsumer<String, String> consumer) {
         if (path.size() == currentPath().size() - 1) {
             for (String legacyName : legacyNames.get(currentPath().size() - 1)) {
-                String legacyPath = join(appendKey(path, legacyName));
-                String newPath = currentKey();
+                String legacyKey = join(appendKey(path, legacyName));
+                String newKey = currentKey();
 
-                consumer.accept(legacyPath, newPath);
+                consumer.accept(legacyKey, newKey);
             }
 
             path.remove(path.size() - 1);

@@ -492,11 +492,11 @@ public class ConfigurationAsmGenerator {
     }
 
     /**
-     * Return a user-facing configuration property name. If schema field contains {@link PublicName} annotation, this method will return its
-     * {@link PublicName#value()}. Otherwise it will return {@link Field#getName()}.
+     * Return fields legacy names. If schema field contains {@link PublicName} annotation, this method will return its
+     * {@link PublicName#legacyNames()} ()}. Otherwise it will return empty array.
      *
      * @param f Configuration schema field.
-     * @return User-facing configuration property name.
+     * @return User-facing configuration legacy names.
      */
     public static String[] legacyNames(Field f) {
         PublicName annotation = f.getAnnotation(PublicName.class);
