@@ -63,7 +63,7 @@ public class TestConfigurationStorage implements ConfigurationStorage {
 
     @Override
     public void close() {
-        // No-op.
+        listeners.clear();
     }
 
     /**
