@@ -48,6 +48,7 @@ import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGener
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.fieldName;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.getThisFieldCode;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.internalName;
+import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.legacyNames;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.nodeClassInterfaces;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.polymorphicIdField;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.publicName;
@@ -1188,19 +1189,25 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 );
 
                 // this.changePolymorphicTypeId(src == null ? null : src.unwrap(FieldType.class));
-                switchBuilder.addCase(
-                        publicName,
-                        new BytecodeBlock()
-                                .append(constructMtd.getThis())
-                                .append(getTypeIdFromSrcVar)
-                                .invokeVirtual(changePolymorphicTypeIdMtd)
-                                .ret()
-                );
+                BytecodeBlock ret = new BytecodeBlock()
+                        .append(constructMtd.getThis())
+                        .append(getTypeIdFromSrcVar)
+                        .invokeVirtual(changePolymorphicTypeIdMtd)
+                        .ret();
+
+                addCaseForAllPublicNames(switchBuilder, schemaField, ret);
             } else {
                 switchBuilder.addCase(
                         publicName,
                         treatSourceForConstruct(constructMtd, schemaField, fieldDef).ret()
                 );
+
+                for (String legacyName : legacyNames(schemaField)) {
+                    switchBuilder.addCase(
+                            legacyName,
+                            treatSourceForConstruct(constructMtd, schemaField, fieldDef).ret()
+                    );
+                }
             }
         }
 
@@ -1216,12 +1223,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 }
 
                 String fieldName = fieldName(schemaField);
-                String publicName = publicName(schemaField);
 
-                switchBuilderAllFields.addCase(
-                        publicName,
-                        treatSourceForConstruct(constructMtd, schemaField, fieldDefs.get(fieldName)).ret()
-                );
+                addCaseForAllPublicNames(
+                        switchBuilderAllFields,
+                        schemaField,
+                        treatSourceForConstruct(constructMtd, schemaField, fieldDefs.get(fieldName)).ret());
             }
 
             // if (includeInternal) switch_by_all_fields
@@ -1245,12 +1251,12 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
                 for (Field polymorphicField : e.getValue()) {
                     String fieldName = fieldName(polymorphicField);
-                    String publicName = publicName(polymorphicField);
 
                     FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
-                    switchBuilderPolymorphicExtension.addCase(
-                            publicName,
+                    addCaseForAllPublicNames(
+                            switchBuilderPolymorphicExtension,
+                            polymorphicField,
                             treatSourceForConstruct(constructMtd, polymorphicField, fieldDef).ret()
                     );
                 }
@@ -1443,7 +1449,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 if (isValue(schemaField) && !hasDefault(schemaField)
                         || isPolymorphicId(schemaField) && !schemaField.getAnnotation(PolymorphicId.class).hasDefault()) {
                     // return;
-                    switchBuilder.addCase(publicName, new BytecodeBlock().ret());
+                    addCaseForAllPublicNames(switchBuilder, schemaField, new BytecodeBlock().ret());
                 } else {
                     FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
@@ -1454,8 +1460,9 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                             : specFields.get(fieldType);
 
                     // this.field = spec_#.field;
-                    switchBuilder.addCase(
-                            publicName,
+                    addCaseForAllPublicNames(
+                            switchBuilder,
+                            schemaField,
                             addNodeConstructDefault(constructDfltMtd, schemaField, fieldDef, specFieldDef).ret()
                     );
                 }
@@ -1474,18 +1481,17 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
                 for (Field polymorphicField : e.getValue()) {
                     if (isValue(polymorphicField)) {
-                        String publicName = publicName(polymorphicField);
-
                         if (!hasDefault(polymorphicField)) {
                             // return;
-                            switchBuilderPolymorphicExtension.addCase(publicName, new BytecodeBlock().ret());
+                            addCaseForAllPublicNames(switchBuilderPolymorphicExtension, polymorphicField, new BytecodeBlock().ret());
                         } else {
                             FieldDefinition fieldDef = fieldDefs.get(fieldName(polymorphicField));
                             FieldDefinition specFieldDef = specFields.get(polymorphicField.getDeclaringClass());
 
                             // this.field = spec_#.field;
-                            switchBuilderPolymorphicExtension.addCase(
-                                    publicName,
+                            addCaseForAllPublicNames(
+                                    switchBuilderPolymorphicExtension,
+                                    polymorphicField,
                                     addNodeConstructDefault(constructDfltMtd, polymorphicField, fieldDef, specFieldDef).ret()
                             );
                         }
@@ -2024,9 +2030,17 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
         return changePolymorphicTypeIdMtd;
     }
 
-    private String polymorphicTypeNotDefinedErrorMessage(Field polymorphicIdField) {
+    private static String polymorphicTypeNotDefinedErrorMessage(Field polymorphicIdField) {
         return "Polymorphic configuration type is not defined: "
                 + polymorphicIdField.getDeclaringClass().getName()
                 + ". See @" + PolymorphicConfig.class.getSimpleName() + " documentation.";
+    }
+
+    private static void addCaseForAllPublicNames(StringSwitchBuilder switchBuilder, Field schemaField, BytecodeBlock codeBlock) {
+        switchBuilder.addCase(publicName(schemaField), codeBlock);
+
+        for (String legacyName : legacyNames(schemaField)) {
+            switchBuilder.addCase(legacyName, codeBlock);
+        }
     }
 }

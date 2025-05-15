@@ -45,6 +45,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -575,6 +576,19 @@ public class LocalFileConfigurationStorageTest {
         assertDoesNotThrow(changer::start);
     }
 
+    @Test
+    void testReadDataOnStartupWithRenamedProperty() throws IOException {
+        // Given config in JSON format
+        String fileContent = "top.oldShortValName = 3";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Storage handles renamed property.
+        assertDoesNotThrow(changer::start);
+    }
+
     private String configFileContent() throws IOException {
         return Files.readString(getConfigFile());
     }
@@ -593,6 +607,7 @@ public class LocalFileConfigurationStorageTest {
         public InnerConfigurationSchema inner;
 
         @Value(hasDefault = true)
+        @PublicName(legacyNames = "oldShortValName")
         public short shortVal = 1;
 
         @Deprecated
