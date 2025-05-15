@@ -18,10 +18,11 @@
 package org.apache.ignite.internal.tx.impl;
 
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
 import java.util.NavigableMap;
+import java.util.NoSuchElementException;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentSkipListMap;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -91,7 +92,10 @@ class TransactionExpirationRegistry {
                         if (txOrSet instanceof Set) {
                             txsExpiringAtTs = (Set<InternalTransaction>) txOrSet;
                         } else {
-                            txsExpiringAtTs = new HashSet<>();
+                            // Using a concurrent set because txsByExpirationTime does not guarantee linearization of compute() calls,
+                            // so the set might be accessed/updated concurrently. It's not a problem to use a mutable set here as both
+                            // addition to it and removal from it are idempotent.
+                            txsExpiringAtTs = ConcurrentHashMap.newKeySet();
                             txsExpiringAtTs.add((InternalTransaction) txOrSet);
                         }
 
@@ -160,15 +164,27 @@ class TransactionExpirationRegistry {
 
                 set.remove(tx);
 
-                return set.size() == 1 ? set.iterator().next() : set;
-            } else {
-                InternalTransaction tx0 = (InternalTransaction) txOrSet;
+                int newSize = set.size();
 
-                if (tx0.id().equals(tx.id())) {
+                if (newSize == 0) {
+                    return null;
+                } else if (newSize == 1) {
+                    try {
+                        return set.iterator().next();
+                    } catch (NoSuchElementException e) {
+                        return null;
+                    }
+                } else {
+                    return set;
+                }
+            } else {
+                InternalTransaction registeredTx = (InternalTransaction) txOrSet;
+
+                if (registeredTx.id().equals(tx.id())) {
                     return null;
                 }
 
-                return tx0;
+                return registeredTx;
             }
         });
     }
