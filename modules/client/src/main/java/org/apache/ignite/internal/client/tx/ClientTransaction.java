@@ -41,6 +41,7 @@ import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
@@ -273,8 +274,13 @@ public class ClientTransaction implements Transaction {
                 for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
                     w.out().packInt(entry.getKey().tableId());
                     w.out().packInt(entry.getKey().partitionId());
-                    w.out().packString(entry.getValue().getNow(null).get1());
-                    w.out().packLong(entry.getValue().getNow(null).get2());
+                    CompletableFuture<IgniteBiTuple<String, Long>> fut = entry.getValue();
+                    if (CompletableFutures.isCompletedSuccessfully(fut)) {
+                        w.out().packString(fut.join().get1());
+                        w.out().packLong(fut.join().get2());
+                    } else {
+                        w.out().packNil();
+                    }
                 }
             }
         }, r -> null);
