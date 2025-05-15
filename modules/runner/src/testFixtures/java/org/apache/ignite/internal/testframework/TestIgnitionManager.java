@@ -220,6 +220,13 @@ public class TestIgnitionManager {
         return applyToConfigEntry(configStr, modifiers);
     }
 
+    /**
+     * Applies overrides to the config.
+     *
+     * @param configStr Config string.
+     * @param overrides Map of overrides.
+     * @return Rendered config with applied overrides.
+     */
     public static String applyOverridesToConfig(@Nullable String configStr, Map<String, String> overrides) {
         List<Function<ConfigDocument, ConfigDocument>> modifiers = overrides.entrySet().stream()
                 .map(TestIgnitionManager::applyOverrideModifier)
@@ -260,6 +267,7 @@ public class TestIgnitionManager {
             return document.withValueText(path, value);
         }
     }
+
     private static Function<ConfigDocument, ConfigDocument> applyOverrideModifier(Entry<String, String> entry) {
         return configDocument -> configDocument.withValueText(entry.getKey(), entry.getValue());
     }
