@@ -53,8 +53,6 @@ Limit
                       MergeJoin
                           condition: =(S_NATIONKEY, N_NATIONKEY)
                           joinType: inner
-                          leftCollation: [S_NATIONKEY ASC]
-                          rightCollation: [S_SUPPKEY ASC]
                           est. row count: 3330
                         Exchange
                             distribution: single

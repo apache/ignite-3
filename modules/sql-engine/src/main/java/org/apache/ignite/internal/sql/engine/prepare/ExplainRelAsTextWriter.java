@@ -44,6 +44,7 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.rel.IgniteMergeJoin;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -77,6 +78,11 @@ public class ExplainRelAsTextWriter extends RelWriterImpl {
         for (Pair<String, @Nullable Object> value : values) {
             if (value.right instanceof RelNode) {
                 continue;
+            }
+            if (rel instanceof IgniteMergeJoin) {
+                if ("leftCollation".equals(value.left) || "rightCollation".equals(value.left)) {
+                    continue;
+                }
             }
 
             s.append(System.lineSeparator());
