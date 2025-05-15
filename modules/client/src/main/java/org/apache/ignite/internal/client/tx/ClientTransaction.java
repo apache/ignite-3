@@ -265,9 +265,8 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> finishFut = ch.inflights().finishFuture(txId());
-
-        CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
+        // Don't wait inflights on rollback.
+        CompletableFuture<Void> mainFinishFut = ch.serviceAsync(ClientOp.TX_ROLLBACK, w -> {
             w.out().packLong(id);
             if (!isReadOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
                 w.out().packInt(enlisted.size());
@@ -278,7 +277,7 @@ public class ClientTransaction implements Transaction {
                     w.out().packLong(entry.getValue().getNow(null).get2());
                 }
             }
-        }, r -> null));
+        }, r -> null);
 
         mainFinishFut.handle((res, e) -> {
             setState(STATE_ROLLED_BACK);

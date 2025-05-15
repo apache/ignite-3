@@ -260,7 +260,7 @@ public class IgniteServerImpl implements IgniteServer {
      *
      * @return CompletableFuture that gets completed when the node startup has completed (either successfully or with an error).
      */
-    CompletableFuture<Void> restartAsync() {
+    public CompletableFuture<Void> restartAsync() {
         // We do not allow restarts to happen concurrently with shutdowns.
         CompletableFuture<Void> result;
         synchronized (restartOrShutdownMutex) {
