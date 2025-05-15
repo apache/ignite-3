@@ -326,7 +326,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Tests a table which was preconfigured.
      */
     @Test
-    public void testPreconfiguredTable() throws NodeStoppingException {
+    public void testPreconfiguredTable() throws Exception {
         if (enabledColocation()) {
             mockZoneLockForRead();
         } else {
@@ -355,7 +355,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      */
     @Test
-    public void testCreateTable() throws NodeStoppingException {
+    public void testCreateTable() throws Exception {
         if (enabledColocation()) {
             mockZoneLockForRead();
         } else {
@@ -377,7 +377,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      */
     @Test
     @MuteFailureManagerLogging
-    public void testWriteTableAssignmentsToMetastoreExceptionally() throws NodeStoppingException {
+    public void testWriteTableAssignmentsToMetastoreExceptionally() throws Exception {
         if (enabledColocation()) {
             mockZoneLockForRead();
         } else {
@@ -463,7 +463,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      *
      */
     @Test
-    public void testReCreateTableWithSameName() throws NodeStoppingException {
+    public void testReCreateTableWithSameName() throws Exception {
         if (enabledColocation()) {
             when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt()))
                     .thenReturn(completedFuture(1L));
@@ -608,7 +608,7 @@ public class TableManagerTest extends IgniteAbstractTest {
                 () -> doThrow(new RuntimeException()).when(tblAndMnr.get1().internalTable().txStateStorage()).close());
     }
 
-    private IgniteBiTuple<TableViewInternal, TableManager> startTableManagerStopTest() throws NodeStoppingException {
+    private IgniteBiTuple<TableViewInternal, TableManager> startTableManagerStopTest() throws Exception {
         mockReplicaServicesExtended();
 
         TableViewInternal table = mockManagersAndCreateTable(DYNAMIC_TABLE_FOR_DROP_NAME, tblManagerFut);
@@ -634,7 +634,7 @@ public class TableManagerTest extends IgniteAbstractTest {
      * Instantiates a table and prepares Table manager.
      */
     @Test
-    public void testGetTableDuringCreation() throws NodeStoppingException {
+    public void testGetTableDuringCreation() throws Exception {
         if (enabledColocation()) {
             mockZoneLockForRead();
         } else {
@@ -697,9 +697,9 @@ public class TableManagerTest extends IgniteAbstractTest {
      * @param isTxStorageUnderRebalance When {@code true} - TX state storage is emulated as being under rebalance, when {@code false} -
      *         partition storage is emulated instead.
      */
-    private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws NodeStoppingException {
+    private void testStoragesGetClearedInMiddleOfFailedRebalance(boolean isTxStorageUnderRebalance) throws Exception {
         if (!enabledColocation()) {
-            mockReplicaServices();
+            mockReplicaServicesExtended();
         }
 
         when(distributionZoneManager.dataNodes(any(), anyInt(), anyInt()))
@@ -717,6 +717,8 @@ public class TableManagerTest extends IgniteAbstractTest {
             // Emulate a situation when partition storage was stopped in a middle of rebalance.
             when(mvPartitionStorage.lastAppliedIndex()).thenReturn(MvPartitionStorage.REBALANCE_IN_PROGRESS);
         }
+
+        when(txStateStorage.clear()).thenReturn(nullCompletedFuture());
 
         when(msm.recoveryFinishedFuture()).thenReturn(completedFuture(new Revisions(2, -1)));
 
@@ -761,7 +763,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         when(partitionReplicaLifecycleManager.lockZoneForRead(anyInt())).thenReturn(completedFuture(100L));
     }
 
-    private void mockReplicaServicesExtended() throws NodeStoppingException {
+    private void mockReplicaServicesExtended() throws Exception {
         mockReplicaServices();
 
         when(replicaMgr.startReplica(any(), any(), anyBoolean(), any(), any(), any(), any(), any()))
@@ -773,7 +775,7 @@ public class TableManagerTest extends IgniteAbstractTest {
         });
     }
 
-    private void mockReplicaServices() throws NodeStoppingException {
+    private void mockReplicaServices() throws Exception {
         TopologyService topologyService = mock(TopologyService.class);
 
         when(clusterService.topologyService()).thenReturn(topologyService);
