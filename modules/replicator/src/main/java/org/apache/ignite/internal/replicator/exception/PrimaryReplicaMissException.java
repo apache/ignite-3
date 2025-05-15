@@ -35,6 +35,7 @@ public class PrimaryReplicaMissException extends IgniteInternalException impleme
      *
      * @param txId Transaction id.
      * @param expectedEnlistmentConsistencyToken Expected enlistment consistency token, {@code null} if absent.
+     * @param currentEnlistmentConsistencyToken Current enlistment consistency token, {@code null} if absent.
      */
     public PrimaryReplicaMissException(UUID txId, Long expectedEnlistmentConsistencyToken, Long currentEnlistmentConsistencyToken) {
         super(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, expectedEnlistmentConsistencyToken={}, "

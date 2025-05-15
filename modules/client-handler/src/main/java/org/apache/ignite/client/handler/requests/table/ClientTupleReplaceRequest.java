@@ -24,6 +24,7 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -50,10 +51,11 @@ public class ClientTupleReplaceRequest {
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            NotificationSender notificationSender
     ) {
         return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false);
+            var tx = readOrStartImplicitTx(in, out, resources, txManager, false, notificationSender);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().replaceAsync(tx, tuple).thenAccept(res -> {
                     writeTxMeta(out, clockService, tx);

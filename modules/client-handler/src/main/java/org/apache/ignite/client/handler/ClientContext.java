@@ -74,10 +74,26 @@ class ClientContext {
     /**
      * Checks if a feature is enabled.
      *
-     * @return {code True} if a feature is enabled.
+     * @return {@code True} if a feature is enabled.
      */
     public boolean hasFeature(ProtocolBitmaskFeature feature) {
         return features.get(feature.featureId());
+    }
+
+    /**
+     * Сhecks if all features are enabled.
+     *
+     * @param features Features.
+     * @return {@code True} if all features are enabled.
+     */
+    public boolean hasAllFeatures(ProtocolBitmaskFeature... features) {
+        for (ProtocolBitmaskFeature feature : features) {
+            if (!this.features.get(feature.featureId())) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public UserDetails userDetails() {

@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.proto;
 
+import java.util.BitSet;
+
 /**
  * Client operation codes.
  */
@@ -205,4 +207,33 @@ public class ClientOp {
     /** Reserved for extensions: max. */
     @SuppressWarnings("unused")
     public static final int RESERVED_EXTENSION_RANGE_END = 2000;
+
+    /** Write mask. */
+    private static final BitSet WRITE_MASK = new BitSet(64);
+
+    static {
+        WRITE_MASK.set(TUPLE_UPSERT);
+        WRITE_MASK.set(TUPLE_GET_AND_UPSERT);
+        WRITE_MASK.set(TUPLE_INSERT);
+        WRITE_MASK.set(TUPLE_REPLACE);
+        WRITE_MASK.set(TUPLE_REPLACE_EXACT);
+        WRITE_MASK.set(TUPLE_GET_AND_REPLACE);
+        WRITE_MASK.set(TUPLE_DELETE);
+        WRITE_MASK.set(TUPLE_DELETE_EXACT);
+        WRITE_MASK.set(TUPLE_GET_AND_DELETE);
+        WRITE_MASK.set(TUPLE_UPSERT_ALL);
+        WRITE_MASK.set(TUPLE_INSERT_ALL);
+        WRITE_MASK.set(TUPLE_DELETE_ALL);
+        WRITE_MASK.set(TUPLE_DELETE_ALL_EXACT);
+    }
+
+    /**
+     * Test if operation is write.
+     *
+     * @param opCode The operation code.
+     * @return The status.
+     */
+    public static boolean isWrite(int opCode) {
+        return WRITE_MASK.get(opCode);
+    }
 }

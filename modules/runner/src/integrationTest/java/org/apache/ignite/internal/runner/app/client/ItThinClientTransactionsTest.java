@@ -24,9 +24,11 @@ import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -44,6 +46,9 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
+import org.apache.ignite.internal.client.ClientChannel;
+import org.apache.ignite.internal.client.ClientTransactionInflights;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.client.table.ClientTable;
 import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
@@ -72,6 +77,8 @@ import org.mockito.Mockito;
  * Thin client transactions integration test.
  */
 public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
+    private static final String INFLIGHTS_FIELD_NAME = "inflights";
+
     @Test
     void testKvViewOperations() {
         KeyValueView<Integer, String> kvView = kvView();
@@ -410,7 +417,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(coordIdx != -1);
 
         IgniteImpl coord = TestWrappers.unwrapIgniteImpl(server(coordIdx));
-        assertNotNull(coord.txManager().stateMeta(txId), "Transaction expected to be collocated with enlistment");
+        assertNotNull(coord.txManager().stateMeta(txId), "Transaction expected to be colocated with enlistment");
 
         IgniteImpl other = TestWrappers.unwrapIgniteImpl(server(1 - coordIdx));
 
@@ -470,6 +477,30 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
             if (node.name().equals(clusterNode.name())) {
                 keys.add(t);
+            }
+        }
+
+        return keys;
+    }
+
+    private List<Tuple> retainSinglePartitionKeys(List<Tuple> list, int count) {
+        List<Tuple> keys = new ArrayList<>();
+
+        Partition part0 = null;
+
+        for (Tuple t : list) {
+            Partition part = table().partitionManager().partitionAsync(t).join();
+
+            if (part0 == null) {
+                part0 = part;
+            }
+
+            if (part.equals(part0)) {
+                keys.add(t);
+            }
+
+            if (keys.size() == count) {
+                break;
             }
         }
 
@@ -588,6 +619,133 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         for (Entry<Tuple, Tuple> entry : data.entrySet()) {
             table.keyValueView().put(null, entry.getKey(), entry.getValue());
+        }
+    }
+
+    @Test
+    void testMixedMappingScenarioWithNoopEnlistment() throws Exception {
+        // Inject spied instance.
+        TcpIgniteClient clent0 = (TcpIgniteClient) client();
+        Field inflightsField = clent0.channel().getClass().getDeclaredField(INFLIGHTS_FIELD_NAME);
+        inflightsField.setAccessible(true);
+        ClientTransactionInflights inflights = clent0.channel().inflights();
+        ClientTransactionInflights spyed = Mockito.spy(inflights);
+        inflightsField.set(clent0.channel(), spyed);
+
+        for (ClientChannel channel : clent0.channel().channels()) {
+            Field f = channel.getClass().getDeclaredField(INFLIGHTS_FIELD_NAME);
+            f.setAccessible(true);
+            f.set(channel, spyed);
+        }
+
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember());
+        List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember());
+
+        Map<Tuple, Tuple> data = new HashMap<>();
+
+        ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
+
+        // First operation is colocated with txn coordinator and not directly mapped.
+        Tuple k = tuples0.get(0);
+        Tuple v = val(tuples0.get(0).intValue(0) + "");
+
+        KeyValueView<Tuple, Tuple> view = table.keyValueView();
+        view.put(tx0, k, v);
+
+        // All other operations are directly mapped.
+        int val = 0;
+        Tuple k1 = tuples1.get(val);
+        Tuple v1 = val(tuples1.get(val).intValue(0) + "");
+
+        val++;
+        Tuple k2 = tuples1.get(val);
+        Tuple v2 = val(tuples1.get(val).intValue(0) + "");
+
+        int c = 5;
+        int c0 = c;
+
+        Map<Tuple, Tuple> batch0 = new HashMap<>();
+        while (c-- > 0) {
+            val++;
+            batch0.put(tuples1.get(val), val(tuples1.get(val).intValue(0) + ""));
+        }
+
+        view.put(tx0, k1, v1); // Write
+        assertTrue(Tuple.equals(v1, view.get(tx0, k1))); // Read
+        assertTrue(view.putIfAbsent(tx0, k2, v2)); // Write
+        assertFalse(view.putIfAbsent(tx0, k2, v2)); // No-op write.
+
+        view.putAll(tx0, batch0); // Write in proxy mode.
+        Map<Tuple, Tuple> readBack = view.getAll(tx0, batch0.keySet()); // Read.
+        assertEquals(c0, readBack.size());
+
+        assertTrue(Tuple.equals(v1, view.getAndPut(tx0, k1, v2))); // Write
+        assertTrue(Tuple.equals(v2, view.get(tx0, k1))); // Read
+
+        assertTrue(Tuple.equals(v2, view.getAndRemove(tx0, k1))); // Write
+        assertNull(view.get(tx0, k1)); // Read
+        assertNull(view.getAndRemove(tx0, k1)); // No-op write
+
+        assertNull(view.getAndReplace(tx0, k1, v1)); // No-op write
+        assertTrue(Tuple.equals(v2, view.getAndReplace(tx0, k2, v1))); // Write
+        assertTrue(Tuple.equals(v1, view.get(tx0, k2))); // Read
+
+        assertFalse(view.remove(tx0, k1)); // No-op write
+        Tuple keyRmv = batch0.keySet().iterator().next();
+        Tuple rmv = batch0.remove(keyRmv);
+        assertTrue(view.remove(tx0, keyRmv)); // Write
+        Tuple keyRmv2 = batch0.keySet().iterator().next();
+        Tuple rmv2 = batch0.remove(keyRmv2);
+        assertFalse(view.remove(tx0, keyRmv2, v1)); // No-op write
+        assertTrue(view.remove(tx0, keyRmv2, rmv2)); // Write
+
+        Tuple keyRmv3 = batch0.keySet().iterator().next();
+        batch0.remove(keyRmv3);
+        assertEquals(0, view.removeAll(tx0, batch0.keySet()).size()); // Proxy write
+        assertEquals(2, view.removeAll(tx0, batch0.keySet()).size()); // Proxy no-op write
+
+        assertTrue(view.replace(tx0, keyRmv3, v1)); // Write
+        assertFalse(view.replace(tx0, keyRmv2, v1)); // No-op write
+
+        assertTrue(view.replace(tx0, keyRmv3, v1, v2)); // Write
+        assertFalse(view.replace(tx0, keyRmv3, v1, v2)); // No-op write
+
+
+        Tuple rec0 = kv(keyRmv.intValue(0), rmv.stringValue(0));
+
+        RecordView<Tuple> recView = table.recordView();
+        assertTrue(recView.insert(tx0, rec0)); // Write
+        assertFalse(recView.insert(tx0, rec0)); // No-op write
+
+        List<Tuple> recs = new ArrayList<>();
+        for (Entry<Tuple, Tuple> entry : batch0.entrySet()) {
+            recs.add(kv(entry.getKey().intValue(0), entry.getValue().stringValue(0)));
+        }
+        assertEquals(0, recView.insertAll(tx0, recs).size()); // Proxy write
+        assertEquals(recs.size(), recView.insertAll(tx0, recs).size()); // Proxy no-op write
+
+        assertEquals(0, recView.deleteAllExact(tx0, recs).size()); // Proxy write
+        assertEquals(recs.size(), recView.deleteAllExact(tx0, recs).size()); // Proxy no-op write
+
+        assertTrue(recView.deleteExact(tx0, rec0)); // Write
+        assertFalse(recView.deleteExact(tx0, rec0)); // No-op write
+
+        tx0.commit();
+
+        // Expecting each write operation to trigger add/remove events.
+        int exp = 20;
+        Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx().txId());
+        Mockito.verify(spyed, Mockito.times(exp)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
+
+        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
+            view.put(null, entry.getKey(), entry.getValue());
         }
     }
 
