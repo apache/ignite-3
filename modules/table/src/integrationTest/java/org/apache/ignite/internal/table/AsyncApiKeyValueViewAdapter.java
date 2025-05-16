@@ -123,6 +123,11 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
     }
 
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        removeAll(tx);
+    }
+
+    @Override
     @Nullable public V getAndRemove(@Nullable Transaction tx, K key) {
         return await(delegate.getAndRemoveAsync(tx, key));
     }
@@ -214,6 +219,11 @@ public class AsyncApiKeyValueViewAdapter<K, V> implements KeyValueView<K, V> {
 
     @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
+        throw new UnsupportedOperationException("Must not be called");
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
         throw new UnsupportedOperationException("Must not be called");
     }
 

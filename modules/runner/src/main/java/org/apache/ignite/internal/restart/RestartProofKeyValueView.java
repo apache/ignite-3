@@ -190,8 +190,18 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        consumeAttached(view -> view.removeAll(tx));
+    }
+
+    @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
         return attachedAsync(view -> view.removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return attachedAsync(view -> view.removeAllAsync(tx));
     }
 
     @Override

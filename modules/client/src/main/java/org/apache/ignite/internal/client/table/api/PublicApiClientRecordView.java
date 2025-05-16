@@ -203,8 +203,18 @@ public class PublicApiClientRecordView<R> extends PublicApiClientViewBase<R> imp
     }
 
     @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        executeSyncOp(() -> view.deleteAll(tx));
+    }
+
+    @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         return executeAsyncOp(() -> view.deleteAllAsync(tx, keyRecs));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return executeAsyncOp(() -> view.deleteAllAsync(tx));
     }
 
     @Override

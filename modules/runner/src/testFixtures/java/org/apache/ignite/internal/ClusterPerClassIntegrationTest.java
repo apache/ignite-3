@@ -517,6 +517,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
 
         final double salary;
 
+
+        /**
+         * Default constructor.
+         */
+        public Person() {
+            id = 0;
+            name = null;
+            salary = 0;
+        }
+
         public Person(int id, String name, double salary) {
             this.id = id;
             this.name = name;
