@@ -58,6 +58,7 @@ import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionContext;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.internal.ConfigOverride;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.ExecutionManager;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
@@ -71,6 +72,7 @@ import org.junit.jupiter.api.Test;
  * Integration tests for {@link ComputeController}.
  */
 @MicronautTest
+@ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public class ItComputeControllerTest extends ClusterPerClassIntegrationTest {
     private static final String COMPUTE_URL = "/management/v1/compute/";
 
