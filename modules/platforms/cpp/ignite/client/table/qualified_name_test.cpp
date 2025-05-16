@@ -77,3 +77,62 @@ TEST(client_qualified_name, parse_implicit_schema_default) {
     EXPECT_EQ(name.get_schema_name(), qualified_name::DEFAULT_SCHEMA_NAME);
 }
 
+class canonical_values_fixture : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(canonical_values_fixture, canonical_name_parse) {
+    auto canonical_name = GetParam();
+
+    EXPECT_EQ(canonical_name, qualified_name::parse(canonical_name).get_canonical_name());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_name_utils, canonical_values_fixture,
+    ::testing::Values(
+        "FOO.FOO",
+        "_FOO._FOO",
+        "_._",
+        "A\xCC\x80.A\xC2\xB7",
+        R"("foo"."bar")",
+        "\"\xF0\x9F\x98\x85\".\"\xC2\xB7\""
+    )
+);
+
+// class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+//
+// TEST_P(quote_if_needed_fixture, quote_if_needed) {
+//     auto [name, expected] = GetParam();
+//
+//     EXPECT_EQ(expected, quote_if_needed(name, qualified_name::QUOTE_CHAR));
+//     EXPECT_EQ(name, parse_identifier(quote_if_needed(
+//         name, qualified_name::QUOTE_CHAR), qualified_name::QUOTE_CHAR, qualified_name::SEPARATOR_CHAR));
+// }
+//
+//
+// INSTANTIATE_TEST_SUITE_P(
+//     client_name_utils, quote_if_needed_fixture,
+//     ::testing::Values(
+//         std::make_tuple("foo", "\"foo\""),
+//         std::make_tuple("fOo", "\"fOo\""),
+//         std::make_tuple("FOO", "FOO"),
+//         std::make_tuple("_FOO", "_FOO"),
+//         std::make_tuple("_", "_"),
+//         std::make_tuple("__", "__"),
+//         std::make_tuple("_\xC2\xB7", "_\xC2\xB7"),
+//         std::make_tuple("A\xCC\x80", "A\xCC\x80"),
+//         std::make_tuple("1o0", "\"1o0\""),
+//         std::make_tuple("@#$", "\"@#$\""),
+//         std::make_tuple("f16", "\"f16\""),
+//         std::make_tuple("F16", "F16"),
+//         std::make_tuple("Ff16", "\"Ff16\""),
+//         std::make_tuple("FF16", "FF16"),
+//         std::make_tuple(" ", "\" \""),
+//         std::make_tuple(" F", "\" F\""),
+//         std::make_tuple(" ,", "\" ,\""),
+//         std::make_tuple("\xF0\x9F\x98\x85", "\"\xF0\x9F\x98\x85\""),
+//         std::make_tuple("\"foo\"", "\"\"\"foo\"\"\""),
+//         std::make_tuple("\"fOo\"", "\"\"\"fOo\"\"\""),
+//         std::make_tuple("\"f.f\"", "\"\"\"f.f\"\"\""),
+//         std::make_tuple("foo\"bar\"", "\"foo\"\"bar\"\"\""),
+//         std::make_tuple("foo\"bar", "\"foo\"\"bar\"")
+//     )
+// );

@@ -99,8 +99,9 @@ INSTANTIATE_TEST_SUITE_P(
         "f\xF0\x9F\x98\x85",
         "A\xF0",
         "$foo",
-        "foo$")
-        );
+        "foo$"
+    )
+);
 
 
 class valid_identifiers_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
@@ -135,3 +136,4 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("\"f\xF0\x9F\x98\x85\"", "f\xF0\x9F\x98\x85")
     )
 );
+
