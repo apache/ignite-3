@@ -948,7 +948,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
         // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
         // the race between rebalance and assignments verifications that we do below.
-        // Worth mentioning that assigments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
         Assignments assignmentToBlock = Assignments.of(Set.of(Assignment.forPeer(node(1).name())), timestamp);
         blockRebalanceStableSwitch(partId, assignmentToBlock);
 
@@ -1081,7 +1081,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
         // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
         // the race between rebalance and assignments verifications that we do below.
-        // Worth mentioning that assigments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
         Assignments assignmentToBlock = Assignments.of(Set.of(Assignment.forPeer(leaderName)), timestamp);
         blockRebalanceStableSwitch(partId, assignmentToBlock);
 
@@ -1220,7 +1220,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
         // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
         // the race between rebalance and assignments verifications that we do below.
-        // Worth mentioning that assigments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
         Assignments assignmentsToBlock = Assignments.of(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);
         blockRebalanceStableSwitch(partId, assignmentsToBlock);
 
