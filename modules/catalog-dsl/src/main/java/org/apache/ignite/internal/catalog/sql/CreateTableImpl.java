@@ -27,6 +27,7 @@ import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.sql.IgniteSql;
 
 class CreateTableImpl extends AbstractCatalogQuery<Name> {
@@ -120,6 +121,14 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
         Objects.requireNonNull(columns, "Index columns list must not be null.");
         if (columns.isEmpty()) {
             throw new IllegalArgumentException("Index columns list must not be empty.");
+        }
+
+        if (type == IndexType.HASH) {
+            for (ColumnSorted c : columns) {
+                if (c.sortOrder() != SortOrder.DEFAULT) {
+                    throw new IllegalArgumentException("Index columns must not define a sort order in hash indexes.");
+                }
+            }
         }
 
         indexes.add(new CreateIndexImpl(sql).ifNotExists().name(name).using(type).on(tableName, columns));

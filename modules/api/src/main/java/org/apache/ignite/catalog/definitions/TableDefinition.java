@@ -24,6 +24,7 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Table;
 import org.jetbrains.annotations.Nullable;
 
@@ -537,6 +538,14 @@ public class TableDefinition {
 
             if (columns.isEmpty()) {
                 throw new IllegalArgumentException("Index columns list must not be empty.");
+            }
+
+            if (type == IndexType.HASH) {
+                for (ColumnSorted c : columns) {
+                    if (c.sortOrder() != SortOrder.DEFAULT) {
+                        throw new IllegalArgumentException("Index columns must not define a sort order in hash indexes.");
+                    }
+                }
             }
 
             indexes.add(new IndexDefinition(indexName, type, columns));

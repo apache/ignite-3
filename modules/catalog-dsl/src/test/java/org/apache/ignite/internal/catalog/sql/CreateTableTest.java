@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.catalog.sql;
 
 import static org.apache.ignite.catalog.ColumnType.INTEGER;
+import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.endsWith;
 import static org.hamcrest.Matchers.is;
@@ -137,6 +138,31 @@ class CreateTableTest {
                 .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1")));
         sql = query2.toString();
         assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS IX_TEST1 ON TABLE1 USING HASH (COL1);"));
+
+        Query query4 = createTable().name("table1").addColumn("col1", INTEGER)
+                .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1", SortOrder.DEFAULT)));
+        sql = query4.toString();
+        assertThat(sql, endsWith("CREATE INDEX IF NOT EXISTS IX_TEST1 ON TABLE1 USING HASH (COL1);"));
+
+        SortOrder[] invalidSortOrders = {
+                SortOrder.DESC,
+                SortOrder.DESC_NULLS_FIRST,
+                SortOrder.DESC_NULLS_LAST,
+                SortOrder.ASC,
+                SortOrder.ASC_NULLS_FIRST,
+                SortOrder.ASC_NULLS_LAST,
+                SortOrder.NULLS_FIRST,
+                SortOrder.NULLS_LAST
+        };
+
+        for (SortOrder order : invalidSortOrders) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> createTable().name("table1").addColumn("col1", INTEGER)
+                            .addIndex("ix_test1", IndexType.HASH, List.of(ColumnSorted.column("col1", order))),
+                    "Index columns must not define a sort order in hash indexes."
+            );
+        }
     }
 
     private static CreateTableImpl createTable() {

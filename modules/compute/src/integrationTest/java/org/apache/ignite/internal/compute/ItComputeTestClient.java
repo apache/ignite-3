@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.compute.IgniteCompute;
+import org.apache.ignite.internal.ConfigOverride;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 
@@ -28,6 +29,7 @@ import org.junit.jupiter.api.BeforeEach;
  * Integration tests for Compute functionality using thin client API.
  */
 @SuppressWarnings("NewClassNamingConvention")
+@ConfigOverride(name = "ignite.compute.threadPoolSize", value = "1")
 public class ItComputeTestClient extends ItComputeTestEmbedded {
     private IgniteClient client;
 
