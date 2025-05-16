@@ -55,12 +55,29 @@ namespace Apache.Ignite.Transactions
             TransactionOptions options = default)
         {
             await using var tx = await BeginAsync(options).ConfigureAwait(false);
-
             var res = await func(tx).ConfigureAwait(false);
-
             await tx.CommitAsync().ConfigureAwait(false);
 
             return res;
+        }
+
+        /// <summary>
+        /// Runs the specified function within a transaction.
+        /// </summary>
+        /// <param name="func">Function.</param>
+        /// <param name="options">Transaction options.</param>
+        /// <returns>Function result.</returns>
+        [SuppressMessage(
+            "Reliability",
+            "CA2007:Consider calling ConfigureAwait on the awaited task",
+            Justification = "False positive, ConfigureAwait is present.")]
+        async Task RunInTransactionAsync(
+            Func<ITransaction, Task> func,
+            TransactionOptions options = default)
+        {
+            await using var tx = await BeginAsync(options).ConfigureAwait(false);
+            await func(tx).ConfigureAwait(false);
+            await tx.CommitAsync().ConfigureAwait(false);
         }
     }
 }
