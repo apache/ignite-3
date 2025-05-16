@@ -412,22 +412,23 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 }
 
                 if (ex == null && res.applyResult().replicationFuture() != null) {
-                    res.applyResult().replicationFuture().whenComplete((res0, ex0) -> {
-                        NetworkMessage msg0;
+                    res.applyResult().replicationFuture().whenComplete(
+                            res.delayedAckProcessor != null ? res.delayedAckProcessor : (res0, ex0) -> {
+                                NetworkMessage msg0;
 
-                        LOG.debug("Sending delayed response for replica request [request={}]", request);
+                                LOG.debug("Sending delayed response for replica request [request={}]", request);
 
-                        if (ex0 == null) {
-                            msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
-                        } else {
-                            LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+                                if (ex0 == null) {
+                                    msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
+                                } else {
+                                    LOG.warn("Failed to process delayed response [request={}]", ex0, request);
 
-                            msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
-                        }
+                                    msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
+                                }
 
-                        // Using strong send here is important to avoid a reordering with a normal response.
-                        clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
-                    });
+                                // Using strong send here is important to avoid a reordering with a normal response.
+                                clusterNetSvc.messagingService().send(senderConsistentId, ChannelType.DEFAULT, msg0);
+                            });
                 }
 
                 return null;

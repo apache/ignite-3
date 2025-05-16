@@ -59,6 +59,11 @@ public class ClientTransactionRollbackRequest {
             for (int i = 0; i < cnt; i++) {
                 int tableId = in.unpackInt();
                 int partId = in.unpackInt();
+
+                if (in.tryUnpackNil()) { // Incomplete mapping.
+                    continue;
+                }
+
                 String consistentId = in.unpackString();
                 long token = in.unpackLong();
 

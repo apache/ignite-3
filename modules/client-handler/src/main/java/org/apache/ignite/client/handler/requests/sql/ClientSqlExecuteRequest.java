@@ -83,7 +83,7 @@ public class ClientSqlExecuteRequest {
         cancelHandles.put(requestId, cancelHandle);
 
         return nullCompletedFuture().thenComposeAsync(none -> {
-            InternalTransaction tx = readTx(in, out, resources, null);
+            InternalTransaction tx = readTx(in, out, resources, null, null);
             ClientSqlProperties props = new ClientSqlProperties(in);
             String statement = in.unpackString();
             Object[] arguments = in.unpackObjectArrayFromBinaryTuple();

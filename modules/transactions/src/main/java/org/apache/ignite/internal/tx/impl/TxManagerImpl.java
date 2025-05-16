@@ -33,6 +33,7 @@ import static org.apache.ignite.internal.tx.TransactionIds.beginTimestamp;
 import static org.apache.ignite.internal.tx.TxState.ABORTED;
 import static org.apache.ignite.internal.tx.TxState.COMMITTED;
 import static org.apache.ignite.internal.tx.TxState.FINISHING;
+import static org.apache.ignite.internal.tx.TxState.PENDING;
 import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -918,7 +919,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     }
 
     @Override
-    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout) {
+    public InternalTransaction beginRemote(UUID txId, TablePartitionId commitPartId, UUID coord, long token, long timeout,
+            Consumer<Throwable> cb) {
         assert commitPartId.tableId() > 0 && commitPartId.partitionId() >= 0 : "Illegal condition for direct mapping: " + commitPartId;
 
         // Switch to default timeout if needed.
@@ -928,12 +930,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         var tx = new RemoteReadWriteTransaction(txId, commitPartId, coord, token, topologyService.localMember(),
                 timeout + clockService.maxClockSkewMillis()) {
             boolean isTimeout = false;
+            TxState txState = PENDING;
 
             @Override
             public TxState state() {
-                TxStateMeta meta = TxManagerImpl.this.stateMeta(txId);
-
-                return meta == null ? null : meta.txState();
+                return txState;
             }
 
             @Override
@@ -951,6 +952,23 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
             @Override
             public boolean isRolledBackWithTimeoutExceeded() {
                 return isTimeout;
+            }
+
+            @Override
+            public CompletableFuture<Void> kill() {
+                txState = ABORTED; // We use ABORTED state for remote txn to indicate no write enlistment.
+
+                return nullCompletedFuture();
+            }
+
+            @Override
+            public void processDelayedAck(Object ignored, @Nullable Throwable err) {
+                try {
+                    cb.accept(err);
+                } catch (Throwable t) {
+                    // We can't do anything with the exception, only log it.
+                    LOG.error("Failed to process delayed ack [tx={}]", t, this);
+                }
             }
         };
 
