@@ -22,6 +22,7 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toUnmodifiableList;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
 import static org.apache.ignite.internal.storage.index.SortedIndexStorage.GREATER;
@@ -109,7 +110,7 @@ public abstract class AbstractSortedIndexStorageTest extends AbstractIndexStorag
                         .map(ColumnParams::name)
                         .map(columnName -> new CatalogIndexColumnDescriptor(
                                 columnName,
-                                random.nextBoolean() ? ASC_NULLS_FIRST : DESC_NULLS_LAST
+                                random.nextBoolean() ? ASC_NULLS_LAST : DESC_NULLS_FIRST
                         ))
                         .toArray(CatalogIndexColumnDescriptor[]::new)
         );
