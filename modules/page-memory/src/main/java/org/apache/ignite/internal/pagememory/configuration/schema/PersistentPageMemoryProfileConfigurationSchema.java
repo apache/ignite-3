@@ -36,7 +36,11 @@ public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfi
     /** CLOCK page replacement algorithm. */
     public static final String CLOCK_REPLACEMENT_MODE = "CLOCK";
 
-    /** Memory region size in bytes. */
+    /**
+     * Memory region size in bytes.
+     *
+     * <p>When set to {@link #UNSPECIFIED_SIZE}, its value will be equal to a maximum between 256 MiB and 20% of the total physical memory.
+     */
     @Value(hasDefault = true)
     public long sizeBytes = UNSPECIFIED_SIZE;
 

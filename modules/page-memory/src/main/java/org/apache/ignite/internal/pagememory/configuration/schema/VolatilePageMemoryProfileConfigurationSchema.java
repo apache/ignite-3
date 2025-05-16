@@ -26,11 +26,21 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
  */
 @PolymorphicConfigInstance("aimem")
 public class VolatilePageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
-    /** Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated. */
+    /**
+     * Initial memory region size in bytes.
+     *
+     * <p>When the used memory size exceeds this value, new chunks of memory will be allocated until it reaches {@link #maxSizeBytes}.
+     *
+     * <p>When set to {@link #UNSPECIFIED_SIZE}, its value will be equal to {@link #maxSizeBytes}.
+     */
     @Value(hasDefault = true)
     public long initSizeBytes = UNSPECIFIED_SIZE;
 
-    /** Maximum memory region size in bytes. */
+    /**
+     * Maximum memory region size in bytes.
+     *
+     * <p>When set to {@link #UNSPECIFIED_SIZE}, its value will be equal to a maximum between 256 MiB and 20% of the total physical memory.
+     */
     @Value(hasDefault = true)
     public long maxSizeBytes = UNSPECIFIED_SIZE;
 }

@@ -55,10 +55,14 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
 
     @Override
     protected StorageEngine createEngine() {
+        return createEngine(workDir, storageConfiguration);
+    }
+
+    private StorageEngine createEngine(Path path, StorageConfiguration configuration) {
         return new RocksDbStorageEngine(
                 "test",
-                storageConfiguration,
-                workDir,
+                configuration,
+                path,
                 logSyncer,
                 scheduledExecutor,
                 mock(FailureProcessor.class)
@@ -66,9 +70,23 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
     }
 
     @Test
-    void verifyDataRegionSize() {
+    void dataRegionSizeGetsInitialized() {
         for (StorageProfileView view : storageConfiguration.profiles().value()) {
             assertThat(((RocksDbProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
+        }
+    }
+
+    @Test
+    void dataRegionSizeUsedWhenSet(
+            @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 12345}")
+            StorageConfiguration storageConfig
+    ) {
+        StorageEngine anotherEngine = createEngine(workDir.resolve("dataRegionSizeUsedWhenSet"), storageConfig);
+
+        anotherEngine.start();
+
+        for (StorageProfileView view : storageConfig.profiles().value()) {
+            assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
         }
     }
 }

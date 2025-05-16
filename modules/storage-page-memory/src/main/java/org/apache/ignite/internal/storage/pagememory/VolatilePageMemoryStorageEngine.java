@@ -211,20 +211,27 @@ public class VolatilePageMemoryStorageEngine extends AbstractPageMemoryStorageEn
     }
 
     private static void initDataRegionSize(VolatilePageMemoryProfileConfiguration storageProfileConfiguration) {
-        initSize(storageProfileConfiguration.initSizeBytes());
-        initSize(storageProfileConfiguration.maxSizeBytes());
+        ConfigurationValue<Long> maxSize = storageProfileConfiguration.maxSizeBytes();
+
+        if (maxSize.value() == UNSPECIFIED_SIZE) {
+            updateConfigValue(maxSize, StorageEngine.defaultDataRegionSize());
+        }
+
+        ConfigurationValue<Long> initSize = storageProfileConfiguration.initSizeBytes();
+
+        if (initSize.value() == UNSPECIFIED_SIZE) {
+            updateConfigValue(initSize, maxSize.value());
+        }
     }
 
-    private static void initSize(ConfigurationValue<Long> size) {
-        if (size.value() == UNSPECIFIED_SIZE) {
-            CompletableFuture<Void> updateFuture = size.update(StorageEngine.defaultDataRegionSize());
+    private static <T> void updateConfigValue(ConfigurationValue<T> config, T newValue) {
+        CompletableFuture<Void> updateFuture = config.update(newValue);
 
-            // Node local configuration is synchronous, wait just in case.
-            try {
-                updateFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new StorageException(e);
-            }
+        // Node local configuration is synchronous, wait just in case.
+        try {
+            updateFuture.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new StorageException(e);
         }
     }
 }

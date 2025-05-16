@@ -50,6 +50,10 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
 
     @Override
     protected StorageEngine createEngine() {
+        return createEngine(storageConfig);
+    }
+
+    private StorageEngine createEngine(StorageConfiguration configuration) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -57,7 +61,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
         return new PersistentPageMemoryStorageEngine(
                 "test",
                 mock(MetricManager.class),
-                storageConfig,
+                configuration,
                 null,
                 ioRegistry,
                 workDir,
@@ -69,9 +73,23 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
     }
 
     @Test
-    void verifyDataRegionSize() {
+    void dataRegionSizeGetsInitialized() {
         for (StorageProfileView view : storageConfig.profiles().value()) {
             assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
+        }
+    }
+
+    @Test
+    void dataRegionSizeUsedWhenSet(
+            @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = 12345}")
+            StorageConfiguration storageConfig
+    ) {
+        StorageEngine anotherEngine = createEngine(storageConfig);
+
+        anotherEngine.start();
+
+        for (StorageProfileView view : storageConfig.profiles().value()) {
+            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(12345L));
         }
     }
 }
