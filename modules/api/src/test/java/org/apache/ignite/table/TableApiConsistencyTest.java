@@ -18,24 +18,19 @@
 package org.apache.ignite.table;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Parameter;
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Stream;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
 import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Test class to verify various requirements to Table API.
  */
-public class TableAPIConsistencyTest {
+public class TableApiConsistencyTest {
 
     /**
      * Test validates that if method public method requires {@link Transaction} parameter then overloaded
@@ -49,7 +44,7 @@ public class TableAPIConsistencyTest {
 
             int txParIdx = txParamIdx(params);
 
-            if (txParIdx != -1){
+            if (txParIdx != -1) {
                 Class<?>[] altParams = Arrays.stream(params)
                         .filter(p -> p != params[txParIdx])
                         .map(Parameter::getType)
@@ -63,9 +58,9 @@ public class TableAPIConsistencyTest {
         }
     }
 
-    private int txParamIdx(Parameter[] params){
+    private int txParamIdx(Parameter[] params) {
         for (int i = 0; i < params.length; i++) {
-            if (params[i].getType() == Transaction.class){
+            if (params[i].getType() == Transaction.class) {
                 return i;
             }
         }
