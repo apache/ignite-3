@@ -48,6 +48,9 @@ import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.server.counter.CounterListener;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Test checking amount of errors in logs on Raft node stop.
+ */
 public class ItConnectionErrorTest extends JraftAbstractTest {
     /**
      * Counter group name 0.
