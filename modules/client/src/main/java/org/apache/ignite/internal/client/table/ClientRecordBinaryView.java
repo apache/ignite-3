@@ -379,6 +379,11 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
+    @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        sync(deleteAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
@@ -395,6 +400,11 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(keyRecs),
                 tx);
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */

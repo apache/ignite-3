@@ -205,8 +205,18 @@ class RestartProofRecordView<R> extends RestartProofApiObject<RecordView<R>> imp
     }
 
     @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        consumeAttached(view -> view.deleteAll(tx));
+    }
+
+    @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
         return attachedAsync(view -> view.deleteAllAsync(tx, keyRecs));
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return attachedAsync(view -> view.deleteAllAsync(tx));
     }
 
     @Override
