@@ -40,7 +40,9 @@ namespace Apache.Ignite.Transactions
         ValueTask<ITransaction> BeginAsync() => BeginAsync(default);
 
         /// <summary>
-        /// Runs the specified function within a transaction.
+        /// Runs the specified function within a transaction. The transaction is committed automatically.
+        /// <para />
+        /// The transaction is rolled back if the function throws an exception.
         /// </summary>
         /// <param name="func">Function.</param>
         /// <param name="options">Transaction options.</param>
@@ -63,7 +65,9 @@ namespace Apache.Ignite.Transactions
         }
 
         /// <summary>
-        /// Runs the specified function within a transaction.
+        /// Runs the specified function within a transaction. The transaction is committed automatically.
+        /// <para />
+        /// The transaction is rolled back if the function throws an exception.
         /// </summary>
         /// <param name="func">Function.</param>
         /// <param name="options">Transaction options.</param>
