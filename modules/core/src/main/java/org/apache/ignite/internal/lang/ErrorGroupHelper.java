@@ -40,6 +40,6 @@ class ErrorGroupHelper {
      */
     static String errorMessage(String errorPrefix, UUID traceId, String groupName, int code, String message) {
         return errorPrefix + "-" + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code))
-                + ((message != null && !message.isEmpty()) ? ' ' + message : "") + " TraceId:" + traceId.getMostSignificantBits();
+                + ((message != null && !message.isEmpty()) ? ' ' + message : "") + " TraceId:" + traceId.toString().substring(0, 8);
     }
 }

@@ -48,7 +48,7 @@ class ErrorGroupTest {
 
     @Test
     void extractsCauseMessageFromIgniteExceptionMessage() {
-        String igniteExceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason";
+        String igniteExceptionMessage = "IGN-CMN-65535 I'm the reason TraceId:24103638";
 
         checkExtractCauseMessage(igniteExceptionMessage, "I'm the reason");
     }
@@ -56,7 +56,7 @@ class ErrorGroupTest {
     @Test
     void extractsEmptyCauseMessageFromIgniteExceptionMessage() {
         // Given message without the reason of the error
-        String igniteExceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908";
+        String igniteExceptionMessage = "IGN-CMN-65535 TraceId:24103638";
 
         checkExtractCauseMessage(igniteExceptionMessage, "");
     }
@@ -72,7 +72,7 @@ class ErrorGroupTest {
         String errorMessage = ErrorGroup.errorMessage(traceId, code, reason);
 
         // Then
-        assertThat(errorMessage, equalTo("IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason"));
+        assertThat(errorMessage, equalTo("IGN-CMN-65535 I'm the reason TraceId:24103638"));
     }
 
     @Test
@@ -90,7 +90,7 @@ class ErrorGroupTest {
         // Then error code and traceId are not duplicated
         assertThat(errorMessage, equalTo("I'm the\n reason\n"));
         assertThat(detailedMessage, equalTo(IgniteInternalException.class.getName()
-                + ": IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the\n reason\n"));
+                + ": IGN-CMN-65535 I'm the\n reason\n TraceId:24103638"));
     }
 
     @SuppressWarnings({"rawtypes", "OptionalGetWithoutIsPresent"})
@@ -117,13 +117,13 @@ class ErrorGroupTest {
         ErrorGroups.registerGroup("ERR1", "FIRST", (short) 2000);
         ErrorGroups.registerGroup("ERR2", "SECOND", (short) 2001);
 
-        String exceptionMessage = "IGN-CMN-65535 TraceId:24103638-d079-4a19-a8f6-ca9c23662908 I'm the reason";
+        String exceptionMessage = "IGN-CMN-65535 I'm the reason TraceId:24103638";
         checkExtractCauseMessage(exceptionMessage, "I'm the reason");
 
-        exceptionMessage = "ERR1-FIRST-2000 TraceId:b8e8b3db-cd44-46c2-a759-5bcd4171a4ae Second reason";
+        exceptionMessage = "ERR1-FIRST-2000 Second reason TraceId:b8e8b3db";
         checkExtractCauseMessage(exceptionMessage, "Second reason");
 
-        String exceptionMessageWithIncorrectGroupName = "ERR3-SECOND-2001 TraceId:184ab36f-db38-43af-bf2c-c9e0539f82e5 Unknown reason";
+        String exceptionMessageWithIncorrectGroupName = "ERR3-SECOND-2001 Unknown reason TraceId:184ab36f";
 
         checkExtractCauseMessage(exceptionMessageWithIncorrectGroupName, exceptionMessageWithIncorrectGroupName);
 
