@@ -137,8 +137,8 @@ public class MailboxRegistryImpl implements MailboxRegistry, TopologyEventHandle
     /** {@inheritDoc} */
     @Override
     public void onDisappeared(ClusterNode member) {
-        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member.name())));
-        remotes.values().forEach(n -> n.onNodeLeft(member.name()));
+        locals.values().forEach(fut -> fut.thenAccept(n -> n.onNodeLeft(member)));
+        remotes.values().forEach(n -> n.onNodeLeft(member));
     }
 
     private static class MailboxKey {

@@ -80,6 +80,7 @@ public class ExecutionContext<RowT> implements DataContext {
     private final ClusterNode localNode;
 
     private final String originatingNodeName;
+    private final UUID originatingNodeId;
 
     private final RowHandler<RowT> handler;
 
@@ -128,6 +129,7 @@ public class ExecutionContext<RowT> implements DataContext {
             ExecutionId executionId,
             ClusterNode localNode,
             String originatingNodeName,
+            UUID originatingNodeId,
             FragmentDescription description,
             RowHandler<RowT> handler,
             Map<String, Object> params,
@@ -144,6 +146,7 @@ public class ExecutionContext<RowT> implements DataContext {
         this.params = params;
         this.localNode = localNode;
         this.originatingNodeName = originatingNodeName;
+        this.originatingNodeId = originatingNodeId;
         this.txAttributes = txAttributes;
         this.timeZoneId = timeZoneId;
         this.inBufSize = inBufSize < 0 ? Commons.IN_BUFFER_SIZE : inBufSize;
@@ -232,6 +235,13 @@ public class ExecutionContext<RowT> implements DataContext {
      */
     public String originatingNodeName() {
         return originatingNodeName;
+    }
+
+    /**
+     * Get originating node volatile ID.
+     */
+    public UUID originatingNodeId() {
+        return originatingNodeId;
     }
 
     /**

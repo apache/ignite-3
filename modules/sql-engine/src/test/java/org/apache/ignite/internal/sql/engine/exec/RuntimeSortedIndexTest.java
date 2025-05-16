@@ -115,13 +115,15 @@ public class RuntimeSortedIndexTest extends IgniteAbstractTest {
     }
 
     private RuntimeSortedIndex<Object[]> generate(RelDataType rowType, final List<Integer> idxCols, int notUnique) {
+        ClusterNodeImpl node = new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111"));
         RuntimeSortedIndex<Object[]> idx = new RuntimeSortedIndex<>(
                 new ExecutionContext<>(
                         new ExpressionFactoryImpl<>(Commons.typeFactory(), 1024, CaffeineCacheFactory.INSTANCE),
                         null,
                         new ExecutionId(randomUUID(), 0),
-                        new ClusterNodeImpl(randomUUID(), "fake-test-node", NetworkAddress.from("127.0.0.1:1111")),
-                        "fake-test-node",
+                        node,
+                        node.name(),
+                        node.id(),
                         null,
                         ArrayRowHandler.INSTANCE,
                         Map.of(),
