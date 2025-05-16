@@ -21,7 +21,9 @@ import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import com.typesafe.config.ConfigRenderOptions;
 import java.io.File;
+import java.nio.file.Files;
 import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
+import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 
 /**
  * Utility class for config handling.
@@ -44,10 +46,18 @@ public class ConfigUtils {
         if (configFile == null) {
             return config.toString();
         } else {
-            Config result = ConfigFactory.parseFile(configFile);
-            if (config.hasContent()) {
-                result = result.withFallback(ConfigFactory.parseString(config.toString()));
+            if (!Files.exists(configFile.toPath())) {
+                throw new IgniteCliException("File [" + configFile.getAbsolutePath() + "] not found");
             }
+
+            Config result = ConfigFactory.parseFile(configFile);
+
+            if (config.hasContent()) {
+                Config configFromArgs = ConfigFactory.parseString(config.toString());
+
+                result = configFromArgs.withFallback(result);
+            }
+
             return result.resolve().root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
         }
     }
