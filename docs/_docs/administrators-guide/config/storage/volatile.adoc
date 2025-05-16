@@ -28,8 +28,10 @@ Each storage engine can have several storage profiles. Each profile has the foll
 |===
 |Property|Default|Description
 
-|aimem.initSizeBytes|268435456| Initial memory region size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
-|aimem.maxSizeBytes|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS
+|engine|| The name of the storage engine.
+|name|| The name of the storage profile.
+|initSizeBytes|268435456| Initial profile size in bytes, when the used memory size exceeds this value, new chunks of memory will be allocated.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS.
+|maxSizeBytes|268435456| Maximum memory region size in bytes.| Yes | Yes | Min 256Mb, max defined by the addressable memory limit of the OS.
 |===
 
 == Configuration Example
