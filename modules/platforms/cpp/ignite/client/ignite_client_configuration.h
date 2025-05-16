@@ -154,6 +154,8 @@ public:
      * When thin client connection is idle (no operations are performed), heartbeat messages are sent periodically
      * to keep the connection alive and detect potential half-open state.
      *
+     * Zero value means heartbeats are disabled.
+     *
      * The default value is DEFAULT_HEARTBEAT_INTERVAL.
      *
      * @return Heartbeat interval.
