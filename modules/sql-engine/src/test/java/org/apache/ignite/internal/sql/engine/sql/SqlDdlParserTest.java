@@ -506,7 +506,7 @@ public class SqlDdlParserTest extends AbstractParserTest {
 
         assertThat(
                 pkConstraint.getColumnList().get(1),
-                ofTypeMatching("\"ID2\" DESC NULLS FIRST", SqlBasicCall.class, bc -> bc.isA(Set.of(SqlKind.NULLS_LAST))
+                ofTypeMatching("\"ID2\" DESC NULLS LAST", SqlBasicCall.class, bc -> bc.isA(Set.of(SqlKind.NULLS_LAST))
                         && bc.getOperandList().get(0) instanceof SqlBasicCall
                         && (bc.getOperandList().get(0)).isA(Set.of(SqlKind.DESCENDING))
                         && ((SqlBasicCall) bc.getOperandList().get(0)).getOperandList().get(0) instanceof SqlIdentifier
