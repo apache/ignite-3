@@ -410,7 +410,7 @@ public class ConnectionManager implements ChannelCreationListener {
         // handleNodeLeft() gets called as it subscribes first).
         // This is the only place where a new sender might be added to the map.
         if (staleIdDetector.isIdStale(channel.launchId())) {
-            closeSenderAndDisposeDescriptor(channel, new RecipientLeftException());
+            closeSenderAndDisposeDescriptor(channel, new RecipientLeftException("Recipient is stale [id=" + channel.launchId() + ']'));
 
             channels.remove(key, channel);
         } else if (stopping.get()) {
@@ -664,7 +664,7 @@ public class ConnectionManager implements ChannelCreationListener {
     }
 
     private void disposeRecoveryDescriptorsOfLeftNode(UUID id) {
-        Exception exceptionToFailSendFutures = new RecipientLeftException();
+        Exception exceptionToFailSendFutures = new RecipientLeftException("Recipient left [id=" + id + "]");
 
         for (RecoveryDescriptor descriptor : descriptorProvider.getRecoveryDescriptorsByLaunchId(id)) {
             blockAndDisposeDescriptor(descriptor, exceptionToFailSendFutures);

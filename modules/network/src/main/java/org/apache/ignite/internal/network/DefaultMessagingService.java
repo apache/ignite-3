@@ -360,10 +360,17 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         return connectionManager.channel(nodeId, type, addr)
-                .thenComposeToCompletable(sender -> sender.send(
-                        new OutNetworkObject(message, descriptors),
-                        () -> triggerChannelCreation(nodeId, type, addr)
-                ))
+                .thenComposeToCompletable(sender -> {
+                    if (nodeId != null && !sender.launchId().equals(nodeId)) {
+                        // The destination node has been rebooted, so it's a different node instance.
+                        throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
+                    }
+
+                    return sender.send(
+                            new OutNetworkObject(message, descriptors),
+                            () -> triggerChannelCreation(nodeId, type, addr)
+                    );
+                })
                 // TODO: IGNITE-25375 - consider removing logging after the fix as it might be too much
                 // (the caller alse gets the exception).
                 .whenComplete((res, ex) -> {
