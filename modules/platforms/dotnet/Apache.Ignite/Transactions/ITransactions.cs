@@ -54,6 +54,7 @@ namespace Apache.Ignite.Transactions
             Func<ITransaction, Task<T>> func,
             TransactionOptions options = default)
         {
+            // TODO IGNITE-25401 Retries.
             await using var tx = await BeginAsync(options).ConfigureAwait(false);
             var res = await func(tx).ConfigureAwait(false);
             await tx.CommitAsync().ConfigureAwait(false);
@@ -75,6 +76,7 @@ namespace Apache.Ignite.Transactions
             Func<ITransaction, Task> func,
             TransactionOptions options = default)
         {
+            // TODO IGNITE-25401 Retries.
             await using var tx = await BeginAsync(options).ConfigureAwait(false);
             await func(tx).ConfigureAwait(false);
             await tx.CommitAsync().ConfigureAwait(false);
