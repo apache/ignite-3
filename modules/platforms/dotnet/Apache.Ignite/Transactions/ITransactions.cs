@@ -43,6 +43,21 @@ namespace Apache.Ignite.Transactions
         /// Runs the specified function within a transaction. The transaction is committed automatically.
         /// <para />
         /// The transaction is rolled back if the function throws an exception.
+        /// <example>
+        /// <code>
+        /// const int amount = 1000;
+        /// IKeyValueView&lt;int, Account&gt; view = Table.GetKeyValueView&lt;int, Account&gt;();
+        /// await Client.Transactions.RunInTransactionAsync(async tx =>
+        /// {
+        ///     var acc1 = await view.GetAsync(tx, 1);
+        ///     var acc2 = await view.GetAsync(tx, 2);
+        ///     acc1.Value.Amount += amount;
+        ///     acc2.Value.Amount -= amount;
+        ///     await view.PutAsync(tx, 1, acc1.Value);
+        ///     await view.PutAsync(tx, 2, acc2.Value);
+        /// });
+        /// </code>
+        /// </example>
         /// </summary>
         /// <param name="func">Function.</param>
         /// <param name="options">Transaction options.</param>
