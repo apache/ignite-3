@@ -590,7 +590,7 @@ public class Replicator implements ThreadId.OnError {
 
     void installSnapshot() {
         if (getState() == State.Snapshot) {
-            LOG.warn("Replicator {} is installing snapshot, ignore the new request.", this.options.getPeerId());
+            LOG.warn("Replicator is installing snapshot, ignoring the new request [replicator={}].", this.options.getPeerId());
             unlockId();
             return;
         }
@@ -980,7 +980,7 @@ public class Replicator implements ThreadId.OnError {
             r.sendEntries();
         }
         else {
-            LOG.warn("Replicator {} stops sending entries.", id);
+            LOG.warn("Replicator stops sending entries [replicator={}].", id);
             id.unlock();
         }
         return true;
@@ -1131,7 +1131,7 @@ public class Replicator implements ThreadId.OnError {
 
     void destroy() {
         final ThreadId savedId = this.id;
-        LOG.info("Replicator {} is going to quit", savedId);
+        LOG.info("Replicator is going to quit [replicator={}].", savedId);
         releaseReader();
         // Unregister replicator metric set
         if (this.nodeMetrics.isEnabled()) {
