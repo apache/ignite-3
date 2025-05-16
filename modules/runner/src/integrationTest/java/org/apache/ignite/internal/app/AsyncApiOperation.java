@@ -40,7 +40,9 @@ import org.apache.ignite.internal.streamer.SimplePublisher;
 import org.apache.ignite.internal.table.partition.HashPartition;
 import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.mapper.Mapper;
+import org.apache.ignite.tx.Transaction;
 
 /**
  * Asynchronous API operation.
@@ -60,12 +62,12 @@ enum AsyncApiOperation {
     KV_VIEW_GET_AND_PUT(refs -> refs.kvView.getAndPutAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_PUT(refs -> refs.kvView.getNullableAndPutAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_PUT_IF_ABSENT(refs -> refs.kvView.putIfAbsentAsync(null, KEY_TUPLE, VALUE_TUPLE)),
-    KV_VIEW_REMOVE(refs -> refs.kvView.removeAsync(null, KEY_TUPLE)),
+    KV_VIEW_REMOVE(refs -> refs.kvView.removeAsync(KEY_TUPLE)),
     KV_VIEW_REMOVE_EXACT(refs -> refs.kvView.removeAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REMOVE_ALL(refs -> refs.kvView.removeAllAsync(null, List.of(KEY_TUPLE))),
     KV_VIEW_GET_AND_REMOVE(refs -> refs.kvView.getAndRemoveAsync(null, KEY_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_REMOVE(refs -> refs.kvView.getNullableAndRemoveAsync(null, KEY_TUPLE)),
-    KV_VIEW_REPLACE(refs -> refs.kvView.replaceAsync(null, KEY_TUPLE, VALUE_TUPLE)),
+    KV_VIEW_REPLACE(refs -> refs.kvView.replaceAsync(KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_REPLACE_EXACT(refs -> refs.kvView.replaceAsync(null, KEY_TUPLE, VALUE_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_AND_REPLACE(refs -> refs.kvView.getAndReplaceAsync(null, KEY_TUPLE, VALUE_TUPLE)),
     KV_VIEW_GET_NULLABLE_AND_REPLACE(refs -> refs.kvView.getNullableAndReplaceAsync(null, KEY_TUPLE, VALUE_TUPLE)),
@@ -77,8 +79,8 @@ enum AsyncApiOperation {
         }
         return future;
     }),
-    KV_VIEW_QUERY(refs -> refs.kvView.queryAsync(null, null)),
-    KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.queryAsync(null, null, null)),
+    KV_VIEW_QUERY(refs -> refs.kvView.queryAsync(null)),
+    KV_VIEW_QUERY_WITH_INDEX(refs -> refs.kvView.queryAsync((Criteria) null, null)),
     KV_VIEW_QUERY_WITH_OPTIONS(refs -> refs.kvView.queryAsync(null, null, null, null)),
 
     TYPED_KV_VIEW_GET(refs -> refs.typedKvView.getAsync(null, 1)),
@@ -93,7 +95,7 @@ enum AsyncApiOperation {
     RECORD_VIEW_GET_AND_UPSERT(refs -> refs.recordView.getAndUpsertAsync(null, FULL_TUPLE)),
     RECORD_VIEW_INSERT(refs -> refs.recordView.insertAsync(null, FULL_TUPLE)),
     RECORD_VIEW_INSERT_ALL(refs -> refs.recordView.insertAllAsync(null, List.of(FULL_TUPLE))),
-    RECORD_VIEW_REPLACE(refs -> refs.recordView.replaceAsync(null, FULL_TUPLE)),
+    RECORD_VIEW_REPLACE(refs -> refs.recordView.replaceAsync(FULL_TUPLE)),
     RECORD_VIEW_REPLACE_EXACT(refs -> refs.recordView.replaceAsync(null, FULL_TUPLE, FULL_TUPLE)),
     RECORD_VIEW_GET_AND_REPLACE(refs -> refs.recordView.getAndReplaceAsync(null, FULL_TUPLE)),
     RECORD_VIEW_DELETE(refs -> refs.recordView.deleteAsync(null, KEY_TUPLE)),
@@ -109,8 +111,8 @@ enum AsyncApiOperation {
         }
         return future;
     }),
-    RECORD_VIEW_QUERY(refs -> refs.recordView.queryAsync(null, null)),
-    RECORD_VIEW_QUERY_WITH_INDEX(refs -> refs.recordView.queryAsync(null, null, null)),
+    RECORD_VIEW_QUERY(refs -> refs.recordView.queryAsync(null)),
+    RECORD_VIEW_QUERY_WITH_INDEX(refs -> refs.recordView.queryAsync((Criteria) null, null)),
     RECORD_VIEW_QUERY_WITH_OPTIONS(refs -> refs.recordView.queryAsync(null, null, null, null)),
 
     TYPED_RECORD_VIEW_GET(refs -> refs.typedRecordView.getAsync(null, new Record(1, ""))),
