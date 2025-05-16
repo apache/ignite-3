@@ -47,6 +47,7 @@ set(SOURCES
     big_decimal.cpp
     big_integer.cpp
     detail/mpi.cpp
+    detail/thread_timer.cpp
     uuid.cpp
 )
 

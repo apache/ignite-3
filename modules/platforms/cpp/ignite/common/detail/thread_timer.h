@@ -63,52 +63,12 @@ public:
      *
      * @return A thread timer instance.
      */
-    static std::shared_ptr<thread_timer> start() {
-        auto res = std::make_shared<thread_timer>();
-        res->m_thread = std::thread([&self = *res.get()] {
-            std::unique_lock<std::mutex> lock(self.m_mutex);
-            while (true) {
-                if (self.m_stopping) {
-                    self.m_condition.notify_one();
-                    return;
-                }
-
-                if (self.m_events.empty()) {
-                    self.m_condition.wait(lock);
-                    continue;
-                }
-
-                auto now = std::chrono::steady_clock::now();
-                if (self.m_events.top().timestamp < now) {
-                    auto event = std::move(self.m_events.top());
-                    self.m_events.pop();
-
-                    lock.unlock();
-
-                    try {
-                        event.callback();
-                    } catch (...) {
-                        // TODO: Process user exceptions
-                    }
-
-                    lock.lock();
-                } else {
-                    self.m_condition.wait_until(lock, self.m_events.top().timestamp);
-                }
-            }
-        });
-        return res;
-    }
+    static std::shared_ptr<thread_timer> start();
 
     /**
      * Stop the thread.
      */
-    void stop() {
-        std::unique_lock<std::mutex> lock(m_mutex);
-        m_stopping = true;
-        m_condition.notify_one();
-        m_thread.join();
-    }
+    void stop();
 
     /**
      * Add a new event.
@@ -116,11 +76,7 @@ public:
      * @param timeout Timeout.
      * @param callback Callback to call.
      */
-    void add(std::chrono::milliseconds timeout, std::function<void()> callback) {
-        std::lock_guard<std::mutex> lock(m_mutex);
-        m_events.emplace(std::chrono::steady_clock::now() + timeout, std::move(callback));
-        m_condition.notify_one();
-    }
+    void add(std::chrono::milliseconds timeout, std::function<void()> callback);
 
 private:
     /**

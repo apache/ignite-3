@@ -25,13 +25,13 @@
 #include "ignite/protocol/protocol_context.h"
 
 #include "ignite/common/ignite_result.h"
+#include "ignite/common/detail/thread_timer.h"
 #include "ignite/network/async_client_pool.h"
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 
 #include <functional>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -373,6 +373,9 @@ private:
 
     /** Configuration. */
     const ignite_client_configuration m_configuration;
+
+    /** Timer thread. */
+    std::shared_ptr<thread_timer> m_timer_thread;
 
     /** Callback to call on initial connecting. */
     std::function<void(ignite_result<void>)> m_on_initial_connect;

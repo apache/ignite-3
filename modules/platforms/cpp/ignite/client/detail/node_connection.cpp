@@ -120,7 +120,7 @@ void node_connection::on_observable_timestamp_changed(int64_t observable_timesta
 
 void node_connection::send_heartbeat() {
     perform_request_wr<void>(
-        protocol::client_operation::HEARTBEAT, [](auto){}, [self_weak = weak_from_this()](auto) {
+        protocol::client_operation::HEARTBEAT, [](auto&){}, [self_weak = weak_from_this()](auto) {
             if (auto self = self_weak.lock()) {
                 self->plan_heartbeat(self->m_heartbeat_interval);
             }
@@ -141,11 +141,13 @@ void node_connection::on_heartbeat_timeout() {
 }
 
 void node_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
-    m_timer_thread->add(timeout, [self_weak = weak_from_this()] {
-        if (auto self = self_weak.lock()) {
-            self->on_heartbeat_timeout();
-        }
-    });
+    if (auto timer_thread = m_timer_thread.lock()) {
+        timer_thread->add(timeout, [self_weak = weak_from_this()] {
+            if (auto self = self_weak.lock()) {
+                self->on_heartbeat_timeout();
+            }
+        });
+    }
 }
 
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
