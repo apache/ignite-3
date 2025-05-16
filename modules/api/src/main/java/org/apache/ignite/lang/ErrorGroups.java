@@ -37,7 +37,7 @@ public class ErrorGroups {
     public static final String IGNITE_ERR_PREFIX = "IGN";
     private static final String PLACEHOLDER = "${ERROR_PREFIX}";
     private static final String EXCEPTION_MESSAGE_STRING_PATTERN =
-            "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)\\s(TraceId:)([a-f0-9]{8}(?:-[a-f0-9]{4}){4}[a-f0-9]{8})(\\s?)(.*)";
+            "(.*)(" + PLACEHOLDER + ")-([A-Z]+)-(\\d+)(\\s?)(.*)( TraceId:)([a-f0-9]{8})";
 
     /** Error message pattern. */
     private static Pattern EXCEPTION_MESSAGE_PATTERN;
@@ -131,7 +131,7 @@ public class ErrorGroups {
         }
 
         Matcher m = EXCEPTION_MESSAGE_PATTERN.matcher(errorMessage);
-        return (m.matches()) ? m.group(8) : errorMessage;
+        return (m.matches()) ? m.group(6) : errorMessage;
     }
 
     /**
