@@ -3282,8 +3282,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param zoneId Zone identifier.
      * @return Set of tables.
+     * @throws IgniteInternalException If failed to acquire a read lock for the zone or current thread was interrupted while waiting.
      */
-    public Set<TableImpl> zoneTables(int zoneId) {
+    public Set<TableImpl> zoneTables(int zoneId) throws IgniteInternalException {
         NaiveAsyncReadWriteLock zoneLock = tablesPerZoneLocks.computeIfAbsent(zoneId, id -> new NaiveAsyncReadWriteLock());
 
         CompletableFuture<Long> readLockAcquisitionFuture = zoneLock.readLock();
@@ -3295,11 +3296,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zoneLock.unlockRead(stamp);
 
                 return res;
-            }).join();
+            }).get();
         } catch (Throwable t) {
             readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
 
-            throw t;
+            if (t instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+
+            throw new IgniteInternalException(INTERNAL_ERR, "Failed to acquire a read lock for zone [zoneId=" + zoneId + ']', t);
         }
     }
 
@@ -3319,8 +3324,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      *
      * @param zoneId Zone identifier.
      * @param table Table to add.
+     * @throws IgniteInternalException If failed to acquire a write lock for the zone or current thread was interrupted while waiting.
      */
-    private void addTableToZone(int zoneId, TableImpl table) {
+    private void addTableToZone(int zoneId, TableImpl table) throws IgniteInternalException {
         NaiveAsyncReadWriteLock zoneLock = tablesPerZoneLocks.computeIfAbsent(zoneId, id -> new NaiveAsyncReadWriteLock());
 
         CompletableFuture<Long> writeLockAcquisitionFuture = zoneLock.writeLock();
@@ -3338,11 +3344,15 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 });
 
                 zoneLock.unlockWrite(stamp);
-            }).join();
+            }).get();
         } catch (Throwable t) {
             writeLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockWrite(stamp));
 
-            throw t;
+            if (t instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+
+            throw new IgniteInternalException(INTERNAL_ERR, "Failed to acquire a write lock for zone [zoneId=" + zoneId + ']', t);
         }
     }
 
