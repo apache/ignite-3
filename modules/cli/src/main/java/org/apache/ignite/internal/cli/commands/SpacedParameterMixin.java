@@ -26,7 +26,7 @@ import picocli.CommandLine.Parameters;
  * With this mixin, we allow the user to specify one parameter with spaces without quotation.
  */
 public class SpacedParameterMixin {
-    @Parameters(arity = "1")
+    @Parameters(arity = "0..1")
     private String[] args;
 
     @Override
@@ -46,5 +46,14 @@ public class SpacedParameterMixin {
 
     private static boolean isQuoted(String string, char quoteChar) {
         return string.charAt(0) == quoteChar && string.charAt(string.length() - 1) == quoteChar;
+    }
+
+    /**
+     * Returns the arguments.
+     *
+     * @return The arguments.
+     */
+    public String[] args() {
+        return args;
     }
 }
