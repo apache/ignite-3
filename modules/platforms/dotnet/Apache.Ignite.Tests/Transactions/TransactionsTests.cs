@@ -353,13 +353,40 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestRunInTransactionUpdatesData()
         {
+            var res = await Client.Transactions.RunInTransactionAsync(async tx =>
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+                return await TupleView.GetAsync(tx, GetTuple(1));
+            });
 
+            Assert.AreEqual("2", res.Value[1]);
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
         }
 
         [Test]
         public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
         {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync(async tx =>
+                {
+                    var inserted = await TupleView.InsertAsync(tx, GetTuple(1, "2"));
 
+                    if (inserted)
+                    {
+                        throw new Exception("Test");
+                    }
+
+                    return 0;
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
         }
 
         private class CustomTx : ITransaction
