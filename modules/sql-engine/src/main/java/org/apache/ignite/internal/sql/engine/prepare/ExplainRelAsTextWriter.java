@@ -44,6 +44,7 @@ import org.apache.calcite.rex.RexVisitor;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.Pair;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -115,7 +116,17 @@ public class ExplainRelAsTextWriter extends RelWriterImpl {
             rowTypeToResolveExpressions = dataSource.getRowType(Commons.typeFactory(node.getCluster()),
                     ((ProjectableFilterableTableScan) node).requiredColumns());
         } else if (node instanceof Join) {
-            rowTypeToResolveExpressions = node.getRowType();
+            RelDataType rowTypeToResolveExpressions0 = node.getRowType();
+            if (object instanceof RelCollation) {
+                // Use source row type to resolve source collation.
+                if (((IgniteRel) ((Join) node).getLeft()).collation() == object) {
+                    rowTypeToResolveExpressions0 = ((Join) node).getLeft().getRowType();
+                } else if (((IgniteRel) ((Join) node).getRight()).collation() == object) {
+                    rowTypeToResolveExpressions0 = ((Join) node).getRight().getRowType();
+                }
+            }
+
+            rowTypeToResolveExpressions = rowTypeToResolveExpressions0;
             rowTypeToResolveBitSet = rowTypeToResolveExpressions;
         } else if (node.getInputs().size() == 1) {
             rowTypeToResolveExpressions = node.getInputs().get(0).getRowType();
