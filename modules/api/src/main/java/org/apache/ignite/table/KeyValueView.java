@@ -333,7 +333,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
     CompletableFuture<Boolean> removeAsync(@Nullable Transaction tx, K key, V val);
 
     /**
-     * Removes from a table all entries.
+     * Removes all entries from a table.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      */
@@ -360,7 +360,7 @@ public interface KeyValueView<K, V> extends DataStreamerTarget<Entry<K, V>>, Cri
     CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys);
 
     /**
-     * Asynchronously remove from a table all entries.
+     * Asynchronously remove all entries from a table.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
      */

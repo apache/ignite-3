@@ -23,10 +23,12 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -64,6 +66,11 @@ public class RemoveAllApiTest extends ClusterPerClassIntegrationTest {
         client.close();
     }
 
+    @Override
+    protected int initialNodes() {
+        return 1;
+    }
+
     private List<Runnable> removeAllOps() {
         return List.of(
                 () -> table.keyValueView().removeAll(null),
@@ -88,6 +95,24 @@ public class RemoveAllApiTest extends ClusterPerClassIntegrationTest {
         );
     }
 
+    private List<Consumer<Transaction>> removeAllTxOps() {
+        return List.of(
+                tx -> table.keyValueView().removeAll(tx),
+                tx -> table.keyValueView(Integer.class, Person.class).removeAll(tx),
+                tx -> table.recordView().deleteAll(tx),
+                tx -> table.recordView(Person.class).deleteAll(tx)
+        );
+    }
+
+    private List<Consumer<Transaction>> removeAllClientTxOps() {
+        return List.of(
+                tx -> client.tables().table(TABLE_NAME).keyValueView().removeAll(tx),
+                tx -> client.tables().table(TABLE_NAME).keyValueView(Integer.class, Person.class).removeAll(tx),
+                tx -> client.tables().table(TABLE_NAME).recordView().deleteAll(tx),
+                tx -> client.tables().table(TABLE_NAME).recordView(Person.class).deleteAll(tx)
+        );
+    }
+
     @ParameterizedTest
     @MethodSource("removeAllOps")
     void testRemoveAll(Runnable op) {
@@ -104,6 +129,38 @@ public class RemoveAllApiTest extends ClusterPerClassIntegrationTest {
         checkSize(100L);
 
         assertThat(op.get(), willCompleteSuccessfully());
+
+        checkSize(0L);
+    }
+
+    @ParameterizedTest
+    @MethodSource("removeAllTxOps")
+    void testRemoveAllInTx(Consumer<Transaction> op) {
+        checkSize(100L);
+
+        Transaction tx = node(0).transactions().begin();
+
+        op.accept(tx);
+
+        checkSize(100L);
+
+        tx.commit();
+
+        checkSize(0L);
+    }
+
+    @ParameterizedTest
+    @MethodSource("removeAllClientTxOps")
+    void testRemoveAllInClientTx(Consumer<Transaction> op) {
+        checkSize(100L);
+
+        Transaction tx = client.transactions().begin();
+
+        op.accept(tx);
+
+        checkSize(100L);
+
+        tx.commit();
 
         checkSize(0L);
     }
