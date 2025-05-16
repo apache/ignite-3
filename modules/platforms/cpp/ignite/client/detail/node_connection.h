@@ -287,13 +287,10 @@ private:
     std::chrono::milliseconds m_heartbeat_interval{0};
 
     /** Last message timestamp. */
-    std::chrono::time_point<std::chrono::steady_clock> m_last_message_ts{};
+    std::chrono::steady_clock::time_point m_last_message_ts{};
 
     /** Timer thread. */
     std::weak_ptr<thread_timer> m_timer_thread;
-
-    /** Timed message queue for heartbeats. */
-    std::unique_ptr<timed_event_queue> m_timed_event_queue;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};

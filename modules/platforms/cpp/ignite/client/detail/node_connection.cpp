@@ -141,7 +141,7 @@ void node_connection::on_heartbeat_timeout() {
 }
 
 void node_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
-    m_timed_event_queue->add(timeout, [self_weak = weak_from_this()] {
+    m_timer_thread->add(timeout, [self_weak = weak_from_this()] {
         if (auto self = self_weak.lock()) {
             self->on_heartbeat_timeout();
         }
@@ -179,7 +179,6 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     m_protocol_context = response.context;
     m_handshake_complete = true;
 
-    m_timed_event_queue = std::make_unique<timed_event_queue>(m_timer_thread);
     plan_heartbeat(m_heartbeat_interval);
 
     return {};
