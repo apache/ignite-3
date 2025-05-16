@@ -29,8 +29,7 @@ node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::asyn
     , m_pool(std::move(pool))
     , m_event_handler(std::move(event_handler))
     , m_logger(std::move(logger))
-    , m_configuration(cfg) {
-}
+    , m_configuration(cfg) {}
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
@@ -134,6 +133,10 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     }
 
     on_observable_timestamp_changed(response.observable_timestamp);
+
+    auto heartbeat_ms = std::min(response.idle_timeout_ms / 3,
+        m_configuration.get_heartbeat_interval().count());
+    m_heartbeat_interval = std::chrono::milliseconds(heartbeat_ms);
 
     m_protocol_context = response.context;
     m_handshake_complete = true;

@@ -141,7 +141,7 @@ public:
      * @param op Operation code.
      * @param wr Request writer function.
      * @param rd response reader function.
-     * @param callback Callback to call on a result.
+     * @param callback Callback to call on the result.
      * @return Channel used for the request.
      */
     template<typename T>
@@ -157,7 +157,7 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param callback Callback to call on a result.
+     * @param callback Callback to call on the result.
      * @return Channel used for the request.
      */
     template<typename T>
@@ -253,6 +253,9 @@ private:
 
     /** Connection ID. */
     std::uint64_t m_id{0};
+
+    /** Heartbeat interval. */
+    std::chrono::milliseconds m_heartbeat_interval{500};
 
     /** Connection pool. */
     std::shared_ptr<network::async_client_pool> m_pool;
