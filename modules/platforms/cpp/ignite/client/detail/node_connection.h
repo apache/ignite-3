@@ -24,6 +24,7 @@
 #include <ignite/protocol/client_operation.h>
 
 #include <ignite/common/detail/utils.h>
+#include <ignite/common/detail/thread_timer.h>
 #include <ignite/network/async_client_pool.h>
 #include <ignite/protocol/reader.h>
 #include <ignite/protocol/writer.h>
@@ -71,13 +72,15 @@ public:
      * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
+     * @param timer_thread Timer thread.
      * @return New instance.
      */
     static std::shared_ptr<node_connection> make_new(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
         std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-        const ignite_client_configuration &cfg) {
+        const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> timer_thread) {
         return std::shared_ptr<node_connection>(
-            new node_connection(id, std::move(pool), std::move(event_handler), std::move(logger), cfg));
+            new node_connection(
+                id, std::move(pool), std::move(event_handler), std::move(logger), cfg, std::move(timer_thread)));
     }
 
     /**
@@ -212,10 +215,11 @@ private:
      * @param event_handler Event handler.
      * @param logger Logger.
      * @param cfg Configuration.
+     * @param timer_thread Timer thread.
      */
-    node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-        std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-        const ignite_client_configuration &cfg);
+    node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> &&pool,
+        std::weak_ptr<connection_event_handler> &&event_handler, std::shared_ptr<ignite_logger> &&logger,
+        const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> &&timer_thread);
 
     /**
      * Generate next request ID.
@@ -248,6 +252,22 @@ private:
      */
     void on_observable_timestamp_changed(int64_t observable_timestamp) const;
 
+    /**
+     * Send a heartbeat message.
+     */
+    void send_heartbeat();
+
+    /**
+     * Heartbeat timeout event handler.
+     */
+    void on_heartbeat_timeout();
+
+    /**
+     * Plan the next heartbeat message within the specified timeout.
+     * @param timeout Timeout.
+     */
+    void plan_heartbeat(std::chrono::milliseconds timeout);
+
     /** Handshake complete. */
     bool m_handshake_complete{false};
 
@@ -257,14 +277,23 @@ private:
     /** Connection ID. */
     std::uint64_t m_id{0};
 
-    /** Heartbeat interval. */
-    std::chrono::milliseconds m_heartbeat_interval{0};
-
     /** Connection pool. */
     std::shared_ptr<network::async_client_pool> m_pool;
 
     /** Connection event handler. */
     std::weak_ptr<connection_event_handler> m_event_handler;
+
+    /** Heartbeat interval. */
+    std::chrono::milliseconds m_heartbeat_interval{0};
+
+    /** Last message timestamp. */
+    std::chrono::time_point<std::chrono::steady_clock> m_last_message_ts{};
+
+    /** Timer thread. */
+    std::weak_ptr<thread_timer> m_timer_thread;
+
+    /** Timed message queue for heartbeats. */
+    std::unique_ptr<timed_event_queue> m_timed_event_queue;
 
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};

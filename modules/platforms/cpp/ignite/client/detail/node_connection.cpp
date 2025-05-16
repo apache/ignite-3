@@ -22,14 +22,15 @@
 
 namespace ignite::detail {
 
-node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> pool,
-    std::weak_ptr<connection_event_handler> event_handler, std::shared_ptr<ignite_logger> logger,
-    const ignite_client_configuration &cfg)
+node_connection::node_connection(std::uint64_t id, std::shared_ptr<network::async_client_pool> &&pool,
+    std::weak_ptr<connection_event_handler> &&event_handler, std::shared_ptr<ignite_logger> &&logger,
+    const ignite_client_configuration &cfg, std::weak_ptr<thread_timer> &&timer_thread)
     : m_id(id)
     , m_pool(std::move(pool))
     , m_event_handler(std::move(event_handler))
     , m_logger(std::move(logger))
-    , m_configuration(cfg) {}
+    , m_configuration(cfg)
+    , m_timer_thread(std::move(timer_thread)){}
 
 node_connection::~node_connection() {
     for (auto &handler : m_request_handlers) {
@@ -61,6 +62,9 @@ bool node_connection::handshake() {
 }
 
 void node_connection::process_message(bytes_view msg) {
+    // TODO: Fix this
+    m_last_message_ts = std::chrono::steady_clock::now();
+
     protocol::reader reader(msg);
 
     auto req_id = reader.read_int64();
@@ -109,10 +113,39 @@ void node_connection::process_message(bytes_view msg) {
 }
 
 void node_connection::on_observable_timestamp_changed(int64_t observable_timestamp) const {
-    auto event_handler = m_event_handler.lock();
-    if (event_handler) {
+    if (auto event_handler = m_event_handler.lock()) {
         event_handler->on_observable_timestamp_changed(observable_timestamp);
     }
+}
+
+void node_connection::send_heartbeat() {
+    perform_request_wr<void>(
+        protocol::client_operation::HEARTBEAT, [](auto){}, [self_weak = weak_from_this()](auto) {
+            if (auto self = self_weak.lock()) {
+                self->plan_heartbeat(self->m_heartbeat_interval);
+            }
+        }
+    );
+}
+
+void node_connection::on_heartbeat_timeout() {
+    auto idle_for = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now() - m_last_message_ts);
+
+    if (idle_for > m_heartbeat_interval) {
+        send_heartbeat();
+    } else {
+        auto sleep_for = m_heartbeat_interval - idle_for;
+        plan_heartbeat(sleep_for);
+    }
+}
+
+void node_connection::plan_heartbeat(std::chrono::milliseconds timeout) {
+    m_timed_event_queue->add(timeout, [self_weak = weak_from_this()] {
+        if (auto self = self_weak.lock()) {
+            self->on_heartbeat_timeout();
+        }
+    });
 }
 
 ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
@@ -145,6 +178,9 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
 
     m_protocol_context = response.context;
     m_handshake_complete = true;
+
+    m_timed_event_queue = std::make_unique<timed_event_queue>(m_timer_thread);
+    plan_heartbeat(m_heartbeat_interval);
 
     return {};
 }
