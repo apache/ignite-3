@@ -364,7 +364,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
                         new OutNetworkObject(message, descriptors),
                         () -> triggerChannelCreation(nodeId, type, addr)
                 ))
-                // TODO: IGNITE-25375 - remove logging after the fix.
+                // TODO: IGNITE-25375 - consider removing logging after the fix as it might be too much
+                // (the caller alse gets the exception).
                 .whenComplete((res, ex) -> {
                     if (ex != null && hasCause(ex, HandshakeException.class)) {
                         LOG.error(
