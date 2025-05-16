@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.config;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_UPDATE_FILE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_UPDATE_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.util.ConfigUtils.formUpdateConfig;
+
 import jakarta.inject.Inject;
+import java.io.File;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCallInput;
@@ -28,6 +33,7 @@ import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
 import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializedExceptionHandler;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /**
  * Command that updates cluster configuration.
@@ -38,9 +44,13 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     @Mixin
     private ClusterUrlProfileMixin clusterUrl;
 
-    /** Configuration that will be updated. */
+    /** Configuration from CLI that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgs;
+
+    /** Configuration from file that will be updated. */
+    @Option(names = CONFIG_UPDATE_FILE_OPTION, description = CONFIG_UPDATE_FILE_OPTION_DESC)
+    private File configFile;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -57,7 +67,7 @@ public class ClusterConfigUpdateCommand extends BaseCommand implements Callable<
     private ClusterConfigUpdateCallInput buildCallInput() {
         return ClusterConfigUpdateCallInput.builder()
                 .clusterUrl(clusterUrl.getClusterUrl())
-                .config(config.toString())
+                .config(formUpdateConfig(configFile, configFromArgs))
                 .build();
     }
 }
