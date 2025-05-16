@@ -56,4 +56,4 @@ In Ignite 3, you can create and maintain configuration in either HOCON or JSON. 
 }
 ----
 
-You can then use the profile (in this case, `aimemory`) in your distribution zone configuration.
+You can then use the profile (in this case, `default_aimem`) in your distribution zone configuration.
