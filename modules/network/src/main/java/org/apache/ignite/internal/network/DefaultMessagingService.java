@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.serialization.PerSessionSeriali
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -361,7 +363,16 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 .thenComposeToCompletable(sender -> sender.send(
                         new OutNetworkObject(message, descriptors),
                         () -> triggerChannelCreation(nodeId, type, addr)
-                ));
+                ))
+                // TODO: IGNITE-25375 - remove logging after the fix.
+                .whenComplete((res, ex) -> {
+                    if (ex != null && hasCause(ex, HandshakeException.class)) {
+                        LOG.error(
+                                "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localAddr={}]", ex,
+                                nodeId, type, addr, connectionManager.localAddress()
+                        );
+                    }
+                });
     }
 
     private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {

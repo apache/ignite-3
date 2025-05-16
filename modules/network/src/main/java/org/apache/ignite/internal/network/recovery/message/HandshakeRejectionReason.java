@@ -25,6 +25,11 @@ public enum HandshakeRejectionReason {
     STOPPING,
 
     /**
+     * An attempt to establish a connection to itself. This should never happen and indicates a programming error.
+     */
+    LOOP,
+
+    /**
      * The sender has detected that the counterpart launch ID is stale (was earlier used to establish a connection).
      * After this is received it makes no sense to retry connections with same node identity (launch ID must be changed
      * to make a retry).
