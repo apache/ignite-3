@@ -59,6 +59,10 @@ public class PendingAssignmentsCalculator {
         assert stable != null;
         assert target != null;
 
+        if (target.force()) {
+            return new AssignmentsQueue(target);
+        }
+
         int size = target.nodes().size();
         Set<Assignment> base = newHashSet(size);
         Set<Assignment> promoted = newHashSet(size);
@@ -120,7 +124,8 @@ public class PendingAssignmentsCalculator {
             );
         }
 
-        assert Objects.equals(queue.peekLast(), target) : "Target assignments should be equal to the last element in the queue";
+        assert Objects.equals(queue.peekLast().nodes(), target.nodes())
+                : "Target assignments should be equal to the last element in the queue";
         return queue;
     }
 }

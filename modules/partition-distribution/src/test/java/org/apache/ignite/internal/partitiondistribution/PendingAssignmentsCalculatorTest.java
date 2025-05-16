@@ -133,4 +133,31 @@ class PendingAssignmentsCalculatorTest {
                 ));
         assertThat("third configuration switch matches target", queue.poll(), is(target));
     }
+
+    @Test
+    void testForceFlag() {
+        Assignments stable = Assignments.of(Set.of(
+                Assignment.forPeer("asIs"),
+                Assignment.forLearner("promote"),
+                Assignment.forPeer("demote"),
+                Assignment.forLearner("remove")
+        ), 0L);
+
+        // without forced should be 3 elements in queue
+        Assignments target = Assignments.forced(Set.of(
+                Assignment.forPeer("asIs"),
+                Assignment.forPeer("promote"),
+                Assignment.forLearner("demote"),
+                Assignment.forLearner("newLearner"),
+                Assignment.forPeer("newPeer")
+        ), 0L);
+
+        AssignmentsQueue queue = PendingAssignmentsCalculator.pendingAssignmentsCalculator()
+                .stable(stable)
+                .target(target)
+                .toQueue();
+
+        assertThat("forcing elements in single configuration switch", queue.size(), is(1));
+        assertThat("queue first element is equal to target", queue.peekFirst(), is(target));
+    }
 }
