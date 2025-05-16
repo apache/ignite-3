@@ -32,6 +32,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
+import java.util.Set
+;import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledFuture;
@@ -126,6 +128,9 @@ public class Replicator implements ThreadId.OnError {
     private final PriorityQueue<RpcResponse> pendingResponses = new PriorityQueue<>(50);
 
     private final String metricName;
+
+    /** This set is used only for logging. */
+    private final Set<PeerId> deadPeers = ConcurrentHashMap.newKeySet();
 
     private int getAndIncrementReqSeq() {
         final int prev = this.reqSeq;
@@ -1151,7 +1156,7 @@ public class Replicator implements ThreadId.OnError {
         }
     }
 
-    static void onHeartbeatReturned(final ThreadId id, final Status status, final AppendEntriesRequest request,
+    void onHeartbeatReturned(final ThreadId id, final Status status, final AppendEntriesRequest request,
         final AppendEntriesResponse response, final long rpcSendTime) {
         if (id == null) {
             // replicator already was destroyed.
@@ -1178,7 +1183,9 @@ public class Replicator implements ThreadId.OnError {
                     .append(" prevLogTerm=") //
                     .append(request.prevLogTerm());
             }
-            if (!status.isOk()) {
+            if (status.isOk()) {
+                deadPeers.remove(r.options.getPeerId());
+            } else {
                 if (isLogDebugEnabled) {
                     sb.append(" fail, sleep, status=") //
                         .append(status);
@@ -1239,7 +1246,7 @@ public class Replicator implements ThreadId.OnError {
         }
     }
 
-    private static void logFailToIssueRpc(Status status, Replicator replicator) {
+    private void logFailToIssueRpc(Status status, Replicator replicator) {
         PeerId peerId = replicator.options.getPeerId();
         int consecutiveErrorTimes = replicator.consecutiveErrorTimes;
 
@@ -1247,12 +1254,16 @@ public class Replicator implements ThreadId.OnError {
             // Maybe the target node was not able to start yet, no need to WARN here.
             LOG.info("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", peerId, consecutiveErrorTimes, status);
         } else {
-            LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", peerId, consecutiveErrorTimes, status);
+            boolean added = deadPeers.add(peerId);
+
+            if (added) {
+                LOG.warn("Fail to issue RPC to {}, consecutiveErrorTimes={}, error={}", peerId, consecutiveErrorTimes, status);
+            }
         }
     }
 
     @SuppressWarnings("ContinueOrBreakFromFinallyBlock")
-    static void onRpcReturned(final ThreadId id, final RequestType reqType, final Status status, final Message request,
+    void onRpcReturned(final ThreadId id, final RequestType reqType, final Status status, final Message request,
         final Message response, final int seq, final int stateVersion, final long rpcSendTime) {
 
         if (id == null) {
@@ -1389,7 +1400,7 @@ public class Replicator implements ThreadId.OnError {
         releaseReader();
     }
 
-    private static boolean onAppendEntriesReturned(final ThreadId id, final Inflight inflight, final Status status,
+    private boolean onAppendEntriesReturned(final ThreadId id, final Inflight inflight, final Status status,
         final AppendEntriesRequest request,
         final AppendEntriesResponse response, final long rpcSendTime,
         final long startTimeMs, final Replicator r) {
@@ -1426,7 +1437,9 @@ public class Replicator implements ThreadId.OnError {
                 .append(" count=") //
                 .append(Utils.size(request.entriesList()));
         }
-        if (!status.isOk()) {
+        if (status.isOk()) {
+            deadPeers.remove(r.options.getPeerId());
+        } else {
             // If the follower crashes, any RPC to the follower fails immediately,
             // so we need to block the follower for a while instead of looping until
             // it comes back or be removed
