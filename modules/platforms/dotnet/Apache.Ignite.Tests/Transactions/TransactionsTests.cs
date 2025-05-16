@@ -353,6 +353,34 @@ namespace Apache.Ignite.Tests.Transactions
         [Test]
         public async Task TestRunInTransactionUpdatesData()
         {
+            await Client.Transactions.RunInTransactionAsync(
+                async tx => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultUpdatesData()
+        {
             var res = await Client.Transactions.RunInTransactionAsync(async tx =>
             {
                 await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
@@ -366,7 +394,7 @@ namespace Apache.Ignite.Tests.Transactions
         }
 
         [Test]
-        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        public async Task TestRunInTransactionWithResultWithExceptionDoesNotUpdateData()
         {
             var ex = Assert.ThrowsAsync<Exception>(async () =>
             {
