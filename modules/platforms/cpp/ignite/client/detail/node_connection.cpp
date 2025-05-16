@@ -62,7 +62,6 @@ bool node_connection::handshake() {
 }
 
 void node_connection::process_message(bytes_view msg) {
-    // TODO: Fix this
     m_last_message_ts = std::chrono::steady_clock::now();
 
     protocol::reader reader(msg);
