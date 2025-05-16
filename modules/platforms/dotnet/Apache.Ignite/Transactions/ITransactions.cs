@@ -17,6 +17,8 @@
 
 namespace Apache.Ignite.Transactions
 {
+    using System;
+    using System.Diagnostics.CodeAnalysis;
     using System.Threading.Tasks;
 
     /// <summary>
@@ -36,5 +38,29 @@ namespace Apache.Ignite.Transactions
         /// </summary>
         /// <returns>A <see cref="ValueTask"/> representing the asynchronous operation.</returns>
         ValueTask<ITransaction> BeginAsync() => BeginAsync(default);
+
+        /// <summary>
+        /// Runs the specified function within a transaction.
+        /// </summary>
+        /// <param name="func">Function.</param>
+        /// <param name="options">Transaction options.</param>
+        /// <typeparam name="T">Result type.</typeparam>
+        /// <returns>Function result.</returns>
+        [SuppressMessage(
+            "Reliability",
+            "CA2007:Consider calling ConfigureAwait on the awaited task",
+            Justification = "False positive, ConfigureAwait is present.")]
+        async Task<T> RunInTransactionAsync<T>(
+            Func<ITransaction, Task<T>> func,
+            TransactionOptions options = default)
+        {
+            await using var tx = await BeginAsync(options).ConfigureAwait(false);
+
+            var res = await func(tx).ConfigureAwait(false);
+
+            await tx.CommitAsync().ConfigureAwait(false);
+
+            return res;
+        }
     }
 }
