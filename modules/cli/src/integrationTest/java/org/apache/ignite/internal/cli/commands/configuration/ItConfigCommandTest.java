@@ -120,7 +120,10 @@ class ItConfigCommandTest extends CliIntegrationTest {
         );
 
         execute("cluster", "config", "update", "--url", NODE_URL,
-                "--file", getClass().getResource("/ignite-cluster.conf").getPath(), "ignite.gc.lowWatermark.dataAvailabilityTimeMillis=600002");
+                "--file",
+                getClass().getResource("/ignite-cluster.conf").getPath(),
+                "ignite.gc.lowWatermark.dataAvailabilityTimeMillis=600002"
+        );
 
         assertAll(
                 this::assertExitCodeIsZero,
