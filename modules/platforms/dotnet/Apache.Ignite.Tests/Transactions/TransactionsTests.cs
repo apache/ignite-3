@@ -350,6 +350,18 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual(123, server.LastClientObservableTimestamp);
         }
 
+        [Test]
+        public async Task TestRunInTransactionUpdatesData()
+        {
+
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        {
+
+        }
+
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;
