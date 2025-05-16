@@ -398,16 +398,10 @@ namespace Apache.Ignite.Tests.Transactions
         {
             var ex = Assert.ThrowsAsync<Exception>(async () =>
             {
-                await Client.Transactions.RunInTransactionAsync(async tx =>
+                await Client.Transactions.RunInTransactionAsync<int>(async tx =>
                 {
-                    var inserted = await TupleView.InsertAsync(tx, GetTuple(1, "2"));
-
-                    if (inserted)
-                    {
-                        throw new Exception("Test");
-                    }
-
-                    return 0;
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
                 });
             });
 
