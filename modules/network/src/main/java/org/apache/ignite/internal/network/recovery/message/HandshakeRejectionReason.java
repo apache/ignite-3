@@ -58,7 +58,8 @@ public enum HandshakeRejectionReason {
      * Returns {@code true} iff the rejection should be logged at a WARN level.
      */
     public boolean logAsWarn() {
-        return this == STALE_LAUNCH_ID
+        return this == LOOP
+                || this == STALE_LAUNCH_ID
                 || this == CLUSTER_ID_MISMATCH
                 || this == PRODUCT_MISMATCH
                 || this == VERSION_MISMATCH;
