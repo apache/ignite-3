@@ -48,12 +48,7 @@ public class SpacedParameterMixin {
         return string.charAt(0) == quoteChar && string.charAt(string.length() - 1) == quoteChar;
     }
 
-    /**
-     * Returns the arguments.
-     *
-     * @return The arguments.
-     */
-    public String[] args() {
-        return args;
+    public boolean hasContent() {
+        return args != null && args.length > 0;
     }
 }

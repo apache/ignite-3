@@ -20,9 +20,6 @@ package org.apache.ignite.internal.cli.util;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 import java.io.File;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
 import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 
@@ -39,25 +36,19 @@ public class ConfigUtils {
      * @return String representation of the config.
      */
     public static String formUpdateConfig(File configFile, SpacedParameterMixin config) {
-        String resultingConfig = configFile != null ? readConfigFile(configFile, config) : config.toString();
+        if (configFile == null && !config.hasContent()) {
+            throw new IgniteCliException("Failed to parse config content.");
+        }
+        Config result = ConfigFactory.empty();
 
-        // Merge config from file and config from command line if they are both provided
-        if (configFile != null && config.args() != null && !config.toString().isEmpty()) {
-            Config mergedConfig = ConfigFactory.parseString(config.toString())
-                    .withFallback(ConfigFactory.parseFile(configFile))
-                    .resolve();
-
-            resultingConfig = mergedConfig.root().render();
+        if (configFile != null) {
+            result = result.withFallback(ConfigFactory.parseFile(configFile));
         }
 
-        return resultingConfig;
-    }
-
-    private static String readConfigFile(File configFile, SpacedParameterMixin config) {
-        try {
-            return Files.readString(configFile.toPath(), StandardCharsets.UTF_8);
-        } catch (IOException e) {
-            throw new IgniteCliException("File [" + configFile.getAbsolutePath() + "] not found");
+        if (config.hasContent()) {
+            result = result.withFallback(ConfigFactory.parseString(config.toString()));
         }
+
+        return result.resolve().root().render();
     }
 }
