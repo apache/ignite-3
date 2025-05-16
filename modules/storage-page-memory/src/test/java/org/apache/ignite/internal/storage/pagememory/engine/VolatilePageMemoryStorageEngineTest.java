@@ -21,32 +21,23 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
-import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
-import org.apache.ignite.internal.metrics.MetricManager;
-import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
+import org.apache.ignite.internal.pagememory.configuration.schema.VolatilePageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
-import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryStorageEngine;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
- * Implementation of the {@link AbstractStorageEngineTest} for the {@link PersistentPageMemoryStorageEngine#ENGINE_NAME} engine.
+ * Implementation of the {@link AbstractStorageEngineTest} for the {@link VolatilePageMemoryStorageEngine#ENGINE_NAME} engine.
  */
-@ExtendWith(WorkDirectoryExtension.class)
-public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
-    @InjectConfiguration("mock.profiles.default.engine = aipersist")
+public class VolatilePageMemoryStorageEngineTest extends AbstractStorageEngineTest {
+    @InjectConfiguration("mock.profiles.default.engine = aimem")
     private StorageConfiguration storageConfig;
-
-    @WorkDirectory
-    private Path workDir;
 
     @Override
     protected StorageEngine createEngine() {
@@ -54,16 +45,11 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
 
         ioRegistry.loadFromServiceLoader();
 
-        return new PersistentPageMemoryStorageEngine(
+        return new VolatilePageMemoryStorageEngine(
                 "test",
-                mock(MetricManager.class),
                 storageConfig,
-                null,
                 ioRegistry,
-                workDir,
-                null,
                 mock(FailureManager.class),
-                logSyncer,
                 clock
         );
     }
@@ -71,7 +57,8 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
     @Test
     void verifyDataRegionSize() {
         for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
+            assertThat(((VolatilePageMemoryProfileView) view).initSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
+            assertThat(((VolatilePageMemoryProfileView) view).maxSizeBytes(), is(StorageEngine.defaultDataRegionSize()));
         }
     }
 }

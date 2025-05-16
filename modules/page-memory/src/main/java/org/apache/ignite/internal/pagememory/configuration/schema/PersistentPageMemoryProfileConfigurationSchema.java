@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.pagememory.configuration.schema;
 
-import static org.apache.ignite.internal.util.Constants.MiB;
-import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
-
 import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.OneOf;
@@ -30,13 +27,6 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileConfigura
  */
 @PolymorphicConfigInstance("aipersist")
 public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfileConfigurationSchema {
-    /**
-     * Default size of page memory data region, maximum between 256 MiB and 20% of the total physical memory.
-     * 256 MiB, if system was unable to retrieve physical memory size.
-     */
-    @SuppressWarnings("NumericCastThatLosesPrecision")
-    public static final long DFLT_DATA_REGION_SIZE = Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
-
     /** Random-LRU page replacement algorithm. */
     public static final String RANDOM_LRU_REPLACEMENT_MODE = "RANDOM_LRU";
 
@@ -48,7 +38,7 @@ public class PersistentPageMemoryProfileConfigurationSchema extends StorageProfi
 
     /** Memory region size in bytes. */
     @Value(hasDefault = true)
-    public long sizeBytes = DFLT_DATA_REGION_SIZE;
+    public long sizeBytes = UNSPECIFIED_SIZE;
 
     /** Memory pages replacement mode. */
     @OneOf({RANDOM_LRU_REPLACEMENT_MODE, SEGMENTED_LRU_REPLACEMENT_MODE, CLOCK_REPLACEMENT_MODE})
