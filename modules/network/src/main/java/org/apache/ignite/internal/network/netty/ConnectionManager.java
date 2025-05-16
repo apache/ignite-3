@@ -341,7 +341,7 @@ public class ConnectionManager implements ChannelCreationListener {
                     if (res.isOpen()) {
                         return OrderingFuture.completedFuture(res);
                     } else {
-                        return getChannelWithRetry(res.launchId(), type, address, attempt + 1);
+                        return getChannelWithRetry(nodeId, type, address, attempt + 1);
                     }
                 })
                 .thenCompose(identity());
