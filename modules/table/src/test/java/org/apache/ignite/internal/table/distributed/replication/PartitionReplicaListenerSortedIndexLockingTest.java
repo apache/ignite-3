@@ -175,7 +175,7 @@ public class PartitionReplicaListenerSortedIndexLockingTest extends IgniteAbstra
 
         StorageSortedIndexDescriptor pkIndexDescriptor = new StorageSortedIndexDescriptor(
                 PK_INDEX_ID,
-                List.of(new StorageSortedIndexColumnDescriptor("ID", NativeTypes.INT32, false, true)),
+                List.of(new StorageSortedIndexColumnDescriptor("ID", NativeTypes.INT32, false, true, false)),
                 false
         );
 
