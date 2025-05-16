@@ -456,14 +456,11 @@ public class ClientTupleSerializer {
                 return hash;
             }
 
-            while (iter.hasNext()) {
-                Tuple next = iter.next();
-                if (hash != getColocationHash(schema, next)) {
-                    return null;
-                }
+            // Temporary disable direct mapping for batches.
+            if (iter.hasNext()) {
+                return null;
             }
 
-            // If batch for the same partition can do direct enlistment. This is temporary limitation TODO ticket.
             return hash;
         });
     }
@@ -494,14 +491,11 @@ public class ClientTupleSerializer {
                 return hash;
             }
 
-            while (iter.hasNext()) {
-                Object next = iter.next();
-                if (hash != getColocationHash(schema, m, next)) {
-                    return null;
-                }
+            // TODO https://issues.apache.org/jira/browse/IGNITE-25348 Enable batch splitting for direct mappings.
+            if (iter.hasNext()) {
+                return null;
             }
 
-            // If batch for the same partition can do direct enlistment. This is temporary limitation TODO ticket.
             return hash;
         });
     }

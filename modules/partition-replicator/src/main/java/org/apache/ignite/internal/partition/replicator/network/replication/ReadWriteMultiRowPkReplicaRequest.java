@@ -26,10 +26,8 @@ import org.apache.ignite.internal.replicator.message.TableAware;
  */
 @Transferable(PartitionReplicationMessageGroup.RW_MULTI_ROW_PK_REPLICA_REQUEST)
 public interface ReadWriteMultiRowPkReplicaRequest extends MultipleRowPkReplicaRequest, ReadWriteReplicaRequest, TableAware {
-    /**
-     * Disable delayed ack optimization.
-     *
-     * @return {@code True} to disable the delayed ack optimization.
-     */
-    boolean skipDelayedAck();
+    @Override
+    default boolean isWrite() {
+        return requestType() != RequestType.RW_GET_ALL;
+    }
 }

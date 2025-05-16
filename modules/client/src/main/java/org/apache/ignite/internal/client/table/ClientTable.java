@@ -19,8 +19,10 @@ package org.apache.ignite.internal.client.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.function.Function.identity;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
+import static org.apache.ignite.internal.client.tx.ClientLazyTransaction.ensureStarted;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
 import static org.apache.ignite.internal.util.ExceptionUtils.sneakyThrow;
@@ -38,7 +40,9 @@ import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import org.apache.ignite.client.RetryPolicy;
+import org.apache.ignite.internal.client.ClientChannel;
 import org.apache.ignite.internal.client.ClientSchemaVersionMismatchException;
 import org.apache.ignite.internal.client.ClientUtils;
 import org.apache.ignite.internal.client.PartitionMapping;
@@ -52,7 +56,6 @@ import org.apache.ignite.internal.client.proto.ColumnTypeConverter;
 import org.apache.ignite.internal.client.sql.ClientSql;
 import org.apache.ignite.internal.client.table.api.PublicApiClientKeyValueView;
 import org.apache.ignite.internal.client.table.api.PublicApiClientRecordView;
-import org.apache.ignite.internal.client.tx.ClientLazyTransaction;
 import org.apache.ignite.internal.client.tx.ClientTransaction;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -485,22 +488,23 @@ public class ClientTable implements Table {
                 .thenCompose(v -> {
                     ClientSchema schema = schemaFut.getNow(null);
 
-                    PartitionMapping forCrd = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true);
-
-                    return ClientLazyTransaction.ensureStarted(tx, ch, forCrd).thenCompose(tx0 -> {
-                        @Nullable PartitionMapping forOp = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema,
-                                tx0 == null); // Force coordinator mode for implicit transactions.
+                    Supplier<PartitionMapping> sup =
+                            () -> getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, true);
+                    return ensureStarted(tx, ch, sup).thenCompose(tx0 -> {
+                        // Force coordinator mode for implicit transactions.
+                        @Nullable PartitionMapping forOp =
+                                getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, tx0 == null);
 
                         WriteContext ctx = new WriteContext();
-                        ctx.pm = forOp;
+                        // Force proxy mode for requests colocated with coordinator to reduce passed enlistment info on commit.
+                        ctx.pm = tx0 != null && forOp != null && forOp.nodeConsistentId().equals(tx0.nodeName()) ? null : forOp;
 
                         return ch.serviceAsync(opCode,
-                                        (opCh) -> tx0 == null || tx0.isReadOnly() || forOp == null
-                                                || !opCh.protocolContext().isFeatureSupported(TX_DIRECT_MAPPING) ? nullCompletedFuture()
-                                                : tx0.enlistFuture(opCh, ctx),
+                                        (opCh) -> useDirectMapping(tx0, ctx, opCh) ? enlistDirect(tx0, ch, opCh, ctx, opCode)
+                                                : nullCompletedFuture(),
                                         w -> writer.accept(schema, w, ctx),
                                         r -> readSchemaAndReadData(schema, r, reader, defaultValue, responseSchemaRequired, ctx, tx0),
-                                        resolvePreferredNode(tx0, forOp),
+                                        resolvePreferredNode(tx0, ctx.pm),
                                         tx0 == null ? null : tx0.nodeName(),
                                         retryPolicyOverride,
                                         expectNotifications)
@@ -592,6 +596,34 @@ public class ClientTable implements Table {
         }
     }
 
+    private static boolean useDirectMapping(@Nullable ClientTransaction tx0, WriteContext ctx, ClientChannel opChannel) {
+        // Fulfilling this condition forces proxy mode.
+        boolean proxy = tx0 == null || tx0.isReadOnly() || ctx.pm == null || !opChannel.protocolContext()
+                .allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
+
+        return !proxy && ctx.pm != null && ctx.pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name())
+                && tx0.hasCommitPartition();
+    }
+
+    private static CompletableFuture<Void> enlistDirect(
+            ClientTransaction tx,
+            ReliableChannel ch,
+            ClientChannel opChannel,
+            WriteContext ctx,
+            int opCode) {
+        return tx.enlistFuture(ch, opChannel, ctx.pm, opCode).thenCompose(tup -> {
+            if (tup.get2() == null) { // First request.
+                ctx.enlistmentToken = 0L;
+                return nullCompletedFuture();
+            } else if (tup.get2() == 0L) { // No-op enlistment result.
+                return enlistDirect(tx, ch, opChannel, ctx, opCode);
+            } else { // Successfull enlistment.
+                ctx.enlistmentToken = tup.get2();
+                return nullCompletedFuture();
+            }
+        });
+    }
+
     private <T> @Nullable Object readSchemaAndReadData(
             ClientSchema knownSchema,
             PayloadInputChannel in,
@@ -606,12 +638,22 @@ public class ClientTable implements Table {
             assert tx != null;
             assert ctx.pm != null;
 
-            String consistentId = in.in().unpackString();
-            long token = in.in().unpackLong();
+            if (in.in().tryUnpackNil()) {
+                // No-op.
+                in.clientChannel().inflights().removeInflight(tx.txId(), null);
 
-            // Finish enlist on first request only.
-            if (ctx.enlistmentToken == 0) {
-                tx.tryFinishEnlist(ctx.pm, consistentId, token);
+                // Finish enlist on first request only.
+                if (ctx.enlistmentToken == 0) {
+                    tx.tryFinishEnlist(ctx.pm, null, 0, true);
+                }
+            } else {
+                String consistentId = in.in().unpackString();
+                long token = in.in().unpackLong();
+
+                // Finish enlist on first request only.
+                if (ctx.enlistmentToken == 0) {
+                    tx.tryFinishEnlist(ctx.pm, consistentId, token, false);
+                }
             }
         }
 

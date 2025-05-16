@@ -945,6 +945,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         stopNode(4);
 
+        // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
+        // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
+        // the race between rebalance and assignments verifications that we do below.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        Assignments assignmentToBlock = Assignments.of(Set.of(Assignment.forPeer(node(1).name())), timestamp);
+        blockRebalanceStableSwitch(partId, assignmentToBlock);
+
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<Void> resetFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
@@ -1070,6 +1077,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         // Unblock raft.
         blockedNodes.clear();
+
+        // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
+        // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
+        // the race between rebalance and assignments verifications that we do below.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        Assignments assignmentToBlock = Assignments.of(Set.of(Assignment.forPeer(leaderName)), timestamp);
+        blockRebalanceStableSwitch(partId, assignmentToBlock);
 
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
@@ -1201,12 +1215,19 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<String> nodesNamesForFinalAssignments = new ArrayList<>(clusterNodeNames);
         nodesNamesForFinalAssignments.removeAll(nodeNamesToStop);
 
+        String pendingNodeName = getPendingNodeName(nodesNamesForFinalAssignments, blockedNode);
+
+        // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
+        // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
+        // the race between rebalance and assignments verifications that we do below.
+        // Worth mentioning that assignments stable switch ignores force flag, thus within blocked assignments force = false is used.
+        Assignments assignmentsToBlock = Assignments.of(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);
+        blockRebalanceStableSwitch(partId, assignmentsToBlock);
+
         DisasterRecoveryManager disasterRecoveryManager = node0.disasterRecoveryManager();
         CompletableFuture<?> updateFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
         assertThat(updateFuture, willCompleteSuccessfully());
-
-        String pendingNodeName = getPendingNodeName(nodesNamesForFinalAssignments, blockedNode);
 
         // Pending is the one with the most up to date log index.
         Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);
