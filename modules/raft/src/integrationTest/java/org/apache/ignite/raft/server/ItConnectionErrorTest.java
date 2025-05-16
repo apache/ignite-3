@@ -17,6 +17,7 @@
 
 package org.apache.ignite.raft.server;
 
+import static java.util.stream.IntStream.range;
 import static org.apache.ignite.internal.raft.server.RaftGroupOptions.defaults;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.forEachIndexed;
@@ -28,7 +29,6 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-import java.util.stream.IntStream;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.RaftGroupServiceImpl;
@@ -46,21 +46,31 @@ import org.apache.ignite.raft.jraft.core.Replicator;
 import org.apache.ignite.raft.jraft.core.ReplicatorGroupImpl;
 import org.apache.ignite.raft.jraft.rpc.impl.AbstractClientService;
 import org.apache.ignite.raft.server.counter.CounterListener;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Test checking amount of errors in logs on Raft node stop.
  */
 public class ItConnectionErrorTest extends JraftAbstractTest {
-    /**
-     * Counter group name 0.
-     */
     private static final TestReplicationGroupId TEST_GROUP = new TestReplicationGroupId("testGroup");
 
-    /**
-     * Listener factory.
-     */
     private Supplier<CounterListener> listenerFactory = CounterListener::new;
+
+    private List<LogInspector> logInspectors;
+
+    @BeforeEach
+    public void setUp() throws Exception {
+        startCluster();
+
+        logInspectors = startLogInspectors();
+    }
+
+    @AfterEach
+    public void tearDown() {
+        stopLogInspectors(logInspectors);
+    }
 
     /**
      * Starts a cluster for the test.
@@ -101,30 +111,22 @@ public class ItConnectionErrorTest extends JraftAbstractTest {
     }
 
     private void commonTestStopNode(boolean whetherStopLeader) throws Exception {
-        startCluster();
+        int leaderIndex = leaderIndex();
 
-        List<LogInspector> logInspectors = startLogInspectors();
+        int nodeToStop = whetherStopLeader
+                ? leaderIndex
+                : range(0, NODES).filter(i -> i != leaderIndex).findFirst().orElseThrow();
 
-        try {
-            int leaderIndex = leaderIndex();
+        stopServer(nodeToStop);
 
-            int nodeToStop = whetherStopLeader
-                    ? leaderIndex
-                    : IntStream.range(0, NODES).filter(i -> i != leaderIndex).findFirst().orElseThrow();
+        // Wait for some time for log spam.
+        Thread.sleep(3_000);
 
-            stopServer(nodeToStop);
-
-            // Wait for some time for log spam.
-            Thread.sleep(3_000);
-
-            for (LogInspector logInspector : logInspectors) {
-                assertTrue(
-                        logInspector.timesMatched().min().orElseThrow() < 2,
-                        logInspector.loggerName() + " has written to the log more than 1 time."
-                );
-            }
-        } finally {
-            stopLogInspectors(logInspectors);
+        for (LogInspector logInspector : logInspectors) {
+            assertTrue(
+                    logInspector.timesMatched().min().orElseThrow() < 2,
+                    logInspector.loggerName() + " has written to the log more than 1 time."
+            );
         }
     }
 
