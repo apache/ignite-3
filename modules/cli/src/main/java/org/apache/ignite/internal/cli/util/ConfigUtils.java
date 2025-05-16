@@ -19,9 +19,9 @@ package org.apache.ignite.internal.cli.util;
 
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
+import com.typesafe.config.ConfigRenderOptions;
 import java.io.File;
 import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
-import org.apache.ignite.internal.cli.core.exception.IgniteCliException;
 
 /**
  * Utility class for config handling.
@@ -37,18 +37,18 @@ public class ConfigUtils {
      */
     public static String formUpdateConfig(File configFile, SpacedParameterMixin config) {
         if (configFile == null && !config.hasContent()) {
-            throw new IgniteCliException("Failed to parse config content.");
-        }
-        Config result = ConfigFactory.empty();
-
-        if (configFile != null) {
-            result = result.withFallback(ConfigFactory.parseFile(configFile));
+            throw new ConfigurationArgsParseException("Failed to parse config content. "
+                    + "Please, specify config file or provide config content directly.");
         }
 
-        if (config.hasContent()) {
-            result = result.withFallback(ConfigFactory.parseString(config.toString()));
+        if (configFile == null) {
+            return config.toString();
+        } else {
+            Config result = ConfigFactory.parseFile(configFile);
+            if (config.hasContent()) {
+                result = result.withFallback(ConfigFactory.parseString(config.toString()));
+            }
+            return result.resolve().root().render(ConfigRenderOptions.concise().setFormatted(true).setJson(false));
         }
-
-        return result.resolve().root().render();
     }
 }
