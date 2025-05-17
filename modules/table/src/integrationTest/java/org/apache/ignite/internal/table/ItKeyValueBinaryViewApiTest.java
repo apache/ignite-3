@@ -402,7 +402,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         assertNull(tbl.get(null, key));
 
         tbl.put(null, key, val);
-        assertTrue(tbl.replace( key, val2));
+        assertTrue(tbl.replace(key, val2));
         assertEquals(val2, tbl.get(null, key));
 
         assertFalse(tbl.replace(key2, val3));
