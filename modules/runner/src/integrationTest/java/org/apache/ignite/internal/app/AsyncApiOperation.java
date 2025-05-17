@@ -42,7 +42,6 @@ import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.mapper.Mapper;
-import org.apache.ignite.tx.Transaction;
 
 /**
  * Asynchronous API operation.
