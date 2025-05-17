@@ -37,6 +37,8 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
 
     private Matcher<Integer> replicasMatcher = AnythingMatcher.anything();
 
+    private Matcher<Integer> quorumSizeMatcher = AnythingMatcher.anything();
+
     private Matcher<String> distributionAlgorithmMatcher = AnythingMatcher.anything();
 
     private Matcher<Integer> dataNodesAutoAdjustMatcher = AnythingMatcher.anything();
@@ -85,6 +87,15 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
 
     public ZoneDefinitionMatcher withReplicas(int replicas) {
         return withReplicasMatcher(equalTo(replicas));
+    }
+
+    public ZoneDefinitionMatcher withQuorumSize(Matcher<Integer> quorumSizeMatcher) {
+        this.quorumSizeMatcher = quorumSizeMatcher;
+        return this;
+    }
+
+    public ZoneDefinitionMatcher withQuorumSize(int quorumSize) {
+        return withQuorumSize(equalTo(quorumSize));
     }
 
     public ZoneDefinitionMatcher withDistributionAlgorithmMatcher(Matcher<String> withDistributionAlgorithmMatcher) {
@@ -162,6 +173,7 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
                 && ifNotExistsMatcher.matches(zoneDefinition.ifNotExists())
                 && partitionsMatcher.matches(zoneDefinition.partitions())
                 && replicasMatcher.matches(zoneDefinition.replicas())
+                && quorumSizeMatcher.matches(zoneDefinition.quorumSize())
                 && distributionAlgorithmMatcher.matches(zoneDefinition.distributionAlgorithm())
                 && dataNodesAutoAdjustMatcher.matches(zoneDefinition.dataNodesAutoAdjust())
                 && zoneNameMatcher.matches(zoneDefinition.zoneName())
@@ -182,6 +194,8 @@ public class ZoneDefinitionMatcher extends TypeSafeMatcher<ZoneDefinition> {
                 .appendText("partitions ").appendDescriptionOf(partitionsMatcher)
                 .appendText(System.lineSeparator())
                 .appendText("replicas ").appendDescriptionOf(replicasMatcher)
+                .appendText(System.lineSeparator())
+                .appendText("quorum size ").appendDescriptionOf(quorumSizeMatcher)
                 .appendText(System.lineSeparator())
                 .appendText("affinity ").appendDescriptionOf(distributionAlgorithmMatcher)
                 .appendText(System.lineSeparator())

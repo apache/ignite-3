@@ -31,6 +31,8 @@ public class ZoneDefinition {
 
     private final Integer replicas;
 
+    private final Integer quorumSize;
+
     private final String distributionAlgorithm;
 
     private final Integer dataNodesAutoAdjust;
@@ -50,6 +52,7 @@ public class ZoneDefinition {
             boolean ifNotExists,
             Integer partitions,
             Integer replicas,
+            Integer quorumSize,
             String distributionAlgorithm,
             Integer dataNodesAutoAdjust,
             Integer dataNodesAutoAdjustScaleUp,
@@ -62,6 +65,7 @@ public class ZoneDefinition {
         this.ifNotExists = ifNotExists;
         this.partitions = partitions;
         this.replicas = replicas;
+        this.quorumSize = quorumSize;
         this.distributionAlgorithm = distributionAlgorithm;
         this.dataNodesAutoAdjust = dataNodesAutoAdjust;
         this.dataNodesAutoAdjustScaleUp = dataNodesAutoAdjustScaleUp;
@@ -115,6 +119,15 @@ public class ZoneDefinition {
      */
     public Integer replicas() {
         return replicas;
+    }
+
+    /**
+     * Returns quorum size.
+     *
+     * @return Quorum size.
+     */
+    public Integer quorumSize() {
+        return quorumSize;
     }
 
     /**
@@ -196,6 +209,7 @@ public class ZoneDefinition {
                 + ", ifNotExists=" + ifNotExists
                 + ", partitions=" + partitions
                 + ", replicas=" + replicas
+                + ", quorumSize=" + quorumSize
                 + ", distributionAlgorithm='" + distributionAlgorithm + '\''
                 + ", dataNodesAutoAdjust=" + dataNodesAutoAdjust
                 + ", dataNodesAutoAdjustScaleUp=" + dataNodesAutoAdjustScaleUp
@@ -218,6 +232,8 @@ public class ZoneDefinition {
 
         private Integer replicas;
 
+        private Integer quorumSize;
+
         private String distributionAlgorithm;
 
         private Integer dataNodesAutoAdjust;
@@ -239,6 +255,7 @@ public class ZoneDefinition {
             ifNotExists = definition.ifNotExists;
             partitions = definition.partitions;
             replicas = definition.replicas;
+            quorumSize = definition.quorumSize;
             distributionAlgorithm = definition.distributionAlgorithm;
             dataNodesAutoAdjust = definition.dataNodesAutoAdjust;
             dataNodesAutoAdjustScaleUp = definition.dataNodesAutoAdjustScaleUp;
@@ -297,6 +314,19 @@ public class ZoneDefinition {
             Objects.requireNonNull(replicas, "Number of replicas must not be null.");
 
             this.replicas = replicas;
+            return this;
+        }
+
+        /**
+         * Sets quorum size.
+         *
+         * @param quorumSize Quorum size.
+         * @return This builder instance.
+         */
+        public Builder quorumSize(Integer quorumSize) {
+            Objects.requireNonNull(quorumSize, "Quorum size must not be null.");
+
+            this.quorumSize = quorumSize;
             return this;
         }
 
@@ -411,6 +441,7 @@ public class ZoneDefinition {
                     ifNotExists,
                     partitions,
                     replicas,
+                    quorumSize,
                     distributionAlgorithm,
                     dataNodesAutoAdjust,
                     dataNodesAutoAdjustScaleUp,

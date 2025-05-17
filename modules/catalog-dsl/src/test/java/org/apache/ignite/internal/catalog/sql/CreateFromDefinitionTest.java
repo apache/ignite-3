@@ -50,7 +50,8 @@ class CreateFromDefinitionTest {
         ZoneDefinition zone = ZoneDefinition.builder("zone_test")
                 .ifNotExists()
                 .partitions(3)
-                .replicas(3)
+                .replicas(5)
+                .quorumSize(2)
                 .distributionAlgorithm("partitionDistribution")
                 .dataNodesAutoAdjust(1)
                 .dataNodesAutoAdjustScaleDown(2)
@@ -62,7 +63,7 @@ class CreateFromDefinitionTest {
 
         assertThat(
                 createZone(zone),
-                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=3,"
+                is("CREATE ZONE IF NOT EXISTS ZONE_TEST WITH STORAGE_PROFILES='default', PARTITIONS=3, REPLICAS=5, QUORUM_SIZE=2,"
                         + " DISTRIBUTION_ALGORITHM='partitionDistribution',"
                         + " DATA_NODES_AUTO_ADJUST=1, DATA_NODES_AUTO_ADJUST_SCALE_UP=3, DATA_NODES_AUTO_ADJUST_SCALE_DOWN=2,"
                         + " DATA_NODES_FILTER='filter', CONSISTENCY_MODE='HIGH_AVAILABILITY';")

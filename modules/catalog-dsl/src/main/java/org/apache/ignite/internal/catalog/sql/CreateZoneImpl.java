@@ -64,6 +64,13 @@ class CreateZoneImpl extends AbstractCatalogQuery<Name> {
         return this;
     }
 
+    CreateZoneImpl quorumSize(Integer n) {
+        Objects.requireNonNull(n, "Quorum size must not be null.");
+
+        withOptions.add(Option.quorumSize(n));
+        return this;
+    }
+
     CreateZoneImpl partitions(Integer n) {
         Objects.requireNonNull(n, "Partitions must not be null.");
 
