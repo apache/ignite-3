@@ -52,7 +52,7 @@ public class TableApiConsistencyTest {
 
                 assertDoesNotThrow(
                         () -> clazz.getDeclaredMethod(mtd.getName(), altParams),
-                        () -> "Method " + mtd + " should have override without transaction parameter"
+                        () -> "Method " + mtd + " should have overload without transaction parameter"
                 );
             }
         }
