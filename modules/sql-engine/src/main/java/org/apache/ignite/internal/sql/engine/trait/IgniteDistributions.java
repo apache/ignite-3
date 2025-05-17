@@ -73,7 +73,7 @@ public class IgniteDistributions {
      * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(int key, int tableId, Object zoneId) {
+    public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
         return hash(ImmutableIntList.of(key), DistributionFunction.affinity(tableId, zoneId));
     }
 
@@ -86,7 +86,7 @@ public class IgniteDistributions {
      * @param zoneId  Distribution zone ID.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(List<Integer> keys, int tableId, Object zoneId) {
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId) {
         return hash(keys, DistributionFunction.affinity(tableId, zoneId));
     }
 

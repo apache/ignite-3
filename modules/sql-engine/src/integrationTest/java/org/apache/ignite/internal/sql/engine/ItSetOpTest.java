@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.math.BigDecimal;
@@ -31,9 +32,9 @@ import org.apache.ignite.internal.sql.engine.hint.IgniteHint;
 import org.apache.ignite.internal.sql.engine.util.HintUtils;
 import org.apache.ignite.internal.sql.engine.util.MetadataMatcher;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -44,6 +45,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Integration test for set op (EXCEPT, INTERSECT).
  */
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItSetOpTest extends BaseSqlIntegrationTest {
     /**
      * Before all.
@@ -220,7 +222,6 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         assertEquals(2, countIf(rows, r -> r.get(0).equals("Igor1")));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-18426")
     @Test
     public void testSetOpColocated() {
         sql("CREATE TABLE emp(empid INTEGER, deptid INTEGER, name VARCHAR, PRIMARY KEY(empid, deptid)) COLOCATE BY (deptid)");
@@ -230,24 +231,24 @@ public class ItSetOpTest extends BaseSqlIntegrationTest {
         sql("INSERT INTO dept VALUES (0, 'test0'), (1, 'test1'), (2, 'test2')");
 
         assertQuery("SELECT deptid, name FROM emp EXCEPT SELECT deptid, name FROM dept")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedMinus.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedMinus.*"))
                 .returns(0, "test1")
                 .returns(1, "test2")
                 .check();
 
         assertQuery("SELECT deptid, name FROM dept EXCEPT SELECT deptid, name FROM emp")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedMinus.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedMinus.*"))
                 .returns(1, "test1")
                 .returns(2, "test2")
                 .check();
 
         assertQuery("SELECT deptid FROM dept EXCEPT SELECT deptid FROM emp")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedMinus.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedMinus.*"))
                 .returns(2)
                 .check();
 
         assertQuery("SELECT deptid FROM dept INTERSECT SELECT deptid FROM emp")
-                .matches(QueryChecker.matches(".*IgniteExchange.*IgniteColocatedIntersect.*"))
+                .matches(QueryChecker.matches(".*Exchange.*ColocatedIntersect.*"))
                 .returns(0)
                 .returns(1)
                 .check();

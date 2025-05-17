@@ -76,7 +76,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .partitions(42)
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .distribution(IgniteDistributions.affinity(List.of(0), 2, 3))
                 .partitions(assignments.size())
                 .build();
 
@@ -121,7 +121,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .partitions(assignments.size())
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .distribution(IgniteDistributions.affinity(List.of(0), 2, 3))
                 .partitions(assignments.size())
                 .build();
 
@@ -165,7 +165,7 @@ public class PartitionProvidersTest extends BaseIgniteAbstractTest {
                 .name("T1")
                 .addKeyColumn("C1", NativeTypes.INT32)
                 .partitions(assignments.size())
-                .distribution(IgniteDistributions.affinity(List.of(0), 2, "3"))
+                .distribution(IgniteDistributions.affinity(List.of(0), 2, 3))
                 .partitions(assignments.size())
                 .build();
 
