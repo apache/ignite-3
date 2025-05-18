@@ -51,6 +51,7 @@ import org.junit.jupiter.api.Test;
 class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     private static final String OLD_VALUE_NAME = "oldName";
     private static final String OLD_INNER_NAME = "oldInnerName";
+    private static final String SECOND_OLD_INNER_NAME = "secondOldInnerName";
     private static final String OLD_LIST_NAME = "listOldName";
     private static final String POLYMORPHIC_TYPE = "polymorphicType";
     private static final String OLD_POLYMORPHIC_NAME = "oldPolymorphicName";
@@ -93,6 +94,7 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
 
     @Test
     public void testLegacyNameIsRecognisedOnStartup() {
+        // Default value was set when registry was started with old configuration.
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
                 Matchers.equalTo(OLD_DEFAULT)
@@ -102,17 +104,49 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testLegacyNameIsRecognisedOnUpdate() {
+    public void testLegacyNameIWRecognisedOnUpdate() {
         String updatedValue = "updatedValue";
-        String updatedConfig = String.format("key.%s.%s = \"%s\"", OLD_INNER_NAME, OLD_VALUE_NAME, updatedValue);
-
-        updateConfig(registry, updatedConfig);
+        String configWithFirstLegacyName = String.format("key.%s.%s = \"%s\"", OLD_INNER_NAME, OLD_VALUE_NAME, updatedValue);
+        updateConfig(registry, configWithFirstLegacyName);
 
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
                 Matchers.equalTo(updatedValue)
         );
         assertThat(storage.readLatest(String.format("key.%s.%s", OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+
+        String secondUpdatedValue = "secondUpdatedValue";
+        String configWithSecondLegacyName = String.format("key.%s.%s = \"%s\"", SECOND_OLD_INNER_NAME, OLD_VALUE_NAME, secondUpdatedValue);
+
+        updateConfig(registry, configWithSecondLegacyName);
+
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
+                Matchers.equalTo(secondUpdatedValue)
+        );
+        assertThat(storage.readLatest(String.format("key.%s.%s", SECOND_OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+    }
+
+    @Test
+    public void testNewValuePersistsAfterRestart() {
+        String updatedValue = "updatedValue";
+        String updatedConfig = String.format("key.%s.%s = \"%s\"", OLD_INNER_NAME, OLD_VALUE_NAME, updatedValue);
+        updateConfig(registry, updatedConfig);
+
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
+                Matchers.equalTo(updatedValue)
+        );
+
+        stopRegistry(registry);
+        registry = startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
+
+        assertThat(storage.readLatest(String.format("key.%s.%s", OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
+                Matchers.equalTo(updatedValue)
+        );
     }
 
     @Test
@@ -183,7 +217,7 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     @ConfigurationRoot(rootName = "key", type = LOCAL)
     public static class RenamedTestNewConfigurationSchema {
         @ConfigValue
-        @PublicName(legacyNames = OLD_INNER_NAME)
+        @PublicName(legacyNames = {OLD_INNER_NAME, SECOND_OLD_INNER_NAME})
         public RenamedLeafNewConfigurationSchema newInnerName;
 
         @NamedConfigValue

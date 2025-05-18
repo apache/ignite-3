@@ -325,32 +325,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         started.set(true);
     }
 
-    private static Map<String, Serializable> useAndDeleteLegacyNames(
-            SuperRoot superRoot,
-            Map<String, ? extends Serializable> storageData,
-            Map<String, ? extends Serializable> allChanges
-    ) {
-        Map<String, Serializable> res = new HashMap<>(allChanges);
-
-        superRoot.traverseChildren(new LegacyNamesTrackingConfigurationVisitor<>() {
-            @Override
-            protected Object doVisitLeafNode(Field field, String key, Serializable val) {
-                var path = new ArrayList<String>();
-
-                processPath(path, (legacyKey, newKey) -> {
-                    if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
-                        res.put(newKey, storageData.get(legacyKey));
-                        res.put(legacyKey, null);
-                    }
-                });
-
-                return null;
-            }
-        }, true);
-
-        return res;
-    }
-
     /**
      * Persists configuration to the storage on startup.
      *
@@ -673,7 +647,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 }
             }
 
-            allChanges = useAndDeleteLegacyNames(curRoots, localRoots.data.values(), allChanges);
+            useAndDeleteLegacyNames(curRoots, localRoots.data.values(), allChanges);
 
             if (allChanges.isEmpty() && onStartup) {
                 // We don't want an empty storage update if this is the initialization changer.
@@ -734,7 +708,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // We need to ignore deletion of deprecated values.
             ignoreDeleted(changedValues, keyIgnorer);
             // We need to ignore deletion of legacy values.
-            ignoreRemovedLegacyKeys(changedValues, oldStorageRoots);
+            deleteLegacyKeys(oldStorageRoots, changedValues);
 
             Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
@@ -770,16 +744,37 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         };
     }
 
-    private static void ignoreRemovedLegacyKeys(Map<String, ? extends Serializable> changedValues, StorageRoots oldStorageRoots) {
+    private static void useAndDeleteLegacyNames(
+            SuperRoot superRoot,
+            Map<String, ? extends Serializable> storageData,
+            Map<String, Serializable> allChanges
+    ) {
+        superRoot.traverseChildren(new LegacyNamesTrackingConfigurationVisitor<>() {
+            @Override
+            protected Object doVisitLeafNode(Field field, String key, Serializable val) {
+                var path = new ArrayList<String>();
+
+                processPath(path, (legacyKey, newKey) -> {
+                    if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
+                        allChanges.put(newKey, storageData.get(legacyKey));
+                        allChanges.put(legacyKey, null);
+                    }
+                });
+
+                return null;
+            }
+        }, true);
+    }
+
+    private static void deleteLegacyKeys(StorageRoots oldStorageRoots, Map<String, ? extends Serializable> changedValues) {
         oldStorageRoots.roots.traverseChildren(new LegacyNamesTrackingConfigurationVisitor<>() {
             @Override
             protected Object doVisitLeafNode(Field field, String key, Serializable val) {
                 var path = new ArrayList<String>();
 
                 processPath(path, (legacyKey, newKey) -> {
-                    if (changedValues.get(legacyKey) == null) {
-                        changedValues.remove(legacyKey);
-                    }
+                    changedValues.remove(legacyKey);
+                    oldStorageRoots.data.values().remove(legacyKey);
                 });
 
                 return null;
