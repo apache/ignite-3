@@ -7,7 +7,7 @@ Limit
       est. row count: 100
     ColocatedSortAggregate
         group: [S_NAME]
-        aggs: [COUNT()]
+        aggs: [NUMWAIT=COUNT()]
         collation: [S_NAME ASC]
         est. row count: 332203730726418
       Project

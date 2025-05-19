@@ -273,7 +273,7 @@ Project
           est. row count: 1
     ColocatedHashAggregate
         group: []
-        aggs: [COUNT()]
+        aggs: [EXPR$0=COUNT()]
         est. row count: 1
       Exchange
           distribution: single
@@ -313,7 +313,7 @@ Project
           est. row count: 1
     ColocatedHashAggregate
         group: []
-        aggs: [COUNT()]
+        aggs: [EXPR$0=COUNT()]
         est. row count: 1
       Exchange
           distribution: single

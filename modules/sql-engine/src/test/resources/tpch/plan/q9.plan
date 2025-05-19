@@ -3,7 +3,7 @@ Sort
     est. row count: 540109
   ColocatedHashAggregate
       group: [NATION, O_YEAR]
-      aggs: [SUM(AMOUNT)]
+      aggs: [SUM_PROFIT=SUM(AMOUNT)]
       est. row count: 540109
     Project
         fields: [NATION, O_YEAR, AMOUNT]
