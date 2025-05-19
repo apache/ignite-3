@@ -73,7 +73,10 @@ public class MultiClusterTest extends BaseIgniteAbstractTest {
             assertEquals(1, client.connections().size());
 
             String err = getFailedConnectionEntry(loggerFactory);
-            assertThat(err, CoreMatchers.containsString("Cluster ID mismatch"));
+
+            assertThat(
+                    err,
+                    CoreMatchers.containsString("IGN-CLIENT-6 Cluster ID mismatch: expected=" + clusterId1 + ", actual=" + clusterId2));
         }
     }
 
