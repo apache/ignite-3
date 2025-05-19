@@ -25,8 +25,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.client.IgniteClient.Builder;
 import org.apache.ignite.client.fakes.FakeIgnite;
+import org.apache.ignite.internal.client.TcpIgniteClient;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.hamcrest.CoreMatchers;
@@ -72,11 +74,13 @@ public class MultiClusterTest extends BaseIgniteAbstractTest {
 
             assertEquals(1, client.connections().size());
 
+            UUID clientClusterId = ((TcpIgniteClient)client).channel().clusterId();
+            UUID otherClusterId = clientClusterId == clusterId1 ? clusterId2 : clusterId1;
+
             String err = getFailedConnectionEntry(loggerFactory);
 
-            assertThat(
-                    err,
-                    CoreMatchers.containsString("IGN-CLIENT-6 Cluster ID mismatch: expected=" + clusterId2 + ", actual=" + clusterId1));
+            assertThat(err, CoreMatchers.containsString(
+                    "IGN-CLIENT-6 Cluster ID mismatch: expected=" + clientClusterId + ", actual=" + otherClusterId));
         }
     }
 

@@ -216,6 +216,10 @@ public final class ReliableChannel implements AutoCloseable {
         return observableTimeTracker;
     }
 
+    public UUID clusterId() {
+        return clusterId.get();
+    }
+
     /**
      * Gets active client channels.
      *
@@ -902,7 +906,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                         throw new IgniteClientConnectionException(
                                 CLUSTER_ID_MISMATCH_ERR,
-                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + clusterIdsString,
+                                "Cluster ID mismatch: expected=" + clusterId.get() + ", actual=" + clusterIdsString,
                                 ch.endpoint());
                     }
 
