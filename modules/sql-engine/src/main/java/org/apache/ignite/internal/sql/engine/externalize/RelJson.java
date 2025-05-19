@@ -84,7 +84,6 @@ import org.apache.calcite.rex.RexWindowBounds;
 import org.apache.calcite.sql.JoinConditionType;
 import org.apache.calcite.sql.JoinType;
 import org.apache.calcite.sql.SqlAggFunction;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlExplainFormat;
 import org.apache.calcite.sql.SqlExplainLevel;
 import org.apache.calcite.sql.SqlFunction;
@@ -188,7 +187,6 @@ class RelJson {
         register(enumByName, SqlTypeName.class);
         register(enumByName, SqlKind.class);
         register(enumByName, SqlSyntax.class);
-        register(enumByName, SqlExplain.Depth.class);
         register(enumByName, SqlExplainFormat.class);
         register(enumByName, SqlExplainLevel.class);
         register(enumByName, SqlInsertKeyword.class);
