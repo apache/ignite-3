@@ -303,7 +303,6 @@ public class DotNetComputeExecutor {
     private static Path resolveDotNetBinaryDir() {
         Path basePath = getCurrentClassPath();
 
-        // modules/compute/build/libs
         if (basePath.endsWith(Paths.get("modules", "compute", "build", "classes", "java", "main"))) {
             // Dev mode, class file.
             return basePath.resolve(Path.of("..", "..", "..", "..", "..", "platforms", "dotnet",
