@@ -37,7 +37,9 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.zone.ZoneRulesException;
-import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.TimeZone;
 import org.apache.ignite.internal.jdbc.ConnectionProperties;
@@ -234,10 +236,14 @@ public class ItJdbcClientTimeZoneTest extends AbstractJdbcSelfTest {
         // Only connection time zone is set.
         check.accept(null);
 
-        // Sanity check.
-        // Set TimeZone in addition to supplying connection time zone, setting it must not affect any results.
-        for (ZoneId zoneId : Arrays.asList(ZoneId.of("Europe/Paris"), ZoneId.of("America/New_York"), ZoneId.of("Asia/Tokyo"))) {
-            check.accept(zoneId);
+        // Sanity check. Check several time zone chosen at random.
+        // Sets default JVM TimeZone in addition to supplying a time zone via connection.
+        // Default JVM timezone must not affect any results.
+        List<String> timeZonesToUse = new ArrayList<>(ZoneId.getAvailableZoneIds());
+        Collections.shuffle(timeZonesToUse);
+
+        for (String zoneId : timeZonesToUse.subList(0, 3)) {
+            check.accept(ZoneId.of(zoneId));
         }
     }
 
