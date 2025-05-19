@@ -17,8 +17,10 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_FIRST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.ASC_NULLS_LAST;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_FIRST;
+import static org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation.DESC_NULLS_LAST;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.comparatorFromCfName;
 import static org.apache.ignite.internal.storage.rocksdb.ColumnFamilyUtils.sortedIndexCfName;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.getFieldValue;
@@ -48,7 +50,7 @@ public class ColumnFamilyUtilsTest {
     @ParameterizedTest
     @VariableSource("ALL_TYPES")
     void testSortedIndexCfNameSingleType(NativeType nativeType) {
-        var descriptor = new StorageSortedIndexColumnDescriptor("<unused>", nativeType, false, false);
+        var descriptor = new StorageSortedIndexColumnDescriptor("<unused>", nativeType, false, false, false);
 
         assertArrayEquals(name(nativeType.spec().ordinal(), 0), sortedIndexCfName(List.of(descriptor)));
     }
@@ -56,21 +58,21 @@ public class ColumnFamilyUtilsTest {
     @Test
     void testSortedIndexCfNameFlags() {
         List<StorageSortedIndexColumnDescriptor> descriptors = List.of(
-                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT64, false, false),
-                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT32, true, false),
-                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT16, false, true),
-                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT8, true, true)
+                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT64, false, false, false),
+                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT32, true, false, true),
+                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT16, false, true, false),
+                new StorageSortedIndexColumnDescriptor("<unused>", NativeTypes.INT8, true, true, true)
         );
 
-        assertArrayEquals(name(3, 0, 2, 1, 1, 2, 0, 3), sortedIndexCfName(descriptors));
+        assertArrayEquals(name(3, 0, 2, 5, 1, 2, 0, 7), sortedIndexCfName(descriptors));
     }
 
     @Test
     void testComparatorFromCfName() {
-        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 1, 1, 2, 0, 3));
+        RocksDbBinaryTupleComparator comparator = comparatorFromCfName(name(3, 0, 2, 5, 1, 2, 0, 7));
 
         List<NativeType> expectedTypes = List.of(NativeTypes.INT64, NativeTypes.INT32, NativeTypes.INT16, NativeTypes.INT8);
-        List<CatalogColumnCollation> expectedCollations = List.of(DESC_NULLS_FIRST, DESC_NULLS_FIRST, ASC_NULLS_LAST, ASC_NULLS_LAST);
+        List<CatalogColumnCollation> expectedCollations = List.of(DESC_NULLS_LAST, DESC_NULLS_FIRST, ASC_NULLS_LAST, ASC_NULLS_FIRST);
 
         // I am sorry, this is for a single test only.
         List<NativeType> columnTypes = getFieldValue(comparator, "comparator", "columnTypes");

@@ -25,6 +25,11 @@ public enum HandshakeRejectionReason {
     STOPPING,
 
     /**
+     * An attempt to establish a connection to itself. This should never happen and indicates a programming error.
+     */
+    LOOP,
+
+    /**
      * The sender has detected that the counterpart launch ID is stale (was earlier used to establish a connection).
      * After this is received it makes no sense to retry connections with same node identity (launch ID must be changed
      * to make a retry).
@@ -53,7 +58,8 @@ public enum HandshakeRejectionReason {
      * Returns {@code true} iff the rejection should be logged at a WARN level.
      */
     public boolean logAsWarn() {
-        return this == STALE_LAUNCH_ID
+        return this == LOOP
+                || this == STALE_LAUNCH_ID
                 || this == CLUSTER_ID_MISMATCH
                 || this == PRODUCT_MISMATCH
                 || this == VERSION_MISMATCH;

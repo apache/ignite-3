@@ -119,11 +119,11 @@ public class ItRebalanceWithPartitionReturnTest extends ClusterPerTestIntegratio
     @Test
     @ConfigOverrides({
             @ConfigOverride(
-                    name = "nodeAttributes",
+                    name = "ignite.nodeAttributes",
                     value = "{ nodeAttributes: {region = US, storage = SSD}}"
             ),
             @ConfigOverride(
-                    name = "nodeAttributes",
+                    name = "ignite.nodeAttributes",
                     value = "{ nodeAttributes: {region = EU, storage = SSD}}",
                     nodeIndex = 0
             )

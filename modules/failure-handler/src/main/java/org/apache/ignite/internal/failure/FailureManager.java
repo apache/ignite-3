@@ -26,7 +26,10 @@ import java.util.EnumSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.configuration.notifications.ConfigurationListener;
+import org.apache.ignite.configuration.notifications.ConfigurationNotificationEvent;
 import org.apache.ignite.internal.failure.configuration.FailureProcessorConfiguration;
+import org.apache.ignite.internal.failure.configuration.FailureProcessorView;
 import org.apache.ignite.internal.failure.handlers.AbstractFailureHandler;
 import org.apache.ignite.internal.failure.handlers.FailureHandler;
 import org.apache.ignite.internal.failure.handlers.NoOpFailureHandler;
@@ -88,6 +91,9 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     /** Thread dump per failure type timestamps. */
     private volatile @Nullable Map<FailureType, Long> threadDumpPerFailureTypeTs;
 
+    /** Failure handler configuration listener. */
+    private final FailureHandlerConfigurationListener configurationListener = new FailureHandlerConfigurationListener();
+
     /**
      * Creates a new instance of a failure processor.
      *
@@ -114,13 +120,19 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
         initFailureHandler();
 
-        LOG.info("Configured failure handler: [hnd={}]", handler);
+        if (configuration != null) {
+            configuration.listen(configurationListener);
+        }
 
         return nullCompletedFuture();
     }
 
     @Override
     public CompletableFuture<Void> stopAsync(ComponentContext componentContext) {
+        if (configuration != null) {
+            configuration.stopListen(configurationListener);
+        }
+
         return nullCompletedFuture();
     }
 
@@ -131,6 +143,24 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
      */
     public FailureContext failureContext() {
         return failureCtx;
+    }
+
+    /**
+     * Returns {@code true} if the failure processor prints threads dump on failure.
+     *
+     * @return {@code true} if the failure processor prints threads dump on failure.
+     **/
+    public boolean dumpThreadsOnFailure() {
+        return dumpThreadsOnFailure;
+    }
+
+    /**
+     * Returns timeout for throttling of thread dumps generation (millis).
+     *
+     * @return Timeout for throttling of thread dumps generation (millis).
+     **/
+    public long dumpThreadsThrottlingTimeout() {
+        return dumpThreadsThrottlingTimeout;
     }
 
     @Override
@@ -191,8 +221,17 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             return;
         }
 
-        dumpThreadsOnFailure = configuration.dumpThreadsOnFailure().value();
-        dumpThreadsThrottlingTimeout = configuration.dumpThreadsThrottlingTimeoutMillis().value();
+        reconfigure(configuration.value());
+    }
+
+    /**
+     * Reconfigure failure processor.
+     *
+     * @param newConfiguration Configuration to be applied.
+     */
+    private synchronized void reconfigure(FailureProcessorView newConfiguration) {
+        dumpThreadsOnFailure = newConfiguration.dumpThreadsOnFailure();
+        dumpThreadsThrottlingTimeout = newConfiguration.dumpThreadsThrottlingTimeoutMillis();
         threadDumpPerFailureTypeTs = null;
 
         if (dumpThreadsOnFailure) {
@@ -207,11 +246,13 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
             }
         }
 
-        reserveBuf = new byte[configuration.oomBufferSizeBytes().value()];
+        if (reserveBuf == null || reserveBuf.length != newConfiguration.oomBufferSizeBytes()) {
+            reserveBuf = new byte[newConfiguration.oomBufferSizeBytes()];
+        }
 
         AbstractFailureHandler hnd;
 
-        FailureHandlerView handlerView = configuration.handler().value();
+        FailureHandlerView handlerView = newConfiguration.handler();
 
         switch (handlerView.type()) {
             case NoOpFailureHandlerConfigurationSchema.TYPE:
@@ -246,6 +287,8 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         hnd.ignoredFailureTypes(ignoredFailureTypesSet);
 
         handler = hnd;
+
+        LOG.info("Configured failure handler: [hnd={}]", handler);
     }
 
     /**
@@ -299,5 +342,14 @@ public class FailureManager implements FailureProcessor, IgniteComponent {
         }
 
         return throttle;
+    }
+
+    private class FailureHandlerConfigurationListener implements ConfigurationListener<FailureProcessorView> {
+        @Override
+        public CompletableFuture<?> onUpdate(ConfigurationNotificationEvent<FailureProcessorView> ctx) {
+            reconfigure(ctx.newValue());
+
+            return nullCompletedFuture();
+        }
     }
 }

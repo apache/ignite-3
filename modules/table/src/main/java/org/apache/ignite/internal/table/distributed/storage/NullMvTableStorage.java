@@ -72,7 +72,7 @@ public class NullMvTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroyIndex(int indexId) {
         return throwNoStorageEngineException("Table uses an unknown storage profile or engine, so current node either should not receive "
-                + "any index destruction events, or storage profile addition is not handled property");
+                + "any index destruction events, or storage profile addition is not handled properly");
     }
 
     @Override
@@ -83,7 +83,7 @@ public class NullMvTableStorage implements MvTableStorage {
     @Override
     public CompletableFuture<Void> destroy() {
         return throwNoStorageEngineException("Table uses an unknown storage profile or engine, so current node either should not receive "
-                + "any table destruction events, or storage profile addition is not handled property");
+                + "any table destruction events, or storage profile addition is not handled properly");
     }
 
     @Override
@@ -123,7 +123,7 @@ public class NullMvTableStorage implements MvTableStorage {
 
     private <T> T throwNoPartitionsException() {
         return throwNoStorageEngineException("Table uses an unknown storage profile or engine, so current node either should not receive "
-                + "any assignments, or storage profile addition is not handled property");
+                + "any assignments, or storage profile addition is not handled properly");
     }
 
     private <T> T throwNoStorageEngineException(String errorMessage) {

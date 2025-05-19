@@ -99,7 +99,6 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
             + "  clientConnector.port: {},\n"
             + "  clientConnector.sendServerExceptionStackTraceToClient: true,\n"
             + "  rest.port: {},\n"
-            + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 
@@ -517,6 +516,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         final String name;
 
         final double salary;
+
+
+        /**
+         * Default constructor.
+         */
+        public Person() {
+            id = 0;
+            name = null;
+            salary = 0;
+        }
 
         public Person(int id, String name, double salary) {
             this.id = id;

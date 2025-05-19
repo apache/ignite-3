@@ -27,6 +27,8 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.catalog.ColumnSorted;
+import org.apache.ignite.catalog.IndexType;
+import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
 import org.apache.ignite.catalog.definitions.ZoneDefinition;
@@ -147,6 +149,27 @@ class InvalidDefinitionTest {
         assertThrows(NullPointerException.class,
                 () -> tableBuilder().index(null, DEFAULT, singletonList(null)),
                 "Index column must not be null.");
+
+        SortOrder[] invalidSortOrders = {
+                SortOrder.DESC,
+                SortOrder.DESC_NULLS_FIRST,
+                SortOrder.DESC_NULLS_LAST,
+                SortOrder.ASC,
+                SortOrder.ASC_NULLS_FIRST,
+                SortOrder.ASC_NULLS_LAST,
+                SortOrder.NULLS_FIRST,
+                SortOrder.NULLS_LAST
+        };
+
+        for (SortOrder order : invalidSortOrders) {
+            assertThrows(
+                    IllegalArgumentException.class,
+                    () -> tableBuilder()
+                            .index(null, IndexType.HASH, ColumnSorted.column(validColumn.columnName(), order))
+                            .build(),
+                    "Index columns must not define a sort order in hash indexes."
+            );
+        }
     }
 
     @Test

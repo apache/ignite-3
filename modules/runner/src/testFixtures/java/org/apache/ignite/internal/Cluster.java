@@ -20,8 +20,7 @@ package org.apache.ignite.internal;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.ClusterConfiguration.assembleConfig;
-import static org.apache.ignite.internal.ClusterConfiguration.configWithOverrides;
+import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
 import static org.apache.ignite.internal.ClusterConfiguration.containsOverrides;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.tablePartitionIds;
 import static org.apache.ignite.internal.ReplicationGroupsUtils.zonePartitionIds;
@@ -41,7 +40,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -60,12 +58,6 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
-import org.apache.ignite.internal.ClusterConfiguration.ClientConnectorValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.FailureHandlerValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.NetworkValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.NodeAttributesValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.RestValueInjector;
-import org.apache.ignite.internal.ClusterConfiguration.ValueInjector;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
@@ -305,23 +297,17 @@ public class Cluster {
     ) {
         String nodeName = nodeName(nodeIndex);
 
-        String config;
+        String config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
+                nodeBootstrapConfigTemplate,
+                port(nodeIndex),
+                seedAddressesString(),
+                clusterConfiguration.baseClientPort() + nodeIndex,
+                httpPort(nodeIndex),
+                clusterConfiguration.baseHttpsPort() + nodeIndex
+        ));
 
         if (testInfo != null && containsOverrides(testInfo, nodeIndex)) {
-            List<ValueInjector> injectors = configValueInjectors(nodeIndex, clusterConfiguration);
-            Map<String, String> configWithOverrides = configWithOverrides(testInfo, nodeIndex, injectors);
-            config = assembleConfig(configWithOverrides);
-        } else {
-            config = nodeBootstrapConfigUpdater.update(IgniteStringFormatter.format(
-                    nodeBootstrapConfigTemplate,
-                    port(nodeIndex),
-                    seedAddressesString(),
-                    clusterConfiguration.baseClientPort() + nodeIndex,
-                    httpPort(nodeIndex),
-                    clusterConfiguration.baseHttpsPort() + nodeIndex,
-                    clusterConfiguration.nodeAttributesProvider().apply(nodeIndex),
-                    false
-            ));
+            config = TestIgnitionManager.applyOverridesToConfig(config, configOverrides(testInfo, nodeIndex));
         }
 
         IgniteServer node = TestIgnitionManager.start(
@@ -346,16 +332,6 @@ public class Cluster {
         });
 
         return new ServerRegistration(node, registrationFuture);
-    }
-
-    private List<ValueInjector> configValueInjectors(int nodeIndex, ClusterConfiguration clusterConfiguration) {
-        return List.of(
-                new NetworkValueInjector(port(nodeIndex), seedAddressesString()),
-                new ClientConnectorValueInjector(clusterConfiguration.baseClientPort() + nodeIndex),
-                new RestValueInjector(httpPort(nodeIndex), clusterConfiguration.baseHttpsPort() + nodeIndex),
-                new NodeAttributesValueInjector(clusterConfiguration.nodeAttributesProvider().apply(nodeIndex)),
-                new FailureHandlerValueInjector(false)
-        );
     }
 
     /**

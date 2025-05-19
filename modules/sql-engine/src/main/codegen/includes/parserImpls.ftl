@@ -197,6 +197,18 @@ SqlNode ColumnNameWithSortDirection() :
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
         }
     )?
+
+    (
+        LOOKAHEAD(2)
+        <NULLS> <FIRST> {
+            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
+        }
+    |
+        <NULLS> <LAST> {
+            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
+        }
+    )?
+
     {
         return col;
     }
