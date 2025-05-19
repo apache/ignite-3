@@ -39,6 +39,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.BaseSqlIntegrationTest;
 import org.apache.ignite.internal.sql.engine.util.QueryChecker;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -49,69 +50,64 @@ public class ItColocatedDataTest extends BaseSqlIntegrationTest {
     @BeforeAll
     public static void beforeTestsStarted() throws InterruptedException {
         waitForDefaultZoneAssignments();
+
+        //noinspection ConcatenationWithEmptyString
+        sqlScript(""
+                + "CREATE TABLE T1 (id INT PRIMARY KEY, c1 INT);"
+                + "CREATE TABLE T2 (id INT PRIMARY KEY, c1 INT);"
+                + "CREATE TABLE TC1 (id INT, c1 INT, PRIMARY KEY(id, c1)) COLOCATE BY (c1);"
+                + "CREATE TABLE TC2 (id INT, c2 INT, PRIMARY KEY(id, c2)) COLOCATE BY (c2);"
+                + "CREATE ZONE IF NOT EXISTS ZONE_TEST (PARTITIONS 1, REPLICAS 1) STORAGE PROFILES ['default'];"
+                + "CREATE TABLE TC2Z (id INT, c2 INT, PRIMARY KEY(id, c2)) COLOCATE BY (c2) ZONE ZONE_TEST;");
+    }
+
+    @AfterAll
+    public void stopClient() {
+        //noinspection ConcatenationWithEmptyString
+        sqlScript(""
+                + "DROP TABLE IF EXISTS T1;"
+                + "DROP TABLE IF EXISTS T2;"
+                + "DROP TABLE IF EXISTS TC1;"
+                + "DROP TABLE IF EXISTS TC2;"
+                + "DROP TABLE IF EXISTS TC2Z;"
+                + "DROP ZONE IF EXISTS ZONE_TEST;");
     }
 
     @ParameterizedTest
     @EnumSource(DisabledJoinRules.class)
     public void joinColocatedImplicitly(DisabledJoinRules rules) {
-        try {
-            sql("CREATE TABLE T1 (id INT PRIMARY KEY, c1 INT)");
-            sql("CREATE TABLE T2 (id INT PRIMARY KEY, c1 INT)");
-
-            assertQuery("SELECT * FROM T1 JOIN T2 USING (id)", rules.disabledRules)
-                    .matches(QueryChecker.matchesOnce("Exchange"))
-                    .matches(QueryChecker.matches("^Exchange.*Join.*"))
-                    .check();
-        } finally {
-            sql("DROP TABLE IF EXISTS T1");
-            sql("DROP TABLE IF EXISTS T2");
-        }
+        assertQuery("SELECT * FROM T1 JOIN T2 USING (id)", rules.disabledRules)
+                .matches(QueryChecker.matchesOnce("Exchange"))
+                .matches(QueryChecker.matches("^Exchange.*Join.*"))
+                .check();
     }
 
     @ParameterizedTest
     @EnumSource(DisabledJoinRules.class)
     public void joinColocatedExplicitly(DisabledJoinRules rules) {
-        try {
-            sql("CREATE TABLE T1 (id INT, c1 INT, PRIMARY KEY(id, c1)) COLOCATE BY (c1)");
-            sql("CREATE TABLE T2 (id INT, c2 INT, PRIMARY KEY(id, c2)) COLOCATE BY (c2)");
+        assertQuery("SELECT * FROM TC1 JOIN TC2 ON TC1.c1 = TC2.c2", rules.disabledRules)
+                .matches(QueryChecker.matchesOnce("Exchange"))
+                .matches(QueryChecker.matches("^Exchange.*Join.*"))
+                .check();
 
-            assertQuery("SELECT * FROM T1 JOIN T2 ON T1.c1 = T2.c2", rules.disabledRules)
-                    .matches(QueryChecker.matchesOnce("Exchange"))
-                    .matches(QueryChecker.matches("^Exchange.*Join.*"))
-                    .check();
-
-            assertQuery("SELECT * FROM T1 JOIN T2 ON T1.c1 = T2.c2 AND T1.id = 1", rules.disabledRules)
-                    .matches(QueryChecker.matchesOnce("Exchange"))
-                    .matches(QueryChecker.matches("^Exchange.*Join.*"))
-                    .check();
-        } finally {
-            sql("DROP TABLE IF EXISTS T1");
-            sql("DROP TABLE IF EXISTS T2");
-        }
+        assertQuery("SELECT * FROM TC1 JOIN TC2 ON TC1.c1 = TC2.c2 AND TC1.id = 1", rules.disabledRules)
+                .matches(QueryChecker.matchesOnce("Exchange"))
+                .matches(QueryChecker.matches("^Exchange.*Join.*"))
+                .check();
     }
 
     @ParameterizedTest
     @EnumSource(DisabledJoinRules.class)
     public void joinNonColocated(DisabledJoinRules rules) {
-        try {
-            sql("CREATE TABLE T1 (id INT, c1 INT, PRIMARY KEY(id, c1)) COLOCATE BY (c1)");
-            sql("CREATE ZONE IF NOT EXISTS ZONE_TEST (PARTITIONS 1, REPLICAS 1) STORAGE PROFILES ['default']");
-            sql("CREATE TABLE T2 (id INT, c2 INT, PRIMARY KEY(id, c2)) COLOCATE BY (c2) ZONE ZONE_TEST");
+        assertQuery("SELECT * FROM TC1 JOIN TC2Z ON TC1.c1 = TC2Z.c2", rules.disabledRules)
+                .matches(not(QueryChecker.matchesOnce("Exchange")))
+                .matches(QueryChecker.matches(".*Join.*Exchange.*"))
+                .check();
 
-            assertQuery("SELECT * FROM T1 JOIN T2 ON T1.c1 = T2.c2", rules.disabledRules)
-                    .matches(not(QueryChecker.matchesOnce("Exchange")))
-                    .matches(QueryChecker.matches(".*Join.*Exchange.*"))
-                    .check();
-
-            assertQuery("SELECT * FROM T1 JOIN T2 ON T1.c1 = T2.id", rules.disabledRules)
-                    .matches(not(QueryChecker.matchesOnce("Exchange")))
-                    .matches(QueryChecker.matches(".*Join.*Exchange.*"))
-                    .check();
-        } finally {
-            sql("DROP TABLE IF EXISTS T1");
-            sql("DROP TABLE IF EXISTS T2");
-            sql("DROP ZONE IF EXISTS ZONE_TEST");
-        }
+        assertQuery("SELECT * FROM TC1 JOIN TC2Z ON TC1.c1 = TC2Z.id", rules.disabledRules)
+                .matches(not(QueryChecker.matchesOnce("Exchange")))
+                .matches(QueryChecker.matches(".*Join.*Exchange.*"))
+                .check();
     }
 
     /**
