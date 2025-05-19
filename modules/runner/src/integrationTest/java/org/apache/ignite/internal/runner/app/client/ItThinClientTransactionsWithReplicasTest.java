@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.app.IgniteServerImpl;
@@ -42,7 +43,7 @@ import org.junit.jupiter.api.Test;
 public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClientTest {
     @Test
     void testStaleMapping() {
-        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         ClientTable table = (ClientTable) table();
 
@@ -67,10 +68,10 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
         view.put(tx0, k1, v1);
 
         IgniteServerImpl ignite = (IgniteServerImpl) ignite(2);
-        ignite.restartAsync().join();
+        ignite.restartAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         Table srvTable = server0.tables().table(TABLE_NAME);
-        srvTable.partitionManager().primaryReplicasAsync().join();
+        srvTable.partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
         Tuple k2 = tuples2.get(0);
         Tuple v2 = val(tuples2.get(0).intValue(0) + "");
