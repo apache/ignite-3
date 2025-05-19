@@ -381,8 +381,9 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         javaValues.put(ColumnType.INT64, random.nextLong());
         javaValues.put(ColumnType.FLOAT, random.nextFloat());
         javaValues.put(ColumnType.DOUBLE, random.nextDouble());
-        // toString on small bigdecimals does not use scientific format
-        javaValues.put(ColumnType.DECIMAL, BigDecimal.valueOf(random.nextLong(0, 1234)));
+        // toString on bigdecimals that are exact power of 10 uses scientific format
+        // Use values from [0, 9] interval to prevent that.
+        javaValues.put(ColumnType.DECIMAL, BigDecimal.valueOf(random.nextLong(0, 10)));
         javaValues.put(ColumnType.STRING, String.valueOf(random.nextInt()));
         javaValues.put(ColumnType.BYTE_ARRAY, String.valueOf(random.nextInt()).getBytes(StandardCharsets.US_ASCII));
         javaValues.put(ColumnType.UUID, UUID.randomUUID());
