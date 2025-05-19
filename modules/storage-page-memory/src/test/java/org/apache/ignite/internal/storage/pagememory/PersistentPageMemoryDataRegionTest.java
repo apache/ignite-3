@@ -44,7 +44,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class PersistentPageMemoryDataRegionTest extends BaseIgniteAbstractTest {
     @InjectConfiguration(
             polymorphicExtensions = PersistentPageMemoryProfileConfigurationSchema.class,
-            value = "mock {engine = aipersist, sizeBytes = 256000000}")
+            value = "mock.engine = aipersist")
     private StorageProfileConfiguration dataRegionConfig;
 
     @Test

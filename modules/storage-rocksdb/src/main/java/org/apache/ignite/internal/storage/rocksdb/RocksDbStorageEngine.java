@@ -17,21 +17,17 @@
 
 package org.apache.ignite.internal.storage.rocksdb;
 
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAllManually;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureProcessor;
@@ -43,7 +39,6 @@ import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineConfiguration;
 import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfiguration;
@@ -167,23 +162,15 @@ public class RocksDbStorageEngine implements StorageEngine {
         // TODO: IGNITE-17066 Add handling deleting/updating storage profiles configuration
         for (StorageProfileView profile : storageConfiguration.profiles().value()) {
             if (profile instanceof RocksDbProfileView) {
-                String profileName = profile.name();
-
-                var storageProfileConfiguration = (RocksDbProfileConfiguration) storageConfiguration.profiles().get(profileName);
-
-                assert storageProfileConfiguration != null : profileName;
-
-                registerProfile(storageProfileConfiguration);
+                registerProfile((RocksDbProfileView) profile);
             }
         }
     }
 
-    private void registerProfile(RocksDbProfileConfiguration profileConfig) {
-        initDataRegionSize(profileConfig);
+    private void registerProfile(RocksDbProfileView profileConfig) {
+        String profileName = profileConfig.name();
 
-        String profileName = profileConfig.name().value();
-
-        var profile = new RocksDbStorageProfile((RocksDbProfileView) profileConfig.value());
+        var profile = new RocksDbStorageProfile(profileConfig);
 
         profile.start();
 
@@ -192,21 +179,6 @@ public class RocksDbStorageEngine implements StorageEngine {
         RocksDbStorage previousStorage = storageByProfileName.put(profileName, new RocksDbStorage(profile, rocksDbInstance));
 
         assert previousStorage == null : "Storage already exists for profile: " + profileName;
-    }
-
-    private static void initDataRegionSize(RocksDbProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> dataRegionSize = storageProfileConfiguration.sizeBytes();
-
-        if (dataRegionSize.value() == UNSPECIFIED_SIZE) {
-            CompletableFuture<Void> updateFuture = dataRegionSize.update(StorageEngine.defaultDataRegionSize());
-
-            // Node local configuration is synchronous, wait just in case.
-            try {
-                updateFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new StorageException(e);
-            }
-        }
     }
 
     private SharedRocksDbInstance newRocksDbInstance(String profileName, RocksDbStorageProfile profile) {
