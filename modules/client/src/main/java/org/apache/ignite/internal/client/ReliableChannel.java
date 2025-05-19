@@ -906,7 +906,7 @@ public final class ReliableChannel implements AutoCloseable {
 
                         throw new IgniteClientConnectionException(
                                 CLUSTER_ID_MISMATCH_ERR,
-                                "Cluster ID mismatch: expected=" + clusterId.get() + ", actual=" + clusterIdsString,
+                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + clusterIdsString,
                                 ch.endpoint());
                     }
 
