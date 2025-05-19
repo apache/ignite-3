@@ -245,6 +245,10 @@ public class DotNetComputeExecutor {
             CompletableFuture<PlatformComputeConnection> fut = transport.registerComputeExecutorId(executorId);
 
             // 2. Start the process. It connects to the server, passes the id, and the server knows it is the right one.
+            // TODO: Remove this.
+            var basePath = getCurrentClassPath();
+            LOG.warn("Base path: {}", basePath);
+
             String dotnetBinaryPath = DOTNET_BINARY_PATH;
             LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
