@@ -1354,4 +1354,19 @@ public class RexUtils {
             return new RexLocalRef(inputRef.getIndex(), inputRef.getType());
         }
     }
+
+    /** Applies a {@link RexShuttle} to a list of {@link SearchBounds}. */
+    public static List<SearchBounds> processSearchBounds(RexShuttle shuttle, List<SearchBounds> searchBounds) {
+        List<SearchBounds> newSearchBounds = new ArrayList<>(searchBounds.size());
+
+        boolean wasChanged = false;
+        for (SearchBounds bound : searchBounds) {
+            SearchBounds newBound = bound.accept(shuttle);
+            newSearchBounds.add(newBound);
+
+            wasChanged = wasChanged || newBound != bound;
+        }
+
+        return wasChanged ? newSearchBounds : searchBounds;
+    }
 }

@@ -25,10 +25,12 @@ import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelInput;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
@@ -99,6 +101,17 @@ public class IgniteSelectCount extends AbstractRelNode implements IgniteRel {
     @Override
     public <T> T accept(IgniteRelVisitor<T> visitor) {
         return visitor.visit(this);
+    }
+
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        List<RexNode> newExpressions = shuttle.apply(expressions);
+
+        if (newExpressions == expressions) {
+            return this;
+        }
+
+        return new IgniteSelectCount(getCluster(), getTraitSet(), table, newExpressions);
     }
 
     /** {@inheritDoc} */

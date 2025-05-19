@@ -111,10 +111,14 @@ public class IgniteLimit extends SingleRel implements IgniteRel {
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(offset);
-        shuttle.apply(fetch);
+        RexNode offset0 = shuttle.apply(offset);
+        RexNode fetch0 = shuttle.apply(fetch);
 
-        return super.accept(shuttle);
+        if (offset0 == offset && fetch0 == fetch) {
+            return this;
+        }
+
+        return new IgniteLimit(getCluster(), getTraitSet(), getInput(), offset0, fetch0);
     }
 
     /** {@inheritDoc} */
