@@ -17,8 +17,6 @@
 
 package org.apache.ignite.internal.storage.rocksdb.engine;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
@@ -26,16 +24,13 @@ import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.rocksdb.RocksDbStorageEngine;
-import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileView;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -55,38 +50,13 @@ public class RocksDbStorageEngineTest extends AbstractStorageEngineTest {
 
     @Override
     protected StorageEngine createEngine() {
-        return createEngine(workDir, storageConfiguration);
-    }
-
-    private StorageEngine createEngine(Path path, StorageConfiguration configuration) {
         return new RocksDbStorageEngine(
                 "test",
-                configuration,
-                path,
+                storageConfiguration,
+                workDir,
                 logSyncer,
                 scheduledExecutor,
                 mock(FailureProcessor.class)
         );
-    }
-
-    @Test
-    void dataRegionSizeGetsInitialized() {
-        for (StorageProfileView view : storageConfiguration.profiles().value()) {
-            assertThat(((RocksDbProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
-        }
-    }
-
-    @Test
-    void dataRegionSizeUsedWhenSet(
-            @InjectConfiguration("mock.profiles.default {engine = rocksdb, sizeBytes = 12345}")
-            StorageConfiguration storageConfig
-    ) {
-        StorageEngine anotherEngine = createEngine(workDir.resolve("dataRegionSizeUsedWhenSet"), storageConfig);
-
-        anotherEngine.start();
-
-        for (StorageProfileView view : storageConfig.profiles().value()) {
-            assertThat(((RocksDbProfileView) view).sizeBytes(), is(12345L));
-        }
     }
 }
