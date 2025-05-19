@@ -76,7 +76,7 @@ public class MultiClusterTest extends BaseIgniteAbstractTest {
 
             assertThat(
                     err,
-                    CoreMatchers.containsString("IGN-CLIENT-6 Cluster ID mismatch: expected=" + clusterId1 + ", actual=" + clusterId2));
+                    CoreMatchers.containsString("IGN-CLIENT-6 Cluster ID mismatch: expected=" + clusterId2 + ", actual=" + clusterId1));
         }
     }
 

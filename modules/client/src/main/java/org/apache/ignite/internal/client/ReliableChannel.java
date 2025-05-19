@@ -825,28 +825,6 @@ public final class ReliableChannel implements AutoCloseable {
         return (IgniteClientConnectionException) err;
     }
 
-    private static void validateClusterId(ClientChannel ch, UUID oldClusterId) {
-        List<UUID> validClusterIds = ch.protocolContext().clusterIds();
-        if (oldClusterId == null || validClusterIds.contains(oldClusterId)) {
-            return;
-        }
-
-        try {
-            ch.close();
-        } catch (Exception ignored) {
-            // Ignore
-        }
-
-        String clusterIdsString = validClusterIds.stream()
-                .map(UUID::toString)
-                .collect(Collectors.joining(", "));
-
-        throw new IgniteClientConnectionException(
-                CLUSTER_ID_MISMATCH_ERR,
-                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + clusterIdsString,
-                ch.endpoint());
-    }
-
     /**
      * Channels holder.
      */
@@ -909,7 +887,24 @@ public final class ReliableChannel implements AutoCloseable {
                 chFut0 = createFut.thenApply(ch -> {
                     UUID currentClusterId = ch.protocolContext().clusterId();
                     UUID oldClusterId = clusterId.compareAndExchange(null, currentClusterId);
-                    validateClusterId(ch, oldClusterId);
+                    List<UUID> validClusterIds = ch.protocolContext().clusterIds();
+
+                    if (oldClusterId != null && !validClusterIds.contains(oldClusterId)) {
+                        try {
+                            ch.close();
+                        } catch (Exception ignored) {
+                            // Ignore
+                        }
+
+                        String clusterIdsString = validClusterIds.stream()
+                                .map(UUID::toString)
+                                .collect(Collectors.joining(", "));
+
+                        throw new IgniteClientConnectionException(
+                                CLUSTER_ID_MISMATCH_ERR,
+                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + clusterIdsString,
+                                ch.endpoint());
+                    }
 
                     ClusterNode newNode = ch.protocolContext().clusterNode();
 
