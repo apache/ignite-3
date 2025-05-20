@@ -419,6 +419,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                         .target(pendingAssignmentsQueue.peekLast())
                         .toQueue();
 
+                // TODO: https://issues.apache.org/jira/browse/IGNITE-17592 Remove synchronous wait
                 boolean updated =  metaStorageMgr.invoke(iif(
                                 revision(pendingPartAssignmentsKey).eq(pendingEntry.revision()),
                                 ops(put(pendingPartAssignmentsKey, pendingAssignmentsQueue.toBytes())).yield(true),
