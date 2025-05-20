@@ -216,6 +216,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING.featureId());
         features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
         features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
+        features.set(ProtocolBitmaskFeature.TX_PIGGYBACK.featureId());
 
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override

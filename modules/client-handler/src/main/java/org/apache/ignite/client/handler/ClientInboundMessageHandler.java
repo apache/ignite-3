@@ -860,8 +860,7 @@ public class ClientInboundMessageHandler
                 return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics, igniteTables,
-                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
+                return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics);
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService, igniteTables,
