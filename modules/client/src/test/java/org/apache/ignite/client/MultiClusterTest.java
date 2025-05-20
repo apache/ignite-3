@@ -73,7 +73,7 @@ public class MultiClusterTest extends BaseIgniteAbstractTest {
 
             assertEquals(1, client.connections().size());
 
-            UUID clientClusterId = ((TcpIgniteClient)client).channel().clusterId();
+            UUID clientClusterId = ((TcpIgniteClient) client).channel().clusterId();
             UUID otherClusterId = clientClusterId.equals(clusterId1) ? clusterId2 : clusterId1;
 
             String err = getFailedConnectionEntry(loggerFactory);
