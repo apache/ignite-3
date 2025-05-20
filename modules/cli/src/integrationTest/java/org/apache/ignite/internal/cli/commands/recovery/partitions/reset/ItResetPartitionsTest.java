@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -81,10 +82,8 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
 
     @Test
     public void testResetPartitionTableNotFound() {
-        if (enabledColocation()) {
-            // This test in colocation mode is not relevant.
-            return;
-        }
+        // This test in colocation mode is not relevant.
+        Assumptions.assumeFalse(enabledColocation());
 
         String unknownTable = "PUBLIC.unknown_table";
 
