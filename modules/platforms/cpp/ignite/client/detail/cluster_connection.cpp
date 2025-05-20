@@ -76,6 +76,9 @@ void cluster_connection::start_async(std::function<void(ignite_result<void>)> ca
 
     m_on_initial_connect = std::move(callback);
 
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Waiting for initial client connection");
+
     m_pool->start(std::move(addrs), m_configuration.get_connection_limit());
 }
 
@@ -93,7 +96,7 @@ void cluster_connection::on_connection_success(const end_point &addr, uint64_t i
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
-        auto [_it, was_new] = m_connections.insert_or_assign(id, connection);
+        auto [_it, was_new] = m_pending_connections.insert_or_assign(id, connection);
         if (!was_new)
             m_logger->log_error(
                 "Unknown error: connecting is already in progress. Connection ID: " + std::to_string(id));
@@ -146,6 +149,13 @@ void cluster_connection::on_message_received(uint64_t id, bytes_view msg) {
         return;
     }
 
+    {
+        [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
+
+        m_pending_connections.erase(id);
+        m_connections.insert_or_assign(id, connection);
+    }
+
     auto current_cluster_id = m_cluster_id;
     auto &context = connection->get_protocol_context();
     initial_connect_result(context);
@@ -179,6 +189,10 @@ std::shared_ptr<node_connection> cluster_connection::find_client(uint64_t id) {
     if (it != m_connections.end())
         return it->second;
 
+    it = m_pending_connections.find(id);
+    if (it != m_pending_connections.end())
+        return it->second;
+
     return {};
 }
 
@@ -201,6 +215,7 @@ void cluster_connection::remove_client(uint64_t id) {
     [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
     m_connections.erase(id);
+    m_pending_connections.erase(id);
 }
 
 void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
@@ -208,6 +223,9 @@ void cluster_connection::initial_connect_result(ignite_result<void> &&res) {
 
     if (!m_on_initial_connect)
         return;
+
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Reporting initial connect error");
 
     m_on_initial_connect(std::move(res));
     m_on_initial_connect = {};
@@ -219,12 +237,15 @@ void cluster_connection::initial_connect_result(const protocol::protocol_context
     if (!m_on_initial_connect)
         return;
 
+    if (m_logger->is_debug_enabled())
+        m_logger->log_debug("Reporting initial connect success");
+
     m_cluster_id = context.get_cluster_ids().back();
     m_on_initial_connect({});
     m_on_initial_connect = {};
 }
 
-std::shared_ptr<node_connection> cluster_connection::get_random_channel() {
+std::shared_ptr<node_connection> cluster_connection::get_random_connected_channel() {
     [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 
     if (m_connections.empty())
@@ -239,14 +260,15 @@ std::shared_ptr<node_connection> cluster_connection::get_random_channel() {
 }
 
 std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::perform_request_handler(
-    protocol::client_operation op, transaction_impl *tx, const std::function<void(protocol::writer &)> &wr,
+    const operation_function_type &op_func, transaction_impl *tx, const writer_function_type &wr,
     const std::shared_ptr<response_handler> &handler) {
     if (tx) {
         auto channel = tx->get_connection();
         if (!channel)
             throw ignite_error(error::code::ILLEGAL_ARGUMENT, "Transaction was not started properly");
 
-        auto res = channel->perform_request(op, wr, handler);
+        auto &context = channel->get_protocol_context();
+        auto res = channel->perform_request(op_func(context), wr, handler);
         if (!res)
             throw ignite_error(error::code::CONNECTION, "Connection associated with the transaction is closed");
 
@@ -254,20 +276,21 @@ std::pair<std::shared_ptr<node_connection>, std::int64_t> cluster_connection::pe
     }
 
     while (true) {
-        auto channel = get_random_channel();
+        auto channel = get_random_connected_channel();
         if (!channel)
             throw ignite_error(error::code::CONNECTION, "No nodes connected");
 
-        auto res = channel->perform_request(op, wr, handler);
+        auto &context = channel->get_protocol_context();
+        auto res = channel->perform_request(op_func(context), wr, handler);
         if (res)
             return {channel, *res};
     }
 }
 
 void cluster_connection::perform_request_raw(protocol::client_operation op, transaction_impl *tx,
-    const std::function<void(protocol::writer &)> &wr, ignite_callback<bytes_view> callback) {
+    const writer_function_type &wr, ignite_callback<bytes_view> callback) {
     auto handler = std::make_shared<response_handler_raw>(std::move(callback));
-    perform_request_handler(op, tx, wr, std::move(handler));
+    perform_request_handler(static_op(op), tx, wr, std::move(handler));
 }
 
 } // namespace ignite::detail
