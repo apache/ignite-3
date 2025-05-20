@@ -4714,6 +4714,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         MockStateMachine fsm = (MockStateMachine) node.getOptions().getFsm();
         FSMCaller fsmCaller = ((NodeImpl) node).fsmCaller();
         long appliedIndexBeforeRunCommands = fsm.getAppliedIndex();
+        long lastAppliedIndexBeforeRunCommands = fsmCaller.getLastAppliedIndex();
         for (int i = start; i < start + amount; i++) {
             ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(err, latch));
@@ -4724,17 +4725,21 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         if (err == RaftError.SUCCESS) {
             // This check is needed to avoid a race with snapshots, since the latch may complete before FSMCallerImpl#lastAppliedIndex is
             // updated and the snapshot creation starts.
-            long expAppliedIndex = appliedIndexBeforeRunCommands + amount;
+            assertTrue(
+                    waitForCondition(() -> fsm.getAppliedIndex() >= appliedIndexBeforeRunCommands + amount, 1_000),
+                    () -> String.format(
+                            "Failed to wait for applied index update on node: "
+                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, amount=%s, appliedIndex=%s]",
+                            fsm.getPeerId(), appliedIndexBeforeRunCommands, amount, fsm.getAppliedIndex()
+                    )
+            );
 
             assertTrue(
-                    waitForCondition(
-                            () -> fsm.getAppliedIndex() >= expAppliedIndex && fsmCaller.getLastAppliedIndex() >= expAppliedIndex,
-                            1_000
-                    ),
+                    waitForCondition(() -> fsmCaller.getLastAppliedIndex() >= lastAppliedIndexBeforeRunCommands + amount, 1_000),
                     () -> String.format(
                             "Failed to wait for last applied index update on node: "
-                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, amount=%s, appliedIndex=%s, lastAppliedIndex=%s]",
-                            fsm.getPeerId(), appliedIndexBeforeRunCommands, amount, fsm.getAppliedIndex(), fsmCaller.getLastAppliedIndex()
+                                    + "[node=%s, lastAppliedIndexBeforeRunCommands=%s, amount=%s, lastAppliedIndex=%s]",
+                            fsm.getPeerId(), lastAppliedIndexBeforeRunCommands, amount, fsmCaller.getLastAppliedIndex()
                     )
             );
         }
