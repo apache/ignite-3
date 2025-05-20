@@ -699,7 +699,7 @@ class RelJson {
                 assert functionName.startsWith("affinity");
 
                 int tableId = (int) map.get("tableId");
-                Object zoneId = map.get("zoneId");
+                int zoneId = (int) map.get("zoneId");
 
                 return IgniteDistributions.affinity(keys, tableId, zoneId);
             }
