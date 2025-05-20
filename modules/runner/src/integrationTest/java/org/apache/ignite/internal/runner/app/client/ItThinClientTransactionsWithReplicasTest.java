@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.runner.app.client.ItThinClientTransacti
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +33,6 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
-import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
