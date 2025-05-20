@@ -127,6 +127,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return this;
     }
 
+    protected abstract ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition);
+
     /** {@inheritDoc} */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
@@ -147,8 +149,6 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
 
         return copy(projects0, condition0);
     }
-
-    protected abstract ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition);
 
     protected RelWriter explainTerms0(RelWriter pw) {
         if (condition != null) {
