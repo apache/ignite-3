@@ -323,3 +323,141 @@ Project
             filters: =(C1, $cor0.DOUBLED_C1)
             fields: [C1]
             est. row count: 1
+
+# table scan with simple predicate
+plan
+SELECT c1 FROM test_table WHERE c3 = 1 
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      filters: =(C3, 1)
+      fields: [C1]
+      projects: [C1]
+      est. row count: 1
+
+# table scan with complex predicate
+plan
+SELECT c1 FROM test_table WHERE c3 IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  TableScan
+      table: [PUBLIC, TEST_TABLE]
+      filters: AND(SEARCH(C3, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+      fields: [C1]
+      projects: [C1]
+      est. row count: 1
+
+# index scan with simple predicate
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 FROM test_table WHERE c1 > 1 
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      searchBounds: [RangeBounds [lowerBound=1, upperBound=null:INTEGER, lowerInclude=false, upperInclude=false]]
+      filters: >(C1, 1)
+      fields: [C1]
+      collation: [C1 ASC]
+      est. row count: 1
+
+# index scan with complex predicate
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 FROM test_table WHERE c1 IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_IDX
+      type: SORTED
+      searchBounds: [MultiBounds [bounds=ArrayList [ExactBounds [bound=1], ExactBounds [bound=2], ExactBounds [bound=3]]]]
+      filters: AND(SEARCH(C1, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+      fields: [C1]
+      collation: [C1 ASC]
+      est. row count: 1
+
+statement ok
+CREATE INDEX hash_idx ON test_table USING HASH (c2);
+
+# look up by hash index
+plan
+SELECT /*+ FORCE_INDEX(hash_idx) */ c1 FROM test_table WHERE c2 = 10; 
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: HASH_IDX
+      type: HASH
+      searchBounds: [ExactBounds [bound=10]]
+      filters: =(C2, 10)
+      fields: [C1]
+      projects: [C1]
+      est. row count: 1
+
+statement ok
+CREATE INDEX test_table_different_collation_idx ON test_table USING SORTED (c2 DESC NULLS LAST);
+
+# index scan with different collation
+plan
+SELECT /*+ FORCE_INDEX(test_table_different_collation_idx) */ c1, c2 FROM test_table 
+----
+Exchange
+    distribution: single
+    est. row count: 1
+  IndexScan
+      table: [PUBLIC, TEST_TABLE]
+      index: TEST_TABLE_DIFFERENT_COLLATION_IDX
+      type: SORTED
+      fields: [C1, C2]
+      collation: [C2 DESC NULLS LAST]
+      est. row count: 1
+
+# system view scan with simple predicate
+plan
+SELECT view_id, view_name FROM system.system_views WHERE view_id = 5
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    filters: =(VIEW_ID, 5)
+    fields: [VIEW_ID, VIEW_NAME]
+    est. row count: 33
+
+# table scan with complex predicate
+plan
+SELECT view_id, view_name FROM system.system_views WHERE view_id IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
+----
+SystemViewScan
+    table: [SYSTEM, SYSTEM_VIEWS]
+    filters: AND(SEARCH(VIEW_ID, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+    fields: [VIEW_ID, VIEW_NAME]
+    est. row count: 38
+
+# table function scan
+plan
+SELECT * FROM system_range(1, 10)
+----
+TableFunctionScan
+    invocation: SYSTEM_RANGE(1, 10)
+    rowType: RecordType(BIGINT X)
+    est. row count: 100
+
+# another table function scan
+plan
+SELECT * FROM system_range(1, LENGTH(rand_uuid()::VARCHAR))
+----
+TableFunctionScan
+    invocation: SYSTEM_RANGE(1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL))
+    rowType: RecordType(BIGINT X)
+    est. row count: 100
