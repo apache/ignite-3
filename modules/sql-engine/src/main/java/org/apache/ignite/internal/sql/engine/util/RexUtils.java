@@ -1365,7 +1365,7 @@ public class RexUtils {
 
         boolean wasChanged = false;
         for (SearchBounds bound : searchBounds) {
-            SearchBounds newBound = bound.accept(shuttle);
+            SearchBounds newBound = bound == null ? null : bound.accept(shuttle);
             newSearchBounds.add(newBound);
 
             wasChanged = wasChanged || newBound != bound;
