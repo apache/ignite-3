@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.lang.IgniteStringBuilder;
+import org.apache.ignite.table.QualifiedName;
 import org.hamcrest.BaseMatcher;
 import org.hamcrest.Description;
 import org.hamcrest.Matcher;
@@ -61,7 +62,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsTableScan(String schema, String tblName) {
-        return matchesOnce("TableScan.*?table: \\[" + schema + ", " + tblName + "\\]");
+        return matchesOnce("TableScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
     }
 
     /**
@@ -73,7 +74,7 @@ public interface QueryChecker {
      */
     static Matcher<String> nodeRowCount(String nodePattern, Matcher<Integer> rowCountMatcher) {
         Pattern pattern = Pattern.compile(".*" + nodePattern 
-                + ".*?est\\. row count: (?<rowcount>\\d+).*");
+                + ".*?est: \\(rows=(?<rowcount>\\d+).*");
 
         return new BaseMatcher<>() {
             @Override
@@ -110,7 +111,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName) {
-        return matchesOnce("IndexScan.*?table: \\[" + schema + ", " + tblName + "\\]");
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
     }
 
     /**
@@ -122,7 +123,7 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsIndexScan(String schema, String tblName, String idxName) {
-        return matchesOnce("IndexScan.*?table: \\[" + schema + ", " + tblName + "\\]" 
+        return matchesOnce("IndexScan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
                 + ".*?index: " + idxName);
     }
 
@@ -135,8 +136,8 @@ public interface QueryChecker {
      * @return Matcher.
      */
     static Matcher<String> containsProject(String schema, String tblName, String... names) {
-        return matchesOnce("(Table|Index)Scan.*?table: \\[" + schema + ", "
-                + tblName + "\\].*?fields: \\[" + String.join(", ", List.of(names)) + "\\]");
+        return matchesOnce("(Table|Index)Scan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
+                + ".*?fields: \\[" + String.join(", ", List.of(names)) + "\\]");
     }
 
     /**
@@ -276,7 +277,7 @@ public interface QueryChecker {
      */
     static Matcher<String> containsAnyScan(String schema, String tblName, String... idxNames) {
         if (nullOrEmpty(idxNames)) {
-            return matchesOnce("(Table|Index)Scan.*?table: \\[" + schema + ", " + tblName + "\\]");
+            return matchesOnce("(Table|Index)Scan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm());
         }
 
         return anyOf(
