@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.partition.replicator.network.replication;
 
+import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_GET_ALL;
+
 import java.util.BitSet;
 import org.apache.ignite.internal.network.annotations.Transferable;
 import org.apache.ignite.internal.partition.replicator.network.PartitionReplicationMessageGroup;
@@ -29,17 +31,15 @@ import org.jetbrains.annotations.Nullable;
 @Transferable(PartitionReplicationMessageGroup.RW_MULTI_ROW_REPLICA_REQUEST)
 public interface ReadWriteMultiRowReplicaRequest extends MultipleRowReplicaRequest, ReadWriteReplicaRequest, TableAware {
     /**
-     * Disable delayed ack optimization.
-     *
-     * @return {@code True} to disable the delayed ack optimization.
-     */
-    boolean skipDelayedAck();
-
-    /**
      * Deleted flags (one for every tuple in {@link #binaryTuples()}.
      *
      * @return A bit for every tuple in {@link #binaryTuples()} indicating a delete operation.
      */
     @Nullable
     BitSet deleted();
+
+    @Override
+    default boolean isWrite() {
+        return requestType() != RW_GET_ALL;
+    }
 }

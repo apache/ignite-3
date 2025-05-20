@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ClusterService;
+import org.apache.ignite.internal.network.RecipientLeftException;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.ExceptionFactory;
 import org.apache.ignite.internal.raft.LeaderElectionListener;
@@ -309,7 +310,7 @@ public class TopologyAwareRaftGroupService implements RaftGroupService {
             t = t.getCause();
         }
 
-        return t instanceof TimeoutException || t instanceof IOException;
+        return t instanceof TimeoutException || t instanceof IOException || t instanceof RecipientLeftException;
     }
 
     /**

@@ -286,7 +286,7 @@ public class StorageUtils {
         List<NativeType> columnTypes = new ArrayList<>(columns.size());
 
         for (StorageSortedIndexColumnDescriptor col : columns) {
-            columnCollation.add(CatalogColumnCollation.get(col.asc(), !col.asc()));
+            columnCollation.add(CatalogColumnCollation.get(col.asc(), col.nullsFirst()));
             columnTypes.add(col.type());
         }
 
@@ -301,7 +301,7 @@ public class StorageUtils {
         List<NativeType> columnTypes = new ArrayList<>(columns.size());
 
         for (StorageSortedIndexColumnDescriptor col : columns) {
-            columnCollation.add(CatalogColumnCollation.get(col.asc(), !col.asc()));
+            columnCollation.add(CatalogColumnCollation.get(col.asc(), col.nullsFirst()));
             columnTypes.add(col.type());
         }
 

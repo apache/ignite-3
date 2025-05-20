@@ -197,6 +197,18 @@ SqlNode ColumnNameWithSortDirection() :
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
         }
     )?
+
+    (
+        LOOKAHEAD(2)
+        <NULLS> <FIRST> {
+            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
+        }
+    |
+        <NULLS> <LAST> {
+            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
+        }
+    )?
+
     {
         return col;
     }
@@ -657,6 +669,12 @@ void ZoneElement(List<SqlNode> zoneOptions) :
               zoneOptions.add(new IgniteSqlZoneOption(key, IgniteSqlZoneOptionMode.ALL.symbol(getPos()), s.end(this)));
           }
       )
+      |
+      <QUORUM> { pos = getPos(); } <SIZE> option = UnsignedIntegerLiteral()
+      {
+          key = new SqlIdentifier(ZoneOptionEnum.QUORUM_SIZE.name(), pos);
+          zoneOptions.add(new IgniteSqlZoneOption(key, option, s.end(this)));
+      }
       |
       <DISTRIBUTION> { pos = getPos(); } <ALGORITHM> option = NonEmptyCharacterStringLiteral()
       {

@@ -54,6 +54,7 @@ import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.compute.JobDescriptor;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.compute.JobExecutionOptions;
+import org.apache.ignite.compute.JobExecutorType;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.compute.NodeNotFoundException;
@@ -84,6 +85,7 @@ import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
@@ -592,18 +594,28 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             List<DeploymentUnit> deploymentUnits) {
         var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
 
-        return runReceiverAsync(payload, node, deploymentUnits)
+        return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
                 .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
     }
 
     @Override
-    public CompletableFuture<byte[]> runReceiverAsync(byte[] payload, ClusterNode node, List<DeploymentUnit> deploymentUnits) {
+    public CompletableFuture<byte[]> runReceiverAsync(
+            byte[] payload,
+            ClusterNode node,
+            List<DeploymentUnit> deploymentUnits,
+            ReceiverExecutionOptions options) {
+        JobExecutionOptions jobOptions = JobExecutionOptions.builder()
+                .priority(options.priority())
+                .maxRetries(options.maxRetries())
+                .executorType(options.executorType())
+                .build();
+
         // Use Compute to execute receiver on the target node with failover, class loading, scheduling.
         return executeAsyncWithFailover(
                 Set.of(node),
                 deploymentUnits,
-                StreamerReceiverJob.class.getName(),
-                JobExecutionOptions.DEFAULT,
+                getReceiverJobClassName(options.executorType()),
+                jobOptions,
                 SharedComputeUtils.marshalArgOrResult(payload, null),
                 null
         ).thenCompose(JobExecution::resultAsync)
@@ -633,6 +645,19 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
             return future.join();
         } catch (CompletionException e) {
             throw ExceptionUtils.sneakyThrow(mapToPublicException(unwrapCause(e)));
+        }
+    }
+
+    private static String getReceiverJobClassName(JobExecutorType executorType) {
+        switch (executorType) {
+            case JAVA_EMBEDDED:
+                return StreamerReceiverJob.class.getName();
+
+            case DOTNET_SIDECAR:
+                return "Apache.Ignite.Internal.Table.StreamerReceiverJob, Apache.Ignite";
+
+            default:
+                throw new IllegalArgumentException("Unsupported job executor type: " + executorType);
         }
     }
 }

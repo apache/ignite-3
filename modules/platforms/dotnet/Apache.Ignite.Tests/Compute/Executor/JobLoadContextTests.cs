@@ -18,13 +18,20 @@
 namespace Apache.Ignite.Tests.Compute.Executor;
 
 using System;
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Runtime.Loader;
 using System.Threading;
 using System.Threading.Tasks;
 using Ignite.Compute;
+using Ignite.Table;
+using Internal.Buffers;
+using Internal.Compute;
 using Internal.Compute.Executor;
+using Internal.Proto.MsgPack;
+using Internal.Table.Serialization;
 using NUnit.Framework;
 
 /// <summary>
@@ -59,11 +66,24 @@ public class JobLoadContextTests
     }
 
     [Test]
+    public async Task TestDisposableReceiver([Values(true, false)] bool async)
+    {
+        var receiverType = async ? typeof(AsyncDisposableReceiver) : typeof(DisposableReceiver);
+        var expectedState = async ? "ExecutedAsyncDisposed" : "ExecutedDisposed";
+
+        var id = Guid.NewGuid();
+        await ExecuteReceiverAsync(receiverType, id);
+
+        Assert.IsTrue(DisposedJobStates.TryRemove(id, out var state));
+        Assert.AreEqual(expectedState, state);
+    }
+
+    [Test]
     public void TestJobWithoutDefaultConstructorThrows()
     {
         var ex = Assert.ThrowsAsync<InvalidOperationException>(async () => await ExecuteJobAsync(DotNetJobs.NoCtor, 1));
 
-        Assert.AreEqual($"No public parameterless constructor for job type '{typeof(DotNetJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
+        Assert.AreEqual($"No public parameterless constructor for type '{typeof(DotNetJobs.NoCtorJob).AssemblyQualifiedName}'", ex.Message);
     }
 
     [Test]
@@ -77,12 +97,54 @@ public class JobLoadContextTests
         Assert.AreEqual("Ambiguous match found for ' Apache.Ignite.Compute.IComputeJob`2[System.Object,System.Guid]'.", ex.Message);
     }
 
+    [Test]
+    public void TestCreateReceiverWrapperWithMultipleReceiverInterfacesThrows()
+    {
+        var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+
+        var ex = Assert.Throws<AmbiguousMatchException>(
+            () => jobLoadCtx.CreateReceiverWrapper(typeof(MultiInterfaceReceiver).AssemblyQualifiedName!));
+
+        Assert.AreEqual(
+            "Ambiguous match found for ' Apache.Ignite.Table.IDataStreamerReceiver`3[System.Int32,System.Int32,System.Int32]'.",
+            ex.Message);
+    }
+
     private static async Task<TResult> ExecuteJobAsync<TArg, TResult>(JobDescriptor<TArg, TResult> job, TArg? jobArg)
     {
         var jobLoadCtx = new JobLoadContext(AssemblyLoadContext.Default);
         var jobWrapper = jobLoadCtx.CreateJobWrapper(job.JobClassName);
 
         return await JobWrapperHelper.ExecuteAsync<TArg, TResult>(jobWrapper, jobArg);
+    }
+
+    private static async Task ExecuteReceiverAsync(Type receiverType, object arg)
+    {
+        var loadCtx = new JobLoadContext(AssemblyLoadContext.Default);
+        var receiverWrapper = loadCtx.CreateReceiverWrapper(receiverType.AssemblyQualifiedName!);
+
+        using var argBuf = WriteReceiverInfo(receiverType.AssemblyQualifiedName!, arg);
+        using var resBuf = new PooledArrayBuffer();
+
+        await receiverWrapper.ExecuteAsync(null!, argBuf, resBuf, CancellationToken.None);
+
+        static PooledBuffer WriteReceiverInfo(string typeName, object arg)
+        {
+            var items = new object[] { "hello" };
+            using var receiverInfoBuilder = StreamerReceiverSerializer.BuildReceiverInfo<object>(typeName, arg, items, prefixSize: 4);
+            Memory<byte> receiverInfoMem = receiverInfoBuilder.Build();
+            BinaryPrimitives.WriteInt32LittleEndian(receiverInfoMem.Span, receiverInfoBuilder.NumElements);
+
+            using var jobArgBuf = new PooledArrayBuffer();
+            MsgPackWriter w = jobArgBuf.MessageWriter;
+            ComputePacker.PackArgOrResult(ref w, receiverInfoMem, null);
+
+            var resMem = jobArgBuf.GetWrittenMemory();
+            var resBytes = ByteArrayPool.Rent(resMem.Length);
+            resMem.Span.CopyTo(resBytes);
+
+            return new PooledBuffer(resBytes, 0, resMem.Length);
+        }
     }
 
     private class DisposableJob : IComputeJob<object, Guid>, IDisposable
@@ -126,6 +188,48 @@ public class JobLoadContextTests
         }
     }
 
+    private sealed class AsyncDisposableReceiver : IDataStreamerReceiver<object, Guid, object>, IAsyncDisposable
+    {
+        private Guid _id;
+
+        public ValueTask<IList<object>?> ReceiveAsync(
+            IList<object> page,
+            Guid arg,
+            IDataStreamerReceiverContext context,
+            CancellationToken cancellationToken)
+        {
+            _id = arg;
+            DisposedJobStates[_id] = "Executed";
+
+            return ValueTask.FromResult<IList<object>?>(null);
+        }
+
+        public ValueTask DisposeAsync()
+        {
+            DisposedJobStates[_id] += "AsyncDisposed";
+            return ValueTask.CompletedTask;
+        }
+    }
+
+    private sealed class DisposableReceiver : IDataStreamerReceiver<object, Guid, object>, IDisposable
+    {
+        private Guid _id;
+
+        public ValueTask<IList<object>?> ReceiveAsync(
+            IList<object> page,
+            Guid arg,
+            IDataStreamerReceiverContext context,
+            CancellationToken cancellationToken)
+        {
+            _id = arg;
+            DisposedJobStates[_id] = "Executed";
+
+            return ValueTask.FromResult<IList<object>?>(null);
+        }
+
+        public void Dispose() => DisposedJobStates[_id] += "Disposed";
+    }
+
     private class MultiInterfaceJob : IComputeJob<object, Guid>, IComputeJob<int, string>
     {
         public ValueTask<Guid> ExecuteAsync(IJobExecutionContext context, object arg, CancellationToken cancellationToken) =>
@@ -133,5 +237,16 @@ public class JobLoadContextTests
 
         public ValueTask<string> ExecuteAsync(IJobExecutionContext context, int arg, CancellationToken cancellationToken) =>
             ValueTask.FromResult("x");
+    }
+
+    private class MultiInterfaceReceiver : IDataStreamerReceiver<int, int, int>, IDataStreamerReceiver<int, int, short>
+    {
+        ValueTask<IList<int>?> IDataStreamerReceiver<int, int, int>.ReceiveAsync(
+            IList<int> page, int arg, IDataStreamerReceiverContext context, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
+
+        ValueTask<IList<short>?> IDataStreamerReceiver<int, int, short>.ReceiveAsync(
+            IList<int> page, int arg, IDataStreamerReceiverContext context, CancellationToken cancellationToken) =>
+            throw new NotImplementedException();
     }
 }

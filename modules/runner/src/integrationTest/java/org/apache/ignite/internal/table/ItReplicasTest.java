@@ -22,7 +22,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.Optional.ofNullable;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableManager;
-import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.bypassingThreadAssertions;
@@ -38,10 +37,7 @@ import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil;
-import org.apache.ignite.internal.lang.ByteArray;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
-import org.apache.ignite.internal.partitiondistribution.Assignments;
-import org.apache.ignite.internal.partitiondistribution.AssignmentsQueue;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicaManager;
@@ -57,27 +53,26 @@ import org.junit.jupiter.api.Test;
 
 class ItReplicasTest extends ClusterPerTestIntegrationTest {
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24391")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24072")
     @Test
     void testStartNewNodeAsLearner() {
-        cluster.doInSession(0, session -> {
-            session.execute(null, "CREATE ZONE TEST_ZONE WITH PARTITIONS=1, REPLICAS=ALL, STORAGE_PROFILES='default'");
-            session.execute(null, "CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
-            session.execute(null, "INSERT INTO TEST VALUES (0, 0)");
-        });
+        executeSql("CREATE ZONE TEST_ZONE (PARTITIONS 1, REPLICAS ALL, QUORUM SIZE 2) STORAGE PROFILES ['default']");
+        executeSql("CREATE TABLE TEST (id INT PRIMARY KEY, name INT) ZONE TEST_ZONE");
+        executeSql("INSERT INTO TEST VALUES (0, 0)");
         await().untilAsserted(() -> {
             assertTrue(cluster.runningNodes().map(resolvePartition("TEST")).allMatch(notNull()),
                     "all nodes should contain table partition replica");
         });
         Set<Assignment> assignmentsBefore = getStableAssignments(cluster.node(0), "TEST");
 
-        Ignite newNode = cluster.startNode((int) cluster.runningNodes().count());
+        cluster.startNode((int) cluster.runningNodes().count());
 
-        // TODO change learners using alter zone https://issues.apache.org/jira/browse/IGNITE-24391
-        Set<Assignment> newAssignment = Set.of(Assignment.forLearner(newNode.name()));
-        Set<Assignment> assignmentsAfterExpected = RebalanceUtil.union(assignmentsBefore, newAssignment);
+        // Node 1 is downgraded from peer to learner
+        String learnerName = node(1).name();
 
-        putPendingAssignments(cluster.aliveNode(), "TEST", assignmentsAfterExpected);
+        Set<Assignment> assignmentsAfterExpected = new HashSet<>(assignmentsBefore);
+        assignmentsAfterExpected.removeIf(assignment -> assignment.consistentId().equals(learnerName));
+        assignmentsAfterExpected.add(Assignment.forLearner(learnerName));
 
         await().atMost(Duration.ofSeconds(30)).untilAsserted(() -> {
             assertTrue(cluster.runningNodes()
@@ -107,18 +102,6 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
         return ofNullable(getTableId(ignite, tableName))
                 .map(tableId -> RebalanceUtil.stablePartitionAssignments(ignite.metaStorageManager(), tableId, 0).join())
                 .orElse(Set.of());
-    }
-
-    private static void putPendingAssignments(Ignite node, String tableName, Set<Assignment> assignments) {
-        IgniteImpl ignite = unwrapIgniteImpl(node);
-
-        TablePartitionId partitionId = new TablePartitionId(requireNonNull(getTableId(node, tableName)), 0);
-        ByteArray pendingKey = pendingPartAssignmentsQueueKey(partitionId);
-
-        long timestamp = ignite.catalogManager().catalog(ignite.catalogManager().latestCatalogVersion()).time();
-        byte[] pendingVal = AssignmentsQueue.toBytes(Assignments.of(assignments, timestamp));
-
-        ignite.metaStorageManager().put(pendingKey, pendingVal).join();
     }
 
     private static int getTableOrZoneId(Ignite node, String tableName) {
@@ -167,8 +150,8 @@ class ItReplicasTest extends ClusterPerTestIntegrationTest {
     private static Predicate<RaftGroupService> equalsPeersAndLearners(Set<Assignment> assignments) {
         return client -> {
             PeersAndLearners expected = PeersAndLearners.fromAssignments(assignments);
-            return expected.peers().equals(new HashSet<>(requireNonNull(client.peers())))
-                    && expected.learners().equals(new HashSet<>(requireNonNull(client.learners())));
+            PeersAndLearners actual = PeersAndLearners.fromPeers(requireNonNull(client.peers()), requireNonNull(client.learners()));
+            return expected.equals(actual);
         };
     }
 

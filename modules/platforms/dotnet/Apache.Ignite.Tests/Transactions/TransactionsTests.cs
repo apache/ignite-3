@@ -350,6 +350,67 @@ namespace Apache.Ignite.Tests.Transactions
             Assert.AreEqual(123, server.LastClientObservableTimestamp);
         }
 
+        [Test]
+        public async Task TestRunInTransactionUpdatesData()
+        {
+            await Client.Transactions.RunInTransactionAsync(
+                async tx => await TupleView.UpsertAsync(tx, GetTuple(1, "2")));
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultUpdatesData()
+        {
+            var res = await Client.Transactions.RunInTransactionAsync(async tx =>
+            {
+                await TupleView.UpsertAsync(tx, GetTuple(1, "2"));
+                return await TupleView.GetAsync(tx, GetTuple(1));
+            });
+
+            Assert.AreEqual("2", res.Value[1]);
+
+            var (val, _) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.AreEqual("2", val[1]);
+        }
+
+        [Test]
+        public async Task TestRunInTransactionWithResultWithExceptionDoesNotUpdateData()
+        {
+            var ex = Assert.ThrowsAsync<Exception>(async () =>
+            {
+                await Client.Transactions.RunInTransactionAsync<int>(async tx =>
+                {
+                    await TupleView.InsertAsync(tx, GetTuple(1, "2"));
+                    throw new Exception("Test");
+                });
+            });
+
+            Assert.AreEqual("Test", ex.Message);
+
+            var (_, hasVal) = await TupleView.GetAsync(null, GetTuple(1));
+            Assert.IsFalse(hasVal);
+        }
+
         private class CustomTx : ITransaction
         {
             public bool IsReadOnly => false;

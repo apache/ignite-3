@@ -131,6 +131,11 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
     }
 
     @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        await(delegate.deleteAllAsync(tx));
+    }
+
+    @Override
     public List<V> deleteAllExact(@Nullable Transaction tx, Collection<V> recs) {
         return await(delegate.deleteAllExactAsync(tx, recs));
     }
@@ -212,6 +217,11 @@ public class AsyncApiRecordViewAdapter<V> implements RecordView<V> {
 
     @Override
     public CompletableFuture<List<V>> deleteAllAsync(@Nullable Transaction tx, Collection<V> keyRecs) {
+        throw new UnsupportedOperationException("Must not be called");
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
         throw new UnsupportedOperationException("Must not be called");
     }
 

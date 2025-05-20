@@ -19,6 +19,7 @@ package org.apache.ignite.internal.network.recovery.message;
 
 import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.CLINCH;
 import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.CLUSTER_ID_MISMATCH;
+import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.LOOP;
 import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.PRODUCT_MISMATCH;
 import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.STALE_LAUNCH_ID;
 import static org.apache.ignite.internal.network.recovery.message.HandshakeRejectionReason.STOPPING;
@@ -40,6 +41,7 @@ class HandshakeRejectionReasonTest {
         var assertions = new EnumMembersAssertions();
 
         assertions.assertFalseFor(STOPPING, HandshakeRejectionReason::logAsWarn);
+        assertions.assertTrueFor(LOOP, HandshakeRejectionReason::logAsWarn);
         assertions.assertTrueFor(STALE_LAUNCH_ID, HandshakeRejectionReason::logAsWarn);
         assertions.assertFalseFor(CLINCH, HandshakeRejectionReason::logAsWarn);
         assertions.assertTrueFor(CLUSTER_ID_MISMATCH, HandshakeRejectionReason::logAsWarn);

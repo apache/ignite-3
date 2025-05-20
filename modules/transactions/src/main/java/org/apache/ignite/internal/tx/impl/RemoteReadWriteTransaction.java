@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.tx.impl;
 
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
+
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -42,6 +45,7 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     private final TablePartitionId commitGroupId;
     private final long timeout;
     private final UUID coord;
+    private final String localNodeConsistentId;
     @IgniteToStringExclude
     private @Nullable PendingTxPartitionEnlistment enlistment;
 
@@ -61,7 +65,8 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
         this.commitGroupId = commitGroupId;
         this.coord = coord;
         this.timeout = timeout;
-        this.enlistment = token == 0 ? null : new PendingTxPartitionEnlistment(localNode.name(), token);
+        this.localNodeConsistentId = localNode.name();
+        this.enlistment = token == 0 ? null : new PendingTxPartitionEnlistment(localNodeConsistentId, token);
     }
 
     @Override
@@ -111,6 +116,13 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
 
     @Override
     public void enlist(ReplicationGroupId replicationGroupId, int tableId, String primaryNodeConsistentId, long consistencyToken) {
+        // Validate primary replica.
+        if (!localNodeConsistentId.equals(primaryNodeConsistentId)) {
+            throw new TransactionException(REPLICA_MISS_ERR, format("The primary replica has changed [txId={}, "
+                            + "expectedPrimaryReplicaConsistentId={}, currentPrimaryReplicaConsistentId={}].", txId, localNodeConsistentId,
+                    primaryNodeConsistentId));
+        }
+
         this.enlistment = new PendingTxPartitionEnlistment(primaryNodeConsistentId, consistencyToken, tableId);
     }
 
@@ -153,11 +165,6 @@ public abstract class RemoteReadWriteTransaction implements InternalTransaction 
     @Override
     public long getTimeout() {
         return timeout;
-    }
-
-    @Override
-    public CompletableFuture<Void> kill() {
-        return null;
     }
 
     @Override

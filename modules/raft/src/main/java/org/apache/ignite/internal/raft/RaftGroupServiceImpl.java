@@ -53,6 +53,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -116,6 +117,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private final Marshaller commandsMarshaller;
 
     private final ExceptionFactory stoppingExceptionFactory;
+
+    /** This flag is used only for logging. */
+    private final AtomicBoolean peersAreUnavailable = new AtomicBoolean();
 
     /** Busy lock. */
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
@@ -740,7 +744,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EHOSTDOWN:
             case ESHUTDOWN:
-            case ENODESHUTDOWN: {
+            case ENODESHUTDOWN:
+            case ESTOP: {
                 Peer newTargetPeer = randomNode(retryContext);
 
                 scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer, getShortReasonMessage(retryContext, error)));
@@ -862,20 +867,27 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             }
 
             if (availablePeers.isEmpty()) {
-                LOG.warn(
-                        "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}, "
-                                + "request {}, origin command {}].",
-                        localPeers,
-                        groupId,
-                        retryContext.errorTraceId(),
-                        retryContext.request().toStringForLightLogging(),
-                        retryContext.originCommandDescription()
-                );
+                if (!peersAreUnavailable.get()) {
+                    LOG.warn(
+                            "All peers are unavailable, going to keep retrying until timeout [peers = {}, group = {}, trace ID: {}, "
+                                    + "request {}, origin command {}, instance={}].",
+                            localPeers,
+                            groupId,
+                            retryContext.errorTraceId(),
+                            retryContext.request().toStringForLightLogging(),
+                            retryContext.originCommandDescription(),
+                            this
+                    );
+
+                    peersAreUnavailable.set(true);
+                }
 
                 retryContext.resetUnavailablePeers();
 
                 // Read the volatile field again, just in case it changed.
                 availablePeers.addAll(peers);
+            } else {
+                peersAreUnavailable.set(false);
             }
         }
 

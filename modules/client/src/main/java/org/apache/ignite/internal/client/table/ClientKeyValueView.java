@@ -424,6 +424,11 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return sync(removeAllAsync(tx, keys));
     }
 
+    @Override
+    public void removeAll(@Nullable Transaction tx) {
+        sync(removeAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<K>> removeAllAsync(@Nullable Transaction tx, Collection<K> keys) {
@@ -440,6 +445,11 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(keySer.mapper(), keys),
                 tx);
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -741,10 +751,8 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                 new KeyValuePojoStreamerPartitionAwarenessProvider<>(tbl, keySer.mapper()),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 

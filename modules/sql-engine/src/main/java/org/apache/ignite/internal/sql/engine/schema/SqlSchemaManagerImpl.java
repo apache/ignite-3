@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -281,7 +282,7 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
 
     private static TableDescriptor createTableDescriptorForTable(CatalogTableDescriptor descriptor) {
         List<CatalogTableColumnDescriptor> columns = descriptor.columns();
-        List<ColumnDescriptor> colDescriptors = new ArrayList<>(columns.size() + 1);
+        List<ColumnDescriptor> colDescriptors = new ArrayList<>(columns.size() + 2);
         Object2IntMap<String> columnToIndex = buildColumnToIndexMap(columns);
 
         for (int i = 0; i < columns.size(); i++) {
@@ -301,8 +302,8 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         }
 
         // Add virtual column.
-        ColumnDescriptorImpl partVirtualColumn = createPartitionVirtualColumn(columns.size());
-        colDescriptors.add(partVirtualColumn);
+        colDescriptors.add(createPartitionVirtualColumn(columns.size(), Commons.PART_COL_NAME));
+        colDescriptors.add(createPartitionVirtualColumn(columns.size() + 1, Commons.PART_COL_NAME_LEGACY));
 
         IgniteDistribution distribution = createDistribution(descriptor, columnToIndex);
 
@@ -314,14 +315,19 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 .map(columnToIndex::getInt)
                 .collect(Collectors.toList());
 
-        // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         int tableId = descriptor.id();
+        int zoneId = descriptor.zoneId();
 
-        return IgniteDistributions.affinity(colocationColumns, tableId, tableId);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove flag
+        boolean zoneBasedColocation = enabledColocation();
+
+        return zoneBasedColocation
+                ? IgniteDistributions.affinity(colocationColumns, tableId, zoneId)
+                : IgniteDistributions.affinity(colocationColumns, tableId, tableId);
     }
 
     private static Object2IntMap<String> buildColumnToIndexMap(List<CatalogTableColumnDescriptor> columns) {
-        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(columns.size() + 1);
+        Object2IntMap<String> columnToIndex = new Object2IntOpenHashMap<>(columns.size() + 2);
 
         for (int i = 0; i < columns.size(); i++) {
             CatalogTableColumnDescriptor col = columns.get(i);
@@ -331,9 +337,9 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
         return columnToIndex;
     }
 
-    private static ColumnDescriptorImpl createPartitionVirtualColumn(int logicalIndex) {
+    private static ColumnDescriptorImpl createPartitionVirtualColumn(int logicalIndex, String partColName) {
         return new ColumnDescriptorImpl(
-                Commons.PART_COL_NAME,
+                partColName,
                 false,
                 true,
                 true,

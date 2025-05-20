@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.client.tx;
 
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.tx.ClientTransaction.EMPTY;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
@@ -80,7 +81,7 @@ public class ClientTransactions implements IgniteTransactions {
                     w.out().packBoolean(readOnly);
                     w.out().packLong(timeout);
                     w.out().packLong(observableTimestamp.get().longValue());
-                    if (!readOnly && w.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+                    if (!readOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
                         w.out().packInt(pm == null ? -1 : pm.tableId());
                         w.out().packInt(pm == null ? -1 : pm.partition());
                     }
@@ -102,7 +103,7 @@ public class ClientTransactions implements IgniteTransactions {
         ClientMessageUnpacker in = r.in();
 
         long id = in.unpackLong();
-        if (isReadOnly || !r.clientChannel().protocolContext().isFeatureSupported(TX_DIRECT_MAPPING)) {
+        if (isReadOnly || !r.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
             return new ClientTransaction(r.clientChannel(), id, isReadOnly, EMPTY, null, EMPTY, null, timeout);
         } else {
             UUID txId = in.unpackUuid();

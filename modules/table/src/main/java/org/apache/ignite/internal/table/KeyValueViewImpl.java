@@ -412,10 +412,20 @@ public class KeyValueViewImpl<K, V> extends AbstractTableView<Entry<K, V>> imple
         });
     }
 
+    @Override
+    public void removeAll(@Nullable Transaction tx) {
+        sync(removeAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public Collection<K> removeAll(@Nullable Transaction tx, Collection<K> keys) {
         return sync(removeAllAsync(tx, keys));
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */

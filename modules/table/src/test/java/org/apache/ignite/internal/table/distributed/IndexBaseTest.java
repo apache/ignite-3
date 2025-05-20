@@ -127,8 +127,8 @@ public abstract class IndexBaseTest extends BaseMvStoragesTest {
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
                         List.of(
-                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true),
-                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true)
+                                new StorageSortedIndexColumnDescriptor("INTVAL", NativeTypes.INT32, false, true, false),
+                                new StorageSortedIndexColumnDescriptor("STRVAL", NativeTypes.STRING, false, true, false)
                         ),
                         true
                 )

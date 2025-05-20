@@ -357,6 +357,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return sync(removeAllAsync(tx, keys));
     }
 
+    @Override
+    public void removeAll(@Nullable Transaction tx) {
+        sync(removeAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Collection<Tuple>> removeAllAsync(@Nullable Transaction tx, Collection<Tuple> keys) {
@@ -373,6 +378,11 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(keys),
                 tx);
+    }
+
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -552,10 +562,8 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 new KeyValueTupleStreamerPartitionAwarenessProvider(tbl),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 

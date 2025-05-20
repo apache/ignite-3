@@ -67,10 +67,13 @@ public class ColumnFamilyUtils {
     );
 
     /** Nullability flag mask for {@link #sortedIndexCfName(List)}. */
-    private static final int NULLABILITY_FLAG = 1;
+    private static final int NULLABILITY_FLAG = 0b1;
 
     /** Order flag mask for {@link #sortedIndexCfName(List)}. */
-    private static final int ASC_ORDER_FLAG = 2;
+    private static final int ASC_ORDER_FLAG = 0b10;
+
+    /** Flag denoting whether to put NULLs first or last for {@link #sortedIndexCfName(List)}. */
+    private static final int NULLS_FIRST_FLAG = 0b100;
 
     /** Utility enum to describe a type of the column family - meta or partition. */
     public enum ColumnFamilyType {
@@ -135,6 +138,10 @@ public class ColumnFamilyUtils {
 
             if (column.asc()) {
                 flags |= ASC_ORDER_FLAG;
+            }
+
+            if (column.nullsFirst()) {
+                flags |= NULLS_FIRST_FLAG;
             }
 
             buf.put((byte) flags);
@@ -230,8 +237,9 @@ public class ColumnFamilyUtils {
 
             boolean nullable = (nativeTypeFlags & NULLABILITY_FLAG) != 0;
             boolean asc = (nativeTypeFlags & ASC_ORDER_FLAG) != 0;
+            boolean nullsFirst = (nativeTypeFlags & NULLS_FIRST_FLAG) != 0;
 
-            columns.add(new StorageSortedIndexColumnDescriptor("<unknown>", nativeType, nullable, asc));
+            columns.add(new StorageSortedIndexColumnDescriptor("<unknown>", nativeType, nullable, asc, nullsFirst));
         }
 
         return new RocksDbBinaryTupleComparator(columns);

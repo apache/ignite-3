@@ -142,20 +142,22 @@ class CreateFromDefinitionTest {
                 .columns(
                         column("id", INTEGER),
                         column("id str", VARCHAR),
-                        column("f name", ColumnType.varchar(20).notNull().defaultValue("a"))
+                        column("f name", ColumnType.varchar(20).notNull().defaultValue("a")),
+                        column("\"LName\"", VARCHAR)
                 )
                 .primaryKey("id", "id str")
-                .index("id str", "f name")
+                .index("id str", "f name", "\"LName\"")
                 .index("ix test", IndexType.SORTED, column("id str").asc(), column("f name").sort(DESC_NULLS_LAST))
                 .build();
 
         assertThat(
                 createTable(table),
                 is("CREATE TABLE IF NOT EXISTS \"sche ma\".\"builder test\""
-                        + " (ID INT, \"id str\" VARCHAR, \"f name\" VARCHAR(20) NOT NULL DEFAULT 'a', PRIMARY KEY (ID, \"id str\"))"
-                        + " COLOCATE BY (ID, \"id str\") ZONE \"zone test\";"
+                        + " (ID INT, \"id str\" VARCHAR, \"f name\" VARCHAR(20) NOT NULL DEFAULT 'a', \"LName\" VARCHAR,"
+                        + " PRIMARY KEY (ID, \"id str\")) COLOCATE BY (ID, \"id str\") ZONE \"zone test\";"
                         + System.lineSeparator()
-                        + "CREATE INDEX IF NOT EXISTS \"ix_id str_f name\" ON \"sche ma\".\"builder test\" (\"id str\", \"f name\");"
+                        + "CREATE INDEX IF NOT EXISTS \"ix_id str_f name_\"\"LName\"\"\" ON \"sche ma\".\"builder test\" (\"id str\","
+                        + " \"f name\", \"LName\");"
                         + System.lineSeparator()
                         + "CREATE INDEX IF NOT EXISTS \"ix test\" ON \"sche ma\".\"builder test\" USING SORTED"
                         + " (\"id str\" ASC, \"f name\" DESC NULLS LAST);")

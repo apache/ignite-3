@@ -383,6 +383,11 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
+    @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        sync(deleteAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs) {
@@ -399,6 +404,11 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 Collections.emptyList(),
                 ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRecs),
                 tx);
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */
@@ -469,10 +479,8 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 new PojoStreamerPartitionAwarenessProvider<>(tbl, ser.mapper()),
                 tbl,
                 resultSubscriber,
-                receiver.units(),
-                receiver.receiverClassName(),
-                receiverArg,
-                receiver.argumentMarshaller()
+                receiver,
+                receiverArg
         );
     }
 

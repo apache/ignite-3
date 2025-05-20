@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCo
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.endsWith;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.greaterThan;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
@@ -243,7 +243,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         }
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
-        assertThat(ex.getMessage(), endsWith("Missed key column: ID"));
+        assertThat(ex.getMessage(), containsString("Missed key column: ID"));
 
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         assertEquals(1, cause.failedItems().size());
@@ -501,7 +501,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(1, TimeUnit.SECONDS).join());
         assertThat(
                 ex.getCause().getMessage(),
-                endsWith("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test"));
+                containsString("Streamer receiver failed: Job execution failed: java.lang.ArithmeticException: test"));
 
         DataStreamerException cause = (DataStreamerException) ex.getCause();
         assertEquals(1, cause.failedItems().size());
