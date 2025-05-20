@@ -35,6 +35,7 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -42,6 +43,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClientTest {
     @Test
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25431")
     void testStaleMapping() {
         Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().orTimeout(9, TimeUnit.SECONDS).join();
 
