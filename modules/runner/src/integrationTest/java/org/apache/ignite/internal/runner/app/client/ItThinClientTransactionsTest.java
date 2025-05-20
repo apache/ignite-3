@@ -65,6 +65,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -464,15 +465,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx2.commit();
     }
 
-    private List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode) {
+    static List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode, Table table) {
         List<Tuple> keys = new ArrayList<>();
+        PartitionManager partitionManager = table.partitionManager();
 
         int k = start;
         while (keys.size() != count) {
             k++;
             Tuple t = key(k);
 
-            Partition part = table().partitionManager().partitionAsync(t).join();
+            Partition part = partitionManager.partitionAsync(t).join();
             ClusterNode node = map.get(part);
 
             if (node.name().equals(clusterNode.name())) {
@@ -533,7 +535,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
 
-        List<Tuple> tuples0 = generateKeysForNode(200, 2, map, server0.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(200, 2, map, server0.clusterService().topologyService().localMember(), table);
 
         Tuple key = tuples0.get(0);
         Tuple val = val(key.intValue(0) + "");
@@ -564,8 +566,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.clusterService().topologyService().localMember(), table);
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
@@ -596,8 +598,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(400, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(410, 1, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(400, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(410, 1, map, server1.clusterService().topologyService().localMember(), table);
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
@@ -645,8 +647,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember(), table);
 
         Map<Tuple, Tuple> data = new HashMap<>();
 

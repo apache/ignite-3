@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static org.apache.ignite.internal.runner.app.client.ItThinClientTransactionsTest.generateKeysForNode;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
@@ -33,6 +34,7 @@ import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.junit.jupiter.api.Test;
@@ -51,9 +53,9 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
         IgniteImpl server2 = TestWrappers.unwrapIgniteImpl(server(2));
 
-        List<Tuple> tuples0 = generateKeysForNode(100, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(100, 1, map, server1.clusterService().topologyService().localMember());
-        List<Tuple> tuples2 = generateKeysForNode(100, 1, map, server2.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(100, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(100, 1, map, server1.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples2 = generateKeysForNode(100, 1, map, server2.clusterService().topologyService().localMember(), table);
 
         Transaction tx0 = client().transactions().begin();
 
@@ -92,25 +94,6 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
 
     private static Tuple key(Integer k) {
         return Tuple.create().set(COLUMN_KEY, k);
-    }
-
-    private List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode) {
-        List<Tuple> keys = new ArrayList<>();
-
-        int k = start;
-        while (keys.size() != count) {
-            k++;
-            Tuple t = key(k);
-
-            Partition part = table().partitionManager().partitionAsync(t).orTimeout(9, TimeUnit.SECONDS).join();
-            ClusterNode node = map.get(part);
-
-            if (node.name().equals(clusterNode.name())) {
-                keys.add(t);
-            }
-        }
-
-        return keys;
     }
 
     @Override
