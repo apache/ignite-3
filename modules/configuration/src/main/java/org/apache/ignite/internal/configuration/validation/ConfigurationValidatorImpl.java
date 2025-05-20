@@ -19,7 +19,6 @@ package org.apache.ignite.internal.configuration.validation;
 
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
-import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.legacyNames;
 import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.publicName;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.addDefaults;
 import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
@@ -249,14 +248,6 @@ public class ConfigurationValidatorImpl implements ConfigurationValidator {
         for (Field field : schemaType.getDeclaredFields()) {
             if (publicName(field).equals(publicName)) {
                 return field;
-            }
-        }
-
-        for (Field field : schemaType.getDeclaredFields()) {
-            for (String legacyName : legacyNames(field)) {
-                if (legacyName.equals(publicName)) {
-                    return field;
-                }
             }
         }
 

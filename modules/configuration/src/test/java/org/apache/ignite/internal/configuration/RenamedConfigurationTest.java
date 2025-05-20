@@ -104,7 +104,7 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testLegacyNameIWRecognisedOnUpdate() {
+    public void testLegacyNameIsRecognisedOnUpdate() {
         String updatedValue = "updatedValue";
         String configWithFirstLegacyName = String.format("key.%s.%s = \"%s\"", OLD_INNER_NAME, OLD_VALUE_NAME, updatedValue);
         updateConfig(registry, configWithFirstLegacyName);
