@@ -50,14 +50,14 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
 
     auto utf8_view = una::ranges::utf8_view(simple_or_canonical_name);
     auto separator_pos = detail::find_separator(
-        simple_or_canonical_name, utf8_view.begin(), utf8_view.end(), QUOTE_CHAR, SEPARATOR_CHAR);
+        simple_or_canonical_name, utf8_view.begin(), utf8_view.end(), char32_t(QUOTE_CHAR), char32_t(SEPARATOR_CHAR));
 
     if (separator_pos == utf8_view.end()) {
         return create({}, simple_or_canonical_name);
     }
 
-    auto next_separator = detail::find_separator(
-        simple_or_canonical_name, std::next(separator_pos), utf8_view.end(), QUOTE_CHAR, SEPARATOR_CHAR);
+    auto next_separator = detail::find_separator(simple_or_canonical_name, std::next(separator_pos),
+     utf8_view.end(), char32_t(QUOTE_CHAR), char32_t(SEPARATOR_CHAR));
 
     detail::arg_check::is_true(next_separator == utf8_view.end(),
         "Canonical name should have at most two parts: '" + std::string{simple_or_canonical_name} + "'");

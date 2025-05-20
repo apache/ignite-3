@@ -103,7 +103,7 @@ inline bool is_normalized_identifier_start(char32_t codepoint) {
  * @return
  */
 template<typename Iterator>
-Iterator find_separator(std::string_view name, Iterator begin, Iterator end, char quote_char, char separator_char) {
+Iterator find_separator(std::string_view name, Iterator begin, Iterator end, char32_t quote_char, char32_t separator_char) {
     if (begin == end)
         return end;
 
