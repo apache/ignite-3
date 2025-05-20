@@ -102,7 +102,7 @@ public class ItThinClientTransactionsWithReplicasTest extends ItAbstractThinClie
             k++;
             Tuple t = key(k);
 
-            Partition part = table().partitionManager().partitionAsync(t).join();
+            Partition part = table().partitionManager().partitionAsync(t).orTimeout(9, TimeUnit.SECONDS).join();
             ClusterNode node = map.get(part);
 
             if (node.name().equals(clusterNode.name())) {
