@@ -34,7 +34,6 @@ data: {
       "org.apache.calcite.sql.SqlLiteral",
       "org.apache.calcite.schema.ColumnStrategy",
       "org.apache.calcite.sql.ddl.SqlDdlNodes",
-      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlParserUtil",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableAddColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterTableDropColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
@@ -337,6 +336,7 @@ data: {
     # Return type of method implementation should be 'SqlNode'.
     # Example: "SqlShowDatabases()", "SqlShowTables()".
     statementParserMethods: [
+      "SqlIgniteDescribe()",
       "SqlIgniteExplain()",
       "SqlAlterTable()",
       "SqlAlterZone()",

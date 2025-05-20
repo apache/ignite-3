@@ -1004,3 +1004,14 @@ SqlNode SqlIgniteExplain() :
             nDynamicParams);
     }
 }
+
+/**
+ * DESCRIBE is actually not supported, therefore let's throw an exception.
+ */
+SqlNode SqlIgniteDescribe() :
+{ }
+{
+    <DESCRIBE> {
+        throw SqlUtil.newContextException(span().pos(), IgniteResource.INSTANCE.unexpectedStatement(token.image));
+    }
+}
