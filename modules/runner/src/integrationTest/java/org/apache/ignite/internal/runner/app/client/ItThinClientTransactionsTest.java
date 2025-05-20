@@ -474,7 +474,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             k++;
             Tuple t = key(k);
 
-            Partition part = partitionManager.partitionAsync(t).join();
+            Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
             ClusterNode node = map.get(part);
 
             if (node.name().equals(clusterNode.name())) {
