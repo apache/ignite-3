@@ -466,6 +466,10 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
     }
 
     static List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode, Table table) {
+        String clusterNodeName = clusterNode.name();
+        assert map.values().stream().anyMatch(x -> Objects.equals(x.name(), clusterNodeName)) :
+                "No partitions for node: " + clusterNodeName;
+
         List<Tuple> keys = new ArrayList<>();
         PartitionManager partitionManager = table.partitionManager();
 
@@ -477,7 +481,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
             Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
             ClusterNode node = map.get(part);
 
-            if (node.name().equals(clusterNode.name())) {
+            if (node.name().equals(clusterNodeName)) {
                 keys.add(t);
             }
         }
