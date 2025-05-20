@@ -302,9 +302,9 @@ TEST_F(compute_test, execute_colocated_throws_when_table_does_not_exist) {
     EXPECT_THROW(
         {
             try {
-                (void) m_client.get_compute().submit(job_target::colocated("unknownTable", get_tuple(42)), m_echo_job, {});
+                (void) m_client.get_compute().submit(job_target::colocated("UNKNOWN_TABLE", get_tuple(42)), m_echo_job, {});
             } catch (const ignite_error &e) {
-                EXPECT_STREQ("Table does not exist: 'unknownTable'", e.what());
+                EXPECT_STREQ("Table does not exist: 'PUBLIC.UNKNOWN_TABLE'", e.what());
                 throw;
             }
         },

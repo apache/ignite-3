@@ -38,7 +38,7 @@ enum class bitmask_feature {
  * @return Return all supported bitmask features in binary form.
  */
 inline std::vector<std::byte> all_supported_bitmask_features() {
-    std::vector<std::byte> res(1);
+    std::vector<std::byte> res(1, std::byte{0});
 
     bitset_span span(res.data(), res.size());
     span.set(static_cast<std::size_t>(bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME));

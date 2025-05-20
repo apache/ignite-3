@@ -59,8 +59,8 @@ public:
     inline static const std::string ERROR_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$IgniteExceptionJob";
     inline static const std::string ECHO_JOB = IT_THIN_CLIENT_COMPUTE_TEST + "$EchoJob";
 
-    static constexpr const char *KEY_COLUMN = "key";
-    static constexpr const char *VAL_COLUMN = "val";
+    static constexpr const char *KEY_COLUMN = "KEY";
+    static constexpr const char *VAL_COLUMN = "VAL";
 
     /**
      * Get logger.
