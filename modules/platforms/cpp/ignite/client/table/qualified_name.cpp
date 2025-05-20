@@ -60,7 +60,7 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
         simple_or_canonical_name, std::next(separator_pos), utf8_view.end(), QUOTE_CHAR, SEPARATOR_CHAR);
 
     detail::arg_check::is_true(next_separator == utf8_view.end(),
-        "Canonical name should have at most two parts: " + std::string{simple_or_canonical_name});
+        "Canonical name should have at most two parts: '" + std::string{simple_or_canonical_name} + "'");
 
     auto offset = separator_pos.begin() - utf8_view.begin().begin();
     auto [schema_name, object_name] = split_at(simple_or_canonical_name, offset);

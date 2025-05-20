@@ -321,3 +321,34 @@ INSTANTIATE_TEST_SUITE_P(
         std::make_tuple("foo._bar", "FOO", "_BAR")
     )
 );
+
+class parsing_error_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+
+TEST_P(parsing_error_fixture, parsing_error) {
+    auto [name, exception] = GetParam();
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) qualified_name::parse(name);
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::ILLEGAL_ARGUMENT);
+                EXPECT_THAT(e.what_str(), testing::HasSubstr(exception));
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_qualified_name, parsing_error_fixture,
+    ::testing::Values(
+        std::make_tuple("x.", "Object part of the canonical name can not be empty"),
+        std::make_tuple(".x", "Invalid identifier start '46' : .x. Unquoted identifiers must begin with a letter or an underscore."),
+        std::make_tuple("\"x", "Missing closing quote: '\"x"),
+        std::make_tuple("y.\"x", "Missing closing quote: 'y.\"x"),
+        std::make_tuple("\"xx\"yy\"", "Unexpected character '121' after quote: '\"xx\"yy\"'"),
+        std::make_tuple("123", "Invalid identifier start '49' : 123. Unquoted identifiers must begin with a letter or an underscore."),
+        std::make_tuple("x.y.z", "Canonical name should have at most two parts: 'x.y.z'")
+    )
+);
