@@ -27,8 +27,7 @@
 
 using namespace ignite;
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-24261 check lowercased name
-#define TEST_TABLE_NAME "PUBLIC.COLUMN_ORDER_TEST"
+#define TEST_TABLE_NAME "public.column_order_test"
 
 /**
  * Test suite.
