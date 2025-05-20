@@ -45,7 +45,7 @@ public:
 
     /**
      * Gets a table by name.
-     * See Table::get_table_async() for details.
+     * See tables::get_table_async() for details.
      *
      * @param name Table name.
      * @param callback Callback.
@@ -55,7 +55,7 @@ public:
 
     /**
      * Gets a table by name.
-     * See Table::get_table_async() for details.
+     * See tables::get_table_async() for details.
      *
      * @param name Table name.
      * @param callback Callback.
