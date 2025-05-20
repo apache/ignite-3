@@ -22,6 +22,16 @@
 
 #include "uni_algo/ranges_conv.h"
 
+namespace {
+using namespace ignite;
+
+std::pair<std::string_view, std::string_view> split_at(std::string_view input, size_t pos) {
+    return {input.substr(0,pos), input.substr(pos + 1)};
+}
+
+} // anonymous namespace
+
+
 namespace ignite {
 
 qualified_name qualified_name::create(std::string_view schema_name, std::string_view object_name) {
@@ -52,8 +62,8 @@ qualified_name qualified_name::parse(std::string_view simple_or_canonical_name) 
     detail::arg_check::is_true(next_separator == utf8_view.end(),
         "Canonical name should have at most two parts: " + std::string{simple_or_canonical_name});
 
-    auto offset = std::distance(utf8_view.begin(), separator_pos);
-    auto [schema_name, object_name] = split_once(simple_or_canonical_name, SEPARATOR_CHAR);
+    auto offset = separator_pos.begin() - utf8_view.begin().begin();
+    auto [schema_name, object_name] = split_at(simple_or_canonical_name, offset);
     detail::arg_check::container_non_empty(schema_name, "Schema part of the canonical name");
     detail::arg_check::container_non_empty(object_name, "Object part of the canonical name");
 

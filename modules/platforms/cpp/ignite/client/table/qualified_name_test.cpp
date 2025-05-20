@@ -86,7 +86,7 @@ TEST_P(canonical_values_fixture, canonical_name_parse) {
 }
 
 INSTANTIATE_TEST_SUITE_P(
-    client_name_utils, canonical_values_fixture,
+    client_qualified_name, canonical_values_fixture,
     ::testing::Values(
         "FOO.FOO",
         "_FOO._FOO",
@@ -97,42 +97,227 @@ INSTANTIATE_TEST_SUITE_P(
     )
 );
 
-// class quote_if_needed_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
-//
-// TEST_P(quote_if_needed_fixture, quote_if_needed) {
-//     auto [name, expected] = GetParam();
-//
-//     EXPECT_EQ(expected, quote_if_needed(name, qualified_name::QUOTE_CHAR));
-//     EXPECT_EQ(name, parse_identifier(quote_if_needed(
-//         name, qualified_name::QUOTE_CHAR), qualified_name::QUOTE_CHAR, qualified_name::SEPARATOR_CHAR));
-// }
-//
-//
-// INSTANTIATE_TEST_SUITE_P(
-//     client_name_utils, quote_if_needed_fixture,
-//     ::testing::Values(
-//         std::make_tuple("foo", "\"foo\""),
-//         std::make_tuple("fOo", "\"fOo\""),
-//         std::make_tuple("FOO", "FOO"),
-//         std::make_tuple("_FOO", "_FOO"),
-//         std::make_tuple("_", "_"),
-//         std::make_tuple("__", "__"),
-//         std::make_tuple("_\xC2\xB7", "_\xC2\xB7"),
-//         std::make_tuple("A\xCC\x80", "A\xCC\x80"),
-//         std::make_tuple("1o0", "\"1o0\""),
-//         std::make_tuple("@#$", "\"@#$\""),
-//         std::make_tuple("f16", "\"f16\""),
-//         std::make_tuple("F16", "F16"),
-//         std::make_tuple("Ff16", "\"Ff16\""),
-//         std::make_tuple("FF16", "FF16"),
-//         std::make_tuple(" ", "\" \""),
-//         std::make_tuple(" F", "\" F\""),
-//         std::make_tuple(" ,", "\" ,\""),
-//         std::make_tuple("\xF0\x9F\x98\x85", "\"\xF0\x9F\x98\x85\""),
-//         std::make_tuple("\"foo\"", "\"\"\"foo\"\"\""),
-//         std::make_tuple("\"fOo\"", "\"\"\"fOo\"\"\""),
-//         std::make_tuple("\"f.f\"", "\"\"\"f.f\"\"\""),
-//         std::make_tuple("foo\"bar\"", "\"foo\"\"bar\"\"\""),
-//         std::make_tuple("foo\"bar", "\"foo\"\"bar\"")
-//     )
-// );
+class valid_simple_names_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+
+TEST_P(valid_simple_names_fixture, valid_simple_name) {
+    auto [to_parse, expected] = GetParam();
+
+    auto parsed = qualified_name::parse(to_parse).get_object_name();
+    auto created = qualified_name::create({}, to_parse).get_object_name();
+
+    EXPECT_EQ(expected, parsed);
+    EXPECT_EQ(expected, created);
+
+    EXPECT_EQ(parsed, created);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_qualified_name, valid_simple_names_fixture,
+    ::testing::Values(
+        std::make_tuple("foo", "FOO"),
+        std::make_tuple("fOo", "FOO"),
+        std::make_tuple("FOO", "FOO"),
+        std::make_tuple("f23", "F23"),
+        std::make_tuple("\"23f\"", "23f"),
+        std::make_tuple("foo_", "FOO_"),
+        std::make_tuple("foo_1", "FOO_1"),
+        std::make_tuple("_foo", "_FOO"),
+        std::make_tuple("__foo", "__FOO"),
+        std::make_tuple("\"FOO\"", "FOO"),
+        std::make_tuple("\"foo\"", "foo"),
+        std::make_tuple("\"fOo\"", "fOo"),
+        std::make_tuple("\"_foo\"", "_foo"),
+        std::make_tuple("\"$foo\"", "$foo"),
+        std::make_tuple("\"%foo\"", "%foo"),
+        std::make_tuple("\"foo_\"", "foo_"),
+        std::make_tuple("\"foo$\"", "foo$"),
+        std::make_tuple("\"foo%\"", "foo%"),
+        std::make_tuple("\"@#$\"", "@#$"),
+        std::make_tuple("\"f.f\"", "f.f"),
+        std::make_tuple("\"   \"", "   "),
+        std::make_tuple("\"\xF0\x9F\x98\x85\"", "\xF0\x9F\x98\x85"),
+        std::make_tuple("\"f\"\"f\"", "f\"f"),
+        std::make_tuple("\"f\"\"\"\"f\"", "f\"\"f"),
+        std::make_tuple("\"\"\"bar\"\"\"", "\"bar\""),
+        std::make_tuple("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
+    )
+);
+
+class malformed_simple_name_fixture : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(malformed_simple_name_fixture, malformed_simple_name) {
+    auto malformed = GetParam();
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) qualified_name::create({}, malformed);
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::ILLEGAL_ARGUMENT);
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_P(malformed_simple_name_fixture, malformed_schema_name) {
+    auto malformed = GetParam();
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) qualified_name::create(malformed, {});
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::ILLEGAL_ARGUMENT);
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+TEST_P(malformed_simple_name_fixture, malformed_parse) {
+    auto malformed = GetParam();
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) qualified_name::parse(malformed);
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::ILLEGAL_ARGUMENT);
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_qualified_name, malformed_simple_name_fixture,
+    ::testing::Values(
+        "",
+        " ",
+        ".f",
+        "f.",
+        ".",
+        "f f",
+        "1o0",
+        "@#$",
+        "foo$",
+        "foo%",
+        "foo&",
+        "f😅",
+        "😅f",
+        "f\"f",
+        "f\"\"f",
+        "\"foo",
+        "\"fo\"o\""
+    )
+);
+
+class malformed_canonical_name_fixture : public ::testing::TestWithParam<std::string> {};
+
+TEST_P(malformed_canonical_name_fixture, malformed_parse) {
+    auto malformed = GetParam();
+
+    EXPECT_THROW(
+        {
+            try {
+                (void) qualified_name::parse(malformed);
+            } catch (const ignite_error &e) {
+                EXPECT_EQ(e.get_status_code(), error::code::ILLEGAL_ARGUMENT);
+                throw;
+            }
+        },
+        ignite_error);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_qualified_name, malformed_canonical_name_fixture,
+    ::testing::Values(
+        "foo.",
+        ".bar",
+        ".",
+        "foo..bar",
+        "foo.bar.",
+        "foo..",
+        "@#$.bar",
+        "foo.@#$",
+        "@#$",
+        "1oo.bar",
+        "foo.1ar",
+        "1oo"
+    )
+);
+
+class valid_simple_name_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string>> {};
+
+TEST_P(valid_simple_name_fixture, valid_simple_name) {
+    auto [to_parse, expected] = GetParam();
+
+    auto parsed = qualified_name::parse(to_parse).get_object_name();
+    auto created = qualified_name::create({}, to_parse).get_object_name();
+
+    EXPECT_EQ(expected, parsed);
+    EXPECT_EQ(expected, created);
+
+    EXPECT_EQ(parsed, created);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_qualified_name, valid_simple_name_fixture,
+    ::testing::Values(
+        std::make_tuple("foo", "FOO"),
+        std::make_tuple("fOo", "FOO"),
+        std::make_tuple("FOO", "FOO"),
+        std::make_tuple("f23", "F23"),
+        std::make_tuple("\"23f\"", "23f"),
+        std::make_tuple("foo_", "FOO_"),
+        std::make_tuple("foo_1", "FOO_1"),
+        std::make_tuple("_foo", "_FOO"),
+        std::make_tuple("__foo", "__FOO"),
+        std::make_tuple("\"FOO\"", "FOO"),
+        std::make_tuple("\"foo\"", "foo"),
+        std::make_tuple("\"fOo\"", "fOo"),
+        std::make_tuple("\"_foo\"", "_foo"),
+        std::make_tuple("\"$foo\"", "$foo"),
+        std::make_tuple("\"%foo\"", "%foo"),
+        std::make_tuple("\"foo_\"", "foo_"),
+        std::make_tuple("\"foo$\"", "foo$"),
+        std::make_tuple("\"foo%\"", "foo%"),
+        std::make_tuple("\"@#$\"", "@#$"),
+        std::make_tuple("\"f.f\"", "f.f"),
+        std::make_tuple("\"   \"", "   "),
+        std::make_tuple("\"\xF0\x9F\x98\x85\"", "\xF0\x9F\x98\x85"),
+        std::make_tuple("\"f\"\"f\"", "f\"f"),
+        std::make_tuple("\"f\"\"\"\"f\"", "f\"\"f"),
+        std::make_tuple("\"\"\"bar\"\"\"", "\"bar\""),
+        std::make_tuple("\"\"\"\"\"bar\"\"\"", "\"\"bar\"")
+    )
+);
+
+class valid_canonical_name_fixture : public ::testing::TestWithParam<std::tuple<std::string, std::string, std::string>> {};
+
+TEST_P(valid_canonical_name_fixture, valid_canonical_name) {
+    auto [full, schema, object] = GetParam();
+
+    auto parsed = qualified_name::parse(full);
+
+    EXPECT_EQ(schema, parsed.get_schema_name());
+    EXPECT_EQ(object, parsed.get_object_name());
+
+    auto parsed2 = qualified_name::parse(parsed.get_canonical_name());
+
+    EXPECT_EQ(schema, parsed2.get_schema_name());
+    EXPECT_EQ(object, parsed2.get_object_name());
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    client_qualified_name, valid_canonical_name_fixture,
+    ::testing::Values(
+        std::make_tuple("\"foo.bar\".baz", "foo.bar", "BAZ"),
+        std::make_tuple("foo.\"bar.baz\"", "FOO", "bar.baz"),
+        std::make_tuple("\"foo.\"\"bar\"\"\".baz", "foo.\"bar\"", "BAZ"),
+        std::make_tuple("foo.\"bar.\"\"baz\"", "FOO", "bar.\"baz"),
+        std::make_tuple("_foo.bar", "_FOO", "BAR"),
+        std::make_tuple("foo._bar", "FOO", "_BAR")
+    )
+);
