@@ -20,9 +20,11 @@ package org.apache.ignite.migrationtools.config;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.typesafe.config.Config;
+import com.typesafe.config.ConfigValue;
 import java.nio.file.Files;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
@@ -205,7 +207,10 @@ class ConfigurationConverterTest {
         var testDescr = ConfigTestUtils.loadResourceFile(inputPath);
         Config cfg = testDescr.getNodeCfg().getConfig("ignite");
 
-        var profiles = cfg.getObject("storage.profiles").unwrapped().entrySet();
+        Set<Map.Entry<String, Object>> profiles = cfg.getList("storage.profiles").stream().collect(Collectors.toMap(
+                (ConfigValue o) -> ((Map<String, Object>) o.unwrapped()).get("name").toString(),
+                ConfigValue::unwrapped
+        )).entrySet();
         assertThat(profiles).satisfiesExactlyInAnyOrder(reqs.toArray(new Consumer[0]));
     }
 

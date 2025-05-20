@@ -95,7 +95,7 @@ public class InjectedValueConfigurationTest {
     class HoconConverterTest {
         @Test
         void testEmpty() {
-            assertEquals("nestedNamed{}", asHoconStr(List.of("rootInjectedValue")));
+            assertEquals("nestedNamed=[]", asHoconStr(List.of("rootInjectedValue")));
         }
 
         @Test
