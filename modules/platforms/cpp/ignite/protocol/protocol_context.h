@@ -19,13 +19,12 @@
 
 #include "ignite/protocol/protocol_version.h"
 #include "ignite/protocol/bitset_span.h"
+#include "ignite/protocol/bitmask_feature.h"
 
 #include "ignite/common/detail/server_version.h"
 #include "ignite/common/uuid.h"
 
 #include <vector>
-
-#include "bitmask_feature.h"
 
 namespace ignite::protocol {
 

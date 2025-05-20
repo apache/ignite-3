@@ -287,7 +287,7 @@ private:
      *
      * @return Random node connection or nullptr if there are no active connections.
      */
-    std::shared_ptr<node_connection> get_random_channel();
+    std::shared_ptr<node_connection> get_random_connected_channel();
 
     /**
      * Constructor.
@@ -388,6 +388,9 @@ private:
 
     /** Logger. */
     std::shared_ptr<ignite_logger> m_logger;
+
+    /** Pending node connections. */
+    std::unordered_map<uint64_t, std::shared_ptr<node_connection>> m_pending_connections;
 
     /** Node connections. */
     std::unordered_map<uint64_t, std::shared_ptr<node_connection>> m_connections;
