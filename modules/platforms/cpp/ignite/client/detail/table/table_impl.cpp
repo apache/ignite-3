@@ -152,6 +152,9 @@ void table_impl::get_async(
     with_proper_schema_async<std::optional<ignite_tuple>>(std::move(callback),
         [self = shared_from_this(), key = std::make_shared<ignite_tuple>(key), tx0 = to_impl(tx)](
             const schema &sch, auto callback) mutable {
+            // The second parameter in the lambda is unused but required by the interface
+            // for compatibility with the perform_request_raw method. It is reserved for
+            // potential future use or extensions.
             auto writer_func = [self, key, &sch, &tx0](protocol::writer &writer, auto&) {
                 write_table_operation_header(writer, self->m_id, tx0.get(), sch);
                 write_tuple(writer, sch, *key, true);
