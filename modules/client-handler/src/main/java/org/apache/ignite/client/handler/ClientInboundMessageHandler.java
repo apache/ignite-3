@@ -743,7 +743,7 @@ public class ClientInboundMessageHandler
                 return ClientSchemasGetRequest.process(in, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
-                return ClientTableGetRequest.process(in, out, igniteTables);
+                return ClientTableGetRequest.process(in, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
                 return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager, clockService,
