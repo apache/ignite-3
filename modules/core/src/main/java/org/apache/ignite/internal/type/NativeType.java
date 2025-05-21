@@ -18,12 +18,13 @@
 package org.apache.ignite.internal.type;
 
 import org.apache.ignite.internal.tostring.S;
+import org.apache.ignite.sql.ColumnType;
 
 /**
- * A thin wrapper over {@link NativeTypeSpec} to instantiate parameterized constrained types.
+ * A thin wrapper over {@link ColumnType} to instantiate parameterized constrained types.
  */
 public class NativeType implements Comparable<NativeType> {
-    private final NativeTypeSpec typeSpec;
+    private final ColumnType typeSpec;
 
     /** Type size in bytes. */
     private final int size;
@@ -34,7 +35,7 @@ public class NativeType implements Comparable<NativeType> {
      * @param typeSpec Type spec.
      * @param size     Type size in bytes.
      */
-    protected NativeType(NativeTypeSpec typeSpec, int size) {
+    protected NativeType(ColumnType typeSpec, int size) {
         if (!typeSpec.fixedLength()) {
             throw new IllegalArgumentException("Size must be provided only for fixed-length types: " + typeSpec);
         }
@@ -52,7 +53,7 @@ public class NativeType implements Comparable<NativeType> {
      *
      * @param typeSpec Type spec.
      */
-    protected NativeType(NativeTypeSpec typeSpec) {
+    protected NativeType(ColumnType typeSpec) {
         if (typeSpec.fixedLength()) {
             throw new IllegalArgumentException("Fixed-length types must be created by the "
                     + "length-aware constructor: " + typeSpec);
@@ -66,7 +67,7 @@ public class NativeType implements Comparable<NativeType> {
      * Get size in bytes of the type if it is a fixlen type. For varlen types the return value is undefined, so the user
      * should explicitly check {@code spec().fixedLength()} before using this method.
      *
-     * @see NativeTypeSpec#fixedLength()
+     * @see ColumnType#fixedLength()
      */
     public int sizeInBytes() {
         return size;
@@ -75,7 +76,7 @@ public class NativeType implements Comparable<NativeType> {
     /**
      * Get type specification enum.
      */
-    public NativeTypeSpec spec() {
+    public ColumnType spec() {
         return typeSpec;
     }
 
@@ -95,7 +96,7 @@ public class NativeType implements Comparable<NativeType> {
      * @return Human readable name of this type.
      */
     public String displayName() {
-        return typeSpec.asColumnType().name();
+        return typeSpec.name();
     }
 
     /** {@inheritDoc} */

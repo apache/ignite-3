@@ -81,7 +81,6 @@ public final class CatalogToSchemaDescriptorConverter {
 
                 return NativeTypes.stringOf(strLen);
 
-            case "BYTES":
             case "BYTE_ARRAY":
                 int blobLen = columnDescriptor.length();
 

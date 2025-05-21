@@ -50,10 +50,7 @@ final class TestTableColumnDescriptors {
         List<CatalogTableColumnDescriptor> list = new ArrayList<>();
         Random random = state.random();
 
-        for (ColumnType columnType : ColumnType.values()) {
-            if (columnType == ColumnType.NULL || columnType == ColumnType.PERIOD || columnType == ColumnType.DURATION) {
-                continue;
-            }
+        for (ColumnType columnType : ColumnType.nativeTypes()) {
             for (var nullable : new boolean[]{true, false}) {
                 if (columnType.lengthAllowed()) {
                     addColumnsWithLength(columnType, nullable, random, list);

@@ -25,11 +25,9 @@ import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.ints.Int2ObjectOpenHashMap;
 import it.unimi.dsi.fastutil.longs.LongList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexBuilder;
 import org.apache.calcite.rex.RexNode;
@@ -76,13 +74,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     }
 
     private static List<ColumnType> columnTypes() {
-        return Arrays.stream(ColumnType.values())
-                .filter(t -> t != ColumnType.NULL
-                        // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Include interval types after this issue is resolved
-                        && t != ColumnType.DURATION
-                        && t != ColumnType.PERIOD
-                )
-                .collect(Collectors.toList());
+        return List.of(ColumnType.nativeTypes());
     }
 
     @ParameterizedTest

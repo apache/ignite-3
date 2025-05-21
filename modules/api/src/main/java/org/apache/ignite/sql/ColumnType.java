@@ -27,6 +27,7 @@ import java.time.Period;
 import java.util.Arrays;
 import java.util.UUID;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Predefined column types.
@@ -100,7 +101,11 @@ public enum ColumnType {
 
     private final int id;
 
+    /** Cached array with all enum values. */
     private static final ColumnType[] VALS;
+
+    /** Flag indicating whether this type specifies a fixed-length type. */
+    private final boolean fixedSize;
 
     static {
         int maxId = Arrays.stream(values()).mapToInt(ColumnType::id).max().orElse(0);
@@ -123,6 +128,15 @@ public enum ColumnType {
         this.scaleAllowed = scaleDefined;
         this.lengthAllowed = lengthDefined;
         this.id = id;
+
+        fixedSize = !((precisionAllowed && scaleAllowed) || lengthAllowed);
+    }
+
+    /**
+     * Get fixed length flag: {@code true} for fixed-length types, {@code false} otherwise.
+     */
+    public boolean fixedLength() {
+        return fixedSize;
     }
 
     /** Appropriate java match type. */
@@ -150,8 +164,14 @@ public enum ColumnType {
         return id;
     }
 
-    /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
-    public static @Nullable ColumnType getById(int id) {
+    /** Returns the {@link ColumnType} instance by its id, or {@code null} if the id is invalid. */
+    public static @Nullable ColumnType fromId(int id) {
         return id >= 0 && id < VALS.length ? VALS[id] : null;
+    }
+
+    // TODO https://issues.apache.org/jira/browse/IGNITE-17373 Remove filter after this issue is resolved
+    @TestOnly
+    public static ColumnType[] nativeTypes() {
+        return Arrays.stream(values()).filter(v -> v != NULL && v != DURATION && v != PERIOD).toArray(ColumnType[]::new);
     }
 }

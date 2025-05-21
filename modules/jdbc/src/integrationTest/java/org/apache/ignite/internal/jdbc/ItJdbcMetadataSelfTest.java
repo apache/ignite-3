@@ -36,7 +36,6 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.EnumSet;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -265,10 +264,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try {
             StringJoiner joiner = new StringJoiner(",");
 
-            // Add columns with All supported types.
-            EnumSet<ColumnType> excludeTypes = EnumSet
-                    .of(ColumnType.DURATION, ColumnType.PERIOD, ColumnType.NULL);
-            Arrays.stream(ColumnType.values()).filter(t -> !excludeTypes.contains(t))
+            Arrays.stream(ColumnType.nativeTypes())
                     .forEach(t -> {
                         String type = SqlTestUtils.toSqlType(t);
                         joiner.add(type.replace(' ', '_') + "_COL " + type);

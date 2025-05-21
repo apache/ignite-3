@@ -234,7 +234,7 @@ public class JdbcMetadataCatalog {
                 SqlCommon.DEFAULT_SCHEMA_NAME,
                 tblName,
                 col.name(),
-                colType.spec().asColumnType(), 
+                colType.spec(),
                 Commons.nativeTypePrecision(colType),
                 Commons.nativeTypeScale(colType),
                 col.nullable()

@@ -328,7 +328,7 @@ public final class TupleWithSchemaMarshalling {
             return;
         }
 
-        ColumnType colType = ColumnType.getById(colTypeId);
+        ColumnType colType = ColumnType.fromId(colTypeId);
         switch (colType) {
             case NULL:
                 tuple.set(colName, null);

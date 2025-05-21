@@ -33,8 +33,8 @@ import org.apache.ignite.internal.schema.BinaryTuple;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Helper class for index inlining.
@@ -68,7 +68,7 @@ public class InlineUtils {
      * @return Inline size in bytes.
      */
     static int inlineSize(NativeType nativeType) {
-        NativeTypeSpec spec = nativeType.spec();
+        ColumnType spec = nativeType.spec();
 
         if (spec.fixedLength()) {
             return nativeType.sizeInBytes();
@@ -78,7 +78,7 @@ public class InlineUtils {
 
         switch (spec) {
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 return Math.min(MAX_VARLEN_INLINE_SIZE, ((VarlenNativeType) nativeType).length());
 
             case DECIMAL:

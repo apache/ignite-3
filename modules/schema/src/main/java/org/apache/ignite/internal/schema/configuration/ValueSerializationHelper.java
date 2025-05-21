@@ -62,7 +62,7 @@ public final class ValueSerializationHelper {
             case STRING:
             case UUID:
                 return defaultValue.toString();
-            case BYTES:
+            case BYTE_ARRAY:
                 return StringUtils.toHexString((byte[]) defaultValue);
             default:
                 throw new IllegalStateException("Unknown type [type=" + type + ']');
@@ -112,7 +112,7 @@ public final class ValueSerializationHelper {
                 return defaultValue;
             case UUID:
                 return UUID.fromString(defaultValue);
-            case BYTES:
+            case BYTE_ARRAY:
                 return StringUtils.fromHexString(defaultValue);
             default:
                 throw new IllegalStateException("Unknown type [type=" + type + ']');

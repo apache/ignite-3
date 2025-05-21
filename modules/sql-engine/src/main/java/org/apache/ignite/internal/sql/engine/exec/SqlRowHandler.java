@@ -301,7 +301,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     builder.appendUuidNotNull((UUID) value);
                     break;
 
-                case BYTES:
+                case BYTE_ARRAY:
                     builder.appendBytesNotNull((byte[]) value);
                     break;
 
