@@ -96,7 +96,10 @@ public class Ignite2ClusterContainer implements Startable {
     ) {
         Consumer<OutputFrame> logConsumer = new CheckpointerLogConsumer();
         String heapSize = System.getProperty("ai2.sampleCluster.Xmx", "10g");
-        return new GenericContainer<>("apacheignite/ignite:2.15.0-jdk11")
+        String ignite2DockerImage = System.getProperty("ignite2.docker.image");
+        assert ignite2DockerImage != null : "ignite2.docker.image must be defined";
+
+        return new GenericContainer<>(ignite2DockerImage)
                 .withLabel("ai2.sample-cluster.node", hostName)
                 .withNetwork(network)
                 .withNetworkAliases(hostName)

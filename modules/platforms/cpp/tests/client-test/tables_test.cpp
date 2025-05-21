@@ -45,7 +45,7 @@ TEST_F(tables_test, tables_get_table) {
 
     auto table = tables.get_table("tbl1");
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->get_name(), "TBL1");
+    EXPECT_EQ(table->get_name(), "PUBLIC.TBL1");
 }
 
 TEST_F(tables_test, tables_get_table_async_promises) {
@@ -70,7 +70,7 @@ TEST_F(tables_test, tables_get_table_async_promises) {
 
     auto table = tablePromise->get_future().get();
     ASSERT_TRUE(table.has_value());
-    EXPECT_EQ(table->get_name(), "TBL1");
+    EXPECT_EQ(table->get_name(), "PUBLIC.TBL1");
 }
 
 TEST_F(tables_test, tables_get_table_async_callbacks) {
@@ -113,7 +113,7 @@ TEST_F(tables_test, tables_get_table_async_callbacks) {
                 operation2->set_exception(std::make_exception_ptr(ignite_error("Table should not be null")));
                 return;
             }
-            if (table->get_name() != "TBL1") {
+            if (table->get_name() != "PUBLIC.TBL1") {
                 operation2->set_exception(
                     std::make_exception_ptr(ignite_error("Table has unexpected name: " + table->get_name())));
                 return;
@@ -140,7 +140,7 @@ TEST_F(tables_test, tables_get_tables) {
     auto tables = tablesApi.get_tables();
     ASSERT_GT(tables.size(), 0);
 
-    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.get_name() == "TBL1"; });
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.get_name() == "PUBLIC.TBL1"; });
 
     ASSERT_NE(it, tables.end());
 }
@@ -159,7 +159,7 @@ TEST_F(tables_test, tables_get_tables_async_promises) {
     auto tables = tablesPromise->get_future().get();
     ASSERT_GT(tables.size(), 0);
 
-    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.get_name() == "TBL1"; });
+    auto it = std::find_if(tables.begin(), tables.end(), [](auto &table) { return table.get_name() == "PUBLIC.TBL1"; });
 
     ASSERT_NE(it, tables.end());
 }

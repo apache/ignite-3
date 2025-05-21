@@ -21,7 +21,7 @@
 #include "ignite/odbc/odbc_error.h"
 #include "ignite/odbc/query/table_metadata_query.h"
 #include "ignite/odbc/sql_connection.h"
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 #include "ignite/odbc/type_traits.h"
 
 namespace {

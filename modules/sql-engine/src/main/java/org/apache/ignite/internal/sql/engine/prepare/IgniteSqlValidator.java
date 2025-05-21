@@ -62,7 +62,6 @@ import org.apache.calcite.sql.SqlCallBinding;
 import org.apache.calcite.sql.SqlDataTypeSpec;
 import org.apache.calcite.sql.SqlDelete;
 import org.apache.calcite.sql.SqlDynamicParam;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlFunction;
 import org.apache.calcite.sql.SqlIdentifier;
 import org.apache.calcite.sql.SqlInsert;
@@ -104,6 +103,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.IgniteSqlFunctions;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomType;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
@@ -184,8 +184,8 @@ public class IgniteSqlValidator extends SqlValidatorImpl {
         // Calcite fails to validate a query when its top node is EXPLAIN PLAN FOR
         // java.lang.NullPointerException: namespace for <query>
         // at org.apache.calcite.sql.validate.SqlValidatorImpl.getNamespaceOrThrow(SqlValidatorImpl.java:1280)
-        if (topNode instanceof SqlExplain) {
-            SqlExplain explainNode = (SqlExplain) topNode;
+        if (topNode instanceof IgniteSqlExplain) {
+            IgniteSqlExplain explainNode = (IgniteSqlExplain) topNode;
             SqlNode topNodeToValidate = explainNode.getExplicandum();
 
             SqlNode validatedNode = super.validate(topNodeToValidate);

@@ -15,25 +15,9 @@
  * limitations under the License.
  */
 
-#include "ignite/client/table/table.h"
-#include "ignite/client/detail/table/table_impl.h"
+integrationTest {
+    systemProperty "ignite2.docker.image", project.property("ignite2.docker.image")
 
-namespace ignite {
-
-const std::string &table::get_name() const noexcept {
-    return m_impl->get_name();
+    dependsOn ":migration-tools-e2e-ai2-runner:docker"
+    dependsOn ":packaging:docker"
 }
-
-const qualified_name &table::get_qualified_name() const noexcept {
-    return m_impl->get_qualified_name();
-}
-
-record_view<ignite_tuple> table::get_record_binary_view() const noexcept {
-    return record_view<ignite_tuple>{m_impl};
-}
-
-key_value_view<ignite_tuple, ignite_tuple> table::get_key_value_binary_view() const noexcept {
-    return key_value_view<ignite_tuple, ignite_tuple>{m_impl};
-}
-
-} // namespace ignite
