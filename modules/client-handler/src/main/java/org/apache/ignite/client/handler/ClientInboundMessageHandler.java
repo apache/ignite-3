@@ -821,7 +821,7 @@ public class ClientInboundMessageHandler
                 return ClientJdbcCancelRequest.execute(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
-                return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcExecuteBatchRequest.process(in, jdbcQueryEventHandler, tsTracker);
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
                 return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
