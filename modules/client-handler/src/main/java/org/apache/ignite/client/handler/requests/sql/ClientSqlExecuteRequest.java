@@ -30,6 +30,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -69,7 +70,7 @@ public class ClientSqlExecuteRequest {
      * @param metrics Metrics.
      * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             Executor operationExecutor,
             ClientMessageUnpacker in,
             ClientMessagePacker out,
@@ -107,16 +108,13 @@ public class ClientSqlExecuteRequest {
                     props.toSqlProps(),
                     () -> cancelHandles.remove(requestId),
                     arguments
-            ).thenCompose(asyncResultSet -> {
-                out.meta(tsUpdater.get());
-
-                return writeResultSetAsync(out, resources, asyncResultSet, metrics);
-            });
+            ).thenCompose(asyncResultSet ->
+                    writeResultSetAsync(tsUpdater.get(), resources, asyncResultSet, metrics));
         }, operationExecutor);
     }
 
-    private static CompletionStage<Void> writeResultSetAsync(
-            ClientMessagePacker out,
+    private static CompletableFuture<ResponseWriter> writeResultSetAsync(
+            @Nullable HybridTimestamp ts,
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
             ClientHandlerMetricSource metrics) {
