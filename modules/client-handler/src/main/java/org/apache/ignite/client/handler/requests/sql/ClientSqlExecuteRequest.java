@@ -25,7 +25,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.CompletionStage;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
@@ -108,19 +107,17 @@ public class ClientSqlExecuteRequest {
                     props.toSqlProps(),
                     () -> cancelHandles.remove(requestId),
                     arguments
-            ).thenCompose(asyncResultSet ->
-                    writeResultSetAsync(tsUpdater.get(), resources, asyncResultSet, metrics));
+            )
+                    .thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics))
+                    .thenApply(w -> w.withObservableTimestamp(tsUpdater.get()));
         }, operationExecutor);
     }
 
     private static CompletableFuture<ResponseWriter> writeResultSetAsync(
-            @Nullable HybridTimestamp ts,
             ClientResourceRegistry resources,
             AsyncResultSet asyncResultSet,
             ClientHandlerMetricSource metrics) {
-        boolean hasResource = asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages();
-
-        if (hasResource) {
+        if (asyncResultSet.hasRowSet() && asyncResultSet.hasMorePages()) {
             try {
                 metrics.cursorsActiveIncrement();
 
@@ -130,7 +127,9 @@ public class ClientSqlExecuteRequest {
                         clientResultSet,
                         clientResultSet::closeAsync);
 
-                out.packLong(resources.put(resource));
+                var resourceId = resources.put(resource);
+
+                return CompletableFuture.completedFuture(out -> writeResultSet(out, asyncResultSet, resourceId));
             } catch (IgniteInternalCheckedException e) {
                 return asyncResultSet
                         .closeAsync()
@@ -138,26 +137,24 @@ public class ClientSqlExecuteRequest {
                             throw new IgniteInternalException(e.getMessage(), e);
                         });
             }
-        } else {
-            out.packNil(); // resourceId
         }
 
-        out.packBoolean(asyncResultSet.hasRowSet());
-        out.packBoolean(asyncResultSet.hasMorePages());
-        out.packBoolean(asyncResultSet.wasApplied());
-        out.packLong(asyncResultSet.affectedRows());
+        return asyncResultSet.closeAsync()
+                .thenApply(v -> (ResponseWriter) out -> writeResultSet(out, asyncResultSet, null));
+    }
 
-        packMeta(out, asyncResultSet.metadata());
+    private static void writeResultSet(ClientMessagePacker out, AsyncResultSet res, @Nullable Long resourceId) {
+        out.packLongNullable(resourceId);
 
-        // Pack first page.
-        if (asyncResultSet.hasRowSet()) {
-            packCurrentPage(out, asyncResultSet);
+        out.packBoolean(res.hasRowSet());
+        out.packBoolean(res.hasMorePages());
+        out.packBoolean(res.wasApplied());
+        out.packLong(res.affectedRows());
 
-            return hasResource
-                    ? nullCompletedFuture()
-                    : asyncResultSet.closeAsync();
-        } else {
-            return asyncResultSet.closeAsync();
+        packMeta(out, res.metadata());
+
+        if (res.hasRowSet()) {
+            packCurrentPage(out, res);
         }
     }
 
