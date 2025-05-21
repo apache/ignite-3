@@ -125,6 +125,9 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
             if (zone.replicas() > 0) {
                 createZone.replicas(zone.replicas());
             }
+            if (zone.quorumSize() > 0) {
+                createZone.quorumSize(zone.quorumSize());
+            }
 
             if (!zone.distributionAlgorithm().isEmpty()) {
                 createZone.distributionAlgorithm(zone.distributionAlgorithm());
