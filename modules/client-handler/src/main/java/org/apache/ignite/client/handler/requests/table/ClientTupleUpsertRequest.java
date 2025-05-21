@@ -22,9 +22,11 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
+import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -47,7 +49,7 @@ public class ClientTupleUpsertRequest {
      * @param notificationSender Notification sender.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
@@ -56,12 +58,18 @@ public class ClientTupleUpsertRequest {
             NotificationSender notificationSender
     ) {
         int tableId = in.unpackInt();
+        int schemaId = in.unpackInt();
+
+        // TODO: Pass resulting ts back somehow.
         var readTs = new HybridTimestampHolder();
+        var tx = readOrStartImplicitTx(in, readTs, resources, txManager, false, notificationSender);
+
+        BitSet noValueSet = in.unpackBitSet();
+        byte[] tupleBytes = in.readBinary();
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, readTs, resources, txManager, false, notificationSender);
-            return readTuple(in, table, false).thenCompose(tuple -> {
-                return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> {
+            return readTuple(schemaId, noValueSet, tupleBytes, table, false).thenCompose(tuple -> {
+                return table.recordView().upsertAsync(tx, tuple).thenApply(v -> out -> {
                     writeTxMeta(out, readTs, clockService, tx);
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                 });

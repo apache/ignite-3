@@ -24,6 +24,7 @@ import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -275,28 +276,14 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Reads a tuple.
-     *
-     * @param unpacker Unpacker.
-     * @param table Table.
-     * @param keyOnly Whether only key fields are expected.
-     * @return Future that will be completed with a tuple.
-     */
-    public static CompletableFuture<Tuple> readTuple(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
-        return readSchema(unpacker, table).thenApply(schema -> readTuple(unpacker, keyOnly, schema));
+    public static CompletableFuture<Tuple> readTuple(
+            int schemaId, BitSet noValueSet, byte[] tupleBytes, TableViewInternal table, boolean keyOnly) {
+        return readSchema(schemaId, table).thenApply(schema -> readTuple(noValueSet, tupleBytes, keyOnly, schema));
     }
 
-    /**
-     * Reads a tuple.
-     *
-     * @param unpacker Unpacker.
-     * @param keyOnly Whether only key fields are expected.
-     * @param schema Tuple schema.
-     * @return Tuple.
-     */
     public static Tuple readTuple(
-            ClientMessageUnpacker unpacker,
+            BitSet noValueSet,
+            byte[] tupleBytes,
             boolean keyOnly,
             SchemaDescriptor schema
     ) {
@@ -306,8 +293,7 @@ public class ClientTableCommon {
         // It helps disambiguate two cases: 1 - column value is not set, 2 - column value is set to null explicitly.
         // If the column has a default value, it should be applied only in case 1.
         // https://cwiki.apache.org/confluence/display/IGNITE/IEP-76+Thin+Client+Protocol+for+Ignite+3.0#IEP76ThinClientProtocolforIgnite3.0-NullvsNoValue
-        var noValueSet = unpacker.unpackBitSet();
-        var binaryTupleReader = new BinaryTupleReader(cnt, unpacker.readBinary());
+        var binaryTupleReader = new BinaryTupleReader(cnt, tupleBytes);
 
         return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
@@ -340,9 +326,7 @@ public class ClientTableCommon {
      * @param table Table.
      * @return Schema descriptor future.
      */
-    public static CompletableFuture<SchemaDescriptor> readSchema(ClientMessageUnpacker unpacker, TableViewInternal table) {
-        var schemaId = unpacker.unpackInt();
-
+    public static CompletableFuture<SchemaDescriptor> readSchema(int schemaId, TableViewInternal table) {
         // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
         return table.schemaView().schemaAsync(schemaId);
     }
