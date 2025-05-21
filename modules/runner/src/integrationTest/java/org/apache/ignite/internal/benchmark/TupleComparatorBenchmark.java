@@ -174,7 +174,7 @@ public class TupleComparatorBenchmark {
 
     /**
      * Benchmarks the performance of a partial comparison between two binary tuples.
-     * This method invokes the comparison operation of {@code partialBinaryTupleMatcher} on a truncated binary tuple
+     * This method invokes the comparison operation of {@code bytePartialBinaryTupleMatcher} on a truncated binary tuple
      * and a tuple reference. The result of the comparison is then consumed using a {@code Blackhole} to ensure
      * the benchmarking process is not optimized away by the compiler.
      *
@@ -182,14 +182,14 @@ public class TupleComparatorBenchmark {
      */
     @Benchmark
     public void testBytesPartialCompare(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(byteTruncatedTuple, byteTupleReference);
+        int r = bytePartialBinaryTupleMatcher.match(byteTruncatedTuple, byteTupleReference);
 
         bh.consume(r);
     }
 
     /**
      * Benchmarks the performance of directly performing a partial comparison between a truncated binary tuple
-     * in direct byte buffer format and a tuple reference. This method uses the {@code partialBinaryTupleMatcher}
+     * in direct byte buffer format and a tuple reference. This method uses the {@code bytePartialBinaryTupleMatcher}
      * to execute the comparison and consumes the result using a {@code Blackhole} to ensure the entire process
      * is benchmarked and no optimizations are applied by the compiler.
      *
@@ -198,7 +198,7 @@ public class TupleComparatorBenchmark {
      */
     @Benchmark
     public void testBytesPartialCompareDirect(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(byteTruncatedTupleDirect, byteTupleReference);
+        int r = bytePartialBinaryTupleMatcher.match(byteTruncatedTupleDirect, byteTupleReference);
 
         bh.consume(r);
     }
