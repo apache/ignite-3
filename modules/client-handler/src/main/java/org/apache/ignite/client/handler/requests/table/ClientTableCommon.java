@@ -389,21 +389,26 @@ public class ClientTableCommon {
      * @param clockService Clock service.
      * @param tx The transaction.
      */
-    public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
-        if (tx.remote()) {
-            TxState state = tx.state();
+    public static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampHolder readTs, @Nullable ClockService clockService, InternalTransaction tx) {
+        if (!tx.remote()) {
+            return;
+        }
 
-            if (state == TxState.ABORTED) {
-                // No-op enlistment.
-                out.packNil();
-            } else {
-                // Remote tx carries operation enlistment info.
-                PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
-                out.packString(token.primaryNodeConsistentId());
-                out.packLong(token.consistencyToken());
-            }
+        TxState state = tx.state();
 
-            out.meta(clockService.current());
+        if (state == TxState.ABORTED) {
+            // No-op enlistment.
+            out.packNil();
+        } else {
+            // Remote tx carries operation enlistment info.
+            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            out.packString(token.primaryNodeConsistentId());
+            out.packLong(token.consistencyToken());
+        }
+
+        if (clockService != null) {
+            readTs.accept(clockService.current());
         }
     }
 
@@ -421,7 +426,7 @@ public class ClientTableCommon {
      * Reads transaction.
      *
      * @param in Unpacker.
-     * @param out Packer.
+     * @param readTs Packer.
      * @param resources Resource registry.
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
@@ -429,7 +434,7 @@ public class ClientTableCommon {
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
+            HybridTimestampHolder readTs,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender
@@ -468,7 +473,7 @@ public class ClientTableCommon {
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                out.meta(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
+                readTs.accept(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
             }
 
             return tx;
@@ -481,7 +486,7 @@ public class ClientTableCommon {
      * Reads transaction or start implicit one.
      *
      * @param in Unpacker.
-     * @param out Packer.
+     * @param readTs Read timestamp holder.
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
      * @param readOnly Read only flag.
@@ -490,17 +495,17 @@ public class ClientTableCommon {
      */
     public static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
+            HybridTimestampHolder readTs,
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly,
             @Nullable NotificationSender notificationSender) {
-        InternalTransaction tx = readTx(in, out, resources, txManager, notificationSender);
+        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.
             // The direct transaction uses a current timestamp on the primary replica by definition.
-            tx = startImplicitTx(out, txManager, null, readOnly);
+            tx = startImplicitTx(readTs, txManager, null, readOnly);
         }
 
         return tx;
@@ -533,20 +538,20 @@ public class ClientTableCommon {
     /**
      * Starts an implicit transaction.
      *
-     * @param out Packer.
+     * @param readTs Packer.
      * @param txManager Ignite transactions.
      * @param currentTs Current observation timestamp or {@code null} if it is not defined.
      * @param readOnly Read only flag.
      * @return Transaction.
      */
     public static InternalTransaction startImplicitTx(
-            ClientMessagePacker out,
+            HybridTimestampHolder readTs,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,
             boolean readOnly
     ) {
         return txManager.beginImplicit(
-                HybridTimestampTracker.clientTracker(currentTs, out::meta),
+                HybridTimestampTracker.clientTracker(currentTs, readTs),
                 readOnly
         );
     }

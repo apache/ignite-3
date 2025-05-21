@@ -49,18 +49,20 @@ public class ClientTupleUpsertRequest {
      */
     public static CompletableFuture<Void> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
             ClockService clockService,
             NotificationSender notificationSender
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, false, notificationSender);
+        int tableId = in.unpackInt();
+        var readTs = new HybridTimestampHolder();
+
+        return readTableAsync(tableId, tables).thenCompose(table -> {
+            var tx = readOrStartImplicitTx(in, readTs, resources, txManager, false, notificationSender);
             return readTuple(in, table, false).thenCompose(tuple -> {
                 return table.recordView().upsertAsync(tx, tuple).thenAccept(v -> {
-                    writeTxMeta(out, clockService, tx);
+                    writeTxMeta(out, readTs, clockService, tx);
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                 });
             });

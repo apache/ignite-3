@@ -746,7 +746,7 @@ public class ClientInboundMessageHandler
                 return ClientTableGetRequest.process(in, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, out, igniteTables, resources, txManager, clockService,
+                return ClientTupleUpsertRequest.process(in, igniteTables, resources, txManager, clockService,
                         notificationSender(requestId));
 
             case ClientOp.TUPLE_GET:
