@@ -131,7 +131,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         return explainTerms0(pw
-                .item("table", table.getQualifiedName())
+                .itemIf("table", table.getQualifiedName(), !forExplain(pw))
+                .itemIf("table", table, forExplain(pw))
                 .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()), !forExplain(pw)));
     }
 

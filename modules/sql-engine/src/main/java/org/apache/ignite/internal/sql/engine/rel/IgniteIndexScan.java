@@ -32,6 +32,7 @@ import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -147,7 +148,7 @@ public class IgniteIndexScan extends AbstractIndexScan implements SourceAwareIgn
     protected RelWriter explainTerms0(RelWriter pw) {
         return super.explainTerms0(pw)
                 .itemIf("sourceId", sourceId, sourceId != -1)
-                .item("collation", collation());
+                .itemIf("collation", collation(), type == Type.SORTED);
     }
 
     /** {@inheritDoc} */

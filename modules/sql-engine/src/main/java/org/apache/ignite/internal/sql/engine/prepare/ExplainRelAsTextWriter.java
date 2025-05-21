@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.linq4j.Ord;
+import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rel.RelCollation;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
@@ -47,6 +48,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 
 /** Printer that dumps relation tree to a text representation for EXPLAIN command output. */
@@ -88,7 +90,7 @@ public class ExplainRelAsTextWriter extends RelWriterImpl {
         s.append(System.lineSeparator());
         spacer.spaces(s);
 
-        s.append("est. row count: ").append(BigDecimal.valueOf(mq.getRowCount(rel)).setScale(0, RoundingMode.HALF_UP));
+        s.append("est: (rows=").append(BigDecimal.valueOf(mq.getRowCount(rel)).setScale(0, RoundingMode.HALF_UP)).append(')');
 
         spacer.subtract(OPERATOR_ATTRIBUTES_INDENT);
 
@@ -102,6 +104,14 @@ public class ExplainRelAsTextWriter extends RelWriterImpl {
     private static @Nullable Object beautify(RelNode node, @Nullable Object object) {
         if (object == null) {
             return null;
+        }
+
+        if (object instanceof RelOptTable) {
+            List<String> parts = ((RelOptTable) object).getQualifiedName();
+
+            assert parts.size() == 2 : parts;
+
+            return QualifiedNameHelper.fromNormalized(parts.get(0), parts.get(1)).toCanonicalForm();
         }
 
         RelDataType rowTypeToResolveExpressions;
