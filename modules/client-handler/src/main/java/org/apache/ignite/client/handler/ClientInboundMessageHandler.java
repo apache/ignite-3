@@ -128,6 +128,7 @@ import org.apache.ignite.internal.compute.executor.platform.PlatformComputeConne
 import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.jdbc.proto.JdbcQueryCursorHandler;
 import org.apache.ignite.internal.lang.IgniteExceptionMapperUtil;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -730,7 +731,8 @@ public class ClientInboundMessageHandler
     private CompletableFuture<ResponseWriter> processOperation(
             ClientMessageUnpacker in,
             int opCode,
-            long requestId
+            long requestId,
+            HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
@@ -746,8 +748,8 @@ public class ClientInboundMessageHandler
                 return ClientTableGetRequest.process(in, igniteTables);
 
             case ClientOp.TUPLE_UPSERT:
-                return ClientTupleUpsertRequest.process(in, igniteTables, resources, txManager, clockService,
-                        notificationSender(requestId));
+                return ClientTupleUpsertRequest.process(
+                        in, igniteTables, resources, txManager, clockService, notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET:
                 return ClientTupleGetRequest.process(in, out, igniteTables, resources, txManager, clockService);
@@ -902,8 +904,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
-                        partitionOperationsExecutor, in, out, requestId, cancelHandles, queryProcessor, resources, metrics
-                );
+                        partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker);
 
             case ClientOp.SQL_CANCEL_EXEC:
                 return ClientSqlCancelRequest.process(in, out, cancelHandles);

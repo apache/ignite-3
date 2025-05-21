@@ -62,7 +62,6 @@ public class ClientSqlExecuteRequest {
      *
      * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
-     * @param out Packer.
      * @param requestId Id of the request.
      * @param cancelHandles Registry of handlers. Request must register itself in this registry before switching to another thread.
      * @param sql SQL API.
@@ -73,7 +72,6 @@ public class ClientSqlExecuteRequest {
     public static CompletableFuture<ResponseWriter> process(
             Executor operationExecutor,
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             long requestId,
             Map<Long, CancelHandle> cancelHandles,
             QueryProcessor sql,
