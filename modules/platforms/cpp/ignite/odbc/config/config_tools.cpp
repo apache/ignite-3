@@ -18,7 +18,7 @@
 #include "ignite/odbc/config/config_tools.h"
 #include "ignite/odbc/config/configuration.h"
 #include "ignite/odbc/odbc_error.h"
-#include "ignite/odbc/string_utils.h"
+#include "ignite/common/detail/string_utils.h"
 
 #include <algorithm>
 #include <sstream>

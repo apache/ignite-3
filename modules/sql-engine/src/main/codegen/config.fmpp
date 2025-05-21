@@ -40,6 +40,7 @@ data: {
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlAlterColumn",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateTable",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateIndex",
+      "org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyConstraint",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType",
       "org.apache.ignite.internal.sql.engine.sql.IgniteSqlCreateZone",

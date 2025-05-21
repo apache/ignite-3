@@ -115,7 +115,7 @@ private:
      * @param callback Callback to be called upon asynchronous operation completion.
      */
     void finish(bool commit, ignite_callback<void> callback) {
-        auto writer_func = [id = m_id](protocol::writer &writer) { writer.write(id); };
+        auto writer_func = [id = m_id](protocol::writer &writer, auto) { writer.write(id); };
 
         m_connection->perform_request_wr<void>(
             commit ? protocol::client_operation::TX_COMMIT : protocol::client_operation::TX_ROLLBACK, writer_func,

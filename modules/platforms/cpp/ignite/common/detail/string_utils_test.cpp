@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include "ignite/odbc/common_types.h"
 #include "string_utils.h"
 
 #include <gtest/gtest.h>

@@ -2024,7 +2024,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     schemaManager.dropRegistry(tableId);
                 }))
                 .whenComplete((v, e) -> {
-                    if (e != null) {
+                    if (e != null && !hasCause(e, NodeStoppingException.class)) {
                         LOG.error("Unable to destroy table [name={}, tableId={}]", e, table.name(), tableId);
                     }
                 });

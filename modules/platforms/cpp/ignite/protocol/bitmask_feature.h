@@ -15,25 +15,35 @@
  * limitations under the License.
  */
 
-#include "ignite/client/table/table.h"
-#include "ignite/client/detail/table/table_impl.h"
+#pragma once
 
-namespace ignite {
+#include "ignite/protocol/bitset_span.h"
 
-const std::string &table::get_name() const noexcept {
-    return m_impl->get_name();
+#include <vector>
+#include <cstddef>
+
+namespace ignite::protocol {
+
+/**
+ * Protocol bitmask features.
+ */
+enum class bitmask_feature {
+    /** Qualified name table requests. */
+    TABLE_REQS_USE_QUALIFIED_NAME = 2,
+};
+
+/**
+ * Get all supported bitmask features in binary form.
+ *
+ * @return Return all supported bitmask features in binary form.
+ */
+inline std::vector<std::byte> all_supported_bitmask_features() {
+    std::vector<std::byte> res(1, std::byte{0});
+
+    bitset_span span(res.data(), res.size());
+    span.set(static_cast<std::size_t>(bitmask_feature::TABLE_REQS_USE_QUALIFIED_NAME));
+
+    return res;
 }
 
-const qualified_name &table::get_qualified_name() const noexcept {
-    return m_impl->get_qualified_name();
-}
-
-record_view<ignite_tuple> table::get_record_binary_view() const noexcept {
-    return record_view<ignite_tuple>{m_impl};
-}
-
-key_value_view<ignite_tuple, ignite_tuple> table::get_key_value_binary_view() const noexcept {
-    return key_value_view<ignite_tuple, ignite_tuple>{m_impl};
-}
-
-} // namespace ignite
+} // namespace ignite::protocol

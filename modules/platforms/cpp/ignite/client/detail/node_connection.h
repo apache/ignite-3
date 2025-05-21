@@ -29,7 +29,6 @@
 #include <ignite/protocol/writer.h>
 
 #include <atomic>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
@@ -47,6 +46,8 @@ class node_connection : public std::enable_shared_from_this<node_connection> {
     friend class cluster_connection;
 
 public:
+    typedef std::function<void(protocol::writer&, const protocol::protocol_context&)> writer_function_type;
+
     // Deleted
     node_connection() = delete;
     node_connection(node_connection &&) = delete;
@@ -99,7 +100,7 @@ public:
      * @param handler response handler.
      * @return A request ID on success and @c std::nullopt otherwise.
      */
-    std::optional<std::int64_t> perform_request(protocol::client_operation op, const std::function<void(protocol::writer &)> &wr,
+    std::optional<std::int64_t> perform_request(protocol::client_operation op, const writer_function_type &wr,
         std::shared_ptr<response_handler> handler) {
         auto req_id = generate_request_id();
         std::vector<std::byte> message;
@@ -110,7 +111,7 @@ public:
             protocol::writer writer(buffer);
             writer.write(std::int32_t(op));
             writer.write(req_id);
-            wr(writer);
+            wr(writer, m_protocol_context);
 
             buffer.write_length_header();
         }
@@ -140,13 +141,12 @@ public:
      * @param op Operation code.
      * @param wr Request writer function.
      * @param rd response reader function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      * @return Channel used for the request.
      */
     template<typename T>
-    std::optional<std::int64_t> perform_request(protocol::client_operation op,
-        const std::function<void(protocol::writer &)> &wr, std::function<T(protocol::reader &)> rd,
-        ignite_callback<T> callback) {
+    std::optional<std::int64_t> perform_request(protocol::client_operation op, const writer_function_type &wr,
+        std::function<T(protocol::reader &)> rd, ignite_callback<T> callback) {
         auto handler = std::make_shared<response_handler_reader<T>>(std::move(rd), std::move(callback));
         return perform_request(op, wr, std::move(handler));
     }
@@ -157,12 +157,12 @@ public:
      * @tparam T Result type.
      * @param op Operation code.
      * @param wr Request writer function.
-     * @param callback Callback to call on result.
+     * @param callback Callback to call on a result.
      * @return Channel used for the request.
      */
     template<typename T>
     void perform_request_wr(
-        protocol::client_operation op, const std::function<void(protocol::writer &)> &wr, ignite_callback<T> callback) {
+        protocol::client_operation op, const writer_function_type &wr, ignite_callback<T> callback) {
         perform_request<T>(
             op, wr, [](protocol::reader &) {}, std::move(callback));
     }
@@ -175,7 +175,7 @@ public:
     bool handshake();
 
     /**
-     * Callback that called when new message is received.
+     * Callback that called when a new message is received.
      *
      * @param msg Received message.
      */
@@ -199,6 +199,7 @@ public:
      * @return Logger associated with the connection.
      */
     std::shared_ptr<ignite_logger> get_logger() const { return m_logger; }
+
 private:
     /**
      * Constructor.
@@ -223,7 +224,7 @@ private:
     /**
      * Get and remove request handler.
      *
-     * @param reqId Request ID.
+     * @param req_id Request ID.
      * @return Handler.
      */
     std::shared_ptr<response_handler> get_and_remove_handler(std::int64_t req_id);
@@ -232,7 +233,7 @@ private:
      * Find handler by ID.
      * @warning Warning: m_request_handlers_mutex should be locked.
      *
-     * @param reqId Request ID.
+     * @param req_id Request ID.
      * @return Handler.
      */
     std::shared_ptr<response_handler> find_handler_unsafe(std::int64_t req_id);
