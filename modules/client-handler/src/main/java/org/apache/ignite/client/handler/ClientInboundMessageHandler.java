@@ -740,7 +740,6 @@ public class ClientInboundMessageHandler
 
     private CompletableFuture<ResponseWriter> processOperation(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             int opCode,
             long requestId
     ) throws IgniteInternalCheckedException {
@@ -752,7 +751,7 @@ public class ClientInboundMessageHandler
                 return ClientTablesGetRequest.process(igniteTables).thenApply(this::withCurrentTimestamp);
 
             case ClientOp.SCHEMAS_GET:
-                return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
+                return ClientSchemasGetRequest.process(in, igniteTables, schemaVersions);
 
             case ClientOp.TABLE_GET:
                 return ClientTableGetRequest.process(in, out, igniteTables);

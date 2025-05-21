@@ -21,13 +21,16 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeSchema;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.table.distributed.schema.SchemaVersions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.table.IgniteTables;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * Client schemas retrieval request.
@@ -37,40 +40,42 @@ public class ClientSchemasGetRequest {
      * Processes the request.
      *
      * @param in     Unpacker.
-     * @param out    Packer.
      * @param tables Ignite tables.
      * @return Future.
      * @throws IgniteException When schema registry is no initialized.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
             SchemaVersions schemaVersions
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            if (in.tryUnpackNil()) {
-                // Return the latest schema.
-                out.packInt(1);
+        int tableId = in.unpackInt();
+        List<Integer> schemaVers = readSchemaVersions(in);
 
+        return readTableAsync(tableId, tables).thenCompose(table -> {
+            if (schemaVers == null) {
                 return schemaVersions.schemaVersionAtCurrentTime(table.tableId())
-                        .thenAccept(version -> {
+                        .thenApply(version -> {
                             SchemaDescriptor schema = table.schemaView().schema(version);
 
-                            writeSchema(out, schema.version(), schema);
+                            return out -> {
+                                // Return the latest schema.
+                                out.packInt(1);
+                                writeSchema(out, schema.version(), schema);
+                            };
                         });
             } else {
-                var cnt = in.unpackInt();
-                out.packInt(cnt);
-
-                CompletableFuture<SchemaDescriptor>[] schemaFutures = new CompletableFuture[cnt];
-                for (var i = 0; i < cnt; i++) {
-                    var schemaVer = in.unpackInt();
+                //noinspection unchecked
+                CompletableFuture<SchemaDescriptor>[] schemaFutures = new CompletableFuture[schemaVers.size()];
+                for (int i = 0; i < schemaVers.size(); i++) {
+                    var schemaVer = schemaVers.get(i);
                     // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
                     schemaFutures[i] = table.schemaView().schemaAsync(schemaVer);
                 }
 
-                return allOf(schemaFutures).thenRun(() -> {
+                return allOf(schemaFutures).thenApply(v -> out -> {
+                    out.packInt(schemaFutures.length);
+
                     for (CompletableFuture<SchemaDescriptor> schemaFuture : schemaFutures) {
                         // join() is safe as all futures are already completed.
                         SchemaDescriptor schema = schemaFuture.join();
@@ -79,5 +84,20 @@ public class ClientSchemasGetRequest {
                 });
             }
         });
+    }
+
+    private static @Nullable List<Integer> readSchemaVersions(ClientMessageUnpacker in) {
+        if (in.tryUnpackNil()) {
+            return null;
+        }
+
+        int cnt = in.unpackInt();
+        List<Integer> res = new ArrayList<>(cnt);
+
+        for (int i = 0; i < cnt; i++) {
+            res.add(in.unpackInt());
+        }
+
+        return res;
     }
 }

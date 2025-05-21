@@ -350,7 +350,7 @@ public class ClientTableCommon {
     /**
      * Reads a table.
      *
-     * @param unpacker Unpacker.
+     * @param tableId Table id.
      * @param tables Ignite tables.
      * @return Table.
      * @throws IgniteException If an unspecified platform exception has happened internally. Is thrown when:
@@ -358,9 +358,7 @@ public class ClientTableCommon {
      *             <li>the node is stopping.</li>
      *         </ul>
      */
-    public static CompletableFuture<TableViewInternal> readTableAsync(ClientMessageUnpacker unpacker, IgniteTables tables) {
-        int tableId = unpacker.unpackInt();
-
+    public static CompletableFuture<TableViewInternal> readTableAsync(int tableId, IgniteTables tables) {
         try {
             IgniteTablesInternal tablesInternal = (IgniteTablesInternal) tables;
 
