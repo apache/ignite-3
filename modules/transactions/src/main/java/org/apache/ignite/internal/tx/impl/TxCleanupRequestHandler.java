@@ -31,6 +31,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.network.ChannelType;
@@ -70,6 +71,8 @@ public class TxCleanupRequestHandler {
 
     private final ClockService clockService;
 
+    private final Executor cleanupExecutor;
+
     /** Cleanup processor. */
     private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
 
@@ -87,30 +90,37 @@ public class TxCleanupRequestHandler {
      * @param clockService Clock service.
      * @param writeIntentSwitchProcessor A cleanup processor.
      * @param resourcesRegistry Resources registry.
+     * @param cleanupExecutor Cleanup executor.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
             LockManager lockManager,
             ClockService clockService,
             WriteIntentSwitchProcessor writeIntentSwitchProcessor,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            Executor cleanupExecutor
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
         this.clockService = clockService;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
         this.remotelyTriggeredResourceRegistry = resourcesRegistry;
+        this.cleanupExecutor = cleanupExecutor;
     }
 
     /**
      * Starts the processor.
      */
     public void start() {
-        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
-            if (msg instanceof TxCleanupMessage) {
-                processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
-            }
-        });
+        messagingService.addMessageHandler(
+                TxMessageGroup.class,
+                message -> cleanupExecutor,
+                (msg, sender, correlationId) -> {
+                    if (msg instanceof TxCleanupMessage) {
+                        processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
+                    }
+                }
+        );
     }
 
     public void stop() {
