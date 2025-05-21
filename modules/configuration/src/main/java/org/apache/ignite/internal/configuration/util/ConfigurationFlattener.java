@@ -45,7 +45,7 @@ public class ConfigurationFlattener {
     public static Map<String, Serializable> createFlattenedUpdatesMap(
             SuperRoot curRoot,
             SuperRoot updates,
-            Map<String,? extends Serializable> storageData
+            Map<String, ? extends Serializable> storageData
     ) {
         // Resulting map.
         Map<String, Serializable> resMap = new HashMap<>();
@@ -139,9 +139,7 @@ public class ConfigurationFlattener {
                 resMap.put(currentKey(), deletion ? null : newVal);
             }
 
-            var path = new ArrayList<String>();
-
-            processPath(path, (legacyKey, newKey) -> {
+            processLegacyPaths(new ArrayList<>(), (legacyKey, newKey) -> {
                 if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
                     resMap.put(legacyKey, null);
                 }

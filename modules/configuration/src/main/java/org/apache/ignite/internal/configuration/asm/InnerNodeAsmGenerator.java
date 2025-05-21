@@ -1191,7 +1191,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 // this.changePolymorphicTypeId(src == null ? null : src.unwrap(FieldType.class));
 
                 switchBuilder.addCase(
-                        publicName(schemaField),
+                        publicName,
                         new BytecodeBlock()
                                 .append(constructMtd.getThis())
                                 .append(getTypeIdFromSrcVar)
@@ -1236,9 +1236,10 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 }
 
                 String fieldName = fieldName(schemaField);
+                String publicName = publicName(schemaField);
 
                 switchBuilderAllFields.addCase(
-                        publicName(schemaField),
+                        publicName,
                         treatSourceForConstruct(constructMtd, schemaField, fieldDefs.get(fieldName)).ret()
                 );
 
@@ -1271,11 +1272,12 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
                 for (Field polymorphicField : e.getValue()) {
                     String fieldName = fieldName(polymorphicField);
+                    String publicName = publicName(polymorphicField);
 
                     FieldDefinition fieldDef = fieldDefs.get(fieldName);
 
                     switchBuilderPolymorphicExtension.addCase(
-                            publicName(polymorphicField),
+                            publicName,
                             treatSourceForConstruct(constructMtd, polymorphicField, fieldDef).ret()
                     );
 
@@ -1470,11 +1472,12 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
             if (isValue(schemaField) || isPolymorphicId(schemaField)) {
                 String fieldName = schemaField.getName();
+                String publicName = publicName(schemaField);
 
                 if (isValue(schemaField) && !hasDefault(schemaField)
                         || isPolymorphicId(schemaField) && !schemaField.getAnnotation(PolymorphicId.class).hasDefault()) {
                     // return;
-                    switchBuilder.addCase(publicName(schemaField), new BytecodeBlock().ret());
+                    switchBuilder.addCase(publicName, new BytecodeBlock().ret());
 
                     for (String legacyName : legacyNames(schemaField)) {
                         switchBuilder.addCase(legacyName, new BytecodeBlock().ret());
@@ -1490,7 +1493,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
                     // this.field = spec_#.field;
                     switchBuilder.addCase(
-                            publicName(schemaField),
+                            publicName,
                             addNodeConstructDefault(constructDfltMtd, schemaField, fieldDef, specFieldDef).ret()
                     );
 
@@ -1516,9 +1519,11 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
                 for (Field polymorphicField : e.getValue()) {
                     if (isValue(polymorphicField)) {
+                        String publicName = publicName(polymorphicField);
+
                         if (!hasDefault(polymorphicField)) {
                             // return;
-                            switchBuilderPolymorphicExtension.addCase(publicName(polymorphicField), new BytecodeBlock().ret());
+                            switchBuilderPolymorphicExtension.addCase(publicName, new BytecodeBlock().ret());
 
                             for (String legacyName : legacyNames(polymorphicField)) {
                                 switchBuilderPolymorphicExtension.addCase(legacyName, new BytecodeBlock().ret());
@@ -1529,7 +1534,7 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
 
                             // this.field = spec_#.field;
                             BytecodeBlock codeBlock = addNodeConstructDefault(constructDfltMtd, polymorphicField, fieldDef, specFieldDef).ret();
-                            switchBuilderPolymorphicExtension.addCase(publicName(polymorphicField), codeBlock);
+                            switchBuilderPolymorphicExtension.addCase(publicName, codeBlock);
 
                             for (String legacyName : legacyNames(polymorphicField)) {
                                 switchBuilderPolymorphicExtension.addCase(legacyName, codeBlock);

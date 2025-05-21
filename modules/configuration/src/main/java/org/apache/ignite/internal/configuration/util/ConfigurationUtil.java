@@ -778,8 +778,6 @@ public class ConfigurationUtil {
                 compressDeletedEntries((Map<String, ?>) value);
             }
         }
-
-//        prefixMap.entrySet().removeIf(entry -> entry.getValue() == null);
     }
 
     /**

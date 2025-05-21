@@ -198,13 +198,14 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         legacyNames.remove(legacyNames.size() - 1);
     }
 
-    protected void processPath(ArrayList<String> path, BiConsumer<String, String> consumer) {
+    /** Calls consumer for all legacy paths. */
+    protected void processLegacyPaths(ArrayList<String> path, BiConsumer<String, String> legacyKeyNewKeyConsumer) {
         if (path.size() == currentPath().size() - 1) {
             for (String legacyName : legacyNames.get(currentPath().size() - 1)) {
                 String legacyKey = join(appendKey(path, legacyName));
                 String newKey = currentKey();
 
-                consumer.accept(legacyKey, newKey);
+                legacyKeyNewKeyConsumer.accept(legacyKey, newKey);
             }
 
             path.remove(path.size() - 1);
@@ -215,11 +216,11 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         for (String legacyName : legacyNames.get(path.size())) {
             path.add(legacyName);
 
-            processPath(path, consumer);
+            processLegacyPaths(path, legacyKeyNewKeyConsumer);
         }
 
         path.add(currentPath().get(path.size()));
 
-        processPath(path, consumer);
+        processLegacyPaths(path, legacyKeyNewKeyConsumer);
     }
 }
