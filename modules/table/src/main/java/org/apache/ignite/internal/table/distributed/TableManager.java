@@ -742,8 +742,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             }))
                             .toArray(CompletableFuture[]::new);
 
-                    return allOf(futures).whenComplete((unused, t) -> zoneLock.unlockRead(stamp));
-                });
+                    return allOf(futures);
+                }).whenComplete((unused, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead));
             } catch (Throwable t) {
                 readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
 
@@ -780,8 +780,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         .map(this::stopTablePartitions)
                         .toArray(CompletableFuture[]::new);
 
-                return allOf(futures).whenComplete((v, t) -> zoneLock.unlockRead(stamp)).thenApply(v -> false);
-            });
+                return allOf(futures);
+            }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
         } catch (Throwable t) {
             readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
 
@@ -817,8 +817,8 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     ioExecutor))
                             .toArray(CompletableFuture[]::new);
 
-                    return allOf(futures).whenComplete((v, t) -> zoneLock.unlockRead(stamp));
-                }).thenApply((unused) -> false);
+                    return allOf(futures);
+                }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply((unused) -> false);
             });
         } catch (Throwable t) {
             readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
