@@ -182,7 +182,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         try {
             Set<Assignment> stable = createAssignments(configuration);
 
-            doStableKeySwitch(stable, tablePartitionId, term, index, calculateAssignmentsFn);
+            doStableKeySwitchWithExceptionHandling(stable, tablePartitionId, term, index, calculateAssignmentsFn);
         } finally {
             busyLock.leaveBusy();
         }
@@ -262,14 +262,14 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
     /**
      * Updates stable value with the new applied assignment.
      */
-    private void doStableKeySwitch(
+    private void doStableKeySwitchWithExceptionHandling(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
             long configurationTerm,
             long configurationIndex,
             BiFunction<TablePartitionId, Long, CompletableFuture<Set<Assignment>>> calculateAssignmentsFn
     ) {
-        doStableKeySwitchImpl(
+        doStableKeySwitch(
                 stableFromRaft,
                 tablePartitionId,
                 configurationTerm,
@@ -289,7 +289,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         });
     }
 
-    private CompletableFuture<Void> doStableKeySwitchImpl(
+    private CompletableFuture<Void> doStableKeySwitch(
             Set<Assignment> stableFromRaft,
             TablePartitionId tablePartitionId,
             long configurationTerm,
@@ -449,7 +449,7 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
                     if (res < 0) {
                         logSwitchFailure(res, stableFromRaft, tablePartitionId);
 
-                        return doStableKeySwitchImpl(
+                        return doStableKeySwitch(
                                 stableFromRaft,
                                 tablePartitionId,
                                 configurationTerm,
