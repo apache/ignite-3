@@ -4057,4 +4057,9 @@ public class NodeImpl implements Node, RaftServerService {
     public LogStorage logStorage() {
         return logStorage;
     }
+
+    @TestOnly
+    public FSMCaller fsmCaller() {
+        return fsmCaller;
+    }
 }
