@@ -241,7 +241,17 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         try {
             Set<Assignment> stable = createAssignments(configuration);
 
-            doStableKeySwitchWithExceptionHandling(stable, zonePartitionId, term, index, calculateAssignmentsFn);
+            rebalanceScheduler.execute(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
+
+                try {
+                    doStableKeySwitchWithExceptionHandling(stable, zonePartitionId, term, index, calculateAssignmentsFn);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
         } finally {
             busyLock.leaveBusy();
         }
