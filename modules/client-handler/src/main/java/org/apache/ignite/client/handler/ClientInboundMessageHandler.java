@@ -738,7 +738,7 @@ public class ClientInboundMessageHandler
         }
     }
 
-    private @Nullable CompletableFuture processOperation(
+    private CompletableFuture<ResponseWriter> processOperation(
             ClientMessageUnpacker in,
             ClientMessagePacker out,
             int opCode,
@@ -749,7 +749,7 @@ public class ClientInboundMessageHandler
                 return null;
 
             case ClientOp.TABLES_GET:
-                return ClientTablesGetRequest.process(out, igniteTables).thenRun(() -> out.meta(clockService.current()));
+                return ClientTablesGetRequest.process(igniteTables).thenApply(this::withCurrentTimestamp);
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, out, igniteTables, schemaVersions);
@@ -971,6 +971,10 @@ public class ClientInboundMessageHandler
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
+    }
+
+    private ResponseWriter withCurrentTimestamp(ResponseWriter r) {
+        return r.withObservableTimestamp(clockService.current());
     }
 
     private static boolean isPartitionOperation(int opCode) {
