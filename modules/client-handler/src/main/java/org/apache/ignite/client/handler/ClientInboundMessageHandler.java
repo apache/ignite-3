@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STR
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_COMPATIBILITY_ERR;
@@ -682,7 +683,6 @@ public class ClientInboundMessageHandler
     private void processOperation(ChannelHandlerContext ctx, ClientMessageUnpacker in) {
         long requestId = -1;
         int opCode = -1;
-        ClientMessagePacker out = null;
 
         metrics.requestsActiveIncrement();
 
@@ -705,14 +705,10 @@ public class ClientInboundMessageHandler
                 int opCode0 = opCode;
 
                 partitionOperationsExecutor.execute(() -> {
-                    // Packer buffer is released by Netty on send, or by inner exception handlers below.
-                    var outPacker = getPacker(ctx.alloc());
-
                     try {
-                        processOperationInternal(ctx, in, outPacker, requestId0, opCode0);
+                        processOperationInternal(ctx, in, requestId0, opCode0);
                     } catch (Throwable t) {
                         in.close();
-                        outPacker.close();
 
                         writeError(requestId0, opCode0, t, ctx, false);
 
@@ -720,17 +716,10 @@ public class ClientInboundMessageHandler
                     }
                 });
             } else {
-                // Packer buffer is released by Netty on send, or by inner exception handlers below.
-                out = getPacker(ctx.alloc());
-
-                processOperationInternal(ctx, in, out, requestId, opCode);
+                processOperationInternal(ctx, in, requestId, opCode);
             }
         } catch (Throwable t) {
             in.close();
-
-            if (out != null) {
-                out.close();
-            }
 
             writeError(requestId, opCode, t, ctx, false);
 
@@ -745,7 +734,7 @@ public class ClientInboundMessageHandler
     ) throws IgniteInternalCheckedException {
         switch (opCode) {
             case ClientOp.HEARTBEAT:
-                return null;
+                return nullCompletedFuture();
 
             case ClientOp.TABLES_GET:
                 return ClientTablesGetRequest.process(igniteTables).thenApply(this::withCurrentTimestamp);
@@ -1010,63 +999,54 @@ public class ClientInboundMessageHandler
     private void processOperationInternal(
             ChannelHandlerContext ctx,
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             long requestId,
             int opCode
     ) {
-        out.packLong(requestId);
-        writeFlags(out, ctx, false, false);
+        CompletableFuture<ResponseWriter> fut;
 
-        // Observable timestamp should be calculated after the operation is processed; reserve space, write later.
-        int observableTimestampIdx = out.reserveLong();
-
-        CompletableFuture fut;
-
-        try {
-            fut = processOperation(in, out, opCode, requestId);
+        // Release request buffer synchronously.
+        // Request handlers are supposed to read everything synchronously, so request buffer can be released quickly and reliably.
+        try (in) {
+            fut = processOperation(in, opCode, requestId);
         } catch (IgniteInternalCheckedException e) {
             fut = CompletableFuture.failedFuture(e);
         }
 
-        if (fut == null) {
-            // Operation completed synchronously.
+        fut.whenComplete((ResponseWriter res, Object err) -> {
             in.close();
-            out.setLong(observableTimestampIdx, observableTimestamp(out));
-            write(out, ctx);
+            metrics.requestsActiveDecrement();
 
-            if (LOG.isTraceEnabled()) {
-                LOG.trace("Client request processed synchronously [id=" + requestId + ", op=" + opCode
-                        + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+            if (err != null) {
+                writeError(requestId, opCode, (Throwable) err, ctx, false);
+                metrics.requestsFailedIncrement();
+                return;
             }
 
-            metrics.requestsProcessedIncrement();
-            metrics.requestsActiveDecrement();
-        } else {
-            var reqId = requestId;
-            var op = opCode;
+            var out = getPacker(ctx.alloc());
 
-            fut.whenComplete((Object res, Object err) -> {
-                in.close();
-                metrics.requestsActiveDecrement();
+            try {
+                out.packLong(requestId);
+                writeFlags(out, ctx, false, false);
+                out.packLong(observableTimestamp(res));
 
-                if (err != null) {
-                    out.close();
-                    writeError(reqId, op, (Throwable) err, ctx, false);
-
-                    metrics.requestsFailedIncrement();
-                } else {
-                    out.setLong(observableTimestampIdx, observableTimestamp(out));
-                    write(out, ctx);
-
-                    metrics.requestsProcessedIncrement();
-
-                    if (LOG.isTraceEnabled()) {
-                        LOG.trace("Client request processed [id=" + reqId + ", op=" + op
-                                + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
-                    }
+                if (res != null) {
+                    res.write(out);
                 }
-            });
-        }
+
+                write(out, ctx);
+
+                metrics.requestsProcessedIncrement();
+
+                if (LOG.isTraceEnabled()) {
+                    LOG.trace("Client request processed [id=" + requestId + ", op=" + opCode
+                            + ", remoteAddress=" + ctx.channel().remoteAddress() + "]");
+                }
+            } catch (Throwable e) {
+                out.close();
+                writeError(requestId, opCode, e, ctx, false);
+                metrics.requestsFailedIncrement();
+            }
+        });
     }
 
     private void writeFlags(ClientMessagePacker out, ChannelHandlerContext ctx, boolean isNotification, boolean isError) {
@@ -1129,22 +1109,20 @@ public class ClientInboundMessageHandler
      * by the operation.
      * The method returns a current timestamp for the handshake operation.
      *
-     * @param out Output message packer.
+     * @param writer Response writer.
      * @return A long representation of the observation timestamp.
      */
-    private long observableTimestamp(@Nullable ClientMessagePacker out) {
+    private long observableTimestamp(@Nullable ResponseWriter writer) {
         // Handshake has to synchronize the observation timestamp with the server node.
-        if (out == null) {
+        if (writer == null) {
             return clockService.currentLong();
         }
 
-        if (out.meta() == null) {
-            return HybridTimestamp.MIN_VALUE.longValue();
+        if (writer instanceof ResponseWithObservableTimestamp) {
+            return ((ResponseWithObservableTimestamp) writer).timestamp().longValue();
         }
 
-        assert out.meta() instanceof HybridTimestamp : "Meta must contain a timestamp [metaCls=" + out.meta().getClass().getName() + ']';
-
-        return ((HybridTimestamp) out.meta()).longValue();
+        return HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {

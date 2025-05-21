@@ -34,7 +34,9 @@ class ResponseWithObservableTimestamp implements ResponseWriter {
 
     @Override
     public void write(ClientMessagePacker out) {
-        delegate.write(out);
+        if (delegate != null) {
+            delegate.write(out);
+        }
     }
 
     public HybridTimestamp timestamp() {
