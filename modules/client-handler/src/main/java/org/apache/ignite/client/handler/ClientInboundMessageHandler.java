@@ -1026,11 +1026,13 @@ public class ClientInboundMessageHandler
             try {
                 out.packLong(requestId);
                 writeFlags(out, ctx, false, false);
-                out.packLong(observableTimestamp(res));
+                int observableTsIdx = out.reserveLong();
 
                 if (res != null) {
                     res.write(out);
                 }
+
+                out.setLong(observableTsIdx, observableTimestamp(res));
 
                 write(out, ctx);
 

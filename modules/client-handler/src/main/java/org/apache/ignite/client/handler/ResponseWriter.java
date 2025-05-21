@@ -18,8 +18,6 @@
 package org.apache.ignite.client.handler;
 
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
-import org.apache.ignite.internal.hlc.HybridTimestamp;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Response writer.
@@ -32,8 +30,4 @@ public interface ResponseWriter {
      * @param out Message packer.
      */
     void write(ClientMessagePacker out);
-
-    default ResponseWriter withObservableTimestamp(@Nullable HybridTimestamp timestamp) {
-        return timestamp == null ? this : new ResponseWithObservableTimestamp(this, timestamp);
-    }
 }

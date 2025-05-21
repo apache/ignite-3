@@ -29,6 +29,7 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.HybridTimestampHolder;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -77,7 +78,8 @@ public class ClientSqlExecuteRequest {
             Map<Long, CancelHandle> cancelHandles,
             QueryProcessor sql,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics
+            ClientHandlerMetricSource metrics,
+            HybridTimestampTracker tsUpdater
     ) {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
@@ -94,8 +96,7 @@ public class ClientSqlExecuteRequest {
             }
 
             HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-
-            HybridTimestampTracker tsUpdater = HybridTimestampTracker.atomicTracker(clientTs);
+            tsUpdater.update(clientTs);
 
             return executeAsync(
                     tx,
@@ -107,9 +108,7 @@ public class ClientSqlExecuteRequest {
                     props.toSqlProps(),
                     () -> cancelHandles.remove(requestId),
                     arguments
-            )
-                    .thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics))
-                    .thenApply(w -> w.withObservableTimestamp(tsUpdater.get()));
+            ).thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics));
         }, operationExecutor);
     }
 

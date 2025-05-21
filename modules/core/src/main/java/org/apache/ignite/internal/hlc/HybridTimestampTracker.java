@@ -21,7 +21,6 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLo
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Consumer;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -70,27 +69,6 @@ public interface HybridTimestampTracker {
                 long tsVal = hybridTimestampToLong(ts);
 
                 timestamp.updateAndGet(x -> Math.max(x, tsVal));
-            }
-        };
-    }
-
-    /**
-     * Creates a client-managed HybridTimestampTracker based on a given initial timestamp and an update consumer.
-     *
-     * @param intTs The initial HybridTimestamp, or null if no initial timestamp is provided.
-     * @param updateTs A Consumer that accepts a HybridTimestamp for managing updates to the timestamp.
-     * @return A HybridTimestampTracker instance that uses the provided initial timestamp and update mechanism.
-     */
-    static HybridTimestampTracker clientTracker(@Nullable HybridTimestamp intTs, Consumer<HybridTimestamp> updateTs) {
-        return new HybridTimestampTracker() {
-            @Override
-            public @Nullable HybridTimestamp get() {
-                return intTs;
-            }
-
-            @Override
-            public void update(@Nullable HybridTimestamp ts) {
-                updateTs.accept(ts);
             }
         };
     }

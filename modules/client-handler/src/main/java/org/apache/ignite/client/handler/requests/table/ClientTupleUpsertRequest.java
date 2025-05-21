@@ -27,9 +27,9 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -41,7 +41,6 @@ public class ClientTupleUpsertRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param tables Ignite tables.
      * @param resources Resource registry.
      * @param txManager Ignite transactions.
@@ -55,14 +54,13 @@ public class ClientTupleUpsertRequest {
             ClientResourceRegistry resources,
             TxManager txManager,
             ClockService clockService,
-            NotificationSender notificationSender
+            NotificationSender notificationSender,
+            HybridTimestampTracker tsTracker
     ) {
         int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
-        // TODO: Pass resulting ts back somehow.
-        var readTs = new HybridTimestampHolder();
-        var tx = readOrStartImplicitTx(in, readTs, resources, txManager, false, notificationSender);
+        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, false, notificationSender);
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
@@ -70,7 +68,7 @@ public class ClientTupleUpsertRequest {
         return readTableAsync(tableId, tables).thenCompose(table -> {
             return readTuple(schemaId, noValueSet, tupleBytes, table, false).thenCompose(tuple -> {
                 return table.recordView().upsertAsync(tx, tuple).thenApply(v -> out -> {
-                    writeTxMeta(out, readTs, clockService, tx);
+                    writeTxMeta(out, tsTracker, clockService, tx);
                     out.packInt(table.schemaView().lastKnownSchemaVersion());
                 });
             });

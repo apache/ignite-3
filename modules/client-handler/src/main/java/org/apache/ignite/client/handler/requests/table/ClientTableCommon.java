@@ -298,15 +298,7 @@ public class ClientTableCommon {
         return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
 
-    /**
-     * Reads multiple tuples.
-     *
-     * @param unpacker Unpacker.
-     * @param table Table.
-     * @param keyOnly Whether only key fields are expected.
-     * @return Future that will be completed with tuples.
-     */
-    public static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
+    static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
         return readSchema(unpacker, table).thenApply(schema -> {
             var rowCnt = unpacker.unpackInt();
             var res = new ArrayList<Tuple>(rowCnt);
@@ -319,14 +311,7 @@ public class ClientTableCommon {
         });
     }
 
-    /**
-     * Reads schema.
-     *
-     * @param unpacker Unpacker.
-     * @param table Table.
-     * @return Schema descriptor future.
-     */
-    public static CompletableFuture<SchemaDescriptor> readSchema(int schemaId, TableViewInternal table) {
+    static CompletableFuture<SchemaDescriptor> readSchema(int schemaId, TableViewInternal table) {
         // Use schemaAsync() as the schema version is coming from outside and we have no guarantees that this version is ready.
         return table.schemaView().schemaAsync(schemaId);
     }
@@ -374,7 +359,7 @@ public class ClientTableCommon {
      * @param tx The transaction.
      */
     public static void writeTxMeta(
-            ClientMessagePacker out, HybridTimestampHolder readTs, @Nullable ClockService clockService, InternalTransaction tx) {
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, InternalTransaction tx) {
         if (!tx.remote()) {
             return;
         }
@@ -392,7 +377,7 @@ public class ClientTableCommon {
         }
 
         if (clockService != null) {
-            readTs.accept(clockService.current());
+            tsTracker.update(clockService.current());
         }
     }
 
@@ -418,7 +403,7 @@ public class ClientTableCommon {
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
-            HybridTimestampHolder readTs,
+            HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender
@@ -457,7 +442,7 @@ public class ClientTableCommon {
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                readTs.accept(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
+                readTs.update(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
             }
 
             return tx;
@@ -479,7 +464,7 @@ public class ClientTableCommon {
      */
     public static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
-            HybridTimestampHolder readTs,
+            HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly,
@@ -529,15 +514,13 @@ public class ClientTableCommon {
      * @return Transaction.
      */
     public static InternalTransaction startImplicitTx(
-            HybridTimestampHolder readTs,
+            HybridTimestampTracker readTs,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,
             boolean readOnly
     ) {
-        return txManager.beginImplicit(
-                HybridTimestampTracker.clientTracker(currentTs, readTs),
-                readOnly
-        );
+        readTs.update(currentTs);
+        return txManager.beginImplicit(readTs, readOnly);
     }
 
     /**
