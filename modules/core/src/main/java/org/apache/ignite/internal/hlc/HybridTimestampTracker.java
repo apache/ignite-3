@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.hlc;
 
+import static org.apache.ignite.internal.hlc.HybridTimestamp.NULL_HYBRID_TIMESTAMP;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestampToLong;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimestamp;
 
@@ -32,6 +33,11 @@ public interface HybridTimestampTracker {
         @Override
         public @Nullable HybridTimestamp get() {
             return null;
+        }
+
+        @Override
+        public long getLong() {
+            return NULL_HYBRID_TIMESTAMP;
         }
 
         @Override
@@ -65,6 +71,11 @@ public interface HybridTimestampTracker {
             }
 
             @Override
+            public long getLong() {
+                return timestamp.get();
+            }
+
+            @Override
             public void update(@Nullable HybridTimestamp ts) {
                 long tsVal = hybridTimestampToLong(ts);
 
@@ -79,6 +90,13 @@ public interface HybridTimestampTracker {
      * @return Hybrid timestamp.
      */
     @Nullable HybridTimestamp get();
+
+    /**
+     * Get the observable timestamp as a long.
+     *
+     * @return Hybrid timestamp as a long.
+     */
+    long getLong();
 
     /**
      * Updates the observable timestamp after an operation is executed.

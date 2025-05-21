@@ -529,7 +529,7 @@ public class ClientInboundMessageHandler
         // Cluster name never changes.
         packer.packString(clusterInfo.name());
 
-        packer.packLong(observableTimestamp(null));
+        packer.packLong(clockService.currentLong());
 
         // Pack current version
         packer.packByte(IgniteProductVersion.CURRENT_VERSION.major());
@@ -600,7 +600,7 @@ public class ClientInboundMessageHandler
         // Include server timestamp in error and notification responses as well:
         // an operation can modify data and then throw an exception (e.g. Compute task),
         // so we still need to update client-side timestamp to preserve causality guarantees.
-        packer.packLong(observableTimestamp(null));
+        packer.packLong(clockService.currentLong());
     }
 
     private void writeError(long requestId, int opCode, Throwable err, ChannelHandlerContext ctx, boolean isNotification) {
@@ -1004,11 +1004,12 @@ public class ClientInboundMessageHandler
             int opCode
     ) {
         CompletableFuture<ResponseWriter> fut;
+        HybridTimestampTracker tsTracker = HybridTimestampTracker.atomicTracker(null);
 
         // Release request buffer synchronously.
         // Request handlers are supposed to read everything synchronously, so request buffer can be released quickly and reliably.
         try (in) {
-            fut = processOperation(in, opCode, requestId);
+            fut = processOperation(in, opCode, requestId, tsTracker);
         } catch (IgniteInternalCheckedException e) {
             fut = CompletableFuture.failedFuture(e);
         }
@@ -1033,7 +1034,7 @@ public class ClientInboundMessageHandler
                     res.write(out);
                 }
 
-                out.setLong(observableTsIdx, observableTimestamp(res));
+                out.setLong(observableTsIdx, tsTracker.getLong());
 
                 write(out, ctx);
 
@@ -1104,27 +1105,6 @@ public class ClientInboundMessageHandler
         }
 
         return null;
-    }
-
-    /**
-     * Gets an observation timestamp for the operation being processed or {@link HybridTimestamp#MIN_VALUE} if the timestamp was not defined
-     * by the operation.
-     * The method returns a current timestamp for the handshake operation.
-     *
-     * @param writer Response writer.
-     * @return A long representation of the observation timestamp.
-     */
-    private long observableTimestamp(@Nullable ResponseWriter writer) {
-        // Handshake has to synchronize the observation timestamp with the server node.
-        if (writer == null) {
-            return clockService.currentLong();
-        }
-
-        if (writer instanceof ResponseWithObservableTimestamp) {
-            return ((ResponseWithObservableTimestamp) writer).timestamp().longValue();
-        }
-
-        return HybridTimestamp.MIN_VALUE.longValue();
     }
 
     private void sendNotification(long requestId, @Nullable Consumer<ClientMessagePacker> writer, @Nullable Throwable err) {
