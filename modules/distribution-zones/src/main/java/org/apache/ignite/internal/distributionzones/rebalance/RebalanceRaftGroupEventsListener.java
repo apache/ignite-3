@@ -182,15 +182,17 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
         try {
             Set<Assignment> stable = createAssignments(configuration);
 
-            if (!busyLock.enterBusy()) {
-                return;
-            }
+            rebalanceScheduler.execute(() -> {
+                if (!busyLock.enterBusy()) {
+                    return;
+                }
 
-            try {
-                doStableKeySwitchWithExceptionHandling(stable, tablePartitionId, term, index, calculateAssignmentsFn);
-            } finally {
-                busyLock.leaveBusy();
-            }
+                try {
+                    doStableKeySwitchWithExceptionHandling(stable, tablePartitionId, term, index, calculateAssignmentsFn);
+                } finally {
+                    busyLock.leaveBusy();
+                }
+            });
         } finally {
             busyLock.leaveBusy();
         }
