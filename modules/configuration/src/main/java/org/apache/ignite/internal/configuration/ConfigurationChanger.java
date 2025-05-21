@@ -38,7 +38,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -72,7 +71,6 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
-import org.apache.ignite.internal.configuration.util.LegacyNamesTrackingConfigurationVisitor;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -637,7 +635,11 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             migrator.migrate(new SuperRootChangeImpl(changes));
 
-            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
+            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(
+                    localRoots.rootsWithoutDefaults,
+                    changes,
+                    localRoots.data.values()
+            );
 
             dropUnnecessarilyDeletedKeys(allChanges, localRoots);
 
@@ -646,8 +648,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                     allChanges.put(ignoredValue, null);
                 }
             }
-
-            useAndDeleteLegacyNames(curRoots, localRoots.data.values(), allChanges);
 
             if (allChanges.isEmpty() && onStartup) {
                 // We don't want an empty storage update if this is the initialization changer.
@@ -707,8 +707,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             // We need to ignore deletion of deprecated values.
             ignoreDeleted(changedValues, keyIgnorer);
-            // We need to ignore deletion of legacy values.
-            deleteLegacyKeys(oldStorageRoots, changedValues);
 
             Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
@@ -742,44 +740,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
                 }
             });
         };
-    }
-
-    private static void useAndDeleteLegacyNames(
-            SuperRoot superRoot,
-            Map<String, ? extends Serializable> storageData,
-            Map<String, Serializable> allChanges
-    ) {
-        superRoot.traverseChildren(new LegacyNamesTrackingConfigurationVisitor<>() {
-            @Override
-            protected Object doVisitLeafNode(Field field, String key, Serializable val) {
-                var path = new ArrayList<String>();
-
-                processPath(path, (legacyKey, newKey) -> {
-                    if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
-                        allChanges.put(newKey, storageData.get(legacyKey));
-                        allChanges.put(legacyKey, null);
-                    }
-                });
-
-                return null;
-            }
-        }, true);
-    }
-
-    private static void deleteLegacyKeys(StorageRoots oldStorageRoots, Map<String, ? extends Serializable> changedValues) {
-        oldStorageRoots.roots.traverseChildren(new LegacyNamesTrackingConfigurationVisitor<>() {
-            @Override
-            protected Object doVisitLeafNode(Field field, String key, Serializable val) {
-                var path = new ArrayList<String>();
-
-                processPath(path, (legacyKey, newKey) -> {
-                    changedValues.remove(legacyKey);
-                    oldStorageRoots.data.values().remove(legacyKey);
-                });
-
-                return null;
-            }
-        }, true);
     }
 
     private static Data mergeData(Data currentData, Data delta) {

@@ -488,7 +488,7 @@ public class ConfigurationAsmGenerator {
     public static String publicName(Field f) {
         PublicName annotation = f.getAnnotation(PublicName.class);
 
-        return annotation == null || "".equals(annotation.value()) ? f.getName() : annotation.value();
+        return annotation == null || annotation.value().isEmpty() ? f.getName() : annotation.value();
     }
 
     /**

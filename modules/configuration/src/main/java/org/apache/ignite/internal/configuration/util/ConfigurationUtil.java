@@ -756,6 +756,8 @@ public class ConfigurationUtil {
      * @param prefixMap Prefix map, constructed from the storage notification data or its subtree.
      */
     public static void compressDeletedEntries(Map<String, ?> prefixMap) {
+        prefixMap.entrySet().removeIf(entry -> entry.getValue() == null);
+
         for (Entry<String, ?> entry : prefixMap.entrySet()) {
             Object value = entry.getValue();
 
@@ -776,6 +778,8 @@ public class ConfigurationUtil {
                 compressDeletedEntries((Map<String, ?>) value);
             }
         }
+
+//        prefixMap.entrySet().removeIf(entry -> entry.getValue() == null);
     }
 
     /**

@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -27,6 +28,7 @@ import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.typesafe.config.ConfigFactory;
@@ -572,8 +574,9 @@ public class LocalFileConfigurationStorageTest {
 
         Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
 
-        // Storage ignores deleted property.
+        // Deleted properties are ignored and removed from the storage.
         assertDoesNotThrow(changer::start);
+        assertThat(storage.readLatest("top.deleted_property"), willBe(nullValue()));
     }
 
     @Test
@@ -587,6 +590,8 @@ public class LocalFileConfigurationStorageTest {
 
         // Storage handles renamed property.
         assertDoesNotThrow(changer::start);
+
+        assertThat(storage.readLatest("top.shortVal"), willBe((short) 3));
     }
 
     private String configFileContent() throws IOException {

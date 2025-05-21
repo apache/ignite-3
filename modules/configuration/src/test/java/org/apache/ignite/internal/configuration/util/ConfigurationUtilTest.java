@@ -1022,7 +1022,6 @@ public class ConfigurationUtilTest {
 
         Map<String, Object> expMapZero = new HashMap<>();
         expMapZero.put("first", "1");
-        expMapZero.put("second", null);
 
         exp.put("0", expMapZero);
         exp.put("1", null);
@@ -1192,7 +1191,7 @@ public class ConfigurationUtilTest {
         patch.accept(superRoot.getRoot(rootKey));
 
         // Create flat diff between two super trees.
-        return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
+        return createFlattenedUpdatesMap(originalSuperRoot, superRoot, Map.of());
     }
 
     /**

@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.es
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,7 +42,11 @@ public class ConfigurationFlattener {
      * @param updates Tree with updates.
      * @return Map of changes.
      */
-    public static Map<String, Serializable> createFlattenedUpdatesMap(SuperRoot curRoot, SuperRoot updates) {
+    public static Map<String, Serializable> createFlattenedUpdatesMap(
+            SuperRoot curRoot,
+            SuperRoot updates,
+            Map<String,? extends Serializable> storageData
+    ) {
         // Resulting map.
         Map<String, Serializable> resMap = new HashMap<>();
 
@@ -54,7 +59,7 @@ public class ConfigurationFlattener {
 
         // Explicit access to the children of super root guarantees that "oldInnerNodesStack" is never empty, and thus
         // we don't need null-checks when calling Deque#peek().
-        updates.traverseChildren(new FlattenerVisitor(oldInnerNodesStack, resMap), true);
+        updates.traverseChildren(new FlattenerVisitor(oldInnerNodesStack, resMap, storageData), true);
 
         assert oldInnerNodesStack.peek() == curRoot : oldInnerNodesStack;
 
@@ -84,12 +89,15 @@ public class ConfigurationFlattener {
     /**
      * Visitor that collects diff between "old" and "new" trees into a flat map.
      */
-    private static class FlattenerVisitor extends KeysTrackingConfigurationVisitor<Object> {
+    private static class FlattenerVisitor extends LegacyNamesTrackingConfigurationVisitor<Object> {
         /** Old nodes stack for recursion. */
         private final Deque<InnerNode> oldInnerNodesStack;
 
         /** Map with the result. */
         private final Map<String, Serializable> resMap;
+
+        /** Map with values in the configuration storage. */
+        private final Map<String, ? extends Serializable> storageData;
 
         /** Flag indicates that "old" and "new" trees are literally the same at the moment. */
         private boolean singleTreeTraversal;
@@ -106,9 +114,14 @@ public class ConfigurationFlattener {
          * @param oldInnerNodesStack Old nodes stack for recursion.
          * @param resMap Map with the result.
          */
-        FlattenerVisitor(Deque<InnerNode> oldInnerNodesStack, Map<String, Serializable> resMap) {
+        FlattenerVisitor(
+                Deque<InnerNode> oldInnerNodesStack,
+                Map<String, Serializable> resMap,
+                Map<String, ? extends Serializable> storageData
+        ) {
             this.oldInnerNodesStack = oldInnerNodesStack;
             this.resMap = resMap;
+            this.storageData = storageData;
         }
 
         /** {@inheritDoc} */
@@ -125,6 +138,14 @@ public class ConfigurationFlattener {
 
                 resMap.put(currentKey(), deletion ? null : newVal);
             }
+
+            var path = new ArrayList<String>();
+
+            processPath(path, (legacyKey, newKey) -> {
+                if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
+                    resMap.put(legacyKey, null);
+                }
+            });
 
             return null;
         }
@@ -185,7 +206,7 @@ public class ConfigurationFlattener {
 
                 String namedListFullKey = currentKey();
 
-                withTracking(newNodeInternalId.toString(), false, false, () -> {
+                withTracking(field, newNodeInternalId.toString(), false, false, () -> {
                     InnerNode newNamedElement = isDeprecated ? null : newNode.getInnerNode(newNodeKey);
 
                     String oldNodeKey = oldNode.keyByInternalId(newNodeInternalId);

@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.configuration.hocon.HoconConverter.hoco
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.nullValue;
 
 import com.typesafe.config.ConfigFactory;
@@ -42,19 +43,12 @@ import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 class RenamedConfigurationTest extends BaseIgniteAbstractTest {
-    private static final String OLD_VALUE_NAME = "oldName";
-    private static final String OLD_INNER_NAME = "oldInnerName";
-    private static final String SECOND_OLD_INNER_NAME = "secondOldInnerName";
-    private static final String OLD_LIST_NAME = "listOldName";
-    private static final String POLYMORPHIC_TYPE = "polymorphicType";
-    private static final String OLD_POLYMORPHIC_NAME = "oldPolymorphicName";
 
     private static final ConfigurationTreeGenerator OLD_GENERATOR = new ConfigurationTreeGenerator(
             Set.of(RenamedTestOldConfiguration.KEY),
@@ -97,55 +91,55 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         // Default value was set when registry was started with old configuration.
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
-                Matchers.equalTo(OLD_DEFAULT)
+                equalTo(OLD_DEFAULT)
         );
 
-        assertThat(storage.readLatest(String.format("key.%s.%s", OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+        assertThat(storage.readLatest("key.oldInnerName.oldName"), willBe(nullValue()));
     }
 
     @Test
     public void testLegacyNameIsRecognisedOnUpdate() {
         String updatedValue = "updatedValue";
-        String configWithFirstLegacyName = String.format("key.%s.%s = \"%s\"", OLD_INNER_NAME, OLD_VALUE_NAME, updatedValue);
+        String configWithFirstLegacyName = "key.oldInnerName.oldName = " + updatedValue;
         updateConfig(registry, configWithFirstLegacyName);
 
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
-                Matchers.equalTo(updatedValue)
+                equalTo(updatedValue)
         );
-        assertThat(storage.readLatest(String.format("key.%s.%s", OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+        assertThat(storage.readLatest("key.oldInnerName.oldName"), willBe(nullValue()));
 
         String secondUpdatedValue = "secondUpdatedValue";
-        String configWithSecondLegacyName = String.format("key.%s.%s = \"%s\"", SECOND_OLD_INNER_NAME, OLD_VALUE_NAME, secondUpdatedValue);
+        String configWithSecondLegacyName = "key.secondOldInnerName.oldName = " + secondUpdatedValue;
 
         updateConfig(registry, configWithSecondLegacyName);
 
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
-                Matchers.equalTo(secondUpdatedValue)
+                equalTo(secondUpdatedValue)
         );
-        assertThat(storage.readLatest(String.format("key.%s.%s", SECOND_OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+        assertThat(storage.readLatest("key.secondOldInnerName.oldName"), willBe(nullValue()));
     }
 
     @Test
     public void testNewValuePersistsAfterRestart() {
         String updatedValue = "updatedValue";
-        String updatedConfig = String.format("key.%s.%s = \"%s\"", OLD_INNER_NAME, OLD_VALUE_NAME, updatedValue);
+        String updatedConfig = "key.oldInnerName.oldName = " + updatedValue;
         updateConfig(registry, updatedConfig);
 
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
-                Matchers.equalTo(updatedValue)
+                equalTo(updatedValue)
         );
 
         stopRegistry(registry);
         registry = startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
 
-        assertThat(storage.readLatest(String.format("key.%s.%s", OLD_INNER_NAME, OLD_VALUE_NAME)), willBe(nullValue()));
+        assertThat(storage.readLatest("key.oldInnerName.oldName"), willBe(nullValue()));
 
         assertThat(
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
-                Matchers.equalTo(updatedValue)
+                equalTo(updatedValue)
         );
     }
 
@@ -153,15 +147,14 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     public void testNamedListLegacyNameIsRecognisedOnUpdate() {
         registry = startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
 
-        String instanceName = "listInstance";
         String newValue = "newValue";
 
-        String updatedConfig = String.format("key.%s.%s.%s=\"%s\"", OLD_LIST_NAME, instanceName, OLD_VALUE_NAME, newValue);
+        String updatedConfig = "key.listOldName.listInstance.oldName = " + newValue;
         updateConfig(registry, updatedConfig);
 
         assertThat(
-                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newListName().get(instanceName).newName().value(),
-                Matchers.equalTo(newValue)
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newListName().get("listInstance").newName().value(),
+                equalTo(newValue)
         );
     }
 
@@ -170,12 +163,12 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         registry = startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
 
         String newValue = "newValue";
-        String updatedConfig = String.format("key.%s.%s.%s=\"%s\"", OLD_POLYMORPHIC_NAME, POLYMORPHIC_TYPE, OLD_VALUE_NAME, newValue);
+        String updatedConfig = "key.oldPolymorphicName.polymorphicType.oldName = " + newValue;
         updateConfig(registry, updatedConfig);
 
         assertThat(
-                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newPolymorphicName().get(POLYMORPHIC_TYPE).newName().value(),
-                Matchers.equalTo(newValue)
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newPolymorphicName().get("polymorphicType").newName().value(),
+                equalTo(newValue)
         );
     }
 
@@ -202,78 +195,78 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     @ConfigurationRoot(rootName = "key", type = LOCAL)
     public static class RenamedTestOldConfigurationSchema {
         @ConfigValue
-        @PublicName(OLD_INNER_NAME)
+        @PublicName("oldInnerName")
         public RenamedLeafOldConfigurationSchema oldInnerName;
 
         @NamedConfigValue
-        @PublicName(OLD_LIST_NAME)
+        @PublicName("listOldName")
         public RenamedLeafOldConfigurationSchema oldListName;
 
         @NamedConfigValue
-        @PublicName(OLD_POLYMORPHIC_NAME)
+        @PublicName("oldPolymorphicName")
         public RenamedPolymorphicOldConfigurationSchema oldPolymorphicName;
     }
 
     @ConfigurationRoot(rootName = "key", type = LOCAL)
     public static class RenamedTestNewConfigurationSchema {
         @ConfigValue
-        @PublicName(legacyNames = {OLD_INNER_NAME, SECOND_OLD_INNER_NAME})
+        @PublicName(legacyNames = {"oldInnerName", "secondOldInnerName"})
         public RenamedLeafNewConfigurationSchema newInnerName;
 
         @NamedConfigValue
-        @PublicName(legacyNames = {OLD_LIST_NAME})
+        @PublicName(legacyNames = {"listOldName"})
         public RenamedLeafNewConfigurationSchema newListName;
 
         @NamedConfigValue
-        @PublicName(legacyNames = OLD_POLYMORPHIC_NAME)
+        @PublicName(legacyNames = "oldPolymorphicName")
         public RenamedPolymorphicNewConfigurationSchema newPolymorphicName;
     }
 
     @Config
     public static class RenamedLeafOldConfigurationSchema {
         @Value(hasDefault = true)
-        @PublicName(OLD_VALUE_NAME)
+        @PublicName("oldName")
         public String oldName = OLD_DEFAULT;
     }
 
     @Config
     public static class RenamedLeafNewConfigurationSchema {
         @Value(hasDefault = true)
-        @PublicName(legacyNames = {OLD_VALUE_NAME})
+        @PublicName(legacyNames = {"oldName"})
         public String newName = "newDefault";
     }
 
     @PolymorphicConfig
     public static class RenamedPolymorphicOldConfigurationSchema {
         @PolymorphicId(hasDefault = true)
-        public String type = POLYMORPHIC_TYPE;
+        public String type = "polymorphicType";
 
         @InjectedName
         public String name;
 
         @Value(hasDefault = true)
-        @PublicName(OLD_VALUE_NAME)
+        @PublicName("oldName")
         public String oldName = OLD_DEFAULT;
     }
 
-    @PolymorphicConfigInstance(POLYMORPHIC_TYPE)
+    @PolymorphicConfigInstance("polymorphicType")
     public static class RenamedPolymorphicInstanceOldConfigurationSchema extends RenamedPolymorphicOldConfigurationSchema {
     }
 
     @PolymorphicConfig
     public static class RenamedPolymorphicNewConfigurationSchema {
         @PolymorphicId(hasDefault = true)
-        public String type = POLYMORPHIC_TYPE;
+        public String type = "polymorphicType";
 
         @InjectedName
         public String name;
 
         @Value(hasDefault = true)
-        @PublicName(legacyNames = OLD_VALUE_NAME)
+        @PublicName(legacyNames = "oldName")
         public String newName = "newDefault";
     }
 
-    @PolymorphicConfigInstance(POLYMORPHIC_TYPE)
+    @PolymorphicConfigInstance("polymorphicType")
     public static class RenamedPolymorphicInstanceNewConfigurationSchema extends RenamedPolymorphicNewConfigurationSchema{
     }
 }

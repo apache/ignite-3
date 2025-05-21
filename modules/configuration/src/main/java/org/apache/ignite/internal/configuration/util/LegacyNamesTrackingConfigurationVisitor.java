@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.function.BiConsumer;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
@@ -121,6 +122,26 @@ public abstract class LegacyNamesTrackingConfigurationVisitor<T> implements Conf
         }
 
         return null;
+    }
+
+    /**
+     * Tracks passed key to reflect it in {@link #currentKey()} and {@link #currentPath()}.
+     *
+     * @param field
+     * @param key Key itself.
+     * @param escape Whether the key needs escaping or not.
+     * @param leaf Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
+     * @param closure Closure to execute when {@link #currentKey()} and {@link #currentPath()} have updated values.
+     * @return Closure result.
+     */
+    protected final T withTracking(Field field, String key, boolean escape, boolean leaf, Supplier<T> closure) {
+        int prevPos = startVisit(field, key, escape, leaf);
+
+        try {
+            return closure.get();
+        } finally {
+            endVisit(prevPos);
+        }
     }
 
     /**

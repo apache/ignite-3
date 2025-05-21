@@ -1189,13 +1189,13 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 );
 
                 // this.changePolymorphicTypeId(src == null ? null : src.unwrap(FieldType.class));
-                BytecodeBlock ret = new BytecodeBlock()
+                BytecodeBlock changePolymorphicTypeIdBlock = new BytecodeBlock()
                         .append(constructMtd.getThis())
                         .append(getTypeIdFromSrcVar)
                         .invokeVirtual(changePolymorphicTypeIdMtd)
                         .ret();
 
-                addCaseForAllPublicNames(switchBuilder, schemaField, ret);
+                addCaseForAllPublicNames(switchBuilder, schemaField, changePolymorphicTypeIdBlock);
             } else {
                 switchBuilder.addCase(
                         publicName,
@@ -1227,7 +1227,8 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                 addCaseForAllPublicNames(
                         switchBuilderAllFields,
                         schemaField,
-                        treatSourceForConstruct(constructMtd, schemaField, fieldDefs.get(fieldName)).ret());
+                        treatSourceForConstruct(constructMtd, schemaField, fieldDefs.get(fieldName)).ret()
+                );
             }
 
             // if (includeInternal) switch_by_all_fields
