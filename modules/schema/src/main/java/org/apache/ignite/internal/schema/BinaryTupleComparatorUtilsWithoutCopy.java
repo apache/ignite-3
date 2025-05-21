@@ -69,9 +69,9 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         int remaining = Math.min(trimmedSize1, trimmedSize2);
 
         for (int i = 0; i < remaining; i++) {
-            byte b1 = buf1.get();
-            byte b2 = buf2.get();
-            int cmp = Byte.compare(b1, b2);
+            byte b1 = tupleWrapper1.get(i);
+            byte b2 = tupleWrapper2.get(i);
+            int cmp = Byte.compareUnsigned(b1, b2);
             if (cmp != 0) {
                 return cmp;
             }
