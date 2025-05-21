@@ -698,15 +698,15 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         return changedEntries -> {
             Map<String, ? extends Serializable> changedValues = changedEntries.values();
 
+            // We need to ignore deletion of deprecated values.
+            ignoreDeleted(changedValues, keyIgnorer);
+
             StorageRoots oldStorageRoots = storageRoots;
 
             SuperRoot oldSuperRoot = oldStorageRoots.roots;
             SuperRoot oldSuperRootNoDefaults = oldStorageRoots.rootsWithoutDefaults;
             SuperRoot newSuperRoot = oldSuperRoot.copy();
             SuperRoot newSuperNoDefaults = oldSuperRootNoDefaults.copy();
-
-            // We need to ignore deletion of deprecated values.
-            ignoreDeleted(changedValues, keyIgnorer);
 
             Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
