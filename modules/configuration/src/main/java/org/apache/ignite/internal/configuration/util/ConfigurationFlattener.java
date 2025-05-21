@@ -33,7 +33,7 @@ import org.apache.ignite.internal.configuration.SuperRoot;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 
-/** Utility class that has {@link ConfigurationFlattener#createFlattenedUpdatesMap(SuperRoot, SuperRoot)} method. */
+/** Utility class that has {@link ConfigurationFlattener#createFlattenedUpdatesMap} method. */
 public class ConfigurationFlattener {
     /**
      * Convert a traversable tree to a map of qualified keys to values.
@@ -89,7 +89,7 @@ public class ConfigurationFlattener {
     /**
      * Visitor that collects diff between "old" and "new" trees into a flat map.
      */
-    private static class FlattenerVisitor extends LegacyNamesTrackingConfigurationVisitor<Object> {
+    private static class FlattenerVisitor extends KeysTrackingConfigurationVisitor<Object> {
         /** Old nodes stack for recursion. */
         private final Deque<InnerNode> oldInnerNodesStack;
 

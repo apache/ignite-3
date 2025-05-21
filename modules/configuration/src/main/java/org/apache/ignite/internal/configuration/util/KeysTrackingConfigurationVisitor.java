@@ -17,17 +17,23 @@
 
 package org.apache.ignite.internal.configuration.util;
 
+import static org.apache.ignite.internal.configuration.asm.ConfigurationAsmGenerator.legacyNames;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.appendKey;
+import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.join;
+import static org.apache.ignite.internal.util.ArrayUtils.STRING_EMPTY_ARRAY;
+
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 
-/** Visitor that accumulates keys while descending. */
+/** Visitor that accumulates keys and legacy names while descending. */
 public abstract class KeysTrackingConfigurationVisitor<T> implements ConfigurationVisitor<T> {
     /** Current key, aggregated by visitor. */
     private final StringBuilder currentKey = new StringBuilder();
@@ -35,10 +41,12 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** Current keys list, almost the same as {@link #currentKey}. */
     private final List<String> currentPath = new ArrayList<>();
 
+    protected final List<String[]> legacyNames = new ArrayList<>();
+
     /** {@inheritDoc} */
     @Override
     public final T visitLeafNode(Field field, String key, Serializable val) {
-        int prevPos = startVisit(key, false, true);
+        int prevPos = startVisit(field, key, false, true);
 
         try {
             return doVisitLeafNode(field, key, val);
@@ -50,7 +58,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** {@inheritDoc} */
     @Override
     public final T visitInnerNode(Field field, String key, InnerNode node) {
-        int prevPos = startVisit(key, false, false);
+        int prevPos = startVisit(field, key, false, false);
 
         try {
             return doVisitInnerNode(field, key, node);
@@ -62,7 +70,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** {@inheritDoc} */
     @Override
     public final T visitNamedListNode(Field field, String key, NamedListNode<?> node) {
-        int prevPos = startVisit(key, false, false);
+        int prevPos = startVisit(field, key, false, false);
 
         try {
             return doVisitNamedListNode(field, key, node);
@@ -96,7 +104,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     }
 
     /**
-     * To be used instead of {@link ConfigurationVisitor#visitNamedListNode(String, NamedListNode)}.
+     * To be used instead of {@link ConfigurationVisitor#visitNamedListNode}}.
      *
      * @param key  Name of the node retrieved from its holder object.
      * @param node Named list inner configuration node.
@@ -104,7 +112,7 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
      */
     protected T doVisitNamedListNode(Field field, String key, NamedListNode<?> node) {
         for (String namedListKey : node.namedListKeys()) {
-            int prevPos = startVisit(namedListKey, true, false);
+            int prevPos = startVisit(field, namedListKey, true, false);
 
             try {
                 doVisitInnerNode(field, namedListKey, node.getInnerNode(namedListKey));
@@ -119,14 +127,15 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Tracks passed key to reflect it in {@link #currentKey()} and {@link #currentPath()}.
      *
-     * @param key     Key itself.
-     * @param escape  Whether the key needs escaping or not.
-     * @param leaf    Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
+     * @param field Node's field.
+     * @param key Key itself.
+     * @param escape Whether the key needs escaping or not.
+     * @param leaf Add dot at the end of {@link #currentKey()} if {@code leaf} is {@code false}.
      * @param closure Closure to execute when {@link #currentKey()} and {@link #currentPath()} have updated values.
      * @return Closure result.
      */
-    protected final T withTracking(String key, boolean escape, boolean leaf, Supplier<T> closure) {
-        int prevPos = startVisit(key, escape, leaf);
+    protected final T withTracking(Field field, String key, boolean escape, boolean leaf, Supplier<T> closure) {
+        int prevPos = startVisit(field, key, escape, leaf);
 
         try {
             return closure.get();
@@ -156,11 +165,12 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /**
      * Prepares values of {@link #currentKey} and {@link #currentPath} for further processing.
      *
-     * @param key    Key.
+     * @param field Field.
+     * @param key Key.
      * @param escape Whether we need to escape the key before appending it to {@link #currentKey}.
      * @return Previous length of {@link #currentKey} so it can be passed to {@link #endVisit(int)} later.
      */
-    private int startVisit(String key, boolean escape, boolean leaf) {
+    private int startVisit(Field field, String key, boolean escape, boolean leaf) {
         final int previousKeyLength = currentKey.length();
 
         currentKey.append(escape ? ConfigurationUtil.escape(key) : key);
@@ -170,6 +180,8 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         }
 
         currentPath.add(key);
+
+        legacyNames.add(field == null ? STRING_EMPTY_ARRAY : legacyNames(field));
 
         return previousKeyLength;
     }
@@ -183,5 +195,31 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         currentKey.setLength(previousKeyLength);
 
         currentPath.remove(currentPath.size() - 1);
+        legacyNames.remove(legacyNames.size() - 1);
+    }
+
+    protected void processPath(ArrayList<String> path, BiConsumer<String, String> consumer) {
+        if (path.size() == currentPath().size() - 1) {
+            for (String legacyName : legacyNames.get(currentPath().size() - 1)) {
+                String legacyKey = join(appendKey(path, legacyName));
+                String newKey = currentKey();
+
+                consumer.accept(legacyKey, newKey);
+            }
+
+            path.remove(path.size() - 1);
+
+            return;
+        }
+
+        for (String legacyName : legacyNames.get(path.size())) {
+            path.add(legacyName);
+
+            processPath(path, consumer);
+        }
+
+        path.add(currentPath().get(path.size()));
+
+        processPath(path, consumer);
     }
 }
