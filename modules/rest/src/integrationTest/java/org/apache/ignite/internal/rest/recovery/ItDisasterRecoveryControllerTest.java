@@ -67,7 +67,6 @@ import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStateRespo
 import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
@@ -78,7 +77,6 @@ import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
  * Test for disaster recovery REST commands.
  */
 @MicronautTest
-@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
@@ -511,7 +509,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         ));
     }
 
-    @Disabled("Fails with colocation")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25448")
     @Test
     void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);
