@@ -1220,7 +1220,7 @@ public class ClientInboundMessageHandler
             packer.packLong(requestId);
             int flags = ResponseFlags.getFlags(false, false, false, true);
             packer.packInt(flags);
-            packer.packLong(observableTimestamp(null));
+            packer.packLong(clockService.currentLong());
             packer.packInt(serverOp);
 
             writer.accept(packer);
