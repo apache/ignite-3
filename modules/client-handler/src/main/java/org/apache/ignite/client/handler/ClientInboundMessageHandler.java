@@ -1013,7 +1013,6 @@ public class ClientInboundMessageHandler
         }
 
         fut.whenComplete((ResponseWriter res, Object err) -> {
-            in.close();
             metrics.requestsActiveDecrement();
 
             if (err != null) {
