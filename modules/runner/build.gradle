@@ -266,6 +266,16 @@ tasks.register("runUpsertBenchmark", JavaExec) {
     enableAssertions = true
 }
 
+tasks.register("runTupleComparatorBenchmark", JavaExec) {
+    mainClass = "org.apache.ignite.internal.benchmark.TupleComparatorBenchmark"
+
+    jvmArgs += addOpens + ["-Dio.netty.tryReflectionSetAccessible=true", "-Xmx16g"]
+
+    classpath = sourceSets.integrationTest.runtimeClasspath
+
+    enableAssertions = true
+}
+
 tasks.register("runClientBenchmark", JavaExec) {
     mainClass = "org.apache.ignite.internal.benchmark.ClientKvBenchmark"
 
