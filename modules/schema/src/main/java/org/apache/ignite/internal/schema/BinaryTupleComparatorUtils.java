@@ -35,7 +35,13 @@ class BinaryTupleComparatorUtils {
      * Compares individual fields of two tuples using ascending order.
      */
     @SuppressWarnings("DataFlowIssue")
-    static int compareFieldValue(ColumnType typeSpec, BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
+    static int compareFieldValue(
+            ColumnType typeSpec,
+            BinaryTupleReader tuple1,
+            BinaryTupleReader tuple2,
+            int index,
+            boolean useBuffer
+    ) {
         switch (typeSpec) {
             case INT8:
             case BOOLEAN:
@@ -57,13 +63,18 @@ class BinaryTupleComparatorUtils {
                 return Double.compare(tuple1.doubleValue(index), tuple2.doubleValue(index));
 
             case BYTE_ARRAY:
+                if (useBuffer) {
+                    return BinaryTupleComparatorUtilsWithoutCopy.compareAsBytes(tuple1, tuple2, index);
+                }
+
                 return Arrays.compareUnsigned(tuple1.bytesValue(index), tuple2.bytesValue(index));
 
             case UUID:
                 return tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
 
             case STRING:
-                return tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
+                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsString(tuple1, tuple2, index, false)
+                        : tuple1.stringValue(index).compareTo(tuple2.stringValue(index));
 
             case DECIMAL:
                 BigDecimal numeric1 = tuple1.decimalValue(index, Integer.MIN_VALUE);
