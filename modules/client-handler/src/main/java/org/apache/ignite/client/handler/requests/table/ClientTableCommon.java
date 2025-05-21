@@ -395,7 +395,7 @@ public class ClientTableCommon {
      * Reads transaction.
      *
      * @param in Unpacker.
-     * @param readTs Packer.
+     * @param tsUpdater Packer.
      * @param resources Resource registry.
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
@@ -403,7 +403,7 @@ public class ClientTableCommon {
      */
     public static @Nullable InternalTransaction readTx(
             ClientMessageUnpacker in,
-            HybridTimestampTracker readTs,
+            HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
             @Nullable NotificationSender notificationSender
@@ -442,7 +442,7 @@ public class ClientTableCommon {
             if (tx != null && tx.isReadOnly()) {
                 // For read-only tx, override observable timestamp that we send to the client:
                 // use readTimestamp() instead of now().
-                readTs.update(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
+                tsUpdater.update(tx.readTimestamp()); // TODO https://issues.apache.org/jira/browse/IGNITE-24592
             }
 
             return tx;

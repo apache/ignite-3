@@ -29,7 +29,6 @@ import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.client.handler.HybridTimestampHolder;
 import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
@@ -50,6 +49,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.sql.async.AsyncResultSet;
 import org.apache.ignite.tx.Transaction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -84,32 +84,32 @@ public class ClientSqlExecuteRequest {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        return nullCompletedFuture().thenComposeAsync(none -> {
-            InternalTransaction tx = readTx(in, out, resources, null, null);
-            ClientSqlProperties props = new ClientSqlProperties(in);
-            String statement = in.unpackString();
-            Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+        InternalTransaction tx = readTx(in, tsUpdater, resources, null, null);
+        ClientSqlProperties props = new ClientSqlProperties(in);
+        String statement = in.unpackString();
+        Object[] arguments = readArgsNotNull(in);
 
-            if (arguments == null) {
-                // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
-                arguments = ArrayUtils.OBJECT_EMPTY_ARRAY;
-            }
+        HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
+        tsUpdater.update(clientTs);
 
-            HybridTimestamp clientTs = HybridTimestamp.nullableHybridTimestamp(in.unpackLong());
-            tsUpdater.update(clientTs);
+        return nullCompletedFuture().thenComposeAsync(none -> executeAsync(
+                tx,
+                sql,
+                tsUpdater,
+                statement,
+                cancelHandle.token(),
+                props.pageSize(),
+                props.toSqlProps(),
+                () -> cancelHandles.remove(requestId),
+                arguments
+        ).thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics)), operationExecutor);
+    }
 
-            return executeAsync(
-                    tx,
-                    sql,
-                    tsUpdater,
-                    statement,
-                    cancelHandle.token(),
-                    props.pageSize(),
-                    props.toSqlProps(),
-                    () -> cancelHandles.remove(requestId),
-                    arguments
-            ).thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics));
-        }, operationExecutor);
+    private static Object @NotNull [] readArgsNotNull(ClientMessageUnpacker in) {
+        Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
+
+        // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
+        return arguments == null ? ArrayUtils.OBJECT_EMPTY_ARRAY : arguments;
     }
 
     private static CompletableFuture<ResponseWriter> writeResultSetAsync(
