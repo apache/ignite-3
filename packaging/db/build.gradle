@@ -33,6 +33,7 @@ java {
 
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
+import org.redline_rpm.payload.Directive
 
 configurations {
     dbArtifacts
@@ -270,6 +271,7 @@ ospackage {
         from sourceSets.main.resources
 
         fileMode 0660
+        fileType Directive.CONFIG
 
         eachFile {
             def configFile = "${packageTokens.CONF_DIR}/${it.getName()}"
