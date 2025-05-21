@@ -752,7 +752,7 @@ public class ClientInboundMessageHandler
                         in, igniteTables, resources, txManager, clockService, notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET:
-                return ClientTupleGetRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleGetRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_UPSERT_ALL:
                 return ClientTupleUpsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService,

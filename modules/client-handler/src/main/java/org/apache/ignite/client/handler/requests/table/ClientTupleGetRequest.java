@@ -22,12 +22,14 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
+import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -39,25 +41,31 @@ public class ClientTupleGetRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param tables Ignite tables.
      * @param resources Resource registry.
      * @param clockService Clock service.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            HybridTimestampTracker tsTracker
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, true, null);
-            return readTuple(in, table, true).thenCompose(keyTuple -> {
-                return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> {
-                    writeTxMeta(out, clockService, tx);
+        int tableId = in.unpackInt();
+        int schemaId = in.unpackInt();
+
+        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, true, null);
+
+        BitSet noValueSet = in.unpackBitSet();
+        byte[] tupleBytes = in.readBinary();
+
+        return readTableAsync(tableId, tables).thenCompose(table -> {
+            return readTuple(schemaId, noValueSet, tupleBytes, table, true).thenCompose(tuple -> {
+                return table.recordView().getAsync(tx, tuple).thenApply(t -> out -> {
+                    writeTxMeta(out, tsTracker, clockService, tx);
                     ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView());
                 });
             });
