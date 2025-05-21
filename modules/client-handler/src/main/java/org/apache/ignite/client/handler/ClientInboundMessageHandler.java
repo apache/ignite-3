@@ -815,10 +815,10 @@ public class ClientInboundMessageHandler
                 return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
-                return ClientJdbcExecuteRequest.execute(in, jdbcQueryEventHandler);
+                return ClientJdbcExecuteRequest.execute(in, jdbcQueryEventHandler, tsTracker);
 
             case ClientOp.JDBC_CANCEL:
-                return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
+                return ClientJdbcCancelRequest.execute(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC_BATCH:
                 return ClientJdbcExecuteBatchRequest.process(in, out, jdbcQueryEventHandler);
