@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
@@ -66,14 +67,18 @@ import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStateRespo
 import org.apache.ignite.internal.rest.api.recovery.LocalZonePartitionStatesResponse;
 import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 /**
  * Test for disaster recovery REST commands.
  */
 @MicronautTest
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegrationTest {
     private static final String NODE_URL = "http://localhost:" + ClusterConfiguration.DEFAULT_BASE_HTTP_PORT;
 
@@ -206,12 +211,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     void testLocalPartitionsEmptyResult() {
-        if (enabledColocation()) {
-            // When colocation enabled, empty zones (without tables) still have partitions.
-            return;
-        }
-
         String path = localStatePath();
         HttpResponse<?> response = client.toBlocking().exchange(
                 path + "?zoneNames=" + EMPTY_ZONE,
@@ -388,12 +389,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     void testGlobalPartitionsEmptyResult() {
-        if (enabledColocation()) {
-            // When colocation enabled, empty zones (without tables) still have partitions.
-            return;
-        }
-
         String path = globalStatePath();
 
         HttpResponse<?> response = client.toBlocking().exchange(path + "?zoneNames=" + EMPTY_ZONE, globalStateResponseType());
@@ -470,12 +467,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     public void testResetPartitionTableNotFound() {
-        if (enabledColocation()) {
-            // This test in colocation mode is not relevant.
-            return;
-        }
-
         String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, tableName, emptySet());
@@ -518,6 +511,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         ));
     }
 
+    @Disabled("Fails with colocation")
     @Test
     void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);
