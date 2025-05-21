@@ -375,15 +375,15 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         Map<ColumnType, Object> javaValues = new EnumMap<>(ColumnType.class);
         javaValues.put(ColumnType.NULL, null);
         javaValues.put(ColumnType.BOOLEAN, random.nextBoolean());
-        javaValues.put(ColumnType.INT8, (byte) random.nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE + 1));
-        javaValues.put(ColumnType.INT16, (short) random.nextInt(Short.MIN_VALUE, Short.MAX_VALUE + 1));
+        javaValues.put(ColumnType.INT8, (byte) nextInt(random, Byte.MIN_VALUE, Byte.MAX_VALUE + 1));
+        javaValues.put(ColumnType.INT16, (short) nextInt(random, Short.MIN_VALUE, Short.MAX_VALUE + 1));
         javaValues.put(ColumnType.INT32, random.nextInt());
         javaValues.put(ColumnType.INT64, random.nextLong());
         javaValues.put(ColumnType.FLOAT, random.nextFloat());
         javaValues.put(ColumnType.DOUBLE, random.nextDouble());
         // toString on bigdecimals that are exact power of 10 uses scientific format
         // Use values from [0, 9] interval to prevent that.
-        javaValues.put(ColumnType.DECIMAL, BigDecimal.valueOf(random.nextLong(0, 10)));
+        javaValues.put(ColumnType.DECIMAL, BigDecimal.valueOf(nextInt(random, 0, 10)));
         javaValues.put(ColumnType.STRING, String.valueOf(random.nextInt()));
         javaValues.put(ColumnType.BYTE_ARRAY, String.valueOf(random.nextInt()).getBytes(StandardCharsets.US_ASCII));
         javaValues.put(ColumnType.UUID, UUID.randomUUID());
@@ -468,14 +468,14 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
         Map<ColumnType, Object> javaValues = new EnumMap<>(ColumnType.class);
         javaValues.put(ColumnType.NULL, null);
         javaValues.put(ColumnType.BOOLEAN, random.nextBoolean());
-        javaValues.put(ColumnType.INT8, (byte) random.nextInt(Byte.MIN_VALUE, Byte.MAX_VALUE + 1));
-        javaValues.put(ColumnType.INT16, (short) random.nextInt(Short.MIN_VALUE, Short.MAX_VALUE + 1));
+        javaValues.put(ColumnType.INT8, (byte) nextInt(random, Byte.MIN_VALUE, Byte.MAX_VALUE + 1));
+        javaValues.put(ColumnType.INT16, (short) nextInt(random, Short.MIN_VALUE, Short.MAX_VALUE + 1));
         javaValues.put(ColumnType.INT32, random.nextInt());
         javaValues.put(ColumnType.INT64, random.nextLong());
         javaValues.put(ColumnType.FLOAT, random.nextFloat());
         javaValues.put(ColumnType.DOUBLE, random.nextDouble());
         // Use small numbers to avoid problems cause by comparing 80 and 8E+1
-        javaValues.put(ColumnType.DECIMAL, BigDecimal.valueOf(random.nextInt(0, 10)));
+        javaValues.put(ColumnType.DECIMAL, BigDecimal.valueOf(nextInt(random, 0, 10)));
         javaValues.put(ColumnType.TIMESTAMP, instant);
         javaValues.put(ColumnType.DATETIME, dateTime);
         javaValues.put(ColumnType.DATE, date);
@@ -572,5 +572,9 @@ public class JdbcResultSetTest extends BaseIgniteAbstractTest {
                 columns.size(),
                 JdbcResultSet.createTransformer(columns)
         );
+    }
+
+    private static int nextInt(Random random, int minValue, int bound) {
+        return random.nextInt(bound - minValue) + minValue;
     }
 }
