@@ -812,10 +812,10 @@ public class ClientInboundMessageHandler
                 return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager, clockService);
 
             case ClientOp.JDBC_CONNECT:
-                return ClientJdbcConnectRequest.execute(in, out, jdbcQueryEventHandler);
+                return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_EXEC:
-                return ClientJdbcExecuteRequest.execute(in, out, jdbcQueryEventHandler);
+                return ClientJdbcExecuteRequest.execute(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_CANCEL:
                 return ClientJdbcCancelRequest.execute(in, out, jdbcQueryEventHandler);
