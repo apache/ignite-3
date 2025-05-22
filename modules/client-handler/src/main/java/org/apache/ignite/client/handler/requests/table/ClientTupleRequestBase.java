@@ -94,11 +94,12 @@ public class ClientTupleRequestBase {
         assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
 
         int tableId = in.unpackInt();
-        int schemaId = in.unpackInt();
 
         InternalTransaction tx = txManager == null
                 ? null
                 : readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
+
+        int schemaId = in.unpackInt();
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();

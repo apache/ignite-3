@@ -84,9 +84,10 @@ public class ClientTuplesRequestBase {
             boolean readSecondTuple
     ) {
         int tableId = in.unpackInt();
-        int schemaId = in.unpackInt();
 
-        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
+        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
+
+        int schemaId = in.unpackInt();
 
         int count = in.unpackInt();
 
