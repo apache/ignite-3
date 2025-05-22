@@ -30,6 +30,112 @@ import org.apache.ignite.internal.util.GridUnsafe;
 class BinaryTupleComparatorUtilsWithoutCopy {
 
     /**
+     * Compares two binary tuples as timestamps. The comparison is performed on the column
+     * specified by the given index. The column values in the tuples are expected to represent
+     * timestamps encoded as seconds and optionally nanoseconds. The method considers both the
+     * second and nanosecond parts for comparison and accounts for potential truncation of data.
+     *
+     * @param tuple1 the first binary tuple reader
+     * @param tuple2 the second binary tuple reader
+     * @param colIndex the index of the column in the tuple to compare
+     * @return a negative integer, zero, or a positive integer if the first tuple is less than,
+     *         equal to, or greater than the second tuple, respectively, when interpreted as timestamps
+     */
+    static int compareAsTimestamp(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
+        tuple1.seek(colIndex);
+        int begin1 = tuple1.begin();
+        int end1 = tuple1.end();
+        ByteBuffer buf1 = tuple1.byteBuffer();
+        long offset1 = buf1.isDirect() ? GridUnsafe.bufferAddress(buf1) + begin1 : GridUnsafe.BYTE_ARR_OFF + buf1.arrayOffset() + begin1;
+        int fullSize1 = end1 - begin1;
+        int trimmedSize1 = Math.min(fullSize1, buf1.capacity() - begin1);
+
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        int end2 = tuple2.end();
+        ByteBuffer buf2 = tuple2.byteBuffer();
+        long offset2 = buf2.isDirect() ? GridUnsafe.bufferAddress(buf2) + begin2 : GridUnsafe.BYTE_ARR_OFF + buf2.arrayOffset() + begin2;
+        int fullSize2 = end2 - begin2;
+        int trimmedSize2 = Math.min(fullSize2, buf2.capacity() - begin2);
+
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        if (remaining >= 8) {
+            long seconds1 = buf1.isDirect() ? GridUnsafe.getLong(offset1) : GridUnsafe.getLong(buf1.array(), offset1);
+            long seconds2 = buf2.isDirect() ? GridUnsafe.getLong(offset2) : GridUnsafe.getLong(buf2.array(), offset2);
+
+            int cmp = Long.compare(seconds1, seconds2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            if (remaining == 12) {
+                int nanos1 = buf1.isDirect() ? GridUnsafe.getInt(offset1 + 8) : GridUnsafe.getInt(buf1.array(), offset1 + 8);
+                int nanos2 = buf2.isDirect() ? GridUnsafe.getInt(offset2 + 8) : GridUnsafe.getInt(buf2.array(), offset2 + 8);
+
+                return nanos1 - nanos2;
+            }
+
+            if (fullSize1 == 8 && fullSize2 == 12) {
+                return -1;
+            } else if (fullSize1 == 12 && fullSize2 == 8) {
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Compares two binary tuples as UUIDs. The comparison is performed on the column
+     * specified by the given index. The column values in the tuples are expected to
+     * represent UUIDs encoded as two sequential 64-bit values (most significant bits
+     * and least significant bits).
+     *
+     * @param tuple1 the first binary tuple reader
+     * @param tuple2 the second binary tuple reader
+     * @param colIndex the index of the column in the tuple to compare
+     * @return a negative integer, zero, or a positive integer if the first tuple is less than,
+     *         equal to, or greater than the second tuple, respectively, when interpreted as UUIDs
+     */
+    static int compareAsUuid(BinaryTupleReader tuple1, BinaryTupleReader tuple2, int colIndex) {
+        tuple1.seek(colIndex);
+        int begin1 = tuple1.begin();
+        ByteBuffer buf1 = tuple1.byteBuffer();
+        long offset1 = buf1.isDirect() ? GridUnsafe.bufferAddress(buf1) + begin1 : GridUnsafe.BYTE_ARR_OFF + buf1.arrayOffset() + begin1;
+        int trimmedSize1 = Math.min(16, buf1.capacity() - begin1);
+
+        tuple2.seek(colIndex);
+        int begin2 = tuple2.begin();
+        ByteBuffer buf2 = tuple2.byteBuffer();
+        long offset2 = buf2.isDirect() ? GridUnsafe.bufferAddress(buf2) + begin2 : GridUnsafe.BYTE_ARR_OFF + buf2.arrayOffset() + begin2;
+        int trimmedSize2 = Math.min(16, buf2.capacity() - begin2);
+
+        int remaining = Math.min(trimmedSize1, trimmedSize2);
+
+        if (remaining >= 8) {
+            long msb1 = buf1.isDirect() ? GridUnsafe.getLong(offset1) : GridUnsafe.getLong(buf1.array(), offset1);
+            long msb2 = buf2.isDirect() ? GridUnsafe.getLong(offset2) : GridUnsafe.getLong(buf2.array(), offset2);
+
+            int cmp = Long.compare(msb1, msb2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+
+            if (remaining == 16) {
+                long lsb1 = buf1.isDirect() ? GridUnsafe.getLong(offset1 + 8) : GridUnsafe.getLong(buf1.array(), offset1 + 8);
+                long lsb2 = buf2.isDirect() ? GridUnsafe.getLong(offset2 + 8) : GridUnsafe.getLong(buf2.array(), offset2 + 8);
+
+                return Long.compare(lsb1, lsb2);
+            }
+        }
+
+        return 0;
+    }
+
+    /**
      * Compares two binary tuples as byte sequences. The comparison is performed on the column
      * specified by the given index.
      *
@@ -353,6 +459,15 @@ class BinaryTupleComparatorUtilsWithoutCopy {
          * @return the byte value from the adjusted index in the internal buffer.
          */
         byte get(int p);
+
+        /**
+         * Retrieves a 64-bit long value from the specified index in the underlying byte buffer.
+         *
+         * @param p the index, adjusted for the internal representation of the wrapped byte buffer,
+         *          from which the long value is to be retrieved.
+         * @return the long value from the adjusted index in the internal buffer.
+         */
+        long getLong(int p);
     }
 
     /**
@@ -369,11 +484,15 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         private final int shift;
 
         DirectByteBufferWrapper(ByteBuffer buff, int begin) {
+            this(buff, begin, true);
+        }
+
+        DirectByteBufferWrapper(ByteBuffer buff, int begin, boolean mightEmpty) {
             assert buff.isDirect();
 
             long addr = GridUnsafe.bufferAddress(buff) + begin;
 
-            if (GridUnsafe.getByte(addr) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            if (mightEmpty && GridUnsafe.getByte(addr) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
                 shift = 1;
                 addr++;
             } else {
@@ -392,6 +511,11 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         public byte get(int p) {
             return GridUnsafe.getByte(addr + p);
         }
+
+        @Override
+        public long getLong(int p) {
+            return GridUnsafe.getLong(addr + p);
+        }
     }
 
     /**
@@ -408,6 +532,10 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         private final int shift;
 
         HeapByteBufferWrapper(ByteBuffer buff, int begin) {
+            this(buff, begin, true);
+        }
+
+        HeapByteBufferWrapper(ByteBuffer buff, int begin, boolean mightEmpty) {
             assert !buff.isDirect();
 
             bytes = buff.array();
@@ -415,7 +543,7 @@ class BinaryTupleComparatorUtilsWithoutCopy {
             begin += GridUnsafe.BYTE_ARR_OFF;
             begin += buff.arrayOffset();
 
-            if (GridUnsafe.getByte(bytes, begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            if (mightEmpty && GridUnsafe.getByte(bytes, begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
                 shift = 1;
                 begin++;
             } else {
@@ -433,6 +561,11 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         @Override
         public byte get(int p) {
             return GridUnsafe.getByte(bytes, begin + p);
+        }
+
+        @Override
+        public long getLong(int p) {
+            return GridUnsafe.getLong(bytes, begin + p);
         }
     }
 }

@@ -19,7 +19,12 @@ package org.apache.ignite.internal.benchmark;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
@@ -54,19 +59,26 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 public class TupleComparatorBenchmark {
-    PartialBinaryTupleMatcher partialBinaryTupleMatcher;
+    PartialBinaryTupleMatcher strPartialBinaryTupleMatcher;
     PartialBinaryTupleMatcher bytePartialBinaryTupleMatcher;
-    ByteBuffer tupleReference;
-    ByteBuffer truncatedTuple;
-    ByteBuffer truncatedTupleDirect;
+    PartialBinaryTupleMatcher timestampPartialBinaryTupleMatcher;
+    PartialBinaryTupleMatcher uuidPartialBinaryTupleMatcher;
 
-    ByteBuffer tupleReferenceAscii;
-    ByteBuffer truncatedTupleAscii;
-    ByteBuffer truncatedTupleDirectAscii;
+    ByteBuffer strTupleReference;
+    ByteBuffer strTuple;
+    ByteBuffer strPartialTuple;
 
     ByteBuffer byteTupleReference;
-    ByteBuffer byteTruncatedTuple;
-    ByteBuffer byteTruncatedTupleDirect;
+    ByteBuffer byteTuple;
+    ByteBuffer bytePartialTuple;
+
+    ByteBuffer timestampTupleReference;
+    ByteBuffer timestampTuple;
+    ByteBuffer timestampPartialTuple;
+
+    ByteBuffer uuidTupleReference;
+    ByteBuffer uuidTuple;
+    ByteBuffer uuidPartialTuple;
 
     @Param({"true", "false"})
     boolean useBuffer;
@@ -78,57 +90,73 @@ public class TupleComparatorBenchmark {
     public void setUp() {
         System.setProperty("IGNITE_USE_BUFFER", Boolean.toString(useBuffer));
 
-        partialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
+        initForStr();
+        initForBytes();
+        initForTimestamp();
+        initForUuid();
+    }
+
+    private void initForUuid() {
+        uuidPartialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
-                List.of(NativeTypes.STRING)
+                List.of(NativeTypes.UUID)
         );
 
+        uuidTupleReference = new BinaryTupleBuilder(1)
+                .appendUuid(UUID.randomUUID())
+                .build()
+                .order(ByteOrder.LITTLE_ENDIAN);
+
+        uuidTuple = ByteBuffer.allocateDirect(uuidTupleReference.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(uuidTupleReference);
+
+        ByteBuffer tmpTuple = uuidTupleReference.rewind().limit(8).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+        uuidPartialTuple = ByteBuffer.allocateDirect(tmpTuple.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(tmpTuple);
+
+        uuidTupleReference.clear();
+        uuidTuple.clear();
+        uuidPartialTuple.clear();
+    }
+
+    private void initForTimestamp() {
+        timestampPartialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.timestamp(3))
+        );
+
+        Clock clock = Clock.fixed(Instant.now().truncatedTo(ChronoUnit.SECONDS), ZoneId.systemDefault());
+        Instant instant = clock.instant();
+
+        timestampTupleReference = new BinaryTupleBuilder(1)
+                .appendTimestamp(instant)
+                .build()
+                .order(ByteOrder.LITTLE_ENDIAN);
+
+        timestampTuple = ByteBuffer.allocateDirect(timestampTupleReference.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(timestampTupleReference);
+
+        ByteBuffer tmpTuple = timestampTupleReference.rewind().limit(8).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+        timestampPartialTuple = ByteBuffer.allocateDirect(tmpTuple.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(tmpTuple);
+
+        timestampTupleReference.clear();
+        timestampTuple.clear();
+        timestampPartialTuple.clear();
+    }
+
+    private void initForBytes() {
         bytePartialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
                 List.of(CatalogColumnCollation.ASC_NULLS_LAST),
                 List.of(NativeTypes.BYTES)
         );
 
-        tupleReference = new BinaryTupleBuilder(1)
-                .appendString("Привет 你好".repeat(20))
-                .build()
-                .order(ByteOrder.LITTLE_ENDIAN);
-
-        truncatedTuple = new BinaryTupleBuilder(1)
-                .appendString("Привет 你好".repeat(20))
-                .build()
-                .limit(180)
-                .slice()
-                .order(ByteOrder.LITTLE_ENDIAN);
-
-        truncatedTupleDirect = ByteBuffer.allocateDirect(truncatedTuple.capacity())
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .put(truncatedTuple);
-
-        tupleReference.rewind();
-        truncatedTuple.rewind();
-        truncatedTupleDirect.rewind();
-
-        tupleReferenceAscii = new BinaryTupleBuilder(1)
-                 .appendString("qwertyuiop".repeat(20))
-                .build()
-                .order(ByteOrder.LITTLE_ENDIAN);
-
-        truncatedTupleAscii = new BinaryTupleBuilder(1)
-                 .appendString("qwertyuiop".repeat(20))
-                .build()
-                .limit(180)
-                .slice()
-                .order(ByteOrder.LITTLE_ENDIAN);
-
-        truncatedTupleDirectAscii = ByteBuffer.allocateDirect(truncatedTuple.capacity())
-                .order(ByteOrder.LITTLE_ENDIAN)
-                .put(truncatedTuple);
-
-        tupleReferenceAscii.rewind();
-        truncatedTupleAscii.rewind();
-        truncatedTupleDirectAscii.rewind();
-
-        // bytes
         byte[] bytes = new byte[350];
 
         for (int i = 0; i < bytes.length; i++) {
@@ -137,163 +165,179 @@ public class TupleComparatorBenchmark {
 
         byteTupleReference = new BinaryTupleBuilder(1)
                 .appendBytes(bytes)
-                // .appendString("qwertyuiop".repeat(20))
                 .build()
                 .order(ByteOrder.LITTLE_ENDIAN);
 
-        byteTruncatedTuple = new BinaryTupleBuilder(1)
-                .appendBytes(bytes)
-                // .appendString("qwertyuiop".repeat(20))
-                .build()
-                .limit(180)
-                .slice()
-                .order(ByteOrder.LITTLE_ENDIAN);
-
-        byteTruncatedTupleDirect = ByteBuffer.allocateDirect(truncatedTuple.capacity())
+        byteTuple = ByteBuffer.allocateDirect(byteTupleReference.capacity())
                 .order(ByteOrder.LITTLE_ENDIAN)
-                .put(truncatedTuple);
+                .put(byteTupleReference);
 
-        byteTupleReference.rewind();
-        byteTruncatedTuple.rewind();
-        byteTruncatedTupleDirect.rewind();
+        ByteBuffer tmpTuple = byteTupleReference.rewind().limit(180).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+        bytePartialTuple = ByteBuffer.allocateDirect(tmpTuple.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(tmpTuple);
+
+        byteTupleReference.clear();
+        byteTuple.clear();
+        bytePartialTuple.clear();
+    }
+
+    private void initForStr() {
+        strPartialBinaryTupleMatcher = new PartialBinaryTupleMatcher(
+                List.of(CatalogColumnCollation.ASC_NULLS_LAST),
+                List.of(NativeTypes.STRING)
+        );
+
+        strTupleReference = new BinaryTupleBuilder(1)
+                .appendString("Привет 你好".repeat(20))
+                .build()
+                .order(ByteOrder.LITTLE_ENDIAN);
+
+        strTuple = ByteBuffer.allocateDirect(strTupleReference.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(strTupleReference);
+
+        ByteBuffer tmpTuple = strTupleReference.rewind().limit(180).slice().order(ByteOrder.LITTLE_ENDIAN);
+
+        strPartialTuple = ByteBuffer.allocateDirect(tmpTuple.capacity())
+                .order(ByteOrder.LITTLE_ENDIAN)
+                .put(tmpTuple);
+
+        strTupleReference.clear();
+        strTuple.clear();
+        strPartialTuple.clear();
     }
 
     /**
-     * Benchmarks the performance of a full comparison of two identical binary tuples using a partial binary tuple matcher.
-     * This method invokes the comparison operation of {@code bytePartialBinaryTupleMatcher} and consumes the result using
-     * a {@code Blackhole} to ensure the complete process is benchmarked and no optimizations are applied by the compiler.
+     * Benchmarks the full comparison of string binary tuples using a match method from the strPartialBinaryTupleMatcher
+     * instance. The result of the comparison is passed into a Blackhole to avoid dead code elimination during benchmarking.
      *
-     * @param bh A Blackhole instance used to consume the output of the comparison and prevent optimizations during benchmarking.
+     * @param bh The Blackhole instance used to consume the comparison result for benchmarking purposes.
+     */
+    @Benchmark
+    public void testStrFullCompare(Blackhole bh) {
+        int r = strPartialBinaryTupleMatcher.match(strTuple, strTupleReference);
+
+        bh.consume(r);
+    }
+
+    /**
+     * Benchmarks the partial comparison of string binary tuples using the match method from the
+     * `strPartialBinaryTupleMatcher` instance. The result of the comparison is passed into a Blackhole
+     * to prevent dead code elimination and to measure performance accurately during benchmarking.
+     *
+     * @param bh The Blackhole instance used to consume the result of the comparison for benchmarking purposes.
+     */
+    @Benchmark
+    public void testStrPartialCompare(Blackhole bh) {
+        int r = strPartialBinaryTupleMatcher.match(strPartialTuple, strTupleReference);
+
+        bh.consume(r);
+    }
+
+    /**
+     * Benchmarks the full comparison of binary tuples represented as byte arrays using the `match` method
+     * from the `bytePartialBinaryTupleMatcher` instance. The result of the comparison is passed into a
+     * Blackhole to prevent dead code elimination and to ensure accurate benchmarking performance.
+     *
+     * @param bh The Blackhole instance used to consume the comparison result for benchmarking purposes.
      */
     @Benchmark
     public void testBytesFullCompare(Blackhole bh) {
-        int r = bytePartialBinaryTupleMatcher.match(byteTupleReference, byteTupleReference);
+        int r = bytePartialBinaryTupleMatcher.match(byteTuple, byteTupleReference);
 
         bh.consume(r);
     }
 
     /**
-     * Benchmarks the performance of a partial comparison between two binary tuples.
-     * This method invokes the comparison operation of {@code bytePartialBinaryTupleMatcher} on a truncated binary tuple
-     * and a tuple reference. The result of the comparison is then consumed using a {@code Blackhole} to ensure
-     * the benchmarking process is not optimized away by the compiler.
+     * Benchmarks the partial comparison of binary tuples represented as byte arrays using the `match` method
+     * from the `bytePartialBinaryTupleMatcher` instance. The benchmark evaluates the performance of comparing
+     * tuple prefixes, types, and associated configurations up to a predefined schema limit. The result of the
+     * comparison is consumed by a Blackhole instance to avoid dead code elimination and ensure accurate
+     * performance measurement.
      *
-     * @param bh A Blackhole instance used to consume the output of the comparison and prevent optimizations during benchmarking.
+     * @param bh The Blackhole instance used to consume the result of the comparison, ensuring it is used
+     *           during the benchmark for accurate performance evaluation.
      */
     @Benchmark
     public void testBytesPartialCompare(Blackhole bh) {
-        int r = bytePartialBinaryTupleMatcher.match(byteTruncatedTuple, byteTupleReference);
+        int r = bytePartialBinaryTupleMatcher.match(bytePartialTuple, byteTupleReference);
 
         bh.consume(r);
     }
 
     /**
-     * Benchmarks the performance of directly performing a partial comparison between a truncated binary tuple
-     * in direct byte buffer format and a tuple reference. This method uses the {@code bytePartialBinaryTupleMatcher}
-     * to execute the comparison and consumes the result using a {@code Blackhole} to ensure the entire process
-     * is benchmarked and no optimizations are applied by the compiler.
+     * Benchmarks the full comparison of binary tuples with UUIDs using the `match` method
+     * from the `uuidPartialBinaryTupleMatcher` instance. The comparison evaluates the relative ordering
+     * of two binary tuples represented as ByteBuffers, considering tuple prefixes, column types, and schema configurations.
+     * This method measures the performance of the complete matching process and consumes
+     * the result in a Blackhole to prevent dead code elimination during benchmarking.
      *
-     * @param bh A Blackhole instance used to consume the comparison result and eliminate potential compiler optimizations
-     *           during benchmarking.
+     * @param bh The Blackhole instance used to consume the result of the comparison for benchmarking purposes.
      */
     @Benchmark
-    public void testBytesPartialCompareDirect(Blackhole bh) {
-        int r = bytePartialBinaryTupleMatcher.match(byteTruncatedTupleDirect, byteTupleReference);
+    public void uuidBytesFullCompare(Blackhole bh) {
+        int r = uuidPartialBinaryTupleMatcher.match(uuidTuple, uuidTupleReference);
 
         bh.consume(r);
     }
 
     /**
-     * Benchmarks the performance of comparing two identical binary tuples using a partial binary tuple comparator.
-     * This method measures the time taken to execute the comparison operation
-     * and consumes the result to ensure the entire process is benchmarked.
+     * Benchmarks the partial comparison of binary tuples with UUIDs using the `match` method from
+     * the `uuidPartialBinaryTupleMatcher` instance. This comparison evaluates the relative ordering
+     * of two binary tuples represented as ByteBuffers, considering tuple prefixes, column types,
+     * schema configurations, and the prefix matching rules. It measures the performance of comparing
+     * only specific portions of the tuples, consuming the result in a Blackhole to avoid dead code
+     * elimination during benchmarking.
      *
-     * @param bh A Blackhole instance used to consume the output of the comparison and prevent optimizations.
+     * @param bh The Blackhole instance used to consume the result of the comparison, ensuring the
+     *           comparison operation is not optimized out during benchmarking for accurate performance
+     *           evaluation.
      */
     @Benchmark
-    public void testFullCompare(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(tupleReference, tupleReference);
+    public void uuidBytesPartialCompare(Blackhole bh) {
+        int r = uuidPartialBinaryTupleMatcher.match(uuidPartialTuple, uuidTupleReference);
 
         bh.consume(r);
     }
 
     /**
-     * Benchmarks the performance of a full comparison between two identical binary tuples encoded as ASCII strings.
-     * This method utilizes the {@code partialBinaryTupleMatcher} to perform the comparison operation and then consumes
-     * the result using a {@code Blackhole} to ensure that the benchmarking process is not optimized away by the compiler.
+     * Benchmarks the full comparison of timestamp-based binary tuples using the `match` method
+     * from the `timestampPartialBinaryTupleMatcher` instance. This method evaluates the
+     * relative ordering of two binary tuples represented as `ByteBuffer` objects, considering
+     * tuple prefixes, column types, and schema configurations. The comparison result is consumed
+     * by a Blackhole instance to prevent dead code elimination during benchmarking and to
+     * measure performance accurately.
      *
-     * @param bh A Blackhole instance used to consume the result of the comparison operation, ensuring accurate benchmarking
-     *           and preventing compiler optimizations.
+     * @param bh The Blackhole instance used to consume the result of the comparison, ensuring
+     *           the operation is not optimized out during benchmarking for precise performance
+     *           evaluation.
      */
     @Benchmark
-    public void testFullCompareAscii(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(tupleReferenceAscii, tupleReferenceAscii);
+    public void timestampBytesFullCompare(Blackhole bh) {
+        int r = timestampPartialBinaryTupleMatcher.match(timestampTuple, timestampTupleReference);
 
         bh.consume(r);
     }
 
     /**
-     * Benchmarks the performance of comparing a truncated binary tuple with a full binary tuple.
-     * This method measures the execution time of the comparison and consumes the result
-     * to ensure proper benchmarking and prevent potential optimizations by the compiler.
+     * Benchmarks the partial comparison of timestamp-based binary tuples using the `match` method
+     * from the `timestampPartialBinaryTupleMatcher` instance. This method evaluates the relative
+     * ordering of two binary tuples represented as `ByteBuffer` objects by comparing only a portion
+     * of the tuples, considering tuple prefixes, column types, and schema configurations. The result
+     * is consumed by a Blackhole to prevent dead code elimination during benchmarking and ensure
+     * accurate performance measurement.
      *
-     * @param bh A Blackhole instance used to consume the result of the comparison operation.
+     * @param bh The Blackhole instance used to consume the result of the comparison, ensuring the
+     *           operation is not optimized out during benchmarking for precise performance evaluation.
      */
     @Benchmark
-    public void testPartialCompare(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(truncatedTuple, tupleReference);
+    public void timestampBytesPartialCompare(Blackhole bh) {
+        int r = timestampPartialBinaryTupleMatcher.match(timestampPartialTuple, timestampTupleReference);
 
         bh.consume(r);
     }
-
-    /**
-     * Benchmarks the performance of partially comparing binary tuples encoded as ASCII strings.
-     * This method performs a partial comparison between two ASCII-encoded binary tuples using
-     * a partial binary tuple matcher. The result of the comparison is consumed via a {@code Blackhole}
-     * to ensure the full benchmarking process and prevent compiler optimizations.
-     *
-     * @param bh A Blackhole instance used to consume the comparison result, ensuring that the outcome
-     *           is not optimized away by the compiler during benchmarking.
-     */
-    @Benchmark
-    public void testPartialCompareAscii(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(truncatedTupleAscii, tupleReferenceAscii);
-
-        bh.consume(r);
-    }
-
-    /**
-     * Benchmarks the performance of directly comparing a truncated binary tuple with a tuple reference
-     * using a partial binary tuple matcher. This method excludes middle-layer abstractions, aiming to
-     * assess the raw comparison performance, and consumes the result to ensure proper benchmarking and
-     * prevent compiler optimizations.
-     *
-     * @param bh A Blackhole instance used to consume the comparison result and eliminate any potential optimizations
-     *           during benchmarking.
-     */
-    @Benchmark
-    public void testPartialCompareDirect(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(truncatedTupleDirect, tupleReference);
-
-        bh.consume(r);
-    }
-
-    /**
-     * Benchmarks the performance of directly comparing a truncated binary tuple with a tuple reference
-     * using ASCII encoding and a partial binary tuple matcher. This method avoids intermediate layers
-     * to measure the raw performance of the comparison and consumes the result to ensure proper benchmarking
-     * and prevent compiler optimizations.
-     *
-     * @param bh A Blackhole instance used to consume the comparison result, ensuring that the operation's outcome
-     *           is not optimized away by the compiler during benchmarking.
-     */
-    @Benchmark
-    public void testPartialCompareDirectAscii(Blackhole bh) {
-        int r = partialBinaryTupleMatcher.match(truncatedTupleDirectAscii, tupleReferenceAscii);
-
-        bh.consume(r);
-    }
-
 
     /**
      * Benchmark's entry point.
