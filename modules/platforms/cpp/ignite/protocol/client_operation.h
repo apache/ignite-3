@@ -110,10 +110,10 @@ enum class client_operation {
     /** Execute SQL query. */
     SQL_EXEC = 50,
 
-    /** Get next page. */
+    /** Get the next page. */
     SQL_CURSOR_NEXT_PAGE = 51,
 
-    /** Close cursor. */
+    /** Close the cursor. */
     SQL_CURSOR_CLOSE = 52,
 
     /** Execute SQL script. */
@@ -136,6 +136,12 @@ enum class client_operation {
 
     /** Cancel execution of an SQL query previously initiated on the same connection. */
     SQL_CANCEL_EXEC = 70,
+
+    /** Get tables with qualified names. */
+    TABLES_GET_QUALIFIED = 71,
+
+    /** Get table by qualified name. */
+    TABLE_GET_QUALIFIED = 72,
 };
 
 } // namespace ignite::protocol

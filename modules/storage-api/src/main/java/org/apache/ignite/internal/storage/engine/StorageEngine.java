@@ -17,9 +17,6 @@
 
 package org.apache.ignite.internal.storage.engine;
 
-import static org.apache.ignite.internal.util.Constants.MiB;
-import static org.apache.ignite.internal.util.IgniteUtils.getTotalMemoryAvailable;
-
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 
@@ -68,14 +65,4 @@ public interface StorageEngine {
      * @throws StorageException If an error has occurs while dropping the table.
      */
     void dropMvTable(int tableId);
-
-    /**
-     * Default size of a data region, maximum between 256 MiB and 20% of the total physical memory.
-     *
-     * <p>256 MiB, if system was unable to retrieve physical memory size.
-     */
-    static long defaultDataRegionSize() {
-        //noinspection NumericCastThatLosesPrecision
-        return Math.max(256 * MiB, (long) (0.2 * getTotalMemoryAvailable()));
-    }
 }

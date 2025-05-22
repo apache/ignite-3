@@ -108,6 +108,7 @@ import org.apache.ignite.internal.tx.impl.TransactionInflights;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.ignite.lang.CancellationToken;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -255,7 +256,8 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
     /** {@inheritDoc} */
     @Override
     public synchronized CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        var nodeName = clusterSrvc.topologyService().localMember().name();
+        ClusterNode localNode = clusterSrvc.topologyService().localMember();
+        String nodeName = localNode.name();
 
         taskExecutor = registerService(new QueryTaskExecutorImpl(nodeName, nodeCfg.execution().threadCount().value(), failureManager));
         var mailboxRegistry = registerService(new MailboxRegistryImpl());
@@ -275,7 +277,7 @@ public class SqlQueryProcessor implements QueryProcessor, SystemViewProvider {
         ));
 
         var msgSrvc = registerService(new MessageServiceImpl(
-                nodeName,
+                localNode,
                 clusterSrvc.messagingService(),
                 taskExecutor,
                 busyLock,

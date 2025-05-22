@@ -29,6 +29,7 @@ set(SOURCES
     sql/sql.cpp
     sql/result_set.cpp
     table/key_value_view.cpp
+    table/qualified_name.cpp
     table/record_view.cpp
     table/table.cpp
     table/tables.cpp
@@ -42,6 +43,7 @@ set(SOURCES
     detail/compute/compute_impl.cpp
     detail/compute/job_execution_impl.cpp
     detail/sql/sql_impl.cpp
+    detail/table/name_utils.cpp
     detail/table/table_impl.cpp
     detail/table/tables_impl.cpp
 )
@@ -77,6 +79,7 @@ set(PUBLIC_HEADERS
     sql/sql_statement.h
     table/ignite_tuple.h
     table/key_value_view.h
+    table/qualified_name.h
     table/record_view.h
     table/table.h
     table/tables.h
@@ -94,6 +97,7 @@ set(LIBRARIES
     ignite-tuple
     ignite-network
     ignite-protocol
+    uni-algo::uni-algo
 )
 
 set(_target_libs ${TARGET} ${TARGET}-obj)
@@ -110,6 +114,7 @@ foreach(_target_lib IN LISTS _target_libs)
 endforeach()
 unset(_target_libs)
 
+
 if (${INSTALL_IGNITE_FILES})
     install(TARGETS ${TARGET}
         RUNTIME DESTINATION bin
@@ -121,3 +126,5 @@ if (${INSTALL_IGNITE_FILES})
 endif()
 
 ignite_test(utils_test DISCOVER SOURCES detail/utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(name_utils_test DISCOVER SOURCES detail/table/name_utils_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})
+ignite_test(qualified_name_test DISCOVER SOURCES table/qualified_name_test.cpp LIBS ${TARGET}-obj ${LIBRARIES})

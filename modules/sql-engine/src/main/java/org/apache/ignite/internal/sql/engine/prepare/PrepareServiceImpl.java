@@ -40,7 +40,6 @@ import org.apache.calcite.rel.type.RelDataTypeField;
 import org.apache.calcite.schema.SchemaPlus;
 import org.apache.calcite.sql.SqlBasicCall;
 import org.apache.calcite.sql.SqlDdl;
-import org.apache.calcite.sql.SqlExplain;
 import org.apache.calcite.sql.SqlInsert;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.sql.SqlNode;
@@ -66,6 +65,7 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchemas;
 import org.apache.ignite.internal.sql.engine.schema.SqlSchemaManager;
+import org.apache.ignite.internal.sql.engine.sql.IgniteSqlExplain;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlKill;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
@@ -326,9 +326,9 @@ public class PrepareServiceImpl implements PrepareService {
         SqlNode parsedTree = parsedResult.parsedTree();
 
         assert single(parsedTree);
-        assert parsedTree instanceof SqlExplain : parsedTree.getClass().getCanonicalName();
+        assert parsedTree instanceof IgniteSqlExplain : parsedTree.getClass().getCanonicalName();
 
-        SqlNode explicandum = ((SqlExplain) parsedTree).getExplicandum();
+        SqlNode explicandum = ((IgniteSqlExplain) parsedTree).getExplicandum();
 
         SqlQueryType queryType = Commons.getQueryType(explicandum);
 

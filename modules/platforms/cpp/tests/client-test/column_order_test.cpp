@@ -27,8 +27,7 @@
 
 using namespace ignite;
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-24261 check lowercased name
-#define TEST_TABLE_NAME "COLUMN_ORDER_TEST"
+#define TEST_TABLE_NAME "public.column_order_test"
 
 /**
  * Test suite.
@@ -42,16 +41,16 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS " TEST_TABLE_NAME}, {});
 
         client.get_sql().execute(nullptr, nullptr,
-            {"create table column_order_test(val1 varchar, key1 int, val2 bigint, key2 varchar, primary key(key2, "
-             "key1))"},
+            {"CREATE TABLE " TEST_TABLE_NAME "(VAL1 VARCHAR, KEY1 INT, VAL2 BIGINT, KEY2 VARCHAR, PRIMARY KEY(KEY2, "
+             "KEY1))"},
             {});
 
         for (std::int32_t i = 0; i < test_records; ++i) {
             auto stri = std::to_string(i);
-            client.get_sql().execute(nullptr, nullptr, {"insert into " TEST_TABLE_NAME " values(?, ?, ?, ?)"},
+            client.get_sql().execute(nullptr, nullptr, {"INSERT INTO " TEST_TABLE_NAME " VALUES(?, ?, ?, ?)"},
                 {"test val " + stri, std::int32_t(i), std::int64_t(i * 2), "test key " + stri});
         }
     }
@@ -61,7 +60,7 @@ protected:
         cfg.set_logger(get_logger());
         auto client = ignite_client::start(cfg, std::chrono::seconds(30));
 
-        client.get_sql().execute(nullptr, nullptr, {"drop table if exists " TEST_TABLE_NAME}, {});
+        client.get_sql().execute(nullptr, nullptr, {"DROP TABLE IF EXISTS " TEST_TABLE_NAME}, {});
     }
 
     void SetUp() override {
@@ -69,7 +68,7 @@ protected:
         cfg.set_logger(get_logger());
 
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
-        auto table = m_client.get_tables().get_table(TEST_TABLE_NAME);
+        auto table = m_client.get_tables().get_table(qualified_name::parse(TEST_TABLE_NAME));
         ASSERT_TRUE(table.has_value());
 
         m_table = std::move(*table);
@@ -87,25 +86,25 @@ protected:
 };
 
 ignite_tuple make_test_key_tuple(std::int32_t index) {
-    return {{"key1", std::int32_t(index)}, {"key2", "test key " + std::to_string(index)}};
+    return {{"KEY1", std::int32_t(index)}, {"KEY2", "test key " + std::to_string(index)}};
 }
 
 ignite_tuple make_test_full_tuple(std::int32_t index) {
     auto stri = std::to_string(index);
-    return {{"key1", std::int32_t(index)}, {"key2", "test key " + stri}, {"val1", "test val " + stri},
-        {"val2", std::int64_t(index * 2)}};
+    return {{"KEY1", std::int32_t(index)}, {"KEY2", "test key " + stri}, {"VAL1", "test val " + stri},
+        {"VAL2", std::int64_t(index * 2)}};
 }
 
 void check_test_tuple(const ignite_tuple &tuple, std::int32_t index, bool key_only) {
     ASSERT_EQ(key_only ? 2 : 4, tuple.column_count());
 
     auto ref = make_test_full_tuple(index);
-    EXPECT_EQ(ref.get("key1").get<std::int32_t>(), tuple.get("key1").get<std::int32_t>());
-    EXPECT_EQ(ref.get("key2").get<std::string>(), tuple.get("key2").get<std::string>());
+    EXPECT_EQ(ref.get("KEY1").get<std::int32_t>(), tuple.get("KEY1").get<std::int32_t>());
+    EXPECT_EQ(ref.get("KEY2").get<std::string>(), tuple.get("KEY2").get<std::string>());
 
     if (!key_only) {
-        EXPECT_EQ(ref.get("val1").get<std::string>(), tuple.get("val1").get<std::string>());
-        EXPECT_EQ(ref.get("val2").get<std::int64_t>(), tuple.get("val2").get<std::int64_t>());
+        EXPECT_EQ(ref.get("VAL1").get<std::string>(), tuple.get("VAL1").get<std::string>());
+        EXPECT_EQ(ref.get("VAL2").get<std::int64_t>(), tuple.get("VAL2").get<std::int64_t>());
     }
 }
 

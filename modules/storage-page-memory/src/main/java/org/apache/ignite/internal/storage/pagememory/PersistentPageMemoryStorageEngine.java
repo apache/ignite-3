@@ -17,22 +17,18 @@
 
 package org.apache.ignite.internal.storage.pagememory;
 
-import static org.apache.ignite.internal.storage.configurations.StorageProfileConfigurationSchema.UNSPECIFIED_SIZE;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermination;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.util.Map;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
-import org.apache.ignite.configuration.ConfigurationValue;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.configuration.SystemLocalConfiguration;
@@ -55,9 +51,7 @@ import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreMana
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
-import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
-import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptorSupplier;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineConfiguration;
@@ -210,17 +204,11 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         }
 
         // TODO: IGNITE-17066 Add handling deleting/updating data regions configuration
-        for (StorageProfileView storageProfileView : storageConfig.profiles().value()) {
-            if (storageProfileView instanceof PersistentPageMemoryProfileView) {
-                String profileName = storageProfileView.name();
-
-                var storageProfileConfiguration = (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(profileName);
-
-                assert storageProfileConfiguration != null : profileName;
-
-                addDataRegion(storageProfileConfiguration);
+        storageConfig.profiles().value().stream().forEach(p -> {
+            if (p instanceof PersistentPageMemoryProfileView) {
+                addDataRegion(p.name());
             }
-        }
+        });
 
         // TODO: remove this executor, see https://issues.apache.org/jira/browse/IGNITE-21683
         ThreadPoolExecutor executor = new ThreadPoolExecutor(
@@ -326,9 +314,12 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     /**
      * Creates, starts and adds a new data region to the engine.
+     *
+     * @param name Data region name.
      */
-    private void addDataRegion(PersistentPageMemoryProfileConfiguration storageProfileConfiguration) {
-        initDataRegionSize(storageProfileConfiguration);
+    private void addDataRegion(String name) {
+        PersistentPageMemoryProfileConfiguration storageProfileConfiguration =
+                (PersistentPageMemoryProfileConfiguration) storageConfig.profiles().get(name);
 
         int pageSize = engineConfig.pageSizeBytes().value();
 
@@ -345,21 +336,6 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
         dataRegion.start();
 
-        regions.put(storageProfileConfiguration.name().value(), dataRegion);
-    }
-
-    private static void initDataRegionSize(PersistentPageMemoryProfileConfiguration storageProfileConfiguration) {
-        ConfigurationValue<Long> dataRegionSize = storageProfileConfiguration.sizeBytes();
-
-        if (dataRegionSize.value() == UNSPECIFIED_SIZE) {
-            CompletableFuture<Void> updateFuture = dataRegionSize.update(StorageEngine.defaultDataRegionSize());
-
-            // Node local configuration is synchronous, wait just in case.
-            try {
-                updateFuture.get();
-            } catch (InterruptedException | ExecutionException e) {
-                throw new StorageException(e);
-            }
-        }
+        regions.put(name, dataRegion);
     }
 }

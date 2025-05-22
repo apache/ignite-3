@@ -39,8 +39,33 @@ public:
      */
     bitset_span(std::byte *begin, std::size_t size)
         : m_data(begin)
-        , m_size(size) {
-        std::memset(begin, 0, size);
+        , m_size(size) {}
+
+    /**
+     * Constructor.
+     *
+     * @param mask Mask bytes.
+     */
+    bitset_span(std::vector<std::byte> mask)
+        : m_data(mask.data())
+        , m_size(mask.size()) {}
+
+    /**
+     * Reset bitset.
+     */
+    void reset() {
+        std::memset(m_data, 0, m_size);
+    }
+
+    /**
+     * Test specified bit.
+     *
+     * @param bit_idx Bit index.
+     */
+    bool test(std::size_t bit_idx) const {
+        std::size_t byte_idx = bit_idx / CHAR_BIT;
+        assert(byte_idx < m_size);
+        return (m_data[byte_idx] & std::byte(1 << (bit_idx % CHAR_BIT))) != std::byte{0};
     }
 
     /**
