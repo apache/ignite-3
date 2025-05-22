@@ -255,7 +255,6 @@ public class PartitionReplicaLifecycleManager extends
     /**
      * This future completes on {@link #beforeNodeStop()} with {@link NodeStoppingException} before the {@link #busyLock} is blocked.
      */
-    // TODO: https://issues.apache.org/jira/browse/IGNITE-17592
     private final CompletableFuture<Void> stopReplicaLifecycleFuture = new CompletableFuture<>();
 
     /**

@@ -197,13 +197,10 @@ Sort
                                                           table: PUBLIC.CATALOG_SALES
                                                           fields: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
                                                           est: (rows=1441548)
-                                                      Exchange
-                                                          distribution: affinity[tableId=51, zoneId=51][0, 1]
+                                                      TableScan
+                                                          table: PUBLIC.CATALOG_RETURNS
+                                                          fields: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
                                                           est: (rows=144067)
-                                                        TableScan
-                                                            table: PUBLIC.CATALOG_RETURNS
-                                                            fields: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
-                                                            est: (rows=144067)
                                         Exchange
                                             distribution: single
                                             est: (rows=24325)
@@ -428,13 +425,10 @@ Sort
                                                           table: PUBLIC.CATALOG_SALES
                                                           fields: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
                                                           est: (rows=1441548)
-                                                      Exchange
-                                                          distribution: affinity[tableId=51, zoneId=51][0, 1]
+                                                      TableScan
+                                                          table: PUBLIC.CATALOG_RETURNS
+                                                          fields: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
                                                           est: (rows=144067)
-                                                        TableScan
-                                                            table: PUBLIC.CATALOG_RETURNS
-                                                            fields: [CR_ITEM_SK, CR_ORDER_NUMBER, CR_REFUNDED_CASH, CR_REVERSED_CHARGE, CR_STORE_CREDIT]
-                                                            est: (rows=144067)
                                         Exchange
                                             distribution: single
                                             est: (rows=24325)

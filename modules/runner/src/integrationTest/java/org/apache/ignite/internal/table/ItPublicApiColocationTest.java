@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.table;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.params.ParameterizedTest.ARGUMENTS_PLACEHOLDER;
 
@@ -37,11 +38,12 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.SchemaRegistry;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.table.Tuple;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -50,6 +52,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 /**
  * Tests for the data colocation.
  */
+// TODO https://issues.apache.org/jira/browse/IGNITE-22522
+@WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
 @ExtendWith(WorkDirectoryExtension.class)
 public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /** Rows count ot test. */
@@ -67,16 +71,24 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     @MethodSource("oneColumnParameters")
     public void colocationOneColumn(NativeTypeSpec type) {
         String sqlType = SqlTestUtils.toSqlType(type.asColumnType());
-        sql(String.format("create table test0(id %s primary key, v INTEGER)", sqlType));
-        sql(String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlType));
+        String createTableScript = String.join(";",
+                String.format("create table test0(id %s primary key, v INTEGER)", sqlType),
+                String.format("create table test1(id0 integer, id1 %s, v INTEGER, primary key(id0, id1)) colocate by(id1)", sqlType)
+        );
+
+        sqlScript(createTableScript);
 
         int rowsCnt = type == NativeTypeSpec.BOOLEAN ? 2 : ROWS;
 
+        BatchedArguments batch1 = BatchedArguments.create();
+        BatchedArguments batch2 = BatchedArguments.create();
         for (int i = 0; i < rowsCnt; ++i) {
             Object val = SqlTestUtils.generateStableValueByType(i, type);
-            sql("insert into test0 values(?, ?)", val, 0);
-            sql("insert into test1 values(?, ?, ?)", i, val, 0);
+            batch1.add(val, 0);
+            batch2.add(i, val, 0);
         }
+        dmlBatch("insert into test0 values(?, ?)", batch1);
+        dmlBatch("insert into test1 values(?, ?, ?)", batch2);
 
         TableViewInternal tableViewInternal = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));
         int parts = tableViewInternal.internalTable().partitions();
@@ -106,28 +118,35 @@ public class ItPublicApiColocationTest extends ClusterPerClassIntegrationTest {
     /**
      * Check colocation by one column for all types.
      */
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-17557")
     @ParameterizedTest(name = "types=" + ARGUMENTS_PLACEHOLDER)
     @MethodSource("twoColumnsParameters")
     public void colocationTwoColumns(NativeTypeSpec t0, NativeTypeSpec t1) {
         String sqlType0 = SqlTestUtils.toSqlType(t0.asColumnType());
         String sqlType1 = SqlTestUtils.toSqlType(t1.asColumnType());
-        sql(String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlType0, sqlType1));
 
-        sql(String.format(
-                "create table test1(id integer, id0 %s, id1 %s, v INTEGER, primary key(id, id0, id1)) colocate by(id0, id1)",
-                sqlType0,
-                sqlType1
-        ));
+        String createTableScript = String.join(";",
+                String.format("create table test0(id0 %s, id1 %s, v INTEGER, primary key(id0, id1))", sqlType0, sqlType1),
+                String.format(
+                        "create table test1(id integer, id0 %s, id1 %s, v INTEGER, primary key(id, id0, id1)) colocate by(id0, id1)",
+                        sqlType0,
+                        sqlType1)
+        );
+        sqlScript(createTableScript);
 
         int rowsCnt = (t0 == NativeTypeSpec.BOOLEAN || t1 == NativeTypeSpec.BOOLEAN) ? 2 : ROWS;
 
+        BatchedArguments batch1 = BatchedArguments.create();
+        BatchedArguments batch2 = BatchedArguments.create();
         for (int i = 0; i < rowsCnt; ++i) {
             Object val1 = SqlTestUtils.generateStableValueByType(i, t0);
             Object val2 = SqlTestUtils.generateStableValueByType(i, t1);
-            sql("insert into test0 values(?, ?, ?)", val1, val2, 0);
-            sql("insert into test1 values(?, ?, ?, ?)", i, val1, val2, 0);
+
+            batch1.add(val1, val2, 0);
+            batch2.add(i, val1, val2, 0);
         }
+
+        dmlBatch("insert into test0 values(?, ?, ?)", batch1);
+        dmlBatch("insert into test1 values(?, ?, ?, ?)", batch2);
 
         int parts = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0")).internalTable().partitions();
         TableViewInternal tbl0 = unwrapTableViewInternal(CLUSTER.aliveNode().tables().table("test0"));

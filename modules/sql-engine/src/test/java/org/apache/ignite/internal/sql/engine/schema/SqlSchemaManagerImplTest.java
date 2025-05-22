@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.util.TypeUtils.columnType2NativeType;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrowsWithCause;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -472,21 +473,30 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T1");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(1), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(1),
+                    table.id(),
+                    enabledColocation() ? table.zoneId() : table.id())));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T2");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(3, 1), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(3, 1),
+                    table.id(),
+                    enabledColocation() ? table.zoneId() : table.id())));
         }
 
         {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T3");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(List.of(2, 1, 0), table.id(), table.id())));
+            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+                    List.of(2, 1, 0),
+                    table.id(),
+                    enabledColocation() ? table.zoneId() : table.id())));
         }
     }
 
