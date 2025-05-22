@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.pagememory.persistence.checkpoint.TestC
 import static org.apache.ignite.internal.pagememory.util.PageIdUtils.pageId;
 import static org.apache.ignite.internal.util.GridUnsafe.allocateBuffer;
 import static org.apache.ignite.internal.util.GridUnsafe.bufferAddress;
+import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.containsInAnyOrder;
@@ -192,7 +193,7 @@ public class CheckpointPagesWriterTest extends BaseIgniteAbstractTest {
 
         PersistentPageMemory pageMemory = mock(PersistentPageMemory.class);
 
-        doThrow(IgniteInternalCheckedException.class)
+        doThrow(new IgniteInternalCheckedException(INTERNAL_ERR))
                 .when(pageMemory)
                 .checkpointWritePage(
                         any(FullPageId.class),

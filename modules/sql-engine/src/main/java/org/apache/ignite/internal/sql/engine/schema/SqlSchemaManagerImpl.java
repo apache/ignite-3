@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine.schema;
 
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.AVAILABLE;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 
 import it.unimi.dsi.fastutil.objects.Object2IntMap;
@@ -314,10 +315,15 @@ public class SqlSchemaManagerImpl implements SqlSchemaManager {
                 .map(columnToIndex::getInt)
                 .collect(Collectors.toList());
 
-        // TODO Use the actual zone ID after implementing https://issues.apache.org/jira/browse/IGNITE-18426.
         int tableId = descriptor.id();
+        int zoneId = descriptor.zoneId();
 
-        return IgniteDistributions.affinity(colocationColumns, tableId, tableId);
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove flag
+        boolean zoneBasedColocation = enabledColocation();
+
+        return zoneBasedColocation
+                ? IgniteDistributions.affinity(colocationColumns, tableId, zoneId)
+                : IgniteDistributions.affinity(colocationColumns, tableId, tableId);
     }
 
     private static Object2IntMap<String> buildColumnToIndexMap(List<CatalogTableColumnDescriptor> columns) {

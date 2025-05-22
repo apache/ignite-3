@@ -17,16 +17,20 @@
 
 package org.apache.ignite.internal.table.distributed.replication;
 
+import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
+import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RO_GET_ALL;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_REPLACE;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
+import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
+import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrow;
 import static org.apache.ignite.internal.testframework.asserts.CompletableFutureAssert.assertWillThrowFast;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -48,6 +52,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -83,6 +88,8 @@ import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
+import org.apache.ignite.internal.lang.ComponentStoppingException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
@@ -102,12 +109,14 @@ import org.apache.ignite.internal.partition.replicator.network.replication.ReadO
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadOnlySingleRowPkReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteSingleRowReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.network.replication.RequestType;
+import org.apache.ignite.internal.partition.replicator.network.replication.ScanCloseReplicaRequest;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.partition.replicator.schema.ValidationSchemasSource;
 import org.apache.ignite.internal.partition.replicator.schemacompat.IncompatibleSchemaVersionException;
 import org.apache.ignite.internal.partition.replicator.schemacompat.InternalSchemaVersionMismatchException;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.TestPlacementDriver;
+import org.apache.ignite.internal.placementdriver.TestReplicaMetaImpl;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.service.LeaderWithTerm;
@@ -117,6 +126,8 @@ import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
+import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaRequest;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.replicator.message.ReplicaRequest;
 import org.apache.ignite.internal.replicator.message.TablePartitionIdMessage;
@@ -155,6 +166,7 @@ import org.apache.ignite.internal.table.distributed.replicator.TransactionStateR
 import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tostring.IgniteToStringInclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.tx.LockManager;
@@ -170,6 +182,7 @@ import org.apache.ignite.internal.tx.impl.TxMessageSender;
 import org.apache.ignite.internal.tx.impl.WaitDieDeadlockPreventionPolicy;
 import org.apache.ignite.internal.tx.message.TransactionMetaMessage;
 import org.apache.ignite.internal.tx.message.TxMessagesFactory;
+import org.apache.ignite.internal.tx.message.TxStateCommitPartitionRequest;
 import org.apache.ignite.internal.tx.message.TxStateCoordinatorRequest;
 import org.apache.ignite.internal.tx.message.TxStateResponse;
 import org.apache.ignite.internal.tx.storage.state.test.TestTxStatePartitionStorage;
@@ -184,7 +197,10 @@ import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.junitpioneer.jupiter.cartesian.ArgumentSets;
 import org.junitpioneer.jupiter.cartesian.CartesianTest;
 import org.junitpioneer.jupiter.cartesian.CartesianTest.Values;
@@ -456,7 +472,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 PART_ID,
                 new StorageSortedIndexDescriptor(
                         sortedIndexId,
-                        List.of(new StorageSortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true)),
+                        List.of(new StorageSortedIndexColumnDescriptor("intVal", NativeTypes.INT32, false, true, false)),
                         false
                 )
         );
@@ -1186,6 +1202,79 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         });
     }
 
+    @ParameterizedTest
+    @ValueSource(classes = {PrimaryReplicaRequest.class, TxStateCommitPartitionRequest.class})
+    void primaryReplicaRequestsAreRejectedWhenPrimaryIsNotKnown(Class<? extends PrimaryReplicaRequest> requestClass) {
+        doReturn(null).when(placementDriver).getCurrentPrimaryReplica(any(), any());
+        doReturn(nullCompletedFuture()).when(placementDriver).getPrimaryReplica(any(), any());
+
+        PrimaryReplicaRequest request = mock(requestClass);
+
+        assertThat(zonePartitionReplicaListener.invoke(request, localNode.id()), willThrow(PrimaryReplicaMissException.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {PrimaryReplicaRequest.class, TxStateCommitPartitionRequest.class})
+    void primaryReplicaRequestsAreRejectedWhenPrimaryDoesNotMatchLeaseStartTime(Class<? extends PrimaryReplicaRequest> requestClass) {
+        long leaseStartTime = clock.nowLong();
+        placementDriver.setPrimaryReplicaSupplier(
+                () -> new TestReplicaMetaImpl(localNode, hybridTimestamp(leaseStartTime), HybridTimestamp.MAX_VALUE)
+        );
+
+        PrimaryReplicaRequest request = mock(requestClass);
+        when(request.enlistmentConsistencyToken()).thenReturn(leaseStartTime - 1000);
+
+        assertThat(zonePartitionReplicaListener.invoke(request, localNode.id()), willThrow(PrimaryReplicaMissException.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {PrimaryReplicaRequest.class, TxStateCommitPartitionRequest.class})
+    void primaryReplicaRequestsAreRejectedWhenLeaseIsExpired(Class<? extends PrimaryReplicaRequest> requestClass) {
+        long leaseStartTime = clock.nowLong();
+        placementDriver.setPrimaryReplicaSupplier(
+                () -> new TestReplicaMetaImpl(localNode, hybridTimestamp(leaseStartTime), HybridTimestamp.MIN_VALUE)
+        );
+
+        PrimaryReplicaRequest request = mock(requestClass);
+        when(request.enlistmentConsistencyToken()).thenReturn(leaseStartTime);
+
+        assertThat(zonePartitionReplicaListener.invoke(request, localNode.id()), willThrow(PrimaryReplicaMissException.class));
+    }
+
+    @ParameterizedTest
+    @ValueSource(classes = {PrimaryReplicaRequest.class, TxStateCommitPartitionRequest.class})
+    void primaryReplicaRequestsAreRejectedWhenLeaseholderIsDifferent(Class<? extends PrimaryReplicaRequest> requestClass) {
+        long leaseStartTime = clock.nowLong();
+        placementDriver.setPrimaryReplicaSupplier(
+                () -> new TestReplicaMetaImpl(anotherNode, hybridTimestamp(leaseStartTime), HybridTimestamp.MAX_VALUE)
+        );
+
+        PrimaryReplicaRequest request = mock(requestClass);
+        when(request.enlistmentConsistencyToken()).thenReturn(leaseStartTime);
+
+        assertThat(zonePartitionReplicaListener.invoke(request, localNode.id()), willThrow(PrimaryReplicaMissException.class));
+    }
+
+    @Test
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    void exceptionIsReturnedIfTableProcessorIsAbsent() {
+        when(catalog.table(1)).thenReturn(mock(CatalogTableDescriptor.class));
+
+        ScanCloseReplicaRequest request = TABLE_MESSAGES_FACTORY.scanCloseReplicaRequest()
+                .groupId(toReplicationGroupIdMessage(REPLICA_MESSAGES_FACTORY, new ZonePartitionId(tableDescriptor.zoneId(), PART_ID)))
+                .tableId(1)
+                .scanId(1L)
+                .timestamp(clock.now())
+                .transactionId(randomUUID())
+                .build();
+
+        ComponentStoppingException ex = assertWillThrow(
+                zonePartitionReplicaListener.invoke(request, localNode.id()),
+                ComponentStoppingException.class
+        );
+        assertThat(ex.getMessage(), is("Table is already destroyed [tableId=1]"));
+    }
+
     private UUID newTxId() {
         return transactionIdFor(clock.now());
     }
@@ -1271,7 +1360,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         HybridTimestamp commitTs = clock.now();
         HybridTimestamp commitTsOrNull = commit ? commitTs : null;
 
-        txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, UUID.randomUUID(), commitPartitionId, commitTsOrNull, null, null));
+        txManager.updateTxMeta(txId, old -> new TxStateMeta(newTxState, randomUUID(), commitPartitionId, commitTsOrNull, null, null));
         lockManager.releaseAll(txId);
         partitionReplicaListener.cleanupLocally(txId, commit, commitTs);
     }

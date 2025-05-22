@@ -130,6 +130,9 @@ public final class ReliableChannel implements AutoCloseable {
     @Nullable
     private ScheduledExecutorService streamerFlushExecutor;
 
+    /** Inflights. */
+    private final ClientTransactionInflights inflights;
+
     /**
      * Constructor.
      *
@@ -151,6 +154,8 @@ public final class ReliableChannel implements AutoCloseable {
 
         connMgr = new NettyClientConnectionMultiplexer(metrics);
         connMgr.start(clientCfg);
+
+        inflights = new ClientTransactionInflights();
     }
 
     /** {@inheritDoc} */
@@ -209,6 +214,10 @@ public final class ReliableChannel implements AutoCloseable {
 
     public HybridTimestampTracker observableTimestamp() {
         return observableTimeTracker;
+    }
+
+    public UUID clusterId() {
+        return clusterId.get();
     }
 
     /**
@@ -473,6 +482,15 @@ public final class ReliableChannel implements AutoCloseable {
      */
     public void addChannelFailListener(Runnable chFailLsnr) {
         chFailLsnrs.add(chFailLsnr);
+    }
+
+    /**
+     * Get inflights instance.
+     *
+     * @return The instance.
+     */
+    public ClientTransactionInflights inflights() {
+        return inflights;
     }
 
     /**
@@ -867,7 +885,8 @@ public final class ReliableChannel implements AutoCloseable {
                         connMgr,
                         metrics,
                         ReliableChannel.this::onPartitionAssignmentChanged,
-                        ReliableChannel.this::onObservableTimestampReceived);
+                        ReliableChannel.this::onObservableTimestampReceived,
+                        inflights);
 
                 chFut0 = createFut.thenApply(ch -> {
                     UUID currentClusterId = ch.protocolContext().clusterId();
@@ -881,9 +900,13 @@ public final class ReliableChannel implements AutoCloseable {
                             // Ignore
                         }
 
+                        String clusterIdsString = validClusterIds.stream()
+                                .map(UUID::toString)
+                                .collect(Collectors.joining(", "));
+
                         throw new IgniteClientConnectionException(
                                 CLUSTER_ID_MISMATCH_ERR,
-                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + String.join(", " + validClusterIds),
+                                "Cluster ID mismatch: expected=" + oldClusterId + ", actual=" + clusterIdsString,
                                 ch.endpoint());
                     }
 

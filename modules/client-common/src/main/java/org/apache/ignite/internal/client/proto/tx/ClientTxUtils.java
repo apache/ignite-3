@@ -22,5 +22,5 @@ package org.apache.ignite.internal.client.proto.tx;
  */
 public class ClientTxUtils {
     /** Tx resource id for direct mapping. */
-    public static long TX_ID_DIRECT = 0L;
+    public static final long TX_ID_DIRECT = 0L;
 }

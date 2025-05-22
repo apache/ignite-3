@@ -164,6 +164,11 @@ public abstract class JraftAbstractTest extends RaftServerAbstractTest {
 
             iterSrv.remove();
 
+            if (server == null) {
+                // This means it was already stopped.
+                continue;
+            }
+
             for (RaftNodeId nodeId : server.localNodes()) {
                 server.stopRaftNode(nodeId);
             }

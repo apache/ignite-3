@@ -376,6 +376,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
         return sync(deleteAllAsync(tx, keyRecs));
     }
 
+    @Override
+    public void deleteAll(@Nullable Transaction tx) {
+        sync(deleteAllAsync(tx));
+    }
+
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<List<Tuple>> deleteAllAsync(@Nullable Transaction tx, Collection<Tuple> keyRecs) {
@@ -385,6 +390,11 @@ public class RecordBinaryViewImpl extends AbstractTableView<Tuple> implements Re
             return tbl.deleteAll(mapToBinary(keyRecs, schemaVersion, true), (InternalTransaction) tx)
                     .thenApply(rows -> wrapKeys(rows, schemaVersion));
         });
+    }
+
+    @Override
+    public CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */

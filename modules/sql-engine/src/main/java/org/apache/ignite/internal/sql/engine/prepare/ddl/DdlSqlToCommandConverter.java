@@ -657,6 +657,17 @@ public class DdlSqlToCommandConverter {
     ) {
         for (SqlNode col : columnList.getList()) {
             boolean asc = true;
+            Boolean nullsFirst = null;
+
+            if (col.getKind() == SqlKind.NULLS_FIRST) {
+                col = ((SqlCall) col).getOperandList().get(0);
+
+                nullsFirst = true;
+            } else if (col.getKind() == SqlKind.NULLS_LAST) {
+                col = ((SqlCall) col).getOperandList().get(0);
+
+                nullsFirst = false;
+            }
 
             if (col.getKind() == SqlKind.DESCENDING) {
                 col = ((SqlCall) col).getOperandList().get(0);
@@ -664,10 +675,14 @@ public class DdlSqlToCommandConverter {
                 asc = false;
             }
 
+            if (nullsFirst == null) {
+                nullsFirst = !asc;
+            }
+
             String columnName = ((SqlIdentifier) col).getSimple();
             columns.add(columnName);
             if (supportCollation) {
-                collations.add(CatalogColumnCollation.get(asc, !asc));
+                collations.add(CatalogColumnCollation.get(asc, nullsFirst));
             }
         }
     }

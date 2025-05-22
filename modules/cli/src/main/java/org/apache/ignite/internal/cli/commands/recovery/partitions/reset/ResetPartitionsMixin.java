@@ -35,7 +35,7 @@ public class ResetPartitionsMixin {
     @Option(names = RECOVERY_ZONE_NAME_OPTION, description = RECOVERY_ZONE_NAME_OPTION_DESC, required = true)
     private String zoneName;
 
-    @Option(names = RECOVERY_TABLE_NAME_OPTION, description = RECOVERY_TABLE_NAME_OPTION_DESC, required = true)
+    @Option(names = RECOVERY_TABLE_NAME_OPTION, description = RECOVERY_TABLE_NAME_OPTION_DESC)
     private String tableName;
 
     /** Returns name of the zone to reset partitions of. */

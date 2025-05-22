@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIn
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsSubPlan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsTableScan;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsUnion;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matchesOnce;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.not;
 
 import java.time.LocalDate;
@@ -66,6 +68,8 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .app("CREATE TABLE assignments(developer_id INT, project_id INT, primary key(developer_id, project_id));").nl()
                 .app("CREATE TABLE t1 (id INT PRIMARY KEY, val INT);").nl()
                 .app("CREATE INDEX t1_idx on t1(val DESC);").nl()
+                .app("CREATE INDEX t1_val_asc_nulls_last_idx on t1(val ASC NULLS LAST);").nl()
+                .app("CREATE INDEX t1_val_asc_nulls_first_idx on t1(val ASC NULLS FIRST);").nl()
                 .toString();
 
         sqlScript(query);
@@ -193,7 +197,7 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testKeyEqualsFilter() {
         assertQuery("SELECT * FROM Developer WHERE id=2")
-                .matches(matchesOnce("KeyValueGet.*?table: \\[PUBLIC, DEVELOPER\\]"))
+                .matches(matchesOnce("KeyValueGet.*?table: PUBLIC\\.DEVELOPER"))
                 .returns(2, "Beethoven", 2, "Vienna", 44)
                 .check();
     }
@@ -791,7 +795,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testIndexedNullableFieldGreaterThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val > 4")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .returns(5, 5)
                 .returns(6, 6)
                 .check();
@@ -860,7 +868,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testIndexedNullableFieldLessThanFilter() {
         assertQuery("SELECT * FROM T1 WHERE val <= 5")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .returns(3, 3)
                 .returns(4, 4)
                 .returns(5, 5)
@@ -915,7 +927,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     @Test
     public void testNullCondition1() {
         assertQuery("SELECT * FROM T1 WHERE val is null")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .matches(not(containsUnion()))
                 .returns(1, null)
                 .returns(2, null)
@@ -927,7 +943,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testNullCondition2() {
         assertQuery("SELECT * FROM T1 WHERE (val <= 5) or (val is null)")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .matches(not(containsUnion()))
                 .returns(1, null)
                 .returns(2, null)
@@ -942,7 +962,11 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
     public void testNullCondition3() {
         assertQuery("SELECT * FROM T1 WHERE (val >= 5) or (val is null)")
                 .disableRules("LogicalTableScanConverterRule")
-                .matches(containsIndexScan("PUBLIC", "T1", "T1_IDX"))
+                .matches(anyOf(
+                        containsIndexScan("PUBLIC", "T1", "T1_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"),
+                        containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX")
+                ))
                 .matches(not(containsUnion()))
                 .returns(1, null)
                 .returns(2, null)
@@ -1169,6 +1193,35 @@ public class ItSecondaryIndexTest extends BaseSqlIntegrationTest {
                 .matches(containsTableScan("PUBLIC", "ASSIGNMENTS"))
                 .returns(1)
                 .returns(1)
+                .check();
+    }
+
+    @Test
+    void nullsOrderingTest() {
+        assertQuery("SELECT val FROM t1 ORDER BY val ASC NULLS FIRST")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_FIRST_IDX"))
+                .matches(not(matches("Sort")))
+                .ordered()
+                .returns(null)
+                .returns(null)
+                .returns(null)
+                .returns(3)
+                .returns(4)
+                .returns(5)
+                .returns(6)
+                .check();
+
+        assertQuery("SELECT val FROM t1 ORDER BY val ASC NULLS LAST")
+                .matches(containsIndexScan("PUBLIC", "T1", "T1_VAL_ASC_NULLS_LAST_IDX"))
+                .matches(not(matches("Sort")))
+                .ordered()
+                .returns(3)
+                .returns(4)
+                .returns(5)
+                .returns(6)
+                .returns(null)
+                .returns(null)
+                .returns(null)
                 .check();
     }
 

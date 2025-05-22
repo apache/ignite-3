@@ -28,6 +28,14 @@ void tables::get_table_async(std::string_view name, ignite_callback<std::optiona
     m_impl->get_table_async(name, std::move(callback));
 }
 
+std::optional<table> tables::get_table(const qualified_name &name) {
+    return sync<std::optional<table>>([this, name](auto callback) { get_table_async(name, std::move(callback)); });
+}
+
+void tables::get_table_async(const qualified_name &name, ignite_callback<std::optional<table>> callback) {
+    m_impl->get_table_async(name, std::move(callback));
+}
+
 std::vector<table> tables::get_tables() {
     return sync<std::vector<table>>([this](auto callback) { get_tables_async(std::move(callback)); });
 }

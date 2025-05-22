@@ -29,10 +29,12 @@ import com.typesafe.config.parser.ConfigDocumentFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.InitParameters;
 import org.apache.ignite.InitParametersBuilder;
@@ -211,6 +213,29 @@ public class TestIgnitionManager {
     }
 
     private static String applyTestDefaultsToConfig(@Nullable String configStr, Map<String, String> defaults) {
+        List<Function<ConfigDocument, ConfigDocument>> modifiers = defaults.entrySet().stream()
+                .map(TestIgnitionManager::applyTestDefaultModifier)
+                .collect(Collectors.toList());
+
+        return applyToConfigEntry(configStr, modifiers);
+    }
+
+    /**
+     * Applies overrides to the config.
+     *
+     * @param configStr Config string.
+     * @param overrides Map of overrides.
+     * @return Rendered config with applied overrides.
+     */
+    public static String applyOverridesToConfig(@Nullable String configStr, Map<String, String> overrides) {
+        List<Function<ConfigDocument, ConfigDocument>> modifiers = overrides.entrySet().stream()
+                .map(TestIgnitionManager::applyOverrideModifier)
+                .collect(Collectors.toList());
+
+        return applyToConfigEntry(configStr, modifiers);
+    }
+
+    private static String applyToConfigEntry(@Nullable String configStr, List<Function<ConfigDocument, ConfigDocument>> modifiers) {
         if (configStr == null) {
             configStr = "{}";
         }
@@ -224,21 +249,15 @@ public class TestIgnitionManager {
             return configStr;
         }
 
-        for (Entry<String, String> entry : defaults.entrySet()) {
-            configDocument = applyTestDefault(
-                    configDocument,
-                    entry.getKey(),
-                    entry.getValue()
-            );
+        for (Function<ConfigDocument, ConfigDocument> override : modifiers) {
+            configDocument = override.apply(configDocument);
         }
 
         return configDocument.render();
     }
 
-    private static ConfigDocument parseNullableConfigString(@Nullable String configString) {
-        String configToParse = Objects.requireNonNullElse(configString, "{}");
-
-        return ConfigDocumentFactory.parseString(configToParse);
+    private static Function<ConfigDocument, ConfigDocument> applyTestDefaultModifier(Entry<String, String> entry) {
+        return configDocument -> applyTestDefault(configDocument, entry.getKey(), entry.getValue());
     }
 
     private static ConfigDocument applyTestDefault(ConfigDocument document, String path, String value) {
@@ -247,5 +266,9 @@ public class TestIgnitionManager {
         } else {
             return document.withValueText(path, value);
         }
+    }
+
+    private static Function<ConfigDocument, ConfigDocument> applyOverrideModifier(Entry<String, String> entry) {
+        return configDocument -> configDocument.withValueText(entry.getKey(), entry.getValue());
     }
 }

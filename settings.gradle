@@ -220,7 +220,7 @@ dependencyResolutionManagement {
             library("ignite2-calcite", "org.apache.ignite", "ignite-calcite").version("2.15.0")
         }
         "runtimeApacheIgnite2" {
-            version('ignite2', "2.15.0")
+            version('ignite2', ignite2Version)
             library('ignite2-core', "org.apache.ignite", "ignite-core").versionRef('ignite2')
             library('ignite2-spring', "org.apache.ignite", "ignite-spring").versionRef('ignite2')
         }

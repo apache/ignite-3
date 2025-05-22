@@ -131,8 +131,8 @@ public class ErrorGroup {
      * @return New error message with predefined prefix.
      */
     static String errorMessage(String errorPrefix, UUID traceId, String groupName, int code, String message) {
-        return errorPrefix + "-" + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code)) + " TraceId:" + traceId
-                + ((message != null && !message.isEmpty()) ? ' ' + message : "");
+        return errorPrefix + "-" + groupName + '-' + Short.toUnsignedInt(extractErrorCode(code))
+                + ((message != null && !message.isEmpty()) ? ' ' + message : "") + " TraceId:" + traceId.toString().substring(0, 8);
     }
 
     /** {@inheritDoc} */

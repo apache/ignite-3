@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.catalog;
 
+import static org.apache.ignite.catalog.ColumnType.INTEGER;
+import static org.apache.ignite.catalog.ColumnType.VARCHAR;
 import static org.apache.ignite.catalog.definitions.ColumnDefinition.column;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
@@ -67,6 +69,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     static final String POJO_RECORD_TABLE_NAME = "pojo_record_test";
 
+    static final String EXPLICIT_QUOTES_TABLE_NAME = "explicit_quotes_test_table";
+
     static final String ZONE_NAME = "ZONE_TEST";
 
     private static final int KEY = 1;
@@ -81,6 +85,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
     void tearDown() {
         sql("DROP TABLE IF EXISTS " + POJO_KV_TABLE_NAME);
         sql("DROP TABLE IF EXISTS " + POJO_RECORD_TABLE_NAME);
+        sql("DROP TABLE IF EXISTS " + EXPLICIT_QUOTES_TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
     }
 
@@ -170,6 +175,41 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 SqlException.class,
                 () -> sql("DROP TABLE " + POJO_KV_TABLE_NAME),
                 "Table with name " + toFullTableName(POJO_KV_TABLE_NAME) + " not found"
+        );
+    }
+
+    @Test
+    void tableCreateAndDropByDefinitionWithExplicitQuotes() {
+        // Given table definition
+        TableDefinition tableDefinition = TableDefinition.builder(EXPLICIT_QUOTES_TABLE_NAME)
+                .ifNotExists()
+                .columns(
+                        column("ID", INTEGER),
+                        column("NAME", VARCHAR),
+                        column("\"FooBar\"", ColumnType.varchar(20).notNull().defaultValue("a"))
+                )
+                .primaryKey("id")
+                .index("name", "\"FooBar\"")
+                .build();
+
+        // When create table from definition
+        assertThat(catalog().createTableAsync(tableDefinition), will(not(nullValue())));
+
+        // Then table was created
+        assertThrows(
+                SqlException.class,
+                () -> sql("CREATE TABLE " + EXPLICIT_QUOTES_TABLE_NAME + " (id int PRIMARY KEY)"),
+                "Table with name " + toFullTableName(EXPLICIT_QUOTES_TABLE_NAME) + " already exists"
+        );
+
+        // When drop table by definition
+        assertThat(catalog().dropTableAsync(tableDefinition), willCompleteSuccessfully());
+
+        // Then table is dropped
+        assertThrows(
+                SqlException.class,
+                () -> sql("DROP TABLE " + EXPLICIT_QUOTES_TABLE_NAME),
+                "Table with name " + toFullTableName(EXPLICIT_QUOTES_TABLE_NAME) + " not found"
         );
     }
 
@@ -340,7 +380,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 .builder(ZONE_NAME)
                 .storageProfiles(DEFAULT_AIPERSIST_PROFILE_NAME)
                 .partitions(3)
-                .replicas(3)
+                .replicas(5)
+                .quorumSize(2)
                 .dataNodesAutoAdjustScaleDown(0)
                 .dataNodesAutoAdjustScaleUp(1)
                 .filter("$..*")
@@ -357,6 +398,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                         .withZoneName(zoneDefinition.zoneName())
                         .withPartitions(zoneDefinition.partitions())
                         .withReplicas(zoneDefinition.replicas())
+                        .withQuorumSize(zoneDefinition.quorumSize())
                         .withDataNodesAutoAdjustScaleDown(zoneDefinition.dataNodesAutoAdjustScaleDown())
                         .withDataNodesAutoAdjustScaleUp(zoneDefinition.dataNodesAutoAdjustScaleUp())
                         .withFilter(zoneDefinition.filter())
@@ -408,8 +450,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
     @Test
     public void tableDefinitionWithIndexes() {
-        sql("CREATE TABLE t (id int primary key, col1 varchar, col2 int)");
-        sql("CREATE INDEX t_sorted ON t USING SORTED (col2 DESC, col1)");
+        sql("CREATE TABLE t (id int primary key, col1 varchar, col2 int, \"cOl3\" int)");
+        sql("CREATE INDEX t_sorted ON t USING SORTED (col2 DESC, col1, \"cOl3\")");
         sql("CREATE INDEX t_hash ON t USING HASH (col1, col2)");
 
         sql("CREATE SCHEMA s");
@@ -437,7 +479,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
                 assertEquals(IndexType.SORTED, index.type());
                 assertEquals(List.of(
                                 ColumnSorted.column("COL2", SortOrder.DESC_NULLS_FIRST),
-                                ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST)
+                                ColumnSorted.column("COL1", SortOrder.ASC_NULLS_LAST),
+                                ColumnSorted.column("cOl3", SortOrder.ASC_NULLS_LAST)
                         ),
                         index.columns()
                 );
