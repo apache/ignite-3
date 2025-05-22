@@ -921,11 +921,11 @@ public class ClientInboundMessageHandler
                 return ClientTablePartitionPrimaryReplicasGetRequest.process(in, primaryReplicaTracker);
 
             case ClientOp.JDBC_TX_FINISH:
-                return ClientJdbcFinishTxRequest.process(in, jdbcQueryEventHandler);
+                return ClientJdbcFinishTxRequest.process(in, jdbcQueryEventHandler, tsTracker);
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles
+                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles, tsTracker
                 );
 
             case ClientOp.SQL_QUERY_META:
