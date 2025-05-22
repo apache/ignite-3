@@ -739,7 +739,10 @@ public class ClientInboundMessageHandler
                 return nullCompletedFuture();
 
             case ClientOp.TABLES_GET:
-                return ClientTablesGetRequest.process(igniteTables).thenApply(this::withCurrentTimestamp);
+                return ClientTablesGetRequest.process(igniteTables).thenApply(x -> {
+                    tsTracker.update(clockService.current());
+                    return x;
+                });
 
             case ClientOp.SCHEMAS_GET:
                 return ClientSchemasGetRequest.process(in, igniteTables, schemaVersions);
@@ -842,8 +845,9 @@ public class ClientInboundMessageHandler
                 return ClientJdbcColumnMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_SCHEMAS_META:
-                return ClientJdbcSchemasMetadataRequest.process(in, jdbcQueryEventHandler).thenRun(() -> {
-                    out.meta(clockService.current());
+                return ClientJdbcSchemasMetadataRequest.process(in, jdbcQueryEventHandler).thenApply(x -> {
+                    tsTracker.update(clockService.current());
+                    return x;
                 });
 
             case ClientOp.JDBC_PK_META:
@@ -960,10 +964,6 @@ public class ClientInboundMessageHandler
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
         }
-    }
-
-    private ResponseWriter withCurrentTimestamp(ResponseWriter r) {
-        return r.withObservableTimestamp(clockService.current());
     }
 
     private static boolean isPartitionOperation(int opCode) {
