@@ -56,7 +56,6 @@ public class ClientTupleGetAndReplaceRequest {
                 .thenCompose(req -> req.table().recordView().getAndReplaceAsync(req.tx(), req.tuple())
                         .thenApply(resTuple -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req.tx());
-                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                             ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, req.table().schemaView());
                         }));
     }
