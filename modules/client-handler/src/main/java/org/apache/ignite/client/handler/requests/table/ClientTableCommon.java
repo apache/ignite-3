@@ -298,13 +298,14 @@ public class ClientTableCommon {
         return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
     }
 
-    static CompletableFuture<List<Tuple>> readTuples(ClientMessageUnpacker unpacker, TableViewInternal table, boolean keyOnly) {
-        return readSchema(unpacker, table).thenApply(schema -> {
-            var rowCnt = unpacker.unpackInt();
+    static CompletableFuture<List<Tuple>> readTuples(
+            int schemaId, BitSet[] noValueSet, byte[][] tupleBytes, TableViewInternal table, boolean keyOnly) {
+        return readSchema(schemaId, table).thenApply(schema -> {
+            int rowCnt = noValueSet.length;
             var res = new ArrayList<Tuple>(rowCnt);
 
             for (int i = 0; i < rowCnt; i++) {
-                res.add(readTuple(unpacker, keyOnly, schema));
+                res.add(readTuple(noValueSet[i], tupleBytes[i], keyOnly, schema));
             }
 
             return res;
