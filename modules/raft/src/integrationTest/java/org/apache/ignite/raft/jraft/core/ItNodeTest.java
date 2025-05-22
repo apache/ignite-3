@@ -109,6 +109,7 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.Closure;
+import org.apache.ignite.raft.jraft.FSMCaller;
 import org.apache.ignite.raft.jraft.Iterator;
 import org.apache.ignite.raft.jraft.JRaftServiceFactory;
 import org.apache.ignite.raft.jraft.JRaftUtils;
@@ -4711,8 +4712,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     private void sendTestTaskAndWait(Node node, int start, int amount,
                                      RaftError err) throws InterruptedException {
         CountDownLatch latch = new CountDownLatch(amount);
-        MockStateMachine stateMachine = (MockStateMachine) node.getOptions().getFsm();
-        long appliedIndexBeforeRunCommands = stateMachine.getAppliedIndex();
+        MockStateMachine fsm = (MockStateMachine) node.getOptions().getFsm();
+        FSMCaller fsmCaller = ((NodeImpl) node).fsmCaller();
+        long appliedIndexBeforeRunCommands = fsm.getAppliedIndex();
+        long lastAppliedIndexBeforeRunCommands = fsmCaller.getLastAppliedIndex();
         for (int i = start; i < start + amount; i++) {
             ByteBuffer data = ByteBuffer.wrap(("hello" + i).getBytes(UTF_8));
             Task task = new Task(data, new ExpectClosure(err, latch));
@@ -4724,11 +4727,20 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
             // This check is needed to avoid a race with snapshots, since the latch may complete before FSMCallerImpl#lastAppliedIndex is
             // updated and the snapshot creation starts.
             assertTrue(
-                    waitForCondition(() -> stateMachine.getAppliedIndex() >= appliedIndexBeforeRunCommands + amount, 1_000),
+                    waitForCondition(() -> fsm.getAppliedIndex() >= appliedIndexBeforeRunCommands + amount, 1_000),
+                    () -> String.format(
+                            "Failed to wait for applied index update on node: "
+                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, amount=%s, appliedIndex=%s]",
+                            fsm.getPeerId(), appliedIndexBeforeRunCommands, amount, fsm.getAppliedIndex()
+                    )
+            );
+
+            assertTrue(
+                    waitForCondition(() -> fsmCaller.getLastAppliedIndex() >= lastAppliedIndexBeforeRunCommands + amount, 1_000),
                     () -> String.format(
                             "Failed to wait for last applied index update on node: "
-                                    + "[node=%s, appliedIndexBeforeRunCommands=%s, lastAppliedIndex=%s, amount=%s]",
-                            stateMachine.getPeerId(), appliedIndexBeforeRunCommands, stateMachine.getAppliedIndex(), amount
+                                    + "[node=%s, lastAppliedIndexBeforeRunCommands=%s, amount=%s, lastAppliedIndex=%s]",
+                            fsm.getPeerId(), lastAppliedIndexBeforeRunCommands, amount, fsmCaller.getLastAppliedIndex()
                     )
             );
         }
