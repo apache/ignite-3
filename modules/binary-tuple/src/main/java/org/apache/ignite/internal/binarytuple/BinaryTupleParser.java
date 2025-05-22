@@ -553,9 +553,17 @@ public class BinaryTupleParser {
             case 3:
                 return Period.of(byteBufferAssessor.get(begin), byteBufferAssessor.get(begin + 1), byteBufferAssessor.get(begin + 2));
             case 6:
-                return Period.of(byteBufferAssessor.getShort(begin), byteBufferAssessor.getShort(begin + 2), byteBufferAssessor.getShort(begin + 4));
+                return Period.of(
+                        byteBufferAssessor.getShort(begin),
+                        byteBufferAssessor.getShort(begin + 2),
+                        byteBufferAssessor.getShort(begin + 4)
+                );
             case 12:
-                return Period.of(byteBufferAssessor.getInt(begin), byteBufferAssessor.getInt(begin + 4), byteBufferAssessor.getInt(begin + 8));
+                return Period.of(
+                        byteBufferAssessor.getInt(begin),
+                        byteBufferAssessor.getInt(begin + 4),
+                        byteBufferAssessor.getInt(begin + 8)
+                );
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -637,12 +645,17 @@ public class BinaryTupleParser {
         return LocalTime.of(hour, minute, second, nanos);
     }
 
-    private static interface ByteBufferAssessor {
+    private interface ByteBufferAssessor {
         byte get(int p);
+
         int getInt(int p);
+
         long getLong(int p);
+
         short getShort(int p);
+
         float getFloat(int p);
+
         double getDouble(int p);
     }
 
