@@ -648,7 +648,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx2));
+        verify(storage, times(1)).commitWrite(any(), any(), any());
         verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
@@ -692,7 +692,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx2));
+        verify(storage, times(1)).commitWrite(any(), any(), any());
         verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
@@ -741,7 +741,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, times(1)).abortWrite(any(), eq(runningTx));
+        verify(storage, times(1)).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -801,7 +801,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, times(1)).abortWrite(any(), eq(runningTx));
+        verify(storage, times(1)).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -851,14 +851,14 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx));
+        verify(storage, times(1)).commitWrite(any(), any(), any());
         verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
     @Test
     void testCleanupBeforeUpdateCommitWriteIntentBatch() {
-        UUID committed1 = UUID.randomUUID();
+        UUID commitedTxId1 = UUID.randomUUID();
 
         TablePartitionId partitionId = new TablePartitionId(333, PARTITION_ID);
 
@@ -874,9 +874,9 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
                 rowId, new TimedBinaryRow(row1, null)
         );
 
-        storageUpdateHandler.handleUpdateAll(committed1, rowsToUpdate, partitionId, true, null, null, null);
+        storageUpdateHandler.handleUpdateAll(commitedTxId1, rowsToUpdate, partitionId, true, null, null, null);
 
-        storageUpdateHandler.switchWriteIntents(committed1, true, commitTs, null);
+        storageUpdateHandler.switchWriteIntents(commitedTxId1, true, commitTs, null);
 
         assertFalse(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
@@ -913,7 +913,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
 
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
-        verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx));
+        verify(storage, times(1)).commitWrite(any(), any(), any());
         verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }

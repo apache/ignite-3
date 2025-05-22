@@ -1040,9 +1040,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         for (TestValue value : values) {
             BinaryRow row = value == null ? null : binaryRow(key, value);
 
-            addWrite(rowId, row, txId);
+            UUID newTxId = newTransactionId();
 
-            commitWrite(rowId, clock.now(), txId);
+            addWrite(rowId, row, newTxId);
+
+            commitWrite(rowId, clock.now(), newTxId);
         }
 
         // Put rows before and after.
