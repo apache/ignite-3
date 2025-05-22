@@ -29,6 +29,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.Pa
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -150,7 +151,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
         handleSnapshotInterference(rowId);
 
         return partitionStorage.abortWrite(rowId, txId);

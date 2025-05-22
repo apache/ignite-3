@@ -44,6 +44,8 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -453,10 +455,10 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
     @Override
     // TODO: IGNITE-20347 Update implementation
-    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
-        return busy(() -> {
+        BinaryRow row = busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
             assert rowIsLocked(rowId);
@@ -475,6 +477,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
             }
         });
+
+        return new AbortResult(AbortResultStatus.SUCCESS, null, row);
     }
 
     @Override

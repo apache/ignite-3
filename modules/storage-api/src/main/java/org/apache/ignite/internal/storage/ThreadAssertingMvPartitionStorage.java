@@ -100,7 +100,7 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
         assertThreadAllowsToWrite();
 
         return partitionStorage.abortWrite(rowId, txId);

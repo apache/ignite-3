@@ -23,6 +23,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -175,7 +176,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#abortWrite
      */
     // TODO: IGNITE-20347 Update javadoc
-    @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException;
+    AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.

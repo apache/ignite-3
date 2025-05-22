@@ -64,6 +64,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
@@ -563,8 +565,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
     @Override
     // TODO: IGNITE-20347 Update implementation
-    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
-        return busy(() -> {
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
+        BinaryRow res = busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
@@ -603,6 +605,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 throw new IgniteRocksDbException("Failed to roll back insert/update", e);
             }
         });
+
+        return new AbortResult(AbortResultStatus.SUCCESS, null, res);
     }
 
     private static boolean rowIsLocked(RowId rowId) {
