@@ -23,7 +23,6 @@ import static org.apache.ignite.internal.configuration.util.ConfigurationUtil.es
 import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
@@ -139,8 +138,8 @@ public class ConfigurationFlattener {
                 resMap.put(currentKey(), deletion ? null : newVal);
             }
 
-            processLegacyPaths(new ArrayList<>(), (legacyKey, newKey) -> {
-                if (!storageData.containsKey(newKey) && storageData.containsKey(legacyKey)) {
+            processLegacyPaths(legacyKey -> {
+                if (storageData.containsKey(legacyKey)) {
                     resMap.put(legacyKey, null);
                 }
             });

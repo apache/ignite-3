@@ -38,7 +38,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.io.Serializable;
 import java.lang.reflect.Field;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
@@ -765,11 +764,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         oldStorageRoots.roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
             @Override
             protected Object doVisitLeafNode(Field field, String key, Serializable val) {
-                var path = new ArrayList<String>();
-
-                processLegacyPaths(path, (legacyKey, newKey) -> {
-                    changedValues.remove(legacyKey);
-                });
+                processLegacyPaths(changedValues::remove);
 
                 return null;
             }

@@ -27,7 +27,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.configuration.tree.ConfigurationVisitor;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
@@ -41,7 +41,11 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
     /** Current keys list, almost the same as {@link #currentKey}. */
     private final List<String> currentPath = new ArrayList<>();
 
-    protected final List<String[]> legacyNames = new ArrayList<>();
+    /** For every part of the current path stores corresponding legacy names. */
+    private final List<String[]> currentLegacyNames = new ArrayList<>();
+
+    /** Total amount of legacy names, corresponding to the current path. */
+    private int currentLegacyNamesCount = 0;
 
     /** {@inheritDoc} */
     @Override
@@ -181,7 +185,10 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
 
         currentPath.add(key);
 
-        legacyNames.add(field == null ? STRING_EMPTY_ARRAY : legacyNames(field));
+        String[] legacyNames = field == null ? STRING_EMPTY_ARRAY : legacyNames(field);
+
+        currentLegacyNames.add(legacyNames);
+        currentLegacyNamesCount += legacyNames.length;
 
         return previousKeyLength;
     }
@@ -195,32 +202,53 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
         currentKey.setLength(previousKeyLength);
 
         currentPath.remove(currentPath.size() - 1);
-        legacyNames.remove(legacyNames.size() - 1);
+
+        String[] legacyNames = currentLegacyNames.remove(currentLegacyNames.size() - 1);
+        currentLegacyNamesCount -= legacyNames.length;
     }
 
-    /** Calls consumer for all legacy paths. */
-    protected void processLegacyPaths(ArrayList<String> path, BiConsumer<String, String> legacyKeyNewKeyConsumer) {
+    /** Calls consumer for all variations of legacy paths, i.e. to remove them from the storage. */
+    protected void processLegacyPaths(Consumer<String> legacyKeyConsumer) {
+        // Current path doesn't contain any legacy names.
+        if (currentLegacyNamesCount == 0) {
+            return;
+        }
+
+        // Contains all combinations of current and old names.
+        var pathVariations = new ArrayList<List<String>>(currentPath.size());
+        for (int i = 0; i < currentPath.size(); i++) {
+            ArrayList<String> variations = new ArrayList<>();
+            variations.add(currentPath.get(i));
+
+            variations.addAll(List.of(currentLegacyNames.get(i)));
+
+            pathVariations.add(variations);
+        }
+
+        processLegacyPaths(new ArrayList<>(), pathVariations, legacyKeyConsumer);
+    }
+
+    private void processLegacyPaths(List<String> path, List<List<String>> pathVariations, Consumer<String> legacyKeyConsumer) {
+        // We reached the leaf. If path joined with leaf name != current key, it is legacy and should be processed.
         if (path.size() == currentPath().size() - 1) {
-            for (String legacyName : legacyNames.get(currentPath().size() - 1)) {
-                String legacyKey = join(appendKey(path, legacyName));
-                String newKey = currentKey();
+            for (String leafName : pathVariations.get(currentPath().size() - 1)) {
+                String key = join(appendKey(path, leafName));
 
-                legacyKeyNewKeyConsumer.accept(legacyKey, newKey);
+                if (!key.equals(currentKey())) {
+                    legacyKeyConsumer.accept(key);
+                }
             }
-
-            path.remove(path.size() - 1);
 
             return;
         }
 
-        for (String legacyName : legacyNames.get(path.size())) {
-            path.add(legacyName);
+        // For inner nodes we should process all variations of paths.
+        for (String innerNodeName : pathVariations.get(path.size())) {
+            path.add(innerNodeName);
 
-            processLegacyPaths(path, legacyKeyNewKeyConsumer);
+            processLegacyPaths(path, pathVariations, legacyKeyConsumer);
+
+            path.remove(path.size() - 1);
         }
-
-        path.add(currentPath().get(path.size()));
-
-        processLegacyPaths(path, legacyKeyNewKeyConsumer);
     }
 }

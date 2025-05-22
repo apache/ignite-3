@@ -38,17 +38,17 @@ public class Data {
      * @param changeId Version.
      */
     public Data(Map<String, ? extends Serializable> values, long changeId) {
-        this.values = values;
+        this.values = Collections.unmodifiableMap(values);
         this.changeId = changeId;
     }
 
     /**
      * Get values.
      *
-     * @return Unmodifiable map with data values.
+     * @return values.
      */
     public Map<String, ? extends Serializable> values() {
-        return Collections.unmodifiableMap(values);
+        return values;
     }
 
     /**

@@ -93,8 +93,13 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().newName().value(),
                 equalTo(OLD_DEFAULT)
         );
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newInnerName().name().value(),
+                equalTo(OLD_DEFAULT)
+        );
 
         assertThat(storage.readLatest("key.oldInnerName.oldName"), willBe(nullValue()));
+        assertThat(storage.readLatest("key.oldInnerName.name"), willBe(nullValue()));
     }
 
     @Test
@@ -227,6 +232,9 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         @Value(hasDefault = true)
         @PublicName("oldName")
         public String oldName = OLD_DEFAULT;
+
+        @Value(hasDefault = true)
+        public String name = OLD_DEFAULT;
     }
 
     @Config
@@ -234,6 +242,9 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         @Value(hasDefault = true)
         @PublicName(legacyNames = {"oldName"})
         public String newName = "newDefault";
+
+        @Value(hasDefault = true)
+        public String name = "newDefault";
     }
 
     @PolymorphicConfig
