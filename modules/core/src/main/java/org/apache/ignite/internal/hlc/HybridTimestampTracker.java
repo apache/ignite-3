@@ -43,6 +43,10 @@ public interface HybridTimestampTracker {
         @Override
         public void update(@Nullable HybridTimestamp ts) {
         }
+
+        @Override
+        public void update(long ts) {
+        }
     };
 
     /**
@@ -81,6 +85,11 @@ public interface HybridTimestampTracker {
 
                 timestamp.updateAndGet(x -> Math.max(x, tsVal));
             }
+
+            @Override
+            public void update(long ts) {
+                timestamp.updateAndGet(x -> Math.max(x, ts));
+            }
         };
     }
 
@@ -104,4 +113,11 @@ public interface HybridTimestampTracker {
      * @param ts Hybrid timestamp.
      */
     void update(@Nullable HybridTimestamp ts);
+
+    /**
+     * Updates the observable timestamp after an operation is executed.
+     *
+     * @param ts Hybrid timestamp as long.
+     */
+    void update(long ts);
 }
