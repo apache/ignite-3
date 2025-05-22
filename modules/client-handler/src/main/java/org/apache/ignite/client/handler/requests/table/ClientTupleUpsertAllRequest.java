@@ -17,17 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuples;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
-import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
@@ -56,28 +51,11 @@ public class ClientTupleUpsertAllRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        int tableId = in.unpackInt();
-        int schemaId = in.unpackInt();
-
-        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, false, notificationSender);
-
-        int count = in.unpackInt();
-
-        BitSet[] noValueSet = new BitSet[count];
-        byte[][] tupleBytes = new byte[count][];
-
-        for (int i = 0; i < count; i++) {
-            noValueSet[i] = in.unpackBitSet();
-            tupleBytes[i] = in.readBinary();
-        }
-
-        return readTableAsync(tableId, tables).thenCompose(table -> {
-            return readTuples(schemaId, noValueSet, tupleBytes, table, false).thenCompose(tuples -> {
-                return table.recordView().upsertAllAsync(tx, tuples).thenApply(unused -> out -> {
-                    writeTxMeta(out, tsTracker, clockService, tx);
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
-                });
-            });
-        });
+        return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
+                .thenCompose(req -> req.table().recordView().upsertAllAsync(req.tx(), req.tuples())
+                        .thenApply(v -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
+                        }));
     }
 }
