@@ -167,6 +167,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -4250,10 +4251,10 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     /**
      * Tests if a read using leader leases works correctly after previous leader segmentation.
      */
-    @Test
+    @RepeatedTest(100)
     public void testLeaseReadAfterSegmentation() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
-        cluster = new TestCluster("unittest", dataPath, peers, 3_000, testInfo);
+        cluster = new TestCluster("unittest", dataPath, peers, 1_000, testInfo);
 
         for (TestPeer peer : peers) {
             RaftOptions opts = new RaftOptions();
