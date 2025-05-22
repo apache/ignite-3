@@ -21,11 +21,18 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.fail;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
 import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
@@ -54,21 +61,31 @@ class RocksDbFlusherTest extends IgniteAbstractTest {
 
     private RocksDB db;
 
-    private final CompletableFuture<Throwable> failureProcessorError = new CompletableFuture<>();
+    private final AtomicReference<Throwable> failureProcessorError = new AtomicReference<>();
 
     @BeforeEach
-    void setUp(
-            @InjectExecutorService ScheduledExecutorService scheduledExecutor,
-            @InjectExecutorService ExecutorService executor
-    ) throws RocksDBException {
+    void setUp(@InjectExecutorService ExecutorService executor) throws RocksDBException {
+        ScheduledExecutorService sameThreadExecutor = mock(ScheduledExecutorService.class);
+
+        when(sameThreadExecutor.schedule(any(Callable.class), anyLong(), any()))
+                .thenAnswer(invocation -> {
+                    invocation.getArgument(0, Callable.class).call();
+
+                    return null;
+                });
+
         flusher = new RocksDbFlusher(
                 "RocksDbFlusherTest",
                 new IgniteSpinBusyLock(),
-                scheduledExecutor,
-                executor,
+                sameThreadExecutor,
+                Runnable::run,
                 () -> 0,
                 new NoOpLogSyncer(),
-                failureCtx -> failureProcessorError.completeExceptionally(failureCtx.error()),
+                failureCtx -> {
+                    failureProcessorError.set(failureCtx.error());
+
+                    return true;
+                },
                 () -> {}
         );
 
@@ -85,8 +102,8 @@ class RocksDbFlusherTest extends IgniteAbstractTest {
 
     /**
      * Sets a filter that removes warning messages produced by the flusher. This is needed, because the CI server has been configured to
-     * fail the build if these warnings are found in the logs. In this test we intentionally create a situation where such warnings will
-     * be produced.
+     * fail the build if these warnings are found in the logs. In this test we intentionally create a situation where such warnings will be
+     * produced.
      */
     private static void setUpLogFilter() {
         var filter = new AbstractFilter() {
@@ -117,14 +134,12 @@ class RocksDbFlusherTest extends IgniteAbstractTest {
     @Test
     void testFlushRetryOnWriteThrottling() {
         CompletableFuture<?>[] flushFutures = IntStream.range(0, 200)
+                .parallel()
                 .mapToObj(ByteUtils::intToBytes)
                 .map(bytes -> {
                     try {
-                        // Wait a little bit, because otherwise batching still works and less flushes will be issued.
-                        Thread.sleep(1);
-
                         db.put(bytes, bytes);
-                    } catch (RocksDBException | InterruptedException e) {
+                    } catch (RocksDBException e) {
                         throw new AssertionError(e);
                     }
 
@@ -134,8 +149,10 @@ class RocksDbFlusherTest extends IgniteAbstractTest {
 
         assertThat(allOf(flushFutures), willCompleteSuccessfully());
 
-        if (failureProcessorError.isCompletedExceptionally()) {
-            failureProcessorError.join();
+        Throwable error = failureProcessorError.get();
+
+        if (error != null) {
+            fail(error);
         }
     }
 }
