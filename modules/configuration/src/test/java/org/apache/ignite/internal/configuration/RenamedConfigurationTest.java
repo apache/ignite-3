@@ -48,6 +48,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+// TODO https://issues.apache.org/jira/browse/IGNITE-25458 Fix processing of named lists.
 class RenamedConfigurationTest extends BaseIgniteAbstractTest {
 
     private static final ConfigurationTreeGenerator OLD_GENERATOR = new ConfigurationTreeGenerator(

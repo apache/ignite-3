@@ -71,6 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for configuration schemas with {@link Deprecated} properties.
  */
 @ExtendWith(MockitoExtension.class)
+// TODO https://issues.apache.org/jira/browse/IGNITE-25458 Fix processing of named lists.
 public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     private static final ConfigurationType TEST_CONFIGURATION_TYPE = ConfigurationType.LOCAL;
 
