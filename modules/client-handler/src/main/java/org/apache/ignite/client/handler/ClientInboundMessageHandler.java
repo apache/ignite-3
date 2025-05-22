@@ -951,8 +951,9 @@ public class ClientInboundMessageHandler
                         clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
 
             case ClientOp.TABLES_GET_QUALIFIED:
-                return ClientTablesGetQualifiedRequest.process(igniteTables).thenRun(() -> {
-                    out.meta(clockService.current());
+                return ClientTablesGetQualifiedRequest.process(igniteTables).thenApply(x -> {
+                    tsTracker.update(clockService.current());
+                    return x;
                 });
 
             case ClientOp.TABLE_GET_QUALIFIED:
