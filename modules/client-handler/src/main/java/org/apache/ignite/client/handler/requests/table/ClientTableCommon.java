@@ -23,10 +23,8 @@ import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
-import java.util.ArrayList;
 import java.util.BitSet;
 import java.util.Collection;
-import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
@@ -104,13 +102,7 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Writes a tuple.
-     *
-     * @param packer Packer.
-     * @param tuple Tuple.
-     */
-    public static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
+    static void writeTupleOrNil(ClientMessagePacker packer, Tuple tuple, TuplePart part, SchemaRegistry schemaRegistry) {
         if (tuple == null) {
             packer.packInt(schemaRegistry.lastKnownSchemaVersion());
             packer.packNil();
@@ -173,31 +165,14 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Writes multiple tuples.
-     *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param schemaRegistry The registry.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuples(
+    static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             SchemaRegistry schemaRegistry) {
         writeTuples(packer, tuples, TuplePart.KEY_AND_VAL, schemaRegistry);
     }
 
-    /**
-     * Writes multiple tuples.
-     *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param part Which part of tuple to write.
-     * @param schemaRegistry The registry.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuples(
+    static void writeTuples(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
@@ -229,16 +204,7 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Writes multiple tuples with null flags.
-     *
-     * @param packer Packer.
-     * @param tuples Tuples.
-     * @param part Which part of tuple to write.
-     * @param schemaRegistry The registry.
-     * @throws IgniteException on failed serialization.
-     */
-    public static void writeTuplesNullable(
+    static void writeTuplesNullable(
             ClientMessagePacker packer,
             Collection<Tuple> tuples,
             TuplePart part,
@@ -296,20 +262,6 @@ public class ClientTableCommon {
         var binaryTupleReader = new BinaryTupleReader(cnt, tupleBytes);
 
         return new ClientHandlerTuple(schema, noValueSet, binaryTupleReader, keyOnly);
-    }
-
-    static CompletableFuture<List<Tuple>> readTuples(
-            int schemaId, BitSet[] noValueSet, byte[][] tupleBytes, TableViewInternal table, boolean keyOnly) {
-        return readSchema(schemaId, table).thenApply(schema -> {
-            int rowCnt = noValueSet.length;
-            var res = new ArrayList<Tuple>(rowCnt);
-
-            for (int i = 0; i < rowCnt; i++) {
-                res.add(readTuple(noValueSet[i], tupleBytes[i], keyOnly, schema));
-            }
-
-            return res;
-        });
     }
 
     static CompletableFuture<SchemaDescriptor> readSchema(int schemaId, TableViewInternal table) {
@@ -452,18 +404,7 @@ public class ClientTableCommon {
         }
     }
 
-    /**
-     * Reads transaction or start implicit one.
-     *
-     * @param in Unpacker.
-     * @param readTs Read timestamp holder.
-     * @param resources Resource registry.
-     * @param txManager Ignite transactions.
-     * @param readOnly Read only flag.
-     * @param notificationSender Notification sender.
-     * @return Transaction.
-     */
-    public static InternalTransaction readOrStartImplicitTx(
+    static InternalTransaction readOrStartImplicitTx(
             ClientMessageUnpacker in,
             HybridTimestampTracker readTs,
             ClientResourceRegistry resources,
@@ -507,16 +448,7 @@ public class ClientTableCommon {
         );
     }
 
-    /**
-     * Starts an implicit transaction.
-     *
-     * @param tsTracker Tracker.
-     * @param txManager Ignite transactions.
-     * @param currentTs Current observation timestamp or {@code null} if it is not defined.
-     * @param readOnly Read only flag.
-     * @return Transaction.
-     */
-    public static InternalTransaction startImplicitTx(
+    private static InternalTransaction startImplicitTx(
             HybridTimestampTracker tsTracker,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,

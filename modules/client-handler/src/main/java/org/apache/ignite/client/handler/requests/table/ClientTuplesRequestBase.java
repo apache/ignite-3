@@ -36,7 +36,7 @@ import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
-public class ClientTuplesRequestBase {
+class ClientTuplesRequestBase {
     private final InternalTransaction tx;
     private final TableViewInternal table;
     private final List<Tuple> tuples;
