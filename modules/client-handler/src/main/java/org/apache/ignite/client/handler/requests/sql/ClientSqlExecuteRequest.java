@@ -103,7 +103,7 @@ public class ClientSqlExecuteRequest {
         ).thenCompose(asyncResultSet -> writeResultSetAsync(resources, asyncResultSet, metrics)), operationExecutor);
     }
 
-    private static Object[] readArgsNotNull(ClientMessageUnpacker in) {
+    static Object[] readArgsNotNull(ClientMessageUnpacker in) {
         Object[] arguments = in.unpackObjectArrayFromBinaryTuple();
 
         // SQL engine requires non-null arguments, but we don't want to complicate the protocol with this requirement.
