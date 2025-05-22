@@ -17,12 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
-import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -56,21 +52,12 @@ public class ClientTupleGetAndUpsertRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        int tableId = in.unpackInt();
-        int schemaId = in.unpackInt();
-
-        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, false, notificationSender);
-
-        BitSet noValueSet = in.unpackBitSet();
-        byte[] tupleBytes = in.readBinary();
-
-        return readTableAsync(tableId, tables).thenCompose(table -> {
-            return readTuple(schemaId, noValueSet, tupleBytes, table, false).thenCompose(tuple -> {
-                return table.recordView().getAndUpsertAsync(tx, tuple).thenApply(resTuple -> out -> {
-                    writeTxMeta(out, tsTracker, clockService, tx);
-                    ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView());
-                });
-            });
-        });
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, false)
+                .thenCompose(req -> req.table().recordView().getAndUpsertAsync(req.tx(), req.tuple())
+                        .thenApply(resTuple -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
+                            ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, req.table().schemaView());
+                        }));
     }
 }
