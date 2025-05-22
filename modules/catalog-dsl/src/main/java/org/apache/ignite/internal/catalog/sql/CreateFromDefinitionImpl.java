@@ -66,6 +66,9 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
         if (isGreaterThanZero(def.replicas())) {
             createZone.replicas(def.replicas());
         }
+        if (isGreaterThanZero(def.quorumSize())) {
+            createZone.quorumSize(def.quorumSize());
+        }
 
         if (!StringUtils.nullOrBlank(def.distributionAlgorithm())) {
             createZone.distributionAlgorithm(def.distributionAlgorithm());

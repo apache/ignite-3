@@ -647,6 +647,7 @@ public class TestBuilders {
                     new ExecutionId(queryId, 0),
                     Objects.requireNonNull(node, "node"),
                     node.name(),
+                    node.id(),
                     description,
                     ArrayRowHandler.INSTANCE,
                     Commons.parametersMap(dynamicParams),

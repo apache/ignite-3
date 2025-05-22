@@ -33,6 +33,8 @@ import java.util.function.Supplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.rocksdb.AbstractEventListener;
@@ -41,12 +43,15 @@ import org.rocksdb.FlushOptions;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
+import org.rocksdb.Status.Code;
 
 /**
  * Helper class to deal with RocksDB flushes. Provides an ability to wait until current state of data is flushed to the storage.
  * Requires enabled {@link Options#setAtomicFlush(boolean)} option to work properly.
  */
 public class RocksDbFlusher {
+    private static final IgniteLogger LOG = Loggers.forClass(RocksDbFlusher.class);
+
     private final FailureProcessor failureProcessor;
 
     /** Rocks DB instance. */
@@ -230,7 +235,13 @@ public class RocksDbFlusher {
                         db.flush(flushOptions, columnFamilyHandles);
                     }
                 } catch (RocksDBException e) {
-                    failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush"));
+                    if (e.getStatus().getCode() == Code.TryAgain) {
+                        LOG.warn("Unable to perform explicit flush, will try again.", e);
+
+                        scheduleFlush();
+                    } else {
+                        failureProcessor.process(new FailureContext(e, "Error occurred during the explicit flush."));
+                    }
                 } finally {
                     busyLock.leaveBusy();
                 }

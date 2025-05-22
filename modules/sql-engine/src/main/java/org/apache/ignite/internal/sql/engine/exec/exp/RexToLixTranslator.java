@@ -120,7 +120,7 @@ import org.locationtech.jts.geom.Geometry;
  *      Cast TIMESTAMP to TIMESTAMP WITH LOCAL TIMEZONE use our implementation, see IgniteMethod.UNIX_TIMESTAMP_TO_STRING_PRECISION_AWARE
  *      Cast TIMESTAMP LTZ accepts FORMAT. (See IgniteMethod.TIMESTAMP_STRING_TO_TIMESTAMP_WITH_LOCAL_TIME_ZONE).
  * 6. Translate literals changes:
- *      DECIMAL use own implementation see IgniteSqlFunctions.class, “toBigDecimal"
+ *      DECIMAL use own implementation see IgniteSqlFunctions.class, "toBigDecimal"
  *      TIMESTAMP_WITH_LOCAL_TIME_ZONE use own implementation
  *      use Primitives.convertPrimitiveExact instead of primitive.number method
  * 7. Reworked implementation of dynamic parameters:
