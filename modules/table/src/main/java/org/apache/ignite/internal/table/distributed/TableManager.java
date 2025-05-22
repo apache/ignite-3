@@ -712,44 +712,53 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return readLockAcquisitionFuture.thenCompose(stamp -> {
                     Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
 
-                    int partitionIndex = zonePartitionId.partitionId();
-
-                    PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
-
-                    CompletableFuture<?>[] futures = zoneTables.stream()
-                            .map(tbl -> inBusyLockAsync(busyLock, () -> {
-                                return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
-                                        .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                                            localPartsByTableId.compute(
-                                                    tbl.tableId(),
-                                                    (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
-                                            );
-
-                                            lowWatermark.getLowWatermarkSafe(lwm ->
-                                                    registerIndexesToTable(
-                                                            tbl,
-                                                            catalogService,
-                                                            singlePartitionIdSet,
-                                                            tbl.schemaView(),
-                                                            lwm
-                                                    )
-                                            );
-
-                                            preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, parameters.onRecovery());
-                                        }), ioExecutor)
-                                        // If the table is already closed, it's not a problem (probably the node is stopping).
-                                        .exceptionally(ignoreTableClosedException());
-                            }))
-                            .toArray(CompletableFuture[]::new);
-
-                    return allOf(futures);
-                }).whenComplete((unused, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead));
+                    return createPartitionsAndLoadResourcesToZoneReplica(zonePartitionId, zoneTables, parameters.onRecovery())
+                            .whenComplete((unused, t) -> zoneLock.unlockRead(stamp));
+                });
             } catch (Throwable t) {
                 readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
 
                 return failedFuture(t);
             }
         });
+    }
+
+    private CompletableFuture<Void> createPartitionsAndLoadResourcesToZoneReplica(
+            ZonePartitionId zonePartitionId,
+            Set<TableImpl> zoneTables,
+            boolean onRecovery
+    ) {
+        int partitionIndex = zonePartitionId.partitionId();
+
+        PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
+
+        CompletableFuture<?>[] futures = zoneTables.stream()
+                .map(tbl -> inBusyLockAsync(busyLock, () -> {
+                    return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                            .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                localPartsByTableId.compute(
+                                        tbl.tableId(),
+                                        (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
+                                );
+
+                                lowWatermark.getLowWatermarkSafe(lwm ->
+                                        registerIndexesToTable(
+                                                tbl,
+                                                catalogService,
+                                                singlePartitionIdSet,
+                                                tbl.schemaView(),
+                                                lwm
+                                        )
+                                );
+
+                                preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, onRecovery);
+                            }), ioExecutor)
+                            // If the table is already closed, it's not a problem (probably the node is stopping).
+                            .exceptionally(ignoreTableClosedException());
+                }))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(futures);
     }
 
     private static Function<Throwable, Void> ignoreTableClosedException() {
