@@ -286,7 +286,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     @Override
     // TODO: IGNITE-20347 Update implementation
     public synchronized CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
+
         checkStorageClosed();
+
+        assert rowIsLocked(rowId) : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null) {
@@ -820,5 +824,14 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             hasNext = versionChain != null;
         }
+    }
+
+    /**
+     * Checks if current thread holds a lock on passed row ID.
+     */
+    static boolean rowIsLocked(RowId rowId) {
+        LocalLocker locker = THREAD_LOCAL_LOCKER.get();
+
+        return locker != null && locker.isLocked(rowId);
     }
 }

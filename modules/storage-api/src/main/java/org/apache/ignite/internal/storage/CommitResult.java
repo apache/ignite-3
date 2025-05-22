@@ -22,6 +22,7 @@ import org.jetbrains.annotations.Nullable;
 
 /** Description will be here soon. */
 // TODO: IGNITE-20347 Add javadocs
+// TODO: IGNITE-20347 Review usages
 public class CommitResult {
     private final CommitResultStatus status;
 
@@ -41,5 +42,20 @@ public class CommitResult {
     /** Description will be here soon. */
     public @Nullable UUID rowTxId() {
         return rowTxId;
+    }
+
+    /** Description will be here soon. */
+    public static CommitResult noWriteIndent() {
+        return new CommitResult(CommitResultStatus.NO_WRITE_INTENT, null);
+    }
+
+    /** Description will be here soon. */
+    public static CommitResult mismatchTxId(UUID rowTxId) {
+        return new CommitResult(CommitResultStatus.MISMATCH_TX_ID, rowTxId);
+    }
+
+    /** Description will be here soon. */
+    public static CommitResult success() {
+        return new CommitResult(CommitResultStatus.SUCCESS, null);
     }
 }

@@ -99,7 +99,7 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     /**
-     * Returns the result for {@link MvPartitionStorage#abortWrite(RowId)}.
+     * Returns the result for {@link MvPartitionStorage#abortWrite}.
      */
     @Nullable BinaryRow getPreviousUncommittedRowVersion() {
         return previousUncommittedRowVersion;

@@ -423,41 +423,18 @@ public class StorageUpdateHandler {
     /**
      * Commit write intents created by the provided transaction.
      *
-     * @param txId Transaction id
-     * @param pendingRowIds Row ids of write-intents to be committed.
+     * @param txId Transaction ID.
+     * @param pendingRowIds Row IDs of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
      */
     // TODO: IGNITE-20347 Review usages
+    // TODO: IGNITE-20347 Change name and description
     private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
-        assert commitTimestamp != null : "Commit timestamp is null";
+        assert commitTimestamp != null : "Commit timestamp is null for tx: " + txId;
 
-        // Please note: `pendingRowIds` might not contain the complete set of rows that were changed by this transaction:
-        // Pending rows are stored in memory and will be lost in case a node restarts.
-        // This method might be called by a write intent resolving transaction that will find only those rows that it needs itself.
-        List<RowId> rowIds = new ArrayList<>();
-
-        for (RowId pendingRowId : pendingRowIds) {
-
-            // Here we check that the write intent we are going to commit still belongs to the provided transaction.
-            //
-            // This check is required to cover the following case caused by asynchronous cleanup of write intents:
-            // 1. RO Transaction A sees a write intent for a row1, resolves it and schedules a cleanup for it.
-            // 2. RW Transaction B sees the same write intent for a row1, resolves it and schedules a cleanup for it.
-            // This cleanup action finishes first. Then Transaction B adds its own write intent for the row1.
-            // 3. Transaction A starts executing the cleanup action.
-            // Without this check it would commit the write intent from a different transaction.
-            //
-            // This is just a workaround. The proper fix is to check the transaction id for the row in the storage.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
-            ReadResult result = storage.getStorage().read(pendingRowId, HybridTimestamp.MAX_VALUE);
-            if (result.isWriteIntent() && txId.equals(result.transactionId())) {
-                // In case of an asynchronous cleanup of write intents, we might get into a situation when some of the
-                // write intents were already cleaned up. In this case, we just ignore them.
-                rowIds.add(pendingRowId);
-            }
-        }
-
-        rowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
+        // TODO: IGNITE-20347 Change comment.
+        // Result of commit is ignored on purpose.
+        pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
     }
 
     /**

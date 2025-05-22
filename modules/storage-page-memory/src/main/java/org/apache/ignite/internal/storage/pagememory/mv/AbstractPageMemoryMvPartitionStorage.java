@@ -47,7 +47,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
-import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -484,17 +483,18 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     @Override
     // TODO: IGNITE-20347 Update implementation
     public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
 
-        busy(() -> {
+        return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
 
             try {
-                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(
+                var commitWrite = new CommitWriteInvokeClosure(
                         rowId,
                         timestamp,
+                        txId,
                         updateTimestampHandler,
                         this
                 );
@@ -503,15 +503,21 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 commitWrite.afterCompletion();
 
-                return null;
+                CommitResult commitResult = commitWrite.commitResult();
+
+                assert commitResult != null : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+
+                return commitResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException(
+                        "Error while executing commitWrite: [rowId={}, timestamp={}, txId={}, {}]",
+                        e,
+                        rowId, timestamp, txId, createStorageInfo()
+                );
             }
         });
-
-        return new CommitResult(CommitResultStatus.SUCCESS, null);
     }
 
     void removeRowVersion(RowVersion rowVersion) {

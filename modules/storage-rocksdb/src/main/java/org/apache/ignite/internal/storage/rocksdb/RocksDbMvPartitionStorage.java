@@ -618,10 +618,12 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     @Override
     // TODO: IGNITE-20347 Update implementation
     public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
+
         busy(() -> {
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
 
             byte[] dataIdKey = createCommittedDataIdKey(rowId, timestamp);
 
