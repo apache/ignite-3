@@ -412,9 +412,10 @@ class BinaryTupleComparatorUtilsWithoutCopy {
 
             bytes = buff.array();
 
+            begin += GridUnsafe.BYTE_ARR_OFF;
             begin += buff.arrayOffset();
 
-            if (bytes[begin] == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+            if (GridUnsafe.getByte(bytes, begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
                 shift = 1;
                 begin++;
             } else {
@@ -431,7 +432,7 @@ class BinaryTupleComparatorUtilsWithoutCopy {
 
         @Override
         public byte get(int p) {
-            return bytes[begin + p];
+            return GridUnsafe.getByte(bytes, begin + p);
         }
     }
 }
