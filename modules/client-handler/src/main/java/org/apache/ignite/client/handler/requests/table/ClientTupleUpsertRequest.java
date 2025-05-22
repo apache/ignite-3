@@ -17,12 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
-import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
@@ -57,21 +53,11 @@ public class ClientTupleUpsertRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        int tableId = in.unpackInt();
-        int schemaId = in.unpackInt();
-
-        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, false, notificationSender);
-
-        BitSet noValueSet = in.unpackBitSet();
-        byte[] tupleBytes = in.readBinary();
-
-        return readTableAsync(tableId, tables).thenCompose(table -> {
-            return readTuple(schemaId, noValueSet, tupleBytes, table, false).thenCompose(tuple -> {
-                return table.recordView().upsertAsync(tx, tuple).thenApply(v -> out -> {
-                    writeTxMeta(out, tsTracker, clockService, tx);
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
-                });
-            });
-        });
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, false)
+                .thenCompose(req -> req.table().recordView().upsertAsync(req.tx(), req.tuple())
+                        .thenApply(v -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
+                        }));
     }
 }
