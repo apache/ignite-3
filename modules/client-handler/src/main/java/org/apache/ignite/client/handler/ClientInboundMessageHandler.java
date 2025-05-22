@@ -806,10 +806,10 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_CONTAINS_KEY:
-                return ClientTupleContainsKeyRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleContainsKeyRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.TUPLE_CONTAINS_ALL_KEYS:
-                return ClientTupleContainsAllKeysRequest.process(in, out, igniteTables, resources, txManager, clockService);
+                return ClientTupleContainsAllKeysRequest.process(in, igniteTables, resources, txManager, clockService, tsTracker);
 
             case ClientOp.JDBC_CONNECT:
                 return ClientJdbcConnectRequest.execute(in, jdbcQueryEventHandler);
