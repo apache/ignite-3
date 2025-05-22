@@ -45,10 +45,9 @@ public class ClientStreamerBatchSendRequest {
             ClientMessageUnpacker in,
             IgniteTables tables
     ) {
+        int tableId = in.unpackInt();
         int partition = in.unpackInt();
         BitSet deleted = in.unpackBitSetNullable();
-
-        int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
         var count = in.unpackInt();
