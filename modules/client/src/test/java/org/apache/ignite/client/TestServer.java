@@ -32,6 +32,7 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.net.SocketAddress;
+import java.util.BitSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -150,7 +151,8 @@ public class TestServer implements AutoCloseable {
                 securityConfiguration,
                 port,
                 null,
-                true
+                true,
+                null
         );
     }
 
@@ -170,7 +172,8 @@ public class TestServer implements AutoCloseable {
             @Nullable SecurityConfiguration securityConfiguration,
             @Nullable Integer port,
             @Nullable HybridClock clock,
-            boolean enableRequestHandling
+            boolean enableRequestHandling,
+            @Nullable BitSet features
     ) {
         ResourceLeakDetector.setLevel(ResourceLeakDetector.Level.PARANOID);
 
@@ -262,7 +265,8 @@ public class TestServer implements AutoCloseable {
                         authenticationManager,
                         clock,
                         ignite.placementDriver(),
-                        clientConnectorConfiguration)
+                        clientConnectorConfiguration,
+                        features)
                 : new ClientHandlerModule(
                         ignite.queryEngine(),
                         (IgniteTablesInternal) ignite.tables(),

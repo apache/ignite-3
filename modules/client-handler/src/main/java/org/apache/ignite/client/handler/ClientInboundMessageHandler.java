@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.PLA
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
+import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.firstNotNull;
 import static org.apache.ignite.lang.ErrorGroups.Client.HANDSHAKE_HEADER_ERR;
@@ -474,11 +475,22 @@ public class ClientInboundMessageHandler
             BitSet clientFeatures,
             ProtocolVersion clientVer,
             int clientCode) {
+        // Disable direct mapping if not all required features are supported.
+        boolean supportsDirectMapping = features.get(TX_DIRECT_MAPPING.featureId()) && clientFeatures.get(TX_DIRECT_MAPPING.featureId())
+                && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
+                && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId());
+
         BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
+
+        if (!supportsDirectMapping) {
+            mutuallySupportedFeatures.clear(TX_DIRECT_MAPPING.featureId());
+            mutuallySupportedFeatures.clear(TX_DELAYED_ACKS.featureId());
+            mutuallySupportedFeatures.clear(TX_PIGGYBACK.featureId());
+        }
 
         clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
 
-        sendHandshakeResponse(ctx, packer);
+        sendHandshakeResponse(ctx, packer, mutuallySupportedFeatures);
     }
 
     private void handshakeError(ChannelHandlerContext ctx, ClientMessagePacker packer, Throwable t) {
@@ -506,7 +518,7 @@ public class ClientInboundMessageHandler
         metrics.sessionsRejectedIncrement();
     }
 
-    private void sendHandshakeResponse(ChannelHandlerContext ctx, ClientMessagePacker packer) {
+    private void sendHandshakeResponse(ChannelHandlerContext ctx, ClientMessagePacker packer, BitSet mutuallySupportedFeatures) {
         ProtocolVersion.LATEST_VER.pack(packer);
         packer.packNil(); // No error.
 
@@ -536,7 +548,7 @@ public class ClientInboundMessageHandler
         packer.packByteNullable(IgniteProductVersion.CURRENT_VERSION.patch());
         packer.packStringNullable(IgniteProductVersion.CURRENT_VERSION.preRelease());
 
-        HandshakeUtils.packFeatures(packer, features);
+        HandshakeUtils.packFeatures(packer, mutuallySupportedFeatures);
         HandshakeUtils.packExtensions(packer, extensions);
 
         write(packer, ctx);
