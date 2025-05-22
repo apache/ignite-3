@@ -228,6 +228,20 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    void testDeprecationReturnsDefaultValue() {
+        ConfigurationMigrator changeIntValue = change -> change.changeRoot(BeforeDeprecationConfiguration.KEY).changeIntValue(999);
+
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changeIntValue, changer -> {});
+
+        withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, change -> {}, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedValueView) changer.superRoot().getRoot(DeprecatedValueConfiguration.KEY);
+            // Deprecated value should be read as a default.
+            assertEquals(10, root.intValue());
+        });
+    }
+
+    @Test
     void testConfigurationMigrator() {
         withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {});
 
