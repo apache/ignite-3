@@ -890,59 +890,59 @@ public class ClientInboundMessageHandler
                 );
 
             case ClientOp.COMPUTE_EXECUTE_MAPREDUCE:
-                return ClientComputeExecuteMapReduceRequest.process(in, out, compute, notificationSender(requestId));
+                return ClientComputeExecuteMapReduceRequest.process(in, compute, notificationSender(requestId));
 
             case ClientOp.COMPUTE_GET_STATE:
-                return ClientComputeGetStateRequest.process(in, out, compute);
+                return ClientComputeGetStateRequest.process(in, compute);
 
             case ClientOp.COMPUTE_CANCEL:
-                return ClientComputeCancelRequest.process(in, out, compute);
+                return ClientComputeCancelRequest.process(in, compute);
 
             case ClientOp.COMPUTE_CHANGE_PRIORITY:
-                return ClientComputeChangePriorityRequest.process(in, out, compute);
+                return ClientComputeChangePriorityRequest.process(in, compute);
 
             case ClientOp.CLUSTER_GET_NODES:
-                return ClientClusterGetNodesRequest.process(out, clusterService);
+                return ClientClusterGetNodesRequest.process(clusterService);
 
             case ClientOp.SQL_EXEC:
                 return ClientSqlExecuteRequest.process(
                         partitionOperationsExecutor, in, requestId, cancelHandles, queryProcessor, resources, metrics, tsTracker);
 
             case ClientOp.SQL_CANCEL_EXEC:
-                return ClientSqlCancelRequest.process(in, out, cancelHandles);
+                return ClientSqlCancelRequest.process(in, cancelHandles);
 
             case ClientOp.SQL_CURSOR_NEXT_PAGE:
-                return ClientSqlCursorNextPageRequest.process(in, out, resources);
+                return ClientSqlCursorNextPageRequest.process(in, resources);
 
             case ClientOp.SQL_CURSOR_CLOSE:
-                return ClientSqlCursorCloseRequest.process(in, out, resources);
+                return ClientSqlCursorCloseRequest.process(in, resources);
 
             case ClientOp.PARTITION_ASSIGNMENT_GET:
-                return ClientTablePartitionPrimaryReplicasGetRequest.process(in, out, primaryReplicaTracker);
+                return ClientTablePartitionPrimaryReplicasGetRequest.process(in, primaryReplicaTracker);
 
             case ClientOp.JDBC_TX_FINISH:
-                return ClientJdbcFinishTxRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcFinishTxRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.SQL_EXEC_SCRIPT:
                 return ClientSqlExecuteScriptRequest.process(
-                        partitionOperationsExecutor, in, out, queryProcessor, requestId, cancelHandles
+                        partitionOperationsExecutor, in, queryProcessor, requestId, cancelHandles
                 );
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(
-                        partitionOperationsExecutor, in, out, queryProcessor, resources
+                        partitionOperationsExecutor, in, queryProcessor, resources
                 );
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, out, queryProcessor, resources, requestId, cancelHandles
+                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
-                return ClientStreamerBatchSendRequest.process(in, out, igniteTables);
+                return ClientStreamerBatchSendRequest.process(in, igniteTables);
 
             case ClientOp.PRIMARY_REPLICAS_GET:
-                return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, out, igniteTables);
+                return ClientTablePartitionPrimaryReplicasNodesGetRequest.process(in, igniteTables);
 
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
                 return ClientStreamerWithReceiverBatchSendRequest.process(
@@ -952,12 +952,12 @@ public class ClientInboundMessageHandler
                         clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
 
             case ClientOp.TABLES_GET_QUALIFIED:
-                return ClientTablesGetQualifiedRequest.process(out, igniteTables).thenRun(() -> {
+                return ClientTablesGetQualifiedRequest.process(igniteTables).thenRun(() -> {
                     out.meta(clockService.current());
                 });
 
             case ClientOp.TABLE_GET_QUALIFIED:
-                return ClientTableGetQualifiedRequest.process(in, out, igniteTables);
+                return ClientTableGetQualifiedRequest.process(in, igniteTables);
 
             default:
                 throw new IgniteException(PROTOCOL_ERR, "Unexpected operation code: " + opCode);
