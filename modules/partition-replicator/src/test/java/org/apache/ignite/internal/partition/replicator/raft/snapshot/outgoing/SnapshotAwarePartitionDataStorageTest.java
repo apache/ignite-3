@@ -183,7 +183,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         // TODO: IGNITE-20347 Review usages
         when(partitionStorage.abortWrite(any(), any())).thenReturn(new AbortResult(AbortResultStatus.SUCCESS, null, resultRow));
 
-        assertThat(testedStorage.abortWrite(rowId, txId), is(resultRow));
+        assertThat(testedStorage.abortWrite(rowId, txId).row(), is(resultRow));
         verify(partitionStorage).abortWrite(rowId, txId);
     }
 
