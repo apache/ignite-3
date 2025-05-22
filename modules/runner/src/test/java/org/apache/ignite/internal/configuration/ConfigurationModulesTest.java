@@ -36,13 +36,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class ConfigurationModulesTest extends BaseIgniteAbstractTest {
     @Mock
-    private RootKey<?, ?> rootKeyA;
+    private RootKey<?, ?, ?> rootKeyA;
     @Mock
-    private RootKey<?, ?> rootKeyB;
+    private RootKey<?, ?, ?> rootKeyB;
     @Mock
-    private RootKey<?, ?> rootKeyC;
+    private RootKey<?, ?, ?> rootKeyC;
     @Mock
-    private RootKey<?, ?> rootKeyD;
+    private RootKey<?, ?, ?> rootKeyD;
 
     @Mock
     private ConfigurationModule moduleA;

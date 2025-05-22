@@ -52,7 +52,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     protected final String key;
 
     /** Root key instance for the current trees root. */
-    protected final RootKey<?, ?> rootKey;
+    protected final RootKey<?, ?, ?> rootKey;
 
     /** Configuration changer instance to get latest value of the root. */
     protected final DynamicConfigurationChanger changer;
@@ -86,7 +86,7 @@ public abstract class ConfigurationNode<VIEWT> implements ConfigurationProperty<
     protected ConfigurationNode(
             List<String> keys,
             String key,
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             DynamicConfigurationChanger changer,
             boolean listenOnly
     ) {

@@ -17,18 +17,21 @@
 
 package org.apache.ignite.configuration;
 
+import java.util.Objects;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration root selector.
  *
- * @param <T>    Type of the configuration tree described by the root key.
+ * @param <T> Type of the configuration tree described by the root key.
  * @param <VIEWT> Type of the immutable snapshot view associated with the tree.
+ * @param <CHANGET> Type of the object that is used to change the configuration.
  */
-public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
+public class RootKey<T extends ConfigurationTree<? super VIEWT, ? super CHANGET>, VIEWT, CHANGET extends VIEWT> {
     /** Name of the configuration root. */
     private final String rootName;
 
@@ -47,19 +50,21 @@ public class RootKey<T extends ConfigurationTree<VIEWT, ?>, VIEWT> {
      * @param schemaClass Class of the configuration schema.
      */
     public RootKey(Class<?> schemaClass) {
+        this(
+                Objects.requireNonNull(schemaClass.getAnnotation(ConfigurationRoot.class)).rootName(),
+                schemaClass.getAnnotation(ConfigurationRoot.class).type(),
+                schemaClass,
+                schemaClass.isAnnotationPresent(ConfigurationExtension.class)
+                        && schemaClass.getAnnotation(ConfigurationExtension.class).internal()
+        );
+    }
+
+    @TestOnly
+    public RootKey(String rootName, ConfigurationType storageType, Class<?> schemaClass, boolean internal) {
+        this.rootName = Objects.requireNonNull(rootName, "rootName");
+        this.storageType = storageType;
         this.schemaClass = schemaClass;
-
-        ConfigurationRoot rootAnnotation = schemaClass.getAnnotation(ConfigurationRoot.class);
-
-        assert rootAnnotation != null;
-
-        this.rootName = rootAnnotation.rootName();
-        this.storageType = rootAnnotation.type();
-
-        assert rootName != null;
-
-        ConfigurationExtension extension = schemaClass.getAnnotation(ConfigurationExtension.class);
-        internal = extension != null && extension.internal();
+        this.internal = internal;
     }
 
     /**

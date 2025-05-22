@@ -36,7 +36,7 @@ public class NodeConfigurationModule implements ConfigurationModule {
     }
 
     @Override
-    public Collection<RootKey<?, ?>> rootKeys() {
+    public Collection<RootKey<?, ?, ?>> rootKeys() {
         return List.of(NodeConfiguration.KEY);
     }
 }

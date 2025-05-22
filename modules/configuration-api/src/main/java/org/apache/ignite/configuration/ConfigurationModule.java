@@ -64,7 +64,7 @@ public interface ConfigurationModule {
      *
      * @return root keys
      */
-    default Collection<RootKey<?, ?>> rootKeys() {
+    default Collection<RootKey<?, ?, ?>> rootKeys() {
         return emptySet();
     }
 

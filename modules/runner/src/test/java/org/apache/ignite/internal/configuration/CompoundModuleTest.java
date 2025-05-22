@@ -41,9 +41,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 @ExtendWith(MockitoExtension.class)
 class CompoundModuleTest extends BaseIgniteAbstractTest {
     @Mock
-    private RootKey<?, ?> rootKeyA;
+    private RootKey<?, ?, ?> rootKeyA;
     @Mock
-    private RootKey<?, ?> rootKeyB;
+    private RootKey<?, ?, ?> rootKeyB;
 
     @Mock
     private Validator<AnnotationA, ?> validatorA;

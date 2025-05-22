@@ -216,7 +216,7 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 ClassWrapper superClass = classWrapper.requiredSuperClass();
 
                 if (superClass.getAnnotation(ConfigurationRoot.class) != null) {
-                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, ClassName.get(superClass.clazz()));
+                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, ClassName.get(superClass.clazz()));
                 }
             }
 
@@ -241,8 +241,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
             TypeElement realSchemaClass
     ) {
         ClassName viewClassName = getViewName(schemaClassName);
+        ClassName changeClassName = getChangeName(schemaClassName);
 
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName);
+        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(
@@ -258,13 +259,15 @@ public class ConfigurationProcessor extends AbstractProcessor {
     private static void createExtensionKeyField(
             ClassName configInterface,
             Builder configurationClassBuilder,
+            ClassName schemaClassName,
             ClassName superClassSchemaClassName
     ) {
-        ClassName viewClassName = getViewName(superClassSchemaClassName);
+        ClassName viewClassName = getViewName(schemaClassName);
+        ClassName changeClassName = getChangeName(schemaClassName);
 
         ClassName superConfigInterface = getConfigurationInterfaceName(superClassSchemaClassName);
 
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName);
+        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(

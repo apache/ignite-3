@@ -43,7 +43,7 @@ public interface DynamicConfigurationChanger {
      *
      * @param rootKey Root key.
      */
-    InnerNode getRootNode(RootKey<?, ?> rootKey);
+    InnerNode getRootNode(RootKey<?, ?, ?> rootKey);
 
     /**
      * Retrieves the latest configuration value for the given path directly from the storage.

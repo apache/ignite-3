@@ -105,7 +105,7 @@ public class DefaultsGenerator {
                 KeyIgnorer.fromDeletedPrefixes(modules.local().deletedPrefixes())
         ) {
             @Override
-            public InnerNode createRootNode(RootKey<?, ?> rootKey) {
+            public InnerNode createRootNode(RootKey<?, ?, ?> rootKey) {
                 return localConfigurationGenerator.instantiateNode(rootKey.schemaClass());
             }
         };
