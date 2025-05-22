@@ -701,8 +701,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             var changedValues = new HashMap<String, Serializable>(changedEntries.values());
             StorageRoots oldStorageRoots = storageRoots;
 
-            var storageValues = new HashMap<String, Serializable>(oldStorageRoots.data.values());
-
             SuperRoot oldSuperRoot = oldStorageRoots.roots;
             SuperRoot oldSuperRootNoDefaults = oldStorageRoots.rootsWithoutDefaults;
             SuperRoot newSuperRoot = oldSuperRoot.copy();
@@ -711,7 +709,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             // We need to ignore deletion of deprecated values.
             ignoreDeleted(changedValues, keyIgnorer);
             // We need to ignore deletion of legacy values.
-            ignoreLegacyKeys(oldStorageRoots, changedValues, storageValues);
+            ignoreLegacyKeys(oldStorageRoots, changedValues);
 
             Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
@@ -722,7 +720,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             long newChangeId = changedEntries.changeId();
 
-            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(storageValues, changedEntries));
+            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
 
             rwLock.writeLock().lock();
 
@@ -747,8 +745,10 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         };
     }
 
-    private static Data mergeData(Map<String, ? extends Serializable> currentValues, Data delta) {
-        Map<String, Serializable> newState = new HashMap<>(currentValues);
+    private static Data mergeData(Data currentData, Data delta) {
+        assert delta.changeId() > currentData.changeId() : currentData.changeId() + " " + delta.changeId();
+
+        Map<String, Serializable> newState = new HashMap<>(currentData.values());
 
         for (Entry<String, ? extends Serializable> entry : delta.values().entrySet()) {
             if (entry.getValue() == null) {
@@ -761,11 +761,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         return new Data(newState, delta.changeId());
     }
 
-    private static void ignoreLegacyKeys(
-            StorageRoots oldStorageRoots,
-            Map<String, ? extends Serializable> changedValues,
-            Map<String, ? extends Serializable> storageValues
-    ) {
+    private static void ignoreLegacyKeys(StorageRoots oldStorageRoots, Map<String, ? extends Serializable> changedValues) {
         oldStorageRoots.roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
             @Override
             protected Object doVisitLeafNode(Field field, String key, Serializable val) {
@@ -773,7 +769,6 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
                 processLegacyPaths(path, (legacyKey, newKey) -> {
                     changedValues.remove(legacyKey);
-                    storageValues.remove(legacyKey);
                 });
 
                 return null;
