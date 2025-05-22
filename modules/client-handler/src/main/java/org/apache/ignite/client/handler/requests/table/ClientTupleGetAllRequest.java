@@ -72,9 +72,9 @@ public class ClientTupleGetAllRequest {
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
             return readTuples(schemaId, noValueSet, tupleBytes, table, true).thenCompose(tuples -> {
-                return table.recordView().upsertAllAsync(tx, tuples).thenApply(unused -> out -> {
+                return table.recordView().getAllAsync(tx, tuples).thenApply(resTuples -> out -> {
                     writeTxMeta(out, tsTracker, clockService, tx);
-                    writeTuplesNullable(out, tuples, TuplePart.KEY_AND_VAL, table.schemaView());
+                    writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, table.schemaView());
                 });
             });
         });
