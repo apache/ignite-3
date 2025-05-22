@@ -28,6 +28,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.api.IgniteSqlImpl;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
+import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.CancelHandle;
 
 /**
@@ -73,7 +74,11 @@ public class ClientSqlExecuteScriptRequest {
                     arguments,
                     props.toSqlProps(),
                     operationExecutor
-            ).handle((none2, error) -> out -> cancelHandleMap.remove(requestId));
+            ).handle((none2, error) -> {
+                cancelHandleMap.remove(requestId);
+                ExceptionUtils.sneakyThrow(error);
+                return null;
+            });
         }, operationExecutor);
     }
 }
