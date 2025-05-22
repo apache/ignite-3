@@ -35,12 +35,12 @@ import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
 public class ClientTupleRequestBase {
-    private final InternalTransaction tx;
+    private final @Nullable InternalTransaction tx;
     private final TableViewInternal table;
     private final Tuple tuple;
     private final @Nullable Tuple tuple2;
 
-    private ClientTupleRequestBase(InternalTransaction tx, TableViewInternal table, Tuple tuple, @Nullable Tuple tuple2) {
+    private ClientTupleRequestBase(@Nullable InternalTransaction tx, TableViewInternal table, Tuple tuple, @Nullable Tuple tuple2) {
         this.tx = tx;
         this.table = table;
         this.tuple = tuple;
@@ -48,6 +48,8 @@ public class ClientTupleRequestBase {
     }
 
     public InternalTransaction tx() {
+        assert tx != null : "tx is null";
+
         return tx;
     }
 
@@ -69,10 +71,10 @@ public class ClientTupleRequestBase {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager,
+            @Nullable TxManager txManager,
             boolean txReadOnly,
             @Nullable NotificationSender notificationSender,
-            HybridTimestampTracker tsTracker,
+            @Nullable HybridTimestampTracker tsTracker,
             boolean keyOnly
     ) {
         return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
@@ -82,17 +84,21 @@ public class ClientTupleRequestBase {
             ClientMessageUnpacker in,
             IgniteTables tables,
             ClientResourceRegistry resources,
-            TxManager txManager,
+            @Nullable TxManager txManager,
             boolean txReadOnly,
             @Nullable NotificationSender notificationSender,
-            HybridTimestampTracker tsTracker,
+            @Nullable HybridTimestampTracker tsTracker,
             boolean keyOnly,
             boolean readSecondTuple
     ) {
+        assert (txManager != null) == (tsTracker != null) : "txManager and tsTracker must be both null or not null";
+
         int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
-        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
+        InternalTransaction tx = txManager == null
+                ? null
+                : readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
 
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();

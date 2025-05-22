@@ -872,7 +872,6 @@ public class ClientInboundMessageHandler
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
                 return ClientComputeExecuteColocatedRequest.process(
                         in,
-                        out,
                         compute,
                         igniteTables,
                         clusterService,
