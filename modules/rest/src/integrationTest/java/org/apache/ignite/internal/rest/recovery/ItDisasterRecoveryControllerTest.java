@@ -69,7 +69,6 @@ import org.apache.ignite.internal.rest.api.recovery.ResetPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
@@ -221,6 +220,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertEmptyStates(response.body(), true);
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     @Test
     void testLocalPartitionStatesByZones() {
         String path = localStatePath();
@@ -509,7 +510,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         ));
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25448")
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     @Test
     void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);
