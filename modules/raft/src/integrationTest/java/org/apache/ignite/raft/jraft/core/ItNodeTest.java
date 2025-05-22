@@ -4254,7 +4254,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testLeaseReadAfterSegmentation() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
-        cluster = new TestCluster("unittest", dataPath, peers, 1_000, testInfo);
+        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
 
         for (TestPeer peer : peers) {
             RaftOptions opts = new RaftOptions();
