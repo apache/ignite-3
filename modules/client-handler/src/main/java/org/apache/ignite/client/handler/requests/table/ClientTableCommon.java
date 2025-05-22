@@ -484,7 +484,7 @@ public class ClientTableCommon {
     /**
      * Starts an explicit transaction.
      *
-     * @param out Packer.
+     * @param tsTracker Tracker.
      * @param txManager Ignite transactions.
      * @param currentTs Current observation timestamp or {@code null} if it is not defined.
      * @param readOnly Read only flag.
@@ -492,14 +492,16 @@ public class ClientTableCommon {
      * @return Transaction.
      */
     public static InternalTransaction startExplicitTx(
-            ClientMessagePacker out,
+            HybridTimestampTracker tsTracker,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,
             boolean readOnly,
             InternalTxOptions options
     ) {
+        tsTracker.update(currentTs);
+
         return txManager.beginExplicit(
-                HybridTimestampTracker.atomicTracker(currentTs),
+                tsTracker,
                 readOnly,
                 options
         );
@@ -508,20 +510,21 @@ public class ClientTableCommon {
     /**
      * Starts an implicit transaction.
      *
-     * @param readTs Packer.
+     * @param tsTracker Tracker.
      * @param txManager Ignite transactions.
      * @param currentTs Current observation timestamp or {@code null} if it is not defined.
      * @param readOnly Read only flag.
      * @return Transaction.
      */
     public static InternalTransaction startImplicitTx(
-            HybridTimestampTracker readTs,
+            HybridTimestampTracker tsTracker,
             TxManager txManager,
             @Nullable HybridTimestamp currentTs,
             boolean readOnly
     ) {
-        readTs.update(currentTs);
-        return txManager.beginImplicit(readTs, readOnly);
+        tsTracker.update(currentTs);
+
+        return txManager.beginImplicit(tsTracker, readOnly);
     }
 
     /**

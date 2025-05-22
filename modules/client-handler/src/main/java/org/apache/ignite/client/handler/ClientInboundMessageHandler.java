@@ -855,7 +855,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TX_BEGIN:
                 return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, igniteTables,
-                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
+                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS), tsTracker);
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
