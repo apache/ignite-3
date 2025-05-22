@@ -947,7 +947,6 @@ public class ClientInboundMessageHandler
             case ClientOp.STREAMER_WITH_RECEIVER_BATCH_SEND:
                 return ClientStreamerWithReceiverBatchSendRequest.process(
                         in,
-                        out,
                         igniteTables,
                         clientContext.hasFeature(STREAMER_RECEIVER_EXECUTION_OPTIONS));
 
