@@ -177,7 +177,7 @@ Sort
                                                 rowType: RecordType(INTEGER CS_ITEM_SK, DECIMAL(32767, 2) SALE, DECIMAL(32767, 2) REFUND)
                                                 group: [CS_ITEM_SK]
                                                 aggs: [SALE=SUM(_ACC0), REFUND=SUM(_ACC1)]
-                                                est. row count: 28813
+                                                est: (rows=28813)
                                               Exchange
                                                   distribution: single
                                                   est: (rows=28813)
