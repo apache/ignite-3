@@ -189,7 +189,10 @@ public class Ignite3ClusterContainer implements Startable {
      */
     public static String dockerImageName() {
         String imageName = System.getProperty("ignite3.docker.image");
-        assert imageName != null : "ignite3.docker.image property must be defined";
+        if (imageName == null) {
+            throw new IllegalArgumentException("ignite3.docker.image property must be defined");
+        }
+
         return imageName;
     }
 }
