@@ -56,11 +56,10 @@ public class ClientComputeExecutePartitionedRequest {
             NotificationSender notificationSender,
             boolean enablePlatformJobs
     ) {
+        int tableId = in.unpackInt();
         int partitionId = in.unpackInt();
 
         Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
-
-        int tableId = in.unpackInt();
 
         return readTableAsync(tableId, tables).thenCompose(table -> {
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
