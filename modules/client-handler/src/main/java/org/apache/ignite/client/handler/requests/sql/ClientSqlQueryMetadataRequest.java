@@ -51,12 +51,12 @@ public class ClientSqlQueryMetadataRequest {
             ClientResourceRegistry resources,
             HybridTimestampTracker tsTracker
     ) {
+        var tx = readTx(in, tsTracker, resources, null, null);
+
         String schema = in.unpackString();
         String query = in.unpackString();
 
         SqlProperties properties = new SqlProperties().defaultSchema(schema);
-
-        var tx = readTx(in, tsTracker, resources, null, null);
 
         return nullCompletedFuture()
                 .thenComposeAsync(none -> processor.prepareSingleAsync(properties, tx, query)
