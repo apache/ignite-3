@@ -36,9 +36,9 @@ public class ClientTransactionRollbackRequest {
     /**
      * Processes the request.
      *
-     * @param in        Unpacker.
+     * @param in Unpacker.
      * @param resources Resources.
-     * @param metrics   Metrics.
+     * @param metrics Metrics.
      * @param igniteTables Tables facade.
      * @param enableDirectMapping Enable direct mapping.
      * @return Future.
@@ -49,7 +49,7 @@ public class ClientTransactionRollbackRequest {
             ClientHandlerMetricSource metrics,
             IgniteTablesInternal igniteTables,
             boolean enableDirectMapping
-        )
+    )
             throws IgniteInternalCheckedException {
         long resourceId = in.unpackLong();
 
