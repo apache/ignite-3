@@ -68,7 +68,6 @@ public class ClientTupleGetAndUpsertRequest {
             return readTuple(schemaId, noValueSet, tupleBytes, table, false).thenCompose(tuple -> {
                 return table.recordView().getAndUpsertAsync(tx, tuple).thenApply(resTuple -> out -> {
                     writeTxMeta(out, tsTracker, clockService, tx);
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
                     ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, table.schemaView());
                 });
             });

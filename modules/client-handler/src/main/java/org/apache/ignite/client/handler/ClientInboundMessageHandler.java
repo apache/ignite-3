@@ -766,8 +766,8 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_INSERT:
-                return ClientTupleInsertRequest.process(in, out, igniteTables, resources, txManager, clockService,
-                        notificationSender(requestId));
+                return ClientTupleInsertRequest.process(in, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_INSERT_ALL:
                 return ClientTupleInsertAllRequest.process(in, out, igniteTables, resources, txManager, clockService,
