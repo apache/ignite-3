@@ -3,7 +3,7 @@ Sort
     est: (rows=69944)
   ColocatedHashAggregate
       group: [N_NAME]
-      aggs: [SUM($f1)]
+      aggs: [REVENUE=SUM($f1)]
       est: (rows=69944)
     Project
         fields: [N_NAME, $f1]
