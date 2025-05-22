@@ -174,10 +174,25 @@ class BinaryTupleComparatorUtilsWithoutCopy {
 
         int remaining = Math.min(trimmedSize1, trimmedSize2);
 
-        for (int i = 0; i < remaining; i++) {
+        int wordBytes = remaining - remaining % 8;
+
+        for (int i = 0; i < wordBytes; i += 8) {
+            long w1 = tupleWrapper1.getLongLittleEndian(i);
+            long w2 = tupleWrapper2.getLongLittleEndian(i);
+
+            int cmp = Long.compareUnsigned(w1, w2);
+
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+
+        for (int i = wordBytes; i < remaining; i++) {
             byte b1 = tupleWrapper1.get(i);
             byte b2 = tupleWrapper2.get(i);
+
             int cmp = Byte.compareUnsigned(b1, b2);
+
             if (cmp != 0) {
                 return cmp;
             }
@@ -461,13 +476,14 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         byte get(int p);
 
         /**
-         * Retrieves a 64-bit long value from the specified index in the underlying byte buffer.
+         * Retrieves a 64-bit long value from the underlying byte buffer at the specified index
+         * using little-endian byte order. The method interprets the specified position as the starting
+         * index of an 8-byte region and reads the bytes in little-endian order to construct the long value.
          *
-         * @param p the index, adjusted for the internal representation of the wrapped byte buffer,
-         *          from which the long value is to be retrieved.
-         * @return the long value from the adjusted index in the internal buffer.
+         * @param p the index in the underlying byte buffer to start reading the 64-bit long value from.
+         * @return the 64-bit long value interpreted from the 8 bytes starting at the specified index in little-endian byte order.
          */
-        long getLong(int p);
+        long getLongLittleEndian(int p);
     }
 
     /**
@@ -513,8 +529,8 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         }
 
         @Override
-        public long getLong(int p) {
-            return GridUnsafe.getLong(addr + p);
+        public long getLongLittleEndian(int p) {
+            return GridUnsafe.getLongLittleEndian(addr + p);
         }
     }
 
@@ -564,8 +580,8 @@ class BinaryTupleComparatorUtilsWithoutCopy {
         }
 
         @Override
-        public long getLong(int p) {
-            return GridUnsafe.getLong(bytes, begin + p);
+        public long getLongLittleEndian(int p) {
+            return GridUnsafe.getLongLittleEndian(bytes, begin + p);
         }
     }
 }
