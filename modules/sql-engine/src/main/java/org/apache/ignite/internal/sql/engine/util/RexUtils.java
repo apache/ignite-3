@@ -1357,7 +1357,7 @@ public class RexUtils {
 
     /** Applies a {@link RexShuttle} to a list of {@link SearchBounds}. */
     public static @Nullable List<SearchBounds> processSearchBounds(RexShuttle shuttle, @Nullable List<SearchBounds> searchBounds) {
-        if (searchBounds == null || searchBounds.isEmpty()) {
+        if (nullOrEmpty(searchBounds)) {
             return searchBounds;
         }
 
