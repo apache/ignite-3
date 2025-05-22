@@ -827,34 +827,34 @@ public class ClientInboundMessageHandler
                 return ClientJdbcPreparedStmntBatchRequest.process(in, jdbcQueryEventHandler, tsTracker);
 
             case ClientOp.JDBC_NEXT:
-                return ClientJdbcFetchRequest.process(in, out, jdbcQueryCursorHandler);
+                return ClientJdbcFetchRequest.process(in, jdbcQueryCursorHandler);
 
             case ClientOp.JDBC_MORE_RESULTS:
-                return ClientJdbcHasMoreRequest.process(in, out, jdbcQueryCursorHandler);
+                return ClientJdbcHasMoreRequest.process(in, jdbcQueryCursorHandler);
 
             case ClientOp.JDBC_CURSOR_CLOSE:
-                return ClientJdbcCloseRequest.process(in, out, jdbcQueryCursorHandler);
+                return ClientJdbcCloseRequest.process(in, jdbcQueryCursorHandler);
 
             case ClientOp.JDBC_TABLE_META:
-                return ClientJdbcTableMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcTableMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_COLUMN_META:
-                return ClientJdbcColumnMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcColumnMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.JDBC_SCHEMAS_META:
-                return ClientJdbcSchemasMetadataRequest.process(in, out, jdbcQueryEventHandler).thenRun(() -> {
+                return ClientJdbcSchemasMetadataRequest.process(in, jdbcQueryEventHandler).thenRun(() -> {
                     out.meta(clockService.current());
                 });
 
             case ClientOp.JDBC_PK_META:
-                return ClientJdbcPrimaryKeyMetadataRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcPrimaryKeyMetadataRequest.process(in, jdbcQueryEventHandler);
 
             case ClientOp.TX_BEGIN:
-                return ClientTransactionBeginRequest.process(in, out, txManager, resources, metrics, igniteTables,
+                return ClientTransactionBeginRequest.process(in, txManager, resources, metrics, igniteTables,
                         clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
 
             case ClientOp.TX_COMMIT:
-                return ClientTransactionCommitRequest.process(in, out, resources, metrics, clockService, igniteTables,
+                return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
                         clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
 
             case ClientOp.TX_ROLLBACK:
@@ -862,7 +862,7 @@ public class ClientInboundMessageHandler
                         clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
 
             case ClientOp.COMPUTE_EXECUTE:
-                return ClientComputeExecuteRequest.process(in, out, compute, clusterService, notificationSender(requestId),
+                return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId),
                         clientContext.hasFeature(PLATFORM_COMPUTE_JOB));
 
             case ClientOp.COMPUTE_EXECUTE_COLOCATED:
