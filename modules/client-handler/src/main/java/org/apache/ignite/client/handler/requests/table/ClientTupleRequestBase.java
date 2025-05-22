@@ -32,6 +32,7 @@ import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.Nullable;
 
 public class ClientTupleRequestBase {
     private final InternalTransaction tx;
@@ -62,7 +63,7 @@ public class ClientTupleRequestBase {
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean txReadOnly,
-            NotificationSender notificationSender,
+            @Nullable NotificationSender notificationSender,
             HybridTimestampTracker tsTracker,
             boolean keyOnly
     ) {

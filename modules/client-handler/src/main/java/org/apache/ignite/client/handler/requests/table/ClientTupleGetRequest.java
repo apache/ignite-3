@@ -17,12 +17,8 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
-import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.ResponseWriter;
@@ -54,21 +50,11 @@ public class ClientTupleGetRequest {
             ClockService clockService,
             HybridTimestampTracker tsTracker
     ) {
-        int tableId = in.unpackInt();
-        int schemaId = in.unpackInt();
-
-        var tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, true, null);
-
-        BitSet noValueSet = in.unpackBitSet();
-        byte[] tupleBytes = in.readBinary();
-
-        return readTableAsync(tableId, tables).thenCompose(table -> {
-            return readTuple(schemaId, noValueSet, tupleBytes, table, true).thenCompose(tuple -> {
-                return table.recordView().getAsync(tx, tuple).thenApply(t -> out -> {
-                    writeTxMeta(out, tsTracker, clockService, tx);
-                    ClientTableCommon.writeTupleOrNil(out, t, TuplePart.KEY_AND_VAL, table.schemaView());
-                });
-            });
-        });
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, true, null, tsTracker, true)
+                .thenCompose(req -> req.table().recordView().getAsync(req.tx(), req.tuple())
+                        .thenApply(res -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            ClientTableCommon.writeTupleOrNil(out, res, TuplePart.KEY_AND_VAL, req.table().schemaView());
+                        }));
     }
 }
