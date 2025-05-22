@@ -930,7 +930,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_QUERY_META:
                 return ClientSqlQueryMetadataRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources
+                        partitionOperationsExecutor, in, queryProcessor, resources, tsTracker
                 );
 
             case ClientOp.SQL_EXEC_BATCH:
