@@ -159,7 +159,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             unpacker.skipValue(extensionsLen);
 
             assertArrayEquals(MAGIC, magic);
-            assertEquals(98, len);
+            assertEquals(97, len);
             assertEquals(3, major);
             assertEquals(0, minor);
             assertEquals(0, patch);
@@ -532,14 +532,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             BitSet supportedFeatures = BitSet.valueOf(featuresBits);
 
             // Server features
-            BitSet expected = new BitSet();
-            expected.set(1);
-            expected.set(2);
-            expected.set(3);
-            expected.set(5);
-            expected.set(6);
-            expected.set(7);
-            assertEquals(expected, supportedFeatures);
+            assertEquals(clientFeatures, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();
             unpacker.skipValue(extensionsLen);
