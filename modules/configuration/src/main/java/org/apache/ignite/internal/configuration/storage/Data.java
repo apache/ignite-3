@@ -42,11 +42,7 @@ public class Data {
         this.changeId = changeId;
     }
 
-    /**
-     * Get values.
-     *
-     * @return values.
-     */
+    /** Get values. */
     public Map<String, ? extends Serializable> values() {
         return values;
     }

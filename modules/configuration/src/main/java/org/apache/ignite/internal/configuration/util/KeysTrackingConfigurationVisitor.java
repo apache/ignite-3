@@ -214,41 +214,43 @@ public abstract class KeysTrackingConfigurationVisitor<T> implements Configurati
             return;
         }
 
-        // Contains all combinations of current and old names.
-        var pathVariations = new ArrayList<List<String>>(currentPath.size());
-        for (int i = 0; i < currentPath.size(); i++) {
-            ArrayList<String> variations = new ArrayList<>();
-            variations.add(currentPath.get(i));
-
-            variations.addAll(List.of(currentLegacyNames.get(i)));
-
-            pathVariations.add(variations);
-        }
-
-        processLegacyPaths(new ArrayList<>(), pathVariations, legacyKeyConsumer);
+        processLegacyPaths(new ArrayList<>(), legacyKeyConsumer);
     }
 
-    private void processLegacyPaths(List<String> path, List<List<String>> pathVariations, Consumer<String> legacyKeyConsumer) {
+    private void processLegacyPaths(List<String> path, Consumer<String> legacyKeyConsumer) {
         // We reached the leaf. If path joined with leaf name != current key, it is legacy and should be processed.
         if (path.size() == currentPath().size() - 1) {
-            for (String leafName : pathVariations.get(currentPath().size() - 1)) {
-                String key = join(appendKey(path, leafName));
-
-                if (!key.equals(currentKey())) {
-                    legacyKeyConsumer.accept(key);
-                }
+            for (String leafName : currentLegacyNames.get(currentPath().size() - 1)) {
+                processLeaf(path, legacyKeyConsumer, leafName);
             }
+
+            // Process current name for cases when legacy name was in the middle of the path.
+            processLeaf(path, legacyKeyConsumer, currentPath().get(currentPath().size() - 1));
 
             return;
         }
 
-        // For inner nodes we should process all variations of paths.
-        for (String innerNodeName : pathVariations.get(path.size())) {
+        // For inner nodes we should all legacy names and current name.
+        for (String innerNodeName : currentLegacyNames.get(path.size())) {
             path.add(innerNodeName);
 
-            processLegacyPaths(path, pathVariations, legacyKeyConsumer);
+            processLegacyPaths(path, legacyKeyConsumer);
 
             path.remove(path.size() - 1);
+        }
+
+        path.add(currentPath.get(path.size()));
+
+        processLegacyPaths(path, legacyKeyConsumer);
+
+        path.remove(path.size() - 1);
+    }
+
+    private void processLeaf(List<String> path, Consumer<String> legacyKeyConsumer, String leafName) {
+        String key = join(appendKey(path, leafName));
+
+        if (!key.equals(currentKey())) {
+            legacyKeyConsumer.accept(key);
         }
     }
 }
