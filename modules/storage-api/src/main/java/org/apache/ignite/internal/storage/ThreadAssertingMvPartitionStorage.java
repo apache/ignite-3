@@ -107,10 +107,10 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.commitWrite(rowId, timestamp);
+        return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
     @Override

@@ -64,6 +64,8 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
+import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -609,7 +611,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+    // TODO: IGNITE-20347 Update implementation
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
         busy(() -> {
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
@@ -653,6 +656,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 throw new IgniteRocksDbException("Failed to commit row into storage", e);
             }
         });
+
+        return new CommitResult(CommitResultStatus.SUCCESS, null);
     }
 
     @Override

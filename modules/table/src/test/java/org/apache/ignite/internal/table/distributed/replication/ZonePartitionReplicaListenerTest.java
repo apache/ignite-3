@@ -251,7 +251,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
             if (rows != null) {
                 for (RowId row : rows) {
-                    testMvPartitionStorage.commitWrite(row, commitTimestamp);
+                    testMvPartitionStorage.commitWrite(row, commitTimestamp, txId);
                 }
             }
 

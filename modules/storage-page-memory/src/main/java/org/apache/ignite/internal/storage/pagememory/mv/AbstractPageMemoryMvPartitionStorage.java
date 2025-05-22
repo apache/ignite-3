@@ -44,6 +44,8 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
+import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -475,7 +477,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
+    // TODO: IGNITE-20347 Update implementation
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         busy(() -> {
@@ -502,6 +505,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
             }
         });
+
+        return new CommitResult(CommitResultStatus.SUCCESS, null);
     }
 
     void removeRowVersion(RowVersion rowVersion) {

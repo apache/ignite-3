@@ -186,9 +186,11 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void delegatesCommitWrite() {
         HybridTimestamp commitTs = new HybridClockImpl().now();
 
-        testedStorage.commitWrite(rowId, commitTs);
+        UUID txId = UUID.randomUUID();
 
-        verify(partitionStorage).commitWrite(rowId, commitTs);
+        testedStorage.commitWrite(rowId, commitTs, txId);
+
+        verify(partitionStorage).commitWrite(rowId, commitTs, txId);
     }
 
     @Test
@@ -306,7 +308,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         COMMIT_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.commitWrite(rowId, new HybridClockImpl().now());
+                storage.commitWrite(rowId, new HybridClockImpl().now(), UUID.randomUUID());
             }
         };
 

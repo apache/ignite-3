@@ -23,6 +23,7 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -183,9 +184,10 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @param rowId Row id.
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#commitWrite(RowId, HybridTimestamp)
+     * @see MvPartitionStorage#commitWrite
      */
-    void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+    // TODO: IGNITE-20347 Update javadoc
+    CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**
      * Scans all versions of a single row.

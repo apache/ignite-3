@@ -333,7 +333,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             if (rows != null) {
                 for (RowId row : rows) {
-                    testMvPartitionStorage.commitWrite(row, commitTimestamp);
+                    testMvPartitionStorage.commitWrite(row, commitTimestamp, txId);
                 }
             }
 
@@ -922,7 +922,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         pkStorage().put(testBinaryRow, rowId);
         testMvPartitionStorage.addWrite(rowId, testBinaryRow, txId, TABLE_ID, PART_ID);
-        testMvPartitionStorage.commitWrite(rowId, clock.now());
+        testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
 
         CompletableFuture<ReplicaResult> fut = doReadOnlySingleGet(testBinaryKey);
 
@@ -1003,7 +1003,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, TABLE_ID, PART_ID);
             sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
-            testMvPartitionStorage.commitWrite(rowId, clock.now());
+            testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
         });
 
         UUID scanTxId = newTxId();
@@ -1131,7 +1131,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, TABLE_ID, PART_ID);
             sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
-            testMvPartitionStorage.commitWrite(rowId, clock.now());
+            testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
         });
 
         UUID scanTxId = newTxId();
@@ -1244,7 +1244,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
             testMvPartitionStorage.addWrite(rowId, storeRow, txId, TABLE_ID, PART_ID);
             hashIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
-            testMvPartitionStorage.commitWrite(rowId, clock.now());
+            testMvPartitionStorage.commitWrite(rowId, clock.now(), txId);
         });
 
         UUID scanTxId = newTxId();
@@ -1440,7 +1440,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertDoesNotThrow(() -> cleanup(txId, commit));
         if (commit) {
-            verify(testMvPartitionStorage, atLeastOnce()).commitWrite(any(), any());
+            verify(testMvPartitionStorage, atLeastOnce()).commitWrite(any(), any(), eq(txId));
         } else {
             verify(testMvPartitionStorage, atLeastOnce()).abortWrite(any());
         }
@@ -1829,7 +1829,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
             testMvPartitionStorage.addWrite(emptyRowId, null, tx1, TABLE_ID, PART_ID);
 
             if (committed) {
-                testMvPartitionStorage.commitWrite(emptyRowId, clock.now());
+                testMvPartitionStorage.commitWrite(emptyRowId, clock.now(), tx1);
             }
 
             pkStorage().put(br1, emptyRowId);
@@ -2087,7 +2087,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         pkStorage().put(futureSchemaVersionRow, rowId);
         testMvPartitionStorage.addWrite(rowId, futureSchemaVersionRow, futureSchemaVersionTxId, TABLE_ID, PART_ID);
         sortedIndexStorage.storage().put(new IndexRowImpl(indexedValue, rowId));
-        testMvPartitionStorage.commitWrite(rowId, clock.now());
+        testMvPartitionStorage.commitWrite(rowId, clock.now(), futureSchemaVersionTxId);
 
         return key;
     }

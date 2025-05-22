@@ -599,7 +599,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 StorageDestroyedException.class,
                 () -> storage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, partId)
         );
-        assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp));
+        assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp, newTransactionId()));
         assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
         assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
 
@@ -1071,9 +1071,11 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 locker.lock(rowId);
 
                 if ((finalI % 2) == 0) {
-                    mvPartitionStorage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, rowId.partitionId());
+                    UUID txId = newTransactionId();
 
-                    mvPartitionStorage.commitWrite(rowId, timestamp);
+                    mvPartitionStorage.addWrite(rowId, binaryRow, txId, COMMIT_TABLE_ID, rowId.partitionId());
+
+                    mvPartitionStorage.commitWrite(rowId, timestamp, txId);
                 } else {
                     mvPartitionStorage.addWriteCommitted(rowId, binaryRow, timestamp);
                 }

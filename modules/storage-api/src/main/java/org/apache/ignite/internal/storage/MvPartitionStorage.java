@@ -208,7 +208,9 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param timestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+    // TODO: IGNITE-20347 Update javadoc
+    // TODO: IGNITE-20347 Create tests
+    CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**
      * Creates a committed version.

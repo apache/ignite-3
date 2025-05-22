@@ -33,6 +33,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
+import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -279,7 +281,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void commitWrite(RowId rowId, HybridTimestamp timestamp) {
+    // TODO: IGNITE-20347 Update implementation
+    public synchronized CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) {
         checkStorageClosed();
 
         map.compute(rowId, (ignored, versionChain) -> {
@@ -293,6 +296,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
             return null;
         });
+
+        return new CommitResult(CommitResultStatus.SUCCESS, null);
     }
 
     @Override

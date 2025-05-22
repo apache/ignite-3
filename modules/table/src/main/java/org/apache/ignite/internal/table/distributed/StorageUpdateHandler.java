@@ -427,6 +427,7 @@ public class StorageUpdateHandler {
      * @param pendingRowIds Row ids of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
      */
+    // TODO: IGNITE-20347 Review usages
     private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
         assert commitTimestamp != null : "Commit timestamp is null";
 
@@ -456,7 +457,7 @@ public class StorageUpdateHandler {
             }
         }
 
-        rowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+        rowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
     }
 
     /**
