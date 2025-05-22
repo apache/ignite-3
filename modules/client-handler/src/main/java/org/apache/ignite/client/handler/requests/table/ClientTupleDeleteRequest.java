@@ -51,7 +51,7 @@ public class ClientTupleDeleteRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().deleteAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req.tx());
