@@ -260,7 +260,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable BinaryRow abortWrite(RowId rowId) {
+    // TODO: IGNITE-20347 Update implementation
+    public synchronized @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) {
         checkStorageClosedOrInProcessOfRebalance();
 
         BinaryRow[] res = {null};

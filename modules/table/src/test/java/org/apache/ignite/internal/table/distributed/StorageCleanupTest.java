@@ -462,7 +462,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row1, false, null, null, commitTs, null);
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -497,7 +497,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdate(runningTx, rowId, partitionId, row2, true, null, null, commitTs, null);
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -539,7 +539,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         storageUpdateHandler.handleUpdateAll(runningTx, rowsToUpdate2, partitionId, true, null, null, null);
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -572,7 +572,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -613,7 +613,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -649,7 +649,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx2));
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -693,7 +693,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx2));
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -741,7 +741,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, times(1)).abortWrite(any());
+        verify(storage, times(1)).abortWrite(any(), eq(runningTx));
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -801,7 +801,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, times(1)).abortWrite(any());
+        verify(storage, times(1)).abortWrite(any(), eq(runningTx));
         verify(indexUpdateHandler, times(1)).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -852,7 +852,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx));
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -914,7 +914,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, times(1)).commitWrite(any(), any(), eq(runningTx));
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 
@@ -966,7 +966,7 @@ public class StorageCleanupTest extends BaseMvStoragesTest {
         assertTrue(storage.read(new RowId(PARTITION_ID, rowId), HybridTimestamp.MAX_VALUE).isWriteIntent());
 
         verify(storage, never()).commitWrite(any(), any(), any());
-        verify(storage, never()).abortWrite(any());
+        verify(storage, never()).abortWrite(any(), any());
         verify(indexUpdateHandler, never()).tryRemoveFromIndexes(any(), any(), any(), any());
     }
 

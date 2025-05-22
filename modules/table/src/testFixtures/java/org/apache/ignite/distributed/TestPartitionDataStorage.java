@@ -127,8 +127,8 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        return partitionStorage.abortWrite(rowId);
+    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
+        return partitionStorage.abortWrite(rowId, txId);
     }
 
     @Override

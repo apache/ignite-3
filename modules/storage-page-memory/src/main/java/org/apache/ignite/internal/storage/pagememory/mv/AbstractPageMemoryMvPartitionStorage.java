@@ -452,7 +452,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+    // TODO: IGNITE-20347 Update implementation
+    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         return busy(() -> {

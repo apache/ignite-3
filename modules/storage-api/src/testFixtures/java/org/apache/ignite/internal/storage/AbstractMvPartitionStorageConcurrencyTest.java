@@ -56,7 +56,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
             addWrite(ROW_ID, TABLE_ROW, txId);
 
             runRace(
-                    () -> abortWrite(ROW_ID),
+                    () -> abortWrite(ROW_ID, txId),
                     () -> read(ROW_ID, clock.now()),
                     () -> scanFirstEntry(clock.now()),
                     () -> scanFirstEntry(HybridTimestamp.MAX_VALUE)
@@ -151,7 +151,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             assertThat(read(ROW_ID, HybridTimestamp.MAX_VALUE), isRow(TABLE_ROW2));
 
-            abortWrite(ROW_ID);
+            abortWrite(ROW_ID, txId);
 
             assertNull(storage.closestRowId(ROW_ID));
         }
@@ -192,7 +192,7 @@ public abstract class AbstractMvPartitionStorageConcurrencyTest extends BaseMvPa
 
             runRace(
                     () -> pollForVacuum(HybridTimestamp.MAX_VALUE),
-                    () -> abortWrite(ROW_ID)
+                    () -> abortWrite(ROW_ID, txId)
             );
 
             assertNull(storage.closestRowId(ROW_ID));

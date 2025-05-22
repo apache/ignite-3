@@ -176,10 +176,12 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void delegatesAbortWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
 
-        when(partitionStorage.abortWrite(any())).thenReturn(resultRow);
+        UUID txId = UUID.randomUUID();
 
-        assertThat(testedStorage.abortWrite(rowId), is(resultRow));
-        verify(partitionStorage).abortWrite(rowId);
+        when(partitionStorage.abortWrite(any(), any())).thenReturn(resultRow);
+
+        assertThat(testedStorage.abortWrite(rowId, txId), is(resultRow));
+        verify(partitionStorage).abortWrite(rowId, txId);
     }
 
     @Test
@@ -302,7 +304,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         ABORT_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.abortWrite(rowId);
+                storage.abortWrite(rowId, UUID.randomUUID());
             }
         },
         COMMIT_WRITE {

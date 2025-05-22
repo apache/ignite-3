@@ -562,7 +562,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
+    // TODO: IGNITE-20347 Update implementation
+    public @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException {
         return busy(() -> {
             throwExceptionIfStorageInProgressOfRebalance(state.get(), this::createStorageInfo);
 

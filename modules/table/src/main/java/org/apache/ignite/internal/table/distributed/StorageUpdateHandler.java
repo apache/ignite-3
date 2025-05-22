@@ -467,6 +467,7 @@ public class StorageUpdateHandler {
      * @param pendingRowIds Row ids of write-intents to be aborted.
      * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
+    // TODO: IGNITE-20347 Review usages
     private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         List<RowId> rowIds = new ArrayList<>();
 
@@ -497,7 +498,7 @@ public class StorageUpdateHandler {
             }
         }
 
-        rowIds.forEach(storage::abortWrite);
+        rowIds.forEach(rowId -> storage.abortWrite(rowId, txId));
     }
 
     /** Returns partition index update handler. */

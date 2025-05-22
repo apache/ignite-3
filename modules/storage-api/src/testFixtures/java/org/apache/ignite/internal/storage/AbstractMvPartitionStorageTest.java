@@ -115,13 +115,13 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     /**
-     * Tests basic invariants of {@link MvPartitionStorage#abortWrite(RowId)}.
+     * Tests basic invariants of {@link MvPartitionStorage#abortWrite}.
      */
     @Test
     public void testAbortWrite() {
         RowId rowId = insert(binaryRow(key, value), txId);
 
-        abortWrite(rowId);
+        abortWrite(rowId, txId);
 
         // Aborted row can't be read.
         assertNull(read(rowId, HybridTimestamp.MAX_VALUE));
@@ -682,7 +682,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now(), txId);
 
-        abortWrite(rowId);
+        abortWrite(rowId, txId);
 
         assertThat(read(rowId, HybridTimestamp.MAX_VALUE), isRow(binaryRow));
 
@@ -698,7 +698,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         addWrite(rowId, binaryRow2, newTransactionId());
 
-        abortWrite(rowId);
+        abortWrite(rowId, txId);
 
         BinaryRow foundRow = read(rowId, HybridTimestamp.MAX_VALUE);
 
@@ -707,9 +707,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     void abortOfInsertMakesRowNonExistentForReadByTimestamp() {
-        RowId rowId = insert(binaryRow, newTransactionId());
+        RowId rowId = insert(binaryRow, txId);
 
-        abortWrite(rowId);
+        abortWrite(rowId, txId);
 
         BinaryRow foundRow = read(rowId, clock.now());
 
@@ -729,7 +729,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void abortWriteReturnsTheRemovedVersion() {
         RowId rowId = insert(binaryRow, txId);
 
-        BinaryRow returnedRow = abortWrite(rowId);
+        BinaryRow returnedRow = abortWrite(rowId, txId);
 
         assertThat(returnedRow, isRow(binaryRow));
     }
@@ -795,8 +795,9 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
             storage.addWrite(rowId, binaryRow, txId, 999, 0);
             commitWrite(rowId, clock.now(), txId);
 
-            addWrite(rowId, binaryRow2, newTransactionId());
-            storage.abortWrite(rowId);
+            UUID newTxId = newTransactionId();
+            addWrite(rowId, binaryRow2, newTxId);
+            storage.abortWrite(rowId, newTxId);
 
             addWrite(rowId, binaryRow3, newTransactionId());
 
@@ -1603,13 +1604,11 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
     @Test
     public void estimatedSizeHandlesTransactionAborts() {
-        UUID transactionId = newTransactionId();
-
         addWriteCommitted(ROW_ID, binaryRow, clock.now());
 
-        addWrite(ROW_ID, binaryRow, transactionId);
+        addWrite(ROW_ID, binaryRow, txId);
 
-        abortWrite(ROW_ID);
+        abortWrite(ROW_ID, txId);
 
         assertThat(storage.estimatedSize(), is(1L));
     }

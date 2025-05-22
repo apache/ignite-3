@@ -1442,7 +1442,7 @@ public class PartitionReplicaListenerTest extends IgniteAbstractTest {
         if (commit) {
             verify(testMvPartitionStorage, atLeastOnce()).commitWrite(any(), any(), eq(txId));
         } else {
-            verify(testMvPartitionStorage, atLeastOnce()).abortWrite(any());
+            verify(testMvPartitionStorage, atLeastOnce()).abortWrite(any(), eq(txId));
         }
     }
 

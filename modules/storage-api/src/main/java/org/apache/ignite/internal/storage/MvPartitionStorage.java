@@ -199,7 +199,9 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Previous uncommitted row version associated with the row id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    // TODO: IGNITE-20347 Update javadoc
+    // TODO: IGNITE-20347 Create tests
+    @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.

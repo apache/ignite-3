@@ -600,7 +600,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
                 () -> storage.addWrite(rowId, binaryRow, newTransactionId(), COMMIT_TABLE_ID, partId)
         );
         assertThrows(StorageDestroyedException.class, () -> storage.commitWrite(rowId, timestamp, newTransactionId()));
-        assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId));
+        assertThrows(StorageDestroyedException.class, () -> storage.abortWrite(rowId, newTransactionId()));
         assertThrows(StorageDestroyedException.class, () -> storage.addWriteCommitted(rowId, binaryRow, timestamp));
 
         assertThrows(StorageDestroyedException.class, () -> storage.scan(timestamp));
@@ -1555,7 +1555,7 @@ public abstract class AbstractMvTableStorageTest extends BaseMvTableStorageTest 
             locker.lock(rowId);
 
             assertThrows(StorageRebalanceException.class, () -> storage.read(rowId, clock.now()));
-            assertThrows(StorageRebalanceException.class, () -> storage.abortWrite(rowId));
+            assertThrows(StorageRebalanceException.class, () -> storage.abortWrite(rowId, newTransactionId()));
             assertThrows(StorageRebalanceException.class, () -> storage.scanVersions(rowId));
             assertThrows(StorageRebalanceException.class, () -> storage.scan(clock.now()));
             assertThrows(StorageRebalanceException.class, () -> storage.closestRowId(rowId));
