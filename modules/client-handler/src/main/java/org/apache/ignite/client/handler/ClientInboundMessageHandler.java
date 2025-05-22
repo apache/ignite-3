@@ -824,7 +824,7 @@ public class ClientInboundMessageHandler
                 return ClientJdbcExecuteBatchRequest.process(in, jdbcQueryEventHandler, tsTracker);
 
             case ClientOp.JDBC_SQL_EXEC_PS_BATCH:
-                return ClientJdbcPreparedStmntBatchRequest.process(in, out, jdbcQueryEventHandler);
+                return ClientJdbcPreparedStmntBatchRequest.process(in, jdbcQueryEventHandler, tsTracker);
 
             case ClientOp.JDBC_NEXT:
                 return ClientJdbcFetchRequest.process(in, out, jdbcQueryCursorHandler);
