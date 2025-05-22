@@ -882,7 +882,6 @@ public class ClientInboundMessageHandler
             case ClientOp.COMPUTE_EXECUTE_PARTITIONED:
                 return ClientComputeExecutePartitionedRequest.process(
                         in,
-                        out,
                         compute,
                         igniteTables,
                         clusterService,
