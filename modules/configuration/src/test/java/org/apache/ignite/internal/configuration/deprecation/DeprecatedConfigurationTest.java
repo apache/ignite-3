@@ -397,7 +397,7 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     private void withConfigurationChanger(
-            RootKey<?, ?> rootKey,
+            RootKey<?, ?, ?> rootKey,
             boolean init,
             ConfigurationMigrator migrator,
             Consumer<ConfigurationChanger> action

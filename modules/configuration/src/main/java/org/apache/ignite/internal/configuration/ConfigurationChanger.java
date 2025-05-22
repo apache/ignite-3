@@ -88,7 +88,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final ConfigurationUpdateListener configurationUpdateListener;
 
     /** Root keys. Mapping: {@link RootKey#key()} -> identity (itself). */
-    private final Map<String, RootKey<?, ?>> rootKeys;
+    private final Map<String, RootKey<?, ?, ?>> rootKeys;
 
     /** Configuration storage. */
     private final ConfigurationStorage storage;
@@ -220,7 +220,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     public ConfigurationChanger(
             ConfigurationUpdateListener configurationUpdateListener,
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationValidator configurationValidator,
             ConfigurationMigrator migrator,
@@ -243,7 +243,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param rootKey Root key.
      * @return New {@link InnerNode} instance that represents root.
      */
-    public abstract InnerNode createRootNode(RootKey<?, ?> rootKey);
+    public abstract InnerNode createRootNode(RootKey<?, ?, ?> rootKey);
 
     /**
      * Utility method to create {@link SuperRoot} parameter value.
@@ -252,7 +252,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     private Function<String, RootInnerNode> rootCreator() {
         return key -> {
-            RootKey<?, ?> rootKey = rootKeys.get(key);
+            RootKey<?, ?, ?> rootKey = rootKeys.get(key);
 
             return rootKey == null ? null : new RootInnerNode(rootKey, createRootNode(rootKey));
         };
@@ -284,7 +284,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         Map<String, ?> dataValuesPrefixMap = toPrefixMap(storageValues);
 
-        for (RootKey<?, ?> rootKey : rootKeys.values()) {
+        for (RootKey<?, ?, ?> rootKey : rootKeys.values()) {
             Map<String, ?> rootPrefixMap = (Map<String, ?>) dataValuesPrefixMap.get(rootKey.key());
 
             InnerNode rootNode = createRootNode(rootKey);
@@ -554,7 +554,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     /** {@inheritDoc} */
     @Override
-    public InnerNode getRootNode(RootKey<?, ?> rootKey) {
+    public InnerNode getRootNode(RootKey<?, ?, ?> rootKey) {
         return storageRoots.roots.getRoot(rootKey);
     }
 

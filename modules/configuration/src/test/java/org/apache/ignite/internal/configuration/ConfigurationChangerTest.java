@@ -584,7 +584,7 @@ public class ConfigurationChangerTest {
         assertArrayEquals(new String[]{"bar"}, root.child().arr());
     }
 
-    private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET> rootKey, Consumer<CHANGET> changer) {
+    private static <CHANGET> ConfigurationSource source(RootKey<?, ? super CHANGET, CHANGET> rootKey, Consumer<CHANGET> changer) {
         return new ConfigurationSource() {
             @Override
             public void descend(ConstructableTreeNode node) {
@@ -600,8 +600,7 @@ public class ConfigurationChangerTest {
         };
     }
 
-    private ConfigurationChanger createChanger(RootKey<?, ?> rootKey) {
-
+    private ConfigurationChanger createChanger(RootKey<?, ?, ?> rootKey) {
         return new TestConfigurationChanger(
                 List.of(rootKey),
                 storage,

@@ -64,7 +64,7 @@ public class PageMemoryStorageEngineLocalConfigurationModule implements Configur
 
     @Override
     public void patchConfigurationWithDynamicDefaults(SuperRootChange rootChange) {
-        StorageExtensionChange storageExtensionChange = (StorageExtensionChange) rootChange.changeRoot(StorageExtensionConfiguration.KEY);
+        StorageExtensionChange storageExtensionChange = rootChange.changeRoot(StorageExtensionConfiguration.KEY);
         NamedListChange<StorageProfileView, StorageProfileChange> profiles = storageExtensionChange.changeStorage().changeProfiles();
 
         if (profiles.get(DEFAULT_PROFILE_NAME) == null) {
