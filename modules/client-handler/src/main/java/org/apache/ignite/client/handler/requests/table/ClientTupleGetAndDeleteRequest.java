@@ -17,16 +17,12 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.client.handler.ResponseWriter;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.client.proto.TuplePart;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -60,7 +56,6 @@ public class ClientTupleGetAndDeleteRequest {
                 .thenCompose(req -> req.table().recordView().getAndDeleteAsync(req.tx(), req.tuple())
                         .thenApply(resTuple -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req.tx());
-                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                             ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, req.table().schemaView());
                         }));
     }
