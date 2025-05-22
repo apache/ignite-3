@@ -935,7 +935,7 @@ public class ClientInboundMessageHandler
 
             case ClientOp.SQL_EXEC_BATCH:
                 return ClientSqlExecuteBatchRequest.process(
-                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles
+                        partitionOperationsExecutor, in, queryProcessor, resources, requestId, cancelHandles, tsTracker
                 );
 
             case ClientOp.STREAMER_BATCH_SEND:
