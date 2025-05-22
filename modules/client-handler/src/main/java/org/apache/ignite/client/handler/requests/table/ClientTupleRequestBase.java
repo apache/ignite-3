@@ -38,11 +38,13 @@ public class ClientTupleRequestBase {
     private final InternalTransaction tx;
     private final TableViewInternal table;
     private final Tuple tuple;
+    private final @Nullable Tuple tuple2;
 
-    private ClientTupleRequestBase(InternalTransaction tx, TableViewInternal table, Tuple tuple) {
+    private ClientTupleRequestBase(InternalTransaction tx, TableViewInternal table, Tuple tuple, @Nullable Tuple tuple2) {
         this.tx = tx;
         this.table = table;
         this.tuple = tuple;
+        this.tuple2 = tuple2;
     }
 
     public InternalTransaction tx() {
@@ -57,6 +59,12 @@ public class ClientTupleRequestBase {
         return tuple;
     }
 
+    public Tuple tuple2() {
+        assert tuple2 != null : "tuple2 is null";
+
+        return tuple2;
+    }
+
     public static CompletableFuture<ClientTupleRequestBase> readAsync(
             ClientMessageUnpacker in,
             IgniteTables tables,
@@ -67,6 +75,20 @@ public class ClientTupleRequestBase {
             HybridTimestampTracker tsTracker,
             boolean keyOnly
     ) {
+        return readAsync(in, tables, resources, txManager, txReadOnly, notificationSender, tsTracker, keyOnly, false);
+    }
+
+    public static CompletableFuture<ClientTupleRequestBase> readAsync(
+            ClientMessageUnpacker in,
+            IgniteTables tables,
+            ClientResourceRegistry resources,
+            TxManager txManager,
+            boolean txReadOnly,
+            @Nullable NotificationSender notificationSender,
+            HybridTimestampTracker tsTracker,
+            boolean keyOnly,
+            boolean readSecondTuple
+    ) {
         int tableId = in.unpackInt();
         int schemaId = in.unpackInt();
 
@@ -75,9 +97,17 @@ public class ClientTupleRequestBase {
         BitSet noValueSet = in.unpackBitSet();
         byte[] tupleBytes = in.readBinary();
 
+        BitSet noValueSet2 = readSecondTuple ? in.unpackBitSet() : null;
+        byte[] tupleBytes2 = readSecondTuple ? in.readBinary() : null;
+
         return readTableAsync(tableId, tables)
-                .thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, keyOnly)
-                        .thenApply(tuple -> new ClientTupleRequestBase(tx, table, tuple)));
+                .thenCompose(table -> ClientTableCommon.readSchema(schemaId, table)
+                        .thenApply(schema -> {
+                            var tuple = readTuple(noValueSet, tupleBytes, keyOnly, schema);
+                            var tuple2 = readSecondTuple ? readTuple(noValueSet2, tupleBytes2, keyOnly, schema) : null;
+
+                            return new ClientTupleRequestBase(tx, table, tuple, tuple2);
+                        }));
 
     }
 }
