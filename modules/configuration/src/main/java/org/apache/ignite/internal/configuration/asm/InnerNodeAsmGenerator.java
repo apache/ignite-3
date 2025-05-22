@@ -1533,11 +1533,16 @@ class InnerNodeAsmGenerator extends AbstractAsmGenerator {
                             FieldDefinition specFieldDef = specFields.get(polymorphicField.getDeclaringClass());
 
                             // this.field = spec_#.field;
-                            BytecodeBlock codeBlock = addNodeConstructDefault(constructDfltMtd, polymorphicField, fieldDef, specFieldDef).ret();
-                            switchBuilderPolymorphicExtension.addCase(publicName, codeBlock);
+                            switchBuilderPolymorphicExtension.addCase(
+                                    publicName,
+                                    addNodeConstructDefault(constructDfltMtd, polymorphicField, fieldDef, specFieldDef).ret()
+                            );
 
                             for (String legacyName : legacyNames(polymorphicField)) {
-                                switchBuilderPolymorphicExtension.addCase(legacyName, codeBlock);
+                                switchBuilderPolymorphicExtension.addCase(
+                                        legacyName,
+                                        addNodeConstructDefault(constructDfltMtd, polymorphicField, fieldDef, specFieldDef).ret()
+                                );
                             }
                         }
                     }
