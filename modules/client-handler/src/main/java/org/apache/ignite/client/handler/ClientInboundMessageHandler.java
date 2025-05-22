@@ -782,8 +782,8 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_GET_AND_REPLACE:
-                return ClientTupleGetAndReplaceRequest.process(in, out, igniteTables, resources, txManager, clockService,
-                        notificationSender(requestId));
+                return ClientTupleGetAndReplaceRequest.process(in, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_DELETE:
                 return ClientTupleDeleteRequest.process(in, out, igniteTables, resources, txManager, clockService,

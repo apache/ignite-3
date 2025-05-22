@@ -51,7 +51,7 @@ public class ClientTupleReplaceExactRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, false, true)
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false, true)
                 .thenCompose(req -> req.table().recordView().replaceAsync(req.tx(), req.tuple(), req.tuple2())
                         .thenApply(res -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req.tx());

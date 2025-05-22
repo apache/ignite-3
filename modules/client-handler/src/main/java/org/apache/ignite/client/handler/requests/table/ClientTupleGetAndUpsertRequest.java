@@ -52,7 +52,7 @@ public class ClientTupleGetAndUpsertRequest {
             NotificationSender notificationSender,
             HybridTimestampTracker tsTracker
     ) {
-        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, false)
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
                 .thenCompose(req -> req.table().recordView().getAndUpsertAsync(req.tx(), req.tuple())
                         .thenApply(resTuple -> out -> {
                             writeTxMeta(out, tsTracker, clockService, req.tx());
