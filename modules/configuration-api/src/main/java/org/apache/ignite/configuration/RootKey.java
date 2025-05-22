@@ -31,7 +31,7 @@ import org.jetbrains.annotations.TestOnly;
  * @param <VIEWT> Type of the immutable snapshot view associated with the tree.
  * @param <CHANGET> Type of the object that is used to change the configuration.
  */
-public class RootKey<T extends ConfigurationTree<? super VIEWT, ? super CHANGET>, VIEWT, CHANGET extends VIEWT> {
+public final class RootKey<T extends ConfigurationTree<? super VIEWT, ? super CHANGET>, VIEWT, CHANGET extends VIEWT> {
     /** Name of the configuration root. */
     private final String rootName;
 
