@@ -790,8 +790,8 @@ public class ClientInboundMessageHandler
                         notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_DELETE_ALL:
-                return ClientTupleDeleteAllRequest.process(in, out, igniteTables, resources, txManager, clockService,
-                        notificationSender(requestId));
+                return ClientTupleDeleteAllRequest.process(in, igniteTables, resources, txManager, clockService,
+                        notificationSender(requestId), tsTracker);
 
             case ClientOp.TUPLE_DELETE_EXACT:
                 return ClientTupleDeleteExactRequest.process(in, out, igniteTables, resources, txManager, clockService,
