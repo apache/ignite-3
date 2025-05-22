@@ -76,7 +76,11 @@ public class ClientSqlExecuteScriptRequest {
                     operationExecutor
             ).handle((none2, error) -> {
                 cancelHandleMap.remove(requestId);
-                ExceptionUtils.sneakyThrow(error);
+
+                if (error != null) {
+                    ExceptionUtils.sneakyThrow(error);
+                }
+
                 return null;
             });
         }, operationExecutor);
