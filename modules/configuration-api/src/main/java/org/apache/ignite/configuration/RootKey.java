@@ -50,6 +50,7 @@ public class RootKey<T extends ConfigurationTree<? super VIEWT, ? super CHANGET>
      * @param schemaClass Class of the configuration schema.
      */
     public RootKey(Class<?> schemaClass) {
+        //noinspection TestOnlyProblems
         this(
                 Objects.requireNonNull(schemaClass.getAnnotation(ConfigurationRoot.class)).rootName(),
                 schemaClass.getAnnotation(ConfigurationRoot.class).type(),

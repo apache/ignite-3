@@ -216,7 +216,9 @@ public class ConfigurationProcessor extends AbstractProcessor {
                 ClassWrapper superClass = classWrapper.requiredSuperClass();
 
                 if (superClass.getAnnotation(ConfigurationRoot.class) != null) {
-                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, ClassName.get(superClass.clazz()));
+                    ClassName superClassSchemaClassName = ClassName.get(superClass.clazz());
+
+                    createExtensionKeyField(configInterface, configurationInterfaceBuilder, schemaClassName, superClassSchemaClassName);
                 }
             }
 
@@ -243,7 +245,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
         ClassName viewClassName = getViewName(schemaClassName);
         ClassName changeClassName = getChangeName(schemaClassName);
 
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
+        ParameterizedTypeName fieldTypeName
+                = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(
@@ -267,7 +270,8 @@ public class ConfigurationProcessor extends AbstractProcessor {
 
         ClassName superConfigInterface = getConfigurationInterfaceName(superClassSchemaClassName);
 
-        ParameterizedTypeName fieldTypeName = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
+        ParameterizedTypeName fieldTypeName
+                = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(
