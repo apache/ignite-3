@@ -171,13 +171,17 @@ public class PartialBinaryTupleMatcher {
 
                 return Arrays.compareUnsigned(part, cmp);
             }
-            case STRING: {
+            case UUID:
+                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsUuid(partialTuple, tuple2, index) : 0;
+
+            case STRING:
                 return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsString(partialTuple, tuple2, index, false) :
                         compareAsString(partialTuple, index, tuple2.stringValue(index), false);
-            }
-            default: {
+            case TIMESTAMP:
+                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsTimestamp(partialTuple, tuple2, index) : 0;
+
+            default:
                 return 0;
-            }
         }
     }
 

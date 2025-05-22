@@ -70,7 +70,8 @@ class BinaryTupleComparatorUtils {
                 return Arrays.compareUnsigned(tuple1.bytesValue(index), tuple2.bytesValue(index));
 
             case UUID:
-                return tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
+                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsUuid(tuple1, tuple2, index)
+                        : tuple1.uuidValue(index).compareTo(tuple2.uuidValue(index));
 
             case STRING:
                 return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsString(tuple1, tuple2, index, false)
@@ -83,7 +84,8 @@ class BinaryTupleComparatorUtils {
                 return numeric1.compareTo(numeric2);
 
             case TIMESTAMP:
-                return tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
+                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsTimestamp(tuple1, tuple2, index)
+                        : tuple1.timestampValue(index).compareTo(tuple2.timestampValue(index));
 
             case DATE:
                 return tuple1.dateValue(index).compareTo(tuple2.dateValue(index));
