@@ -19,10 +19,8 @@ package org.apache.ignite.configuration;
 
 import java.util.Objects;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.internal.tostring.S;
-import org.jetbrains.annotations.TestOnly;
 
 /**
  * Configuration root selector.
@@ -45,22 +43,8 @@ public final class RootKey<T extends ConfigurationTree<? super VIEWT, ? super CH
     private final boolean internal;
 
     /**
-     * Constructor.
-     *
-     * @param schemaClass Class of the configuration schema.
+     * Constructor with explicit fields values.
      */
-    public RootKey(Class<?> schemaClass) {
-        //noinspection TestOnlyProblems
-        this(
-                Objects.requireNonNull(schemaClass.getAnnotation(ConfigurationRoot.class)).rootName(),
-                schemaClass.getAnnotation(ConfigurationRoot.class).type(),
-                schemaClass,
-                schemaClass.isAnnotationPresent(ConfigurationExtension.class)
-                        && schemaClass.getAnnotation(ConfigurationExtension.class).internal()
-        );
-    }
-
-    @TestOnly
     public RootKey(String rootName, ConfigurationType storageType, Class<?> schemaClass, boolean internal) {
         this.rootName = Objects.requireNonNull(rootName, "rootName");
         this.storageType = storageType;

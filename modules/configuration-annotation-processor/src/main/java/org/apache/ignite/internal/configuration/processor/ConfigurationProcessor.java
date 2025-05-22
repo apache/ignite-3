@@ -67,6 +67,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationExtension;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
+import org.apache.ignite.configuration.annotation.ConfigurationType;
 import org.apache.ignite.configuration.annotation.InjectedName;
 import org.apache.ignite.configuration.annotation.InjectedValue;
 import org.apache.ignite.configuration.annotation.InternalId;
@@ -245,14 +246,21 @@ public class ConfigurationProcessor extends AbstractProcessor {
         ClassName viewClassName = getViewName(schemaClassName);
         ClassName changeClassName = getChangeName(schemaClassName);
 
+        ConfigurationRoot rootAnnotation = realSchemaClass.getAnnotation(ConfigurationRoot.class);
+        ConfigurationExtension extensionAnnotation = realSchemaClass.getAnnotation(ConfigurationExtension.class);
+
         ParameterizedTypeName fieldTypeName
                 = ParameterizedTypeName.get(ROOT_KEY_CLASSNAME, configInterface, viewClassName, changeClassName);
 
         FieldSpec keyField = FieldSpec.builder(fieldTypeName, "KEY", PUBLIC, STATIC, FINAL)
                 .initializer(
-                        "new $T($T.class)",
+                        "new $T($S, $T.$L, $T.class, $L)",
                         ROOT_KEY_CLASSNAME,
-                        realSchemaClass
+                        rootAnnotation.rootName(),
+                        ConfigurationType.class,
+                        rootAnnotation.type(),
+                        realSchemaClass,
+                        extensionAnnotation != null && extensionAnnotation.internal()
                 )
                 .build();
 
