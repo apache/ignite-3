@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.Map;
 
 /**
@@ -37,15 +38,11 @@ public class Data {
      * @param changeId Version.
      */
     public Data(Map<String, ? extends Serializable> values, long changeId) {
-        this.values = values;
+        this.values = Collections.unmodifiableMap(values);
         this.changeId = changeId;
     }
 
-    /**
-     * Get values.
-     *
-     * @return Values.
-     */
+    /** Get values. */
     public Map<String, ? extends Serializable> values() {
         return values;
     }

@@ -175,7 +175,7 @@ public class LocalFileConfigurationStorage implements ConfigurationStorage {
             Config hocon = readHoconFromFile();
             HoconConverter.hoconSource(hocon.root(), keyIgnorer).descend(copiedSuperRoot);
 
-            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot);
+            Map<String, Serializable> flattenedUpdatesMap = createFlattenedUpdatesMap(superRoot, copiedSuperRoot, Map.of());
             flattenedUpdatesMap.forEach((key, value) -> {
                 if (value != null) { // Filter defaults.
                     latest.put(key, value);

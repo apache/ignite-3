@@ -71,6 +71,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for configuration schemas with {@link Deprecated} properties.
  */
 @ExtendWith(MockitoExtension.class)
+// TODO https://issues.apache.org/jira/browse/IGNITE-25458 Fix processing of named lists.
 public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     private static final ConfigurationType TEST_CONFIGURATION_TYPE = ConfigurationType.LOCAL;
 
@@ -224,6 +225,20 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     Map.of("root.child.my-int-cfg", 100),
                     data.values()
             );
+        });
+    }
+
+    @Test
+    void testDeprecationReturnsDefaultValue() {
+        ConfigurationMigrator changeIntValue = change -> change.changeRoot(BeforeDeprecationConfiguration.KEY).changeIntValue(999);
+
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, changeIntValue, changer -> {});
+
+        withConfigurationChanger(DeprecatedValueConfiguration.KEY, false, change -> {}, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedValueView) changer.superRoot().getRoot(DeprecatedValueConfiguration.KEY);
+            // Deprecated value should be read as a default.
+            assertEquals(10, root.intValue());
         });
     }
 
