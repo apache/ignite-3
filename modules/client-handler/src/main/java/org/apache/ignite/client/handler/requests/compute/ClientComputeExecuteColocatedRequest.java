@@ -67,26 +67,26 @@ public class ClientComputeExecuteColocatedRequest {
 
         return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
                 .thenCompose(keyTuple -> {
-            CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
-                    table,
-                    keyTuple,
-                    job.deploymentUnits(),
-                    job.jobClassName(),
-                    job.options(),
-                    job.arg(),
-                    null
-            );
+                    CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
+                            table,
+                            keyTuple,
+                            job.deploymentUnits(),
+                            job.jobClassName(),
+                            job.options(),
+                            job.arg(),
+                            null
+                    );
 
-            sendResultAndState(jobExecutionFut, notificationSender);
+                    sendResultAndState(jobExecutionFut, notificationSender);
 
-            return jobExecutionFut.thenCompose(execution ->
-                    execution.idAsync().thenApply(jobId -> out -> {
-                        out.packInt(table.schemaView().lastKnownSchemaVersion());
+                    return jobExecutionFut.thenCompose(execution ->
+                            execution.idAsync().thenApply(jobId -> out -> {
+                                out.packInt(table.schemaView().lastKnownSchemaVersion());
 
-                        //noinspection DataFlowIssue
-                        packSubmitResult(out, jobId, execution.node());
-                    })
-            );
-        }));
+                                //noinspection DataFlowIssue
+                                packSubmitResult(out, jobId, execution.node());
+                            })
+                    );
+                }));
     }
 }

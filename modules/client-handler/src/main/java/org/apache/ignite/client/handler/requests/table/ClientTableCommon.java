@@ -247,6 +247,15 @@ public class ClientTableCommon {
         return readSchema(schemaId, table).thenApply(schema -> readTuple(noValueSet, tupleBytes, keyOnly, schema));
     }
 
+    /**
+     * Reads a tuple.
+     *
+     * @param noValueSet No value set.
+     * @param tupleBytes Tuple bytes.
+     * @param keyOnly Key only flag.
+     * @param schema Schema.
+     * @return Tuple.
+     */
     public static Tuple readTuple(
             BitSet noValueSet,
             byte[] tupleBytes,
