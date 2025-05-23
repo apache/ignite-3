@@ -284,12 +284,12 @@ JobDescriptor<string, string> jobDesc = JobDescriptor.Of(new HelloJob())
     with { DeploymentUnits = [new DeploymentUnit("unit1")] };
 ```
 
-#### .NET Compute Server-side Requirements
+#### Notes
 
+* .NET 8 (or later) runtime (not SDK) is required on the server nodes.
 * .NET compute jobs are executed in a separate process (sidecar) on the server node. 
 * The process is started on the first .NET job call and then reused for subsequent jobs.
 * Every deployment unit combination is loaded into a separate [AssemblyLoadContext](https://learn.microsoft.com/en-us/dotnet/core/dependency-loading/understanding-assemblyloadcontext).
-* .NET 8 (or later) runtime (not SDK) is required on the server node.
 
 
 ## Failover, Retry, Reconnect, Load Balancing
