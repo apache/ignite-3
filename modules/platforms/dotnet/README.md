@@ -229,7 +229,7 @@ Resulting binaries (jar or dll files) should be [deployed](https://ignite.apache
 
 Java job invocation example:
 
-```cs 
+```csharp
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
 IJobTarget<IEnumerable<IClusterNode>> jobTarget = JobTarget.AnyNode(nodes);
 
@@ -243,13 +243,24 @@ IJobExecution<string> jobExecution = await client.Compute.SubmitAsync(
 string jobResult = await jobExecution.GetResultAsync();
 ```
 
-### .NET Compute Jobs
+### Implement a .NET Compute Job
 
-TODO:
-* How to implement
-* Building (must be a class library)
-* Runtime considerations
-* Deployment (dependencies, flat list of files, no dirs, no Ignite dlls)
+1. Prepare a "class library" project for the job implementations (`dotnet new classlib`). Prefer a separate project for compute jobs to reduce deployment size.
+2. Add a reference to `Apache.Ignite` package to the class library project (`dotnet add package Apache.Ignite`).
+3. Create a class that implements `IComputeJob<TArg, TRes>` interface
+    ```csharp
+    public class HelloJob : IComputeJob<string, string>
+    {
+        public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken) =>
+            ValueTask.FromResult("Hello " + arg);
+    }
+    ```
+4. Publish the project (`dotnet publish -c Release`)
+5. Copy the resulting dll file (and any extra dependencies, EXCLUDING Ignite dlls) to a separate directory.
+   * Note: The directory must not contain any subdirectories.
+6. Use [Ignite CLI](https://ignite.apache.org/docs/ignite3/latest/ignite-cli-tool#cluster-commands) `cluster unit deploy` command to deploy the directory to the cluster as a deployment unit.
+
+### Run a .NET Compute Job
 
 
 ## Failover, Retry, Reconnect, Load Balancing
