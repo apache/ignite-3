@@ -15,8 +15,11 @@
  * limitations under the License.
  */
 
+evaluationDependsOn ":packaging"
+
 integrationTest {
     systemProperty "ignite2.docker.image", project.property("ignite2.docker.image")
+    systemProperty "ignite3.docker.image", project(":packaging").docker_image_name
 
     dependsOn ":migration-tools-e2e-ai2-runner:docker"
     dependsOn ":packaging:docker"
