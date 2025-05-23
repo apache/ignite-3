@@ -222,7 +222,9 @@ await tx.CommitAsync();
 
 ## Compute
 
-Compute API is used to execute distributed computations on the cluster. Compute jobs should be implemented in Java, deployed to server nodes, and called by the full class name. 
+Compute API is used to execute distributed computations on the cluster. 
+
+Compute jobs can be implemented in Java or .NET. Resulting binaries (jar or dll files) should be deployed to the server nodes and called by the full class name. 
 
 ```cs 
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
