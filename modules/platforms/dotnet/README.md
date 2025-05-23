@@ -257,7 +257,7 @@ string jobResult = await jobExecution.GetResultAsync();
             ValueTask.FromResult("Hello " + arg);
     }
     ```
-4. Publish the project (`dotnet publish -c Release`)
+4. Publish the project (`dotnet publish -c Release`).
 5. Copy the resulting dll file (and any extra dependencies, EXCLUDING Ignite dlls) to a separate directory.
    * Note: The directory must not contain any subdirectories.
 6. Use [Ignite CLI](https://ignite.apache.org/docs/ignite3/latest/ignite-cli-tool#cluster-commands) `cluster unit deploy` command to deploy the directory to the cluster as a deployment unit.
