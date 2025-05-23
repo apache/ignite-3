@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.util.ByteUtils;
 
 /**
@@ -524,10 +525,22 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    public final Duration durationValue(int begin, int end) {
+    final Duration durationValue(int begin, int end) {
         int len = end - begin;
-        if (len != 8 && len != 12) {
+
+        if (len != 2 && len != 4 && len != 8 && len != 12) {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
+        }
+
+        if (len == 2) {
+            long seconds = buffer.getShort(begin);
+            return Duration.ofSeconds(seconds / 1000);
+        }
+
+        if (len == 4) {
+            long millis = buffer.getInt(begin);
+            long seconds = millis / 1000;
+            return Duration.ofSeconds(seconds, TimeUnit.MILLISECONDS.toNanos(millis - (seconds * 1000)));
         }
 
         long seconds = buffer.getLong(begin);
@@ -543,9 +556,12 @@ public class BinaryTupleParser {
      * @param end End offset of the element.
      * @return Element value.
      */
-    public final Period periodValue(int begin, int end) {
+    final Period periodValue(int begin, int end) {
         int len = end - begin;
         switch (len) {
+            case 1:
+                byte val = buffer.get(begin);
+                return Period.of(val / 12, val % 12, 0);
             case 3:
                 return Period.of(buffer.get(begin), buffer.get(begin + 1), buffer.get(begin + 2));
             case 6:
