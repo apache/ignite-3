@@ -46,6 +46,7 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
+import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.definitions.ColumnDefinition;
 import org.apache.ignite.catalog.definitions.IndexDefinition;
 import org.apache.ignite.catalog.definitions.TableDefinition;
@@ -87,6 +88,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         sql("DROP TABLE IF EXISTS " + POJO_RECORD_TABLE_NAME);
         sql("DROP TABLE IF EXISTS " + EXPLICIT_QUOTES_TABLE_NAME);
         sql("DROP ZONE IF EXISTS " + ZONE_NAME);
+
+        dropAllSchemas();
     }
 
     @Test
@@ -662,7 +665,64 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         catalog.dropTable(table);
     }
 
+    @Test
+    public void createDifferentSchemaFromDefinition() {
+        sql("CREATE SCHEMA s");
+
+        TableDefinition table1SchemaPublic = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                .columns(column("id", INTEGER), column("fname", VARCHAR), column("lname", VARCHAR))
+                .primaryKey("id")
+                .build();
+        Table table = catalog().createTable(table1SchemaPublic);
+        assertEquals(QualifiedName.of("PUBLIC", POJO_KV_TABLE_NAME), table.qualifiedName());
+
+        TableDefinition table1SchemaS = TableDefinition.builder(POJO_KV_TABLE_NAME)
+                .columns(column("id", INTEGER), column("fname", VARCHAR), column("lname", VARCHAR))
+                .schema("s")
+                .primaryKey("id")
+                .build();
+
+        Table table1 = catalog().createTable(table1SchemaS);
+        assertEquals(QualifiedName.of("S", POJO_KV_TABLE_NAME), table1.qualifiedName());
+    }
+
+    @Test
+    public void createDifferentSchemaFromAnnotation() {
+        sql("CREATE SCHEMA s");
+
+        Table table = catalog().createTable(PojoClass1.class);
+        assertEquals(QualifiedName.of("PUBLIC", POJO_KV_TABLE_NAME), table.qualifiedName());
+
+        Table table1 = catalog().createTable(PojoClass2.class);
+        assertEquals(QualifiedName.of("S", POJO_KV_TABLE_NAME), table1.qualifiedName());
+    }
+
     private static IgniteCatalog catalog() {
         return CLUSTER.node(0).catalog();
+    }
+
+    @org.apache.ignite.catalog.annotations.Table(POJO_KV_TABLE_NAME)
+    private static class PojoClass1 {
+        @Id
+        @SuppressWarnings("unused")
+        Integer id;
+        @SuppressWarnings("unused")
+        String fname;
+        @SuppressWarnings("unused")
+        String lname;
+    }
+
+    @org.apache.ignite.catalog.annotations.Table(
+            value = POJO_KV_TABLE_NAME,
+            schemaName = "S"
+    )
+    private static class PojoClass2 {
+        @Id
+        @SuppressWarnings("unused")
+        Integer id;
+        @SuppressWarnings("unused")
+        String fname;
+        @SuppressWarnings("unused")
+        String lname;
     }
 }

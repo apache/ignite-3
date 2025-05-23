@@ -22,9 +22,11 @@ import static org.hamcrest.Matchers.anyOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.List;
+import java.util.stream.Stream;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -163,6 +165,40 @@ public class IgniteNameUtilsTest {
                 Arguments.of(" ", "Malformed identifier [identifier= , pos=0]"),
                 Arguments.of(".", "Malformed identifier [identifier=., pos=0]"),
                 Arguments.of("foo..", "Malformed identifier [identifier=foo.., pos=4]")
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("parseAndNormalizeData")
+    public void parseAndNormalize(String input, String result) {
+        String actual = IgniteNameUtils.parseAndNormalize(input);
+        assertEquals(result, actual);
+    }
+
+    private static Stream<Arguments> parseAndNormalizeData() {
+        return Stream.of(
+                Arguments.of("foo", "FOO"),
+                Arguments.of("Foo", "FOO"),
+                Arguments.of("fOo", "FOO"),
+                Arguments.of("f_oo", "F_OO"),
+                Arguments.of("_foo", "_FOO"),
+                Arguments.of("foo_", "FOO_"),
+                Arguments.of("_foo_", "_FOO_"),
+
+                Arguments.of("foo1", "FOO1"),
+                Arguments.of("foo-1", "\"foo-1\""),
+                Arguments.of("foo_1", "FOO_1"),
+                Arguments.of("1foo", "\"1foo\""),
+                Arguments.of("1_foo", "\"1_foo\""),
+
+                Arguments.of("a bar", "\"a bar\""),
+                Arguments.of("A bar", "\"A bar\""),
+                Arguments.of("A.bar", "\"A.bar\""),
+
+                Arguments.of("\"a bar\"", "\"a bar\""),
+                Arguments.of("\"_a bar\"", "\"_a bar\""),
+                Arguments.of("\"a bar", "\"\"\"a bar\""),
+                Arguments.of("\"_a bar", "\"\"\"_a bar\"")
         );
     }
 }
