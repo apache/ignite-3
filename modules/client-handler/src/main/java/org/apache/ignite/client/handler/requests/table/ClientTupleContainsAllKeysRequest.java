@@ -49,6 +49,7 @@ public class ClientTupleContainsAllKeysRequest {
             ClockService clockService,
             HybridTimestampTracker tsTracker
     ) {
+        // TODO: IGNITE-23603 We have to create an implicit transaction, but leave a possibility to start RO direct.
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())
                         .thenApply(containsAll -> out -> {
