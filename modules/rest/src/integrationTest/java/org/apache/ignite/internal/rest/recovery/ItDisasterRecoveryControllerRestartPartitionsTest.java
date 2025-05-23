@@ -20,6 +20,7 @@ package org.apache.ignite.internal.rest.recovery;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERSIST_PROFILE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.rest.constants.HttpCode.OK;
@@ -48,6 +49,7 @@ import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
 
 /** Test for disaster recovery restart partitions command. */
 @MicronautTest
@@ -91,12 +93,8 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
 
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     public void testRestartPartitionTableNotFound() {
-        if (enabledColocation()) {
-            // This test in colocation mode is not relevant.
-            return;
-        }
-
         String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, tableName, Set.of());

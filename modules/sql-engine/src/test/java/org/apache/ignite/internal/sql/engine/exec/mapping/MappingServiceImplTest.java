@@ -68,11 +68,12 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.cache.CaffeineCacheFactory;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
 import org.mockito.Mockito;
 
 /**
@@ -253,7 +254,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test.
     // The colocation case is covered by {@link #testCacheInvalidationOnPrimaryZoneExpiration()}.
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
+    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     public void testCacheInvalidationOnPrimaryExpiration() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
@@ -303,7 +304,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
+    @EnabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
     public void testCacheInvalidationOnPrimaryZoneExpiration() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
