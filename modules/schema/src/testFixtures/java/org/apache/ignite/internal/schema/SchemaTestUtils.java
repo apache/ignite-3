@@ -138,7 +138,7 @@ public final class SchemaTestUtils {
     }
 
     /** Creates a native type from given type spec. */
-    public static NativeType specToType(ColumnType spec) { // todo ????
+    public static NativeType specToType(ColumnType spec) {
         switch (spec) {
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;

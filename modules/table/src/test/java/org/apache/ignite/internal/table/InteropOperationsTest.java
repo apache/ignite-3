@@ -546,10 +546,8 @@ public class InteropOperationsTest extends BaseIgniteAbstractTest {
         private UUID fuuidN;
         private String fstring;
         private String fstringN;
-        //CHECKSTYLE:OFF
         private byte[] fbyte_array;
         private byte[] fbyte_arrayN;
-        //CHECKSTYLE:ON
         private LocalDate fdate;
         private LocalDate fdateN;
         private LocalTime ftime;
