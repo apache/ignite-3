@@ -480,17 +480,21 @@ public class ClientInboundMessageHandler
                 && features.get(TX_DELAYED_ACKS.featureId()) && clientFeatures.get(TX_DELAYED_ACKS.featureId())
                 && features.get(TX_PIGGYBACK.featureId()) && clientFeatures.get(TX_PIGGYBACK.featureId());
 
-        BitSet mutuallySupportedFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
+        BitSet actualFeatures;
 
         if (!supportsDirectMapping) {
-            mutuallySupportedFeatures.clear(TX_DIRECT_MAPPING.featureId());
-            mutuallySupportedFeatures.clear(TX_DELAYED_ACKS.featureId());
-            mutuallySupportedFeatures.clear(TX_PIGGYBACK.featureId());
+            actualFeatures = (BitSet) this.features.clone();
+
+            actualFeatures.clear(TX_DIRECT_MAPPING.featureId());
+            actualFeatures.clear(TX_DELAYED_ACKS.featureId());
+            actualFeatures.clear(TX_PIGGYBACK.featureId());
+        } else {
+            actualFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
         }
 
-        clientContext = new ClientContext(clientVer, clientCode, mutuallySupportedFeatures, user);
+        clientContext = new ClientContext(clientVer, clientCode, actualFeatures, user);
 
-        sendHandshakeResponse(ctx, packer, mutuallySupportedFeatures);
+        sendHandshakeResponse(ctx, packer, actualFeatures);
     }
 
     private void handshakeError(ChannelHandlerContext ctx, ClientMessagePacker packer, Throwable t) {
