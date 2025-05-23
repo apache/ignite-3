@@ -47,4 +47,7 @@ public interface CreateTableCommandBuilder extends AbstractTableCommandBuilder<C
 
     /** A name of the table's storage profile. Table's zone must contain this storage profile. */
     CreateTableCommandBuilder storageProfile(@Nullable String storageProfile);
+
+    /** Validate if system schemas are used. */
+    CreateTableCommandBuilder validateSystemSchemas(boolean validateSystemSchemas);
 }
