@@ -179,7 +179,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
         }
 
         try {
-            rebalanceScheduler.schedule(() -> {
+            rebalanceScheduler.execute(() -> {
                 if (!busyLock.enterBusy()) {
                     return;
                 }
@@ -210,7 +210,17 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
 
                         PeersAndLearners peersAndLearners = PeersAndLearners.fromConsistentIds(peers, learners);
 
-                        partitionMover.movePartition(peersAndLearners, term).get();
+                        partitionMover.movePartition(peersAndLearners, term)
+                                .whenComplete((unused, ex) -> {
+                                    if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                        String errorMessage = String.format(
+                                                "Unable to start rebalance [zonePartitionId=%s, term=%s]",
+                                                zonePartitionId,
+                                                term
+                                        );
+                                        failureProcessor.process(new FailureContext(ex, errorMessage));
+                                    }
+                                });
                     }
                 } catch (Exception e) {
                     // TODO: IGNITE-14693
@@ -225,7 +235,7 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
                 } finally {
                     busyLock.leaveBusy();
                 }
-            }, 0, TimeUnit.MILLISECONDS);
+            });
         } finally {
             busyLock.leaveBusy();
         }
@@ -321,7 +331,13 @@ public class ZoneRebalanceRaftGroupEventsListener implements RaftGroupEventsList
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), zonePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term).join();
+                partitionMover.movePartition(peersAndLearners, term)
+                        .whenComplete((unused, ex) -> {
+                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                String errorMessage = String.format("Failure while moving partition [partId=%s]", zonePartitionId);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
+                            }
+                        });
             } finally {
                 busyLock.leaveBusy();
             }
