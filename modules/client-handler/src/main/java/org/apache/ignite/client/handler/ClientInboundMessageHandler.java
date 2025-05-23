@@ -489,10 +489,10 @@ public class ClientInboundMessageHandler
             actualFeatures.clear(TX_DELAYED_ACKS.featureId());
             actualFeatures.clear(TX_PIGGYBACK.featureId());
         } else {
-            actualFeatures = HandshakeUtils.supportedFeatures(features, clientFeatures);
+            actualFeatures = this.features;
         }
 
-        clientContext = new ClientContext(clientVer, clientCode, actualFeatures, user);
+        clientContext = new ClientContext(clientVer, clientCode, HandshakeUtils.supportedFeatures(actualFeatures, clientFeatures), user);
 
         sendHandshakeResponse(ctx, packer, actualFeatures);
     }
