@@ -146,12 +146,13 @@ public class PlacementDriverMessageProcessor {
                                     NodeStoppingException.class,
                                     ComponentStoppingException.class,
                                     TrackerClosedException.class,
-                                    // TODO: IGNITE-25206 - is it safe to ignore TimeoutException here?
                                     TimeoutException.class
                             )) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }
+
+                            LOG.warn("Failed to process the lease granted message, lease negotiation will be retried [msg={}].", e, msg);
 
                             // Just restart the negotiation in case of exception.
                             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
