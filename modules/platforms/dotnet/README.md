@@ -277,7 +277,7 @@ var jobDesc = new JobDescriptor<string, string>(
 IJobExecution<string> jobExec = await client.Compute.SubmitAsync(jobTarget, jobDesc, "world");
 ```
 
-Alternatively, use `JobDescriptor.Of` shortcut method to create a job descriptor from a job instance:
+Alternatively, use the `JobDescriptor.Of` shortcut method to create a job descriptor from a job instance:
 
 ```csharp
 JobDescriptor<string, string> jobDesc = JobDescriptor.Of(new HelloJob())
