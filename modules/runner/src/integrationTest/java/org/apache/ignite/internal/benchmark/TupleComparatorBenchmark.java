@@ -36,7 +36,6 @@ import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Measurement;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -50,6 +49,17 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 
 /**
  * Benchmark for partial tuple comparator.
+ *
+ * <p>Results on 11th Gen Intel® Core™ i7-1165G7 @ 2.80GHz, OpenJDK 64-Bit Server VM, 21.0.7+6-LTS, Windows 10 Pro:
+ * Benchmark                                         Mode  Cnt  Score    Error  Units
+ * TupleComparatorBenchmark.testBytesFullCompare     avgt   10  0.050 ±  0.001  us/op
+ * TupleComparatorBenchmark.testBytesPartialCompare  avgt   10  0.035 ±  0.001  us/op
+ * TupleComparatorBenchmark.testStrFullCompare       avgt   10  0.753 ±  0.021  us/op
+ * TupleComparatorBenchmark.testStrPartialCompare    avgt   10  0.389 ±  0.002  us/op
+ * TupleComparatorBenchmark.timestampFullCompare     avgt   10  0.017 ±  0.001  us/op
+ * TupleComparatorBenchmark.timestampPartialCompare  avgt   10  0.016 ±  0.001  us/op
+ * TupleComparatorBenchmark.uuidFullCompare          avgt   10  0.018 ±  0.001  us/op
+ * TupleComparatorBenchmark.uuidPartialCompare       avgt   10  0.016 ±  0.001  us/op
  */
 @State(Scope.Benchmark)
 @Fork(1)
@@ -80,16 +90,11 @@ public class TupleComparatorBenchmark {
     ByteBuffer uuidTuple;
     ByteBuffer uuidPartialTuple;
 
-    @Param({"true", "false"})
-    boolean useBuffer;
-
     /**
      * Prepare to start the benchmark.
      */
     @Setup
     public void setUp() {
-        System.setProperty("IGNITE_USE_BUFFER", Boolean.toString(useBuffer));
-
         initForStr();
         initForBytes();
         initForTimestamp();
@@ -277,7 +282,7 @@ public class TupleComparatorBenchmark {
      * @param bh The Blackhole instance used to consume the result of the comparison for benchmarking purposes.
      */
     @Benchmark
-    public void uuidBytesFullCompare(Blackhole bh) {
+    public void uuidFullCompare(Blackhole bh) {
         int r = uuidPartialBinaryTupleMatcher.match(uuidTuple, uuidTupleReference);
 
         bh.consume(r);
@@ -296,7 +301,7 @@ public class TupleComparatorBenchmark {
      *           evaluation.
      */
     @Benchmark
-    public void uuidBytesPartialCompare(Blackhole bh) {
+    public void uuidPartialCompare(Blackhole bh) {
         int r = uuidPartialBinaryTupleMatcher.match(uuidPartialTuple, uuidTupleReference);
 
         bh.consume(r);
@@ -315,7 +320,7 @@ public class TupleComparatorBenchmark {
      *           evaluation.
      */
     @Benchmark
-    public void timestampBytesFullCompare(Blackhole bh) {
+    public void timestampFullCompare(Blackhole bh) {
         int r = timestampPartialBinaryTupleMatcher.match(timestampTuple, timestampTupleReference);
 
         bh.consume(r);
@@ -333,7 +338,7 @@ public class TupleComparatorBenchmark {
      *           operation is not optimized out during benchmarking for precise performance evaluation.
      */
     @Benchmark
-    public void timestampBytesPartialCompare(Blackhole bh) {
+    public void timestampPartialCompare(Blackhole bh) {
         int r = timestampPartialBinaryTupleMatcher.match(timestampPartialTuple, timestampTupleReference);
 
         bh.consume(r);

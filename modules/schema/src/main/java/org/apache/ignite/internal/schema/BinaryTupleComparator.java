@@ -28,7 +28,6 @@ import java.util.Comparator;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeType;
 
 /**
@@ -94,8 +93,6 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
         }
     }
 
-    private boolean useBuffer = IgniteSystemProperties.getBoolean("IGNITE_USE_BUFFER", true);
-
     /**
      * Compares two tuples by column using given column index.
      */
@@ -113,7 +110,7 @@ public class BinaryTupleComparator implements Comparator<ByteBuffer> {
 
         NativeType nativeType = columnTypes.get(colIdx);
 
-        int res = compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx, useBuffer);
+        int res = compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
     }

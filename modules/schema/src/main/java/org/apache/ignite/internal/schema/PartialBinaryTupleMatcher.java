@@ -18,20 +18,21 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsBytes;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsString;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsTimestamp;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsUuid;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareFieldValue;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.equalityFlag;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFlagSet;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 
@@ -139,13 +140,11 @@ public class PartialBinaryTupleMatcher {
         NativeType nativeType = columnTypes.get(colIdx);
 
         int res = readability == Readability.READABLE
-                ? compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx, useBuffer)
+                ? compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx)
                 : compareFieldValuePartially(nativeType.spec(), tuple1, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
     }
-
-    private boolean useBuffer = IgniteSystemProperties.getBoolean("IGNITE_USE_BUFFER", true);
 
     private int compareFieldValuePartially(
             ColumnType typeSpec,
@@ -154,31 +153,17 @@ public class PartialBinaryTupleMatcher {
             int index
     ) {
         switch (typeSpec) {
-            case BYTE_ARRAY: {
-                if (useBuffer) {
-                    return BinaryTupleComparatorUtilsWithoutCopy.compareAsBytes(partialTuple, tuple2, index);
-                }
+            case BYTE_ARRAY:
+                return compareAsBytes(partialTuple, tuple2, index);
 
-                partialTuple.seek(index);
-
-                int begin = partialTuple.begin();
-                int end = partialTuple.end();
-                int trimmedSize = Math.min(end - begin, partialTuple.byteBuffer().capacity() - begin);
-
-                byte[] part = partialTuple.bytesValue(begin, begin + trimmedSize);
-
-                byte[] cmp = getTrimmedBytes(tuple2, index, part.length);
-
-                return Arrays.compareUnsigned(part, cmp);
-            }
             case UUID:
-                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsUuid(partialTuple, tuple2, index) : 0;
+                return compareAsUuid(partialTuple, tuple2, index);
 
             case STRING:
-                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsString(partialTuple, tuple2, index, false) :
-                        compareAsString(partialTuple, index, tuple2.stringValue(index), false);
+                return compareAsString(partialTuple, tuple2, index, false);
+
             case TIMESTAMP:
-                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsTimestamp(partialTuple, tuple2, index) : 0;
+                return compareAsTimestamp(partialTuple, tuple2, index);
 
             default:
                 return 0;
