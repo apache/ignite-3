@@ -247,7 +247,7 @@ string jobResult = await jobExecution.GetResultAsync();
 
 ### Implement a .NET Compute Job
 
-1. Prepare a "class library" project for the job implementations (`dotnet new classlib`). Prefer a separate project for compute jobs to reduce deployment size.
+1. Prepare a "class library" project for the job implementation (`dotnet new classlib`). In most cases, it is better to use a separate project for compute jobs to reduce deployment size.
 2. Add a reference to `Apache.Ignite` package to the class library project (`dotnet add package Apache.Ignite`).
 3. Create a class that implements `IComputeJob<TArg, TRes>` interface
     ```csharp
