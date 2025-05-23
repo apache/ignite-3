@@ -33,12 +33,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
@@ -56,6 +57,8 @@ import org.jetbrains.annotations.Nullable;
  * Handles TX Cleanup request ({@link TxCleanupMessage}).
  */
 public class TxCleanupRequestHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestHandler.class);
+
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -162,12 +165,22 @@ public class TxCleanupRequestHandler {
                         // No need to wait on this future.
                         writeIntentSwitches.forEach((groupId, future) -> {
                             if (future.isCompletedExceptionally()) {
-                                writeIntentSwitchProcessor.switchWriteIntentsWithRetry(
-                                        txCleanupMessage.commit(),
-                                        txCleanupMessage.commitTimestamp(),
-                                        txCleanupMessage.txId(),
-                                        groupId
-                                ).thenAccept(this::processWriteIntentSwitchResponse);
+                                writeIntentSwitchProcessor
+                                        .switchWriteIntentsWithRetry(
+                                                txCleanupMessage.commit(),
+                                                txCleanupMessage.commitTimestamp(),
+                                                txCleanupMessage.txId(),
+                                                groupId
+                                        )
+                                        .thenAccept(this::processWriteIntentSwitchResponse)
+                                        .whenComplete((retryRes, retryEx) -> {
+                                            if (retryEx != null) {
+                                                LOG.warn(
+                                                        "Second cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
+                                                        retryEx, txCleanupMessage.txId()
+                                                );
+                                            }
+                                        });
                             }
                         });
                     }
@@ -216,21 +229,16 @@ public class TxCleanupRequestHandler {
     }
 
     /**
-     * Process the replication response from a write intent switch request.
+     * Process the replication response from a write intent switch result.
      *
-     * @param response Write intent replication response.
+     * @param result Write intent replication result.
      */
-    private void processWriteIntentSwitchResponse(ReplicaResponse response) {
-        if (response == null) {
+    private void processWriteIntentSwitchResponse(WriteIntentSwitchReplicatedInfo result) {
+        if (result == null) {
             return;
         }
 
-        Object result = response.result();
-
-        assert (result instanceof WriteIntentSwitchReplicatedInfo) :
-                "Unexpected type of cleanup replication response: [result=" + result + "].";
-
-        writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
+        writeIntentSwitchReplicated(result);
     }
 
     /**
