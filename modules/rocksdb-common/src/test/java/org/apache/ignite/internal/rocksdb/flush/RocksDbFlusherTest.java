@@ -30,14 +30,11 @@ import static org.mockito.Mockito.when;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.components.NoOpLogSyncer;
-import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
-import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
 import org.apache.logging.log4j.LogManager;
@@ -48,12 +45,10 @@ import org.apache.logging.log4j.core.filter.AbstractFilter;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.rocksdb.Options;
 import org.rocksdb.RocksDB;
 import org.rocksdb.RocksDBException;
 
-@ExtendWith(ExecutorServiceExtension.class)
 class RocksDbFlusherTest extends IgniteAbstractTest {
     private RocksDbFlusher flusher;
 
@@ -64,7 +59,7 @@ class RocksDbFlusherTest extends IgniteAbstractTest {
     private final AtomicReference<Throwable> failureProcessorError = new AtomicReference<>();
 
     @BeforeEach
-    void setUp(@InjectExecutorService ExecutorService executor) throws RocksDBException {
+    void setUp() throws RocksDBException {
         ScheduledExecutorService sameThreadExecutor = mock(ScheduledExecutorService.class);
 
         when(sameThreadExecutor.schedule(any(Callable.class), anyLong(), any()))
