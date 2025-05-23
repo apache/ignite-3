@@ -227,7 +227,9 @@ Compute API is used to execute distributed computations on the cluster.
 Compute jobs can be implemented in Java or .NET. 
 Resulting binaries (jar or dll files) should be [deployed](https://ignite.apache.org/docs/ignite3/latest/developers-guide/code-deployment/code-deployment) to the server nodes and called by the full class name.
 
-Java job invocation example:
+### Call a Java Compute Job
+
+You can call [Java computing jobs](https://ignite.apache.org/docs/ignite3/latest/developers-guide/compute/compute) from your .NET code, for example:
 
 ```csharp
 IList<IClusterNode> nodes = await client.GetClusterNodesAsync();
