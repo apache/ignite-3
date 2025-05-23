@@ -262,7 +262,8 @@ string jobResult = await jobExecution.GetResultAsync();
 
 ### Run a .NET Compute Job
 
-.NET compute jobs can be executed from any client (.NET, Java, C++, etc), by specifying the assembly-qualified class name and using the `JobExecutorType.DotNetSidecar` option.
+.NET compute jobs can be executed from any client (.NET, Java, C++, etc), 
+by specifying the assembly-qualified class name and using the `JobExecutorType.DotNetSidecar` option.
 
 ```csharp
 var jobTarget = JobTarget.AnyNode(await Client.GetClusterNodesAsync());
@@ -277,9 +278,10 @@ IJobExecution<string> jobExec = await Client.Compute.SubmitAsync(jobTarget, jobD
 Alternatively, use `JobDescriptor.Of` shortcut method to create a job descriptor from a job instance:
 
 ```csharp
-JobDescriptor<string, string> jobDesc2 = JobDescriptor.Of(new HelloJob())
+JobDescriptor<string, string> jobDesc = JobDescriptor.Of(new HelloJob())
     with { DeploymentUnits = [new DeploymentUnit("unit1")] };
 ```
+
 
 ## Failover, Retry, Reconnect, Load Balancing
 
