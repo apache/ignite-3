@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
+
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -123,7 +125,8 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
 
     @Override public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
-                .item("table", table.getQualifiedName())
+                .itemIf("table", table.getQualifiedName(), !forExplain(pw))
+                .itemIf("table", table, forExplain(pw))
                 .item("operation", operation)
                 .item("expressions", expressions);
     }

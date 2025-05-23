@@ -1,0 +1,339 @@
+statement ok
+CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
+
+# insert single tuple with literals
+plan
+INSERT INTO test_table VALUES (1, 2, 3)
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    operation: PUT
+    expressions: [1, 2, 3]
+    est: (rows=1)
+
+# insert single tuple with literals different order
+plan
+INSERT INTO test_table (c2, c3, c1) VALUES (1, 2, 3)
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    operation: PUT
+    expressions: [3, 1, 2]
+    est: (rows=1)
+
+# insert single tuple mixed
+plan
+INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3)
+----
+KeyValueModify
+    table: PUBLIC.TEST_TABLE
+    operation: PUT
+    expressions: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
+    est: (rows=1)
+
+# https://issues.apache.org/jira/browse/IGNITE-25454
+# at the moment, distribution's printout depends on the state of the catalog because
+# it contains ids of table and zone. This makes the test unstable depending on whether
+# how many catalog objects were created prior to this script. We need to change
+# the way how distribution is rendered in the EXPLAIN output and unmute this test.
+skipif ignite3
+# insert multiple tuples with literals
+plan
+INSERT INTO test_table VALUES (1, 2, 3), (2, 2, 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=2)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: INSERT
+          flattened: false
+          est: (rows=2)
+        TrimExchange
+            distribution: affinity[tableId=18, zoneId=18][0]
+            est: (rows=2)
+          Values
+              type: [#0: C1 INTEGER, #1: C2 INTEGER, #2: C3 INTEGER]
+              tuples: [[1, 2, 3], [2, 2, 3]]
+              est: (rows=2)
+
+# https://issues.apache.org/jira/browse/IGNITE-25454
+# at the moment, distribution's printout depends on the state of the catalog because
+# it contains ids of table and zone. This makes the test unstable depending on whether
+# how many catalog objects were created prior to this script. We need to change
+# the way how distribution is rendered in the EXPLAIN output and unmute this test.
+skipif ignite3
+# insert multiple tuples mixed
+plan
+INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3), (2, LENGTH(rand_uuid()::VARCHAR), 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=2)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=2)
+    Exchange
+        distribution: single
+        est: (rows=2)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: INSERT
+          flattened: false
+          est: (rows=2)
+        UnionAll
+            all: true
+            est: (rows=2)
+          Exchange
+              distribution: affinity[tableId=18, zoneId=18][0]
+              est: (rows=1)
+            Project
+                fields: [EXPR$0, EXPR$1, EXPR$2]
+                exprs: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
+                est: (rows=1)
+              Values
+                  type: [#0: ZERO INTEGER]
+                  tuples: [[0]]
+                  est: (rows=1)
+          Exchange
+              distribution: affinity[tableId=18, zoneId=18][0]
+              est: (rows=1)
+            Project
+                fields: [EXPR$0, EXPR$1, EXPR$2]
+                exprs: [2, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
+                est: (rows=1)
+              Values
+                  type: [#0: ZERO INTEGER]
+                  tuples: [[0]]
+                  est: (rows=1)
+
+# delete by key simple
+plan
+DELETE FROM test_table WHERE c1 = 1
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: DELETE
+          flattened: false
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            filters: =(C1, 1)
+            fields: [C1]
+            est: (rows=1)
+
+# delete by key complex
+plan
+DELETE FROM test_table WHERE c1 in (1, 2, 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: DELETE
+          flattened: false
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            filters: SEARCH(C1, Sarg[1, 2, 3])
+            fields: [C1]
+            est: (rows=1)
+
+# delete with predicate by arbitrary column
+plan
+DELETE FROM test_table WHERE c3 in (1, 2, 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: DELETE
+          flattened: false
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            filters: SEARCH(C3, Sarg[1, 2, 3])
+            fields: [C1]
+            projects: [C1]
+            est: (rows=1)
+
+# update with predicate by key simple
+plan
+UPDATE test_table SET c2 = 2 WHERE c1 = 1
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: UPDATE
+          updateColumnList: [C2]
+          sourceExpressionList: [C2]
+          flattened: false
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            filters: =(C1, 1)
+            fields: [C1, C2, C3, EXPR$0]
+            projects: [C1, C2, C3, 2]
+            est: (rows=1)
+
+# update with predicate by key complex
+plan
+UPDATE test_table SET c2 = 2 WHERE c1 in (1, 2, 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: UPDATE
+          updateColumnList: [C2]
+          sourceExpressionList: [C2]
+          flattened: false
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            filters: SEARCH(C1, Sarg[1, 2, 3])
+            fields: [C1, C2, C3, EXPR$0]
+            projects: [C1, C2, C3, 2]
+            est: (rows=1)
+
+# update with predicate by arbitrary column
+plan
+UPDATE test_table SET c2 = 2 WHERE c3 in (1, 2, 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: UPDATE
+          updateColumnList: [C2]
+          sourceExpressionList: [C2]
+          flattened: false
+          est: (rows=1)
+        TableScan
+            table: PUBLIC.TEST_TABLE
+            filters: SEARCH(C3, Sarg[1, 2, 3])
+            fields: [C1, C2, C3, EXPR$0]
+            projects: [C1, C2, C3, 2]
+            est: (rows=1)
+
+# https://issues.apache.org/jira/browse/IGNITE-25454
+# at the moment, distribution's printout depends on the state of the catalog because
+# it contains ids of table and zone. This makes the test unstable depending on whether
+# how many catalog objects were created prior to this script. We need to change
+# the way how distribution is rendered in the EXPLAIN output and unmute this test.
+skipif ignite3
+# merge operator
+plan
+MERGE INTO test_table dst
+USING (SELECT c1, c2, c3 FROM test_table) src
+   ON dst.c1 = src.c1 * 2
+ WHEN MATCHED THEN UPDATE SET c2 = src.c2 * 2
+ WHEN NOT MATCHED THEN INSERT VALUES (1, 2, 3)
+----
+Project
+    fields: [ROWCOUNT]
+    exprs: [CAST($f0):BIGINT NOT NULL]
+    est: (rows=1)
+  ColocatedHashAggregate
+      group: []
+      aggs: [$SUM0(ROWCOUNT)]
+      est: (rows=1)
+    Exchange
+        distribution: single
+        est: (rows=1)
+      TableModify
+          table: [PUBLIC, TEST_TABLE]
+          operation: MERGE
+          updateColumnList: [C2]
+          flattened: false
+          est: (rows=1)
+        Exchange
+            distribution: affinity[tableId=18, zoneId=18][0]
+            est: (rows=1)
+          Project
+              fields: [$f0, $f1, $f2, C10, C20, C30, $f6]
+              exprs: [1, 2, 3, C1, C2, C3, *(C20, 2)]
+              est: (rows=1)
+            HashJoin
+                condition: =(C1, $f3)
+                joinType: right
+                est: (rows=1)
+              TableScan
+                  table: PUBLIC.TEST_TABLE
+                  fields: [C1, C2, C3]
+                  est: (rows=1)
+              Exchange
+                  distribution: affinity[tableId=18, zoneId=18][1]
+                  est: (rows=1)
+                TableScan
+                    table: PUBLIC.TEST_TABLE
+                    fields: [C2, $f3]
+                    projects: [C2, *(C1, 2)]
+                    est: (rows=1)
