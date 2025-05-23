@@ -39,6 +39,7 @@ import org.apache.ignite.configuration.annotation.PolymorphicConfigInstance;
 import org.apache.ignite.configuration.annotation.PolymorphicId;
 import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.internal.configuration.storage.Data;
 import org.apache.ignite.internal.configuration.storage.TestConfigurationStorage;
 import org.apache.ignite.internal.configuration.validation.TestConfigurationValidator;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -46,9 +47,9 @@ import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-25458 Fix processing of named lists.
 class RenamedConfigurationTest extends BaseIgniteAbstractTest {
 
     private static final ConfigurationTreeGenerator OLD_GENERATOR = new ConfigurationTreeGenerator(
@@ -76,6 +77,11 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     @BeforeEach
     void setUp() {
         registry = startRegistry(RenamedTestOldConfiguration.KEY, OLD_GENERATOR);
+
+        String updatedConfig = "key.listOldName.listInstance.oldName = oldValue, " +
+                "key.oldPolymorphicName.polymorphicType.oldName = oldValue";
+
+        assertThat(registry.change(hoconSource(ConfigFactory.parseString(updatedConfig).root())), willCompleteSuccessfully());
 
         stopRegistry(registry);
 
@@ -150,9 +156,18 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testNamedListLegacyNameIsRecognisedOnUpdate() {
-        registry = startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
+    @Disabled("IGNITE-25458")
+    public void testNamedListLegacyNameIsRecognisedOnStartup() {
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newListName().get("listInstance").newName().value(),
+                equalTo("oldValue")
+        );
 
+        // TODO IGNITE-25458 Add check that old value is deleted
+    }
+
+    @Test
+    public void testNamedListLegacyNameIsRecognisedOnUpdate() {
         String newValue = "newValue";
 
         String updatedConfig = "key.listOldName.listInstance.oldName = " + newValue;
@@ -162,12 +177,23 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newListName().get("listInstance").newName().value(),
                 equalTo(newValue)
         );
+
+        // TODO IGNITE-25458 Add check that old value is deleted
+    }
+
+    @Test
+    @Disabled("IGNITE-25458")
+    public void testPolymorphicLegacyNameIsRecognisedOnStartup() {
+        assertThat(
+                registry.getConfiguration(RenamedTestNewConfiguration.KEY).newPolymorphicName().get("polymorphicType").newName().value(),
+                equalTo("oldValue")
+        );
+
+        // TODO IGNITE-25458 Add check that old value is deleted
     }
 
     @Test
     public void testPolymorphicLegacyNameIsRecognisedOnUpdate() {
-        registry = startRegistry(RenamedTestNewConfiguration.KEY, NEW_GENERATOR);
-
         String newValue = "newValue";
         String updatedConfig = "key.oldPolymorphicName.polymorphicType.oldName = " + newValue;
         updateConfig(registry, updatedConfig);
@@ -176,6 +202,8 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
                 registry.getConfiguration(RenamedTestNewConfiguration.KEY).newPolymorphicName().get("polymorphicType").newName().value(),
                 equalTo(newValue)
         );
+
+        // TODO IGNITE-25458 Add check that old value is deleted
     }
 
     private static void updateConfig(ConfigurationRegistry registry, String updatedConfig) {
@@ -196,6 +224,14 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
         assertThat(registry.stopAsync(), willCompleteSuccessfully());
         // Removes registry update listener.
         storage.close();
+    }
+
+    private Data getData() {
+        CompletableFuture<Data> dataFuture = storage.readDataOnRecovery();
+
+        assertThat(dataFuture, willCompleteSuccessfully());
+
+        return dataFuture.join();
     }
 
     @ConfigurationRoot(rootName = "key", type = LOCAL)

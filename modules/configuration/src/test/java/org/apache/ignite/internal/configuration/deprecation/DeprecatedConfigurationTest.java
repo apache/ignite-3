@@ -36,6 +36,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import org.apache.ignite.configuration.RootKey;
 import org.apache.ignite.configuration.SuperRootChange;
+import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.ConfigurationType;
@@ -71,7 +72,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * Tests for configuration schemas with {@link Deprecated} properties.
  */
 @ExtendWith(MockitoExtension.class)
-// TODO https://issues.apache.org/jira/browse/IGNITE-25458 Fix processing of named lists.
 public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
     private static final ConfigurationType TEST_CONFIGURATION_TYPE = ConfigurationType.LOCAL;
 
@@ -144,6 +144,29 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         @Deprecated
         @NamedConfigValue
         public NamedElementConfigurationSchema list;
+    }
+
+    /**
+     * Configuration root schema with deprecated field inside named list configuration.
+     */
+    @ConfigurationRoot(rootName = "root", type = ConfigurationType.LOCAL)
+    public static class DeprecatedFieldInNamedListConfigurationSchema {
+        @Value(hasDefault = true)
+        public int intValue = 10;
+
+        @ConfigValue
+        public ChildConfigurationSchema child;
+
+        @NamedConfigValue
+        public DeprecatedElementConfigurationSchema list;
+    }
+
+    /** */
+    @Config
+    public static class DeprecatedElementConfigurationSchema {
+        @Deprecated
+        @Value
+        public String strCfg;
     }
 
     @BeforeEach
@@ -405,6 +428,88 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
                     Map.of(
                             "root.intValue", 20,
                             "root.child.my-int-cfg", 99
+                    ),
+                    data.values()
+            );
+        });
+    }
+
+    @Test
+    void testDeprecatedValueInNamedListConfiguration() {
+        AtomicReference<UUID> internalIdReference = new AtomicReference<>();
+
+        withConfigurationChanger(BeforeDeprecationConfiguration.KEY, true, change -> {}, changer -> {
+            // Add named list element for the test.
+            changeConfiguration(changer, superRoot -> {
+                superRoot.changeRoot(BeforeDeprecationConfiguration.KEY)
+                        .changeList()
+                        .create("foo", namedElementChange -> {
+                            internalIdReference.set(((InnerNode) namedElementChange).internalId());
+                            namedElementChange.changeStrCfg("value");
+                        }
+                        );
+            });
+
+            UUID internalId = internalIdReference.get();
+            assertNotNull(internalId);
+
+            // Check that all expected properties have been added.
+            assertEquals(
+                    Map.of(
+                            "root.list." + internalId + ".<order>", 0,
+                            "root.list." + internalId + ".<name>", "foo",
+                            "root.list." + internalId + ".strCfg", "value",
+                            "root.list.<ids>.foo", internalId
+                    ),
+                    lastWriteCapture.getValue()
+            );
+
+            // Check storage state.
+            Data data = getData();
+
+            assertEquals(2, data.changeId());
+            assertEquals(
+                    Map.of(
+                            "root.intValue", 10,
+                            "root.child.my-int-cfg", 99,
+                            "root.list.<ids>.foo", internalId,
+                            "root.list." + internalId + ".<order>", 0,
+                            "root.list." + internalId + ".strCfg", "value",
+                            "root.list." + internalId + ".<name>", "foo"
+                    ),
+                    data.values()
+            );
+        });
+
+        withConfigurationChanger(DeprecatedFieldInNamedListConfiguration.KEY, false, change -> {}, changer -> {
+            //noinspection CastToIncompatibleInterface
+            var root = (DeprecatedFieldInNamedListView) changer.superRoot().getRoot(DeprecatedFieldInNamedListConfiguration.KEY);
+            assertNotNull(root.list());
+
+            UUID internalId = internalIdReference.get();
+
+            // Check that deprecated value is accessible.
+            assertEquals("value", root.list().get(internalId).strCfg());
+
+            // Check that deprecated value has been deleted while starting the changer.
+            assertEquals(
+                    mapWithNulls(
+                            "root.list." + internalId + ".strCfg", null
+                    ),
+                    lastWriteCapture.getValue()
+            );
+
+            // Check that deprecated value is not present in the storage anymore.
+            Data data = getData();
+
+            assertEquals(3, data.changeId());
+            assertEquals(
+                    Map.of(
+                            "root.intValue", 10,
+                            "root.child.my-int-cfg", 99,
+                            "root.list.<ids>.foo", internalId,
+                            "root.list." + internalId + ".<order>", 0,
+                            "root.list." + internalId + ".<name>", "foo"
                     ),
                     data.values()
             );
