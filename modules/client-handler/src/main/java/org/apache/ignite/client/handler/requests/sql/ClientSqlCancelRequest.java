@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.sql;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.lang.CancelHandle;
@@ -31,16 +31,15 @@ public class ClientSqlCancelRequest {
     /**
      * Processes the request.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             Map<Long, CancelHandle> cancelHandleMap
     ) {
         long correlationToken = in.unpackLong();
         CancelHandle cancelHandle = cancelHandleMap.get(correlationToken);
 
         if (cancelHandle != null) {
-            return cancelHandle.cancelAsync();
+            return cancelHandle.cancelAsync().thenApply(x -> null);
         }
 
         return CompletableFutures.nullCompletedFuture();
