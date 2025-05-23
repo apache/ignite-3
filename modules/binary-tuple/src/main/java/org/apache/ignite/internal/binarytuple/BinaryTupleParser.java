@@ -67,7 +67,7 @@ public class BinaryTupleParser {
     /** Starting position of variable-length values. */
     private final int valueBase;
 
-    private final ByteBufferAssessor byteBufferAssessor;
+    private final ByteBufferAccessor byteBufferAccessor;
 
     /** Binary tuple. */
     protected final ByteBuffer buffer;
@@ -84,9 +84,9 @@ public class BinaryTupleParser {
         assert buffer.order() == ORDER : "Buffer order must be LITTLE_ENDIAN, actual: " + buffer.order();
         assert buffer.position() == 0 : "Buffer position must be 0, actual: " + buffer.position();
         this.buffer = buffer;
-        byteBufferAssessor = buffer.isDirect() ? new OffHeapByteBufferAssessor(buffer) : new HeapByteBufferAssessor(buffer);
+        byteBufferAccessor = buffer.isDirect() ? new OffHeapByteBufferAccessor(buffer) : new HeapByteBufferAccessor(buffer);
 
-        byte flags = byteBufferAssessor.get(0);
+        byte flags = byteBufferAccessor.get(0);
 
         entryBase = BinaryTupleCommon.HEADER_SIZE;
         entrySize = 1 << (flags & BinaryTupleCommon.VARSIZE_MASK);
@@ -112,6 +112,15 @@ public class BinaryTupleParser {
      */
     public ByteBuffer byteBuffer() {
         return buffer.slice().order(ORDER);
+    }
+
+    /**
+     * Returns the original byte buffer associated with this parser.
+     *
+     * @return The original ByteBuffer object.
+     */
+    public ByteBufferAccessor accessor() {
+        return byteBufferAccessor;
     }
 
     /**
@@ -225,7 +234,7 @@ public class BinaryTupleParser {
         int len = end - begin;
 
         if (len == Byte.BYTES) {
-            return ByteUtils.byteToBoolean(byteBufferAssessor.get(begin));
+            return ByteUtils.byteToBoolean(byteBufferAccessor.get(begin));
         }
 
         throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
@@ -242,7 +251,7 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case Byte.BYTES:
-                return byteBufferAssessor.get(begin);
+                return byteBufferAccessor.get(begin);
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -259,9 +268,9 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case Byte.BYTES:
-                return byteBufferAssessor.get(begin);
+                return byteBufferAccessor.get(begin);
             case Short.BYTES:
-                return byteBufferAssessor.getShort(begin);
+                return byteBufferAccessor.getShort(begin);
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -278,11 +287,11 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case Byte.BYTES:
-                return byteBufferAssessor.get(begin);
+                return byteBufferAccessor.get(begin);
             case Short.BYTES:
-                return byteBufferAssessor.getShort(begin);
+                return byteBufferAccessor.getShort(begin);
             case Integer.BYTES:
-                return byteBufferAssessor.getInt(begin);
+                return byteBufferAccessor.getInt(begin);
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -299,13 +308,13 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case Byte.BYTES:
-                return byteBufferAssessor.get(begin);
+                return byteBufferAccessor.get(begin);
             case Short.BYTES:
-                return byteBufferAssessor.getShort(begin);
+                return byteBufferAccessor.getShort(begin);
             case Integer.BYTES:
-                return byteBufferAssessor.getInt(begin);
+                return byteBufferAccessor.getInt(begin);
             case Long.BYTES:
-                return byteBufferAssessor.getLong(begin);
+                return byteBufferAccessor.getLong(begin);
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -322,7 +331,7 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case Float.BYTES:
-                return byteBufferAssessor.getFloat(begin);
+                return byteBufferAccessor.getFloat(begin);
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -339,9 +348,9 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case Float.BYTES:
-                return byteBufferAssessor.getFloat(begin);
+                return byteBufferAccessor.getFloat(begin);
             case Double.BYTES:
-                return byteBufferAssessor.getDouble(begin);
+                return byteBufferAccessor.getDouble(begin);
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
@@ -384,7 +393,7 @@ public class BinaryTupleParser {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
 
-        if (byteBufferAssessor.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+        if (byteBufferAccessor.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin++;
             len--;
         }
@@ -414,7 +423,7 @@ public class BinaryTupleParser {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
 
-        if (byteBufferAssessor.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+        if (byteBufferAccessor.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin++;
         }
 
@@ -435,7 +444,7 @@ public class BinaryTupleParser {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
 
-        if (byteBufferAssessor.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
+        if (byteBufferAccessor.get(begin) == BinaryTupleCommon.VARLEN_EMPTY_BYTE) {
             begin++;
         }
 
@@ -454,8 +463,8 @@ public class BinaryTupleParser {
         if (len != UUID_SIZE) {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
-        long msb = byteBufferAssessor.getLong(begin);
-        long lsb = byteBufferAssessor.getLong(begin + 8);
+        long msb = byteBufferAccessor.getLong(begin);
+        long lsb = byteBufferAccessor.getLong(begin + 8);
         return new UUID(msb, lsb);
     }
 
@@ -516,8 +525,8 @@ public class BinaryTupleParser {
         if (len != 8 && len != 12) {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
-        long seconds = byteBufferAssessor.getLong(begin);
-        int nanos = len == 8 ? 0 : byteBufferAssessor.getInt(begin + 8);
+        long seconds = byteBufferAccessor.getLong(begin);
+        int nanos = len == 8 ? 0 : byteBufferAccessor.getInt(begin + 8);
         return Instant.ofEpochSecond(seconds, nanos);
     }
 
@@ -534,8 +543,8 @@ public class BinaryTupleParser {
             throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
         }
 
-        long seconds = byteBufferAssessor.getLong(begin);
-        int nanos = len == 8 ? 0 : byteBufferAssessor.getInt(begin + 8);
+        long seconds = byteBufferAccessor.getLong(begin);
+        int nanos = len == 8 ? 0 : byteBufferAccessor.getInt(begin + 8);
 
         return Duration.ofSeconds(seconds, nanos);
     }
@@ -551,18 +560,18 @@ public class BinaryTupleParser {
         int len = end - begin;
         switch (len) {
             case 3:
-                return Period.of(byteBufferAssessor.get(begin), byteBufferAssessor.get(begin + 1), byteBufferAssessor.get(begin + 2));
+                return Period.of(byteBufferAccessor.get(begin), byteBufferAccessor.get(begin + 1), byteBufferAccessor.get(begin + 2));
             case 6:
                 return Period.of(
-                        byteBufferAssessor.getShort(begin),
-                        byteBufferAssessor.getShort(begin + 2),
-                        byteBufferAssessor.getShort(begin + 4)
+                        byteBufferAccessor.getShort(begin),
+                        byteBufferAccessor.getShort(begin + 2),
+                        byteBufferAccessor.getShort(begin + 4)
                 );
             case 12:
                 return Period.of(
-                        byteBufferAssessor.getInt(begin),
-                        byteBufferAssessor.getInt(begin + 4),
-                        byteBufferAssessor.getInt(begin + 8)
+                        byteBufferAccessor.getInt(begin),
+                        byteBufferAccessor.getInt(begin + 4),
+                        byteBufferAccessor.getInt(begin + 8)
                 );
             default:
                 throw new BinaryTupleFormatException("Invalid length for a tuple element: " + len);
@@ -578,11 +587,11 @@ public class BinaryTupleParser {
     private int getOffset(int index) {
         switch (entrySize) {
             case Byte.BYTES:
-                return Byte.toUnsignedInt(byteBufferAssessor.get(index));
+                return Byte.toUnsignedInt(byteBufferAccessor.get(index));
             case Short.BYTES:
-                return Short.toUnsignedInt(byteBufferAssessor.getShort(index));
+                return Short.toUnsignedInt(byteBufferAccessor.getShort(index));
             case Integer.BYTES: {
-                int offset = byteBufferAssessor.getInt(index);
+                int offset = byteBufferAccessor.getInt(index);
                 if (offset < 0) {
                     throw new BinaryTupleFormatException("Unsupported offset table size");
                 }
@@ -608,8 +617,8 @@ public class BinaryTupleParser {
      * Decodes a Date element.
      */
     private LocalDate getDate(int offset) {
-        int date = Short.toUnsignedInt(byteBufferAssessor.getShort(offset));
-        date |= ((int) byteBufferAssessor.get(offset + 2)) << 16;
+        int date = Short.toUnsignedInt(byteBufferAccessor.getShort(offset));
+        date |= ((int) byteBufferAccessor.get(offset + 2)) << 16;
 
         int day = date & 31;
         int month = (date >> 5) & 15;
@@ -622,18 +631,18 @@ public class BinaryTupleParser {
      * Decodes a Time element.
      */
     private LocalTime getTime(int offset, int length) {
-        long time = Integer.toUnsignedLong(byteBufferAssessor.getInt(offset));
+        long time = Integer.toUnsignedLong(byteBufferAccessor.getInt(offset));
 
         int nanos;
         if (length == 4) {
             nanos = ((int) time & ((1 << 10) - 1)) * 1000 * 1000;
             time >>>= 10;
         } else if (length == 5) {
-            time |= Byte.toUnsignedLong(byteBufferAssessor.get(offset + 4)) << 32;
+            time |= Byte.toUnsignedLong(byteBufferAccessor.get(offset + 4)) << 32;
             nanos = ((int) time & ((1 << 20) - 1)) * 1000;
             time >>>= 20;
         } else {
-            time |= Short.toUnsignedLong(byteBufferAssessor.getShort(offset + 4)) << 32;
+            time |= Short.toUnsignedLong(byteBufferAccessor.getShort(offset + 4)) << 32;
             nanos = ((int) time & ((1 << 30) - 1));
             time >>>= 30;
         }
@@ -645,26 +654,96 @@ public class BinaryTupleParser {
         return LocalTime.of(hour, minute, second, nanos);
     }
 
-    private interface ByteBufferAssessor {
+    /**
+     * An interface for accessing a byte buffer with methods to read various data types
+     * at specific positions. This interface abstracts the underlying implementation
+     * for handling data in either direct or heap-based byte buffers.
+     */
+    public interface ByteBufferAccessor {
+        /**
+         * Retrieves the byte value from the underlying byte buffer at the specified index.
+         *
+         * @param p the index in the underlying byte buffer to retrieve the byte from.
+         * @return the byte value located at the specified index in the byte buffer.
+         */
         byte get(int p);
 
+        /**
+         * Reads a 32-bit integer value from the underlying byte buffer at the specified index.
+         *
+         * @param p the index in the underlying byte buffer to start reading the 32-bit integer value from.
+         * @return the 32-bit integer value located at the specified index in the byte buffer.
+         */
         int getInt(int p);
 
+        /**
+         * Reads a 64-bit long value from the underlying byte buffer at the specified index.
+         *
+         * @param p the index in the underlying byte buffer to start reading the 64-bit long value from.
+         * @return the 64-bit long value located at the specified index in the byte buffer.
+         */
         long getLong(int p);
 
+        /**
+         * Reads a 16-bit short value from the underlying byte buffer at the specified index.
+         *
+         * @param p the index in the underlying byte buffer to start reading the 16-bit short value from.
+         * @return the 16-bit short value located at the specified index in the byte buffer.
+         */
         short getShort(int p);
 
+        /**
+         * Reads a 32-bit floating-point value from the underlying byte buffer at the specified index.
+         *
+         * @param p the index in the underlying byte buffer to start reading the 32-bit floating-point value from.
+         * @return the 32-bit floating-point value located at the specified index in the byte buffer.
+         */
         float getFloat(int p);
 
+        /**
+         * Reads a 64-bit double-precision floating-point value from the underlying
+         * byte buffer at the specified index.
+         *
+         * @param p the index in the underlying byte buffer to start reading the
+         *          64-bit double-precision floating-point value from.
+         * @return the 64-bit double-precision floating-point value located at
+         *         the specified index in the byte buffer.
+         */
         double getDouble(int p);
+
+        /**
+         * Retrieves a 64-bit long value from the underlying byte buffer at the specified index
+         * using little-endian byte order. The method interprets the specified position as the starting
+         * index of an 8-byte region and reads the bytes in little-endian order to construct the long value.
+         *
+         * @param p the index in the underlying byte buffer to start reading the 64-bit long value from.
+         * @return the 64-bit long value interpreted from the 8 bytes starting at the specified index in little-endian byte order.
+         */
+        long getLongLittleEndian(int p);
+
+        /**
+         * Returns the capacity of the underlying byte buffer, representing the total number of bytes it can hold.
+         *
+         * @return the total capacity of the byte buffer.
+         */
+        int capacity();
     }
 
-    private static class OffHeapByteBufferAssessor implements ByteBufferAssessor {
+    /**
+     * Provides direct and efficient access to the off-heap memory of a direct {@link ByteBuffer}.
+     * This class implements {@link ByteBufferAccessor} to read various data types directly
+     * from memory using low-level unsafe operations.
+     * The accessor relies on the address of the buffer in off-heap memory and is specifically
+     * designed to work with direct buffers.
+     */
+    private static class OffHeapByteBufferAccessor implements ByteBufferAccessor {
         private final long addr;
+        private final int capacity;
 
-        OffHeapByteBufferAssessor(ByteBuffer buff) {
+        OffHeapByteBufferAccessor(ByteBuffer buff) {
             assert buff.isDirect();
             addr = GridUnsafe.bufferAddress(buff);
+            capacity = buff.capacity();
         }
 
         @Override
@@ -696,16 +775,37 @@ public class BinaryTupleParser {
         public double getDouble(int p) {
             return GridUnsafe.getDouble(addr + p);
         }
+
+        @Override
+        public long getLongLittleEndian(int p) {
+            return GridUnsafe.getLongLittleEndian(addr + p);
+        }
+
+        @Override
+        public int capacity() {
+            return capacity;
+        }
     }
 
-    private static class HeapByteBufferAssessor implements ByteBufferAssessor {
+    /**
+     * A utility class for accessing data stored in a heap-based {@link ByteBuffer}.
+     * This class implements the {@link ByteBufferAccessor} interface and provides methods
+     * to retrieve various types of data (e.g., byte, int, long, etc.) from a byte buffer
+     * backed by a byte array.
+     * This accessor uses the {@link GridUnsafe} utility to read data from the byte array
+     * with an offset calculated from the {@link ByteBuffer} properties, enabling efficient
+     * low-level operations.
+     */
+    private static class HeapByteBufferAccessor implements ByteBufferAccessor {
         private final byte[] bytes;
         private final long offset;
+        private final int capacity;
 
-        HeapByteBufferAssessor(ByteBuffer buff) {
+        HeapByteBufferAccessor(ByteBuffer buff) {
             assert !buff.isDirect();
             bytes = buff.array();
             offset = GridUnsafe.BYTE_ARR_OFF + buff.arrayOffset();
+            capacity = buff.capacity();
         }
 
         @Override
@@ -736,6 +836,16 @@ public class BinaryTupleParser {
         @Override
         public double getDouble(int p) {
             return GridUnsafe.getDouble(bytes, offset + p);
+        }
+
+        @Override
+        public long getLongLittleEndian(int p) {
+            return GridUnsafe.getLongLittleEndian(bytes, offset + p);
+        }
+
+        @Override
+        public int capacity() {
+            return capacity;
         }
     }
 }
