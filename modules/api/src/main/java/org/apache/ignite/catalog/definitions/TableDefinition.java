@@ -36,7 +36,7 @@ import org.jetbrains.annotations.Nullable;
 public class TableDefinition {
     private final String tableName;
 
-    private final String schemaName;
+    private final @Nullable String schemaName;
 
     private final QualifiedName qualifiedName;
 
@@ -60,7 +60,7 @@ public class TableDefinition {
 
     private TableDefinition(
             String tableName,
-            String schemaName,
+            @Nullable String schemaName,
             boolean ifNotExists,
             List<ColumnDefinition> columns,
             IndexType pkType,
