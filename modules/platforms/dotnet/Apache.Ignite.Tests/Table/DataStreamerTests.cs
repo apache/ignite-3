@@ -713,6 +713,21 @@ public class DataStreamerTests : IgniteTestsBase
     }
 
     [Test]
+    public void TestReceiverEmptyKey()
+    {
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () =>
+            await TupleView.StreamDataAsync(
+            data: Enumerable.Range(0, 1).ToAsyncEnumerable(),
+            keySelector: _ => new IgniteTuple(),
+            payloadSelector: id => id,
+            receiver: TestReceiverNoResults,
+            receiverArg: "foo"));
+
+        Assert.IsInstanceOf<ArgumentException>(ex.InnerException);
+        Assert.AreEqual("Key column 'KEY' not found in the provided tuple 'IgniteTuple { }'", ex.InnerException!.Message);
+    }
+
+    [Test]
     public async Task TestWithReceiverAllDataTypes()
     {
         // Invoke receiver with all supported element types and check resulting Java class and string representation.

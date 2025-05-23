@@ -48,6 +48,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.ignite.internal.sql.engine.rel.ProjectableFilterableTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.util.StringUtils;
 import org.apache.ignite.table.QualifiedNameHelper;
 import org.jetbrains.annotations.Nullable;
 
@@ -205,8 +206,14 @@ public class ExplainRelAsTextWriter extends RelWriterImpl {
     }
 
     private static String beautifyAggCall(AggregateCall call, RexShuttle inputRefRewriter, RelDataType rowType) {
-        StringBuilder buf = new StringBuilder(call.getAggregation().toString());
-        buf.append('(');
+        StringBuilder buf = new StringBuilder();
+        if (!StringUtils.nullOrBlank(call.name)) {
+            buf.append(call.name);
+            buf.append('=');
+        }
+
+        buf.append(call.getAggregation().toString()).append('(');
+
         if (call.isApproximate()) {
             buf.append("APPROXIMATE ");
         }

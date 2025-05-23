@@ -81,8 +81,10 @@ def replaceVars = tasks.register('replaceVars', Copy) {
     into "$buildDir/docker"
 }
 
+ext.docker_image_name = "apacheignite/ignite"
+
 docker {
-    name 'apacheignite/ignite'
+    name project.docker_image_name
     dockerfile file('docker/Dockerfile')
 
     copySpec.into 'dist', {

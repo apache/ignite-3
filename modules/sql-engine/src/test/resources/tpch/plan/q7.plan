@@ -3,7 +3,7 @@ Sort
     est: (rows=165618)
   ColocatedHashAggregate
       group: [SUPP_NATION, CUST_NATION, L_YEAR]
-      aggs: [SUM(VOLUME)]
+      aggs: [REVENUE=SUM(VOLUME)]
       est: (rows=165618)
     Project
         fields: [SUPP_NATION, CUST_NATION, L_YEAR, VOLUME]

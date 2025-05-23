@@ -19,7 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 
@@ -31,18 +31,17 @@ public class ClientComputeChangePriorityRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute
     ) {
         UUID jobId = in.unpackUuid();
         int newPriority = in.unpackInt();
-        return compute.changePriorityAsync(jobId, newPriority).thenAccept(result -> {
+
+        return compute.changePriorityAsync(jobId, newPriority).thenApply(result -> out -> {
             if (result == null) {
                 out.packNil();
             } else {
