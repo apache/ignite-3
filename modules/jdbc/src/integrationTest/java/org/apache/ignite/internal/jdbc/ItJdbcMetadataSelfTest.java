@@ -44,6 +44,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.jdbc.AbstractJdbcSelfTest;
 import org.apache.ignite.jdbc.util.JdbcTestUtils;
 import org.apache.ignite.sql.ColumnType;
@@ -264,7 +265,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try {
             StringJoiner joiner = new StringJoiner(",");
 
-            Arrays.stream(ColumnType.nativeTypes())
+            Arrays.stream(NativeType.nativeTypes())
                     .forEach(t -> {
                         String type = SqlTestUtils.toSqlType(t);
                         joiner.add(type.replace(' ', '_') + "_COL " + type);

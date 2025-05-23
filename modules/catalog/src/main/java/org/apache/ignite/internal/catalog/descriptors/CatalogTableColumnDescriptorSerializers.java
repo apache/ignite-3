@@ -38,7 +38,7 @@ public class CatalogTableColumnDescriptorSerializers {
         public CatalogTableColumnDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             String name = input.readUTF();
             int typeId = input.readVarIntAsInt();
-            ColumnType type = ColumnType.fromId(typeId);
+            ColumnType type = ColumnType.getById(typeId);
 
             assert type != null : "Unknown column type: " + typeId;
 
@@ -71,7 +71,7 @@ public class CatalogTableColumnDescriptorSerializers {
         public CatalogTableColumnDescriptor readFrom(CatalogObjectDataInput input) throws IOException {
             String name = input.readUTF();
             int typeId = input.readVarIntAsInt();
-            ColumnType type = ColumnType.fromId(typeId);
+            ColumnType type = ColumnType.getById(typeId);
 
             assert type != null : "Unknown column type: " + typeId;
 

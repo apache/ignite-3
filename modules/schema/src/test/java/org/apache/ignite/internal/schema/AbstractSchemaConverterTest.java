@@ -69,7 +69,7 @@ public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
         tmp.put(ColumnType.BYTE_ARRAY, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY,
                 UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)));
 
-        var missedTypes = new HashSet<>(Arrays.asList(ColumnType.nativeTypes()));
+        var missedTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         missedTypes.removeAll(tmp.keySet());
 

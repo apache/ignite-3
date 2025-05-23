@@ -123,7 +123,7 @@ public class RowSchemaTypesTest {
 
         Set<Entry<ColumnType, Boolean>> typeSpecs = new CopyOnWriteArraySet<>();
 
-        for (ColumnType spec : ColumnType.nativeTypes()) {
+        for (ColumnType spec : NativeType.nativeTypes()) {
             typeSpecs.add(Map.entry(spec, true));
             typeSpecs.add(Map.entry(spec, false));
         }

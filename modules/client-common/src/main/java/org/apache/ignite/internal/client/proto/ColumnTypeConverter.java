@@ -33,7 +33,7 @@ public class ColumnTypeConverter {
      * @return Column type.
      */
     public static ColumnType fromIdOrThrow(int id) {
-        ColumnType columnType = ColumnType.fromId(id);
+        ColumnType columnType = ColumnType.getById(id);
 
         if (columnType == null) {
             throw new IgniteException(Client.PROTOCOL_ERR, "Invalid column type id: " + id);

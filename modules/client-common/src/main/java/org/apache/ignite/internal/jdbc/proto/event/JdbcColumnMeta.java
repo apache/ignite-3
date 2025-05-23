@@ -251,7 +251,7 @@ public class JdbcColumnMeta extends Response {
         tblName = ClientMessageUtils.readStringNullable(unpacker);
         colName = ClientMessageUtils.readStringNullable(unpacker);
 
-        columnType = ColumnType.fromId(unpacker.unpackInt());
+        columnType = ColumnType.getById(unpacker.unpackInt());
         nullable = unpacker.unpackBoolean();
         precision = unpacker.unpackInt();
         scale = unpacker.unpackInt();

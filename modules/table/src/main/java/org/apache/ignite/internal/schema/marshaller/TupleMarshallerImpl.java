@@ -68,13 +68,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
                 .map(Column::type)
-                .filter(type -> type.spec().fixedLength())
+                .filter(NativeType::fixedLength)
                 .mapToInt(NativeType::sizeInBytes)
                 .sum();
 
         valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
                 .map(Column::type)
-                .filter(type -> type.spec().fixedLength())
+                .filter(NativeType::fixedLength)
                 .mapToInt(NativeType::sizeInBytes)
                 .sum();
     }
@@ -215,7 +215,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             col.validate(val);
 
             if (val != null) {
-                if (!colType.spec().fixedLength()) {
+                if (!colType.fixedLength()) {
                     try {
                         val = shrinkValue(val, col.type());
 

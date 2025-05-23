@@ -67,6 +67,7 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
@@ -252,7 +253,7 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
         Set<ColumnType> testedTypes = Arrays.stream(ALL_TYPES_COLUMNS).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<ColumnType> missedTypes = Arrays.stream(ColumnType.nativeTypes())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
@@ -289,7 +290,7 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
                 .map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<ColumnType> missedTypes = Arrays.stream(ColumnType.nativeTypes())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

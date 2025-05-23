@@ -36,7 +36,6 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -214,7 +213,7 @@ public class JoinWithUsingPlannerTest extends AbstractPlannerTest {
     }
 
     private static Stream<Arguments> nativeTypesMatrix() {
-        List<TypeArg> types1 = Arrays.stream(ColumnType.nativeTypes())
+        List<TypeArg> types1 = Arrays.stream(NativeType.nativeTypes())
                 .map(c -> TypeUtils.columnType2NativeType(c, 5, 2, 5))
                 .map(TypeArg::new)
                 .collect(Collectors.toList());

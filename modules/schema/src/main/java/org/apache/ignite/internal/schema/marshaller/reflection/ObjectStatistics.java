@@ -86,7 +86,7 @@ class ObjectStatistics {
 
             col.validate(val);
 
-            if (type.spec().fixedLength()) {
+            if (type.fixedLength()) {
                 estimatedValueSize += type.sizeInBytes();
             } else {
                 int valueSize = type.spec() == ColumnType.DECIMAL ? DECIMAL_VALUE_ESTIMATED_SIZE : getValueSize(val, type);

@@ -74,7 +74,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     }
 
     private static List<ColumnType> columnTypes() {
-        return List.of(ColumnType.nativeTypes());
+        return List.of(NativeType.nativeTypes());
     }
 
     @ParameterizedTest

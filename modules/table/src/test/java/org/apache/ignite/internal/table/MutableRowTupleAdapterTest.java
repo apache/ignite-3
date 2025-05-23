@@ -491,7 +491,7 @@ public class MutableRowTupleAdapterTest extends AbstractMutableTupleTest {
                 .map(NativeType::spec)
                 .collect(Collectors.toSet());
 
-        for (ColumnType columnType : ColumnType.nativeTypes()) {
+        for (ColumnType columnType : NativeType.nativeTypes()) {
             assertTrue(schemaTypes.contains(columnType), "Schema does not contain " + columnType);
         }
     }

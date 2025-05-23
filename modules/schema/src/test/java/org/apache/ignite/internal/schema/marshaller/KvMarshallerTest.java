@@ -912,7 +912,7 @@ public class KvMarshallerTest {
         Set<ColumnType> testedTypes = Arrays.stream(cols).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<ColumnType> missedTypes = Arrays.stream(ColumnType.nativeTypes())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

@@ -40,6 +40,7 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
+import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -85,7 +86,7 @@ class ProjectedTupleTest {
                 .map(Element::typeSpec)
                 .collect(Collectors.toList());
 
-        var allTypes = new HashSet<>(Arrays.asList(ColumnType.nativeTypes()));
+        var allTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         coveredTypes.forEach(allTypes::remove);
 

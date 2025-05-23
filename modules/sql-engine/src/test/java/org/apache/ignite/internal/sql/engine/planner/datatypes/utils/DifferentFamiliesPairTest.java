@@ -41,7 +41,7 @@ import org.junit.jupiter.api.Test;
 class DifferentFamiliesPairTest {
     @Test
     void makeSureAllTypePairsFromDifferentTypeFamiliesAreCovered() {
-        ColumnType[] allSpecs = ColumnType.nativeTypes();
+        ColumnType[] allSpecs = NativeType.nativeTypes();
         Set<IgniteBiTuple<ColumnType, ColumnType>> allPairs = new HashSet<>();
         for (int i = 0; i < allSpecs.length - 1; i++) {
             ColumnType firstType = allSpecs[i];

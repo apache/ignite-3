@@ -44,7 +44,6 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageCo
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
-import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -53,7 +52,7 @@ import org.junit.jupiter.api.Test;
 public class InlineUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void testInlineSizeForNativeType() {
-        var columnTypes = new HashSet<>(Arrays.asList(ColumnType.nativeTypes()));
+        var columnTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         // Fixed length type checking.
 

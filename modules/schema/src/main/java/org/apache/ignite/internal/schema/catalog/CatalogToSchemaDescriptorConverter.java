@@ -51,7 +51,7 @@ public final class CatalogToSchemaDescriptorConverter {
         Map<String, NativeType> tmp = new HashMap<>(types.size(), 1.0f);
 
         for (NativeType type : types) {
-            if (!type.spec().fixedLength()) {
+            if (!type.fixedLength()) {
                 continue;
             }
 

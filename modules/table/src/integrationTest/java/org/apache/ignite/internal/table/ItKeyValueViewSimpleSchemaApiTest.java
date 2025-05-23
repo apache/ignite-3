@@ -45,7 +45,6 @@ import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.lang.UnexpectedNullValueException;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.KeyValueView;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Named;
@@ -85,7 +84,7 @@ public class ItKeyValueViewSimpleSchemaApiTest extends ItKeyValueViewApiBaseTest
         }
 
         // Validate all types are tested.
-        var nativeTypes = new HashSet<>(Arrays.asList(ColumnType.nativeTypes()));
+        var nativeTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         assertEquals(nativeTypes,
                 SchemaTestUtils.ALL_TYPES.stream().map(NativeType::spec).collect(Collectors.toSet()));

@@ -164,7 +164,7 @@ public class ColumnFamilyUtils {
             byte typeSpecOrdinal = cfName[i];
             byte nativeTypeFlags = cfName[i + 1];
 
-            ColumnType typeSpec = ColumnType.fromId(typeSpecOrdinal);
+            ColumnType typeSpec = ColumnType.getById(typeSpecOrdinal);
 
             assert typeSpec != null : format("Invalid sorted index CF name. [nameBytes={}]", Arrays.toString(cfName));
 

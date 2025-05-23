@@ -138,7 +138,7 @@ public abstract class DefaultValue {
         private ConstantValue(@Nullable Object value) {
             super(Type.CONSTANT);
 
-            @Nullable NativeType type0 = NativeTypes.fromObject(value);
+            NativeType type0 = NativeTypes.fromObject(value);
 
             if (type0 == null) {
                 columnType = ColumnType.NULL;
@@ -294,7 +294,7 @@ public abstract class DefaultValue {
 
     private static @Nullable Object readValue(IgniteDataInput in) throws IOException {
         int typeId = in.readByte();
-        ColumnType columnType = ColumnType.fromId(typeId);
+        ColumnType columnType = ColumnType.getById(typeId);
         switch (columnType) {
             case NULL:
                 return null;
