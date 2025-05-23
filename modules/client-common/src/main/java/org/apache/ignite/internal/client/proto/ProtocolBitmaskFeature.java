@@ -57,7 +57,12 @@ public enum ProtocolBitmaskFeature {
     /**
      * Delayed ack optimization for directly mapped transactions.
      */
-    TX_DELAYED_ACKS(6);
+    TX_DELAYED_ACKS(6),
+
+    /**
+     * Piggyback txn start in the first request.
+     */
+    TX_PIGGYBACK(7);
 
     private static final EnumSet<ProtocolBitmaskFeature> ALL_FEATURES_AS_ENUM_SET =
             EnumSet.allOf(ProtocolBitmaskFeature.class);

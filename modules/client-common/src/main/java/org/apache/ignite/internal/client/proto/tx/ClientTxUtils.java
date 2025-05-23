@@ -21,6 +21,6 @@ package org.apache.ignite.internal.client.proto.tx;
  * Utility class for client transactions.
  */
 public class ClientTxUtils {
-    /** Tx resource id for direct mapping. */
+    /** Tx resource id for directly mapped request. */
     public static final long TX_ID_DIRECT = 0L;
 }

@@ -104,7 +104,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
 
         try (var client = getClient(plc)) {
             Transaction tx = client.transactions().begin();
-            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel(), null).join();
+            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
 
             assertThrows(IgniteClientConnectionException.class, tx::commit);
             assertEquals(0, plc.invocations.size());
@@ -167,7 +167,7 @@ public class RetryPolicyTest extends BaseIgniteAbstractTest {
         try (var client = getClient(plc)) {
             RecordView<Tuple> recView = client.tables().table("t").recordView();
             Transaction tx = client.transactions().begin();
-            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel(), null).join();
+            ClientLazyTransaction.ensureStarted(tx, ((TcpIgniteClient) client).channel()).get1().join();
 
             var ex = assertThrows(IgniteException.class, () -> recView.get(tx, Tuple.create().set("id", 1)));
             assertThat(ex.getMessage(), containsString("Transaction context has been lost due to connection errors."));

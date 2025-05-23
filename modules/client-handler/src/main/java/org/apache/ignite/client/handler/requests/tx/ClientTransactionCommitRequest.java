@@ -70,11 +70,6 @@ public class ClientTransactionCommitRequest {
 
         // Attempt to merge server and client mappings.
         if (enableDirectMapping && !tx.isReadOnly()) {
-            long causality = in.unpackLong();
-
-            // Update causality.
-            clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
-
             int cnt = in.unpackInt(); // Number of direct enlistments.
 
             List<IgniteTuple3<TablePartitionId, String, Long>> list = new ArrayList<>();
@@ -85,6 +80,13 @@ public class ClientTransactionCommitRequest {
                 long token = in.unpackLong();
 
                 list.add(new IgniteTuple3<>(new TablePartitionId(tableId, partId), consistentId, token));
+            }
+
+            if (cnt > 0) {
+                long causality = in.unpackLong();
+
+                // Update causality.
+                clockService.updateClock(HybridTimestamp.hybridTimestamp(causality));
             }
 
             Exception ex = null;

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -467,8 +468,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
     static List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode, Table table) {
         String clusterNodeName = clusterNode.name();
-        assert map.values().stream().anyMatch(x -> Objects.equals(x.name(), clusterNodeName)) :
-                "No partitions for node: " + clusterNodeName;
+        if (map.values().stream().noneMatch(x -> Objects.equals(x.name(), clusterNodeName))) {
+            return emptyList();
+        }
 
         List<Tuple> keys = new ArrayList<>();
         PartitionManager partitionManager = table.partitionManager();
@@ -753,6 +755,38 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         for (Entry<Tuple, Tuple> entry : data.entrySet()) {
             view.put(null, entry.getKey(), entry.getValue());
         }
+    }
+
+    @Test
+    void testExplicitReadOnlyTransaction() {
+        ClientTable table = (ClientTable) table();
+
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        // Load partition map to ensure all entries are directly mapped.
+        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(600, 20, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(600, 20, map, server1.clusterService().topologyService().localMember(), table);
+
+        Tuple k1 = tuples0.get(0);
+        Tuple v1 = val(tuples0.get(0).intValue(0) + "");
+
+        Tuple k2 = tuples1.get(1);
+        Tuple v2 = val(tuples1.get(1).intValue(0) + "");
+
+        kvView.put(null, k1, v1);
+        kvView.put(null, k2, v2);
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(Tuple.equals(v1, kvView.get(tx, k1)));
+        assertTrue(Tuple.equals(v2, kvView.get(tx, k2)));
+
+        tx.commit();
     }
 
     private KeyValueView<Integer, String> kvView() {

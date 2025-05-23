@@ -88,7 +88,8 @@ public class ClientHandlerModule implements IgniteComponent, PlatformComputeTran
             ProtocolBitmaskFeature.TX_DIRECT_MAPPING,
             ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB,
             ProtocolBitmaskFeature.STREAMER_RECEIVER_EXECUTION_OPTIONS,
-            ProtocolBitmaskFeature.TX_DELAYED_ACKS
+            ProtocolBitmaskFeature.TX_DELAYED_ACKS,
+            ProtocolBitmaskFeature.TX_PIGGYBACK
     ));
 
     /** Connection id generator.

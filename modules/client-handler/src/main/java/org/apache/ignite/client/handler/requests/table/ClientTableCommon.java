@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -392,7 +393,13 @@ public class ClientTableCommon {
      * @param tx The transaction.
      */
     public static void writeTxMeta(ClientMessagePacker out, @Nullable ClockService clockService, InternalTransaction tx) {
-        if (tx.remote()) {
+        if (out.resourceId() != 0) {
+            // Resource id is assigned on a first request in direct mode.
+            out.packLong(out.resourceId());
+            out.packUuid(tx.id());
+            out.packUuid(tx.coordinatorId());
+            out.packLong(tx.getTimeout());
+        } else if (tx.remote()) {
             TxState state = tx.state();
 
             if (state == TxState.ABORTED) {
@@ -443,26 +450,46 @@ public class ClientTableCommon {
         try {
             long id = in.unpackLong();
             if (id == TX_ID_DIRECT) {
-                long token = in.unpackLong();
-                UUID txId = in.unpackUuid();
-                int commitTableId = in.unpackInt();
-                int commitPart = in.unpackInt();
-                UUID coord = in.unpackUuid();
-                long timeout = in.unpackLong();
+                long observableTs = in.unpackLong();
 
-                InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
-                        coord, token, timeout, err -> {
-                            // Will be called for write txns.
-                            notificationSender.sendNotification(w -> w.packUuid(txId), err);
-                        });
+                if (observableTs != 0) {
+                    // This is first mapping request, which piggybacks transaction creation.
+                    boolean readOnly = in.unpackBoolean();
+                    long timeoutMillis = in.unpackLong();
 
-                // Remote transaction will be synchronously rolled back if the timeout has exceeded.
-                if (remote.isRolledBackWithTimeoutExceeded()) {
-                    throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                            "Transaction is already finished [tx=" + remote + "].");
+                    InternalTxOptions txOptions = InternalTxOptions.builder()
+                            .timeoutMillis(timeoutMillis)
+                            .build();
+
+                    var tx = startExplicitTx(out, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
+
+                    long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
+                    out.resourceId(resourceId);
+
+                    return tx;
+                } else {
+                    // This is direct request mapping.
+                    long token = in.unpackLong();
+                    UUID txId = in.unpackUuid();
+                    int commitTableId = in.unpackInt();
+                    int commitPart = in.unpackInt();
+                    UUID coord = in.unpackUuid();
+                    long timeout = in.unpackLong();
+
+                    InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
+                            coord, token, timeout, err -> {
+                                // Will be called for write txns.
+                                notificationSender.sendNotification(w -> w.packUuid(txId), err);
+                            });
+
+                    // Remote transaction will be synchronously rolled back if the timeout has exceeded.
+                    if (remote.isRolledBackWithTimeoutExceeded()) {
+                        throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                                "Transaction is already finished [tx=" + remote + "].");
+                    }
+
+                    return remote;
                 }
-
-                return remote;
             }
 
             var tx = resources.get(id).get(InternalTransaction.class);
