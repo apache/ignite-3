@@ -481,14 +481,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    // TODO: IGNITE-20347 Update implementation
     public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
-        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+        assert rowId.partitionId() == partitionId : commitWriteInfo(rowId, timestamp, txId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId) : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+            assert rowIsLocked(rowId) : commitWriteInfo(rowId, timestamp, txId);
 
             try {
                 var commitWrite = new CommitWriteInvokeClosure(
@@ -505,17 +504,13 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 CommitResult commitResult = commitWrite.commitResult();
 
-                assert commitResult != null : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+                assert commitResult != null : commitWriteInfo(rowId, timestamp, txId);
 
                 return commitResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException(
-                        "Error while executing commitWrite: [rowId={}, timestamp={}, txId={}, {}]",
-                        e,
-                        rowId, timestamp, txId, createStorageInfo()
-                );
+                throw new StorageException("Error while executing commitWrite: [{}]", e, commitWriteInfo(rowId, timestamp, txId));
             }
         });
     }
@@ -715,6 +710,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public String createStorageInfo() {
         return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
+    }
+
+    /** Creates a string with information about the {@link #commitWrite} for logging and errors. */
+    String commitWriteInfo(RowId rowId, HybridTimestamp timestamp, UUID txId) {
+        return IgniteStringFormatter.format("rowId={}, timestamp={}, txId={}, {}", rowId, timestamp, txId, createStorageInfo());
     }
 
     /**

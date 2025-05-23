@@ -36,7 +36,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
-import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -284,27 +283,34 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    // TODO: IGNITE-20347 Update implementation
     public synchronized CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) {
-        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
 
         checkStorageClosed();
 
-        assert rowIsLocked(rowId) : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
+        CommitResult[] commitResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
-            if (versionChain != null) {
-                if (!versionChain.isWriteIntent()) {
-                    return versionChain;
-                }
+            if (versionChain == null || !versionChain.isWriteIntent()) {
+                commitResult[0] = CommitResult.noWriteIndent();
 
-                return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
+                return versionChain;
+            } else if (!txId.equals(versionChain.txId)) {
+                commitResult[0] = CommitResult.mismatchTx(versionChain.txId);
+
+                return versionChain;
             }
 
-            return null;
+            commitResult[0] = CommitResult.success();
+
+            return resolveCommittedVersionChain(VersionChain.forCommitted(rowId, timestamp, versionChain));
         });
 
-        return new CommitResult(CommitResultStatus.SUCCESS, null);
+        CommitResult res = commitResult[0];
+
+        assert res != null : "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+
+        return res;
     }
 
     @Override

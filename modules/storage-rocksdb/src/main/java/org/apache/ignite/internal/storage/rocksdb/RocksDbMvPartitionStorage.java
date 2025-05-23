@@ -67,7 +67,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
-import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -616,14 +615,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    // TODO: IGNITE-20347 Update implementation
     public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
-        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
+        assert rowId.partitionId() == partitionId : commitWriteInfo(rowId, timestamp, txId);
 
-        busy(() -> {
+        return busy(() -> {
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
-            assert rowIsLocked(rowId) : "rowId=" + rowId + ", ts=" + timestamp + ", txId=" + txId;
+            assert rowIsLocked(rowId) : commitWriteInfo(rowId, timestamp, txId);
 
             byte[] dataIdKey = createCommittedDataIdKey(rowId, timestamp);
 
@@ -635,7 +633,13 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (txState == null) {
                     // The chain doesn't contain an uncommitted write intent.
-                    return null;
+                    return CommitResult.noWriteIndent();
+                }
+
+                UUID rowTxId = txId(ByteBuffer.wrap(txState));
+
+                if (!txId.equals(rowTxId)) {
+                    return CommitResult.mismatchTx(rowTxId);
                 }
 
                 byte[] dataId = copyOf(txState, DATA_ID_SIZE);
@@ -650,7 +654,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 // We only write tombstone if the previous value for the same row id was not a tombstone.
                 // So there won't be consecutive tombstones for the same row id.
                 if (isNewValueTombstone && addResult != AddResult.WAS_VALUE) {
-                    return null;
+                    return CommitResult.success();
                 }
 
                 // Add timestamp to the key, and put the value back into the storage.
@@ -658,13 +662,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 updateEstimatedSize(isNewValueTombstone, addResult);
 
-                return null;
+                return CommitResult.success();
             } catch (RocksDBException e) {
-                throw new IgniteRocksDbException("Failed to commit row into storage", e);
+                throw new IgniteRocksDbException("Failed to commit row into storage: [{}]", e, commitWriteInfo(rowId, timestamp, txId));
             }
         });
-
-        return new CommitResult(CommitResultStatus.SUCCESS, null);
     }
 
     @Override
@@ -1233,6 +1235,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
     }
 
     private static void validateTxId(ByteBuffer dataIdWithTxState, UUID txId) {
+        UUID rowTxId = txId(dataIdWithTxState);
+
+        if (!txId.equals(rowTxId)) {
+            throw new TxIdMismatchException(txId, rowTxId);
+        }
+    }
+
+    private static UUID txId(ByteBuffer dataIdWithTxState) {
         dataIdWithTxState.position(DATA_ID_SIZE);
 
         long msb = dataIdWithTxState.getLong();
@@ -1240,9 +1250,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
         dataIdWithTxState.rewind();
 
-        if (txId.getMostSignificantBits() != msb || txId.getLeastSignificantBits() != lsb) {
-            throw new TxIdMismatchException(txId, new UUID(msb, lsb));
-        }
+        return new UUID(msb, lsb);
     }
 
     /**
@@ -1579,6 +1587,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
      */
     String createStorageInfo() {
         return format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
+    }
+
+    /** Creates a string with information about the {@link #commitWrite} for logging and errors. */
+    String commitWriteInfo(RowId rowId, HybridTimestamp timestamp, UUID txId) {
+        return format("rowId={}, timestamp={}, txId={}, {}", rowId, timestamp, txId, createStorageInfo());
     }
 
     /**

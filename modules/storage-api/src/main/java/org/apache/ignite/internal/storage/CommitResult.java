@@ -17,45 +17,82 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.Objects;
 import java.util.UUID;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/** Description will be here soon. */
-// TODO: IGNITE-20347 Add javadocs
-// TODO: IGNITE-20347 Review usages
+/** Result of {@link MvPartitionStorage#commitWrite commit} of write intent. */
 public class CommitResult {
+    private static final CommitResult SUCCESS_COMMIT_RESULT = new CommitResult(CommitResultStatus.SUCCESS, null);
+
+    private static final CommitResult NO_WRITE_INTENT_COMMIT_RESULT = new CommitResult(CommitResultStatus.NO_WRITE_INTENT, null);
+
     private final CommitResultStatus status;
 
-    private final @Nullable UUID rowTxId;
+    private final @Nullable UUID expectedTxId;
 
-    /** Description will be here soon. */
-    public CommitResult(CommitResultStatus status, @Nullable UUID rowTxId) {
+    /** Constructor. */
+    private CommitResult(CommitResultStatus status, @Nullable UUID expectedTxId) {
         this.status = status;
-        this.rowTxId = rowTxId;
+        this.expectedTxId = expectedTxId;
     }
 
-    /** Description will be here soon. */
+    /** Returns the commit status of a write intent. */
     public CommitResultStatus status() {
         return status;
     }
 
-    /** Description will be here soon. */
-    public @Nullable UUID rowTxId() {
-        return rowTxId;
+    /**
+     * Returns the transaction ID expected to commit the write intent. Transaction that added the write intent is expected to commit it.
+     * Not {@code null} only for {@link CommitResultStatus#MISMATCH_TX}.
+     */
+    public @Nullable UUID expectedTxId() {
+        return expectedTxId;
     }
 
-    /** Description will be here soon. */
-    public static CommitResult noWriteIndent() {
-        return new CommitResult(CommitResultStatus.NO_WRITE_INTENT, null);
-    }
-
-    /** Description will be here soon. */
-    public static CommitResult mismatchTxId(UUID rowTxId) {
-        return new CommitResult(CommitResultStatus.MISMATCH_TX_ID, rowTxId);
-    }
-
-    /** Description will be here soon. */
+    /** Returns result of a successful commit of the write intent. */
     public static CommitResult success() {
-        return new CommitResult(CommitResultStatus.SUCCESS, null);
+        return SUCCESS_COMMIT_RESULT;
+    }
+
+    /** Returns the result if there is no write intent when attempting to commit it. */
+    public static CommitResult noWriteIndent() {
+        return NO_WRITE_INTENT_COMMIT_RESULT;
+    }
+
+    /**
+     * Returns the result when attempting to commit a write intent by a transaction that did not add it.
+     *
+     * @see #expectedTxId()
+     */
+    public static CommitResult mismatchTx(UUID expectedTxId) {
+        return new CommitResult(CommitResultStatus.MISMATCH_TX, expectedTxId);
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        CommitResult that = (CommitResult) o;
+
+        return status == that.status && Objects.equals(expectedTxId, that.expectedTxId);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = status.hashCode();
+        result = 31 * result + (expectedTxId != null ? expectedTxId.hashCode() : 0);
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

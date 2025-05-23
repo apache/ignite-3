@@ -204,6 +204,58 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         assertThat(read(rowId, tsAfter), isRow(binaryRow));
     }
 
+    @Test
+    void testCommitWriteSuccessfully() {
+        RowId rowId = insert(binaryRow, txId);
+
+        assertThat(
+                commitWrite(rowId, clock.now(), txId),
+                equalTo(CommitResult.success())
+        );
+    }
+
+    @Test
+    void testCommitWriteForNotExistingVersionChain() {
+        assertThat(
+                commitWrite(ROW_ID, clock.now(), txId),
+                equalTo(CommitResult.noWriteIndent())
+        );
+    }
+
+    @Test
+    void testWriteCommitForAlreadyCommitWrite() {
+        RowId rowId = insert(binaryRow, txId);
+
+        commitWrite(rowId, clock.now(), txId);
+
+        assertThat(
+                commitWrite(rowId, clock.now(), txId),
+                equalTo(CommitResult.noWriteIndent())
+        );
+    }
+
+    @Test
+    void testWriteCommitForAlreadyCommitWriteAndDifferentTxId() {
+        RowId rowId = insert(binaryRow, txId);
+
+        commitWrite(rowId, clock.now(), txId);
+
+        assertThat(
+                commitWrite(rowId, clock.now(), newTransactionId()),
+                equalTo(CommitResult.noWriteIndent())
+        );
+    }
+
+    @Test
+    void testWriteCommitWithDifferentTxId() {
+        RowId rowId = insert(binaryRow, txId);
+
+        assertThat(
+                commitWrite(rowId, clock.now(), newTransactionId()),
+                equalTo(CommitResult.mismatchTx(txId))
+        );
+    }
+
     /**
      * Tests basic invariants of {@link MvPartitionStorage#scan(HybridTimestamp)}.
      */

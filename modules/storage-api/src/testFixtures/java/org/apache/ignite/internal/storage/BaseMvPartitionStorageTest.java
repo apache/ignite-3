@@ -109,13 +109,11 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Commits write-intent inside of consistency closure.
      */
-    protected void commitWrite(RowId rowId, HybridTimestamp tsExact, UUID txId) {
-        storage.runConsistently(locker -> {
+    protected CommitResult commitWrite(RowId rowId, HybridTimestamp tsExact, UUID txId) {
+        return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.commitWrite(rowId, tsExact, txId);
-
-            return null;
+            return storage.commitWrite(rowId, tsExact, txId);
         });
     }
 

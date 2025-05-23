@@ -39,7 +39,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#commitWrite(RowId, HybridTimestamp)}.
+ * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#commitWrite}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
@@ -137,7 +137,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         } else if (!txId.equals(oldRow.transactionId())) {
             operationType = OperationType.NOOP;
 
-            commitResult = CommitResult.mismatchTxId(oldRow.transactionId());
+            commitResult = CommitResult.mismatchTx(oldRow.transactionId());
 
             return;
         }
@@ -201,11 +201,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             try {
                 freeList.updateDataRow(updateTimestampLink, updateTimestampHandler, timestamp);
             } catch (IgniteInternalCheckedException e) {
-                throw new StorageException(
-                        "Error while update timestamp: [link={}, {}, {}]",
-                        e,
-                        updateTimestampLink, storage.createStorageInfo(), commitWriteInfo()
-                );
+                throw new StorageException("Error while update timestamp: [link={}, {}]", e, updateTimestampLink, commitWriteInfo());
             }
         }
     }
@@ -249,6 +245,6 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     }
 
     private String commitWriteInfo() {
-        return "rowId=" + rowId + ", timestamp=" + timestamp + ", txId=" + txId;
+        return storage.commitWriteInfo(rowId, timestamp, txId);
     }
 }
