@@ -143,11 +143,11 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Aborts write-intent inside of consistency closure.
      */
-    @Nullable BinaryRow abortWrite(RowId rowId, UUID txId) {
+    AbortResult abortWrite(RowId rowId, UUID txId) {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            return storage.abortWrite(rowId, txId).row();
+            return storage.abortWrite(rowId, txId);
         });
     }
 

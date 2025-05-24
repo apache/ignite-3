@@ -18,14 +18,13 @@
 package org.apache.ignite.internal.storage;
 
 /** Description will be here soon. */
-// TODO: IGNITE-20347 Add javadocs
 public enum AbortResultStatus {
-    /** Description will be here soon. */
+    /** Successful abort of write intent. */
     SUCCESS,
 
-    /** Description will be here soon. */
+    /** Write intent is missing in version chain on abort. */
     NO_WRITE_INTENT,
 
-    /** Description will be here soon. */
-    MISMATCH_TX_ID;
+    /** Transaction that added the write intent does not match the transaction that aborts it. */
+    MISMATCH_TX;
 }

@@ -19,36 +19,68 @@ package org.apache.ignite.internal.storage;
 
 import java.util.UUID;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/** Description will be here soon. */
-// TODO: IGNITE-20347 Add javadocs
+/** Result of {@link MvPartitionStorage#abortWrite abort} of write intent. */
 public class AbortResult {
+    private static final AbortResult NO_WRITE_INTENT_ABORT_RESULT = new AbortResult(AbortResultStatus.NO_WRITE_INTENT, null, null);
+
     private final AbortResultStatus status;
 
-    private final @Nullable UUID rowTxId;
+    private final @Nullable UUID expectedTxId;
 
-    private final @Nullable BinaryRow row;
+    private final @Nullable BinaryRow previousUncommittedRowVersion;
 
-    /** Description will be here soon. */
-    public AbortResult(AbortResultStatus status, @Nullable UUID rowTxId, @Nullable BinaryRow row) {
+    /** Constructor. */
+    private AbortResult(AbortResultStatus status, @Nullable UUID expectedTxId, @Nullable BinaryRow previousUncommittedRowVersion) {
         this.status = status;
-        this.rowTxId = rowTxId;
-        this.row = row;
+        this.expectedTxId = expectedTxId;
+        this.previousUncommittedRowVersion = previousUncommittedRowVersion;
     }
 
-    /** Description will be here soon. */
+    /** Returns the abort status of a write intent. */
     public AbortResultStatus status() {
         return status;
     }
 
-    /** Description will be here soon. */
-    public @Nullable UUID rowTxId() {
-        return rowTxId;
+    /**
+     * Returns the transaction ID expected to abort the write intent. Transaction that added the write intent is expected to abort it.
+     * Not {@code null} only for {@link AbortResultStatus#MISMATCH_TX}.
+     */
+    public @Nullable UUID expectedTxId() {
+        return expectedTxId;
     }
 
-    /** Description will be here soon. */
-    public @Nullable BinaryRow row() {
-        return row;
+    /** Returns result of a successful abort of the write intent. */
+    public static AbortResult success(@Nullable BinaryRow previousUncommittedRowVersion) {
+        return new AbortResult(AbortResultStatus.SUCCESS, null, previousUncommittedRowVersion);
+    }
+
+    /**
+     * Returns previous uncommitted row version. Not {@code null} for {@link AbortResultStatus#SUCCESS} and if the previous version is not
+     * a tombstone.
+     */
+    public @Nullable BinaryRow previousUncommittedRowVersion() {
+        return previousUncommittedRowVersion;
+    }
+
+    /** Returns the result if there is no write intent when attempting to abort it. */
+    public static AbortResult noWriteIntent() {
+        return NO_WRITE_INTENT_ABORT_RESULT;
+    }
+
+    /**
+     * Returns the result when attempting to abort a write intent by a transaction that did not add it.
+     *
+     * @see #expectedTxId()
+     */
+    public static AbortResult mismatchTx(UUID expectedTxId) {
+        return new AbortResult(AbortResultStatus.MISMATCH_TX, expectedTxId, null);
+    }
+
+    @Override
+    public String toString() {
+        return S.toString(this);
     }
 }

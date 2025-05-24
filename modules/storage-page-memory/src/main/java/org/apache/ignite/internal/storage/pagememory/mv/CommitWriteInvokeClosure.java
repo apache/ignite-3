@@ -131,7 +131,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
             operationType = OperationType.NOOP;
 
-            commitResult = CommitResult.noWriteIndent();
+            commitResult = CommitResult.noWriteIntent();
 
             return;
         } else if (!txId.equals(oldRow.transactionId())) {

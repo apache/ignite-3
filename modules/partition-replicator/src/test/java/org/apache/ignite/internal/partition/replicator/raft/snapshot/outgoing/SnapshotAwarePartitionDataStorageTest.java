@@ -41,7 +41,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
-import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
@@ -180,10 +179,9 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         UUID txId = UUID.randomUUID();
 
-        // TODO: IGNITE-20347 Review usages
-        when(partitionStorage.abortWrite(any(), any())).thenReturn(new AbortResult(AbortResultStatus.SUCCESS, null, resultRow));
+        when(partitionStorage.abortWrite(any(), any())).thenReturn(AbortResult.success(resultRow));
 
-        assertThat(testedStorage.abortWrite(rowId, txId).row(), is(resultRow));
+        assertThat(testedStorage.abortWrite(rowId, txId).previousUncommittedRowVersion(), is(resultRow));
         verify(partitionStorage).abortWrite(rowId, txId);
     }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.storage;
 
-import java.util.Objects;
 import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
@@ -57,7 +56,7 @@ public class CommitResult {
     }
 
     /** Returns the result if there is no write intent when attempting to commit it. */
-    public static CommitResult noWriteIndent() {
+    public static CommitResult noWriteIntent() {
         return NO_WRITE_INTENT_COMMIT_RESULT;
     }
 
@@ -68,27 +67,6 @@ public class CommitResult {
      */
     public static CommitResult mismatchTx(UUID expectedTxId) {
         return new CommitResult(CommitResultStatus.MISMATCH_TX, expectedTxId);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) {
-            return true;
-        }
-        if (o == null || getClass() != o.getClass()) {
-            return false;
-        }
-
-        CommitResult that = (CommitResult) o;
-
-        return status == that.status && Objects.equals(expectedTxId, that.expectedTxId);
-    }
-
-    @Override
-    public int hashCode() {
-        int result = status.hashCode();
-        result = 31 * result + (expectedTxId != null ? expectedTxId.hashCode() : 0);
-        return result;
     }
 
     @Override

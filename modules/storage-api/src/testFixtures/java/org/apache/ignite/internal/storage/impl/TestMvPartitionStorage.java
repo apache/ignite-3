@@ -34,7 +34,6 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
-import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -261,25 +260,36 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    // TODO: IGNITE-20347 Update implementation
     public synchronized AbortResult abortWrite(RowId rowId, UUID txId) {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", txId=" + txId;
+
         checkStorageClosedOrInProcessOfRebalance();
 
-        BinaryRow[] res = {null};
+        AbortResult[] abortResult = {null};
 
-        map.computeIfPresent(rowId, (ignored, versionChain) -> {
-            if (!versionChain.isWriteIntent()) {
+        map.compute(rowId, (ignored, versionChain) -> {
+            if (versionChain == null || !versionChain.isWriteIntent()) {
+                abortResult[0] = AbortResult.noWriteIntent();
+
+                return versionChain;
+            } else if (!txId.equals(versionChain.txId)) {
+                abortResult[0] = AbortResult.mismatchTx(versionChain.txId);
+
                 return versionChain;
             }
 
-            assert versionChain.ts == null;
+            assert versionChain.ts == null : "rowId=" + rowId + ", txId=" + txId + ", ts=" + versionChain.ts;
 
-            res[0] = versionChain.row;
+            abortResult[0] = AbortResult.success(versionChain.row);
 
             return versionChain.next;
         });
 
-        return new AbortResult(AbortResultStatus.SUCCESS, null, res[0]);
+        AbortResult res = abortResult[0];
+
+        assert res != null : "rowId=" + rowId + ", txId=" + txId;
+
+        return res;
     }
 
     @Override
@@ -292,7 +302,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain == null || !versionChain.isWriteIntent()) {
-                commitResult[0] = CommitResult.noWriteIndent();
+                commitResult[0] = CommitResult.noWriteIntent();
 
                 return versionChain;
             } else if (!txId.equals(versionChain.txId)) {

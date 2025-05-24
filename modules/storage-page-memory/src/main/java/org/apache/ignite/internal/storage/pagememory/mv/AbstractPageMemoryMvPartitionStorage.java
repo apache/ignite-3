@@ -45,7 +45,6 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
-import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -453,31 +452,32 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    // TODO: IGNITE-20347 Update implementation
     public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+        assert rowId.partitionId() == partitionId : abortWriteInfo(rowId, txId);
 
-        BinaryRow row = busy(() -> {
+        return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : abortWriteInfo(rowId, txId);
 
             try {
-                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, this);
+                var abortWrite = new AbortWriteInvokeClosure(rowId, txId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
 
                 abortWrite.afterCompletion();
 
-                return abortWrite.getPreviousUncommittedRowVersion();
+                AbortResult abortResult = abortWrite.abortResult();
+
+                assert abortResult != null : abortWriteInfo(rowId, txId);
+
+                return abortResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException("Error while executing abortWrite: [{}]", e, abortWriteInfo(rowId, txId));
             }
         });
-
-        return new AbortResult(AbortResultStatus.SUCCESS, null, row);
     }
 
     @Override
@@ -715,6 +715,11 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Creates a string with information about the {@link #commitWrite} for logging and errors. */
     String commitWriteInfo(RowId rowId, HybridTimestamp timestamp, UUID txId) {
         return IgniteStringFormatter.format("rowId={}, timestamp={}, txId={}, {}", rowId, timestamp, txId, createStorageInfo());
+    }
+
+    /** Creates a string with information about the {@link #abortWrite} for logging and errors. */
+    String abortWriteInfo(RowId rowId, UUID txId) {
+        return IgniteStringFormatter.format("rowId={}, txId={}, {}", rowId, txId, createStorageInfo());
     }
 
     /**

@@ -195,23 +195,22 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
-     * @param rowId Row id.
-     * @return Previous uncommitted row version associated with the row id.
+     * @param rowId Row ID.
+     * @param txId Transaction ID that abort write intent.
+     * @return Result of abort write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    // TODO: IGNITE-20347 Update javadoc
-    // TODO: IGNITE-20347 Create tests
     AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
+     * @param txId Transaction ID that commit write intent.
+     * @return Result of commit write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    // TODO: IGNITE-20347 Update javadoc
-    // TODO: IGNITE-20347 Create tests
     CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**

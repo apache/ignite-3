@@ -170,12 +170,12 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
      *
-     * @param rowId Row id.
-     * @return Previous uncommitted row version associated with the row id.
+     * @param rowId Row ID.
+     * @param txId Transaction ID that abort write intent.
+     * @return Result of abort write intent.
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#abortWrite
      */
-    // TODO: IGNITE-20347 Update javadoc
     AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
@@ -183,12 +183,13 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
+     * @param txId Transaction ID that commit write intent.
+     * @return Result of commit write intent.
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#commitWrite
      */
-    // TODO: IGNITE-20347 Update javadoc
     CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**
