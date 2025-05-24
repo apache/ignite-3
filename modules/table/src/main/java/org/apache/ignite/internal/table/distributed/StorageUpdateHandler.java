@@ -427,8 +427,6 @@ public class StorageUpdateHandler {
      * @param pendingRowIds Row ids of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
      */
-    // TODO: IGNITE-20347 Review usages
-    // TODO: IGNITE-20347 Change name and description
     private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
         assert commitTimestamp != null : "Commit timestamp is null";
 
@@ -449,7 +447,7 @@ public class StorageUpdateHandler {
             // Without this check it would commit the write intent from a different transaction.
             //
             // This is just a workaround. The proper fix is to check the transaction id for the row in the storage.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
+            // TODO: IGNITE-25477 Get rid of reading from storage
             ReadResult result = storage.getStorage().read(pendingRowId, HybridTimestamp.MAX_VALUE);
             if (result.isWriteIntent() && txId.equals(result.transactionId())) {
                 // In case of an asynchronous cleanup of write intents, we might get into a situation when some of the
@@ -468,7 +466,6 @@ public class StorageUpdateHandler {
      * @param pendingRowIds Row ids of write-intents to be aborted.
      * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
      */
-    // TODO: IGNITE-20347 Review usages
     private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         List<RowId> rowIds = new ArrayList<>();
 
@@ -482,7 +479,7 @@ public class StorageUpdateHandler {
 
                 if (item.isWriteIntent()) {
                     // We are aborting only those write intents that belong to the provided transaction.
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
+                    // TODO: IGNITE-25477 Get rid of reading from storage
                     if (!txId.equals(item.transactionId())) {
                         continue;
                     }
