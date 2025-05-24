@@ -559,7 +559,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
 
             pkStorage.get().put(binaryRow, rowId);
             TEST_MV_PARTITION_STORAGE.addWrite(rowId, binaryRow, txId, TABLE_ID, PART_ID);
-            TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs);
+            TEST_MV_PARTITION_STORAGE.commitWrite(rowId, commitTs, txId);
         }
     }
 

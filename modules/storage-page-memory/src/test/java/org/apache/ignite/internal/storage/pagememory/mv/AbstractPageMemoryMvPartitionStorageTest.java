@@ -75,7 +75,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         RowId rowId = insert(longRow, txId);
 
-        commitWrite(rowId, clock.now());
+        commitWrite(rowId, clock.now(), txId);
 
         BinaryRow foundRow = read(rowId, clock.now());
 
@@ -101,7 +101,7 @@ abstract class AbstractPageMemoryMvPartitionStorageTest extends AbstractMvPartit
 
         RowId rowId = insert(longRow, txId);
 
-        commitWrite(rowId, clock.now());
+        commitWrite(rowId, clock.now(), txId);
 
         try (PartitionTimestampCursor cursor = storage.scan(HybridTimestamp.MAX_VALUE)) {
             BinaryRow foundRow = cursor.next().binaryRow();
