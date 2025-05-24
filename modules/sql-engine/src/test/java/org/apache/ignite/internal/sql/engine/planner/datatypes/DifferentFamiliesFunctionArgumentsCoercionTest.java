@@ -34,8 +34,8 @@ import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
@@ -261,7 +261,7 @@ public class DifferentFamiliesFunctionArgumentsCoercionTest extends BaseTypeCoer
     @MethodSource("nonBinaryTypes")
     public void binaryFunctionWithLiteralValue(NativeType type) {
         Assumptions.assumeTrue(
-                type.spec() != NativeTypeSpec.STRING,
+                type.spec() != ColumnType.STRING,
                 "There is function accepting BINARY STRING but not accepting CHARACTER STRING"
         );
 
@@ -285,7 +285,7 @@ public class DifferentFamiliesFunctionArgumentsCoercionTest extends BaseTypeCoer
     @MethodSource("nonBinaryTypes")
     public void binaryFunctionWithDynParam(NativeType type) {
         Assumptions.assumeTrue(
-                type.spec() != NativeTypeSpec.STRING,
+                type.spec() != ColumnType.STRING,
                 "There is function accepting BINARY STRING but not accepting CHARACTER STRING"
         );
 
@@ -304,7 +304,7 @@ public class DifferentFamiliesFunctionArgumentsCoercionTest extends BaseTypeCoer
     @MethodSource("nonBinaryTypes")
     public void binaryFunctionWithColumn(NativeType type) {
         Assumptions.assumeTrue(
-                type.spec() != NativeTypeSpec.STRING,
+                type.spec() != ColumnType.STRING,
                 "There is function accepting BINARY STRING but not accepting CHARACTER STRING"
         );
 

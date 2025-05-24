@@ -50,7 +50,7 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -191,7 +191,7 @@ public final class PartitionPruningPredicate {
 
                 // TODO: https://issues.apache.org/jira/browse/IGNITE-21543
                 //  Remove after this issue makes it possible to have CAST('uuid_str' AS UUID) as value.
-                if (physicalType.spec() == NativeTypeSpec.UUID && !(node instanceof RexDynamicParam)) {
+                if (physicalType.spec() == ColumnType.UUID && !(node instanceof RexDynamicParam)) {
                     return null;
                 }
 
@@ -223,28 +223,28 @@ public final class PartitionPruningPredicate {
     }
 
     private static @Nullable Object getValueFromLiteral(NativeType physicalType, RexLiteral lit) {
-        if (physicalType.spec() == NativeTypeSpec.DATE) {
+        if (physicalType.spec() == ColumnType.DATE) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
             return LocalDate.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == NativeTypeSpec.TIME) {
+        } else if (physicalType.spec() == ColumnType.TIME) {
             Calendar calendar = lit.getValueAs(Calendar.class);
             Instant instant = calendar.toInstant();
 
             return LocalTime.ofInstant(instant, ZONE_ID_UTC);
-        } else if (physicalType.spec() == NativeTypeSpec.TIMESTAMP) {
+        } else if (physicalType.spec() == ColumnType.TIMESTAMP) {
             TimestampString timestampString = lit.getValueAs(TimestampString.class);
             assert timestampString != null;
 
             return Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
-        } else if (physicalType.spec() == NativeTypeSpec.DATETIME) {
+        } else if (physicalType.spec() == ColumnType.DATETIME) {
             TimestampString timestampString = lit.getValueAs(TimestampString.class);
             assert timestampString != null;
 
             Instant instant = Instant.ofEpochMilli(timestampString.getMillisSinceEpoch());
             return LocalDateTime.ofInstant(instant, ZONE_ID_UTC);
         } else {
-            Class<?> javaClass = NativeTypeSpec.toClass(physicalType.spec(), true);
+            Class<?> javaClass = physicalType.spec().javaClass();
             return lit.getValueAs(javaClass);
         }
     }

@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
-import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
@@ -54,11 +53,9 @@ import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.TxState;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
-import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleHelper;
@@ -93,7 +90,7 @@ public class ClientTableCommon {
 
             packer.packInt(7);
             packer.packString(col.name());
-            packer.packInt(getColumnType(col.type().spec()).id());
+            packer.packInt(col.type().spec().id());
             packer.packInt(col.positionInKey());
             packer.packBoolean(col.nullable());
             packer.packInt(col.positionInColocation());
@@ -158,7 +155,7 @@ public class ClientTableCommon {
                 var col = schema.column(i);
                 Object v = TupleHelper.valueOrDefault(tuple, col.name(), NO_VALUE);
 
-                ClientBinaryTupleUtils.appendValue(builder, getColumnType(col.type().spec()), col.name(), getDecimalScale(col.type()), v);
+                ClientBinaryTupleUtils.appendValue(builder, col.type().spec(), col.name(), getDecimalScale(col.type()), v);
             }
 
             packer.packBinaryTuple(builder);
@@ -466,22 +463,6 @@ public class ClientTableCommon {
         tsTracker.update(currentTs);
 
         return txManager.beginImplicit(tsTracker, readOnly);
-    }
-
-    /**
-     * Gets client type by server type.
-     *
-     * @param spec Type spec.
-     * @return Client type code.
-     */
-    public static ColumnType getColumnType(NativeTypeSpec spec) {
-        ColumnType columnType = spec.asColumnTypeOrNull();
-
-        if (columnType == null) {
-            throw new IgniteException(PROTOCOL_ERR, "Unsupported native type: " + spec);
-        }
-
-        return columnType;
     }
 
     /**

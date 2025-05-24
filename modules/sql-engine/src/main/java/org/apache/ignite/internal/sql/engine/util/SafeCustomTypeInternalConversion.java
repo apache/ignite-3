@@ -20,7 +20,7 @@ package org.apache.ignite.internal.sql.engine.util;
 import java.util.EnumMap;
 import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeSpec;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -31,7 +31,7 @@ final class SafeCustomTypeInternalConversion {
 
     static final SafeCustomTypeInternalConversion INSTANCE = new SafeCustomTypeInternalConversion(Commons.typeFactory());
 
-    private final EnumMap<NativeTypeSpec, Class<?>> internalTypes = new EnumMap<>(NativeTypeSpec.class);
+    private final EnumMap<ColumnType, Class<?>> internalTypes = new EnumMap<>(ColumnType.class);
 
     private SafeCustomTypeInternalConversion(IgniteTypeFactory typeFactory) {
         // IgniteCustomType: We can automatically compute val -> internal type mapping
@@ -44,7 +44,7 @@ final class SafeCustomTypeInternalConversion {
     }
 
     @Nullable
-    Object tryConvertToInternal(Object val, NativeTypeSpec storageType) {
+    Object tryConvertToInternal(Object val, ColumnType storageType) {
         Class<?> internalType = internalTypes.get(storageType);
 
         assert internalType == null || internalType.isInstance(val) : storageTypeMismatch(val, internalType);
@@ -52,7 +52,7 @@ final class SafeCustomTypeInternalConversion {
         return val;
     }
 
-    Object tryConvertFromInternal(Object val, NativeTypeSpec storageType) {
+    Object tryConvertFromInternal(Object val, ColumnType storageType) {
         Class<?> internalType = internalTypes.get(storageType);
 
         assert internalType == null || internalType.isInstance(val) : storageTypeMismatch(val, internalType);

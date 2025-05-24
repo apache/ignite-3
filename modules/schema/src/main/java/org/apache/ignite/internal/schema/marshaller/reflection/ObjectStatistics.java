@@ -27,7 +27,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -78,7 +78,7 @@ class ObjectStatistics {
         for (int i = 0; i < cols.size(); i++) {
             Object val = marsh.value(obj, i);
             Column col = cols.get(i);
-            NativeType colType = col.type();
+            NativeType type = col.type();
 
             if (val == null) {
                 continue;
@@ -86,10 +86,10 @@ class ObjectStatistics {
 
             col.validate(val);
 
-            if (colType.spec().fixedLength()) {
-                estimatedValueSize += colType.sizeInBytes();
+            if (type.fixedLength()) {
+                estimatedValueSize += type.sizeInBytes();
             } else {
-                int valueSize = colType.spec() == NativeTypeSpec.DECIMAL ? DECIMAL_VALUE_ESTIMATED_SIZE : getValueSize(val, colType);
+                int valueSize = type.spec() == ColumnType.DECIMAL ? DECIMAL_VALUE_ESTIMATED_SIZE : getValueSize(val, type);
 
                 exactEstimation = false;
 

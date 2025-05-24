@@ -72,15 +72,16 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViews;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
@@ -150,8 +151,8 @@ public class SystemViewManagerTest extends BaseIgniteAbstractTest {
     }
 
     @ParameterizedTest
-    @EnumSource(NativeTypeSpec.class)
-    public void registerAllColumnTypes(NativeTypeSpec typeSpec) {
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    public void registerAllColumnTypes(ColumnType typeSpec) {
         NativeType type = SchemaTestUtils.specToType(typeSpec);
 
         when(catalog.catalogInitializationFuture()).thenReturn(nullCompletedFuture());

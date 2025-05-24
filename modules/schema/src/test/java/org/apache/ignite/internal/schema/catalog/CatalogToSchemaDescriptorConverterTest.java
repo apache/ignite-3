@@ -36,7 +36,6 @@ import org.apache.ignite.internal.schema.DefaultValueProvider.Type;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -44,6 +43,7 @@ import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.EnumSource.Mode;
 import org.junit.jupiter.params.provider.MethodSource;
 
 /**
@@ -57,14 +57,14 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     private static final int TEST_SCALE = 5;
 
     @ParameterizedTest
-    @EnumSource(NativeTypeSpec.class)
-    public void convertColumnType(NativeTypeSpec typeSpec) {
+    @EnumSource(value = ColumnType.class, names = {"NULL", "PERIOD", "DURATION"}, mode = Mode.EXCLUDE)
+    public void convertColumnType(ColumnType typeSpec) {
         CatalogTableColumnDescriptor columnDescriptor = TestColumnDescriptors.forSpec(typeSpec);
 
         NativeType type = CatalogToSchemaDescriptorConverter.convertType(columnDescriptor);
 
         if (columnDescriptor.type() == ColumnType.BYTE_ARRAY) {
-            assertThat(type.spec(), is(NativeTypeSpec.BYTES));
+            assertThat(type.spec(), is(ColumnType.BYTE_ARRAY));
         } else {
             assertThat(type.spec().name(), equalTo(columnDescriptor.type().name()));
         }
@@ -103,8 +103,8 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
         DefaultValue defaultValue = DefaultValue.functionCall(functionName);
 
         CatalogTableColumnDescriptor columnDescriptor = new CatalogTableColumnDescriptor(
-                NativeTypeSpec.UUID.name(),
-                NativeTypeSpec.UUID.asColumnType(),
+                ColumnType.UUID.name(),
+                ColumnType.UUID,
                 false,
                 TEST_LENGTH,
                 TEST_PRECISION,
@@ -165,8 +165,8 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
     }
 
     private static class TestColumnDescriptors {
-        static CatalogTableColumnDescriptor forSpec(NativeTypeSpec spec) {
-            return new CatalogTableColumnDescriptor(spec.name(), spec.asColumnType(), false, TEST_PRECISION, TEST_SCALE, TEST_LENGTH, null);
+        static CatalogTableColumnDescriptor forSpec(ColumnType spec) {
+            return new CatalogTableColumnDescriptor(spec.name(), spec, false, TEST_PRECISION, TEST_SCALE, TEST_LENGTH, null);
         }
 
         static CatalogTableColumnDescriptor forType(DefaultValueArg arg) {
@@ -182,7 +182,7 @@ public class CatalogToSchemaDescriptorConverterTest extends AbstractSchemaConver
 
             return new CatalogTableColumnDescriptor(
                     type.spec().name(),
-                    type.spec().asColumnType(),
+                    type.spec(),
                     arg.defaultValue == null,
                     precision,
                     scale,

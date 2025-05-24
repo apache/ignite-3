@@ -28,7 +28,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -37,62 +36,46 @@ import java.util.UUID;
 import org.apache.ignite.internal.catalog.commands.CatalogUtils;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.util.ArrayUtils;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Abstract class for schema converter tests.
  */
 public class AbstractSchemaConverterTest extends BaseIgniteAbstractTest {
-    protected static final Map<NativeTypeSpec, List<Object>> DEFAULT_VALUES_TO_TEST;
+    protected static final Map<ColumnType, List<Object>> DEFAULT_VALUES_TO_TEST;
 
     static {
-        var tmp = new HashMap<NativeTypeSpec, List<Object>>();
+        var tmp = new HashMap<ColumnType, List<Object>>();
 
-        tmp.put(NativeTypeSpec.BOOLEAN, Arrays.asList(null, false, true));
-        tmp.put(NativeTypeSpec.INT8, Arrays.asList(null, Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
-        tmp.put(NativeTypeSpec.INT16, Arrays.asList(null, Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
-        tmp.put(NativeTypeSpec.INT32, Arrays.asList(null, Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
-        tmp.put(NativeTypeSpec.INT64, Arrays.asList(null, Long.MIN_VALUE, Long.MAX_VALUE, 14L));
-        tmp.put(NativeTypeSpec.FLOAT, Arrays.asList(null, Float.MIN_VALUE, Float.MAX_VALUE, Float.NaN,
+        tmp.put(ColumnType.BOOLEAN, Arrays.asList(null, false, true));
+        tmp.put(ColumnType.INT8, Arrays.asList(null, Byte.MIN_VALUE, Byte.MAX_VALUE, (byte) 14));
+        tmp.put(ColumnType.INT16, Arrays.asList(null, Short.MIN_VALUE, Short.MAX_VALUE, (short) 14));
+        tmp.put(ColumnType.INT32, Arrays.asList(null, Integer.MIN_VALUE, Integer.MAX_VALUE, 14));
+        tmp.put(ColumnType.INT64, Arrays.asList(null, Long.MIN_VALUE, Long.MAX_VALUE, 14L));
+        tmp.put(ColumnType.FLOAT, Arrays.asList(null, Float.MIN_VALUE, Float.MAX_VALUE, Float.NaN,
                 Float.NEGATIVE_INFINITY, Float.POSITIVE_INFINITY, 14.14f));
-        tmp.put(NativeTypeSpec.DOUBLE, Arrays.asList(null, Double.MIN_VALUE, Double.MAX_VALUE, Double.NaN,
+        tmp.put(ColumnType.DOUBLE, Arrays.asList(null, Double.MIN_VALUE, Double.MAX_VALUE, Double.NaN,
                 Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, 14.14));
-        tmp.put(NativeTypeSpec.DECIMAL, Arrays.asList(null, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.valueOf(Long.MIN_VALUE),
+        tmp.put(ColumnType.DECIMAL, Arrays.asList(null, BigDecimal.ONE, BigDecimal.ZERO, BigDecimal.valueOf(Long.MIN_VALUE),
                 BigDecimal.valueOf(Long.MAX_VALUE), new BigDecimal("10000000000000000000000000000000000000")));
-        tmp.put(NativeTypeSpec.DATE, Arrays.asList(null, LocalDate.MIN, LocalDate.MAX, LocalDate.EPOCH, LocalDate.now()));
-        tmp.put(NativeTypeSpec.TIME, Arrays.asList(null, LocalTime.MIN, LocalTime.MAX, LocalTime.MIDNIGHT,
+        tmp.put(ColumnType.DATE, Arrays.asList(null, LocalDate.MIN, LocalDate.MAX, LocalDate.EPOCH, LocalDate.now()));
+        tmp.put(ColumnType.TIME, Arrays.asList(null, LocalTime.MIN, LocalTime.MAX, LocalTime.MIDNIGHT,
                 LocalTime.NOON, LocalTime.now()));
-        tmp.put(NativeTypeSpec.DATETIME, Arrays.asList(null, LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
-        tmp.put(NativeTypeSpec.TIMESTAMP, Arrays.asList(null, Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
-        tmp.put(NativeTypeSpec.UUID, Arrays.asList(null, UUID.randomUUID()));
-        tmp.put(NativeTypeSpec.STRING, Arrays.asList(null, "", UUID.randomUUID().toString()));
-        tmp.put(NativeTypeSpec.BYTES, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY,
+        tmp.put(ColumnType.DATETIME, Arrays.asList(null, LocalDateTime.MIN, LocalDateTime.MAX, LocalDateTime.now()));
+        tmp.put(ColumnType.TIMESTAMP, Arrays.asList(null, Instant.MIN, Instant.MAX, Instant.EPOCH, Instant.now()));
+        tmp.put(ColumnType.UUID, Arrays.asList(null, UUID.randomUUID()));
+        tmp.put(ColumnType.STRING, Arrays.asList(null, "", UUID.randomUUID().toString()));
+        tmp.put(ColumnType.BYTE_ARRAY, Arrays.asList(null, ArrayUtils.BYTE_EMPTY_ARRAY,
                 UUID.randomUUID().toString().getBytes(StandardCharsets.UTF_8)));
 
-        var missedTypes = new HashSet<>(Arrays.asList(NativeTypeSpec.values()));
+        var missedTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         missedTypes.removeAll(tmp.keySet());
 
         assertThat(missedTypes, empty());
 
         DEFAULT_VALUES_TO_TEST = Map.copyOf(tmp);
-    }
-
-    /** Creates a bit set from binary string. */
-    private static BitSet fromBinString(String binString) {
-        var bs = new BitSet();
-
-        var idx = 0;
-        for (var c : binString.toCharArray()) {
-            if (c == '1') {
-                bs.set(idx);
-            }
-
-            idx++;
-        }
-
-        return bs;
     }
 
     /**

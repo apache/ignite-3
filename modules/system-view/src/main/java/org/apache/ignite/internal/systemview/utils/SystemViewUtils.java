@@ -32,7 +32,6 @@ import org.apache.ignite.internal.systemview.api.SystemView;
 import org.apache.ignite.internal.systemview.api.SystemViewColumn;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -114,11 +113,11 @@ public class SystemViewUtils {
     private static ColumnParams systemViewColumnToColumnParams(SystemViewColumn<?, ?> column) {
         NativeType type = column.type();
 
-        NativeTypeSpec typeSpec = type.spec();
+        ColumnType typeSpec = type.spec();
 
         Builder builder = ColumnParams.builder()
                 .name(column.name())
-                .type(typeSpec.asColumnType())
+                .type(typeSpec)
                 .nullable(true);
 
         switch (typeSpec) {
@@ -139,7 +138,7 @@ public class SystemViewUtils {
                 builder.scale(((DecimalNativeType) type).scale());
                 break;
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
 
                 builder.length(((VarlenNativeType) type).length());

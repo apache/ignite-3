@@ -100,6 +100,7 @@ public enum ColumnType {
 
     private final int id;
 
+    /** Cached array with all enum values. */
     private static final ColumnType[] VALS;
 
     static {
@@ -150,7 +151,7 @@ public enum ColumnType {
         return id;
     }
 
-    /** Returns corresponding {@code ColumnType} by given id, {@code null} for unknown id. */
+    /** Returns the {@link ColumnType} instance by its id, or {@code null} if the id is invalid. */
     public static @Nullable ColumnType getById(int id) {
         return id >= 0 && id < VALS.length ? VALS[id] : null;
     }

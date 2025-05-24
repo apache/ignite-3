@@ -143,7 +143,6 @@ import org.apache.ignite.internal.thread.NamedThreadFactory;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -156,6 +155,7 @@ import org.apache.ignite.internal.util.subscription.TransformingPublisher;
 import org.apache.ignite.lang.ErrorGroups.Sql;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 
@@ -1629,11 +1629,11 @@ public class TestBuilders {
     }
 
     private static ColumnParams columnParams(String name, NativeType type, boolean nullable, @Nullable Object defaultValue) {
-        NativeTypeSpec typeSpec = type.spec();
+        ColumnType typeSpec = type.spec();
 
         Builder builder = ColumnParams.builder()
                 .name(name)
-                .type(typeSpec.asColumnType())
+                .type(typeSpec)
                 .nullable(nullable)
                 .defaultValue(DefaultValue.constant(defaultValue));
 
@@ -1655,7 +1655,7 @@ public class TestBuilders {
                 builder.scale(((DecimalNativeType) type).scale());
                 break;
             case STRING:
-            case BYTES:
+            case BYTE_ARRAY:
                 assert type instanceof VarlenNativeType : type.getClass().getCanonicalName();
 
                 builder.length(((VarlenNativeType) type).length());

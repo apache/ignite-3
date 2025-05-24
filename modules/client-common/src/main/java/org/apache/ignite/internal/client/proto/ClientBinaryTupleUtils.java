@@ -31,7 +31,6 @@ import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.IgniteException;
@@ -280,13 +279,12 @@ public class ClientBinaryTupleUtils {
                         e);
             }
 
-            NativeTypeSpec actualType = nativeType.spec();
-            NativeTypeSpec expectedType = NativeTypeSpec.fromColumnType(type);
+            ColumnType actualType = nativeType.spec();
 
             // Exception message is similar to embedded mode - see o.a.i.i.schema.Column#validate
             String error = format(
                     "Value type does not match [column='{}', expected={}, actual={}]",
-                    name, expectedType.name(), actualType.name()
+                    name, type.name(), actualType.name()
             );
 
             throw new IgniteException(PROTOCOL_ERR, error, e);

@@ -71,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteCustomTypeCoercionRules;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
@@ -271,17 +270,14 @@ public class TypeUtils {
                                                             ? SqlFunctions.toDouble(num) :
                                                             BigDecimal.class.equals(storageType) ? SqlFunctions.toBigDecimal(num) : num;
         } else {
-            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
-            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
-
-            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertToInternal(val, nativeTypeSpec);
+            return val;
         }
     }
 
     /**
      * Converts the given value to its presentation used by the execution engine.
      */
-    public static Object toInternal(Object val, NativeTypeSpec spec) {
+    public static Object toInternal(Object val, ColumnType spec) {
         switch (spec) {
             case INT8: {
                 assert val instanceof Byte : val.getClass();
@@ -319,7 +315,7 @@ public class TypeUtils {
                 assert val instanceof String : val.getClass();
                 return val;
             }
-            case BYTES: {
+            case BYTE_ARRAY: {
                 if (val instanceof String) {
                     return new ByteString(((String) val).getBytes(StandardCharsets.UTF_8));
                 } else if (val instanceof byte[]) {
@@ -386,17 +382,14 @@ public class TypeUtils {
         } else if (storageType == byte[].class && val instanceof ByteString) {
             return ((ByteString) val).getBytes();
         } else {
-            var nativeTypeSpec = NativeTypeSpec.fromClass((Class<?>) storageType);
-            assert nativeTypeSpec != null : "No native type spec for type: " + storageType;
-
-            return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, nativeTypeSpec);
+            return val;
         }
     }
 
     /**
      * Converts the value from its presentation used by the execution engine.
      */
-    public static Object fromInternal(Object val, NativeTypeSpec spec) {
+    public static Object fromInternal(Object val, ColumnType spec) {
         switch (spec) {
             case INT8:
             case INT16:
@@ -408,7 +401,7 @@ public class TypeUtils {
             case UUID:
             case STRING:
                 return val;
-            case BYTES:
+            case BYTE_ARRAY:
                 return ((ByteString) val).getBytes();
             case DATE:
                 return LocalDate.ofEpochDay((Integer) val);
@@ -541,7 +534,7 @@ public class TypeUtils {
 
                 return factory.createSqlType(SqlTypeName.VARCHAR, varlen.length());
             }
-            case BYTES: {
+            case BYTE_ARRAY: {
                 assert nativeType instanceof VarlenNativeType;
 
                 var varlen = (VarlenNativeType) nativeType;
