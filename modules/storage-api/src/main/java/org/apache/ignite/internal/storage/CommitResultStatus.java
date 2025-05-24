@@ -22,9 +22,9 @@ public enum CommitResultStatus {
     /** Successful commit of write intent. */
     SUCCESS,
 
-    /** Write intent is missing in version chain on commit. */
+    /** Failed to commit write intent because it is not in the version chain. */
     NO_WRITE_INTENT,
 
-    /** Transaction that added the write intent does not match the transaction that commits it. */
+    /** Failed to commit write intent because transaction that added it does not match transaction that try commits it. */
     MISMATCH_TX;
 }

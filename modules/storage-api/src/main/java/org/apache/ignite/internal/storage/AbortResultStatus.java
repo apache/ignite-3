@@ -22,9 +22,9 @@ public enum AbortResultStatus {
     /** Successful abort of write intent. */
     SUCCESS,
 
-    /** Write intent is missing in version chain on abort. */
+    /** Failed to abort write intent because it is not in version chain. */
     NO_WRITE_INTENT,
 
-    /** Transaction that added the write intent does not match the transaction that aborts it. */
+    /** Failed to abort write intent because transaction that added it does not match transaction that try aborts it. */
     MISMATCH_TX;
 }

@@ -71,7 +71,7 @@ public class AbortResult {
     }
 
     /**
-     * Returns the result when attempting to abort a write intent by a transaction that did not add it.
+     * Returns the result of a failed attempt to abort a write intent by a transaction that did not add it.
      *
      * @see #expectedTxId()
      */

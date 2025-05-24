@@ -61,7 +61,7 @@ public class CommitResult {
     }
 
     /**
-     * Returns the result when attempting to commit a write intent by a transaction that did not add it.
+     * Returns the result of a failed attempt to commit a write intent by a transaction that did not add it.
      *
      * @see #expectedTxId()
      */
