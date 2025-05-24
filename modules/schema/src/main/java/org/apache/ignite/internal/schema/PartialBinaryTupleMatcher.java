@@ -18,14 +18,16 @@
 package org.apache.ignite.internal.schema;
 
 import static org.apache.ignite.internal.binarytuple.BinaryTupleCommon.PREFIX_FLAG;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsBytes;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsString;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsTimestamp;
+import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareAsUuid;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.compareFieldValue;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.equalityFlag;
 import static org.apache.ignite.internal.schema.BinaryTupleComparatorUtils.isFlagSet;
 
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
@@ -144,32 +146,27 @@ public class PartialBinaryTupleMatcher {
         return collation.asc() ? res : -res;
     }
 
-    private static int compareFieldValuePartially(
+    private int compareFieldValuePartially(
             NativeTypeSpec typeSpec,
             BinaryTupleReader partialTuple,
             BinaryTupleReader tuple2,
             int index
     ) {
         switch (typeSpec) {
-            case BYTES: {
-                partialTuple.seek(index);
+            case BYTES:
+                return compareAsBytes(partialTuple, tuple2, index);
 
-                int begin = partialTuple.begin();
-                int end = partialTuple.end();
-                int trimmedSize = Math.min(end - begin, partialTuple.byteBuffer().capacity() - begin);
+            case UUID:
+                return compareAsUuid(partialTuple, tuple2, index);
 
-                byte[] part = partialTuple.bytesValue(begin, begin + trimmedSize);
+            case STRING:
+                return compareAsString(partialTuple, tuple2, index, false);
 
-                byte[] cmp = getTrimmedBytes(tuple2, index, part.length);
+            case TIMESTAMP:
+                return compareAsTimestamp(partialTuple, tuple2, index);
 
-                return Arrays.compareUnsigned(part, cmp);
-            }
-            case STRING: {
-                return compareAsString(partialTuple, index, tuple2.stringValue(index), false);
-            }
-            default: {
+            default:
                 return 0;
-            }
         }
     }
 
