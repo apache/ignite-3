@@ -35,7 +35,9 @@ import org.apache.ignite.catalog.annotations.Id;
 import org.apache.ignite.catalog.annotations.Index;
 import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.catalog.annotations.Zone;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
     private CreateZoneImpl createZone;
@@ -44,7 +46,7 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
 
     private CreateTableImpl createTable;
 
-    private String tableName;
+    private QualifiedName tableName;
 
     private IndexType pkType;
 
@@ -99,7 +101,11 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
         if (table != null) {
             String tableName = table.value().isEmpty() ? clazz.getSimpleName() : table.value();
             createTable.name(table.schemaName(), tableName);
-            this.tableName = tableName;
+
+            this.tableName = QualifiedName.of(
+                    IgniteNameUtils.parseAndNormalize(table.schemaName()),
+                    IgniteNameUtils.parseAndNormalize(tableName)
+            );
 
             processZone(table);
             processTable(table);

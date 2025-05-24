@@ -26,6 +26,8 @@ import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.catalog.annotations.Table;
+import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -34,7 +36,9 @@ import org.jetbrains.annotations.Nullable;
 public class TableDefinition {
     private final String tableName;
 
-    private final String schemaName;
+    private final @Nullable String schemaName;
+
+    private final QualifiedName qualifiedName;
 
     private final boolean ifNotExists;
 
@@ -56,7 +60,7 @@ public class TableDefinition {
 
     private TableDefinition(
             String tableName,
-            String schemaName,
+            @Nullable String schemaName,
             boolean ifNotExists,
             List<ColumnDefinition> columns,
             IndexType pkType,
@@ -78,6 +82,16 @@ public class TableDefinition {
         this.keyClass = keyClass;
         this.valueClass = valueClass;
         this.indexes = indexes;
+
+        if (schemaName == null) {
+            qualifiedName = QualifiedName.of(QualifiedName.DEFAULT_SCHEMA_NAME,
+                    IgniteNameUtils.parseAndNormalize(tableName));
+        } else {
+            qualifiedName = QualifiedName.of(
+                    IgniteNameUtils.parseAndNormalize(schemaName),
+                    IgniteNameUtils.parseAndNormalize(tableName)
+            );
+        }
     }
 
     /**
@@ -106,6 +120,15 @@ public class TableDefinition {
      */
     public @Nullable String schemaName() {
         return schemaName;
+    }
+
+    /**
+     * Returns qualified name.
+     *
+     * @return Qualified name.
+     */
+    public QualifiedName qualifiedName() {
+        return qualifiedName;
     }
 
     /**

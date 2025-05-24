@@ -19,6 +19,7 @@ package org.apache.ignite.lang.util;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.NoSuchElementException;
 import java.util.Objects;
 import org.jetbrains.annotations.Nullable;
@@ -129,6 +130,26 @@ public final class IgniteNameUtils {
         }
 
         return true;
+    }
+
+    /**
+     * Parses the given identifier string to a normalized identifier form - a becomes A, A table becomes "A table",
+     * quoted identifiers and uppercase identifiers remain unchanged.
+     *
+     * @param identifier Identifier.
+     *
+     * @return Normalized identifier.
+     */
+    public static String parseAndNormalize(String identifier) {
+        ensureNotNullAndNotEmpty(identifier, "identifier");
+
+        if (isValidNormalizedIdentifier(identifier)) {
+            return identifier.toUpperCase(Locale.US);
+        } else if (identifier.startsWith("\"") && identifier.endsWith("\"")) {
+            return identifier;
+        } else {
+            return quoteIfNeeded(identifier);
+        }
     }
 
     /** An {@code identifier start} is any character in the Unicode General Category classes "Lu", "Ll", "Lt", "Lm", "Lo", or "Nl". */
