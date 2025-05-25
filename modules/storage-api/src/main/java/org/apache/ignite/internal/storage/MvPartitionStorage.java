@@ -201,6 +201,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
 
+    /** Will be removed soon. */
+    // TODO: IGNITE-25477 Get rid of it
+    default AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
+        BinaryRow row = abortWrite(rowId);
+
+        return new AbortResult(AbortResultStatus.SUCCESS, null, row);
+    }
+
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *

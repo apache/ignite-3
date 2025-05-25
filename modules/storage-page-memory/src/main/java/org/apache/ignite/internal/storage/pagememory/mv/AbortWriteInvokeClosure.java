@@ -20,11 +20,14 @@ package org.apache.ignite.internal.storage.pagememory.mv;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.ALWAYS_LOAD_VALUE;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
+import java.util.UUID;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
@@ -40,6 +43,8 @@ import org.jetbrains.annotations.Nullable;
 class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
     private final RowId rowId;
 
+    private final @Nullable UUID txId;
+
     private final AbstractPageMemoryMvPartitionStorage storage;
 
     private OperationType operationType;
@@ -50,8 +55,11 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable BinaryRow previousUncommittedRowVersion;
 
-    AbortWriteInvokeClosure(RowId rowId, AbstractPageMemoryMvPartitionStorage storage) {
+    private AbortResult abortResult;
+
+    AbortWriteInvokeClosure(RowId rowId, @Nullable UUID txId, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
+        this.txId = txId;
         this.storage = storage;
     }
 
@@ -60,6 +68,16 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (oldRow == null || oldRow.transactionId() == null) {
             // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
             operationType = OperationType.NOOP;
+
+            abortResult = new AbortResult(AbortResultStatus.NO_WRITE_INTENT, null, null);
+
+            return;
+        }
+
+        if (txId != null && !txId.equals(oldRow.transactionId())) {
+            operationType = OperationType.NOOP;
+
+            abortResult = new AbortResult(AbortResultStatus.MISMATCH_TX, oldRow.transactionId(), null);
 
             return;
         }
@@ -82,6 +100,8 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         previousUncommittedRowVersion = latestVersion.value();
+
+        abortResult = new AbortResult(AbortResultStatus.SUCCESS, null, previousUncommittedRowVersion);
     }
 
     @Override
@@ -114,5 +134,9 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
         }
+    }
+
+    AbortResult abortResult() {
+        return abortResult;
     }
 }

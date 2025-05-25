@@ -44,6 +44,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -460,13 +461,38 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId);
 
             try {
-                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, this);
+                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, null, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
 
                 abortWrite.afterCompletion();
 
                 return abortWrite.getPreviousUncommittedRowVersion();
+            } catch (IgniteInternalCheckedException e) {
+                throwStorageExceptionIfItCause(e);
+
+                throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+            }
+        });
+    }
+
+    @Override
+    public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
+        assert rowId.partitionId() == partitionId : rowId;
+
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableState();
+
+            assert rowIsLocked(rowId);
+
+            try {
+                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, txId, this);
+
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
+
+                abortWrite.afterCompletion();
+
+                return abortWrite.abortResult();
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
@@ -497,7 +523,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 commitWrite.afterCompletion();
 
-                return commitWrite.commitResult();
+                return null;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
@@ -528,7 +554,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 commitWrite.afterCompletion();
 
-                return null;
+                return commitWrite.commitResult();
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
