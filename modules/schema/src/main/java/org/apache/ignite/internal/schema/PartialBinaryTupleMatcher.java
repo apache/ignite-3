@@ -31,6 +31,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
 import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.type.NativeTypeSpec;
 
@@ -138,13 +139,15 @@ public class PartialBinaryTupleMatcher {
         NativeType nativeType = columnTypes.get(colIdx);
 
         int res = readability == Readability.READABLE
-                ? compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx)
+                ? compareFieldValue(nativeType.spec(), tuple1, tuple2, colIdx, useBuffer)
                 : compareFieldValuePartially(nativeType.spec(), tuple1, tuple2, colIdx);
 
         return collation.asc() ? res : -res;
     }
 
-    private static int compareFieldValuePartially(
+    private boolean useBuffer = IgniteSystemProperties.getBoolean("IGNITE_USE_BUFFER", true);
+
+    private int compareFieldValuePartially(
             NativeTypeSpec typeSpec,
             BinaryTupleReader partialTuple,
             BinaryTupleReader tuple2,
@@ -152,6 +155,10 @@ public class PartialBinaryTupleMatcher {
     ) {
         switch (typeSpec) {
             case BYTES: {
+                if (useBuffer) {
+                    return BinaryTupleComparatorUtilsWithoutCopy.compareAsBytes(partialTuple, tuple2, index);
+                }
+
                 partialTuple.seek(index);
 
                 int begin = partialTuple.begin();
@@ -165,7 +172,8 @@ public class PartialBinaryTupleMatcher {
                 return Arrays.compareUnsigned(part, cmp);
             }
             case STRING: {
-                return compareAsString(partialTuple, index, tuple2.stringValue(index), false);
+                return useBuffer ? BinaryTupleComparatorUtilsWithoutCopy.compareAsString(partialTuple, tuple2, index, false) :
+                        compareAsString(partialTuple, index, tuple2.stringValue(index), false);
             }
             default: {
                 return 0;
