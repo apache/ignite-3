@@ -33,6 +33,8 @@ import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.configuration.ReplicationConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AbortResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
@@ -328,7 +330,7 @@ public class StorageUpdateHandler {
                     // So if we got up to here, it means that the previous transaction was aborted,
                     // but the storage was not cleaned after it.
                     // Action: abort this write intent.
-                    performAbortWrite(item.transactionId(), Set.of(rowId), indexIds);
+                    performAbortWriteWithCheckMatchingTxs(item.transactionId(), Set.of(rowId), indexIds);
                 }
             }
         }
@@ -411,7 +413,7 @@ public class StorageUpdateHandler {
                 if (commit) {
                     performCommitWriteWithCheckMatchingTxs(txId, pendingRowIds, commitTimestamp);
                 } else {
-                    performAbortWrite(txId, pendingRowIds, indexIds);
+                    performAbortWriteWithCheckMatchingTxs(txId, pendingRowIds, indexIds);
                 }
 
                 if (onApplication != null) {
@@ -424,7 +426,9 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Commits write intents created by the provided transaction. Transaction that created write intent is expected to commit it.
+     * Commits write intents created by the provided transaction.
+     *
+     * <p>Transaction that created write intent is expected to commit it.</p>
      *
      * @param txId Transaction ID.
      * @param pendingRowIds Row IDs of write-intents to be committed.
@@ -445,43 +449,36 @@ public class StorageUpdateHandler {
     }
 
     /**
-     * Abort write intents created by the provided transaction.
+     * Aborts write intents created by the provided transaction.
      *
-     * @param txId Transaction id
-     * @param pendingRowIds Row ids of write-intents to be aborted.
+     * <p>Transaction that created write intent is expected to abort it.</p>
+     *
+     * @param txId Transaction ID.
+     * @param pendingRowIds Row IDs of write-intents to be aborted.
      * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
+     * @throws TxIdMismatchException If abort of write intent is performed by a transaction that did not create it.
      */
-    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
-        List<RowId> rowIds = new ArrayList<>();
-
+    private void performAbortWriteWithCheckMatchingTxs(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         for (RowId rowId : pendingRowIds) {
+            AbortResult abortResult = storage.abortWrite(rowId, txId);
+
+            if (abortResult.status() == AbortResultStatus.MISMATCH_TX) {
+                throw new TxIdMismatchException(abortResult.expectedTxId(), txId);
+            }
+
+            if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.getPreviousUncommittedRowVersion() == null) {
+                continue;
+            }
+
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-                if (!cursor.hasNext()) {
-                    continue;
-                }
-
-                ReadResult item = cursor.next();
-
-                if (item.isWriteIntent()) {
-                    // We are aborting only those write intents that belong to the provided transaction.
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
-                    if (!txId.equals(item.transactionId())) {
-                        continue;
-                    }
-                    rowIds.add(rowId);
-
-                    BinaryRow rowToRemove = item.binaryRow();
-
-                    if (rowToRemove == null) {
-                        continue;
-                    }
-
-                    indexUpdateHandler.tryRemoveFromIndexes(rowToRemove, rowId, cursor, indexIds);
-                }
+                indexUpdateHandler.tryRemoveFromIndexes(
+                        abortResult.getPreviousUncommittedRowVersion(),
+                        rowId,
+                        storage.scanVersions(rowId),
+                        indexIds
+                );
             }
         }
-
-        rowIds.forEach(storage::abortWrite);
     }
 
     /** Returns partition index update handler. */
