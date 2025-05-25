@@ -23,6 +23,8 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
+import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -186,6 +188,14 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @see MvPartitionStorage#commitWrite(RowId, HybridTimestamp)
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+
+    /** Will be removed soon. */
+    // TODO: IGNITE-25477 Get rid of it
+    default CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        commitWrite(rowId, timestamp);
+
+        return new CommitResult(CommitResultStatus.SUCCESS, null);
+    }
 
     /**
      * Scans all versions of a single row.

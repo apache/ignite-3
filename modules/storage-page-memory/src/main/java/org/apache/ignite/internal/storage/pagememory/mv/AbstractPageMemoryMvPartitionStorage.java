@@ -44,6 +44,7 @@ import org.apache.ignite.internal.pagememory.tree.BplusTree.TreeRowMapClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -487,6 +488,38 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(
                         rowId,
                         timestamp,
+                        null,
+                        updateTimestampHandler,
+                        this
+                );
+
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
+
+                commitWrite.afterCompletion();
+
+                return commitWrite.commitResult();
+            } catch (IgniteInternalCheckedException e) {
+                throwStorageExceptionIfItCause(e);
+
+                throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+            }
+        });
+    }
+
+    @Override
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        assert rowId.partitionId() == partitionId : rowId;
+
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            assert rowIsLocked(rowId);
+
+            try {
+                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(
+                        rowId,
+                        timestamp,
+                        txId,
                         updateTimestampHandler,
                         this
                 );

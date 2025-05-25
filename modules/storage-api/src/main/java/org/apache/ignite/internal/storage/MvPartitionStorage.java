@@ -210,6 +210,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
 
+    /** Will be removed soon. */
+    // TODO: IGNITE-25477 Get rid of it
+    default CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        commitWrite(rowId, timestamp);
+
+        return new CommitResult(CommitResultStatus.SUCCESS, null);
+    }
+
     /**
      * Creates a committed version.
      * In details:

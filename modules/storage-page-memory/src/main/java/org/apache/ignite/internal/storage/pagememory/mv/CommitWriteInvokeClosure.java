@@ -21,6 +21,7 @@ import static org.apache.ignite.internal.pagememory.util.PageIdUtils.NULL_LINK;
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 import static org.apache.ignite.internal.util.GridUnsafe.pageSize;
 
+import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.freelist.FreeList;
@@ -31,6 +32,8 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.util.PageHandler;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
+import org.apache.ignite.internal.storage.CommitResult;
+import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -47,6 +50,8 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     private final RowId rowId;
 
     private final HybridTimestamp timestamp;
+
+    private final @Nullable UUID txId;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
@@ -78,14 +83,18 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
     @Nullable
     private RowVersion prevRowVersion;
 
+    private CommitResult commitResult;
+
     CommitWriteInvokeClosure(
             RowId rowId,
             HybridTimestamp timestamp,
+            @Nullable UUID txId,
             UpdateTimestampHandler updateTimestampHandler,
             AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
         this.timestamp = timestamp;
+        this.txId = txId;
         this.storage = storage;
         this.updateTimestampHandler = updateTimestampHandler;
 
@@ -123,8 +132,20 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
             // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
             operationType = OperationType.NOOP;
 
+            commitResult = new CommitResult(CommitResultStatus.NO_WRITE_INTENT, null);
+
             return;
         }
+
+        if (txId != null && !txId.equals(oldRow.transactionId())) {
+            operationType = OperationType.NOOP;
+
+            commitResult = new CommitResult(CommitResultStatus.MISMATCH_TX, oldRow.transactionId());
+
+            return;
+        }
+
+        commitResult = new CommitResult(CommitResultStatus.SUCCESS, null);
 
         operationType = OperationType.PUT;
 
@@ -221,5 +242,9 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
                 }
             }
         }
+    }
+
+    CommitResult commitResult() {
+        return commitResult;
     }
 }

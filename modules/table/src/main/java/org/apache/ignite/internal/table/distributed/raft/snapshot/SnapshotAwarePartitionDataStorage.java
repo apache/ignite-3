@@ -29,6 +29,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.outgoing.Pa
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -160,6 +161,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
         handleSnapshotInterference(rowId);
 
         partitionStorage.commitWrite(rowId, timestamp);
+    }
+
+    @Override
+    public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
+        return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
     @Override
