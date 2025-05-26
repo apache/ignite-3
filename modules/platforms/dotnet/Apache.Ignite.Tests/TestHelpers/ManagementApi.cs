@@ -90,8 +90,13 @@ public static class ManagementApi
                 .StringJoin();
     }
 
-    public static async Task UnitUndeploy(DeploymentUnit unit)
+    public static async Task UnitUndeploy(DeploymentUnit? unit)
     {
+        if (unit == null)
+        {
+            return;
+        }
+
         using var client = new HttpClient();
         await client.DeleteAsync(GetUnitUrl(unit.Name, unit.Version).Uri);
     }

@@ -26,14 +26,14 @@ using Ignite.Compute;
 using NUnit.Framework;
 using TestHelpers;
 
-public class PlatformComputeCompatibilityTests
+public class PlatformComputeCompatibilityTests : IgniteTestsBase
 {
     private const string JobAssemblyName = nameof(PlatformComputeCompatibilityTests);
 
     private DeploymentUnit _unit;
 
     [OneTimeSetUp]
-    public async Task OneTimeSetUp()
+    public async Task UnitDeploy()
     {
         using var igniteBuildDir = new TempDir();
         using var jobBuildDir = new TempDir();
@@ -50,7 +50,7 @@ public class PlatformComputeCompatibilityTests
     }
 
     [OneTimeTearDown]
-    public async Task OneTimeTearDown() => await ManagementApi.UnitUndeploy(_unit);
+    public async Task UnitUndeploy() => await ManagementApi.UnitUndeploy(_unit);
 
     [Test]
     public async Task TestDotNetJobCompiledAgainstNewIgniteVersion()
