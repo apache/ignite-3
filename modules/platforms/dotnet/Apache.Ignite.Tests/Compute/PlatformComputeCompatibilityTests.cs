@@ -101,10 +101,10 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
                 ArgumentList =
                 {
                     "publish",
-                    "--no-restore",
                     "-c", "Release",
                     "-o", targetPath,
                     "/p:Version=" + version,
+                    "/p:VersionSuffix=" + version
                 },
                 CreateNoWindow = true,
                 UseShellExecute = false,
