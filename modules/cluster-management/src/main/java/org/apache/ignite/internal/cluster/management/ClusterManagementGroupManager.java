@@ -46,6 +46,7 @@ import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalStat
 import org.apache.ignite.internal.cluster.management.events.BeforeStartRaftGroupEventParameters;
 import org.apache.ignite.internal.cluster.management.events.ClusterManagerGroupEvent;
 import org.apache.ignite.internal.cluster.management.events.EmptyEventParameters;
+import org.apache.ignite.internal.cluster.management.metrics.TopologyMetricsSource;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageCallback;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandler;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
@@ -78,6 +79,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
@@ -169,6 +171,10 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final RaftGroupOptionsConfigurer raftGroupOptionsConfigurer;
 
+    private final MetricManager metricsManager;
+
+    private final TopologyMetricsSource topologyMetricsSource;
+
     /** Constructor. */
     public ClusterManagementGroupManager(
             VaultManager vault,
@@ -182,7 +188,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            MetricManager metricManager
     ) {
         this.clusterResetStorage = clusterResetStorage;
         this.clusterService = clusterService;
@@ -196,6 +203,17 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.failureProcessor = failureProcessor;
         this.clusterIdStore = clusterIdStore;
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
+        this.metricsManager = metricManager;
+
+        this.topologyMetricsSource = new TopologyMetricsSource(clusterService.topologyService(), logicalTopology, () -> {
+            LocalState localState = localStateStorage.getLocalState();
+
+            if (localState == null) {
+                return null;
+            }
+
+            return localState.clusterTag();
+        });
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -249,7 +267,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
             NodeAttributes nodeAttributes,
             FailureProcessor failureProcessor,
             ClusterIdStore clusterIdStore,
-            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer
+            RaftGroupOptionsConfigurer raftGroupOptionsConfigurer,
+            MetricManager metricManager
     ) {
         this(
                 vault,
@@ -263,7 +282,8 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
                 nodeAttributes,
                 failureProcessor,
                 clusterIdStore,
-                raftGroupOptionsConfigurer
+                raftGroupOptionsConfigurer,
+                metricManager
         );
     }
 
@@ -357,6 +377,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
+        metricsManager.registerSource(topologyMetricsSource);
+        metricsManager.enable(topologyMetricsSource);
+
         ResetClusterMessage resetClusterMessage = clusterResetStorage.readResetClusterMessage();
         if (resetClusterMessage != null) {
             return doClusterReset(resetClusterMessage);

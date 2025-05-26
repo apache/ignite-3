@@ -41,6 +41,7 @@ import org.apache.ignite.internal.disaster.system.SystemDisasterRecoveryStorage;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.manager.ComponentContext;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.StaticNodeFinder;
@@ -81,7 +82,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
             @Mock LogicalTopology logicalTopology,
             @Mock NodeAttributes nodeAttributes,
             @Mock FailureManager failureManager,
-            @Mock RaftGroupService raftGroupService
+            @Mock RaftGroupService raftGroupService,
+            @Mock MetricManager metricManager
     ) throws NodeStoppingException {
         var addr = new NetworkAddress("localhost", 10_000);
 
@@ -116,7 +118,8 @@ class ClusterManagementGroupManagerTest extends BaseIgniteAbstractTest {
                 nodeAttributes,
                 failureManager,
                 new ClusterIdHolder(),
-                RaftGroupOptionsConfigurer.EMPTY
+                RaftGroupOptionsConfigurer.EMPTY,
+                metricManager
         );
 
         assertThat(clusterService.startAsync(componentContext), willCompleteSuccessfully());

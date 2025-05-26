@@ -111,6 +111,7 @@ import org.apache.ignite.internal.metastorage.impl.MetaStorageRevisionListenerRe
 import org.apache.ignite.internal.metastorage.server.ReadOperationForCompactionTracker;
 import org.apache.ignite.internal.metastorage.server.persistence.RocksDbKeyValueStorage;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
+import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
@@ -383,9 +384,11 @@ public class Node {
         RaftGroupOptionsConfigurer partitionRaftConfigurer =
                 RaftGroupOptionsConfigHelper.configureProperties(partitionsLogStorageFactory, partitionsWorkDir.metaPath());
 
+        MetricManager metricManager = new NoOpMetricManager();
+
         raftManager = new Loza(
                 clusterService,
-                new NoOpMetricManager(),
+                metricManager,
                 raftConfiguration,
                 hybridClock,
                 raftGroupEventsClientListener,
@@ -422,7 +425,8 @@ public class Node {
                 new NodeAttributesCollector(nodeAttributesConfiguration, storageConfiguration),
                 failureManager,
                 clusterIdHolder,
-                cmgRaftConfigurer
+                cmgRaftConfigurer,
+                metricManager
         );
 
         LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

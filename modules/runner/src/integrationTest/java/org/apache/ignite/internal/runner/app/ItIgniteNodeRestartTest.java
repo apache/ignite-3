@@ -445,6 +445,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         StorageConfiguration storageConfiguration = nodeCfgMgr.configurationRegistry()
                 .getConfiguration(StorageExtensionConfiguration.KEY).storage();
 
+        var metricManager = new MetricManagerImpl();
+
         var cmgManager = new ClusterManagementGroupManager(
                 vault,
                 new SystemDisasterRecoveryStorage(vault),
@@ -456,7 +458,8 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
                 new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                 failureProcessor,
                 clusterIdService,
-                cmgRaftConfigurer
+                cmgRaftConfigurer,
+                metricManager
         );
 
         LongSupplier partitionIdleSafeTimePropagationPeriodMsSupplier
@@ -479,8 +482,6 @@ public class ItIgniteNodeRestartTest extends BaseIgniteRestartTest {
         var lockManager = new HeapLockManager(systemConfiguration);
 
         var logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);
-
-        var metricManager = new MetricManagerImpl();
 
         var topologyAwareRaftGroupServiceFactory = new TopologyAwareRaftGroupServiceFactory(
                 clusterSvc,
