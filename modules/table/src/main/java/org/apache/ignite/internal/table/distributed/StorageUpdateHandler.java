@@ -435,14 +435,13 @@ public class StorageUpdateHandler {
      * @param commitTimestamp Commit timestamp.
      * @throws TxIdMismatchException If commit of write intent is performed by a transaction that did not create it.
      */
-    // TODO: IGNITE-25477 Wait for the linked ticket and wait for the tests
     private void performCommitWriteWithCheckMatchingTxs(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
         assert commitTimestamp != null : "Commit timestamp is null: " + txId;
 
         for (RowId rowId : pendingRowIds) {
             CommitResult commitResult = storage.commitWrite(rowId, commitTimestamp, txId);
 
-            if (commitResult.status() == CommitResultStatus.MISMATCH_TX) {
+            if (commitResult.status() == CommitResultStatus.TX_MISMATCH) {
                 throw new TxIdMismatchException(commitResult.expectedTxId(), txId);
             }
         }
@@ -462,17 +461,17 @@ public class StorageUpdateHandler {
         for (RowId rowId : pendingRowIds) {
             AbortResult abortResult = storage.abortWrite(rowId, txId);
 
-            if (abortResult.status() == AbortResultStatus.MISMATCH_TX) {
+            if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
                 throw new TxIdMismatchException(abortResult.expectedTxId(), txId);
             }
 
-            if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.getPreviousUncommittedRowVersion() == null) {
+            if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
                 continue;
             }
 
             try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
                 indexUpdateHandler.tryRemoveFromIndexes(
-                        abortResult.getPreviousUncommittedRowVersion(),
+                        abortResult.previousWriteIntent(),
                         rowId,
                         storage.scanVersions(rowId),
                         indexIds

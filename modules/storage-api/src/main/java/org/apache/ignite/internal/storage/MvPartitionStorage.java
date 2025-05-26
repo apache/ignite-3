@@ -202,14 +202,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
-    /** Will be removed soon. */
-    // TODO: IGNITE-25477 Get rid of it
-    default AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
-        BinaryRow row = abortWrite(rowId);
-
-        return new AbortResult(AbortResultStatus.SUCCESS, null, row);
-    }
-
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
@@ -220,14 +212,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      */
     CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
-
-    /** Will be removed soon. */
-    // TODO: IGNITE-25477 Get rid of it
-    default CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
-        commitWrite(rowId, timestamp);
-
-        return new CommitResult(CommitResultStatus.SUCCESS, null);
-    }
 
     /**
      * Creates a committed version.
