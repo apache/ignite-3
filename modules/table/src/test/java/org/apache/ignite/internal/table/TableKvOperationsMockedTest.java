@@ -67,7 +67,8 @@ import org.apache.ignite.internal.table.impl.DummyInternalTableImpl;
 import org.apache.ignite.internal.table.impl.DummySchemaManagerImpl;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.tx.configuration.TransactionConfiguration;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.RecordView;
@@ -249,10 +250,10 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         // Validate all types are tested.
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(ALL_TYPES_COLUMNS).map(c -> c.type().spec())
+        Set<ColumnType> testedTypes = Arrays.stream(ALL_TYPES_COLUMNS).map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);
@@ -285,10 +286,11 @@ public class TableKvOperationsMockedTest extends BaseIgniteAbstractTest {
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class, RETURNS_DEEP_STUBS));
 
         // Validate all types are tested.
-        Set<NativeTypeSpec> testedTypes = Arrays.stream(valuesColumns).map(c -> c.type().spec())
+        Set<ColumnType> testedTypes = Arrays.stream(valuesColumns)
+                .map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

@@ -15,12 +15,19 @@
  * limitations under the License.
  */
 
-evaluationDependsOn ":packaging"
+package org.apache.ignite.client.handler;
 
-integrationTest {
-    systemProperty "ignite2.docker.image", project.property("ignite2.docker.image")
-    systemProperty "ignite3.docker.image", project(":packaging").docker_image_name
+import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 
-    dependsOn ":migration-tools-e2e-ai2-runner:docker"
-    dependsOn ":packaging:docker"
+/**
+ * Response writer.
+ */
+@FunctionalInterface
+public interface ResponseWriter {
+    /**
+     * Write response.
+     *
+     * @param out Message packer.
+     */
+    void write(ClientMessagePacker out);
 }

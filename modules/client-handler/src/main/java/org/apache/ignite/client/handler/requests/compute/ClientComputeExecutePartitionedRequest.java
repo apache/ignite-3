@@ -23,10 +23,10 @@ import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -41,7 +41,6 @@ public class ClientComputeExecutePartitionedRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param tables Tables.
      * @param cluster Cluster service
@@ -49,22 +48,20 @@ public class ClientComputeExecutePartitionedRequest {
      * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             IgniteTables tables,
             ClusterService cluster,
             NotificationSender notificationSender,
             boolean enablePlatformJobs
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            out.packInt(table.schemaView().lastKnownSchemaVersion());
+        int tableId = in.unpackInt();
+        int partitionId = in.unpackInt();
 
-            int partitionId = in.unpackInt();
+        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
-            Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
-
+        return readTableAsync(tableId, tables).thenCompose(table -> {
             CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitPartitionedInternal(
                     table,
                     partitionId,
@@ -77,9 +74,13 @@ public class ClientComputeExecutePartitionedRequest {
 
             sendResultAndState(jobExecutionFut, notificationSender);
 
-            //noinspection DataFlowIssue
             return jobExecutionFut.thenCompose(execution ->
-                    execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()))
+                    execution.idAsync().thenApply(jobId -> out -> {
+                        out.packInt(table.schemaView().lastKnownSchemaVersion());
+
+                        //noinspection DataFlowIssue
+                        packSubmitResult(out, jobId, execution.node());
+                    })
             );
         });
     }

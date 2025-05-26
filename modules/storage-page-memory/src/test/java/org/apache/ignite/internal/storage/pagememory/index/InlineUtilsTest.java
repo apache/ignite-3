@@ -32,7 +32,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import java.util.EnumSet;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
@@ -42,7 +43,6 @@ import org.apache.ignite.internal.storage.index.StorageIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageIndexDescriptor.StorageColumnDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.junit.jupiter.api.Test;
 
@@ -52,76 +52,76 @@ import org.junit.jupiter.api.Test;
 public class InlineUtilsTest extends BaseIgniteAbstractTest {
     @Test
     void testInlineSizeForNativeType() {
-        EnumSet<NativeTypeSpec> nativeTypeSpecs = EnumSet.allOf(NativeTypeSpec.class);
+        var columnTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         // Fixed length type checking.
 
         NativeType nativeType = NativeTypes.BOOLEAN;
 
         assertEquals(1, inlineSize(nativeType));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(1, inlineSize(nativeType = NativeTypes.INT8));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(2, inlineSize(nativeType = NativeTypes.INT16));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(4, inlineSize(nativeType = NativeTypes.INT32));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(8, inlineSize(nativeType = NativeTypes.INT64));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(4, inlineSize(nativeType = NativeTypes.FLOAT));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(8, inlineSize(nativeType = NativeTypes.DOUBLE));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(16, inlineSize(nativeType = NativeTypes.UUID));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(3, inlineSize(nativeType = NativeTypes.DATE));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(4, inlineSize(nativeType = NativeTypes.time(0)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(9, inlineSize(nativeType = NativeTypes.datetime(6)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(12, inlineSize(nativeType = NativeTypes.timestamp(6)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         // Variable length type checking.
 
         assertEquals(2 + BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(1, 1)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(2 + BIG_NUMBER_INLINE_SIZE, inlineSize(nativeType = NativeTypes.decimalOf(100, 1)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(7, inlineSize(nativeType = NativeTypes.stringOf(7)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.stringOf(256)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.stringOf(Integer.MAX_VALUE)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(9, inlineSize(nativeType = NativeTypes.blobOf(9)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(256)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         assertEquals(MAX_VARLEN_INLINE_SIZE, inlineSize(nativeType = NativeTypes.blobOf(Integer.MAX_VALUE)));
-        nativeTypeSpecs.remove(nativeType.spec());
+        columnTypes.remove(nativeType.spec());
 
         // Let's check that all types have been checked.
-        assertThat(nativeTypeSpecs, empty());
+        assertThat(columnTypes, empty());
     }
 
     @Test

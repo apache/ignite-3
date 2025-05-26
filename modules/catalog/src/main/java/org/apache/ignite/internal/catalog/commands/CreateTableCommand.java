@@ -80,6 +80,7 @@ public class CreateTableCommand extends AbstractTableCommand {
      *      Should be subset of the primary key columns.
      * @param columns List of the columns containing by the table. There should be at least one column.
      * @param zoneName Name of the zone to create table in or {@code null} to use the default distribution zone.
+     * @param validateSystemSchemas Flag indicating whether system schemas should be validated.
      * @throws CatalogValidationException if any of restrictions above is violated.
      */
     private CreateTableCommand(
@@ -90,9 +91,10 @@ public class CreateTableCommand extends AbstractTableCommand {
             List<String> colocationColumns,
             List<ColumnParams> columns,
             @Nullable String zoneName,
-            String storageProfile
+            String storageProfile,
+            boolean validateSystemSchemas
     ) throws CatalogValidationException {
-        super(schemaName, tableName, ifNotExists);
+        super(schemaName, tableName, ifNotExists, validateSystemSchemas);
 
         this.primaryKey = primaryKey;
         this.colocationColumns = copyOrNull(colocationColumns);
@@ -267,6 +269,8 @@ public class CreateTableCommand extends AbstractTableCommand {
 
         private String storageProfile;
 
+        private boolean validateSystemSchemas = true;
+
         @Override
         public CreateTableCommandBuilder schemaName(String schemaName) {
             this.schemaName = schemaName;
@@ -324,6 +328,13 @@ public class CreateTableCommand extends AbstractTableCommand {
         }
 
         @Override
+        public CreateTableCommandBuilder validateSystemSchemas(boolean validateSystemSchemas) {
+            this.validateSystemSchemas = validateSystemSchemas;
+
+            return this;
+        }
+
+        @Override
         public CatalogCommand build() {
             List<String> colocationColumns;
 
@@ -345,7 +356,8 @@ public class CreateTableCommand extends AbstractTableCommand {
                     colocationColumns,
                     columns,
                     zoneName,
-                    storageProfile
+                    storageProfile,
+                    validateSystemSchemas
             );
         }
     }
