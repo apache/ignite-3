@@ -21,24 +21,36 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
+using Executor;
+using Ignite.Compute;
 using NUnit.Framework;
 using TestHelpers;
 
 public class PlatformComputeCompatibilityTests
 {
-    private TempDir _buildDir;
+    private const string JobAssemblyName = nameof(PlatformComputeCompatibilityTests);
+
+    private DeploymentUnit _unit;
 
     [OneTimeSetUp]
-    public void OneTimeSetUp()
+    public async Task OneTimeSetUp()
     {
-        _buildDir = new TempDir();
+        using var igniteBuildDir = new TempDir();
+        using var jobBuildDir = new TempDir();
 
         // Build Ignite with some unlikely future version.
-        BuildIgniteWithVersion(_buildDir.Path, "11.22.33");
+        BuildIgniteWithVersion(igniteBuildDir.Path, "11.22.33");
+
+        var jobDllPath = JobGenerator.EmitEchoJob(
+            jobBuildDir,
+            asmName: JobAssemblyName,
+            igniteDllPath: Path.Combine(igniteBuildDir.Path, "Apache.Ignite.dll"));
+
+        _unit = await ManagementApi.UnitDeploy($"unit-{JobAssemblyName}-{Guid.NewGuid()}", "1.0.0", [jobDllPath]);
     }
 
     [OneTimeTearDown]
-    public void OneTimeTearDown() => _buildDir.Dispose();
+    public async Task OneTimeTearDown() => await ManagementApi.UnitUndeploy(_unit);
 
     [Test]
     public async Task TestDotNetJobCompiledAgainstNewIgniteVersion()
