@@ -24,11 +24,9 @@ import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.RelInput;
-import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
-import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.jetbrains.annotations.Nullable;
 
@@ -145,36 +143,6 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
 
     /** {@inheritDoc} */
     @Override
-    public RelNode accept(RexShuttle shuttle) {
-        RexNode newCondition = condition;
-        if (condition != null) {
-            newCondition = shuttle.apply(condition);
-        }
-
-        List<RexNode> newProjects = projects;
-        if (projects != null) {
-            newProjects = shuttle.apply(projects);
-        }
-
-        if (newProjects != projects || newCondition != condition) {
-            return new IgniteTableScan(
-                    sourceId,
-                    getCluster(),
-                    getTraitSet(),
-                    getHints(),
-                    getTable(),
-                    names,
-                    newProjects,
-                    newCondition,
-                    requiredColumns
-            );
-        } else {
-            return this;
-        }
-    }
-
-    /** {@inheritDoc} */
-    @Override
     public IgniteRel clone(long sourceId) {
         return new IgniteTableScan(
                 sourceId, getCluster(), getTraitSet(), getHints(), getTable(), names, projects, condition, requiredColumns
@@ -185,6 +153,12 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
         return new IgniteTableScan(sourceId, cluster, getTraitSet(), getHints(), getTable(), names, projects, condition, requiredColumns);
+    }
+
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteTableScan(sourceId, getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
     }
 
     /** {@inheritDoc} */

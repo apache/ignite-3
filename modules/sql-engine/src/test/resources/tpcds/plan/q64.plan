@@ -11,7 +11,7 @@ Sort
         est: (rows=21)
       ColocatedHashAggregate
           group: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR]
-          aggs: [COUNT(), SUM(SS_WHOLESALE_COST), SUM(SS_LIST_PRICE), SUM(SS_COUPON_AMT)]
+          aggs: [CNT=COUNT(), S1=SUM(SS_WHOLESALE_COST), S2=SUM(SS_LIST_PRICE), S3=SUM(SS_COUPON_AMT)]
           est: (rows=2887)
         Project
             fields: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
@@ -176,14 +176,14 @@ Sort
                                             ReduceHashAggregate
                                                 rowType: RecordType(INTEGER CS_ITEM_SK, DECIMAL(32767, 2) SALE, DECIMAL(32767, 2) REFUND)
                                                 group: [CS_ITEM_SK]
-                                                aggs: [SUM(_ACC0), SUM(_ACC1)]
+                                                aggs: [SALE=SUM(_ACC0), REFUND=SUM(_ACC1)]
                                                 est: (rows=28813)
                                               Exchange
                                                   distribution: single
                                                   est: (rows=28813)
                                                 MapHashAggregate
                                                     group: [CS_ITEM_SK]
-                                                    aggs: [SUM(CS_EXT_LIST_PRICE), SUM($f2)]
+                                                    aggs: [SALE=SUM(CS_EXT_LIST_PRICE), REFUND=SUM($f2)]
                                                     est: (rows=28813)
                                                   Project
                                                       fields: [CS_ITEM_SK, CS_EXT_LIST_PRICE, $f2]
@@ -242,7 +242,7 @@ Sort
                         est: (rows=12)
       ColocatedHashAggregate
           group: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR]
-          aggs: [COUNT(), SUM(SS_WHOLESALE_COST), SUM(SS_LIST_PRICE), SUM(SS_COUPON_AMT)]
+          aggs: [CNT=COUNT(), S1=SUM(SS_WHOLESALE_COST), S2=SUM(SS_LIST_PRICE), S3=SUM(SS_COUPON_AMT)]
           est: (rows=2887)
         Project
             fields: [PRODUCT_NAME, ITEM_SK, STORE_NAME, STORE_ZIP, B_STREET_NUMBER, B_STREET_NAME, B_CITY, B_ZIP, C_STREET_NUMBER, C_STREET_NAME, C_CITY, C_ZIP, SYEAR, FSYEAR, S2YEAR, SS_WHOLESALE_COST, SS_LIST_PRICE, SS_COUPON_AMT]
@@ -407,14 +407,14 @@ Sort
                                             ReduceHashAggregate
                                                 rowType: RecordType(INTEGER CS_ITEM_SK, DECIMAL(32767, 2) SALE, DECIMAL(32767, 2) REFUND)
                                                 group: [CS_ITEM_SK]
-                                                aggs: [SUM(_ACC0), SUM(_ACC1)]
+                                                aggs: [SALE=SUM(_ACC0), REFUND=SUM(_ACC1)]
                                                 est: (rows=28813)
                                               Exchange
                                                   distribution: single
                                                   est: (rows=28813)
                                                 MapHashAggregate
                                                     group: [CS_ITEM_SK]
-                                                    aggs: [SUM(CS_EXT_LIST_PRICE), SUM($f2)]
+                                                    aggs: [SALE=SUM(CS_EXT_LIST_PRICE), REFUND=SUM($f2)]
                                                     est: (rows=28813)
                                                   Project
                                                       fields: [CS_ITEM_SK, CS_EXT_LIST_PRICE, $f2]

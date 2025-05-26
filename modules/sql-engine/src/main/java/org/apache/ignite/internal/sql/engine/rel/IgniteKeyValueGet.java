@@ -93,6 +93,13 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
         );
     }
 
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteKeyValueGet(
+                getCluster(), getTraitSet(), getTable(), getHints(), keyExpressions, names, newProjects, newCondition, requiredColumns
+        );
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteKeyValueGet withHints(List<RelHint> hintList) {

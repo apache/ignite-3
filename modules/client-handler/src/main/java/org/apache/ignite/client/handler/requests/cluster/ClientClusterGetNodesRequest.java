@@ -17,13 +17,15 @@
 
 package org.apache.ignite.client.handler.requests.cluster;
 
+import static java.util.concurrent.CompletableFuture.completedFuture;
+
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.network.NetworkAddress;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Cluster nodes request.
@@ -32,23 +34,20 @@ public class ClientClusterGetNodesRequest {
     /**
      * Processes the request.
      *
-     * @param out            Packer.
      * @param clusterService Cluster.
      * @return Future.
      */
-    public static @Nullable CompletableFuture<Void> process(
-            ClientMessagePacker out,
+    public static CompletableFuture<ResponseWriter> process(
             ClusterService clusterService) {
         Collection<ClusterNode> nodes = clusterService.topologyService().allMembers();
 
-        out.packInt(nodes.size());
+        return completedFuture(out -> {
+            out.packInt(nodes.size());
 
-        for (ClusterNode node : nodes) {
-            packClusterNode(node, out);
-        }
-
-        // Null future indicates synchronous completion.
-        return null;
+            for (ClusterNode node : nodes) {
+                packClusterNode(node, out);
+            }
+        });
     }
 
     /**

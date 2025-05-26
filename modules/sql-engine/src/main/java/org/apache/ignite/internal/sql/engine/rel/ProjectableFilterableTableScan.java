@@ -127,6 +127,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         return this;
     }
 
+    protected abstract ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition);
+
     /** {@inheritDoc} */
     @Override
     public RelWriter explainTerms(RelWriter pw) {
@@ -139,10 +141,14 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     /** {@inheritDoc} */
     @Override
     public RelNode accept(RexShuttle shuttle) {
-        shuttle.apply(condition);
-        shuttle.apply(projects);
+        RexNode condition0 = shuttle.apply(condition);
+        List<RexNode> projects0 = shuttle.apply(projects);
 
-        return super.accept(shuttle);
+        if (condition0 == condition && projects0 == projects) {
+            return this;
+        }
+
+        return copy(projects0, condition0);
     }
 
     protected RelWriter explainTerms0(RelWriter pw) {

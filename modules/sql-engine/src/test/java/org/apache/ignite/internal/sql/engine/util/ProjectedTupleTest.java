@@ -23,7 +23,8 @@ import static org.hamcrest.Matchers.empty;
 import static org.hamcrest.Matchers.equalTo;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
-import java.util.EnumSet;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.ThreadLocalRandom;
@@ -39,7 +40,8 @@ import org.apache.ignite.internal.schema.BinaryTupleSchema;
 import org.apache.ignite.internal.schema.BinaryTupleSchema.Element;
 import org.apache.ignite.internal.schema.SchemaTestUtils;
 import org.apache.ignite.internal.sql.engine.exec.VirtualColumn;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.internal.type.NativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -79,12 +81,12 @@ class ProjectedTupleTest {
 
     @Test
     void allTypesAreCovered() {
-        List<NativeTypeSpec> coveredTypes = IntStream.range(0, ALL_TYPES_SCHEMA.elementCount())
+        List<ColumnType> coveredTypes = IntStream.range(0, ALL_TYPES_SCHEMA.elementCount())
                 .mapToObj(ALL_TYPES_SCHEMA::element)
                 .map(Element::typeSpec)
                 .collect(Collectors.toList());
 
-        EnumSet<NativeTypeSpec> allTypes = EnumSet.allOf(NativeTypeSpec.class);
+        var allTypes = new HashSet<>(Arrays.asList(NativeType.nativeTypes()));
 
         coveredTypes.forEach(allTypes::remove);
 
