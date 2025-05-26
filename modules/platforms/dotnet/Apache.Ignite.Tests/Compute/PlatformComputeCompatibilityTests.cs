@@ -56,6 +56,7 @@ public class PlatformComputeCompatibilityTests
                 ArgumentList =
                 {
                     "publish",
+                    "--no-restore",
                     "-c", "Release",
                     "-o", targetPath,
                     "/p:Version=" + version,
@@ -78,5 +79,8 @@ public class PlatformComputeCompatibilityTests
         {
             throw new TimeoutException("Process did not complete in time: " + process.StartInfo.FileName);
         }
+
+        Console.WriteLine(process.StandardOutput.ReadToEnd());
+        Console.WriteLine(process.StandardError.ReadToEnd());
     }
 }
