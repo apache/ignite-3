@@ -27,6 +27,7 @@ using Ignite.Compute;
 using NUnit.Framework;
 using TestHelpers;
 
+[Platform("Linux", Reason = "File locking on Windows prevents build.")]
 public class PlatformComputeCompatibilityTests : IgniteTestsBase
 {
     private const string JobAssemblyName = nameof(PlatformComputeCompatibilityTests);
