@@ -43,7 +43,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
         // Build Ignite with some unlikely future version.
         BuildIgniteWithVersion(igniteBuildDir.Path, "11.22.33");
 
-        var jobDllPath = JobGenerator.EmitEchoJob(
+        var jobDllPath = JobGenerator.EmitGetReferencedIgniteAssemblyJob(
             jobBuildDir,
             asmName: JobAssemblyName,
             igniteDllPath: Path.Combine(igniteBuildDir.Path, "Apache.Ignite.dll"));
@@ -57,8 +57,8 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetJobCompiledAgainstNewIgniteVersion()
     {
-        var jobDesc = new JobDescriptor<object, object>(
-            JobClassName: $"TestNamespace.EchoJob, {JobAssemblyName}",
+        var jobDesc = new JobDescriptor<string, string>(
+            JobClassName: $"TestNamespace.GetReferencedIgniteAssemblyJob, {JobAssemblyName}",
             DeploymentUnits: [_unit],
             Options: new JobExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar));
 
@@ -68,7 +68,8 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, jobDesc, "test1");
         var result = await jobExec.GetResultAsync();
 
-        Assert.AreEqual("Echo: test1", result);
+        // Verify that the job references a future Ignite version but still works.
+        StringAssert.StartsWith("Apache.Ignite, Version=11.22.33.0, Culture=neutral", result);
     }
 
     private static void BuildIgniteWithVersion(string targetPath, string version)
