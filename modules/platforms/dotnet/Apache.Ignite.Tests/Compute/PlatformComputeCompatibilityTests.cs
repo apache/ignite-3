@@ -75,11 +75,17 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
     {
         // Copy the Ignite solution to a temporary directory.
         // Skip Directory.Build.props to get rid of GitVersioning.
-        using var tempRepoDir = new TempDir();
-        CopyFilesAndDirectories(
-            sourcePath: TestUtils.SolutionDir,
-            targetPath: tempRepoDir.Path,
-            predicate: s => !s.EndsWith("Directory.Build.props", StringComparison.OrdinalIgnoreCase));
+        CopyFilesAndDirectories(sourcePath: TestUtils.SolutionDir, targetPath: targetPath);
+
+        var buildPropsOverride = """
+                                 <Project>
+                                     <PropertyGroup>
+                                         <LangVersion>12</LangVersion>
+                                     </PropertyGroup>
+                                 </Project>
+                                 """;
+
+        File.WriteAllText(Path.Combine(targetPath, "Directory.Build.props"), buildPropsOverride);
 
         var process = new Process
         {
@@ -96,7 +102,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
                 },
                 CreateNoWindow = true,
                 UseShellExecute = false,
-                WorkingDirectory = Path.Combine(tempRepoDir.Path, "Apache.Ignite"),
+                WorkingDirectory = Path.Combine(targetPath, "Apache.Ignite"),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 RedirectStandardInput = true
@@ -110,32 +116,30 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
 
         if (!process.WaitForExit(TimeSpan.FromSeconds(30)))
         {
-            throw new TimeoutException("Process did not complete in time: " + process.StartInfo.FileName);
+            throw new TimeoutException($"Process did not complete in time: {GetOutput()}");
         }
 
-        Console.WriteLine(process.StandardOutput.ReadToEnd());
-        Console.WriteLine(process.StandardError.ReadToEnd());
+        var output = GetOutput();
+
+        Console.WriteLine(output);
+
+        if (process.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Process failed with exit code {process.ExitCode}: {output}");
+        }
+
+        string GetOutput() => process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
     }
 
-    private static void CopyFilesAndDirectories(string sourcePath, string targetPath, Func<string, bool> predicate)
+    private static void CopyFilesAndDirectories(string sourcePath, string targetPath)
     {
         foreach (var dir in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
         {
-            if (!predicate(dir))
-            {
-                continue;
-            }
-
             Directory.CreateDirectory(GetTargetPath(dir));
         }
 
         foreach (var file in Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories))
         {
-            if (!predicate(file))
-            {
-                continue;
-            }
-
             File.Copy(file, GetTargetPath(file));
         }
 
