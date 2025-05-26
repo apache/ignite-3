@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
@@ -62,7 +63,10 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
             var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
             return loadFromResource(variantQueryFile);
         } else {
-            var queryFile = String.format("tpcds/plan/q%s.plan", numericId);
+            var queryFile = enabledColocation()
+                    ? String.format("tpcds/plan/q%s_colocated.plan", numericId)
+                    : String.format("tpcds/plan/q%s.plan", numericId);
+
             return loadFromResource(queryFile);
         }
     }

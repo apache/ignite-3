@@ -49,7 +49,7 @@ public class RenameTableCommand extends AbstractTableCommand {
 
     private RenameTableCommand(String schemaName, String tableName, boolean ifExists, String newTableName)
             throws CatalogValidationException {
-        super(schemaName, tableName, ifExists);
+        super(schemaName, tableName, ifExists, true);
 
         validateIdentifier(newTableName, "New table name");
 

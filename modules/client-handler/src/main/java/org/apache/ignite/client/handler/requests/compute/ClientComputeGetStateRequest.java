@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.compute;
 
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
@@ -34,17 +35,15 @@ public class ClientComputeGetStateRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute
     ) {
         UUID jobId = in.unpackUuid();
-        return compute.stateAsync(jobId).thenAccept(state -> packJobState(out, state));
+        return compute.stateAsync(jobId).thenApply(state -> out -> packJobState(out, state));
     }
 
     /**

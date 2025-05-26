@@ -157,7 +157,7 @@ public class RebalanceUtil {
     }
 
     /** Rebalance scheduler pool size. */
-    public static final int REBALANCE_SCHEDULER_POOL_SIZE = Math.min(Runtime.getRuntime().availableProcessors() * 3, 20);
+    public static final int REBALANCE_SCHEDULER_POOL_SIZE = 1;
 
     /**
      * Update keys that related to rebalance algorithm in Meta Storage. Keys are specific for partition.
