@@ -36,6 +36,7 @@ import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricManagerImpl;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.ObjectMetric;
 
 /**
  * MBean implementation, which produce JMX API representation for {@link MetricSet}.
@@ -75,7 +76,7 @@ public class MetricSetMbean implements DynamicMBean {
             return ((LongMetric) metric).value();
         } else if (metric instanceof DistributionMetric) {
             return ((DistributionMetric) metric).value();
-        } else if (metric instanceof CompositeMetric) {
+        } else if (metric instanceof CompositeMetric || metric instanceof ObjectMetric) {
             String value = metric.getValueAsString();
             return value == null ? "" : value;
         }
@@ -180,6 +181,8 @@ public class MetricSetMbean implements DynamicMBean {
             return long[].class.getName();
         } else if (metric instanceof CompositeMetric) {
             return String.class.getName();
+        } else if (metric instanceof ObjectMetric) {
+            return ((ObjectMetric<?>) metric).type().getName();
         }
 
         throw new IllegalArgumentException("Unknown metric class " + metric.getClass());
