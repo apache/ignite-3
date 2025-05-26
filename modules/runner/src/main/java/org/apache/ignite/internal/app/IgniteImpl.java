@@ -1887,11 +1887,10 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()} and deploying watches
-     * after that.
+     * Recovers components state on start by invoking cluster configuration listeners and deploying watches after that.
      */
     private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
-        CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
+        CompletableFuture<Void> startupConfigurationUpdate = clusterConfiguration().notifyCurrentConfigurationListeners();
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
@@ -1899,16 +1898,6 @@ public class IgniteImpl implements Ignite {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);
-    }
-
-    /**
-     * Notify all listeners of current configurations.
-     */
-    private CompletableFuture<Void> notifyConfigurationListeners() {
-        return CompletableFuture.allOf(
-                nodeConfiguration().notifyCurrentConfigurationListeners(),
-                clusterConfiguration().notifyCurrentConfigurationListeners()
-        );
     }
 
     /** Returns a {@link OperationKillHandler kill handler} for the compute job. */
