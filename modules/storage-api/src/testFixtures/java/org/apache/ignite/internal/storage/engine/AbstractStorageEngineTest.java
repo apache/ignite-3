@@ -160,6 +160,8 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
      */
     @Test
     void testIndexRecoveryForMultipleTables(@Mock StorageIndexDescriptorSupplier indexDescriptorSupplier) {
+        assumeFalse(storageEngine.isVolatile());
+
         int partitionId = 0;
 
         int numTables = 2;

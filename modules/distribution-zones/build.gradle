@@ -117,6 +117,7 @@ dependencies {
     integrationTestImplementation project(':ignite-rest')
     integrationTestImplementation project(':ignite-storage-api')
     integrationTestImplementation project(':ignite-storage-page-memory')
+    integrationTestImplementation project(':ignite-storage-rocksdb')
     integrationTestImplementation project(':ignite-core')
     integrationTestImplementation testFixtures(project(':ignite-catalog'))
     integrationTestImplementation testFixtures(project(':ignite-core'))
