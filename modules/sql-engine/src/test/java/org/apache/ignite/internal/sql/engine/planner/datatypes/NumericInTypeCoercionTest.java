@@ -32,8 +32,8 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
+import org.apache.ignite.sql.ColumnType;
 import org.hamcrest.Matcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -2711,7 +2711,7 @@ public class NumericInTypeCoercionTest extends BaseTypeCoercionTest {
 
         // SHORT values can intersect with a DECIMAL with a 5 digits in integer parts, so for SHORT (INT16) we need to generate values
         // take it into consideration.
-        boolean closerToBound = numericPair.first().spec() == NativeTypeSpec.INT16;
+        boolean closerToBound = numericPair.first().spec() == ColumnType.INT16;
 
         String value = "(" + generateLiteral(numericPair.second(), closerToBound) + ")";
 

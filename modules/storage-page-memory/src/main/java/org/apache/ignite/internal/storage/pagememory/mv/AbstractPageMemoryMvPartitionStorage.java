@@ -452,97 +452,45 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
-
-        return busy(() -> {
-            throwExceptionIfStorageNotInRunnableState();
-
-            assert rowIsLocked(rowId);
-
-            try {
-                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, null, this);
-
-                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
-
-                abortWrite.afterCompletion();
-
-                return abortWrite.getPreviousUncommittedRowVersion();
-            } catch (IgniteInternalCheckedException e) {
-                throwStorageExceptionIfItCause(e);
-
-                throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
-            }
-        });
-    }
-
-    @Override
     public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+        assert rowId.partitionId() == partitionId : abortWriteInfo(rowId, txId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableState();
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : abortWriteInfo(rowId, txId);
 
             try {
-                AbortWriteInvokeClosure abortWrite = new AbortWriteInvokeClosure(rowId, txId, this);
+                var abortWrite = new AbortWriteInvokeClosure(rowId, txId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, abortWrite);
 
                 abortWrite.afterCompletion();
 
-                return abortWrite.abortResult();
+                AbortResult abortResult = abortWrite.abortResult();
+
+                assert abortResult != null : abortWriteInfo(rowId, txId);
+
+                return abortResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing abortWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
-            }
-        });
-    }
-
-    @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
-
-        busy(() -> {
-            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
-
-            assert rowIsLocked(rowId);
-
-            try {
-                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(
-                        rowId,
-                        timestamp,
-                        null,
-                        updateTimestampHandler,
-                        this
-                );
-
-                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, commitWrite);
-
-                commitWrite.afterCompletion();
-
-                return null;
-            } catch (IgniteInternalCheckedException e) {
-                throwStorageExceptionIfItCause(e);
-
-                throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException("Error while executing abortWrite: [{}]", e, abortWriteInfo(rowId, txId));
             }
         });
     }
 
     @Override
     public CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+        assert rowId.partitionId() == partitionId : commitWriteInfo(rowId, timestamp, txId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : commitWriteInfo(rowId, timestamp, txId);
 
             try {
-                CommitWriteInvokeClosure commitWrite = new CommitWriteInvokeClosure(
+                var commitWrite = new CommitWriteInvokeClosure(
                         rowId,
                         timestamp,
                         txId,
@@ -554,11 +502,15 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 commitWrite.afterCompletion();
 
-                return commitWrite.commitResult();
+                CommitResult commitResult = commitWrite.commitResult();
+
+                assert commitResult != null : commitWriteInfo(rowId, timestamp, txId);
+
+                return commitResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing commitWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException("Error while executing commitWrite: [{}]", e, commitWriteInfo(rowId, timestamp, txId));
             }
         });
     }
@@ -758,6 +710,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
      */
     public String createStorageInfo() {
         return IgniteStringFormatter.format("tableId={}, partitionId={}", tableStorage.getTableId(), partitionId);
+    }
+
+    /** Creates a string with information about the {@link #commitWrite} for logging and errors. */
+    String commitWriteInfo(RowId rowId, HybridTimestamp timestamp, UUID txId) {
+        return IgniteStringFormatter.format("rowId={}, timestamp={}, txId={}, {}", rowId, timestamp, txId, createStorageInfo());
+    }
+
+    /** Creates a string with information about the {@link #abortWrite} for logging and errors. */
+    String abortWriteInfo(RowId rowId, UUID txId) {
+        return IgniteStringFormatter.format("rowId={}, txId={}, {}", rowId, txId, createStorageInfo());
     }
 
     /**

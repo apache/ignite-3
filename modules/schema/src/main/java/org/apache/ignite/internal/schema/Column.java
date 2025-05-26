@@ -25,9 +25,9 @@ import java.time.LocalDateTime;
 import org.apache.ignite.internal.tostring.IgniteToStringExclude;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.VarlenNativeType;
+import org.apache.ignite.sql.ColumnType;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -205,8 +205,12 @@ public class Column {
      * @param val Object to validate.
      */
     public void validate(@Nullable Object val) {
-        if (val == null && !nullable) {
-            throw new SchemaMismatchException(nullConstraintViolationMessage(name));
+        if (val == null) {
+            if (nullable) {
+                return;
+            } else {
+                throw new SchemaMismatchException(nullConstraintViolationMessage(name));
+            }
         }
 
         NativeType objType = NativeTypes.fromObject(val);
@@ -226,15 +230,11 @@ public class Column {
             }
         }
 
-        if (val == null) {
-            return;
-        }
-
-        if (type.spec() == NativeTypeSpec.DATE) {
+        if (type.spec() == ColumnType.DATE) {
             checkBounds((LocalDate) val, SchemaUtils.DATE_MIN, SchemaUtils.DATE_MAX);
-        } else if (type.spec() == NativeTypeSpec.DATETIME) {
+        } else if (type.spec() == ColumnType.DATETIME) {
             checkBounds((LocalDateTime) val, SchemaUtils.DATETIME_MIN, SchemaUtils.DATETIME_MAX);
-        } else if (type.spec() == NativeTypeSpec.TIMESTAMP) {
+        } else if (type.spec() == ColumnType.TIMESTAMP) {
             checkBounds((Instant) val, SchemaUtils.TIMESTAMP_MIN, SchemaUtils.TIMESTAMP_MAX);
         }
     }

@@ -220,7 +220,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     continue;
                 }
 
-                if (nativeType.spec().fixedLength()) {
+                if (nativeType.fixedLength()) {
                     estimatedSize += nativeType.sizeInBytes();
                 } else {
                     if (value instanceof String) {
@@ -301,7 +301,7 @@ public class SqlRowHandler implements RowHandler<RowWrapper> {
                     builder.appendUuidNotNull((UUID) value);
                     break;
 
-                case BYTES:
+                case BYTE_ARRAY:
                     builder.appendBytesNotNull((byte[]) value);
                     break;
 

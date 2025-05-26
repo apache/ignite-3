@@ -151,24 +151,10 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException {
-        handleSnapshotInterference(rowId);
-
-        return partitionStorage.abortWrite(rowId);
-    }
-
-    @Override
     public AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException {
         handleSnapshotInterference(rowId);
 
         return partitionStorage.abortWrite(rowId, txId);
-    }
-
-    @Override
-    public void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException {
-        handleSnapshotInterference(rowId);
-
-        partitionStorage.commitWrite(rowId, timestamp);
     }
 
     @Override

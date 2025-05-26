@@ -25,16 +25,13 @@ import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
-import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
-import org.apache.ignite.internal.storage.AbortResultStatus;
-import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#abortWrite(RowId)}.
+ * Implementation of {@link InvokeClosure} for {@link AbstractPageMemoryMvPartitionStorage#abortWrite}.
  *
  * <p>See {@link AbstractPageMemoryMvPartitionStorage} about synchronization.
  *
@@ -43,7 +40,7 @@ import org.jetbrains.annotations.Nullable;
 class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
     private final RowId rowId;
 
-    private final @Nullable UUID txId;
+    private final UUID txId;
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
@@ -53,11 +50,9 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     private @Nullable RowVersion toRemove;
 
-    private @Nullable BinaryRow previousUncommittedRowVersion;
-
     private AbortResult abortResult;
 
-    AbortWriteInvokeClosure(RowId rowId, @Nullable UUID txId, AbstractPageMemoryMvPartitionStorage storage) {
+    AbortWriteInvokeClosure(RowId rowId, UUID txId, AbstractPageMemoryMvPartitionStorage storage) {
         this.rowId = rowId;
         this.txId = txId;
         this.storage = storage;
@@ -69,22 +64,20 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
             // Row doesn't exist or the chain doesn't contain an uncommitted write intent.
             operationType = OperationType.NOOP;
 
-            abortResult = new AbortResult(AbortResultStatus.NO_WRITE_INTENT, null, null);
+            abortResult = AbortResult.noWriteIntent();
 
             return;
-        }
-
-        if (txId != null && !txId.equals(oldRow.transactionId())) {
+        } else if (!txId.equals(oldRow.transactionId())) {
             operationType = OperationType.NOOP;
 
-            abortResult = new AbortResult(AbortResultStatus.MISMATCH_TX, oldRow.transactionId(), null);
+            abortResult = AbortResult.txMismatch(oldRow.transactionId());
 
             return;
         }
 
         RowVersion latestVersion = storage.readRowVersion(oldRow.headLink(), ALWAYS_LOAD_VALUE);
 
-        assert latestVersion.isUncommitted();
+        assert latestVersion.isUncommitted() : abortWriteInfo() + ", headLink=" + oldRow.headLink();
 
         toRemove = latestVersion;
 
@@ -99,37 +92,30 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
             operationType = OperationType.REMOVE;
         }
 
-        previousUncommittedRowVersion = latestVersion.value();
-
-        abortResult = new AbortResult(AbortResultStatus.SUCCESS, null, previousUncommittedRowVersion);
+        abortResult = AbortResult.success(latestVersion.value());
     }
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert operationType == OperationType.PUT ? newRow != null : newRow == null : "newRow=" + newRow + ", op=" + operationType;
+        assert (operationType == OperationType.PUT) == (newRow != null) :
+                abortWriteInfo() + ", newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        assert operationType != null;
+        assert operationType != null : abortWriteInfo();
 
         return operationType;
-    }
-
-    /**
-     * Returns the result for {@link MvPartitionStorage#abortWrite(RowId)}.
-     */
-    @Nullable BinaryRow getPreviousUncommittedRowVersion() {
-        return previousUncommittedRowVersion;
     }
 
     /**
      * Method to call after {@link BplusTree#invoke(Object, Object, InvokeClosure)} has completed.
      */
     void afterCompletion() {
-        assert operationType == OperationType.NOOP ? toRemove == null : toRemove != null : "toRemove=" + toRemove + ", op=" + operationType;
+        assert (operationType == OperationType.NOOP) == (toRemove == null) :
+                abortWriteInfo() + ", toRemove=" + toRemove + ", op=" + operationType;
 
         if (toRemove != null) {
             storage.removeRowVersion(toRemove);
@@ -138,5 +124,9 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
 
     AbortResult abortResult() {
         return abortResult;
+    }
+
+    private String abortWriteInfo() {
+        return storage.abortWriteInfo(rowId, txId);
     }
 }

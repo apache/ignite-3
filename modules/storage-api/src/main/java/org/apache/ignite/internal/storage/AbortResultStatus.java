@@ -17,15 +17,14 @@
 
 package org.apache.ignite.internal.storage;
 
-/** Will be removed soon. */
-// TODO: IGNITE-25477 Get rid of it
+/** Status of result {@link MvPartitionStorage#abortWrite abort} of write intent. */
 public enum AbortResultStatus {
-    /** Will be removed soon. */
+    /** Successful abort of write intent. */
     SUCCESS,
 
-    /** Will be removed soon. */
+    /** Failed to abort write intent because it is not in version chain. */
     NO_WRITE_INTENT,
 
-    /** Will be removed soon. */
-    MISMATCH_TX;
+    /** Failed to abort write intent because transaction that added it does not match transaction that tries to abort it. */
+    TX_MISMATCH;
 }

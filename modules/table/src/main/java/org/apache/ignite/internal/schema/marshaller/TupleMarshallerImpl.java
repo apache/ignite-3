@@ -39,9 +39,9 @@ import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.ErrorGroups.Marshalling;
 import org.apache.ignite.lang.MarshallerException;
+import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.TupleHelper;
 import org.jetbrains.annotations.Nullable;
@@ -68,13 +68,13 @@ public class TupleMarshallerImpl implements TupleMarshaller {
 
         keyOnlyFixedLengthColumnSize = schema.keyColumns().stream()
                 .map(Column::type)
-                .filter(type -> type.spec().fixedLength())
+                .filter(NativeType::fixedLength)
                 .mapToInt(NativeType::sizeInBytes)
                 .sum();
 
         valueOnlyFixedLengthColumnSize = schema.valueColumns().stream()
                 .map(Column::type)
-                .filter(type -> type.spec().fixedLength())
+                .filter(NativeType::fixedLength)
                 .mapToInt(NativeType::sizeInBytes)
                 .sum();
     }
@@ -215,7 +215,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
             col.validate(val);
 
             if (val != null) {
-                if (!colType.spec().fixedLength()) {
+                if (!colType.fixedLength()) {
                     try {
                         val = shrinkValue(val, col.type());
 
@@ -227,7 +227,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
                                 String.format(
                                         "Invalid value type provided for column [name='%s', expected='%s', actual='%s']",
                                         col.name(),
-                                        col.type().spec().asColumnType().javaClass().getName(),
+                                        col.type().spec().javaClass().getName(),
                                         val.getClass().getName()),
                                 e);
                     }
@@ -249,7 +249,7 @@ public class TupleMarshallerImpl implements TupleMarshaller {
      * @return Value in a more compact form, or the original value if it cannot be compacted.
      */
     private static <T> T shrinkValue(T value, NativeType type) {
-        if (type.spec() == NativeTypeSpec.DECIMAL) {
+        if (type.spec() == ColumnType.DECIMAL) {
             assert type instanceof DecimalNativeType;
 
             return (T) BinaryTupleCommon.shrinkDecimal((BigDecimal) value, ((DecimalNativeType) type).scale());

@@ -83,7 +83,7 @@ public class CommitManyWritesBenchmark {
     private static final int NUM_ROWS = 100_000;
     private static final int ROW_LENGTH = 10_000;
 
-    private final HybridClock clock = new HybridClockImpl();
+    private static final HybridClock CLOCK = new HybridClockImpl();
 
     private RocksDbStorageEngine storageEngine;
 
@@ -171,11 +171,11 @@ public class CommitManyWritesBenchmark {
 
         final Map<RowId, BinaryRow> rows = randomRows(partitionId);
 
+        final UUID txId = TransactionIds.transactionId(CLOCK.now(), 0);
+
         /** Setup method. */
         @Setup
         public void setUp(CommitManyWritesBenchmark benchmark) {
-            UUID txId = TransactionIds.transactionId(benchmark.clock.now(), 0);
-
             MvPartitionStorage partitionStorage = benchmark.tableStorage.getMvPartition(partitionId);
 
             partitionStorage.runConsistently(locker -> {
@@ -209,7 +209,7 @@ public class CommitManyWritesBenchmark {
     public void addAndCommitManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+        UUID txId = TransactionIds.transactionId(CLOCK.now(), 0);
 
         partitionStorage.runConsistently(locker -> {
             data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
@@ -217,10 +217,10 @@ public class CommitManyWritesBenchmark {
             return null;
         });
 
-        HybridTimestamp commitTs = clock.now();
+        HybridTimestamp commitTs = CLOCK.now();
 
         partitionStorage.runConsistently(locker -> {
-            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs));
+            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs, txId));
 
             return null;
         });
@@ -231,7 +231,7 @@ public class CommitManyWritesBenchmark {
     public void addManyWrites(DataToAddAndCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        UUID txId = TransactionIds.transactionId(clock.now(), 0);
+        UUID txId = TransactionIds.transactionId(CLOCK.now(), 0);
 
         partitionStorage.runConsistently(locker -> {
             data.rows.forEach((rowId, row) -> partitionStorage.addWrite(rowId, row, txId, TABLE_ID, data.partitionId));
@@ -245,10 +245,10 @@ public class CommitManyWritesBenchmark {
     public void commitManyWrites(DataToCommit data) {
         MvPartitionStorage partitionStorage = tableStorage.getMvPartition(data.partitionId);
 
-        HybridTimestamp commitTs = clock.now();
+        HybridTimestamp commitTs = CLOCK.now();
 
         partitionStorage.runConsistently(locker -> {
-            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs));
+            data.rows.keySet().forEach(rowId -> partitionStorage.commitWrite(rowId, commitTs, data.txId));
 
             return null;
         });
