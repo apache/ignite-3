@@ -51,35 +51,12 @@ public class ClientMessagePacker implements AutoCloseable {
     private boolean closed;
 
     /**
-     * Resource id.
-     */
-    private long resourceId;
-
-    /**
      * Constructor.
      *
      * @param buf Buffer.
      */
     public ClientMessagePacker(ByteBuf buf) {
         this.buf = buf.writerIndex(HEADER_SIZE);
-    }
-
-    /**
-     * Get resource id.
-     *
-     * @return The id.
-     */
-    public long resourceId() {
-        return resourceId;
-    }
-
-    /**
-     * Set resource id.
-     *
-     * @param resourceId The id.
-     */
-    public void resourceId(long resourceId) {
-        this.resourceId = resourceId;
     }
 
     /**

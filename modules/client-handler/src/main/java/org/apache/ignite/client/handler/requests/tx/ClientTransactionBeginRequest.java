@@ -49,8 +49,6 @@ public class ClientTransactionBeginRequest {
             TxManager txManager,
             ClientResourceRegistry resources,
             ClientHandlerMetricSource metrics,
-            IgniteTablesInternal igniteTables,
-            boolean enableDirectMapping,
             HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();

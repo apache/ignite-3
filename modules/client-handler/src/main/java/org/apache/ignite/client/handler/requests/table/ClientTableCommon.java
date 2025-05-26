@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
@@ -315,14 +316,33 @@ public class ClientTableCommon {
      * Write tx metadata.
      *
      * @param out Packer.
+     * @param tsTracker Timestamp tracker.
      * @param clockService Clock service.
-     * @param tx The transaction.
+     * @param req Request.
      */
-    public static void writeTxMeta(
-            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, InternalTransaction tx) {
-        if (out.resourceId() != 0) {
+    static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTupleRequestBase req) {
+        writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
+    }
+
+    /**
+     * Write tx metadata.
+     *
+     * @param out Packer.
+     * @param tsTracker Timestamp tracker.
+     * @param clockService Clock service.
+     * @param req Request.
+     */
+    static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTuplesRequestBase req) {
+        writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
+    }
+
+    public static void writeTxMeta(ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService,
+            InternalTransaction tx, long resourceId) {
+        if (resourceId != 0) {
             // Resource id is assigned on a first request in direct mode.
-            out.packLong(out.resourceId());
+            out.packLong(resourceId);
             out.packUuid(tx.id());
             out.packUuid(tx.coordinatorId());
             out.packLong(tx.getTimeout());
@@ -363,6 +383,7 @@ public class ClientTableCommon {
      * @param resources Resource registry.
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
+     * @param resourceIdHolder Resource id holder.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
@@ -370,55 +391,54 @@ public class ClientTableCommon {
             HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
-            @Nullable NotificationSender notificationSender
-    ) {
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
             long id = in.unpackLong();
-            if (id == TX_ID_DIRECT) {
+            if (id == TX_ID_FIRST_DIRECT) {
                 long observableTs = in.unpackLong();
 
-                if (observableTs != 0) {
-                    // This is first mapping request, which piggybacks transaction creation.
-                    boolean readOnly = in.unpackBoolean();
-                    long timeoutMillis = in.unpackLong();
+                // This is first mapping request, which piggybacks transaction creation.
+                boolean readOnly = in.unpackBoolean();
+                long timeoutMillis = in.unpackLong();
 
-                    InternalTxOptions txOptions = InternalTxOptions.builder()
-                            .timeoutMillis(timeoutMillis)
-                            .build();
+                InternalTxOptions txOptions = InternalTxOptions.builder()
+                        .timeoutMillis(timeoutMillis)
+                        .build();
 
-                    var tx = startExplicitTx(out, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly, txOptions);
+                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
+                        txOptions);
 
-                    long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
-                    out.resourceId(resourceId);
+                // Attach resource id only on first direct request.
+                resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
 
-                    return tx;
-                } else {
-                    // This is direct request mapping.
-                    long token = in.unpackLong();
-                    UUID txId = in.unpackUuid();
-                    int commitTableId = in.unpackInt();
-                    int commitPart = in.unpackInt();
-                    UUID coord = in.unpackUuid();
-                    long timeout = in.unpackLong();
+                return tx;
+            } else if (id == TX_ID_DIRECT) {
+                // This is direct request mapping.
+                long token = in.unpackLong();
+                UUID txId = in.unpackUuid();
+                int commitTableId = in.unpackInt();
+                int commitPart = in.unpackInt();
+                UUID coord = in.unpackUuid();
+                long timeout = in.unpackLong();
 
-                    InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
-                            coord, token, timeout, err -> {
-                                // Will be called for write txns.
-                                notificationSender.sendNotification(w -> w.packUuid(txId), err);
-                            });
+                InternalTransaction remote = txManager.beginRemote(txId, new TablePartitionId(commitTableId, commitPart),
+                        coord, token, timeout, err -> {
+                            // Will be called for write txns.
+                            notificationSender.sendNotification(w -> w.packUuid(txId), err);
+                        });
 
-                    // Remote transaction will be synchronously rolled back if the timeout has exceeded.
-                    if (remote.isRolledBackWithTimeoutExceeded()) {
-                        throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
-                                "Transaction is already finished [tx=" + remote + "].");
-                    }
-
-                    return remote;
+                // Remote transaction will be synchronously rolled back if the timeout has exceeded.
+                if (remote.isRolledBackWithTimeoutExceeded()) {
+                    throw new TransactionException(TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR,
+                            "Transaction is already finished [tx=" + remote + "].");
                 }
+
+                return remote;
             }
 
             var tx = resources.get(id).get(InternalTransaction.class);
@@ -441,8 +461,9 @@ public class ClientTableCommon {
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly,
-            @Nullable NotificationSender notificationSender) {
-        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender);
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder) {
+        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

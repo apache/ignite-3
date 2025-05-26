@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.internal.client.tx.ClientLazyTransaction.ensureStarted;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.matchAny;
@@ -314,15 +315,15 @@ public class ClientTable implements Table {
             out.out().packNil();
         } else {
             if (ctx != null && (ctx.enlistmentToken != null || ctx.firstReqFut != null)) {
-                out.out().packLong(TX_ID_DIRECT);
                 if (ctx.firstReqFut != null) {
                     ClientLazyTransaction tx0 = (ClientLazyTransaction) tx;
+                    out.out().packLong(TX_ID_FIRST_DIRECT);
                     out.out().packLong(ctx.tracker.get().longValue());
                     out.out().packBoolean(tx.isReadOnly());
                     out.out().packLong(tx0.timeout());
                 } else {
                     ClientTransaction tx0 = ClientTransaction.get(tx);
-                    out.out().packLong(0);
+                    out.out().packLong(TX_ID_DIRECT);
                     out.out().packLong(ctx.enlistmentToken);
                     out.out().packUuid(tx0.txId());
                     out.out().packInt(tx0.commitTableId());

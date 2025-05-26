@@ -55,7 +55,7 @@ public class ClientTupleGetAllRequest {
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().getAllAsync(req.tx(), req.tuples())
                         .thenApply(resTuples -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             writeTuplesNullable(out, resTuples, TuplePart.KEY_AND_VAL, req.table().schemaView());
                         }));
     }
