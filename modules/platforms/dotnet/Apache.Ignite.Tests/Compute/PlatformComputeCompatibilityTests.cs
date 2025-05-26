@@ -20,6 +20,7 @@ namespace Apache.Ignite.Tests.Compute;
 using System;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Executor;
 using Ignite.Compute;
@@ -55,7 +56,14 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetJobCompiledAgainstNewIgniteVersion()
     {
-        await Task.Delay(1);
+        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_unit] };
+        var nodes = await Client.GetClusterNodesAsync();
+        var target = JobTarget.Node(nodes.Single(x => x.Name == ComputeTests.PlatformTestNodeRunner));
+
+        var jobExec = await Client.Compute.SubmitAsync(target, jobDesc, "test1");
+        var result = await jobExec.GetResultAsync();
+
+        Assert.AreEqual("test1", result);
     }
 
     private static void BuildIgniteWithVersion(string targetPath, string version)
