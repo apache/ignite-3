@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -174,7 +175,7 @@ public class TxCleanupRequestHandler {
                                         )
                                         .thenAccept(this::processWriteIntentSwitchResponse)
                                         .whenComplete((retryRes, retryEx) -> {
-                                            if (retryEx != null) {
+                                            if (retryEx != null && writeIntentSwitchFailureShouldBeLogged(retryEx)) {
                                                 LOG.warn(
                                                         "Second cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
                                                         retryEx, txCleanupMessage.txId()

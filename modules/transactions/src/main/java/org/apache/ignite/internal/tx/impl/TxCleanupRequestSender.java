@@ -21,6 +21,7 @@ import static java.util.concurrent.CompletableFuture.allOf;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
+import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -319,10 +320,12 @@ public class TxCleanupRequestSender {
 
                     if (networkMessage instanceof TxCleanupMessageErrorResponse) {
                         TxCleanupMessageErrorResponse errorResponse = (TxCleanupMessageErrorResponse) networkMessage;
-                        LOG.warn(
-                                "First cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
-                                errorResponse.throwable(), txId
-                        );
+                        if (writeIntentSwitchFailureShouldBeLogged(errorResponse.throwable())) {
+                            LOG.warn(
+                                    "First cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
+                                    errorResponse.throwable(), txId
+                            );
+                        }
 
                         // We don't fail the resulting future as a failing cleanup is not a problem.
                     }
