@@ -33,7 +33,6 @@ java {
 
 import org.apache.tools.ant.filters.ReplaceTokens
 import org.gradle.crypto.checksum.Checksum
-import org.redline_rpm.payload.Directive
 
 configurations {
     dbArtifacts
@@ -269,7 +268,7 @@ ospackage {
         from generateConfigDefaults
 
         fileMode 0660
-        fileType Directive.CONFIG
+        fileType CONFIG | NOREPLACE
 
         // TODO https://github.com/nebula-plugins/gradle-ospackage-plugin/issues/463
         eachFile {

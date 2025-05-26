@@ -32,7 +32,7 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleParser.Readability;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.catalog.descriptors.CatalogColumnCollation;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Matcher for comparing {@link BinaryTuple}s on a per-column basis.
@@ -145,13 +145,13 @@ public class PartialBinaryTupleMatcher {
     }
 
     private static int compareFieldValuePartially(
-            NativeTypeSpec typeSpec,
+            ColumnType typeSpec,
             BinaryTupleReader partialTuple,
             BinaryTupleReader tuple2,
             int index
     ) {
         switch (typeSpec) {
-            case BYTES: {
+            case BYTE_ARRAY: {
                 partialTuple.seek(index);
 
                 int begin = partialTuple.begin();

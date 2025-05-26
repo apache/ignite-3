@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.sql.engine.rel;
 
+import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
+
 import java.util.List;
 import org.apache.calcite.plan.RelOptCluster;
 import org.apache.calcite.plan.RelOptTable;
@@ -24,9 +26,11 @@ import org.apache.calcite.plan.RelOptUtil;
 import org.apache.calcite.plan.RelTraitSet;
 import org.apache.calcite.rel.AbstractRelNode;
 import org.apache.calcite.rel.RelInput;
+import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexNode;
+import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.sql.SqlKind;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
@@ -100,6 +104,17 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
         return visitor.visit(this);
     }
 
+    @Override
+    public RelNode accept(RexShuttle shuttle) {
+        List<RexNode> expressions0 = shuttle.apply(expressions);
+
+        if (expressions0 == expressions) {
+            return this;
+        }
+
+        return new IgniteKeyValueModify(getCluster(), getTraitSet(), table, operation, expressions0);
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteRel clone(RelOptCluster cluster, List<IgniteRel> inputs) {
@@ -110,7 +125,8 @@ public class IgniteKeyValueModify extends AbstractRelNode implements IgniteRel {
 
     @Override public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
-                .item("table", table.getQualifiedName())
+                .itemIf("table", table.getQualifiedName(), !forExplain(pw))
+                .itemIf("table", table, forExplain(pw))
                 .item("operation", operation)
                 .item("expressions", expressions);
     }

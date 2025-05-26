@@ -7,7 +7,7 @@ Limit
       est: (rows=100)
     ColocatedSortAggregate
         group: [S_NAME]
-        aggs: [COUNT()]
+        aggs: [NUMWAIT=COUNT()]
         collation: [S_NAME ASC]
         est: (rows=332203730726418)
       Project
@@ -53,8 +53,6 @@ Limit
                       MergeJoin
                           condition: =(S_NATIONKEY, N_NATIONKEY)
                           joinType: inner
-                          leftCollation: [S_NATIONKEY ASC]
-                          rightCollation: [S_SUPPKEY ASC]
                           est: (rows=3330)
                         Exchange
                             distribution: single

@@ -340,9 +340,7 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<ArgumentException>(async () =>
                 await Client.Compute.SubmitAsync(JobTarget.Colocated(TableName, new IgniteTuple { ["VAL"] = "1" }), EchoJob, null));
 
-            Assert.AreEqual(
-                "Can't map 'IgniteTuple { VAL = 1 }' to columns 'Int64 KEY, String VAL'. Matching fields not found.",
-                ex!.Message);
+            Assert.AreEqual("Key column 'KEY' not found in the provided tuple 'IgniteTuple { VAL = 1 }'", ex!.Message);
         }
 
         [Test]

@@ -262,7 +262,13 @@ public class RebalanceRaftGroupEventsListener implements RaftGroupEventsListener
             LOG.info("Going to retry rebalance [attemptNo={}, partId={}]", rebalanceAttempts.get(), tablePartitionId);
 
             try {
-                partitionMover.movePartition(peersAndLearners, term).join();
+                partitionMover.movePartition(peersAndLearners, term)
+                        .whenComplete((unused, ex) -> {
+                            if (ex != null && !hasCause(ex, NodeStoppingException.class)) {
+                                String errorMessage = String.format("Failure while moving partition [partId=%s]", tablePartitionId);
+                                failureProcessor.process(new FailureContext(ex, errorMessage));
+                            }
+                        });
             } finally {
                 busyLock.leaveBusy();
             }

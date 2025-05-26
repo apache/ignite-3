@@ -157,6 +157,8 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.systemview.SystemViewManagerImpl;
 import org.apache.ignite.internal.systemview.api.SystemViewManager;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
@@ -338,11 +340,13 @@ public class Node {
                         StorageExtensionConfigurationSchema.class,
                         SystemLocalExtensionConfigurationSchema.class,
                         PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
-                        VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class
+                        VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
+                        RocksDbStorageEngineExtensionConfigurationSchema.class
                 ),
                 List.of(
                         PersistentPageMemoryProfileConfigurationSchema.class,
                         VolatilePageMemoryProfileConfigurationSchema.class,
+                        RocksDbProfileConfigurationSchema.class,
                         StaticNodeFinderConfigurationSchema.class,
                         MulticastNodeFinderConfigurationSchema.class
                 )
