@@ -37,19 +37,6 @@ public class CommitResult {
         this.expectedTxId = expectedTxId;
     }
 
-    /** Returns the commit status of a write intent. */
-    public CommitResultStatus status() {
-        return status;
-    }
-
-    /**
-     * Returns the transaction ID expected to commit the write intent. Transaction that added the write intent is expected to commit it.
-     * Not {@code null} only for {@link CommitResultStatus#MISMATCH_TX}.
-     */
-    public @Nullable UUID expectedTxId() {
-        return expectedTxId;
-    }
-
     /** Returns result of a successful commit of the write intent. */
     public static CommitResult success() {
         return SUCCESS_COMMIT_RESULT;
@@ -65,8 +52,21 @@ public class CommitResult {
      *
      * @see #expectedTxId()
      */
-    public static CommitResult mismatchTx(UUID expectedTxId) {
-        return new CommitResult(CommitResultStatus.MISMATCH_TX, expectedTxId);
+    public static CommitResult txMismatch(UUID expectedTxId) {
+        return new CommitResult(CommitResultStatus.TX_MISMATCH, expectedTxId);
+    }
+
+    /** Returns the commit status of a write intent. */
+    public CommitResultStatus status() {
+        return status;
+    }
+
+    /**
+     * Returns the transaction ID expected to commit the write intent. Transaction that added the write intent is expected to commit it. Not
+     * {@code null} only for {@link CommitResultStatus#TX_MISMATCH}.
+     */
+    public @Nullable UUID expectedTxId() {
+        return expectedTxId;
     }
 
     @Override

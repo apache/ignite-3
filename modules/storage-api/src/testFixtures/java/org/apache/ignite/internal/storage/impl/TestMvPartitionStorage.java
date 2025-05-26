@@ -273,7 +273,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
                 return versionChain;
             } else if (!txId.equals(versionChain.txId)) {
-                abortResult[0] = AbortResult.mismatchTx(versionChain.txId);
+                abortResult[0] = AbortResult.txMismatch(versionChain.txId);
 
                 return versionChain;
             }
@@ -306,7 +306,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
 
                 return versionChain;
             } else if (!txId.equals(versionChain.txId)) {
-                commitResult[0] = CommitResult.mismatchTx(versionChain.txId);
+                commitResult[0] = CommitResult.txMismatch(versionChain.txId);
 
                 return versionChain;
             }

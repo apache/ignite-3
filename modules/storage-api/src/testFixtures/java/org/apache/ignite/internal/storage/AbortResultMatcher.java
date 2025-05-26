@@ -34,7 +34,7 @@ public class AbortResultMatcher extends TypeSafeMatcher<AbortResult> {
     private AbortResultMatcher(AbortResult expected) {
         this.expected = expected;
 
-        BinaryRow row = expected.previousUncommittedRowVersion();
+        BinaryRow row = expected.previousWriteIntent();
         this.binaryRowMatcher = row == null ? Matchers.nullValue(BinaryRow.class) : BinaryRowMatcher.equalToRow(row);
     }
 
@@ -42,7 +42,7 @@ public class AbortResultMatcher extends TypeSafeMatcher<AbortResult> {
     protected boolean matchesSafely(AbortResult actual) {
         return expected.status() == actual.status()
                 && Objects.equals(expected.expectedTxId(), actual.expectedTxId())
-                && binaryRowMatcher.matches(actual.previousUncommittedRowVersion());
+                && binaryRowMatcher.matches(actual.previousWriteIntent());
     }
 
     @Override

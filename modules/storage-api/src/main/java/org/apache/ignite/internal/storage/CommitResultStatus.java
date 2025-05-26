@@ -26,5 +26,5 @@ public enum CommitResultStatus {
     NO_WRITE_INTENT,
 
     /** Failed to commit write intent because transaction that added it does not match transaction that try commits it. */
-    MISMATCH_TX;
+    TX_MISMATCH;
 }

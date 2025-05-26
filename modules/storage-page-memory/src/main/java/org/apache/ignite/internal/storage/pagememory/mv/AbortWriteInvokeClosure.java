@@ -70,7 +70,7 @@ class AbortWriteInvokeClosure implements InvokeClosure<VersionChain> {
         } else if (!txId.equals(oldRow.transactionId())) {
             operationType = OperationType.NOOP;
 
-            abortResult = AbortResult.mismatchTx(oldRow.transactionId());
+            abortResult = AbortResult.txMismatch(oldRow.transactionId());
 
             return;
         }

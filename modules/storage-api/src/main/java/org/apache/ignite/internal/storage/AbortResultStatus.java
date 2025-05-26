@@ -17,7 +17,7 @@
 
 package org.apache.ignite.internal.storage;
 
-/** Description will be here soon. */
+/** Status of result {@link MvPartitionStorage#abortWrite abort} of write intent. */
 public enum AbortResultStatus {
     /** Successful abort of write intent. */
     SUCCESS,
@@ -25,6 +25,6 @@ public enum AbortResultStatus {
     /** Failed to abort write intent because it is not in version chain. */
     NO_WRITE_INTENT,
 
-    /** Failed to abort write intent because transaction that added it does not match transaction that try aborts it. */
-    MISMATCH_TX;
+    /** Failed to abort write intent because transaction that added it does not match transaction that tries to abort it. */
+    TX_MISMATCH;
 }

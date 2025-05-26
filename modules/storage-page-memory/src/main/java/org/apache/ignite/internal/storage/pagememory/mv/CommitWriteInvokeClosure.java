@@ -137,7 +137,7 @@ class CommitWriteInvokeClosure implements InvokeClosure<VersionChain> {
         } else if (!txId.equals(oldRow.transactionId())) {
             operationType = OperationType.NOOP;
 
-            commitResult = CommitResult.mismatchTx(oldRow.transactionId());
+            commitResult = CommitResult.txMismatch(oldRow.transactionId());
 
             return;
         }

@@ -181,7 +181,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
 
         when(partitionStorage.abortWrite(any(), any())).thenReturn(AbortResult.success(resultRow));
 
-        assertThat(testedStorage.abortWrite(rowId, txId).previousUncommittedRowVersion(), is(resultRow));
+        assertThat(testedStorage.abortWrite(rowId, txId).previousWriteIntent(), is(resultRow));
         verify(partitionStorage).abortWrite(rowId, txId);
     }
 

@@ -585,7 +585,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 UUID rowTxId = txId(ByteBuffer.wrap(dataIdWithTxState));
 
                 if (!txId.equals(rowTxId)) {
-                    return AbortResult.mismatchTx(rowTxId);
+                    return AbortResult.txMismatch(rowTxId);
                 }
 
                 ByteBuffer dataId = readDataIdFromTxState(ByteBuffer.wrap(dataIdWithTxState));
@@ -643,7 +643,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 UUID rowTxId = txId(ByteBuffer.wrap(txState));
 
                 if (!txId.equals(rowTxId)) {
-                    return CommitResult.mismatchTx(rowTxId);
+                    return CommitResult.txMismatch(rowTxId);
                 }
 
                 byte[] dataId = copyOf(txState, DATA_ID_SIZE);

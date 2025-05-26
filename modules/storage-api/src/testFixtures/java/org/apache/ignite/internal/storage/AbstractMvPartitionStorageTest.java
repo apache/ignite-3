@@ -193,7 +193,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(
                 abortWrite(rowId, newTransactionId()),
-                equalsToAbortResult(AbortResult.mismatchTx(txId))
+                equalsToAbortResult(AbortResult.txMismatch(txId))
         );
 
         assertTrue(storage.read(rowId, beforeAbortTimestamp.subtractPhysicalTime(1)).isWriteIntent());
@@ -339,7 +339,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(
                 commitWrite(rowId, commitTimestamp, newTransactionId()),
-                equalsToCommitResult(CommitResult.mismatchTx(txId))
+                equalsToCommitResult(CommitResult.txMismatch(txId))
         );
 
         assertTrue(storage.read(rowId, commitTimestamp.subtractPhysicalTime(1)).isWriteIntent());
@@ -874,7 +874,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void abortWriteReturnsTheRemovedVersion() {
         RowId rowId = insert(binaryRow, txId);
 
-        BinaryRow returnedRow = abortWrite(rowId, txId).previousUncommittedRowVersion();
+        BinaryRow returnedRow = abortWrite(rowId, txId).previousWriteIntent();
 
         assertThat(returnedRow, isRow(binaryRow));
     }
