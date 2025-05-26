@@ -311,7 +311,7 @@ public class CatalogEntrySerializationTest extends BaseIgniteAbstractTest {
 
         return list.stream().map(val -> {
             NativeType nativeType = NativeTypes.fromObject(val);
-            return Arguments.of(nativeType == null ? ColumnType.NULL : nativeType.spec().asColumnType(), val);
+            return Arguments.of(nativeType == null ? ColumnType.NULL : nativeType.spec(), val);
         });
     }
 

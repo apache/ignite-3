@@ -89,7 +89,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     }
 
     private static @Nullable Object generateReducedValueByType(NativeType nativeType) {
-        ColumnType type = nativeType.spec().asColumnType();
+        ColumnType type = nativeType.spec();
 
         switch (type) {
             case INT8:
@@ -114,7 +114,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     }
 
     private static Object generateConstantValueByType(NativeType type, String numericBase) {
-        ColumnType type0 = type.spec().asColumnType();
+        ColumnType type0 = type.spec();
         switch (type0) {
             case INT8:
                 return Byte.valueOf(numericBase);
@@ -145,7 +145,7 @@ class BaseTypeCheckExecutionTest extends BaseIgniteAbstractTest {
     }
 
     private static Object generateNotZeroValueByType(NativeType nativeType) {
-        ColumnType type = nativeType.spec().asColumnType();
+        ColumnType type = nativeType.spec();
 
         switch (type) {
             case INT8: {
