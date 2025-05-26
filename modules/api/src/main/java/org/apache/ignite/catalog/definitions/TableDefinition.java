@@ -36,6 +36,10 @@ import org.jetbrains.annotations.Nullable;
 public class TableDefinition {
     private final QualifiedName qualifiedName;
 
+    private final String tableName;
+
+    private final String schemaName;
+
     private final boolean ifNotExists;
 
     private final List<ColumnDefinition> columns;
@@ -56,6 +60,8 @@ public class TableDefinition {
 
     private TableDefinition(
             QualifiedName qualifiedName,
+            String tableName,
+            String schemaName,
             boolean ifNotExists,
             List<ColumnDefinition> columns,
             IndexType pkType,
@@ -67,6 +73,8 @@ public class TableDefinition {
             List<IndexDefinition> indexes
     ) {
         this.qualifiedName = qualifiedName;
+        this.tableName = tableName;
+        this.schemaName = schemaName;
         this.ifNotExists = ifNotExists;
         this.columns = columns;
         this.pkType = pkType;
@@ -91,7 +99,10 @@ public class TableDefinition {
         }
 
         QualifiedName qualifiedName = qualifiedNameFromTableName(tableName);
-        return new Builder().qualifiedName(qualifiedName);
+        Builder builder = new Builder();
+        builder.tableName = tableName;
+        builder.schemaName = qualifiedName.schemaName();
+        return builder.qualifiedName(qualifiedName);
     }
 
     /**
@@ -110,6 +121,9 @@ public class TableDefinition {
      * @return Table name.
      */
     public String tableName() {
+        if (tableName != null) {
+            return tableName;
+        }
         return qualifiedName.objectName();
     }
 
@@ -119,6 +133,9 @@ public class TableDefinition {
      * @return Schema name or {@code null} if not specified.
      */
     public @Nullable String schemaName() {
+        if (schemaName != null) {
+            return schemaName;
+        }
         return qualifiedName.schemaName();
     }
 
@@ -241,6 +258,8 @@ public class TableDefinition {
         }
         TableDefinition that = (TableDefinition) o;
         return ifNotExists == that.ifNotExists
+                && Objects.equals(tableName, that.tableName)
+                && Objects.equals(schemaName, that.schemaName)
                 && Objects.equals(qualifiedName, that.qualifiedName)
                 && Objects.equals(columns, that.columns)
                 && pkType == that.pkType
@@ -255,6 +274,8 @@ public class TableDefinition {
     @Override
     public int hashCode() {
         return Objects.hash(
+                tableName,
+                schemaName,
                 qualifiedName,
                 ifNotExists,
                 columns,
@@ -274,6 +295,10 @@ public class TableDefinition {
     public static class Builder {
 
         private QualifiedName qualifiedName;
+
+        private String tableName;
+
+        private String schemaName;
 
         private boolean ifNotExists;
 
@@ -315,6 +340,7 @@ public class TableDefinition {
          */
         public Builder schema(String schemaName) {
             qualifiedName = qualifiedNameWithSchema(qualifiedName, schemaName);
+            this.schemaName = schemaName;
             return this;
         }
 
@@ -581,6 +607,8 @@ public class TableDefinition {
         public TableDefinition build() {
             return new TableDefinition(
                     qualifiedName,
+                    tableName,
+                    schemaName,
                     ifNotExists,
                     columns,
                     pkType,
