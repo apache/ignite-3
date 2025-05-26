@@ -93,7 +93,7 @@ public class ColocationUtils {
                 calc.appendString((String) v);
                 return;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 calc.appendBytes((byte[]) v);
                 return;
 

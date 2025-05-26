@@ -151,23 +151,23 @@ public class IgniteTableModify extends TableModify implements SourceAwareIgniteR
     @Override
     public RelNode accept(RexShuttle shuttle) {
         List<RexNode> sourceExprList = getSourceExpressionList();
+        List<RexNode> newSourceExprList = shuttle.apply(sourceExprList);
 
-        if (sourceExprList != null) {
-            List<RexNode> newSourceExprList = shuttle.apply(sourceExprList);
-            return new IgniteTableModify(
-                    sourceId,
-                    getCluster(),
-                    traitSet,
-                    getTable(),
-                    input,
-                    getOperation(),
-                    getUpdateColumnList(),
-                    newSourceExprList,
-                    isFlattened()
-            );
-        } else {
+        if (newSourceExprList == sourceExprList) {
             return this;
         }
+
+        return new IgniteTableModify(
+                sourceId,
+                getCluster(),
+                traitSet,
+                getTable(),
+                input,
+                getOperation(),
+                getUpdateColumnList(),
+                newSourceExprList,
+                isFlattened()
+        );
     }
 
     /** {@inheritDoc} */

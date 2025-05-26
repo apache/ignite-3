@@ -118,6 +118,12 @@ public class IgniteSystemViewScan extends ProjectableFilterableTableScan impleme
                 names, projects, condition, requiredColumns);
     }
 
+    @Override
+    protected ProjectableFilterableTableScan copy(@Nullable List<RexNode> newProjects, @Nullable RexNode newCondition) {
+        return new IgniteSystemViewScan(sourceId, getCluster(), getTraitSet(), getHints(), getTable(),
+                names, newProjects, newCondition, requiredColumns);
+    }
+
     /** {@inheritDoc} */
     @Override
     public IgniteSystemViewScan withHints(List<RelHint> hintList) {

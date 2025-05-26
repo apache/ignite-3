@@ -23,13 +23,13 @@ import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientHandlerMetricSource;
 import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.tx.InternalTxOptions;
 import org.apache.ignite.internal.tx.TxManager;
-import org.jetbrains.annotations.Nullable;
 
 /**
  * Client transaction begin request.
@@ -39,18 +39,19 @@ public class ClientTransactionBeginRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param txManager Transactions.
      * @param resources Resources.
      * @param metrics Metrics.
      * @return Future.
      */
-    public static @Nullable CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             TxManager txManager,
             ClientResourceRegistry resources,
-            ClientHandlerMetricSource metrics
+            ClientHandlerMetricSource metrics,
+            IgniteTablesInternal igniteTables,
+            boolean enableDirectMapping,
+            HybridTimestampTracker tsTracker
     ) throws IgniteInternalCheckedException {
         boolean readOnly = in.unpackBoolean();
         long timeoutMillis = in.unpackLong();
@@ -65,20 +66,20 @@ public class ClientTransactionBeginRequest {
                 .timeoutMillis(timeoutMillis)
                 .build();
 
-        var tx = startExplicitTx(out, txManager, observableTs, readOnly, txOptions);
+        var tx = startExplicitTx(tsTracker, txManager, observableTs, readOnly, txOptions);
 
         if (readOnly) {
             // Propagate assigned read timestamp to client to enforce serializability on subsequent reads from another node.
-            out.meta(tx.readTimestamp());
+            tsTracker.update(tx.readTimestamp());
         }
 
         try {
             long resourceId = resources.put(new ClientResource(tx, tx::rollbackAsync));
-            out.packLong(resourceId);
-
             metrics.transactionsActiveIncrement();
 
-            return null;
+            return CompletableFuture.completedFuture(out -> {
+                out.packLong(resourceId);
+            });
         } catch (IgniteInternalCheckedException e) {
             tx.rollback();
             throw e;

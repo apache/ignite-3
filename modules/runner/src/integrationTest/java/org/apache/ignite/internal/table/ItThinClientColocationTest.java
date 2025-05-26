@@ -109,7 +109,7 @@ public class ItThinClientColocationTest extends ClusterPerClassIntegrationTest {
     private static ClientSchema clientSchema(NativeType type, String columnName) {
         var clientColumn = new ClientColumn(
                 columnName,
-                ClientTableCommon.getColumnType(type.spec()),
+                type.spec(),
                 false,
                 0,
                 -1,

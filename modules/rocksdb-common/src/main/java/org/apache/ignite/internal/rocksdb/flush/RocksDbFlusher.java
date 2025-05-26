@@ -25,7 +25,7 @@ import java.util.List;
 import java.util.SortedMap;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentSkipListMap;
-import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.IntSupplier;
@@ -67,7 +67,7 @@ public class RocksDbFlusher {
     private final ScheduledExecutorService scheduledPool;
 
     /** Thread pool to execute flush and complete flush completion futures. */
-    final ExecutorService threadPool;
+    final Executor threadPool;
 
     /** Supplier of delay values to batch independent flush requests. */
     private final IntSupplier delaySupplier;
@@ -122,7 +122,7 @@ public class RocksDbFlusher {
             String name,
             IgniteSpinBusyLock busyLock,
             ScheduledExecutorService scheduledPool,
-            ExecutorService threadPool,
+            Executor threadPool,
             IntSupplier delaySupplier,
             LogSyncer logSyncer,
             FailureProcessor failureProcessor,
