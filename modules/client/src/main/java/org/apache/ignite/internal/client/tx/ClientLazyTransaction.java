@@ -155,7 +155,7 @@ public class ClientLazyTransaction implements Transaction {
      *
      * @param tx Transaction.
      * @param ch Channel.
-     * @param channelResolver Client channel resolver.
+     * @param channelResolver Client channel resolver. {@code null} value means skipping explicit tx begin request.
      *
      * @return Future that will be completed when the transaction is started and first request flag.
      */

@@ -118,7 +118,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_GET_STATE,
-                (PayloadWriter) w -> w.out().packUuid(jobId),
+                w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackJobState,
                 null,
                 null,
@@ -131,7 +131,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_GET_STATE,
-                (PayloadWriter) w -> w.out().packUuid(taskId),
+                w -> w.out().packUuid(taskId),
                 ClientJobExecution::unpackTaskState,
                 null,
                 null,
@@ -144,7 +144,7 @@ class ClientJobExecution<R> implements JobExecution<R> {
         // especially in case of colocated execution.
         return ch.serviceAsync(
                 ClientOp.COMPUTE_CANCEL,
-                (PayloadWriter) w -> w.out().packUuid(jobId),
+                w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackBooleanResult,
                 null,
                 null,
