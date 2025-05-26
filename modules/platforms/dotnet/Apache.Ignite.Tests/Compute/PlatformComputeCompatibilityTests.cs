@@ -56,14 +56,18 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetJobCompiledAgainstNewIgniteVersion()
     {
-        var jobDesc = new JobDescriptor<object, object>($"TestNamespace.EchoJob, {JobAssemblyName}", [_unit]);
+        var jobDesc = new JobDescriptor<object, object>(
+            JobClassName: $"TestNamespace.EchoJob, {JobAssemblyName}",
+            DeploymentUnits: [_unit],
+            Options: new JobExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar));
+
         var nodes = await Client.GetClusterNodesAsync();
         var target = JobTarget.Node(nodes.Single(x => x.Name == ComputeTests.PlatformTestNodeRunner));
 
         var jobExec = await Client.Compute.SubmitAsync(target, jobDesc, "test1");
         var result = await jobExec.GetResultAsync();
 
-        Assert.AreEqual("test1", result);
+        Assert.AreEqual("Echo: test1", result);
     }
 
     private static void BuildIgniteWithVersion(string targetPath, string version)
