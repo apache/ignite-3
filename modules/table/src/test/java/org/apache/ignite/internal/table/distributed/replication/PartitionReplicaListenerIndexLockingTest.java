@@ -209,7 +209,7 @@ public class PartitionReplicaListenerIndexLockingTest extends IgniteAbstractTest
                 new TestSortedIndexStorage(PART_ID,
                         new StorageSortedIndexDescriptor(
                                 SORTED_INDEX_ID,
-                                List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true)),
+                                List.of(new StorageSortedIndexColumnDescriptor("val", NativeTypes.INT32, false, true, false)),
                                 false
                         )),
                 row2SortKeyConverter

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.network.serialization.PerSessionSeriali
 import static org.apache.ignite.internal.thread.ThreadOperation.NOTHING_ALLOWED;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.internal.util.IgniteUtils.awaitForWorkersStop;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
@@ -55,6 +56,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
+import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -358,10 +360,27 @@ public class DefaultMessagingService extends AbstractMessagingService {
         }
 
         return connectionManager.channel(nodeId, type, addr)
-                .thenComposeToCompletable(sender -> sender.send(
-                        new OutNetworkObject(message, descriptors),
-                        () -> triggerChannelCreation(nodeId, type, addr)
-                ));
+                .thenComposeToCompletable(sender -> {
+                    if (nodeId != null && !sender.launchId().equals(nodeId)) {
+                        // The destination node has been rebooted, so it's a different node instance.
+                        throw new RecipientLeftException("Target node ID is " + nodeId + ", but " + sender.launchId() + " responded");
+                    }
+
+                    return sender.send(
+                            new OutNetworkObject(message, descriptors),
+                            () -> triggerChannelCreation(nodeId, type, addr)
+                    );
+                })
+                // TODO: IGNITE-25375 - consider removing logging after the fix as it might be too much
+                // (the caller alse gets the exception).
+                .whenComplete((res, ex) -> {
+                    if (ex != null && hasCause(ex, HandshakeException.class)) {
+                        LOG.error(
+                                "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localAddr={}]", ex,
+                                nodeId, type, addr, connectionManager.localAddress()
+                        );
+                    }
+                });
     }
 
     private void triggerChannelCreation(UUID nodeId, ChannelType type, InetSocketAddress addr) {

@@ -197,6 +197,18 @@ SqlNode ColumnNameWithSortDirection() :
             col = SqlStdOperatorTable.DESC.createCall(getPos(), col);
         }
     )?
+
+    (
+        LOOKAHEAD(2)
+        <NULLS> <FIRST> {
+            col = SqlStdOperatorTable.NULLS_FIRST.createCall(getPos(), col);
+        }
+    |
+        <NULLS> <LAST> {
+            col = SqlStdOperatorTable.NULLS_LAST.createCall(getPos(), col);
+        }
+    )?
+
     {
         return col;
     }
@@ -963,32 +975,24 @@ Boolean SqlKillNoWait():
 SqlNode SqlIgniteExplain() :
 {
     SqlNode stmt;
-    SqlExplainLevel detailLevel = SqlExplainLevel.EXPPLAN_ATTRIBUTES;
-    SqlExplain.Depth depth;
     Span s;
-    final SqlExplainFormat format;
 }
 {
-    <EXPLAIN> { s = span(); } <PLAN>
-    [ detailLevel = ExplainDetailLevel() ]
-    depth = ExplainDepth()
-    (
-        LOOKAHEAD(2)
-        <AS> <XML> { format = SqlExplainFormat.XML; }
-    |
-        LOOKAHEAD(2)
-        <AS> <JSON> { format = SqlExplainFormat.JSON; }
-    |
-        <AS> <DOT_FORMAT> { format = SqlExplainFormat.DOT; }
-    |
-        { format = SqlExplainFormat.TEXT; }
-    )
-    <FOR> stmt = SqlQueryOrDml() {
-        return new SqlExplain(s.end(this),
+    <EXPLAIN> { s = span(); }
+    [<PLAN> <FOR>] stmt = SqlQueryOrDml() {
+        return new IgniteSqlExplain(s.end(this),
             stmt,
-            detailLevel.symbol(SqlParserPos.ZERO),
-            depth.symbol(SqlParserPos.ZERO),
-            format.symbol(SqlParserPos.ZERO),
             nDynamicParams);
+    }
+}
+
+/**
+ * DESCRIBE is actually not supported, therefore let's throw an exception.
+ */
+SqlNode SqlIgniteDescribe() :
+{ }
+{
+    <DESCRIBE> {
+        throw SqlUtil.newContextException(span().pos(), IgniteResource.INSTANCE.unexpectedStatement(token.image));
     }
 }

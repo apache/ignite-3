@@ -57,6 +57,13 @@ public @interface Zone {
     int replicas() default -1;
 
     /**
+     * Quorum size.
+     *
+     * @return Quorum size.
+     */
+    int quorumSize() default -1;
+
+    /**
      * Distribution algorithm.
      *
      * @return Distribution algorithm.

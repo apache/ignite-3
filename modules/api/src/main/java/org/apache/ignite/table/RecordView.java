@@ -326,6 +326,13 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
     List<R> deleteAll(@Nullable Transaction tx, Collection<R> keyRecs);
 
     /**
+     * Removes all entries from a table records.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     */
+    void deleteAll(@Nullable Transaction tx);
+
+    /**
      * Asynchronously removes from a table records with the same key column values as the given one.
      *
      * @param tx Transaction or {@code null} for implicit transaction.
@@ -335,6 +342,14 @@ public interface RecordView<R> extends DataStreamerTarget<R>, CriteriaQuerySourc
      *         excluded from the collection result.
      */
     CompletableFuture<List<R>> deleteAllAsync(@Nullable Transaction tx, Collection<R> keyRecs);
+
+    /**
+     * Asynchronously removes all entries from a table records.
+     *
+     * @param tx Transaction or {@code null} for implicit transaction.
+     * @return Future represents the pending completion of the operation.
+     */
+    CompletableFuture<Void> deleteAllAsync(@Nullable Transaction tx);
 
     /**
      * Remove the given records from a table.

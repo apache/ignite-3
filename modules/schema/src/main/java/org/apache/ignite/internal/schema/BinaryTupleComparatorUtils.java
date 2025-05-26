@@ -25,7 +25,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
-import org.apache.ignite.internal.type.NativeTypeSpec;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * The utility class has methods to use to compare fields in binary representation.
@@ -35,7 +35,7 @@ class BinaryTupleComparatorUtils {
      * Compares individual fields of two tuples using ascending order.
      */
     @SuppressWarnings("DataFlowIssue")
-    static int compareFieldValue(NativeTypeSpec typeSpec, BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
+    static int compareFieldValue(ColumnType typeSpec, BinaryTupleReader tuple1, BinaryTupleReader tuple2, int index) {
         switch (typeSpec) {
             case INT8:
             case BOOLEAN:
@@ -56,7 +56,7 @@ class BinaryTupleComparatorUtils {
             case DOUBLE:
                 return Double.compare(tuple1.doubleValue(index), tuple2.doubleValue(index));
 
-            case BYTES:
+            case BYTE_ARRAY:
                 return Arrays.compareUnsigned(tuple1.bytesValue(index), tuple2.bytesValue(index));
 
             case UUID:

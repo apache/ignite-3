@@ -329,8 +329,20 @@ public class KeyValueBinaryViewImpl extends AbstractTableView<Entry<Tuple, Tuple
 
     /** {@inheritDoc} */
     @Override
+    public void removeAll(@Nullable Transaction tx) {
+        sync(removeAllAsync(tx));
+    }
+
+    /** {@inheritDoc} */
+    @Override
     public Collection<Tuple> removeAll(@Nullable Transaction tx, Collection<Tuple> keys) {
         return sync(removeAllAsync(tx, keys));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public CompletableFuture<Void> removeAllAsync(@Nullable Transaction tx) {
+        return sql.executeAsync(tx, "DELETE FROM " + tbl.name().toCanonicalForm()).thenApply(r -> null);
     }
 
     /** {@inheritDoc} */

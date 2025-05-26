@@ -304,6 +304,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private boolean possiblyRejectHandshakeStart(HandshakeStartMessage message) {
+        if (message.serverNode().id().equals(localNode.id())) {
+            handleLoopConnection(message);
+
+            return true;
+        }
+
         if (staleIdDetector.isIdStale(message.serverNode().id())) {
             handleStaleServerId(message);
 
@@ -335,6 +341,16 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         }
 
         return false;
+    }
+
+    private void handleLoopConnection(HandshakeStartMessage msg) {
+        String message = String.format(
+                "Got handshake start from self, this should never happen; this is a programming error [localNode=%s, serverNode=%s]",
+                localNode,
+                msg.serverNode()
+        );
+
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, HandshakeException::new);
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {

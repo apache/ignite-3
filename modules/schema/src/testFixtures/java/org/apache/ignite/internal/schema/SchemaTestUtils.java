@@ -40,9 +40,9 @@ import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.type.TemporalNativeType;
+import org.apache.ignite.sql.ColumnType;
 
 /**
  * Test utility class.
@@ -108,7 +108,7 @@ public final class SchemaTestUtils {
             case STRING:
                 return IgniteTestUtils.randomString(rnd, rnd.nextInt(255));
 
-            case BYTES:
+            case BYTE_ARRAY:
                 return IgniteTestUtils.randomBytes(rnd, rnd.nextInt(255));
 
             case DECIMAL:
@@ -138,7 +138,7 @@ public final class SchemaTestUtils {
     }
 
     /** Creates a native type from given type spec. */
-    public static NativeType specToType(NativeTypeSpec spec) {
+    public static NativeType specToType(ColumnType spec) {
         switch (spec) {
             case BOOLEAN:
                 return NativeTypes.BOOLEAN;
@@ -168,7 +168,7 @@ public final class SchemaTestUtils {
                 return NativeTypes.stringOf(8);
             case UUID:
                 return NativeTypes.UUID;
-            case BYTES:
+            case BYTE_ARRAY:
                 return NativeTypes.blobOf(8);
             default:
                 throw new IllegalStateException("Unknown type spec [spec=" + spec + ']');
@@ -176,15 +176,15 @@ public final class SchemaTestUtils {
     }
 
     /**
-     * Ensure specified columns contains all type spec, presented in NativeTypeSpec.
+     * Ensure specified columns contains all type spec, presented in ColumnType.
      *
      * @param allColumns Columns to test.
      */
     public static void ensureAllTypesChecked(Stream<Column> allColumns) {
-        Set<NativeTypeSpec> testedTypes = allColumns.map(c -> c.type().spec())
+        Set<ColumnType> testedTypes = allColumns.map(c -> c.type().spec())
                 .collect(Collectors.toSet());
 
-        Set<NativeTypeSpec> missedTypes = Arrays.stream(NativeTypeSpec.values())
+        Set<ColumnType> missedTypes = Arrays.stream(NativeType.nativeTypes())
                 .filter(t -> !testedTypes.contains(t)).collect(Collectors.toSet());
 
         assertEquals(Collections.emptySet(), missedTypes);

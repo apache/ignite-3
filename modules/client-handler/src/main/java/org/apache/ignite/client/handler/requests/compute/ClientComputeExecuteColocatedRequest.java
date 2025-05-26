@@ -22,12 +22,13 @@ import static org.apache.ignite.client.handler.requests.compute.ClientComputeExe
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 
+import java.util.BitSet;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobExecution;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker.Job;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.compute.ComputeJobDataHolder;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
@@ -42,7 +43,6 @@ public class ClientComputeExecuteColocatedRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param tables Tables.
      * @param cluster Cluster service
@@ -50,34 +50,43 @@ public class ClientComputeExecuteColocatedRequest {
      * @param enablePlatformJobs Enable platform jobs.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             IgniteTables tables,
             ClusterService cluster,
             NotificationSender notificationSender,
             boolean enablePlatformJobs) {
-        return readTableAsync(in, tables).thenCompose(table -> readTuple(in, table, true).thenCompose(keyTuple -> {
-            Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
-            out.packInt(table.schemaView().lastKnownSchemaVersion());
+        int tableId = in.unpackInt();
+        int schemaId = in.unpackInt();
 
-            CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
-                    table,
-                    keyTuple,
-                    job.deploymentUnits(),
-                    job.jobClassName(),
-                    job.options(),
-                    job.arg(),
-                    null
-            );
+        BitSet noValueSet = in.unpackBitSet();
+        byte[] tupleBytes = in.readBinary();
 
-            sendResultAndState(jobExecutionFut, notificationSender);
+        Job job = ClientComputeJobUnpacker.unpackJob(in, enablePlatformJobs);
 
-            //noinspection DataFlowIssue
-            return jobExecutionFut.thenCompose(execution ->
-                    execution.idAsync().thenAccept(jobId -> packSubmitResult(out, jobId, execution.node()))
-            );
-        }));
+        return readTableAsync(tableId, tables).thenCompose(table -> readTuple(schemaId, noValueSet, tupleBytes, table, true)
+                .thenCompose(keyTuple -> {
+                    CompletableFuture<JobExecution<ComputeJobDataHolder>> jobExecutionFut = compute.submitColocatedInternal(
+                            table,
+                            keyTuple,
+                            job.deploymentUnits(),
+                            job.jobClassName(),
+                            job.options(),
+                            job.arg(),
+                            null
+                    );
+
+                    sendResultAndState(jobExecutionFut, notificationSender);
+
+                    return jobExecutionFut.thenCompose(execution ->
+                            execution.idAsync().thenApply(jobId -> out -> {
+                                out.packInt(table.schemaView().lastKnownSchemaVersion());
+
+                                //noinspection DataFlowIssue
+                                packSubmitResult(out, jobId, execution.node());
+                            })
+                    );
+                }));
     }
 }

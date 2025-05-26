@@ -105,6 +105,11 @@ namespace Apache.Ignite.Internal.Table.Serialization
                 }
                 else
                 {
+                    if (col.IsKey)
+                    {
+                        throw new ArgumentException($"Key column '{col.Name}' not found in the provided tuple '{record}'");
+                    }
+
                     tupleBuilder.AppendNoValue(noValueSet);
                 }
             }

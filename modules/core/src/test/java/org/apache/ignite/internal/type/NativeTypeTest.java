@@ -39,6 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -150,18 +151,18 @@ public class NativeTypeTest {
 
     @Test
     public void basicTypeEquality() {
-        assertEquals(BOOLEAN, new NativeType(NativeTypeSpec.BOOLEAN, 1));
+        assertEquals(BOOLEAN, new NativeType(ColumnType.BOOLEAN, 1));
 
-        assertEquals(INT8, new NativeType(NativeTypeSpec.INT8, 1));
-        assertEquals(INT16, new NativeType(NativeTypeSpec.INT16, 2));
-        assertEquals(INT32, new NativeType(NativeTypeSpec.INT32, 4));
-        assertEquals(INT64, new NativeType(NativeTypeSpec.INT64, 8));
+        assertEquals(INT8, new NativeType(ColumnType.INT8, 1));
+        assertEquals(INT16, new NativeType(ColumnType.INT16, 2));
+        assertEquals(INT32, new NativeType(ColumnType.INT32, 4));
+        assertEquals(INT64, new NativeType(ColumnType.INT64, 8));
 
-        assertEquals(FLOAT, new NativeType(NativeTypeSpec.FLOAT, 4));
-        assertEquals(DOUBLE, new NativeType(NativeTypeSpec.DOUBLE, 8));
+        assertEquals(FLOAT, new NativeType(ColumnType.FLOAT, 4));
+        assertEquals(DOUBLE, new NativeType(ColumnType.DOUBLE, 8));
 
-        assertEquals(DATE, new NativeType(NativeTypeSpec.DATE, 3));
-        assertEquals(UUID, new NativeType(NativeTypeSpec.UUID, 16));
+        assertEquals(DATE, new NativeType(ColumnType.DATE, 3));
+        assertEquals(UUID, new NativeType(ColumnType.UUID, 16));
     }
 
     @Test

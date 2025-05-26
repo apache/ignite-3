@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.configuration;
 
+import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.function.Function.identity;
 import static java.util.regex.Pattern.quote;
 import static java.util.stream.Collectors.toMap;
@@ -51,7 +52,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
@@ -122,7 +122,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
     private final ReadWriteLock rwLock = new ReentrantReadWriteLock(true);
 
     /** Flag indicating whether the component is started. */
-    private final AtomicBoolean started = new AtomicBoolean(false);
+    private volatile boolean started = false;
 
     /** Keys that were deleted from the configuration, but were present in the storage. Will be deleted on startup. */
     private Collection<String> ignoredKeys;
@@ -321,7 +321,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
         persistModifiedConfiguration();
 
-        started.set(true);
+        started = true;
     }
 
     /**
@@ -353,7 +353,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      * @param configurationSource the configuration source to initialize with.
      */
     public void initializeConfigurationWith(ConfigurationSource configurationSource) {
-        assert !started.get() : "ConfigurationChanger#initializeConfigurationWith must be called before the start.";
+        assert !started : "ConfigurationChanger#initializeConfigurationWith must be called before the start.";
 
         initialConfiguration = configurationSource;
     }
@@ -585,20 +585,20 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
      */
     private CompletableFuture<Void> changeInternally(ConfigurationSource src, boolean onStartup) {
         return storage.lastRevision()
-            .thenComposeAsync(storageRevision -> {
-                assert storageRevision != null;
+                .thenComposeAsync(storageRevision -> {
+                    assert storageRevision != null;
 
-                return changeInternally0(src, storageRevision, onStartup);
-            }, pool)
-            .exceptionally(throwable -> {
-                Throwable cause = throwable.getCause();
+                    return changeInternally0(src, storageRevision, onStartup);
+                }, pool)
+                .exceptionally(throwable -> {
+                    Throwable cause = throwable.getCause();
 
-                if (cause instanceof ConfigurationChangeException) {
-                    throw ((ConfigurationChangeException) cause);
-                } else {
-                    throw new ConfigurationChangeException("Failed to change configuration", cause);
-                }
-            });
+                    if (cause instanceof ConfigurationChangeException) {
+                        throw ((ConfigurationChangeException) cause);
+                    } else {
+                        throw new ConfigurationChangeException("Failed to change configuration", cause);
+                    }
+                });
     }
 
     /**
@@ -697,50 +697,57 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
     private ConfigurationStorageListener configurationStorageListener() {
         return changedEntries -> {
-            var changedValues = new HashMap<String, Serializable>(changedEntries.values());
             StorageRoots oldStorageRoots = storageRoots;
 
-            SuperRoot oldSuperRoot = oldStorageRoots.roots;
-            SuperRoot oldSuperRootNoDefaults = oldStorageRoots.rootsWithoutDefaults;
-            SuperRoot newSuperRoot = oldSuperRoot.copy();
-            SuperRoot newSuperNoDefaults = oldSuperRootNoDefaults.copy();
-
-            // We need to ignore deletion of deprecated values.
-            ignoreDeleted(changedValues, keyIgnorer);
-            // We need to ignore deletion of legacy values.
-            ignoreLegacyKeys(oldStorageRoots, changedValues);
-
-            Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
-
-            compressDeletedEntries(dataValuesPrefixMap);
-
-            fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
-            fillFromPrefixMap(newSuperNoDefaults, dataValuesPrefixMap);
-
-            long newChangeId = changedEntries.changeId();
-
-            var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
-
-            rwLock.writeLock().lock();
-
             try {
-                storageRoots = newStorageRoots;
-            } finally {
-                rwLock.writeLock().unlock();
-            }
+                var changedValues = new HashMap<String, Serializable>(changedEntries.values());
 
-            long notificationNumber = notificationListenerCnt.incrementAndGet();
+                SuperRoot oldSuperRoot = oldStorageRoots.roots;
+                SuperRoot oldSuperRootNoDefaults = oldStorageRoots.rootsWithoutDefaults;
+                SuperRoot newSuperRoot = oldSuperRoot.copy();
+                SuperRoot newSuperNoDefaults = oldSuperRootNoDefaults.copy();
 
-            CompletableFuture<Void> notificationFuture = configurationUpdateListener
-                    .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
+                // We need to ignore deletion of deprecated values.
+                ignoreDeleted(changedValues, keyIgnorer);
+                // We need to ignore deletion of legacy values.
+                ignoreLegacyKeys(oldStorageRoots, changedValues);
 
-            return notificationFuture.whenComplete((v, t) -> {
-                if (t == null) {
-                    oldStorageRoots.changeFuture.complete(null);
-                } else {
-                    oldStorageRoots.changeFuture.completeExceptionally(t);
+                Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
+
+                compressDeletedEntries(dataValuesPrefixMap);
+
+                fillFromPrefixMap(newSuperRoot, dataValuesPrefixMap);
+                fillFromPrefixMap(newSuperNoDefaults, dataValuesPrefixMap);
+
+                long newChangeId = changedEntries.changeId();
+
+                var newStorageRoots = new StorageRoots(newSuperNoDefaults, newSuperRoot, mergeData(oldStorageRoots.data, changedEntries));
+
+                rwLock.writeLock().lock();
+
+                try {
+                    storageRoots = newStorageRoots;
+                } finally {
+                    rwLock.writeLock().unlock();
                 }
-            });
+
+                long notificationNumber = notificationListenerCnt.incrementAndGet();
+
+                CompletableFuture<Void> notificationFuture = configurationUpdateListener
+                        .onConfigurationUpdated(oldSuperRoot, newSuperRoot, newChangeId, notificationNumber);
+
+                return notificationFuture.whenComplete((v, t) -> {
+                    if (t == null) {
+                        oldStorageRoots.changeFuture.complete(null);
+                    } else {
+                        oldStorageRoots.changeFuture.completeExceptionally(t);
+                    }
+                });
+            } catch (Throwable e) {
+                oldStorageRoots.changeFuture.completeExceptionally(e);
+
+                return failedFuture(e);
+            }
         };
     }
 

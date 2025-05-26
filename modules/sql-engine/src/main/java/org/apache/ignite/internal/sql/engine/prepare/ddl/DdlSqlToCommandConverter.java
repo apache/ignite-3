@@ -138,7 +138,6 @@ import org.apache.ignite.internal.sql.engine.sql.IgniteSqlPrimaryKeyIndexType;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOption;
 import org.apache.ignite.internal.sql.engine.sql.IgniteSqlZoneOptionMode;
 import org.apache.ignite.internal.sql.engine.util.Commons;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.sql.SqlException;
@@ -657,6 +656,17 @@ public class DdlSqlToCommandConverter {
     ) {
         for (SqlNode col : columnList.getList()) {
             boolean asc = true;
+            Boolean nullsFirst = null;
+
+            if (col.getKind() == SqlKind.NULLS_FIRST) {
+                col = ((SqlCall) col).getOperandList().get(0);
+
+                nullsFirst = true;
+            } else if (col.getKind() == SqlKind.NULLS_LAST) {
+                col = ((SqlCall) col).getOperandList().get(0);
+
+                nullsFirst = false;
+            }
 
             if (col.getKind() == SqlKind.DESCENDING) {
                 col = ((SqlCall) col).getOperandList().get(0);
@@ -664,10 +674,14 @@ public class DdlSqlToCommandConverter {
                 asc = false;
             }
 
+            if (nullsFirst == null) {
+                nullsFirst = !asc;
+            }
+
             String columnName = ((SqlIdentifier) col).getSimple();
             columns.add(columnName);
             if (supportCollation) {
-                collations.add(CatalogColumnCollation.get(asc, !asc));
+                collations.add(CatalogColumnCollation.get(asc, nullsFirst));
             }
         }
     }
@@ -1006,12 +1020,12 @@ public class DdlSqlToCommandConverter {
                     try {
                         literal = SqlParserUtil.parseDateLiteral(literal.getValueAs(String.class), literal.getParserPosition());
                         int val = literal.getValueAs(DateString.class).getDaysSinceEpoch();
-                        return fromInternal(val, NativeTypeSpec.DATE);
+                        return fromInternal(val, ColumnType.DATE);
                     } catch (CalciteContextException e) {
                         literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
                         TimestampString tsString = literal.getValueAs(TimestampString.class);
                         int val = convertToIntExact(TimeUnit.MILLISECONDS.toDays(tsString.getMillisSinceEpoch()));
-                        return fromInternal(val, NativeTypeSpec.DATE);
+                        return fromInternal(val, ColumnType.DATE);
                     }
                 }
                 case TIME: {
@@ -1022,7 +1036,7 @@ public class DdlSqlToCommandConverter {
                     }
                     literal = SqlParserUtil.parseTimeLiteral(strLiteral, literal.getParserPosition());
                     int val = literal.getValueAs(TimeString.class).getMillisOfDay();
-                    return fromInternal(val, NativeTypeSpec.TIME);
+                    return fromInternal(val, ColumnType.TIME);
                 }
                 case DATETIME: {
                     literal = SqlParserUtil.parseTimestampLiteral(literal.getValueAs(String.class), literal.getParserPosition());
@@ -1033,7 +1047,7 @@ public class DdlSqlToCommandConverter {
                         throw new SqlException(STMT_VALIDATION_ERR, "TIMESTAMP out of range.");
                     }
 
-                    return fromInternal(tsString.getMillisSinceEpoch(), NativeTypeSpec.DATETIME);
+                    return fromInternal(tsString.getMillisSinceEpoch(), ColumnType.DATETIME);
                 }
                 case TIMESTAMP:
                     // TODO: IGNITE-17376

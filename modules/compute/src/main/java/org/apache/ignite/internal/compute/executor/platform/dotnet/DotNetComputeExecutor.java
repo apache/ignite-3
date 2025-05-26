@@ -307,7 +307,7 @@ public class DotNetComputeExecutor {
             // Dev mode, class file.
             return basePath.resolve(Path.of("..", "..", "..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
-        } else if (basePath.toString().endsWith("-SNAPSHOT.jar")) {
+        } else if (basePath.getParent().endsWith(Paths.get("modules", "compute", "build", "libs"))) {
             // Dev mode, jar file.
             return basePath.getParent().resolve(Path.of("..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));

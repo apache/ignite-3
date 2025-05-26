@@ -274,13 +274,13 @@ public class HoconConverterTest {
     @Test
     public void toHoconBasic() {
         assertEquals(
-                "root{arraysList{},polymorphicCfg{},primitivesList{}},rootInjectedName{nested{},nestedNamed{}}",
+                "root{arraysList=[],polymorphicCfg=[],primitivesList=[]},rootInjectedName{nested{},nestedNamed=[]}",
                 asHoconStr(List.of())
         );
 
-        assertEquals("arraysList{},polymorphicCfg{},primitivesList{}", asHoconStr(List.of("root")));
+        assertEquals("arraysList=[],polymorphicCfg=[],primitivesList=[]", asHoconStr(List.of("root")));
 
-        assertEquals("{}", asHoconStr(List.of("root", "arraysList")));
+        assertEquals("[]", asHoconStr(List.of("root", "arraysList")));
 
         assertThrowsIllegalArgException(
                 () -> HoconConverter.represent(registry.superRoot(), List.of("doot")),
@@ -675,17 +675,17 @@ public class HoconConverterTest {
     @Test
     void testPolymorphicConfig() throws Throwable {
         // Check defaults.
-        assertEquals("arraysList{},polymorphicCfg{},primitivesList{}", asHoconStr(List.of("root")));
+        assertEquals("arraysList=[],polymorphicCfg=[],primitivesList=[]", asHoconStr(List.of("root")));
 
         // Check change type.
         change("root.polymorphicCfg = [{poly = name, typeId = second}]");
 
         assertInstanceOf(HoconSecondPolymorphicInstanceConfiguration.class, configuration.polymorphicCfg().get("name"));
-        assertEquals("arraysList{},polymorphicCfg{name{int=0,typeId=second}},primitivesList{}", asHoconStr(List.of("root")));
+        assertEquals("arraysList=[],polymorphicCfg=[{int=0,poly=name,typeId=second}],primitivesList=[]", asHoconStr(List.of("root")));
 
         // Check change field.
         change("root.polymorphicCfg.name.int = 10");
-        assertEquals("arraysList{},polymorphicCfg{name{int=10,typeId=second}},primitivesList{}", asHoconStr(List.of("root")));
+        assertEquals("arraysList=[],polymorphicCfg=[{int=10,poly=name,typeId=second}],primitivesList=[]", asHoconStr(List.of("root")));
 
         // Check error: unknown typeId.
         assertThrowsIllegalArgException(
@@ -703,7 +703,7 @@ public class HoconConverterTest {
     @Test
     void testInjectedName() throws Throwable {
         // Check defaults.
-        assertEquals("nested{},nestedNamed{}", asHoconStr(List.of("rootInjectedName")));
+        assertEquals("nested{},nestedNamed=[]", asHoconStr(List.of("rootInjectedName")));
 
         // Checks get/set field with @InjectedName for nested config.
         assertThrowsIllegalArgException(
@@ -725,8 +725,8 @@ public class HoconConverterTest {
         // Checks get/set field with @InjectedName for nested named config.
         change("rootInjectedName.nestedNamed = [{someName = foo}]");
 
-        assertEquals("nested{},nestedNamed{foo{}}", asHoconStr(List.of("rootInjectedName")));
-        assertEquals("foo{}", asHoconStr(List.of("rootInjectedName", "nestedNamed")));
+        assertEquals("nested{},nestedNamed=[{someName=foo}]", asHoconStr(List.of("rootInjectedName")));
+        assertEquals("[someName=foo]", asHoconStr(List.of("rootInjectedName", "nestedNamed")));
         assertEquals("{}", asHoconStr(List.of("rootInjectedName", "nestedNamed", "foo")));
 
         // Let's check that the NamedConfigValue#syntheticKeyName key will not work.

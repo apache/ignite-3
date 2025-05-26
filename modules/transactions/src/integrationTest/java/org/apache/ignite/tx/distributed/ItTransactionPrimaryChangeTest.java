@@ -66,7 +66,6 @@ public class ItTransactionPrimaryChangeTest extends ClusterPerTestIntegrationTes
             + "  clientConnector: { port:{} },\n"
             + "  rest.port: {},\n"
             + "  raft: { responseTimeoutMillis: 30000 },"
-            + "  compute.threadPoolSize: 1,\n"
             + "  failureHandler.dumpThreadsOnFailure: false\n"
             + "}";
 

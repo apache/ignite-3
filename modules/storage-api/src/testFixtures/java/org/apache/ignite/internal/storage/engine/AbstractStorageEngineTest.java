@@ -164,7 +164,9 @@ public abstract class AbstractStorageEngineTest extends BaseMvStoragesTest {
 
         int numTables = 2;
 
-        var sortedIndexColumnDescriptor = new StorageSortedIndexColumnDescriptor("foo", NativeTypes.INT64, true, true);
+        var sortedIndexColumnDescriptor = new StorageSortedIndexColumnDescriptor(
+                "foo", NativeTypes.INT64, true, true, false
+        );
 
         var hashIndexColumnDescriptor = new StorageHashIndexColumnDescriptor("foo", NativeTypes.INT64, true);
 
