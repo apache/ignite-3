@@ -78,8 +78,8 @@ class RenamedConfigurationTest extends BaseIgniteAbstractTest {
     void setUp() {
         registry = startRegistry(RenamedTestOldConfiguration.KEY, OLD_GENERATOR);
 
-        String updatedConfig = "key.listOldName.listInstance.oldName = oldValue, " +
-                "key.oldPolymorphicName.polymorphicType.oldName = oldValue";
+        String updatedConfig = "key.listOldName.listInstance.oldName = oldValue, "
+                + "key.oldPolymorphicName.polymorphicType.oldName = oldValue";
 
         assertThat(registry.change(hoconSource(ConfigFactory.parseString(updatedConfig).root())), willCompleteSuccessfully());
 

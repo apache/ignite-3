@@ -161,7 +161,9 @@ public class DeprecatedConfigurationTest extends BaseIgniteAbstractTest {
         public DeprecatedElementConfigurationSchema list;
     }
 
-    /** */
+    /**
+     * Configuration schema with deprecated field inside.
+     */
     @Config
     public static class DeprecatedElementConfigurationSchema {
         @Deprecated
