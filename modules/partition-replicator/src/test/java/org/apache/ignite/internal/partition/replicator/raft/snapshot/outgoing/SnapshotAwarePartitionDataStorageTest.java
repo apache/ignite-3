@@ -40,6 +40,7 @@ import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionKe
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
@@ -176,19 +177,23 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     void delegatesAbortWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
 
-        when(partitionStorage.abortWrite(any())).thenReturn(resultRow);
+        UUID txId = UUID.randomUUID();
 
-        assertThat(testedStorage.abortWrite(rowId), is(resultRow));
-        verify(partitionStorage).abortWrite(rowId);
+        when(partitionStorage.abortWrite(any(), any())).thenReturn(AbortResult.success(resultRow));
+
+        assertThat(testedStorage.abortWrite(rowId, txId).previousWriteIntent(), is(resultRow));
+        verify(partitionStorage).abortWrite(rowId, txId);
     }
 
     @Test
     void delegatesCommitWrite() {
         HybridTimestamp commitTs = new HybridClockImpl().now();
 
-        testedStorage.commitWrite(rowId, commitTs);
+        UUID txId = UUID.randomUUID();
 
-        verify(partitionStorage).commitWrite(rowId, commitTs);
+        testedStorage.commitWrite(rowId, commitTs, txId);
+
+        verify(partitionStorage).commitWrite(rowId, commitTs, txId);
     }
 
     @Test
@@ -300,13 +305,13 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
         ABORT_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.abortWrite(rowId);
+                storage.abortWrite(rowId, UUID.randomUUID());
             }
         },
         COMMIT_WRITE {
             @Override
             void executeOn(SnapshotAwarePartitionDataStorage storage, RowId rowId) {
-                storage.commitWrite(rowId, new HybridClockImpl().now());
+                storage.commitWrite(rowId, new HybridClockImpl().now(), UUID.randomUUID());
             }
         };
 

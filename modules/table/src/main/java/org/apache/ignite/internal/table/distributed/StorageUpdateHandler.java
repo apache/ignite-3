@@ -447,7 +447,7 @@ public class StorageUpdateHandler {
             // Without this check it would commit the write intent from a different transaction.
             //
             // This is just a workaround. The proper fix is to check the transaction id for the row in the storage.
-            // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
+            // TODO: IGNITE-25477 Get rid of reading from storage
             ReadResult result = storage.getStorage().read(pendingRowId, HybridTimestamp.MAX_VALUE);
             if (result.isWriteIntent() && txId.equals(result.transactionId())) {
                 // In case of an asynchronous cleanup of write intents, we might get into a situation when some of the
@@ -456,7 +456,7 @@ public class StorageUpdateHandler {
             }
         }
 
-        rowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp));
+        rowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
     }
 
     /**
@@ -479,7 +479,7 @@ public class StorageUpdateHandler {
 
                 if (item.isWriteIntent()) {
                     // We are aborting only those write intents that belong to the provided transaction.
-                    // TODO: https://issues.apache.org/jira/browse/IGNITE-20347 to check transaction id in the storage
+                    // TODO: IGNITE-25477 Get rid of reading from storage
                     if (!txId.equals(item.transactionId())) {
                         continue;
                     }
@@ -496,7 +496,7 @@ public class StorageUpdateHandler {
             }
         }
 
-        rowIds.forEach(storage::abortWrite);
+        rowIds.forEach(rowId -> storage.abortWrite(rowId, txId));
     }
 
     /** Returns partition index update handler. */
