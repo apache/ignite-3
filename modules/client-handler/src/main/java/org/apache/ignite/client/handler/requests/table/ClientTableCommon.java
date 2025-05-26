@@ -338,6 +338,15 @@ public class ClientTableCommon {
         writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
     }
 
+    /**
+     * Write tx metadata.
+     *
+     * @param out Packer.
+     * @param tsTracker Timestamp tracker.
+     * @param clockService Clock service.
+     * @param tx Transaction.
+     * @param resourceId Resource id.
+     */
     public static void writeTxMeta(ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService,
             InternalTransaction tx, long resourceId) {
         if (resourceId != 0) {
