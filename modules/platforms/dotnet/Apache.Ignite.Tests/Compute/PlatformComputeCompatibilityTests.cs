@@ -73,6 +73,14 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
 
     private static void BuildIgniteWithVersion(string targetPath, string version)
     {
+        // Copy the Ignite solution to a temporary directory.
+        // Skip Directory.Build.props to get rid of GitVersioning.
+        using var tempRepoDir = new TempDir();
+        CopyFilesAndDirectories(
+            sourcePath: TestUtils.SolutionDir,
+            targetPath: tempRepoDir.Path,
+            predicate: s => !s.EndsWith("Directory.Build.props", StringComparison.OrdinalIgnoreCase));
+
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -88,7 +96,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
                 },
                 CreateNoWindow = true,
                 UseShellExecute = false,
-                WorkingDirectory = Path.Combine(TestUtils.SolutionDir, "Apache.Ignite"),
+                WorkingDirectory = Path.Combine(tempRepoDir.Path, "Apache.Ignite"),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 RedirectStandardInput = true
@@ -107,5 +115,35 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
 
         Console.WriteLine(process.StandardOutput.ReadToEnd());
         Console.WriteLine(process.StandardError.ReadToEnd());
+    }
+
+    private static void CopyFilesAndDirectories(string sourcePath, string targetPath, Func<string, bool> predicate)
+    {
+        foreach (var dir in Directory.GetDirectories(sourcePath, "*", SearchOption.AllDirectories))
+        {
+            if (!predicate(dir))
+            {
+                continue;
+            }
+
+            Directory.CreateDirectory(GetTargetPath(dir));
+        }
+
+        foreach (var file in Directory.GetFiles(sourcePath, "*", SearchOption.AllDirectories))
+        {
+            if (!predicate(file))
+            {
+                continue;
+            }
+
+            File.Copy(file, GetTargetPath(file));
+        }
+
+        string GetTargetPath(string path)
+        {
+            var relative = Path.GetRelativePath(sourcePath, path);
+
+            return Path.Combine(targetPath, relative);
+        }
     }
 }
