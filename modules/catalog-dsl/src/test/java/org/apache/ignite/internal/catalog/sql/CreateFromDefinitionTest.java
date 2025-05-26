@@ -135,9 +135,9 @@ class CreateFromDefinitionTest {
 
     @Test
     void createFromTableBuilderQuoteNames() {
-        TableDefinition table = TableDefinition.builder("builder test")
+        TableDefinition table = TableDefinition.builder("\"builder test\"")
                 .ifNotExists()
-                .schema("sche ma")
+                .schema("\"sche ma\"")
                 .colocateBy("id", "id str")
                 .zone("zone test")
                 .columns(

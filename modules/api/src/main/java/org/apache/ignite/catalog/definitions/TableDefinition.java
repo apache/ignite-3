@@ -20,12 +20,12 @@ package org.apache.ignite.catalog.definitions;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import org.apache.ignite.catalog.ColumnSorted;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
-import org.apache.ignite.catalog.annotations.Table;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
@@ -34,10 +34,6 @@ import org.jetbrains.annotations.Nullable;
  * Definition of the {@code CREATE TABLE} statement.
  */
 public class TableDefinition {
-    private final String tableName;
-
-    private final @Nullable String schemaName;
-
     private final QualifiedName qualifiedName;
 
     private final boolean ifNotExists;
@@ -59,8 +55,7 @@ public class TableDefinition {
     private final List<IndexDefinition> indexes;
 
     private TableDefinition(
-            String tableName,
-            @Nullable String schemaName,
+            QualifiedName qualifiedName,
             boolean ifNotExists,
             List<ColumnDefinition> columns,
             IndexType pkType,
@@ -71,8 +66,7 @@ public class TableDefinition {
             Class<?> valueClass,
             List<IndexDefinition> indexes
     ) {
-        this.tableName = tableName;
-        this.schemaName = schemaName;
+        this.qualifiedName = qualifiedName;
         this.ifNotExists = ifNotExists;
         this.columns = columns;
         this.pkType = pkType;
@@ -82,16 +76,6 @@ public class TableDefinition {
         this.keyClass = keyClass;
         this.valueClass = valueClass;
         this.indexes = indexes;
-
-        if (schemaName == null) {
-            qualifiedName = QualifiedName.of(QualifiedName.DEFAULT_SCHEMA_NAME,
-                    IgniteNameUtils.parseAndNormalize(tableName));
-        } else {
-            qualifiedName = QualifiedName.of(
-                    IgniteNameUtils.parseAndNormalize(schemaName),
-                    IgniteNameUtils.parseAndNormalize(tableName)
-            );
-        }
     }
 
     /**
@@ -101,7 +85,23 @@ public class TableDefinition {
      * @return Builder.
      */
     public static Builder builder(String tableName) {
-        return new Builder().tableName(tableName);
+        Objects.requireNonNull(tableName, "Table name must not be null.");
+        if (tableName.isBlank()) {
+            throw new IllegalArgumentException("Table name must not be blank.");
+        }
+
+        QualifiedName qualifiedName = qualifiedNameFromTableName(tableName);
+        return new Builder().qualifiedName(qualifiedName);
+    }
+
+    /**
+     * Creates a builder for the table with the specified qualified name.
+     *
+     * @param qualifiedName Qualified name.
+     * @return Builder.
+     */
+    public static Builder builder(QualifiedName qualifiedName) {
+        return new Builder().qualifiedName(qualifiedName);
     }
 
     /**
@@ -110,7 +110,7 @@ public class TableDefinition {
      * @return Table name.
      */
     public String tableName() {
-        return tableName;
+        return qualifiedName.objectName();
     }
 
     /**
@@ -119,13 +119,13 @@ public class TableDefinition {
      * @return Schema name or {@code null} if not specified.
      */
     public @Nullable String schemaName() {
-        return schemaName;
+        return qualifiedName.schemaName();
     }
 
     /**
-     * Returns qualified name.
+     * Returns qualified table name.
      *
-     * @return Qualified name.
+     * @return Qualified table name.
      */
     public QualifiedName qualifiedName() {
         return qualifiedName;
@@ -241,8 +241,7 @@ public class TableDefinition {
         }
         TableDefinition that = (TableDefinition) o;
         return ifNotExists == that.ifNotExists
-                && Objects.equals(tableName, that.tableName)
-                && Objects.equals(schemaName, that.schemaName)
+                && Objects.equals(qualifiedName, that.qualifiedName)
                 && Objects.equals(columns, that.columns)
                 && pkType == that.pkType
                 && Objects.equals(pkColumns, that.pkColumns)
@@ -256,8 +255,7 @@ public class TableDefinition {
     @Override
     public int hashCode() {
         return Objects.hash(
-                tableName,
-                schemaName,
+                qualifiedName,
                 ifNotExists,
                 columns,
                 pkType,
@@ -274,9 +272,8 @@ public class TableDefinition {
      * Builder for the table definition.
      */
     public static class Builder {
-        private String tableName;
 
-        private String schemaName = Table.DEFAULT_SCHEMA;
+        private QualifiedName qualifiedName;
 
         private boolean ifNotExists;
 
@@ -299,8 +296,7 @@ public class TableDefinition {
         private Builder() {}
 
         private Builder(TableDefinition definition) {
-            tableName = definition.tableName;
-            schemaName = definition.schemaName;
+            qualifiedName = definition.qualifiedName;
             ifNotExists = definition.ifNotExists;
             columns = definition.columns;
             pkType = definition.pkType;
@@ -311,16 +307,6 @@ public class TableDefinition {
             valueClass = definition.valueClass;
         }
 
-        Builder tableName(String name) {
-            Objects.requireNonNull(name, "Table name must not be null.");
-            if (name.isBlank()) {
-                throw new IllegalArgumentException("Table name must not be blank.");
-            }
-
-            this.tableName = name;
-            return this;
-        }
-
         /**
          * Sets schema name.
          *
@@ -328,7 +314,19 @@ public class TableDefinition {
          * @return This builder instance.
          */
         public Builder schema(String schemaName) {
-            this.schemaName = schemaName;
+            qualifiedName = qualifiedNameWithSchema(qualifiedName, schemaName);
+            return this;
+        }
+
+        /**
+         * Sets qualified name.
+         *
+         * @param qualifiedName Qualified name.
+         * @return This builder instance.
+         */
+        public Builder qualifiedName(QualifiedName qualifiedName) {
+            Objects.requireNonNull(qualifiedName, "Table name must not be null.");
+            this.qualifiedName = qualifiedName;
             return this;
         }
 
@@ -582,8 +580,7 @@ public class TableDefinition {
          */
         public TableDefinition build() {
             return new TableDefinition(
-                    tableName,
-                    schemaName,
+                    qualifiedName,
                     ifNotExists,
                     columns,
                     pkType,
@@ -598,6 +595,35 @@ public class TableDefinition {
 
         private static List<ColumnSorted> mapToSortedColumns(String[] columnNames) {
             return Arrays.stream(columnNames).map(ColumnSorted::column).collect(Collectors.toList());
+        }
+    }
+
+    private static QualifiedName qualifiedNameFromTableName(String name) {
+        // If the given name is quoted, assume it is valid to prevent from double quoting.
+        if (name.startsWith("\"") && name.endsWith("\"")) {
+            return QualifiedName.of(QualifiedName.DEFAULT_SCHEMA_NAME, name);
+        }
+
+        // If the given name is a valid normalized identifier, convert it to uppercase.
+        // Otherwise quote it.
+        String uppercase = name.toUpperCase(Locale.US);
+        if (IgniteNameUtils.isValidNormalizedIdentifier(uppercase)) {
+            return QualifiedName.of(QualifiedName.DEFAULT_SCHEMA_NAME, uppercase);
+        } else {
+            return QualifiedName.of(QualifiedName.DEFAULT_SCHEMA_NAME, IgniteNameUtils.quoteIfNeeded(name));
+        }
+    }
+
+    private static QualifiedName qualifiedNameWithSchema(QualifiedName name, String schemaName) {
+        String objectName = name.objectName();
+
+        // Name
+        if (objectName.startsWith("\"")) {
+            return QualifiedName.of(schemaName, objectName);
+        } else if (!objectName.equals(objectName.toUpperCase(Locale.US))) {
+            return QualifiedName.of(schemaName, IgniteNameUtils.quoteIfNeeded(objectName));
+        } else {
+            return QualifiedName.of(schemaName, objectName);
         }
     }
 }
