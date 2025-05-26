@@ -56,7 +56,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
     [Test]
     public async Task TestDotNetJobCompiledAgainstNewIgniteVersion()
     {
-        var jobDesc = DotNetJobs.Echo with { DeploymentUnits = [_unit] };
+        var jobDesc = new JobDescriptor<object, object>($"TestNamespace.EchoJob, {JobAssemblyName}", [_unit]);
         var nodes = await Client.GetClusterNodesAsync();
         var target = JobTarget.Node(nodes.Single(x => x.Name == ComputeTests.PlatformTestNodeRunner));
 
