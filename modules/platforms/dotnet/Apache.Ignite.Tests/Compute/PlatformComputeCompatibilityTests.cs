@@ -73,20 +73,26 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
 
     private static void BuildIgniteWithVersion(string targetPath, string version)
     {
-        // Copy the Ignite solution to a temporary directory.
-        // Skip Directory.Build.props to get rid of GitVersioning.
-        CopyFilesAndDirectories(sourcePath: TestUtils.SolutionDir, targetPath: targetPath);
+        // Copy the Ignite solution and override build props to skip GitVersioning.
+        var slnDirCopy = Path.Combine(Directory.GetParent(TestUtils.SolutionDir)!.FullName, Guid.NewGuid().ToString());
+        using var disposeSln = new DisposeAction(() => Directory.Delete(slnDirCopy, true));
+
+        CopyFilesAndDirectories(sourcePath: TestUtils.SolutionDir, targetPath: slnDirCopy);
 
         var buildPropsOverride = """
                                  <Project>
                                      <PropertyGroup>
                                          <LangVersion>12</LangVersion>
+                                         <EnableNETAnalyzers>true</EnableNETAnalyzers>
+                                         <Nullable>enable</Nullable>
+                                         <AnalysisMode>None</AnalysisMode>
                                      </PropertyGroup>
                                  </Project>
                                  """;
 
-        File.WriteAllText(Path.Combine(targetPath, "Directory.Build.props"), buildPropsOverride);
+        File.WriteAllText(Path.Combine(slnDirCopy, "Directory.Build.props"), buildPropsOverride);
 
+        // Build the solution with the specified version.
         var process = new Process
         {
             StartInfo = new ProcessStartInfo
@@ -102,7 +108,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
                 },
                 CreateNoWindow = true,
                 UseShellExecute = false,
-                WorkingDirectory = Path.Combine(targetPath, "Apache.Ignite"),
+                WorkingDirectory = Path.Combine(slnDirCopy, "Apache.Ignite"),
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 RedirectStandardInput = true
@@ -114,14 +120,13 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
             throw new InvalidOperationException("Failed to start process: " + process.StartInfo.FileName);
         }
 
-        if (!process.WaitForExit(TimeSpan.FromSeconds(30)))
+        var output = GetOutput();
+        Console.WriteLine(output);
+
+        if (!process.WaitForExit(TimeSpan.FromSeconds(120)))
         {
             throw new TimeoutException($"Process did not complete in time: {GetOutput()}");
         }
-
-        var output = GetOutput();
-
-        Console.WriteLine(output);
 
         if (process.ExitCode != 0)
         {
