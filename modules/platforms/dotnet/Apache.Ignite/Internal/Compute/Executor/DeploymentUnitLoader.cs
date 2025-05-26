@@ -26,6 +26,10 @@ using System.Runtime.Loader;
 /// </summary>
 internal static class DeploymentUnitLoader
 {
+    private static readonly Assembly IgniteAssembly = typeof(DeploymentUnitLoader).Assembly;
+
+    private static readonly string IgniteAssemblyName = IgniteAssembly.GetName().Name!;
+
     /// <summary>
     /// Creates a new job load context for the specified deployment unit paths.
     /// </summary>
@@ -42,6 +46,13 @@ internal static class DeploymentUnitLoader
 
     private static Assembly? ResolveAssembly(IReadOnlyList<string> paths, AssemblyName name, AssemblyLoadContext ctx)
     {
+        if (name.Name == IgniteAssemblyName)
+        {
+            // Compute job might be built against a different version of Ignite, so we end up here.
+            // Redirect to the current Ignite assembly.
+            return IgniteAssembly;
+        }
+
         foreach (var path in paths)
         {
             var dllName = $"{name.Name}.dll";
