@@ -146,7 +146,7 @@ public class PartialBinaryTupleMatcher {
         return collation.asc() ? res : -res;
     }
 
-    private int compareFieldValuePartially(
+    private static int compareFieldValuePartially(
             ColumnType typeSpec,
             BinaryTupleReader partialTuple,
             BinaryTupleReader tuple2,
