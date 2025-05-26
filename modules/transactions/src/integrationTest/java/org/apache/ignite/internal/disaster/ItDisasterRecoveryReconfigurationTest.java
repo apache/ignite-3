@@ -2104,7 +2104,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
         logger().info("Pending is {}", pending);
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25479
         return pending.empty() || pending.value() == null ? null : AssignmentsQueue.fromBytes(pending.value()).poll();
     }
 
