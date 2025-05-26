@@ -75,7 +75,37 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
     }
 
     private static Type LoadType(string typeName, AssemblyLoadContext ctx) =>
-        Type.GetType(typeName, ctx.LoadFromAssemblyName, null)
+        Type.GetType(
+            typeName,
+            name =>
+            {
+                try
+                {
+                    Assembly asm = ctx.LoadFromAssemblyName(name);
+                    return asm;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+            },
+            (assembly, name, ignoreCase) =>
+            {
+                try
+                {
+                    Type? type = assembly != null
+                        ? assembly.GetType(name, throwOnError: true, ignoreCase: ignoreCase)
+                        : Type.GetType(name, throwOnError: true, ignoreCase: ignoreCase);
+
+                    return type;
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    throw;
+                }
+            })
         ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
 
     // Simple lookup by name. Will throw in a case of ambiguity.
