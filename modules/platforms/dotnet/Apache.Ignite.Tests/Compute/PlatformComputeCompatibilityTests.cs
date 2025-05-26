@@ -32,6 +32,8 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
 {
     private const string JobAssemblyName = nameof(PlatformComputeCompatibilityTests);
 
+    private const string FutureIgniteVersion = "11.22.33";
+
     private DeploymentUnit _unit;
 
     [OneTimeSetUp]
@@ -41,7 +43,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
         using var jobBuildDir = new TempDir();
 
         // Build Ignite with some unlikely future version.
-        BuildIgniteWithVersion(igniteBuildDir.Path, "11.22.33");
+        BuildIgniteWithVersion(igniteBuildDir.Path, FutureIgniteVersion);
 
         var jobDllPath = JobGenerator.EmitGetReferencedIgniteAssemblyJob(
             jobBuildDir,
@@ -69,7 +71,7 @@ public class PlatformComputeCompatibilityTests : IgniteTestsBase
         var result = await jobExec.GetResultAsync();
 
         // Verify that the job references a future Ignite version but still works.
-        StringAssert.StartsWith("Apache.Ignite, Version=11.22.33.0, Culture=neutral", result);
+        StringAssert.StartsWith($"Apache.Ignite, Version={FutureIgniteVersion}", result);
     }
 
     private static void BuildIgniteWithVersion(string targetPath, string version)
