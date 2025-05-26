@@ -110,7 +110,8 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             receiverArg: "arg");
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
-        Assert.AreEqual(".NET job failed: Type 'BadClass' not found in the specified deployment units.", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Failed to load type 'BadClass'", ex.Message);
+        StringAssert.Contains("Could not resolve type 'BadClass' in assembly 'Apache.Ignite", ex.Message);
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
@@ -134,10 +135,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await task);
 
-        Assert.AreEqual(
-            ".NET job failed: Could not load file or assembly 'BadAssembly, Culture=neutral, PublicKeyToken=null'. " +
-            "The system cannot find the file specified.",
-            ex.Message.Trim());
+        StringAssert.Contains(".NET job failed: Failed to load type 'MyClass, BadAssembly'", ex.Message);
+        StringAssert.Contains("Could not load file or assembly 'BadAssembly", ex.Message);
+        StringAssert.Contains("The system cannot find the file specified.", ex.Message);
 
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
