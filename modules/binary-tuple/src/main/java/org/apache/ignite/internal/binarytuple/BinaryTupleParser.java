@@ -115,9 +115,9 @@ public class BinaryTupleParser {
     }
 
     /**
-     * Returns the original byte buffer associated with this parser.
+     * Returns the byte buffer accessor associated with this parser.
      *
-     * @return The original ByteBuffer object.
+     * @return The original ByteBufferAccessor object.
      */
     public ByteBufferAccessor accessor() {
         return byteBufferAccessor;

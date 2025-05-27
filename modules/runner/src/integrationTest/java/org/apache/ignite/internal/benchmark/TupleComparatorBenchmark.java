@@ -282,7 +282,7 @@ public class TupleComparatorBenchmark {
      * @param bh The Blackhole instance used to consume the result of the comparison for benchmarking purposes.
      */
     @Benchmark
-    public void uuidFullCompare(Blackhole bh) {
+    public void testUuidFullCompare(Blackhole bh) {
         int r = uuidPartialBinaryTupleMatcher.match(uuidTuple, uuidTupleReference);
 
         bh.consume(r);
@@ -301,7 +301,7 @@ public class TupleComparatorBenchmark {
      *           evaluation.
      */
     @Benchmark
-    public void uuidPartialCompare(Blackhole bh) {
+    public void testUuidPartialCompare(Blackhole bh) {
         int r = uuidPartialBinaryTupleMatcher.match(uuidPartialTuple, uuidTupleReference);
 
         bh.consume(r);
