@@ -305,20 +305,30 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return resultSubscription;
     }
 
-    private synchronized void close(@Nullable Throwable throwable) {
-        if (closed) {
-            return;
+    private void close(@Nullable Throwable throwable) {
+        Subscription subscription0;
+        ScheduledFuture<?> flushTask0;
+
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+            subscription0 = subscription;
+            flushTask0 = flushTask;
         }
 
-        closed = true;
-
-        if (flushTask != null) {
-            flushTask.cancel(false);
+        if (flushTask0 != null) {
+            flushTask0.cancel(false);
         }
 
-        var sub = subscription;
-        if (sub != null) {
-            sub.cancel();
+        if (subscription0 != null) {
+            try {
+                subscription0.cancel();
+            } catch (Throwable e) {
+                log.error("Failed to cancel subscription: " + e.getMessage(), e);
+            }
         }
 
         if (throwable == null) {
