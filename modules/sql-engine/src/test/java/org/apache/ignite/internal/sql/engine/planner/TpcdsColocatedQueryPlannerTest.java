@@ -19,7 +19,6 @@ package org.apache.ignite.internal.sql.engine.planner;
 
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
-import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 
