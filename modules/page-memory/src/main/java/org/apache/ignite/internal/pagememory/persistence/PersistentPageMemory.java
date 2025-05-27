@@ -75,7 +75,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -103,6 +102,7 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPa
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.util.CollectionUtils;
+import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -1359,10 +1359,7 @@ public class PersistentPageMemory implements PageMemory {
     /**
      * Page segment.
      */
-    public class Segment extends ReentrantReadWriteLock {
-        /** Serial version uid. */
-        private static final long serialVersionUID = 0L;
-
+    public class Segment extends IgniteStripedReadWriteLock {
         /** Pointer to acquired pages integer counter. */
         private static final int ACQUIRED_PAGES_SIZEOF = 4;
 
@@ -1560,7 +1557,7 @@ public class PersistentPageMemory implements PageMemory {
          *      checkpoint.
          */
         public boolean tryToRemovePage(FullPageId fullPageId, long absPtr) throws IgniteInternalCheckedException {
-            assert writeLock().isHeldByCurrentThread();
+            assert isWriteLockedByCurrentThread();
 
             if (isAcquired(absPtr)) {
                 // Page is pinned by another thread, such as a checkpoint dirty page writer or in the process of being modified - nothing
@@ -1608,7 +1605,7 @@ public class PersistentPageMemory implements PageMemory {
          * @return Relative pointer to refreshed page.
          */
         public long refreshOutdatedPage(int grpId, long pageId, boolean rmv) {
-            assert writeLock().isHeldByCurrentThread();
+            assert isWriteLockedByCurrentThread();
 
             int tag = partGeneration(grpId, partitionId(pageId));
 
@@ -1647,7 +1644,7 @@ public class PersistentPageMemory implements PageMemory {
          * @throws IgniteInternalCheckedException If failed to evict page.
          */
         private long removePageForReplacement() throws IgniteInternalCheckedException {
-            assert getWriteHoldCount() > 0;
+            assert isWriteLockedByCurrentThread();
 
             if (pageReplacementWarned == 0) {
                 if (pageReplacementWarnedFieldUpdater.compareAndSet(PersistentPageMemory.this, 0, 1)) {
@@ -1722,7 +1719,7 @@ public class PersistentPageMemory implements PageMemory {
          * @param partId Partition ID.
          */
         public int partGeneration(int grpId, int partId) {
-            assert getReadHoldCount() > 0 || getWriteHoldCount() > 0;
+            assert getReadHoldCount() > 0 || isWriteLockedByCurrentThread();
 
             Integer tag = partGenerationMap.get(new GroupPartitionId(grpId, partId));
 
@@ -1753,7 +1750,7 @@ public class PersistentPageMemory implements PageMemory {
          * @return New partition generation.
          */
         private int incrementPartGeneration(int grpId, int partId) {
-            assert getWriteHoldCount() > 0;
+            assert isWriteLockedByCurrentThread();
 
             GroupPartitionId grpPart = new GroupPartitionId(grpId, partId);
 
@@ -1777,7 +1774,7 @@ public class PersistentPageMemory implements PageMemory {
         }
 
         private void resetGroupPartitionsGeneration(int grpId) {
-            assert getWriteHoldCount() > 0;
+            assert isWriteLockedByCurrentThread();
 
             partGenerationMap.keySet().removeIf(grpPart -> grpPart.getGroupId() == grpId);
         }
