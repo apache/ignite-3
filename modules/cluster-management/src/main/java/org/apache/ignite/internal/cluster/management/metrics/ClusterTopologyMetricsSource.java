@@ -25,7 +25,8 @@ import org.apache.ignite.internal.cluster.management.topology.LogicalTopology;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.ObjectGauge;
+import org.apache.ignite.internal.metrics.StringGauge;
+import org.apache.ignite.internal.metrics.UuidGauge;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -111,25 +112,23 @@ public class ClusterTopologyMetricsSource extends AbstractMetricSource<ClusterTo
                 "Number of nodes in the logical topology",
                 () -> logicalTopology.getLogicalTopology().nodes().size());
 
-        private final ObjectGauge<UUID> clusterId = new ObjectGauge<>(
+        private final UuidGauge clusterId = new UuidGauge(
                 "ClusterId",
                 "Unique identifier of the cluster",
                 () -> {
                     ClusterTag tag = clusterTagSupplier.get();
 
                     return tag != null ? tag.clusterId() : null;
-                },
-                UUID.class);
+                });
 
-        private final ObjectGauge<String> clusterName = new ObjectGauge<>(
+        private final StringGauge clusterName = new StringGauge(
                 "ClusterName",
                 "Unique name of the cluster",
                 () -> {
                     ClusterTag tag = clusterTagSupplier.get();
 
                     return tag != null ? tag.clusterName() : "";
-                },
-                String.class);
+                });
 
         private final List<Metric> metrics = List.of(clusterId, clusterName, clusterSize);
 

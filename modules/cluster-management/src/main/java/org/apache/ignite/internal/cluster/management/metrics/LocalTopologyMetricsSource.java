@@ -21,7 +21,8 @@ import java.util.List;
 import java.util.UUID;
 import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.Metric;
-import org.apache.ignite.internal.metrics.ObjectGauge;
+import org.apache.ignite.internal.metrics.StringGauge;
+import org.apache.ignite.internal.metrics.UuidGauge;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.jetbrains.annotations.Nullable;
@@ -100,23 +101,20 @@ public class LocalTopologyMetricsSource extends AbstractMetricSource<LocalTopolo
     /** Holder. */
     protected class Holder implements AbstractMetricSource.Holder<Holder> {
         // Local node metrics.
-        private final ObjectGauge<String> localNodeVersion = new ObjectGauge<>(
+        private final StringGauge localNodeVersion = new StringGauge(
                 "NodeVersion",
                 "Ignite product version",
-                IgniteProductVersion.CURRENT_VERSION::toString,
-                String.class);
+                IgniteProductVersion.CURRENT_VERSION::toString);
 
-        private final ObjectGauge<UUID> localNodeId = new ObjectGauge<>(
+        private final UuidGauge localNodeId = new UuidGauge(
                 "NodeId",
                 "Unique identifier of the local node",
-                () -> physicalTopology.localMember().id(),
-                UUID.class);
+                () -> physicalTopology.localMember().id());
 
-        private final ObjectGauge<String> localNodeName = new ObjectGauge<>(
+        private final StringGauge localNodeName = new StringGauge(
                 "NodeName",
                 "Unique name of the local node",
-                () -> physicalTopology.localMember().name(),
-                String.class);
+                () -> physicalTopology.localMember().name());
 
         private final List<Metric> metrics = List.of(localNodeName, localNodeId, localNodeVersion);
 

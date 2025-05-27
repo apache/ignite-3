@@ -64,6 +64,8 @@ import org.apache.ignite.internal.metrics.LongMetric;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.MetricProvider;
 import org.apache.ignite.internal.metrics.MetricSet;
+import org.apache.ignite.internal.metrics.StringGauge;
+import org.apache.ignite.internal.metrics.UuidGauge;
 import org.apache.ignite.internal.metrics.configuration.MetricConfiguration;
 import org.apache.ignite.internal.metrics.exporters.configuration.JmxExporterView;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
@@ -90,6 +92,8 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
 
     private static final String MTRC_NAME = "testMetric";
 
+    private static final UUID uuid = UUID.randomUUID();
+
     /**
      * Metric set with all available metric types.
      */
@@ -110,7 +114,9 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
                             new IgniteBiTuple<>("customIntMetric", new CustomIntMetric()),
                             new IgniteBiTuple<>("customLongMetric", new CustomLongMetric()),
                             new IgniteBiTuple<>("customDoubleMetric", new CustomDoubleMetric()),
-                            new IgniteBiTuple<>("customCompositeMetric", new CustomCompositeMetric())
+                            new IgniteBiTuple<>("customCompositeMetric", new CustomCompositeMetric()),
+                            new IgniteBiTuple<>("stringGauge", new StringGauge("stringGauge", "", () -> "testString")),
+                            new IgniteBiTuple<>("uuidGauge", new UuidGauge("uuidGauge", "", () -> uuid))
                     ).collect(toMap(IgniteBiTuple::getKey, IgniteBiTuple::getValue))
             );
 
@@ -141,8 +147,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testStart()
-            throws ReflectionException, AttributeNotFoundException, MBeanException {
+    public void testStart() throws ReflectionException, AttributeNotFoundException, MBeanException {
         Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
@@ -153,8 +158,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testAddMetric()
-            throws ReflectionException, AttributeNotFoundException, MBeanException {
+    public void testAddMetric() throws ReflectionException, AttributeNotFoundException, MBeanException {
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(new HashMap<>(), 1L));
 
         jmxExporter.start(metricsProvider, jmxExporterConf, UUID::randomUUID, "nodeName");
@@ -170,8 +174,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    public void testRemoveMetric()
-            throws ReflectionException, AttributeNotFoundException, MBeanException {
+    public void testRemoveMetric() throws ReflectionException, AttributeNotFoundException, MBeanException {
         Map<String, MetricSet> metrics = Map.of(metricSet.name(), metricSet);
 
         when(metricsProvider.metrics()).thenReturn(new IgniteBiTuple<>(metrics, 1L));
@@ -246,10 +249,9 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
      * Check, that all MBean attributes has the same values as original metric values.
      */
     private void assertThatMbeanAttributeAndMetricValuesAreTheSame()
-            throws ReflectionException, AttributeNotFoundException, MBeanException {
-        for (Iterator<Metric> it = metricSet.iterator(); it.hasNext(); ) {
-            Metric metric = it.next();
-
+            throws ReflectionException, AttributeNotFoundException, MBeanException
+    {
+        for (Metric metric : metricSet) {
             Object beanAttribute = mbean().getAttribute(metric.name());
 
             String errorMsg = "Wrong MBean attribute value for the metric with name " + metric.name();
@@ -264,6 +266,10 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
                 assertArrayEquals(((DistributionMetric) metric).value(), (long[]) beanAttribute, errorMsg);
             } else if (metric instanceof CompositeMetric) {
                 assertEquals(metric.getValueAsString(), beanAttribute, errorMsg);
+            } else if (metric instanceof StringGauge) {
+                assertEquals(((StringGauge) metric).value(), beanAttribute, errorMsg);
+            } else if (metric instanceof UuidGauge) {
+                assertEquals(((UuidGauge) metric).value(), beanAttribute, errorMsg);
             }
         }
     }

@@ -17,35 +17,41 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Interface for the metrics that holds typed value.
+ * UUID metric based on {@link Supplier}.
+ * Use this type of metric with caution, as it is not a scalar metric and might not be supported by all exporters.
  */
-public interface ObjectMetric<T> extends Metric {
-    /**
-     * Returns the value of the metric.
-     *
-     * @return Value ot the metric.
-     **/
-    T value();
+public class StringGauge extends AbstractMetric {
+    /** Value supplier. */
+    private final Supplier<String> val;
 
     /**
-     * Returns the type of the metric value.
+     * Creates a new instance of StringGauge.
      *
-     * @return Type of metric value.
-     **/
-    Class<T> type();
+     * @param name Metric name.
+     * @param desc Metric Description.
+     * @param val Supplier for the metric value.
+     */
+    public StringGauge(String name, @Nullable String desc, Supplier<String> val) {
+        super(name, desc);
+
+        this.val = val;
+    }
+
+    /**
+     * Value of the metric.
+     *
+     * @return Value of the metric.
+     */
+    public String value() {
+        return val.get();
+    }
 
     @Override
-    @Nullable
-    default String getValueAsString() {
-        T val = value();
-
-        if (val == null) {
-            return null;
-        }
-
-        return val.toString();
+    public @Nullable String getValueAsString() {
+        return value();
     }
 }

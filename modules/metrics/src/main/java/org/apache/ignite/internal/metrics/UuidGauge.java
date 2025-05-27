@@ -17,41 +17,48 @@
 
 package org.apache.ignite.internal.metrics;
 
+import java.util.UUID;
 import java.util.function.Supplier;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Implementation based on primitive supplier.
+ * UUID metric based on {@link Supplier}.
+ * Use this type of metric with caution, as it is not a scalar metric and might not be supported by all exporters.
  */
-public class ObjectGauge<T> extends AbstractMetric implements ObjectMetric<T> {
+public class UuidGauge extends AbstractMetric {
     /** Value supplier. */
-    private final Supplier<T> val;
-
-    /** Type. */
-    private final Class<T> type;
+    private final Supplier<UUID> val;
 
     /**
-     * Creates a new instance of ObjectGauge.
+     * Creates a new instance of UuidGauge.
      *
-     * @param name Name.
-     * @param desc Description.
-     * @param val Supplier.
-     * @param type Type.
+     * @param name Metric name.
+     * @param desc Metric Description.
+     * @param val Supplier for the metric value.
      */
-    public ObjectGauge(String name, @Nullable String desc, Supplier<T> val, Class<T> type) {
+    public UuidGauge(String name, @Nullable String desc, Supplier<UUID> val) {
         super(name, desc);
 
         this.val = val;
-        this.type = type;
     }
 
-    @Override
-    public T value() {
+    /**
+     * Value of the metric.
+     *
+     * @return Value of the metric.
+     */
+    public UUID value() {
         return val.get();
     }
 
     @Override
-    public Class<T> type() {
-        return type;
+    public @Nullable String getValueAsString() {
+        UUID value = value();
+
+        if (value == null) {
+            return null;
+        }
+
+        return value().toString();
     }
 }
