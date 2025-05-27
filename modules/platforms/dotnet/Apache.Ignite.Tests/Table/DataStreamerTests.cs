@@ -58,6 +58,9 @@ public class DataStreamerTests : IgniteTestsBase
 
     private static readonly ReceiverDescriptor<object, object?, object> EchoReceiver = new(EchoReceiverClassName);
 
+    [Obsolete("Test that obsolete API still works.")]
+    private static readonly ReceiverDescriptor<object?, object> EchoReceiverObsolete = new(EchoReceiverClassName);
+
     private static readonly ReceiverDescriptor<object, object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
     private static int _unknownKey = 333000;
@@ -810,6 +813,25 @@ public class DataStreamerTests : IgniteTestsBase
             EchoReceiver,
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
+            receiverArg: null).SingleAsync();
+
+        if (payload is decimal dec)
+        {
+            payload = new BigDecimal(dec);
+        }
+
+        Assert.AreEqual(payload, res);
+    }
+
+    [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
+    [Obsolete("Test that obsolete API still works.")]
+    public async Task TestEchoReceiverObsoleteAllDataTypes(object payload)
+    {
+        var res = await PocoView.StreamDataAsync(
+            new[] { payload }.ToAsyncEnumerable(),
+            keySelector: _ => new Poco(),
+            payloadSelector: x => x,
+            EchoReceiverObsolete,
             receiverArg: null).SingleAsync();
 
         if (payload is decimal dec)
