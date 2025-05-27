@@ -198,6 +198,10 @@ abstract class ItAbstractColocationTest extends IgniteAbstractTest {
         ));
     }
 
+    Node addNodeToCluster() {
+        return addNodeToCluster(cluster.size());
+    }
+
     Node addNodeToCluster(int idx) {
         Node node = newNode(new NetworkAddress("localhost", BASE_PORT + idx), nodeFinder);
 
