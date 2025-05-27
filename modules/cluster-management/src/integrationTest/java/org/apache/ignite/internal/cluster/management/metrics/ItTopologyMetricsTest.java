@@ -25,6 +25,7 @@ import static org.hamcrest.Matchers.notNullValue;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.metrics.MetricSource;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.Test;
 
@@ -41,32 +42,40 @@ public class ItTopologyMetricsTest extends ClusterPerTestIntegrationTest {
     public void testLocalNodeMetrics() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
-        TopologyMetricsSource topologyMetricsSource = topologyMetricsSource(node.metricManager());
+        LocalTopologyMetricsSource clusterTopologyMetricsSource = localTopologyMetricsSource(node.metricManager());
 
-        assertThat(topologyMetricsSource, is(notNullValue()));
+        assertThat(clusterTopologyMetricsSource, is(notNullValue()));
 
-        assertThat(topologyMetricsSource.localNodeName(), is(node.clusterService().nodeName()));
-        assertThat(topologyMetricsSource.localNodeId(), is(node.clusterService().topologyService().localMember().id()));
-        assertThat(topologyMetricsSource.localNodeVersion(), is(IgniteProductVersion.CURRENT_VERSION.toString()));
+        assertThat(clusterTopologyMetricsSource.localNodeName(), is(node.clusterService().nodeName()));
+        assertThat(clusterTopologyMetricsSource.localNodeId(), is(node.clusterService().topologyService().localMember().id()));
+        assertThat(clusterTopologyMetricsSource.localNodeVersion(), is(IgniteProductVersion.CURRENT_VERSION.toString()));
     }
 
     @Test
     public void testClusterMetrics() {
         IgniteImpl node = unwrapIgniteImpl(node(0));
 
-        TopologyMetricsSource topologyMetricsSource = topologyMetricsSource(node.metricManager());
+        ClusterTopologyMetricsSource clusterTopologyMetricsSource = clusterTopologyMetricsSource(node.metricManager());
 
-        assertThat(topologyMetricsSource, is(notNullValue()));
+        assertThat(clusterTopologyMetricsSource, is(notNullValue()));
 
-        assertThat(topologyMetricsSource.clusterName(), is("cluster"));
-        assertThat(topologyMetricsSource.totalNodes(), is(1));
+        assertThat(clusterTopologyMetricsSource.clusterName(), is("cluster"));
+        assertThat(clusterTopologyMetricsSource.totalNodes(), is(1));
     }
 
-    private static TopologyMetricsSource topologyMetricsSource(MetricManager metricManager) {
-        return (TopologyMetricsSource) metricManager
+    private static ClusterTopologyMetricsSource clusterTopologyMetricsSource(MetricManager metricManager) {
+        return (ClusterTopologyMetricsSource) topologyMetricsSource(metricManager, ClusterTopologyMetricsSource.SOURCE_NAME);
+    }
+
+    private static LocalTopologyMetricsSource localTopologyMetricsSource(MetricManager metricManager) {
+        return (LocalTopologyMetricsSource) topologyMetricsSource(metricManager, LocalTopologyMetricsSource.SOURCE_NAME);
+    }
+
+    private static MetricSource topologyMetricsSource(MetricManager metricManager, String sourceName) {
+        return metricManager
                 .metricSources()
                 .stream()
-                .filter(source -> source.name().equals(TopologyMetricsSource.SOURCE_NAME))
+                .filter(source -> source.name().equals(sourceName))
                 .findFirst()
                 .orElseThrow();
     }

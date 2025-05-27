@@ -46,7 +46,8 @@ import org.apache.ignite.internal.cluster.management.LocalStateStorage.LocalStat
 import org.apache.ignite.internal.cluster.management.events.BeforeStartRaftGroupEventParameters;
 import org.apache.ignite.internal.cluster.management.events.ClusterManagerGroupEvent;
 import org.apache.ignite.internal.cluster.management.events.EmptyEventParameters;
-import org.apache.ignite.internal.cluster.management.metrics.TopologyMetricsSource;
+import org.apache.ignite.internal.cluster.management.metrics.ClusterTopologyMetricsSource;
+import org.apache.ignite.internal.cluster.management.metrics.LocalTopologyMetricsSource;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageCallback;
 import org.apache.ignite.internal.cluster.management.network.CmgMessageHandler;
 import org.apache.ignite.internal.cluster.management.network.messages.CancelInitMessage;
@@ -173,7 +174,9 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     private final MetricManager metricsManager;
 
-    private final TopologyMetricsSource topologyMetricsSource;
+    private final ClusterTopologyMetricsSource clusterTopologyMetricsSource;
+
+    private final LocalTopologyMetricsSource localTopologyMetricsSource;
 
     /** Constructor. */
     public ClusterManagementGroupManager(
@@ -205,7 +208,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
         this.raftGroupOptionsConfigurer = raftGroupOptionsConfigurer;
         this.metricsManager = metricManager;
 
-        this.topologyMetricsSource = new TopologyMetricsSource(clusterService.topologyService(), logicalTopology, () -> {
+        this.clusterTopologyMetricsSource = new ClusterTopologyMetricsSource(logicalTopology, () -> {
             LocalState localState = localStateStorage.getLocalState();
 
             if (localState == null) {
@@ -214,6 +217,7 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
             return localState.clusterTag();
         });
+        this.localTopologyMetricsSource = new LocalTopologyMetricsSource(clusterService.topologyService());
 
         scheduledExecutor = Executors.newSingleThreadScheduledExecutor(
                 NamedThreadFactory.create(clusterService.nodeName(), "cmg-manager", LOG)
@@ -377,8 +381,11 @@ public class ClusterManagementGroupManager extends AbstractEventProducer<Cluster
 
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        metricsManager.registerSource(topologyMetricsSource);
-        metricsManager.enable(topologyMetricsSource);
+        metricsManager.registerSource(clusterTopologyMetricsSource);
+        metricsManager.registerSource(localTopologyMetricsSource);
+
+        metricsManager.enable(clusterTopologyMetricsSource);
+        metricsManager.enable(localTopologyMetricsSource);
 
         ResetClusterMessage resetClusterMessage = clusterResetStorage.readResetClusterMessage();
         if (resetClusterMessage != null) {

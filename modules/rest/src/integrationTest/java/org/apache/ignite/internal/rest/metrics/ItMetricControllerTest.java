@@ -57,7 +57,8 @@ class ItMetricControllerTest extends ClusterPerClassIntegrationTest {
             new MetricSource("sql.plan.cache", true),
             new MetricSource("storage.aipersist.default", true),
             new MetricSource("storage.aipersist.default_aipersist", true),
-            new MetricSource("topology", true)
+            new MetricSource("topology.cluster", true),
+            new MetricSource("topology.local", true)
     };
 
     @Inject
