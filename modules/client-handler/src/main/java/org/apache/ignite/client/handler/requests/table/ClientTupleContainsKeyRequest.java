@@ -52,7 +52,7 @@ public class ClientTupleContainsKeyRequest {
         return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, true, null, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().containsAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                             out.packBoolean(res);
                         }));

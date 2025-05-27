@@ -72,14 +72,39 @@ public static class JobGenerator
             }
             """);
 
-    public static string EmitJob(TempDir tempDir, string asmName, [StringSyntax("C#")] string jobCode)
+    public static string EmitGetReferencedIgniteAssemblyJob(TempDir tempDir, string asmName, string? igniteDllPath = null) =>
+        EmitJob(
+            tempDir,
+            asmName,
+            """
+            public class GetReferencedIgniteAssemblyJob : IComputeJob<string, string>
+            {
+                public ValueTask<string> ExecuteAsync(IJobExecutionContext context, string arg, CancellationToken cancellationToken)
+                {
+                    foreach (var asm in Assembly.GetExecutingAssembly().GetReferencedAssemblies())
+                    {
+                        if (asm.FullName.Contains("Apache.Ignite", StringComparison.Ordinal))
+                        {
+                            return ValueTask.FromResult(asm.FullName);
+                        }
+                    }
+                    
+                    return ValueTask.FromResult(string.Empty);
+                }
+            }
+            """,
+            igniteDllPath);
+
+    public static string EmitJob(TempDir tempDir, string asmName, [StringSyntax("C#")] string jobCode, string? igniteDllPath = null)
     {
         var targetFile = Path.Combine(tempDir.Path, $"{asmName}.dll");
+        igniteDllPath ??= typeof(IgniteClient).Assembly.Location;
 
         AssemblyGenerator.EmitClassLib(
             targetFile,
             $$"""
               using System;
+              using System.Reflection;
               using System.Threading;
               using System.Threading.Tasks;
               using Apache.Ignite.Compute;
@@ -88,7 +113,8 @@ public static class JobGenerator
               {
                   {{jobCode}}
               }
-              """);
+              """,
+            igniteDllPath);
 
         return targetFile;
     }

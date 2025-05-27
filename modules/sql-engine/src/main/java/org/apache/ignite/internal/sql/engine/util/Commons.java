@@ -516,7 +516,7 @@ public final class Commons {
             case DECIMAL: return tuple.decimalValue(fieldIndex, ((DecimalNativeType) nativeType).scale());
             case UUID: return tuple.uuidValue(fieldIndex);
             case STRING: return tuple.stringValue(fieldIndex);
-            case BYTES: return tuple.bytesValue(fieldIndex);
+            case BYTE_ARRAY: return tuple.bytesValue(fieldIndex);
             case DATE: return tuple.dateValue(fieldIndex);
             case TIME: return tuple.timeValue(fieldIndex);
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
@@ -606,7 +606,7 @@ public final class Commons {
             case STRING:
                 return String.class;
 
-            case BYTES:
+            case BYTE_ARRAY:
                 return byte[].class;
 
             case DATE:
@@ -665,7 +665,7 @@ public final class Commons {
             case TIMESTAMP:
                 return ((TemporalNativeType) type).precision();
 
-            case BYTES:
+            case BYTE_ARRAY:
             case STRING:
                 return ((VarlenNativeType) type).length();
 
@@ -696,7 +696,7 @@ public final class Commons {
             case TIME:
             case DATETIME:
             case TIMESTAMP:
-            case BYTES:
+            case BYTE_ARRAY:
             case STRING:
                 return UNDEFINED_SCALE;
 

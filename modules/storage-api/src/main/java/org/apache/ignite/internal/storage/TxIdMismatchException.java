@@ -23,9 +23,7 @@ import java.util.UUID;
 import org.apache.ignite.internal.tostring.S;
 import org.apache.ignite.lang.IgniteException;
 
-/**
- * Exception class that describes the situation when two independent transactions attempt to write values for the same key.
- */
+/** Exception describing the situation where transaction IDs do not match when performing an operation. */
 public class TxIdMismatchException extends IgniteException {
     /** Expected transaction id. */
     private final UUID expectedTransactionId;
@@ -36,8 +34,8 @@ public class TxIdMismatchException extends IgniteException {
     /**
      * Constructor.
      *
-     * @param expectedTxId Expected transaction id.
-     * @param conflictingTxId Conflicting transaction id.
+     * @param expectedTxId Expected transaction ID.
+     * @param conflictingTxId Conflicting transaction ID.
      */
     public TxIdMismatchException(UUID expectedTxId, UUID conflictingTxId) {
         super(INTERNAL_ERR, S.toString(

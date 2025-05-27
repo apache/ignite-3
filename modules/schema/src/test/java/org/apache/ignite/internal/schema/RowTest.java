@@ -46,9 +46,9 @@ import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Constants;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -287,7 +287,7 @@ public class RowTest {
 
         SchemaDescriptor sch = new SchemaDescriptor(1, keyCols, valCols);
 
-        Object[] checkArr = generateRowValues(sch, t -> (t.spec() == NativeTypeSpec.BYTES)
+        Object[] checkArr = generateRowValues(sch, t -> (t.spec() == ColumnType.BYTE_ARRAY)
                 ? randomBytes(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)) :
                 randomString(rnd, rnd.nextInt(Constants.MiB) + (2 << 16)));
 
@@ -578,9 +578,9 @@ public class RowTest {
         for (int i = 0; i < vals.length; i++) {
             Column col = schema.column(i);
 
-            NativeTypeSpec type = col.type().spec();
+            ColumnType type = col.type().spec();
 
-            if (type == NativeTypeSpec.BYTES) {
+            if (type == ColumnType.BYTE_ARRAY) {
                 assertArrayEquals((byte[]) vals[i], row.bytesValue(i), "Failed for column: " + col);
             } else {
                 assertEquals(vals[i], row.value(i), "Failed for column: " + col);

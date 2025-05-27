@@ -57,7 +57,7 @@ public class ClientTupleInsertAllRequest {
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
                 .thenCompose(req -> req.table().recordView().insertAllAsync(req.tx(), req.tuples())
                         .thenApply(skippedTuples -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             writeTuples(out, skippedTuples, req.table().schemaView());
                         }));
     }

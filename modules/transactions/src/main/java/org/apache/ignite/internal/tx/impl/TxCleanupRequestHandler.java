@@ -19,6 +19,7 @@ package org.apache.ignite.internal.tx.impl;
 
 import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toReplicationGroupIdMessage;
+import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -31,14 +32,16 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.replicator.message.ReplicationGroupIdMessage;
 import org.apache.ignite.internal.tx.LockManager;
 import org.apache.ignite.internal.tx.message.CleanupReplicatedInfo;
@@ -56,6 +59,8 @@ import org.jetbrains.annotations.Nullable;
  * Handles TX Cleanup request ({@link TxCleanupMessage}).
  */
 public class TxCleanupRequestHandler {
+    private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRequestHandler.class);
+
     /** Tx messages factory. */
     private static final TxMessagesFactory TX_MESSAGES_FACTORY = new TxMessagesFactory();
 
@@ -69,6 +74,8 @@ public class TxCleanupRequestHandler {
     private final LockManager lockManager;
 
     private final ClockService clockService;
+
+    private final Executor cleanupExecutor;
 
     /** Cleanup processor. */
     private final WriteIntentSwitchProcessor writeIntentSwitchProcessor;
@@ -87,30 +94,37 @@ public class TxCleanupRequestHandler {
      * @param clockService Clock service.
      * @param writeIntentSwitchProcessor A cleanup processor.
      * @param resourcesRegistry Resources registry.
+     * @param cleanupExecutor Cleanup executor.
      */
     public TxCleanupRequestHandler(
             MessagingService messagingService,
             LockManager lockManager,
             ClockService clockService,
             WriteIntentSwitchProcessor writeIntentSwitchProcessor,
-            RemotelyTriggeredResourceRegistry resourcesRegistry
+            RemotelyTriggeredResourceRegistry resourcesRegistry,
+            Executor cleanupExecutor
     ) {
         this.messagingService = messagingService;
         this.lockManager = lockManager;
         this.clockService = clockService;
         this.writeIntentSwitchProcessor = writeIntentSwitchProcessor;
         this.remotelyTriggeredResourceRegistry = resourcesRegistry;
+        this.cleanupExecutor = cleanupExecutor;
     }
 
     /**
      * Starts the processor.
      */
     public void start() {
-        messagingService.addMessageHandler(TxMessageGroup.class, (msg, sender, correlationId) -> {
-            if (msg instanceof TxCleanupMessage) {
-                processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
-            }
-        });
+        messagingService.addMessageHandler(
+                TxMessageGroup.class,
+                message -> cleanupExecutor,
+                (msg, sender, correlationId) -> {
+                    if (msg instanceof TxCleanupMessage) {
+                        processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
+                    }
+                }
+        );
     }
 
     public void stop() {
@@ -122,10 +136,10 @@ public class TxCleanupRequestHandler {
         Map<EnlistedPartitionGroup, CompletableFuture<?>> writeIntentSwitches = new HashMap<>();
 
         // These cleanups will all be local.
-        @Nullable List<EnlistedPartitionGroupMessage> partitionMessagess = txCleanupMessage.groups();
+        @Nullable List<EnlistedPartitionGroupMessage> partitionMessages = txCleanupMessage.groups();
 
-        if (partitionMessagess != null) {
-            List<EnlistedPartitionGroup> partitions = asPartitionsList(partitionMessagess);
+        if (partitionMessages != null) {
+            List<EnlistedPartitionGroup> partitions = asPartitionsList(partitionMessages);
 
             trackPartitions(
                     txCleanupMessage.txId(),
@@ -162,12 +176,22 @@ public class TxCleanupRequestHandler {
                         // No need to wait on this future.
                         writeIntentSwitches.forEach((groupId, future) -> {
                             if (future.isCompletedExceptionally()) {
-                                writeIntentSwitchProcessor.switchWriteIntentsWithRetry(
-                                        txCleanupMessage.commit(),
-                                        txCleanupMessage.commitTimestamp(),
-                                        txCleanupMessage.txId(),
-                                        groupId
-                                ).thenAccept(this::processWriteIntentSwitchResponse);
+                                writeIntentSwitchProcessor
+                                        .switchWriteIntentsWithRetry(
+                                                txCleanupMessage.commit(),
+                                                txCleanupMessage.commitTimestamp(),
+                                                txCleanupMessage.txId(),
+                                                groupId
+                                        )
+                                        .thenAccept(this::processWriteIntentSwitchResponse)
+                                        .whenComplete((retryRes, retryEx) -> {
+                                            if (retryEx != null && writeIntentSwitchFailureShouldBeLogged(retryEx)) {
+                                                LOG.warn(
+                                                        "Second cleanup attempt failed (the transaction outcome is not affected) [txId={}]",
+                                                        retryEx, txCleanupMessage.txId()
+                                                );
+                                            }
+                                        });
                             }
                         });
                     }
@@ -216,21 +240,16 @@ public class TxCleanupRequestHandler {
     }
 
     /**
-     * Process the replication response from a write intent switch request.
+     * Process the replication response from a write intent switch result.
      *
-     * @param response Write intent replication response.
+     * @param result Write intent replication result.
      */
-    private void processWriteIntentSwitchResponse(ReplicaResponse response) {
-        if (response == null) {
+    private void processWriteIntentSwitchResponse(WriteIntentSwitchReplicatedInfo result) {
+        if (result == null) {
             return;
         }
 
-        Object result = response.result();
-
-        assert (result instanceof WriteIntentSwitchReplicatedInfo) :
-                "Unexpected type of cleanup replication response: [result=" + result + "].";
-
-        writeIntentSwitchReplicated((WriteIntentSwitchReplicatedInfo) result);
+        writeIntentSwitchReplicated(result);
     }
 
     /**

@@ -110,6 +110,9 @@ public class TestClientHandlerModule implements IgniteComponent {
     /** Configuration of the client connector. */
     private final ClientConnectorConfiguration clientConnectorConfiguration;
 
+    /** Features set. */
+    private final BitSet features;
+
     /**
      * Constructor.
      *
@@ -124,6 +127,7 @@ public class TestClientHandlerModule implements IgniteComponent {
      * @param clock Clock.
      * @param placementDriver Placement driver.
      * @param clientConnectorConfiguration Configuration of the client connector.
+     * @param features Features.
      */
     public TestClientHandlerModule(
             Ignite ignite,
@@ -136,7 +140,8 @@ public class TestClientHandlerModule implements IgniteComponent {
             AuthenticationManager authenticationManager,
             HybridClock clock,
             PlacementDriver placementDriver,
-            ClientConnectorConfiguration clientConnectorConfiguration
+            ClientConnectorConfiguration clientConnectorConfiguration,
+            @Nullable BitSet features
     ) {
         assert ignite != null;
         assert bootstrapFactory != null;
@@ -153,6 +158,7 @@ public class TestClientHandlerModule implements IgniteComponent {
         this.clock = clock;
         this.placementDriver = placementDriver;
         this.clientConnectorConfiguration = clientConnectorConfiguration;
+        this.features = features;
     }
 
     /** {@inheritDoc} */
@@ -212,10 +218,20 @@ public class TestClientHandlerModule implements IgniteComponent {
 
         ServerBootstrap bootstrap = bootstrapFactory.createServerBootstrap();
 
-        BitSet features = BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()});
-        features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING.featureId());
-        features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
-        features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
+        BitSet features;
+
+        if (this.features == null) {
+            features = BitSet.valueOf(new long[]{ThreadLocalRandom.current().nextLong()});
+            features.set(ProtocolBitmaskFeature.TX_DIRECT_MAPPING.featureId());
+            features.set(ProtocolBitmaskFeature.PLATFORM_COMPUTE_JOB.featureId());
+            features.set(ProtocolBitmaskFeature.TX_DELAYED_ACKS.featureId());
+            features.set(ProtocolBitmaskFeature.TX_PIGGYBACK.featureId());
+        } else {
+            features = new BitSet(ProtocolBitmaskFeature.values().length);
+            for (int i = this.features.nextSetBit(0); i != -1; i = this.features.nextSetBit(i + 1)) {
+                features.set(i);
+            }
+        }
 
         bootstrap.childHandler(new ChannelInitializer<>() {
                     @Override

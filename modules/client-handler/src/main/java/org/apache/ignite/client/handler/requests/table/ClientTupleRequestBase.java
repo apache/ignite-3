@@ -39,18 +39,25 @@ class ClientTupleRequestBase {
     private final TableViewInternal table;
     private final Tuple tuple;
     private final @Nullable Tuple tuple2;
+    private final long resourceId;
 
-    private ClientTupleRequestBase(@Nullable InternalTransaction tx, TableViewInternal table, Tuple tuple, @Nullable Tuple tuple2) {
+    private ClientTupleRequestBase(@Nullable InternalTransaction tx, TableViewInternal table, Tuple tuple, @Nullable Tuple tuple2,
+            long resourceId) {
         this.tx = tx;
         this.table = table;
         this.tuple = tuple;
         this.tuple2 = tuple2;
+        this.resourceId = resourceId;
     }
 
     public InternalTransaction tx() {
         assert tx != null : "tx is null";
 
         return tx;
+    }
+
+    public long resourceId() {
+        return resourceId;
     }
 
     public TableViewInternal table() {
@@ -95,9 +102,11 @@ class ClientTupleRequestBase {
 
         int tableId = in.unpackInt();
 
+        long[] resIdHolder = {0};
+
         InternalTransaction tx = txManager == null
                 ? null
-                : readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
+                : readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
@@ -113,7 +122,7 @@ class ClientTupleRequestBase {
                             var tuple = readTuple(noValueSet, tupleBytes, keyOnly, schema);
                             var tuple2 = readSecondTuple ? readTuple(noValueSet2, tupleBytes2, keyOnly, schema) : null;
 
-                            return new ClientTupleRequestBase(tx, table, tuple, tuple2);
+                            return new ClientTupleRequestBase(tx, table, tuple, tuple2, resIdHolder[0]);
                         }));
 
     }

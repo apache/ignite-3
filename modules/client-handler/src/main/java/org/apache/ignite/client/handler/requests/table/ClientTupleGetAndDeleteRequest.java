@@ -55,7 +55,7 @@ public class ClientTupleGetAndDeleteRequest {
         return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().getAndDeleteAsync(req.tx(), req.tuple())
                         .thenApply(resTuple -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             ClientTableCommon.writeTupleOrNil(out, resTuple, TuplePart.KEY_AND_VAL, req.table().schemaView());
                         }));
     }

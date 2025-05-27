@@ -35,9 +35,9 @@ import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.util.Pair;
+import org.apache.ignite.sql.ColumnType;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -121,22 +121,22 @@ public class RowSchemaTypesTest {
 
         // Check for missed types add fail if such types present.
 
-        Set<Entry<NativeTypeSpec, Boolean>> nativeTypeSpecs = new CopyOnWriteArraySet<>();
+        Set<Entry<ColumnType, Boolean>> typeSpecs = new CopyOnWriteArraySet<>();
 
-        for (NativeTypeSpec spec : NativeTypeSpec.values()) {
-            nativeTypeSpecs.add(Map.entry(spec, true));
-            nativeTypeSpecs.add(Map.entry(spec, false));
+        for (ColumnType spec : NativeType.nativeTypes()) {
+            typeSpecs.add(Map.entry(spec, true));
+            typeSpecs.add(Map.entry(spec, false));
         }
 
         DynamicTest dynamicTest = DynamicTest.dynamicTest("Ensure all native types were checked", () -> {
             for (NativeTypeToBaseTestCase test : testCaseList) {
-                nativeTypeSpecs.remove(Map.entry(test.nativeType.spec(), test.nullable));
+                typeSpecs.remove(Map.entry(test.nativeType.spec(), test.nullable));
             }
-            List<String> typePairs = nativeTypeSpecs.stream()
+            List<String> typePairs = typeSpecs.stream()
                     .map(p -> format("<{}, nullable={}>", p.getKey().name(), p.getValue()))
                     .collect(Collectors.toList());
 
-            assertTrue(nativeTypeSpecs.isEmpty(), typePairs.toString());
+            assertTrue(typeSpecs.isEmpty(), typePairs.toString());
         });
 
         return Streams.concat(testCaseList.stream().map(NativeTypeToBaseTestCase::toTest), Stream.of(dynamicTest));

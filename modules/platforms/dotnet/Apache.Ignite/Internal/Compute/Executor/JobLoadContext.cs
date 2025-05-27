@@ -74,9 +74,18 @@ internal readonly record struct JobLoadContext(AssemblyLoadContext AssemblyLoadC
         }
     }
 
-    private static Type LoadType(string typeName, AssemblyLoadContext ctx) =>
-        Type.GetType(typeName, ctx.LoadFromAssemblyName, null)
-        ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+    private static Type LoadType(string typeName, AssemblyLoadContext ctx)
+    {
+        try
+        {
+            return Type.GetType(typeName, ctx.LoadFromAssemblyName, null, throwOnError: true)
+                   ?? throw new InvalidOperationException($"Type '{typeName}' not found in the specified deployment units.");
+        }
+        catch (Exception e)
+        {
+            throw new InvalidOperationException($"Failed to load type '{typeName}' from the specified deployment units: {e.Message}", e);
+        }
+    }
 
     // Simple lookup by name. Will throw in a case of ambiguity.
     private static Type FindInterface(Type type, Type interfaceType) =>

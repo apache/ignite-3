@@ -45,6 +45,8 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.raft.Peer;
 import org.apache.ignite.internal.raft.client.TopologyAwareRaftGroupService;
+import org.apache.ignite.internal.replicator.exception.ReplicationException;
+import org.apache.ignite.internal.replicator.exception.ReplicationTimeoutException;
 import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
@@ -146,12 +148,15 @@ public class PlacementDriverMessageProcessor {
                                     NodeStoppingException.class,
                                     ComponentStoppingException.class,
                                     TrackerClosedException.class,
-                                    // TODO: IGNITE-25206 - is it safe to ignore TimeoutException here?
-                                    TimeoutException.class
+                                    TimeoutException.class,
+                                    ReplicationException.class,
+                                    ReplicationTimeoutException.class
                             )) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
                             }
+
+                            LOG.warn("Failed to process the lease granted message, lease negotiation will be retried [msg={}].", e, msg);
 
                             // Just restart the negotiation in case of exception.
                             return PLACEMENT_DRIVER_MESSAGES_FACTORY.leaseGrantedMessageResponse()
