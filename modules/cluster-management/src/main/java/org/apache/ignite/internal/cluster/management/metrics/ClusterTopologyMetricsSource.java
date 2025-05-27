@@ -26,7 +26,6 @@ import org.apache.ignite.internal.metrics.AbstractMetricSource;
 import org.apache.ignite.internal.metrics.IntGauge;
 import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.ObjectGauge;
-import org.apache.ignite.internal.network.TopologyService;
 import org.jetbrains.annotations.Nullable;
 
 /**
