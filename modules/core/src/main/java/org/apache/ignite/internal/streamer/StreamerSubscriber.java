@@ -356,24 +356,36 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         }
     }
 
-    private synchronized void requestMore() {
-        if (closed || subscription == null) {
-            return;
+    private void requestMore() {
+        int toRequest;
+        Subscription sub;
+
+        synchronized (this) {
+            if (closed || subscription == null) {
+                return;
+            }
+
+            // This method controls backpressure. We won't get more items than we requested.
+            // The idea is to have perPartitionParallelOperations batches in flight for every connection.
+            var pending = pendingItemCount.get();
+            var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
+            var inFlight = inFlightItemCount.get();
+            toRequest = desiredInFlight - inFlight - pending;
+
+            if (toRequest <= 0) {
+                return;
+            }
+
+            pendingItemCount.addAndGet(toRequest);
+            sub = subscription;
         }
 
-        // This method controls backpressure. We won't get more items than we requested.
-        // The idea is to have perPartitionParallelOperations batches in flight for every connection.
-        var pending = pendingItemCount.get();
-        var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
-        var inFlight = inFlightItemCount.get();
-        var count = desiredInFlight - inFlight - pending;
-
-        if (count <= 0) {
-            return;
+        try {
+            sub.request(toRequest);
+        } catch (Throwable e) {
+            log.error("Failed to request more items: " + e.getMessage(), e);
+            close(e);
         }
-
-        subscription.request(count);
-        pendingItemCount.addAndGet(count);
     }
 
     private synchronized void initFlushTimer() {
