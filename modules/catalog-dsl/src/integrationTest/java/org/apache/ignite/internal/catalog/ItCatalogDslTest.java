@@ -638,9 +638,9 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
         TableDefinition table = catalog.tableDefinition(name);
         assertNotNull(table);
         // Table Name
-        assertEquals("a b", table.tableName());
+        assertEquals("\"a b\"", table.tableName());
         // Schema name
-        assertEquals("Table Schema", table.schemaName());
+        assertEquals("\"Table Schema\"", table.schemaName());
 
         // Column
         List<ColumnDefinition> columns = table.columns();
@@ -716,7 +716,7 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
             TableDefinition tableDef = catalog().tableDefinition(def.qualifiedName());
             assertEquals(qualifiedName, tableDef.qualifiedName());
             assertEquals("A_TABLE", tableDef.tableName());
-            assertEquals("a Schema", tableDef.schemaName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
         }
 
         {
@@ -732,8 +732,8 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
 
             TableDefinition tableDef = catalog().tableDefinition(def.qualifiedName());
             assertEquals(qualifiedName, tableDef.qualifiedName());
-            assertEquals("a tablE", tableDef.tableName());
-            assertEquals("a Schema", tableDef.schemaName());
+            assertEquals("\"a tablE\"", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
         }
     }
 
@@ -772,10 +772,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
             QualifiedName qualifiedName = QualifiedName.of("\"a Schema\"", "A_TABLE");
             assertEquals(qualifiedName, table.qualifiedName());
 
-            TableDefinition def = catalog().tableDefinition(qualifiedName);
-            assertEquals(qualifiedName, def.qualifiedName());
-            assertEquals("A_TABLE", def.tableName());
-            assertEquals("a Schema", def.schemaName());
+            TableDefinition tableDef = catalog().tableDefinition(qualifiedName);
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals("A_TABLE", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
         }
 
         {
@@ -784,10 +784,10 @@ class ItCatalogDslTest extends ClusterPerClassIntegrationTest {
             assertEquals(qualifiedName, table.qualifiedName());
             assertEquals(qualifiedName, catalog().tableDefinition(qualifiedName).qualifiedName());
 
-            TableDefinition def = catalog().tableDefinition(qualifiedName);
-            assertEquals(qualifiedName, def.qualifiedName());
-            assertEquals("a tablE", def.tableName());
-            assertEquals("a Schema", def.schemaName());
+            TableDefinition tableDef = catalog().tableDefinition(qualifiedName);
+            assertEquals(qualifiedName, tableDef.qualifiedName());
+            assertEquals("\"a tablE\"", tableDef.tableName());
+            assertEquals("\"a Schema\"", tableDef.schemaName());
         }
     }
 

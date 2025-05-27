@@ -61,6 +61,11 @@ public class TableDefinitionTest {
         assertEquals(def.qualifiedName(), def2.qualifiedName());
         assertEquals(def.schemaName(), def2.schemaName());
         assertEquals(def.tableName(), def2.tableName());
+
+        TableDefinition def3 = TableDefinition.builder(def.qualifiedName()).build();
+        assertEquals(def.qualifiedName(), def3.qualifiedName());
+        assertEquals(def.schemaName(), def3.schemaName());
+        assertEquals(def.tableName(), def3.tableName());
     }
 
     @ParameterizedTest
@@ -80,6 +85,11 @@ public class TableDefinitionTest {
         assertEquals(def.qualifiedName(), def2.qualifiedName());
         assertEquals(def.schemaName(), def2.schemaName());
         assertEquals(def.tableName(), def2.tableName());
+
+        TableDefinition def3 = TableDefinition.builder(def.qualifiedName()).build();
+        assertEquals(def.qualifiedName(), def3.qualifiedName());
+        assertEquals(def.schemaName(), def3.schemaName());
+        assertEquals(def.tableName(), def3.tableName());
     }
 
     private static Stream<Arguments> schemaAndTable() {
