@@ -26,6 +26,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Period;
 import java.util.UUID;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.schema.BinaryRowConverter;
@@ -420,6 +421,20 @@ public class UpgradingRowAdapter implements Row {
         }
 
         return mappedId < 0 ? (Instant) column.defaultValue() : row.timestampValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Period periodValue(int colIdx) throws InvalidTypeException {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : row.schema().column(mappedId);
+
+        if (ColumnType.PERIOD != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (Period) column.defaultValue() : row.periodValue(mappedId);
     }
 
     @Override

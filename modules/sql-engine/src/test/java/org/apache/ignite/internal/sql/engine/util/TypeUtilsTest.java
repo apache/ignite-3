@@ -444,13 +444,15 @@ public class TypeUtilsTest extends BaseIgniteAbstractTest {
         // Year intervals are stored as days (int)
         for (SqlTypeName interval : SqlTypeName.YEAR_INTERVAL_TYPES) {
             SqlIntervalQualifier yearMonth = new SqlIntervalQualifier(interval.getStartUnit(), interval.getEndUnit(), SqlParserPos.ZERO);
-            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(yearMonth), INT32));
+            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(yearMonth),
+                    RowSchemaTypes.nativeType(NativeTypes.PERIOD)));
         }
 
         // Day intervals are stored as nanoseconds (long)
         for (SqlTypeName interval : SqlTypeName.DAY_INTERVAL_TYPES) {
             SqlIntervalQualifier dayTime = new SqlIntervalQualifier(interval.getStartUnit(), interval.getEndUnit(), SqlParserPos.ZERO);
-            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(dayTime), INT64));
+            testCaseList.add(new RelToExecTestCase(TYPE_FACTORY.createSqlIntervalType(dayTime),
+                    RowSchemaTypes.nativeType(NativeTypes.DURATION)));
         }
 
         testCaseList.add(new RelToExecTestCase(SqlTypeName.UUID, UUID));
