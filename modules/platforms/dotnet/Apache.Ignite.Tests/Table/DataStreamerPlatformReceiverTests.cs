@@ -94,7 +94,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public void TestMissingClass()
     {
-        var receiverDesc = new ReceiverDescriptor<object, object>("BadClass")
+        var receiverDesc = new ReceiverDescriptor<object, object, object>("BadClass")
         {
             Options = new ReceiverExecutionOptions
             {
@@ -102,7 +102,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             }
         };
 
-        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync<object, object, object, object>(
+        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,

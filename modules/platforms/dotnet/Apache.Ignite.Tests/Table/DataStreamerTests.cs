@@ -52,13 +52,13 @@ public class DataStreamerTests : IgniteTestsBase
 
     private const int DeletedKey = Count + 1;
 
-    private static readonly ReceiverDescriptor<string?, string> TestReceiver = new(TestReceiverClassName);
+    private static readonly ReceiverDescriptor<string, string?, string> TestReceiver = new(TestReceiverClassName);
 
     private static readonly ReceiverDescriptor<object?> TestReceiverNoResults = new(TestReceiverClassName);
 
-    private static readonly ReceiverDescriptor<object?, object> EchoReceiver = new(EchoReceiverClassName);
+    private static readonly ReceiverDescriptor<object, object?, object> EchoReceiver = new(EchoReceiverClassName);
 
-    private static readonly ReceiverDescriptor<object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
+    private static readonly ReceiverDescriptor<object, object, object> EchoArgsReceiver = new(EchoArgsReceiverClassName);
 
     private static int _unknownKey = 333000;
 
@@ -805,7 +805,7 @@ public class DataStreamerTests : IgniteTestsBase
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestEchoReceiverAllDataTypes(object payload)
     {
-        var res = await PocoView.StreamDataAsync<object, object, object?, object>(
+        var res = await PocoView.StreamDataAsync(
             new[] { payload }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
@@ -823,7 +823,7 @@ public class DataStreamerTests : IgniteTestsBase
     [TestCaseSource(typeof(TestCases), nameof(TestCases.SupportedArgs))]
     public async Task TestEchoArgsReceiverAllDataTypes(object arg)
     {
-        var res = await PocoView.StreamDataAsync<object, object, object, object>(
+        var res = await PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
@@ -846,8 +846,8 @@ public class DataStreamerTests : IgniteTestsBase
         var payload = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
         payload["nested"] = new IgniteTuple { ["foo"] = "bar" };
 
-        List<object> res = await PocoView.StreamDataAsync<object, object, object?, object>(
-            Enumerable.Range(1, count).Select(x => payload).ToAsyncEnumerable(),
+        List<object> res = await PocoView.StreamDataAsync(
+            Enumerable.Range(1, count).Select(_ => payload).ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
             EchoReceiver,
@@ -867,7 +867,7 @@ public class DataStreamerTests : IgniteTestsBase
         var arg = TestCases.GetTupleWithAllFieldTypes(x => x is not decimal);
         arg["nested"] = new IgniteTuple { ["foo"] = "bar" };
 
-        var res = await PocoView.StreamDataAsync<object, object, object, object>(
+        var res = await PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
@@ -906,7 +906,7 @@ public class DataStreamerTests : IgniteTestsBase
     [Test]
     public async Task TestResultConsumerCancellation()
     {
-        IAsyncEnumerable<string> results = PocoView.StreamDataAsync<int, string, string?, string>(
+        IAsyncEnumerable<string> results = PocoView.StreamDataAsync(
             Enumerable.Range(0, Count).ToAsyncEnumerable(),
             keySelector: x => GetPoco(x),
             payloadSelector: x => $"{x}-value{x * 10}",
