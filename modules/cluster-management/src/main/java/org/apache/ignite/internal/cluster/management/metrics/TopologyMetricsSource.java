@@ -28,13 +28,14 @@ import org.apache.ignite.internal.metrics.Metric;
 import org.apache.ignite.internal.metrics.ObjectGauge;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * The source of topology metrics.
  */
 public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsSource.Holder> {
     /** Source name. */
-    private static final String SOURCE_NAME = "topology";
+    static final String SOURCE_NAME = "topology";
 
     /** Logical topology. */
     private final LogicalTopology logicalTopology;
@@ -69,22 +70,112 @@ public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsS
         return new Holder();
     }
 
+    /**
+     * Returns name of the local node.
+     *
+     * @return Name of the local node, or an empty string if the holder is not initialized.
+     */
+    public String localNodeName() {
+        Holder h = holder();
+
+        if (h == null) {
+            return "";
+        }
+
+        return h.localNodeName.value();
+    }
+
+    /**
+     * Returns the unique identifier of the local node.
+     *
+     * @return Unique identifier of the local node, or {@code null} if the holder is not initialized.
+     */
+    public @Nullable UUID localNodeId() {
+        Holder h = holder();
+
+        if (h == null) {
+            return null;
+        }
+
+        return h.localNodeId.value();
+    }
+
+    /**
+     * Returns version of the local node.
+     *
+     * @return Version of the local node, or empty string if the holder is not initialized.
+     */
+    public String localNodeVersion() {
+        Holder h = holder();
+
+        if (h == null) {
+            return "";
+        }
+
+        return h.localNodeVersion.value();
+    }
+
+    /**
+     * Returns name of the cluster.
+     *
+     * @return Name of the cluster, or empty string if the holder is not initialized.
+     */
+    public String clusterName() {
+        Holder h = holder();
+
+        if (h == null) {
+            return "";
+        }
+
+        return h.clusterName.value();
+    }
+
+    /**
+     * Returns the unique identifier of the cluster.
+     *
+     * @return Returns the unique identifier of the cluster, or {@code null} if the holder is not initialized.
+     */
+    public @Nullable UUID clusterId() {
+        Holder h = holder();
+
+        if (h == null) {
+            return null;
+        }
+
+        return h.clusterId.value();
+    }
+
+    /**
+     * Returns the total number of nodes in the logical topology.
+     *
+     * @return Returns the total number of nodes in the logical topology, or {@code 0} if the holder is not initialized.
+     */
+    public int totalNodes() {
+        Holder h = holder();
+
+        if (h == null) {
+            return 0;
+        }
+
+        return h.clusterSize.value();
+    }
+
     /** Holder. */
     protected class Holder implements AbstractMetricSource.Holder<Holder> {
         // Local node metrics.
-        private final Metric version = new ObjectGauge<>(
+        private final ObjectGauge<String> localNodeVersion = new ObjectGauge<>(
                 "NodeVersion",
                 "Ignite product version",
                 IgniteProductVersion.CURRENT_VERSION::toString,
                 String.class);
 
-        private final Metric id = new ObjectGauge<>(
+        private final ObjectGauge<UUID> localNodeId = new ObjectGauge<>(
                 "NodeId",
                 "Unique identifier of the local node",
                 () -> physicalTopology.localMember().id(),
                 UUID.class);
 
-        private final Metric name = new ObjectGauge<>(
+        private final ObjectGauge<String> localNodeName = new ObjectGauge<>(
                 "NodeName",
                 "Unique name of the local node",
                 () -> physicalTopology.localMember().name(),
@@ -96,7 +187,7 @@ public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsS
                 "Number of nodes in the logical topology",
                 () -> logicalTopology.getLogicalTopology().nodes().size());
 
-        private final Metric clusterId = new ObjectGauge<>(
+        private final ObjectGauge<UUID> clusterId = new ObjectGauge<>(
                 "ClusterId",
                 "Unique identifier of the cluster",
                 () -> {
@@ -106,7 +197,7 @@ public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsS
                 },
                 UUID.class);
 
-        private final Metric clusterName = new ObjectGauge<>(
+        private final ObjectGauge<String> clusterName = new ObjectGauge<>(
                 "ClusterName",
                 "Unique name of the cluster",
                 () -> {
@@ -116,7 +207,7 @@ public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsS
                 },
                 String.class);
 
-        private final List<Metric> metrics = List.of(clusterId, clusterName, clusterSize, name, id, version);
+        private final List<Metric> metrics = List.of(clusterId, clusterName, clusterSize, localNodeName, localNodeId, localNodeVersion);
 
         @Override
         public Iterable<Metric> metrics() {
