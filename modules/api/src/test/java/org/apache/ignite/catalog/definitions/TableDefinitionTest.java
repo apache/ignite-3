@@ -18,9 +18,12 @@
 package org.apache.ignite.catalog.definitions;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.util.stream.Stream;
+import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.table.QualifiedName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -30,79 +33,67 @@ import org.junit.jupiter.params.provider.MethodSource;
  */
 public class TableDefinitionTest {
 
+    @Test
+    public void tableNameMustBeNotNull() {
+        var err = assertThrows(NullPointerException.class, () -> TableDefinition.builder((String) null));
+        assertEquals("Table name must not be null.", err.getMessage());
+    }
+
+    @Test
+    public void qualifiedNameMustBeNotNull() {
+        var err = assertThrows(NullPointerException.class, () -> TableDefinition.builder((QualifiedName) null));
+        assertEquals("Qualified table name must not be null.", err.getMessage());
+    }
+
     @ParameterizedTest
     @MethodSource("schemaAndTable")
-    public void testFromTableNameThenSetSchema(
-            String schema,
-            String table,
-            QualifiedName expected,
-            String normSchema,
-            String normTable
-    ) {
+    public void testFromTableNameThenSetSchema(String schema, String table, QualifiedName expected) {
         TableDefinition def = TableDefinition.builder(table)
                 .schema(schema)
                 .build();
 
-        assertEquals(expected, def.qualifiedName());
-        assertEquals(normSchema, def.schemaName());
-        assertEquals(normTable, def.tableName());
+        QualifiedName qualifiedName = def.qualifiedName();
+        assertEquals(expected, qualifiedName);
+        assertEquals(IgniteNameUtils.quoteIfNeeded(qualifiedName.schemaName()), def.schemaName());
+        assertEquals(IgniteNameUtils.quoteIfNeeded(qualifiedName.objectName()), def.tableName());
+
+        TableDefinition def2 = def.toBuilder().schema(schema).build();
+        assertEquals(def.qualifiedName(), def2.qualifiedName());
+        assertEquals(def.schemaName(), def2.schemaName());
+        assertEquals(def.tableName(), def2.tableName());
     }
 
     @ParameterizedTest
     @MethodSource("schemaAndTable")
-    public void testFromQualifiedNameThenSchema(
-            String schema,
-            String table,
-            QualifiedName expected,
-            String normSchema,
-            String normTable
-    ) {
-        QualifiedName qualifiedName = QualifiedName.of("ABC", table);
-        TableDefinition def = TableDefinition.builder(qualifiedName)
+    public void testFromQualifiedNameThenSchema(String schema, String table, QualifiedName expected) {
+        QualifiedName initialName = QualifiedName.of("ABC", table);
+        TableDefinition def = TableDefinition.builder(initialName)
                 .schema(schema)
                 .build();
 
-        assertEquals(expected, def.qualifiedName());
-        assertEquals(normSchema, def.schemaName());
-        assertEquals(normTable, def.tableName());
-    }
+        QualifiedName qualifiedName = def.qualifiedName();
+        assertEquals(expected, qualifiedName);
+        assertEquals(IgniteNameUtils.quoteIfNeeded(qualifiedName.schemaName()), def.schemaName());
+        assertEquals(IgniteNameUtils.quoteIfNeeded(qualifiedName.objectName()), def.tableName());
 
-    @ParameterizedTest
-    @MethodSource("schemaAndTable")
-    public void testFromQualifiedNameThenSchemaThenQualifiedName(
-            String schema,
-            String table,
-            QualifiedName expected,
-            String normSchema,
-            String normTable
-    ) {
-        QualifiedName qualifiedName = QualifiedName.of("ABC", "DEF");
-        TableDefinition def = TableDefinition.builder(qualifiedName)
-                .schema(schema)
-                .qualifiedName(QualifiedName.of(schema, table))
-                .build();
-
-        assertEquals(expected, def.qualifiedName());
-        assertEquals(normSchema, def.schemaName());
-        assertEquals(normTable, def.tableName());
+        TableDefinition def2 = def.toBuilder().schema(schema).build();
+        assertEquals(def.qualifiedName(), def2.qualifiedName());
+        assertEquals(def.schemaName(), def2.schemaName());
+        assertEquals(def.tableName(), def2.tableName());
     }
 
     private static Stream<Arguments> schemaAndTable() {
         return Stream.of(
-                Arguments.of("s", "a", QualifiedName.of("S", "A"), "S", "A"),
-                Arguments.of("\"a Schema\"", "a", QualifiedName.of("\"a Schema\"", "A"), "a Schema", "A"),
-                Arguments.of("\"a Schema\"", "\"a table\"", QualifiedName.of("\"a Schema\"", "\"a table\""), "a Schema", "a table"),
-                Arguments.of("\"aSchema\"", "\"aTable\"", QualifiedName.of("\"aSchema\"", "\"aTable\""), "aSchema", "aTable"),
-                Arguments.of("\"a Schema\"", "\"atable\"", QualifiedName.of("\"a Schema\"", "\"atable\""), "a Schema", "atable"),
+                Arguments.of("s", "a", QualifiedName.of("S", "A")),
+                Arguments.of("\"a Schema\"", "a", QualifiedName.of("\"a Schema\"", "A")),
+                Arguments.of("\"a Schema\"", "\"a table\"", QualifiedName.of("\"a Schema\"", "\"a table\"")),
+                Arguments.of("\"aSchema\"", "\"aTable\"", QualifiedName.of("\"aSchema\"", "\"aTable\"")),
+                Arguments.of("\"a Schema\"", "\"atable\"", QualifiedName.of("\"a Schema\"", "\"atable\"")),
 
-                Arguments.of("\"aSchema\"", "\"aTable \"\"X\"\"  \"", QualifiedName.of("\"aSchema\"", "\"aTable \"\"X\"\"  \""),
-                        "aSchema", "aTable \"X\"  "),
-
-                Arguments.of("\"aSchema\"", "\"\"\"atable\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"atable\"\"\""),
-                        "aSchema", "\"atable\""),
-
-                Arguments.of("\"aSchema\"", "\"\"\"aTable\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"aTable\"\"\""),
-                        "aSchema", "\"aTable\"")
+                Arguments.of("\"aSchema\"", "\"aTable \"\"X\"\"  \"", QualifiedName.of("\"aSchema\"", "\"aTable \"\"X\"\"  \"")),
+                Arguments.of("\"aSchema\"", "\"\"\"atable\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"atable\"\"\"")),
+                Arguments.of("\"aSchema\"", "\"\"\"aTable\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"aTable\"\"\"")),
+                Arguments.of("\"aSchema\"", "\"\"\"ATABLE\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"ATABLE\"\"\""))
         );
     }
 
