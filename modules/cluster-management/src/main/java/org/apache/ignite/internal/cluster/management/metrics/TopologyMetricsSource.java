@@ -73,31 +73,31 @@ public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsS
     protected class Holder implements AbstractMetricSource.Holder<Holder> {
         // Local node metrics.
         private final Metric version = new ObjectGauge<>(
-                "nodeVersion",
+                "NodeVersion",
                 "Ignite product version",
                 IgniteProductVersion.CURRENT_VERSION::toString,
                 String.class);
 
         private final Metric id = new ObjectGauge<>(
-                "nodeId",
+                "NodeId",
                 "Unique identifier of the local node",
                 () -> physicalTopology.localMember().id(),
                 UUID.class);
 
         private final Metric name = new ObjectGauge<>(
-                "nodeName",
+                "NodeName",
                 "Unique name of the local node",
                 () -> physicalTopology.localMember().name(),
                 String.class);
 
         // Cluster metrics.
         private final IntGauge clusterSize = new IntGauge(
-                "totalNodes",
+                "TotalNodes",
                 "Number of nodes in the logical topology",
                 () -> logicalTopology.getLogicalTopology().nodes().size());
 
         private final Metric clusterId = new ObjectGauge<>(
-                "clusterId",
+                "ClusterId",
                 "Unique identifier of the cluster",
                 () -> {
                     ClusterTag tag = clusterTagSupplier.get();
@@ -107,7 +107,7 @@ public class TopologyMetricsSource extends AbstractMetricSource<TopologyMetricsS
                 UUID.class);
 
         private final Metric clusterName = new ObjectGauge<>(
-                "clusterName",
+                "ClusterName",
                 "Unique name of the cluster",
                 () -> {
                     ClusterTag tag = clusterTagSupplier.get();
