@@ -94,7 +94,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public void TestMissingClass()
     {
-        var receiverDesc = new ReceiverDescriptor<object, object>("BadClass")
+        var receiverDesc = new ReceiverDescriptor<object, object, object>("BadClass")
         {
             Options = new ReceiverExecutionOptions
             {
@@ -102,15 +102,16 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             }
         };
 
-        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync<object, object, object, object>(
+        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
+            receiverDesc,
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
-            receiverDesc,
             receiverArg: "arg");
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
-        Assert.AreEqual(".NET job failed: Type 'BadClass' not found in the specified deployment units.", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Failed to load type 'BadClass'", ex.Message);
+        StringAssert.Contains("Could not resolve type 'BadClass' in assembly 'Apache.Ignite", ex.Message);
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
 
@@ -125,7 +126,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             }
         };
 
-        var task = PocoView.StreamDataAsync<object, object, object>(
+        var task = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
@@ -134,10 +135,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await task);
 
-        Assert.AreEqual(
-            ".NET job failed: Could not load file or assembly 'BadAssembly, Culture=neutral, PublicKeyToken=null'. " +
-            "The system cannot find the file specified.",
-            ex.Message.Trim());
+        StringAssert.Contains(".NET job failed: Failed to load type 'MyClass, BadAssembly'", ex.Message);
+        StringAssert.Contains("Could not load file or assembly 'BadAssembly", ex.Message);
+        StringAssert.Contains("The system cannot find the file specified.", ex.Message);
 
         Assert.AreEqual(1, ex.FailedItems.Count);
     }
@@ -145,11 +145,11 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public void TestReceiverError()
     {
-        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync<object, object, object, object>(
+        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
+            DotNetReceivers.Error with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
-            DotNetReceivers.Error with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "hello");
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
@@ -185,9 +185,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         var res = await TupleView.StreamDataAsync(
             data: ids.ToAsyncEnumerable(),
+            receiver: DotNetReceivers.CreateTableAndUpsert with {DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new IgniteTuple { ["key"] = 1L },
             payloadSelector: id => id,
-            receiver: DotNetReceivers.CreateTableAndUpsert with {DeploymentUnits = [_defaultTestUnit] },
             receiverArg: tableName,
             options: new DataStreamerOptions { PageSize = 13 }).ToListAsync();
 
@@ -226,11 +226,11 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
-        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await view.StreamDataAsync<object, object, object, object>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await view.StreamDataAsync(
             new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new IgniteTuple { ["ID"] = 1 },
             payloadSelector: _ => "unused",
-            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "test").SingleAsync());
 
         Assert.AreEqual("ReceiverExecutionOptions are not supported by the server.", ex.Message);
@@ -241,22 +241,22 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     {
         view ??= PocoView;
 
-        return await view.StreamDataAsync<object, object, object, object>(
+        return await view.StreamDataAsync(
             new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new Poco(),
             payloadSelector: _ => "unused",
-            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: arg).SingleAsync();
     }
 
     private async Task<List<object>> RunEchoReceiver(IEnumerable<object> items, DataStreamerOptions? options = null) =>
-        await PocoView.StreamDataAsync<object, object, object, object>(
+        await PocoView.StreamDataAsync(
             items.ToAsyncEnumerable(),
+            DotNetReceivers.Echo with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
-            DotNetReceivers.Echo with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "unused",
-            options).ToListAsync();
+            options: options).ToListAsync();
 
     [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "JSON")]
     private record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, string JobExecutorType);

@@ -58,7 +58,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class BlobStorageTest extends BaseIgniteAbstractTest {
     private static final int PAGE_SIZE = 1024;
 
-    @InjectConfiguration(polymorphicExtensions = { VolatilePageMemoryProfileConfigurationSchema.class }, value = "mock.engine = aimem")
+    @InjectConfiguration(
+            polymorphicExtensions = VolatilePageMemoryProfileConfigurationSchema.class,
+            value = "mock {engine = aimem, maxSizeBytes = 256000000, initSizeBytes = 256000000}"
+    )
     private StorageProfileConfiguration dataRegionCfg;
 
     @Mock

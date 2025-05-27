@@ -48,7 +48,6 @@ import org.apache.ignite.internal.processors.cache.persistence.file.FilePageStor
 import org.apache.ignite.internal.processors.query.QuerySchema;
 import org.apache.ignite.internal.util.typedef.internal.CU;
 import org.apache.ignite.lang.IgniteUuid;
-import org.apache.ignite.marshaller.MarshallerUtils;
 
 /**
  * This is a lazy version of the {@link GridCacheProcessor}.
@@ -279,7 +278,7 @@ public class MigrationCacheProcessor extends GridCacheProcessor {
             throw new UncheckedIOException(e);
         }
 
-        var marshaller = MarshallerUtils.jdkMarshaller(ctx.igniteInstanceName());
+        var marshaller = ctx.marshallerContext().jdkMarshaller();
         var cfg = ctx.config();
         return Stream.concat(Stream.of(directCfgPath), grpCandidates)
                 .filter(path -> Files.exists(path) && !Files.isDirectory(path))

@@ -43,7 +43,6 @@ namespace ignite {
  */
 class odbc_suite : public virtual ::testing::Test, public odbc_connection {
 public:
-    // TODO https://issues.apache.org/jira/browse/IGNITE-24261 revert changing named to uppercase
     static inline const std::string TABLE_1 = "TBL1";
     static inline const std::string TABLE_NAME_ALL_COLUMNS = "TBL_ALL_COLUMNS";
     static inline const std::string TABLE_NAME_ALL_COLUMNS_SQL = "TBL_ALL_COLUMNS_SQL";

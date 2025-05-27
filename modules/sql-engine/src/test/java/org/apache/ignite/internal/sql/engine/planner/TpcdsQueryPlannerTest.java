@@ -17,10 +17,13 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -33,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
 )
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
     @ValueSource(strings = "64")
@@ -62,7 +66,10 @@ public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
             var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
             return loadFromResource(variantQueryFile);
         } else {
-            var queryFile = String.format("tpcds/plan/q%s.plan", numericId);
+            var queryFile = enabledColocation()
+                    ? String.format("tpcds/plan/q%s_colocated.plan", numericId)
+                    : String.format("tpcds/plan/q%s.plan", numericId);
+
             return loadFromResource(queryFile);
         }
     }

@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.runner.app.client;
 
+import static java.util.Collections.emptyList;
 import static java.util.Comparator.comparing;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -65,6 +66,7 @@ import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.table.partition.Partition;
+import org.apache.ignite.table.partition.PartitionManager;
 import org.apache.ignite.tx.Transaction;
 import org.apache.ignite.tx.TransactionException;
 import org.apache.ignite.tx.TransactionOptions;
@@ -464,18 +466,24 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx2.commit();
     }
 
-    private List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode) {
+    static List<Tuple> generateKeysForNode(int start, int count, Map<Partition, ClusterNode> map, ClusterNode clusterNode, Table table) {
+        String clusterNodeName = clusterNode.name();
+        if (map.values().stream().noneMatch(x -> Objects.equals(x.name(), clusterNodeName))) {
+            return emptyList();
+        }
+
         List<Tuple> keys = new ArrayList<>();
+        PartitionManager partitionManager = table.partitionManager();
 
         int k = start;
         while (keys.size() != count) {
             k++;
             Tuple t = key(k);
 
-            Partition part = table().partitionManager().partitionAsync(t).join();
+            Partition part = partitionManager.partitionAsync(t).orTimeout(5, TimeUnit.SECONDS).join();
             ClusterNode node = map.get(part);
 
-            if (node.name().equals(clusterNode.name())) {
+            if (node.name().equals(clusterNodeName)) {
                 keys.add(t);
             }
         }
@@ -533,7 +541,7 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
 
-        List<Tuple> tuples0 = generateKeysForNode(200, 2, map, server0.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(200, 2, map, server0.clusterService().topologyService().localMember(), table);
 
         Tuple key = tuples0.get(0);
         Tuple val = val(key.intValue(0) + "");
@@ -564,8 +572,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(300, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(310, 1, map, server1.clusterService().topologyService().localMember(), table);
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
@@ -596,8 +604,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(400, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(410, 1, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(400, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(410, 1, map, server1.clusterService().topologyService().localMember(), table);
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
@@ -645,8 +653,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
         IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
 
-        List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember());
-        List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember());
+        List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember(), table);
 
         Map<Tuple, Tuple> data = new HashMap<>();
 
@@ -747,6 +755,38 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         for (Entry<Tuple, Tuple> entry : data.entrySet()) {
             view.put(null, entry.getKey(), entry.getValue());
         }
+    }
+
+    @Test
+    void testExplicitReadOnlyTransaction() {
+        ClientTable table = (ClientTable) table();
+
+        KeyValueView<Tuple, Tuple> kvView = table.keyValueView();
+
+        // Load partition map to ensure all entries are directly mapped.
+        Map<Partition, ClusterNode> map = table.partitionManager().primaryReplicasAsync().join();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(600, 20, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(600, 20, map, server1.clusterService().topologyService().localMember(), table);
+
+        Tuple k1 = tuples0.get(0);
+        Tuple v1 = val(tuples0.get(0).intValue(0) + "");
+
+        Tuple k2 = tuples1.get(1);
+        Tuple v2 = val(tuples1.get(1).intValue(0) + "");
+
+        kvView.put(null, k1, v1);
+        kvView.put(null, k2, v2);
+
+        Transaction tx = client().transactions().begin(new TransactionOptions().readOnly(true));
+
+        assertTrue(Tuple.equals(v1, kvView.get(tx, k1)));
+        assertTrue(Tuple.equals(v2, kvView.get(tx, k2)));
+
+        tx.commit();
     }
 
     private KeyValueView<Integer, String> kvView() {

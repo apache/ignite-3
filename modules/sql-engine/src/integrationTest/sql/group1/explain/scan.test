@@ -7,11 +7,11 @@ SELECT * FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   TableScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       fields: [C1, C2, C3]
-      est. row count: 1
+      est: (rows=1)
 
 # select with trimming projection, no renames
 plan
@@ -19,11 +19,11 @@ SELECT c1, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   TableScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       fields: [C1, C2]
-      est. row count: 1
+      est: (rows=1)
 
 # select with trimming projection and renames
 plan
@@ -31,11 +31,11 @@ SELECT c1 AS renamed_c1, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   TableScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       fields: [RENAMED_C1, C2]
-      est. row count: 1
+      est: (rows=1)
 
 # select with expression projection, no renames
 plan
@@ -43,12 +43,12 @@ SELECT c1 + c3, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   TableScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       fields: [EXPR$0, C2]
       projects: [+(C1, C3), C2]
-      est. row count: 1
+      est: (rows=1)
 
 # select with expression projection and renames
 plan
@@ -56,12 +56,12 @@ SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   TableScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       fields: [SUM_OF_C1_AND_C3, C2]
       projects: [+(C1, C3), C2]
-      est. row count: 1
+      est: (rows=1)
 
 # Similar set of tests but for IndexScan
 statement ok
@@ -73,14 +73,14 @@ SELECT /*+ FORCE_INDEX(test_table_idx) */ * FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   IndexScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
       fields: [C1, C2, C3]
       collation: [C1 ASC, C2 ASC, C3 ASC]
-      est. row count: 1
+      est: (rows=1)
 
 # select with trimming projection, no renames
 plan
@@ -88,14 +88,14 @@ SELECT /*+ FORCE_INDEX(test_table_idx) */ c1, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   IndexScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
       fields: [C1, C2]
       collation: [C1 ASC, C2 ASC]
-      est. row count: 1
+      est: (rows=1)
 
 # select with trimming projection and renames
 plan
@@ -103,14 +103,14 @@ SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 AS renamed_c1, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   IndexScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
       fields: [RENAMED_C1, C2]
       collation: [C1 ASC, C2 ASC]
-      est. row count: 1
+      est: (rows=1)
 
 # select with expression projection, no renames
 plan
@@ -118,15 +118,15 @@ SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 + c3, c2 FROM test_table
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   IndexScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
       fields: [EXPR$0, C2]
       projects: [+(C1, C3), C2]
       collation: []
-      est. row count: 1
+      est: (rows=1)
 
 # select with expression projection and renames
 plan
@@ -134,15 +134,15 @@ SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 + c3 AS sum_of_c1_and_c3, c2 FROM t
 ----
 Exchange
     distribution: single
-    est. row count: 1
+    est: (rows=1)
   IndexScan
-      table: [PUBLIC, TEST_TABLE]
+      table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
       fields: [SUM_OF_C1_AND_C3, C2]
       projects: [+(C1, C3), C2]
       collation: []
-      est. row count: 1
+      est: (rows=1)
 
 # Similar set of tests but for KeyValueGet
 # select all, no renames
@@ -150,52 +150,52 @@ plan
 SELECT * FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
-    table: [PUBLIC, TEST_TABLE]
+    table: PUBLIC.TEST_TABLE
     fields: [C1, C2, C3]
     key: [1]
-    est. row count: 1
+    est: (rows=1)
 
 # select with trimming projection, no renames
 plan
 SELECT c1, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
-    table: [PUBLIC, TEST_TABLE]
+    table: PUBLIC.TEST_TABLE
     fields: [C1, C2]
     key: [1]
-    est. row count: 1
+    est: (rows=1)
 
 # select with trimming projection and renames
 plan
 SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
-    table: [PUBLIC, TEST_TABLE]
+    table: PUBLIC.TEST_TABLE
     fields: [C1, C2]
     key: [1]
-    est. row count: 1
+    est: (rows=1)
 
 # select with expression projection, no renames
 plan
 SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
-    table: [PUBLIC, TEST_TABLE]
+    table: PUBLIC.TEST_TABLE
     fields: [EXPR$0, C2]
     projects: [+(C1, C3), C2]
     key: [1]
-    est. row count: 1
+    est: (rows=1)
 
 # select with expression projection and renames
 plan
 SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
 ----
 KeyValueGet
-    table: [PUBLIC, TEST_TABLE]
+    table: PUBLIC.TEST_TABLE
     fields: [SUM_OF_C1_AND_C3, C2]
     projects: [+(C1, C3), C2]
     key: [1]
-    est. row count: 1
+    est: (rows=1)
 
 # Similar set of tests but for SystemViewScan
 # select all, no renames
@@ -203,47 +203,47 @@ plan
 SELECT * FROM system.system_views
 ----
 SystemViewScan
-    table: [SYSTEM, SYSTEM_VIEWS]
+    table: SYSTEM.SYSTEM_VIEWS
     fields: [VIEW_ID, SCHEMA_NAME, VIEW_NAME, VIEW_TYPE, ID, SCHEMA, NAME, TYPE]
-    est. row count: 100
+    est: (rows=100)
 
 # select with trimming projection, no renames
 plan
 SELECT view_id, view_name FROM system.system_views
 ----
 SystemViewScan
-    table: [SYSTEM, SYSTEM_VIEWS]
+    table: SYSTEM.SYSTEM_VIEWS
     fields: [VIEW_ID, VIEW_NAME]
-    est. row count: 100
+    est: (rows=100)
 
 # select with trimming projection and renames
 plan
 SELECT view_id AS renamed_view_id, view_name FROM system.system_views
 ----
 SystemViewScan
-    table: [SYSTEM, SYSTEM_VIEWS]
+    table: SYSTEM.SYSTEM_VIEWS
     fields: [RENAMED_VIEW_ID, VIEW_NAME]
-    est. row count: 100
+    est: (rows=100)
 
 # select with expression projection, no renames
 plan
 SELECT view_id + 5, view_name FROM system.system_views
 ----
 SystemViewScan
-    table: [SYSTEM, SYSTEM_VIEWS]
+    table: SYSTEM.SYSTEM_VIEWS
     fields: [EXPR$0, VIEW_NAME]
     projects: [+(VIEW_ID, 5), VIEW_NAME]
-    est. row count: 100
+    est: (rows=100)
 
 # select with expression projection and renames
 plan
 SELECT view_id + 5 AS adjusted_view_id, view_name FROM system.system_views
 ----
 SystemViewScan
-    table: [SYSTEM, SYSTEM_VIEWS]
+    table: SYSTEM.SYSTEM_VIEWS
     fields: [ADJUSTED_VIEW_ID, VIEW_NAME]
     projects: [+(VIEW_ID, 5), VIEW_NAME]
-    est. row count: 100
+    est: (rows=100)
 
 # Complex query where column of source table is renamed, and this renamed column is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
@@ -258,31 +258,31 @@ SELECT
 Project
     fields: [EXPR$0]
     exprs: [EXPR$0]
-    est. row count: 1
+    est: (rows=1)
   CorrelatedNestedLoopJoin
       condition: true
       joinType: left
       variablesSet: [$cor0]
-      est. row count: 1
+      est: (rows=1)
     Exchange
         distribution: single
-        est. row count: 1
+        est: (rows=1)
       TableScan
-          table: [PUBLIC, TEST_TABLE]
+          table: PUBLIC.TEST_TABLE
           fields: [RENAMED_C1]
-          est. row count: 1
+          est: (rows=1)
     ColocatedHashAggregate
         group: []
-        aggs: [COUNT()]
-        est. row count: 1
+        aggs: [EXPR$0=COUNT()]
+        est: (rows=1)
       Exchange
           distribution: single
-          est. row count: 1
+          est: (rows=1)
         TableScan
-            table: [PUBLIC, TEST_TABLE]
+            table: PUBLIC.TEST_TABLE
             filters: =(C1, $cor0.RENAMED_C1)
             fields: [C1]
-            est. row count: 1
+            est: (rows=1)
 
 # Complex query where expression involving a column of source table is renamed, and this renamed expression is referenced by
 # correlated scalar query. This rename MUST remains in the plan to preserve semantic of the query 
@@ -297,29 +297,167 @@ SELECT
 Project
     fields: [EXPR$0]
     exprs: [EXPR$0]
-    est. row count: 1
+    est: (rows=1)
   CorrelatedNestedLoopJoin
       condition: true
       joinType: left
       variablesSet: [$cor0]
-      est. row count: 1
+      est: (rows=1)
     Exchange
         distribution: single
-        est. row count: 1
+        est: (rows=1)
       TableScan
-          table: [PUBLIC, TEST_TABLE]
+          table: PUBLIC.TEST_TABLE
           fields: [DOUBLED_C1]
           projects: [*(C1, 2)]
-          est. row count: 1
+          est: (rows=1)
     ColocatedHashAggregate
         group: []
-        aggs: [COUNT()]
-        est. row count: 1
+        aggs: [EXPR$0=COUNT()]
+        est: (rows=1)
       Exchange
           distribution: single
-          est. row count: 1
+          est: (rows=1)
         TableScan
-            table: [PUBLIC, TEST_TABLE]
+            table: PUBLIC.TEST_TABLE
             filters: =(C1, $cor0.DOUBLED_C1)
             fields: [C1]
-            est. row count: 1
+            est: (rows=1)
+
+# table scan with simple predicate
+plan
+SELECT c1 FROM test_table WHERE c3 = 1 
+----
+Exchange
+    distribution: single
+    est: (rows=1)
+  TableScan
+      table: PUBLIC.TEST_TABLE
+      filters: =(C3, 1)
+      fields: [C1]
+      projects: [C1]
+      est: (rows=1)
+
+# table scan with complex predicate
+plan
+SELECT c1 FROM test_table WHERE c3 IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
+----
+Exchange
+    distribution: single
+    est: (rows=1)
+  TableScan
+      table: PUBLIC.TEST_TABLE
+      filters: AND(SEARCH(C3, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+      fields: [C1]
+      projects: [C1]
+      est: (rows=1)
+
+# index scan with simple predicate
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 FROM test_table WHERE c1 > 1 
+----
+Exchange
+    distribution: single
+    est: (rows=1)
+  IndexScan
+      table: PUBLIC.TEST_TABLE
+      index: TEST_TABLE_IDX
+      type: SORTED
+      searchBounds: [RangeBounds [lowerBound=1, upperBound=null:INTEGER, lowerInclude=false, upperInclude=false]]
+      filters: >(C1, 1)
+      fields: [C1]
+      collation: [C1 ASC]
+      est: (rows=1)
+
+# index scan with complex predicate
+plan
+SELECT /*+ FORCE_INDEX(test_table_idx) */ c1 FROM test_table WHERE c1 IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
+----
+Exchange
+    distribution: single
+    est: (rows=1)
+  IndexScan
+      table: PUBLIC.TEST_TABLE
+      index: TEST_TABLE_IDX
+      type: SORTED
+      searchBounds: [MultiBounds [bounds=ArrayList [ExactBounds [bound=1], ExactBounds [bound=2], ExactBounds [bound=3]]]]
+      filters: AND(SEARCH(C1, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+      fields: [C1]
+      collation: [C1 ASC]
+      est: (rows=1)
+
+statement ok
+CREATE INDEX hash_idx ON test_table USING HASH (c2);
+
+# look up by hash index
+plan
+SELECT /*+ FORCE_INDEX(hash_idx) */ c1 FROM test_table WHERE c2 = 10; 
+----
+Exchange
+    distribution: single
+    est: (rows=1)
+  IndexScan
+      table: PUBLIC.TEST_TABLE
+      index: HASH_IDX
+      type: HASH
+      searchBounds: [ExactBounds [bound=10]]
+      filters: =(C2, 10)
+      fields: [C1]
+      projects: [C1]
+      est: (rows=1)
+
+statement ok
+CREATE INDEX test_table_different_collation_idx ON test_table USING SORTED (c2 DESC NULLS LAST);
+
+# index scan with different collation
+plan
+SELECT /*+ FORCE_INDEX(test_table_different_collation_idx) */ c1, c2 FROM test_table 
+----
+Exchange
+    distribution: single
+    est: (rows=1)
+  IndexScan
+      table: PUBLIC.TEST_TABLE
+      index: TEST_TABLE_DIFFERENT_COLLATION_IDX
+      type: SORTED
+      fields: [C1, C2]
+      collation: [C2 DESC NULLS LAST]
+      est: (rows=1)
+
+# system view scan with simple predicate
+plan
+SELECT view_id, view_name FROM system.system_views WHERE view_id = 5
+----
+SystemViewScan
+    table: SYSTEM.SYSTEM_VIEWS
+    filters: =(VIEW_ID, 5)
+    fields: [VIEW_ID, VIEW_NAME]
+    est: (rows=33)
+
+# table scan with complex predicate
+plan
+SELECT view_id, view_name FROM system.system_views WHERE view_id IN (1, 2, 3) AND CURRENT_TIMESTAMP > timestamp '1970-01-01' 
+----
+SystemViewScan
+    table: SYSTEM.SYSTEM_VIEWS
+    filters: AND(SEARCH(VIEW_ID, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+    fields: [VIEW_ID, VIEW_NAME]
+    est: (rows=38)
+
+# table function scan
+plan
+SELECT * FROM system_range(1, 10)
+----
+TableFunctionScan
+    invocation: SYSTEM_RANGE(1, 10)
+    rowType: RecordType(BIGINT X)
+    est: (rows=100)
+
+# another table function scan
+plan
+SELECT * FROM system_range(1, LENGTH(rand_uuid()::VARCHAR))
+----
+TableFunctionScan
+    invocation: SYSTEM_RANGE(1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL))
+    rowType: RecordType(BIGINT X)
+    est: (rows=100)

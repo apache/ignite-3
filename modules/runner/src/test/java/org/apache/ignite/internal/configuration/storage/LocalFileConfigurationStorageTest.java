@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.configuration.storage;
 
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.allOf;
@@ -27,6 +28,7 @@ import static org.hamcrest.Matchers.equalToCompressingWhiteSpace;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.hasValue;
 import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.nullValue;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 
 import com.typesafe.config.ConfigFactory;
@@ -45,6 +47,7 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
 import org.apache.ignite.configuration.annotation.ConfigurationRoot;
 import org.apache.ignite.configuration.annotation.NamedConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.ConfigurationValidationException;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -166,12 +169,13 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name1 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=-1\n"
+                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=1\n"
                         + "}"
         ));
@@ -201,16 +205,18 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name1 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=-1\n"
+                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
-                        + "        }\n"
-                        + "        name2 {\n"
+                        + "        },\n"
+                        + "        {\n"
                         + "            intVal=-2\n"
+                        + "            name=name2\n"
                         + "            strVal=strVal2\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=1\n"
                         + "}\n"
         ));
@@ -268,12 +274,13 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name1 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=1\n"
+                        + "            name=name1\n"
                         + "            strVal=foo\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=3\n"
                         + "}"
         ));
@@ -300,12 +307,13 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name1 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=-1\n"
+                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=3\n"
                         + "}"
         ));
@@ -342,16 +350,18 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name1 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=-1\n"
+                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
-                        + "        }\n"
-                        + "        name2 {\n"
+                        + "        },\n"
+                        + "        {\n"
                         + "            intVal=-2\n"
+                        + "            name=name2\n"
                         + "            strVal=strVal2\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -374,12 +384,13 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name2 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=-2\n"
+                        + "            name=name2\n"
                         + "            strVal=strVal2\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=3\n"
                         + "}\n"
         ));
@@ -481,14 +492,15 @@ public class LocalFileConfigurationStorageTest {
                         + "        }\n"
                         + "        strVal=foo\n"
                         + "    }\n"
-                        + "    namedList {\n"
-                        + "        name1 {\n"
+                        + "    namedList=[\n"
+                        + "        {\n"
                         + "            intVal=-1\n"
+                        + "            name=name1\n"
                         + "            strVal=strVal1\n"
                         + "        }\n"
-                        + "    }\n"
+                        + "    ]\n"
                         + "    shortVal=1\n"
-                        + "}"
+                        + "}\n"
         ));
     }
 
@@ -571,8 +583,24 @@ public class LocalFileConfigurationStorageTest {
 
         Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
 
-        // Storage ignores deleted property.
+        // Deleted properties are ignored and removed from the storage.
         assertDoesNotThrow(changer::start);
+        assertThat(storage.readLatest("top.deleted_property"), willBe(nullValue()));
+    }
+
+    @Test
+    void testReadDataOnStartupWithRenamedProperty() throws IOException {
+        // Given config in JSON format
+        String fileContent = "top.oldShortValName = 3";
+
+        Path configFile = getConfigFile();
+
+        Files.write(configFile, fileContent.getBytes(StandardCharsets.UTF_8));
+
+        // Storage handles renamed property.
+        assertDoesNotThrow(changer::start);
+
+        assertThat(storage.readLatest("top.shortVal"), willBe((short) 3));
     }
 
     private String configFileContent() throws IOException {
@@ -593,6 +621,7 @@ public class LocalFileConfigurationStorageTest {
         public InnerConfigurationSchema inner;
 
         @Value(hasDefault = true)
+        @PublicName(legacyNames = "oldShortValName")
         public short shortVal = 1;
 
         @Deprecated

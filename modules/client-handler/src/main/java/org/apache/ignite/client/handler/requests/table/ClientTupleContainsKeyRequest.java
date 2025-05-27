@@ -17,16 +17,14 @@
 
 package org.apache.ignite.client.handler.requests.table;
 
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readOrStartImplicitTx;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTableAsync;
-import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.readTuple;
 import static org.apache.ignite.client.handler.requests.table.ClientTableCommon.writeTxMeta;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
-import org.apache.ignite.internal.client.proto.ClientMessagePacker;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.table.IgniteTables;
 
@@ -38,29 +36,25 @@ public class ClientTupleContainsKeyRequest {
      * Processes the request.
      *
      * @param in        Unpacker.
-     * @param out       Packer.
      * @param tables    Ignite tables.
      * @param resources Resource registry.
      * @param txManager Transaction manager.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteTables tables,
             ClientResourceRegistry resources,
             TxManager txManager,
-            ClockService clockService
+            ClockService clockService,
+            HybridTimestampTracker tsTracker
     ) {
-        return readTableAsync(in, tables).thenCompose(table -> {
-            var tx = readOrStartImplicitTx(in, out, resources, txManager, true, null);
-            return readTuple(in, table, true).thenCompose(keyTuple -> {
-                return table.recordView().getAsync(tx, keyTuple).thenAccept(t -> {
-                    writeTxMeta(out, clockService, tx);
-                    out.packInt(table.schemaView().lastKnownSchemaVersion());
-                    out.packBoolean(t != null);
-                });
-            });
-        });
+        return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, true, null, tsTracker, true)
+                .thenCompose(req -> req.table().recordView().containsAsync(req.tx(), req.tuple())
+                        .thenApply(res -> out -> {
+                            writeTxMeta(out, tsTracker, clockService, req);
+                            out.packInt(req.table().schemaView().lastKnownSchemaVersion());
+                            out.packBoolean(res);
+                        }));
     }
 }

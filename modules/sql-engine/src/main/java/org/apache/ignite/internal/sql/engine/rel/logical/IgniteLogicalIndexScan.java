@@ -157,6 +157,16 @@ public class IgniteLogicalIndexScan extends AbstractIndexScan {
         );
     }
 
+    @Override
+    protected IgniteLogicalIndexScan copy(
+            @Nullable List<RexNode> newProjects,
+            @Nullable RexNode newCondition,
+            @Nullable List<SearchBounds> newSearchBounds
+    ) {
+        return new IgniteLogicalIndexScan(getCluster(), getTraitSet(), getTable(), indexName(), type, names, newProjects, newCondition,
+                newSearchBounds, requiredColumns());
+    }
+
     /** {@inheritDoc} */
     @Override
     public String getRelTypeName() {

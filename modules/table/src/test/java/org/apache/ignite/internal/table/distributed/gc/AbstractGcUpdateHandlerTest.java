@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.IntStream;
 import org.apache.ignite.distributed.TestPartitionDataStorage;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -283,9 +284,11 @@ abstract class AbstractGcUpdateHandlerTest extends BaseMvStoragesTest {
         storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWrite(rowId, row, newTransactionId(), 999, PARTITION_ID);
+            UUID txId = newTransactionId();
 
-            storage.commitWrite(rowId, timestamp);
+            storage.addWrite(rowId, row, txId, 999, PARTITION_ID);
+
+            storage.commitWrite(rowId, timestamp, txId);
 
             return null;
         });

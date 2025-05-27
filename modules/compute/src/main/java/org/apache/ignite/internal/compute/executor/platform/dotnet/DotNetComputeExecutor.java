@@ -196,9 +196,7 @@ public class DotNetComputeExecutor {
         return fut;
     }
 
-    private static Throwable handleTransportError(Process proc, Throwable cause) {
-        Throwable cause0 = unwrapCause(cause);
-
+    private static Throwable handleTransportError(Process proc, @Nullable Throwable cause) {
         String output = getProcessOutputTail(proc, 10_000);
 
         if (proc.isAlive()) {
@@ -206,11 +204,14 @@ public class DotNetComputeExecutor {
             proc.destroyForcibly();
         }
 
-        if (cause0 instanceof TraceableException) {
-            TraceableException te = (TraceableException) cause;
+        if (cause != null) {
+            Throwable cause0 = unwrapCause(cause);
+            if (cause0 instanceof TraceableException) {
+                TraceableException te = (TraceableException) cause;
 
-            if (te.code() == Client.PROTOCOL_COMPATIBILITY_ERR) {
-                return cause;
+                if (te.code() == Client.PROTOCOL_COMPATIBILITY_ERR) {
+                    return cause;
+                }
             }
         }
 
@@ -246,7 +247,11 @@ public class DotNetComputeExecutor {
 
             // 2. Start the process. It connects to the server, passes the id, and the server knows it is the right one.
             String dotnetBinaryPath = DOTNET_BINARY_PATH;
-            LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
+
+            if (LOG.isDebugEnabled()) {
+                LOG.debug("Starting .NET executor process [executorId={}, binaryPath={}]", executorId, dotnetBinaryPath);
+            }
+
             Process proc = startDotNetProcess(transport.serverAddress(), transport.sslEnabled(), executorId, dotnetBinaryPath);
 
             proc.onExit().thenRun(() -> {
@@ -307,7 +312,7 @@ public class DotNetComputeExecutor {
             // Dev mode, class file.
             return basePath.resolve(Path.of("..", "..", "..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));
-        } else if (basePath.toString().endsWith("-SNAPSHOT.jar")) {
+        } else if (basePath.getParent().endsWith(Paths.get("modules", "compute", "build", "libs"))) {
             // Dev mode, jar file.
             return basePath.getParent().resolve(Path.of("..", "..", "..", "platforms", "dotnet",
                     "Apache.Ignite.Internal.ComputeExecutor", "bin", "Debug", "net8.0"));

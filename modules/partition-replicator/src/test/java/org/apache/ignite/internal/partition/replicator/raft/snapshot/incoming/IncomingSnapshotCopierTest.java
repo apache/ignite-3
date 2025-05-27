@@ -700,7 +700,7 @@ public class IncomingSnapshotCopierTest extends BaseIgniteAbstractTest {
         );
 
         // Let's add an error on the rebalance.
-        doThrow(StorageException.class).when(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID))
+        doThrow(new StorageException("Mocked storage exception.")).when(partitionSnapshotStorage.partitionsByTableId().get(TABLE_ID))
                 .addWrite(any(RowId.class), any(BinaryRow.class), any(UUID.class), anyInt(), anyInt(), anyInt());
 
         // Let's start rebalancing.

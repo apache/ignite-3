@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -526,6 +527,8 @@ public class IgniteImpl implements Ignite {
         vaultMgr = new VaultManager(new PersistentVaultService(vaultPath(workDir)));
 
         metricManager = new MetricManagerImpl();
+
+        LOG.info("Zone based replication: {}", enabledColocation());
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -1884,11 +1887,10 @@ public class IgniteImpl implements Ignite {
     }
 
     /**
-     * Recovers components state on start by invoking configuration listeners ({@link #notifyConfigurationListeners()} and deploying watches
-     * after that.
+     * Recovers components state on start by invoking cluster configuration listeners and deploying watches after that.
      */
     private CompletableFuture<?> recoverComponentsStateOnStart(ExecutorService startupExecutor, CompletableFuture<Void> startFuture) {
-        CompletableFuture<Void> startupConfigurationUpdate = notifyConfigurationListeners();
+        CompletableFuture<Void> startupConfigurationUpdate = clusterConfiguration().notifyCurrentConfigurationListeners();
         CompletableFuture<Void> startupRevisionUpdate = metaStorageMgr.notifyRevisionUpdateListenerOnStart();
 
         return CompletableFuture.allOf(startupConfigurationUpdate, startupRevisionUpdate, startFuture)
@@ -1896,16 +1898,6 @@ public class IgniteImpl implements Ignite {
                     // Deploy all registered watches because all components are ready and have registered their listeners.
                     return metaStorageMgr.deployWatches();
                 }, startupExecutor);
-    }
-
-    /**
-     * Notify all listeners of current configurations.
-     */
-    private CompletableFuture<Void> notifyConfigurationListeners() {
-        return CompletableFuture.allOf(
-                nodeConfiguration().notifyCurrentConfigurationListeners(),
-                clusterConfiguration().notifyCurrentConfigurationListeners()
-        );
     }
 
     /** Returns a {@link OperationKillHandler kill handler} for the compute job. */

@@ -23,8 +23,10 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.internal.client.proto.ClientMessagePacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
+import org.apache.ignite.internal.hlc.HybridTimestampTracker;
 import org.apache.ignite.internal.sql.engine.QueryProcessor;
 import org.apache.ignite.internal.sql.engine.SqlProperties;
 import org.apache.ignite.internal.sql.engine.prepare.QueryMetadata;
@@ -38,27 +40,27 @@ public class ClientSqlQueryMetadataRequest {
      *
      * @param operationExecutor Executor to submit execution of operation.
      * @param in Unpacker.
-     * @param out Packer.
      * @param processor SQL API.
      * @param resources Resources.
      * @return Future representing result of operation.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             Executor operationExecutor,
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             QueryProcessor processor,
-            ClientResourceRegistry resources
+            ClientResourceRegistry resources,
+            HybridTimestampTracker tsTracker
     ) {
-        return nullCompletedFuture().thenComposeAsync(none -> {
-            var tx = readTx(in, out, resources, null, null);
-            String schema = in.unpackString();
-            String query = in.unpackString();
+        var tx = readTx(in, tsTracker, resources, null, null, null);
 
-            SqlProperties properties = new SqlProperties().defaultSchema(schema);
+        String schema = in.unpackString();
+        String query = in.unpackString();
 
-            return processor.prepareSingleAsync(properties, tx, query).thenAccept(meta -> writeMeta(out, meta));
-        }, operationExecutor);
+        SqlProperties properties = new SqlProperties().defaultSchema(schema);
+
+        return nullCompletedFuture()
+                .thenComposeAsync(none -> processor.prepareSingleAsync(properties, tx, query)
+                .thenApply(meta -> out -> writeMeta(out, meta)), operationExecutor);
     }
 
     private static void writeMeta(ClientMessagePacker out, QueryMetadata meta) {

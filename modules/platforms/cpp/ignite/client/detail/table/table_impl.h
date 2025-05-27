@@ -20,8 +20,8 @@
 #include "ignite/client/detail/cluster_connection.h"
 #include "ignite/client/detail/table/schema.h"
 #include "ignite/client/table/ignite_tuple.h"
+#include "ignite/client/table/qualified_name.h"
 #include "ignite/client/transaction/transaction.h"
-#include "ignite/common/uuid.h"
 
 #include <memory>
 #include <mutex>
@@ -47,12 +47,13 @@ public:
     /**
      * Constructor.
      *
-     * @param name Name.
+     * @param name Qualified name.
      * @param id ID.
      * @param connection Connection.
      */
-    table_impl(std::string name, const std::int32_t id, std::shared_ptr<cluster_connection> connection)
-        : m_name(std::move(name))
+    table_impl(qualified_name name, const std::int32_t id,
+        std::shared_ptr<cluster_connection> connection)
+        : m_qualified_name(std::move(name))
         , m_id(id)
         , m_connection(std::move(connection)) {}
 
@@ -61,7 +62,14 @@ public:
      *
      * @return Table name.
      */
-    [[nodiscard]] const std::string &name() const { return m_name; }
+    [[nodiscard]] const std::string &get_name() const { return m_qualified_name.get_canonical_name(); }
+
+    /**
+     * Gets the table qualified name.
+     *
+     * @return Table qualified name.
+     */
+    [[nodiscard]] const qualified_name &get_qualified_name() const noexcept { return m_qualified_name; }
 
     /**
      * Gets the latest schema.
@@ -86,7 +94,7 @@ public:
 
             auto schema = res.value();
             if (!schema) {
-                handler(ignite_error{"Can not get the latest schema for the table " + m_name});
+                handler(ignite_error{"Can not get the latest schema for the table " + get_name()});
                 return;
             }
 
@@ -123,7 +131,7 @@ public:
             auto schema = res.value();
             if (!schema) {
                 handler(ignite_error{
-                    "Can not get a schema of version " + std::to_string(version) + " for the table " + m_name});
+                    "Can not get a schema of version " + std::to_string(version) + " for the table " + get_name()});
                 return;
             }
 
@@ -408,8 +416,8 @@ private:
      */
     static std::shared_ptr<transaction_impl> to_impl(transaction *tx) { return tx ? tx->m_impl : nullptr; }
 
-    /** Table name. */
-    const std::string m_name;
+    /** Table qualified name. */
+    const qualified_name m_qualified_name;
 
     /** Table ID. */
     const std::int32_t m_id;

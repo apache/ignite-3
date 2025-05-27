@@ -71,7 +71,6 @@ import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.internal.type.DecimalNativeType;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.internal.type.TemporalNativeType;
 import org.apache.ignite.internal.type.VarlenNativeType;
 import org.apache.ignite.internal.util.StringUtils;
@@ -247,7 +246,7 @@ public class SqlTestUtils {
             precision = ((VarlenNativeType) type).length();
         }
 
-        return generateValueByType(type.spec().asColumnType(), precision, scale);
+        return generateValueByType(type.spec(), precision, scale);
     }
 
     /**
@@ -347,14 +346,14 @@ public class SqlTestUtils {
     }
 
     /**
-     * Generate value for given {@link NativeTypeSpec} based on given base number. Result of invocation always will be the same
+     * Generate value for given {@link ColumnType} based on given base number. Result of invocation always will be the same
      * for the same pair of arguments.
      *
      * @param base Base value to generate result value.
      * @param type Type to generate value.
      * @return Generated value for given type.
      */
-    public static Object generateStableValueByType(int base, NativeTypeSpec type) {
+    public static Object generateStableValueByType(int base, ColumnType type) {
         switch (type) {
             case BOOLEAN:
                 return base % 2 == 0;
@@ -376,7 +375,7 @@ public class SqlTestUtils {
                 return new UUID(base, base);
             case STRING:
                 return "str_" + base;
-            case BYTES:
+            case BYTE_ARRAY:
                 return new byte[]{(byte) base, (byte) (base + 1), (byte) (base + 2)};
             case DATE:
                 return LocalDate.of(2022, 01, 01).plusDays(base);
@@ -384,11 +383,11 @@ public class SqlTestUtils {
                 return LocalTime.of(0, 00, 00).plusSeconds(base);
             case DATETIME:
                 return LocalDateTime.of(
-                        (LocalDate) generateStableValueByType(base, NativeTypeSpec.DATE),
-                        (LocalTime) generateStableValueByType(base, NativeTypeSpec.TIME)
+                        (LocalDate) generateStableValueByType(base, ColumnType.DATE),
+                        (LocalTime) generateStableValueByType(base, ColumnType.TIME)
                 );
             case TIMESTAMP:
-                return ((LocalDateTime) generateStableValueByType(base, NativeTypeSpec.DATETIME))
+                return ((LocalDateTime) generateStableValueByType(base, ColumnType.DATETIME))
                         .atZone(ZoneId.systemDefault())
                         .toInstant();
             default:
@@ -408,7 +407,7 @@ public class SqlTestUtils {
             return "NULL";
         }
 
-        switch (type.spec().asColumnType()) {
+        switch (type.spec()) {
             case DECIMAL:
                 return "DECIMAL '" + value + "'";
             case TIME:

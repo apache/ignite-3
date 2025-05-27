@@ -712,44 +712,52 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return readLockAcquisitionFuture.thenCompose(stamp -> {
                     Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
 
-                    int partitionIndex = zonePartitionId.partitionId();
-
-                    PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
-
-                    CompletableFuture<?>[] futures = zoneTables.stream()
-                            .map(tbl -> inBusyLockAsync(busyLock, () -> {
-                                return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
-                                        .thenRunAsync(() -> inBusyLock(busyLock, () -> {
-                                            localPartsByTableId.compute(
-                                                    tbl.tableId(),
-                                                    (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
-                                            );
-
-                                            lowWatermark.getLowWatermarkSafe(lwm ->
-                                                    registerIndexesToTable(
-                                                            tbl,
-                                                            catalogService,
-                                                            singlePartitionIdSet,
-                                                            tbl.schemaView(),
-                                                            lwm
-                                                    )
-                                            );
-
-                                            preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, parameters.onRecovery());
-                                        }), ioExecutor)
-                                        // If the table is already closed, it's not a problem (probably the node is stopping).
-                                        .exceptionally(ignoreTableClosedException());
-                            }))
-                            .toArray(CompletableFuture[]::new);
-
-                    return allOf(futures).whenComplete((unused, t) -> zoneLock.unlockRead(stamp));
-                });
+                    return createPartitionsAndLoadResourcesToZoneReplica(zonePartitionId, zoneTables, parameters.onRecovery());
+                }).whenComplete((unused, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead));
             } catch (Throwable t) {
-                readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+                readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
                 return failedFuture(t);
             }
         });
+    }
+
+    private CompletableFuture<Void> createPartitionsAndLoadResourcesToZoneReplica(
+            ZonePartitionId zonePartitionId,
+            Set<TableImpl> zoneTables,
+            boolean onRecovery
+    ) {
+        int partitionIndex = zonePartitionId.partitionId();
+
+        PartitionSet singlePartitionIdSet = PartitionSet.of(partitionIndex);
+
+        CompletableFuture<?>[] futures = zoneTables.stream()
+                .map(tbl -> inBusyLockAsync(busyLock, () -> {
+                    return getOrCreatePartitionStorages(tbl, singlePartitionIdSet)
+                            .thenRunAsync(() -> inBusyLock(busyLock, () -> {
+                                localPartsByTableId.compute(
+                                        tbl.tableId(),
+                                        (tableId, oldPartitionSet) -> extendPartitionSet(oldPartitionSet, partitionIndex)
+                                );
+
+                                lowWatermark.getLowWatermarkSafe(lwm ->
+                                        registerIndexesToTable(
+                                                tbl,
+                                                catalogService,
+                                                singlePartitionIdSet,
+                                                tbl.schemaView(),
+                                                lwm
+                                        )
+                                );
+
+                                preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, onRecovery);
+                            }), ioExecutor)
+                            // If the table is already closed, it's not a problem (probably the node is stopping).
+                            .exceptionally(ignoreTableClosedException());
+                }))
+                .toArray(CompletableFuture[]::new);
+
+        return allOf(futures);
     }
 
     private static Function<Throwable, Void> ignoreTableClosedException() {
@@ -780,10 +788,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                         .map(this::stopTablePartitions)
                         .toArray(CompletableFuture[]::new);
 
-                return allOf(futures).whenComplete((v, t) -> zoneLock.unlockRead(stamp)).thenApply(v -> false);
-            });
+                return allOf(futures);
+            }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
         } catch (Throwable t) {
-            readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+            readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
             return failedFuture(t);
         }
@@ -817,11 +825,11 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                     ioExecutor))
                             .toArray(CompletableFuture[]::new);
 
-                    return allOf(futures).whenComplete((v, t) -> zoneLock.unlockRead(stamp));
-                }).thenApply((unused) -> false);
-            });
+                    return allOf(futures);
+                });
+            }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply((unused) -> false);
         } catch (Throwable t) {
-            readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+            readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
             return failedFuture(t);
         }
@@ -2024,7 +2032,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     schemaManager.dropRegistry(tableId);
                 }))
                 .whenComplete((v, e) -> {
-                    if (e != null) {
+                    if (e != null && !hasCause(e, NodeStoppingException.class)) {
                         LOG.error("Unable to destroy table [name={}, tableId={}]", e, table.name(), tableId);
                     }
                 });
@@ -2894,12 +2902,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 return allOf(stopReplicaAndDestroyFutures).whenComplete((res, th) -> {
                     tablesPerZone.getOrDefault(internalTable.zoneId(), emptySet()).remove(table);
-
-                    zoneLock.unlockWrite(stamp);
                 });
-            });
+            }).whenComplete((unused, t) -> writeLockAcquisitionFuture.thenAccept(zoneLock::unlockWrite));
         } catch (Throwable t) {
-            writeLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockWrite(stamp));
+            writeLockAcquisitionFuture.thenAccept(zoneLock::unlockWrite);
 
             throw t;
         }
@@ -3298,7 +3304,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return res;
             }).get();
         } catch (Throwable t) {
-            readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+            readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -3346,7 +3352,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zoneLock.unlockWrite(stamp);
             }).get();
         } catch (Throwable t) {
-            writeLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockWrite(stamp));
+            writeLockAcquisitionFuture.thenAccept(zoneLock::unlockWrite);
 
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();

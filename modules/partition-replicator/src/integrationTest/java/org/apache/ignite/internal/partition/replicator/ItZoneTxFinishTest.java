@@ -40,7 +40,6 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.partition.replicator.fixtures.Node;
-import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
@@ -58,28 +57,30 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
 // TODO: remove after switching to per-zone partitions https://issues.apache.org/jira/browse/IGNITE-22522
-class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
+class ItZoneTxFinishTest extends ItAbstractColocationTest {
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
     void txFinishCommandGetsReplicated(boolean commit) throws Exception {
         startCluster(3);
 
-        // Create a zone with a single partition on every node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+        Node node0 = getNode(0);
 
-        int tableId1 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        int tableId2 = createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
+        // Create a zone with a single partition on every node.
+        int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size());
+
+        int tableId1 = createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        int tableId2 = createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
-        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
-        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         Transaction transaction = node.transactions().begin();
-        kvView1.put(transaction, 42, 69);
-        kvView2.put(transaction, 142, 169);
+        kvView1.put(transaction, 42L, 69);
+        kvView2.put(transaction, 142L, 169);
         if (commit) {
             transaction.commit();
         } else {
@@ -159,27 +160,27 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
     void writeIntentSwitchGetsReplicated(boolean commit) throws Exception {
         startCluster(3);
 
+        Node node0 = getNode(0);
+
         // Create a zone with a single partition on every node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+        createZone(node0, TEST_ZONE_NAME, 1, cluster.size());
 
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
-        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
-        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         Transaction transaction = node.transactions().begin();
 
-        kvView1.put(transaction, 42, 69);
+        kvView1.put(transaction, 42L, 69);
         waitTillOneWriteIntentAppearsOnAllNodes(TEST_TABLE_NAME1);
 
-        kvView2.put(transaction, 142, 169);
+        kvView2.put(transaction, 142L, 169);
         waitTillOneWriteIntentAppearsOnAllNodes(TEST_TABLE_NAME2);
 
         if (commit) {
@@ -237,27 +238,27 @@ class ItZoneTxFinishTest extends AbstractZoneReplicationTest {
     void zoneIdIsWrittenAsCommitZoneIdToWriteIntents() throws Exception {
         startCluster(3);
 
+        Node node0 = getNode(0);
+
         // Create a zone with a single partition on every node.
-        int zoneId = createZone(TEST_ZONE_NAME, 1, cluster.size());
+        int zoneId = createZone(node0, TEST_ZONE_NAME, 1, cluster.size());
 
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME1);
-        createTable(TEST_ZONE_NAME, TEST_TABLE_NAME2);
-
-        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME1);
+        createTable(node0, TEST_ZONE_NAME, TEST_TABLE_NAME2);
 
         cluster.forEach(Node::waitForMetadataCompletenessAtNow);
 
         Node node = cluster.get(0);
 
-        KeyValueView<Integer, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Integer.class, Integer.class);
-        KeyValueView<Integer, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Integer.class, Integer.class);
+        KeyValueView<Long, Integer> kvView1 = node.tableManager.table(TEST_TABLE_NAME1).keyValueView(Long.class, Integer.class);
+        KeyValueView<Long, Integer> kvView2 = node.tableManager.table(TEST_TABLE_NAME2).keyValueView(Long.class, Integer.class);
 
         Transaction transaction = node.transactions().begin();
 
-        kvView1.put(transaction, 42, 69);
+        kvView1.put(transaction, 42L, 69);
         waitTillOneWriteIntentAppearsOnAllNodesWithCommitZoneId(TEST_TABLE_NAME1, zoneId);
 
-        kvView2.put(transaction, 142, 169);
+        kvView2.put(transaction, 142L, 169);
         waitTillOneWriteIntentAppearsOnAllNodesWithCommitZoneId(TEST_TABLE_NAME2, zoneId);
     }
 

@@ -27,6 +27,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.client.handler.NotificationSender;
+import org.apache.ignite.client.handler.ResponseWriter;
 import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.TaskDescriptor;
 import org.apache.ignite.compute.task.TaskExecution;
@@ -46,14 +47,12 @@ public class ClientComputeExecuteMapReduceRequest {
      * Processes the request.
      *
      * @param in Unpacker.
-     * @param out Packer.
      * @param compute Compute.
      * @param notificationSender Notification sender.
      * @return Future.
      */
-    public static CompletableFuture<Void> process(
+    public static CompletableFuture<ResponseWriter> process(
             ClientMessageUnpacker in,
-            ClientMessagePacker out,
             IgniteComputeInternal compute,
             NotificationSender notificationSender) {
         List<DeploymentUnit> deploymentUnits = in.unpackDeploymentUnits();
@@ -70,11 +69,11 @@ public class ClientComputeExecuteMapReduceRequest {
                     return ex == null ? ids : Collections.<UUID>emptyList();
                 });
 
-        return execution.idAsync()
-                .thenAcceptBoth(idsAsync, (id, ids) -> {
-                    out.packUuid(id);
-                    packJobIds(out, ids);
-                });
+        return execution.idAsync().thenCompose(id -> idsAsync.thenApply(ids -> out -> {
+            //noinspection DataFlowIssue
+            out.packUuid(id);
+            packJobIds(out, ids);
+        }));
     }
 
     private static void packJobIds(ClientMessagePacker out, List<UUID> ids) {

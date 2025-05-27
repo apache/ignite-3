@@ -65,7 +65,7 @@ public class AlterTableAddColumnCommand extends AbstractTableCommand {
             boolean ifTableExists,
             List<ColumnParams> columns
     ) throws CatalogValidationException {
-        super(schemaName, tableName, ifTableExists);
+        super(schemaName, tableName, ifTableExists, true);
 
         this.columns = copyOrNull(columns);
 

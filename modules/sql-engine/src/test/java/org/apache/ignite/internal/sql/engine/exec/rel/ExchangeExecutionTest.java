@@ -625,7 +625,7 @@ public class ExchangeExecutionTest extends AbstractExecutionTest<Object[]> {
         ClockService clockService = new TestClockService(clock);
 
         MessageService messageService = new MessageServiceImpl(
-                clusterService.topologyService().localMember().name(),
+                clusterService.topologyService().localMember(),
                 clusterService.messagingService(),
                 taskExecutor,
                 new IgniteSpinBusyLock(),

@@ -57,6 +57,7 @@ import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.testframework.junit.DumpThreadsOnTimeout;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.sql.BatchedArguments;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.sql.ResultSet;
 import org.apache.ignite.sql.SqlRow;
@@ -414,6 +415,13 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return CLUSTER.aliveNodesWithIndices();
     }
 
+    protected static long[] dmlBatch(String dmlQuery, BatchedArguments batchedArgs) {
+        IgniteSql sql = CLUSTER.aliveNode().sql();
+        Statement statement = sql.createStatement(dmlQuery);
+
+        return sql.executeBatch(null, statement, batchedArgs);
+    }
+
     protected static List<List<Object>> sql(String sql, Object... args) {
         return sql(null, sql, args);
     }
@@ -516,6 +524,16 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         final String name;
 
         final double salary;
+
+
+        /**
+         * Default constructor.
+         */
+        public Person() {
+            id = 0;
+            name = null;
+            salary = 0;
+        }
 
         public Person(int id, String name, double salary) {
             this.id = id;

@@ -27,8 +27,7 @@
 
 using namespace ignite;
 
-// TODO https://issues.apache.org/jira/browse/IGNITE-24261 check lowercased name
-#define TEST_TABLE_NAME "TBL1"
+#define TEST_TABLE_NAME "tbl1"
 
 /**
  * Test suite.

@@ -24,8 +24,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.replicator.message.ReplicaResponse;
 import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
+import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.jetbrains.annotations.Nullable;
@@ -65,7 +65,7 @@ public class WriteIntentSwitchProcessor {
     /**
      * Run switch write intent on the provided node.
      */
-    public CompletableFuture<ReplicaResponse> switchLocalWriteIntents(
+    public CompletableFuture<WriteIntentSwitchReplicatedInfo> switchLocalWriteIntents(
             EnlistedPartitionGroup partition,
             UUID txId,
             boolean commit,
@@ -79,7 +79,7 @@ public class WriteIntentSwitchProcessor {
     /**
      * Run switch write intent on the primary node of the provided partition in a durable manner.
      */
-    public CompletableFuture<ReplicaResponse> switchWriteIntentsWithRetry(
+    public CompletableFuture<WriteIntentSwitchReplicatedInfo> switchWriteIntentsWithRetry(
             boolean commit,
             @Nullable HybridTimestamp commitTimestamp,
             UUID txId,
@@ -100,10 +100,10 @@ public class WriteIntentSwitchProcessor {
 
                         LOG.info("Failed to switch write intents for Tx [txId={}].", txId, ex);
 
-                        return CompletableFuture.<ReplicaResponse>failedFuture(ex);
+                        return CompletableFuture.<WriteIntentSwitchReplicatedInfo>failedFuture(ex);
                     }
 
-                    return CompletableFutures.<ReplicaResponse>nullCompletedFuture();
+                    return CompletableFutures.<WriteIntentSwitchReplicatedInfo>nullCompletedFuture();
                 })
                 .thenCompose(Function.identity());
     }
