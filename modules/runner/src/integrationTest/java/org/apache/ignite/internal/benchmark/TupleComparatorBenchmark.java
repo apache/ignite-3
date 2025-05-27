@@ -54,12 +54,12 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  * Benchmark                                         Mode  Cnt  Score    Error  Units
  * TupleComparatorBenchmark.testBytesFullCompare     avgt   10  0.050 ±  0.001  us/op
  * TupleComparatorBenchmark.testBytesPartialCompare  avgt   10  0.035 ±  0.001  us/op
- * TupleComparatorBenchmark.testStrFullCompare       avgt   10  0.753 ±  0.021  us/op
- * TupleComparatorBenchmark.testStrPartialCompare    avgt   10  0.389 ±  0.002  us/op
+ * TupleComparatorBenchmark.testStrFullCompare       avgt   10  0.734 ±  0.003  us/op
+ * TupleComparatorBenchmark.testStrPartialCompare    avgt   10  0.390 ±  0.006  us/op
+ * TupleComparatorBenchmark.testUuidFullCompare      avgt   10  0.018 ±  0.001  us/op
+ * TupleComparatorBenchmark.testUuidPartialCompare   avgt   10  0.017 ±  0.001  us/op
  * TupleComparatorBenchmark.timestampFullCompare     avgt   10  0.017 ±  0.001  us/op
- * TupleComparatorBenchmark.timestampPartialCompare  avgt   10  0.016 ±  0.001  us/op
- * TupleComparatorBenchmark.uuidFullCompare          avgt   10  0.018 ±  0.001  us/op
- * TupleComparatorBenchmark.uuidPartialCompare       avgt   10  0.016 ±  0.001  us/op
+ * TupleComparatorBenchmark.timestampPartialCompare  avgt   10  0.017 ±  0.001  us/op
  */
 @State(Scope.Benchmark)
 @Fork(1)
