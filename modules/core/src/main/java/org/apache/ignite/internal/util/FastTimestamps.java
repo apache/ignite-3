@@ -17,6 +17,10 @@
 
 package org.apache.ignite.internal.util;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+
 /**
  * Provides access to fast (low-latency), but coarse-grained timestamps.
  */
@@ -31,24 +35,15 @@ public class FastTimestamps {
     }
 
     private static void startUpdater() {
-        Thread updater = new Thread(() -> {
-            while (true) {
-                coarseCurrentTimeMillis = System.currentTimeMillis();
+        ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(r -> {
+            Thread t = new Thread(r, "FastTimestamps updater");
+            t.setDaemon(true);
+            return t;
+        });
 
-                // Safe-point-friendly hint.
-                Thread.onSpinWait();
+        Runnable updaterTask = () -> coarseCurrentTimeMillis = System.currentTimeMillis();
 
-                try {
-                    //noinspection BusyWait
-                    Thread.sleep(UPDATE_INTERVAL_MS);
-                } catch (InterruptedException e) {
-                    break;
-                }
-            }
-        }, "FastTimestamps updater");
-
-        updater.setDaemon(true);
-        updater.start();
+        scheduledExecutor.scheduleAtFixedRate(updaterTask, 0, UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
 
     /**
