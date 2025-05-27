@@ -28,7 +28,6 @@ import org.apache.ignite.compute.JobStatus;
 import org.apache.ignite.compute.TaskState;
 import org.apache.ignite.compute.TaskStatus;
 import org.apache.ignite.internal.client.PayloadInputChannel;
-import org.apache.ignite.internal.client.PayloadWriter;
 import org.apache.ignite.internal.client.ReliableChannel;
 import org.apache.ignite.internal.client.proto.ClientComputeJobUnpacker;
 import org.apache.ignite.internal.client.proto.ClientMessageUnpacker;
