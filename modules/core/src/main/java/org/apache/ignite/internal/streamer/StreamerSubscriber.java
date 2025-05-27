@@ -325,6 +325,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
         if (subscription0 != null) {
             try {
+                // User code: call outside of lock, handle exceptions.
                 subscription0.cancel();
             } catch (Throwable e) {
                 log.error("Failed to cancel subscription: " + e.getMessage(), e);
@@ -368,7 +369,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
 
     private void requestMore() {
         int toRequest;
-        Subscription sub;
+        Subscription subscription0;
 
         synchronized (this) {
             if (closed || subscription == null) {
@@ -387,11 +388,12 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
             }
 
             pendingItemCount.addAndGet(toRequest);
-            sub = subscription;
+            subscription0 = subscription;
         }
 
         try {
-            sub.request(toRequest);
+            // User code: call outside of lock, handle exceptions.
+            subscription0.request(toRequest);
         } catch (Throwable e) {
             log.error("Failed to request more items: " + e.getMessage(), e);
             close(e);
