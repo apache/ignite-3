@@ -1192,7 +1192,7 @@ public class ConfigurationUtilTest {
         patch.accept(superRoot.getRoot(rootKey));
 
         // Create flat diff between two super trees.
-        return createFlattenedUpdatesMap(originalSuperRoot, superRoot);
+        return createFlattenedUpdatesMap(originalSuperRoot, superRoot, Map.of());
     }
 
     /**

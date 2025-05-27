@@ -712,11 +712,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return readLockAcquisitionFuture.thenCompose(stamp -> {
                     Set<TableImpl> zoneTables = zoneTablesRawSet(zonePartitionId.zoneId());
 
-                    return createPartitionsAndLoadResourcesToZoneReplica(zonePartitionId, zoneTables, parameters.onRecovery())
-                            .whenComplete((unused, t) -> zoneLock.unlockRead(stamp));
-                });
+                    return createPartitionsAndLoadResourcesToZoneReplica(zonePartitionId, zoneTables, parameters.onRecovery());
+                }).whenComplete((unused, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead));
             } catch (Throwable t) {
-                readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+                readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
                 return failedFuture(t);
             }
@@ -792,7 +791,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return allOf(futures);
             }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply(v -> false);
         } catch (Throwable t) {
-            readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+            readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
             return failedFuture(t);
         }
@@ -827,10 +826,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             .toArray(CompletableFuture[]::new);
 
                     return allOf(futures);
-                }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply((unused) -> false);
-            });
+                });
+            }).whenComplete((v, t) -> readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead)).thenApply((unused) -> false);
         } catch (Throwable t) {
-            readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+            readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
             return failedFuture(t);
         }
@@ -2903,12 +2902,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
                 return allOf(stopReplicaAndDestroyFutures).whenComplete((res, th) -> {
                     tablesPerZone.getOrDefault(internalTable.zoneId(), emptySet()).remove(table);
-
-                    zoneLock.unlockWrite(stamp);
                 });
-            });
+            }).whenComplete((unused, t) -> writeLockAcquisitionFuture.thenAccept(zoneLock::unlockWrite));
         } catch (Throwable t) {
-            writeLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockWrite(stamp));
+            writeLockAcquisitionFuture.thenAccept(zoneLock::unlockWrite);
 
             throw t;
         }
@@ -3307,7 +3304,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 return res;
             }).get();
         } catch (Throwable t) {
-            readLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockRead(stamp));
+            readLockAcquisitionFuture.thenAccept(zoneLock::unlockRead);
 
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
@@ -3355,7 +3352,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 zoneLock.unlockWrite(stamp);
             }).get();
         } catch (Throwable t) {
-            writeLockAcquisitionFuture.whenComplete((stamp, ex) -> zoneLock.unlockWrite(stamp));
+            writeLockAcquisitionFuture.thenAccept(zoneLock::unlockWrite);
 
             if (t instanceof InterruptedException) {
                 Thread.currentThread().interrupt();

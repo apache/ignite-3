@@ -235,6 +235,8 @@ import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryDataSto
 import org.apache.ignite.internal.storage.pagememory.VolatilePageMemoryDataStorageModule;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.VolatilePageMemoryStorageEngineExtensionConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbProfileConfigurationSchema;
+import org.apache.ignite.internal.storage.rocksdb.configuration.schema.RocksDbStorageEngineExtensionConfigurationSchema;
 import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.StreamerReceiverRunner;
 import org.apache.ignite.internal.table.TableTestUtils;
@@ -1224,11 +1226,13 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                             StorageExtensionConfigurationSchema.class,
                             PersistentPageMemoryStorageEngineExtensionConfigurationSchema.class,
                             VolatilePageMemoryStorageEngineExtensionConfigurationSchema.class,
+                            RocksDbStorageEngineExtensionConfigurationSchema.class,
                             SystemLocalExtensionConfigurationSchema.class
                     ),
                     List.of(
                             PersistentPageMemoryProfileConfigurationSchema.class,
                             VolatilePageMemoryProfileConfigurationSchema.class,
+                            RocksDbProfileConfigurationSchema.class,
                             StaticNodeFinderConfigurationSchema.class,
                             MulticastNodeFinderConfigurationSchema.class
                     )

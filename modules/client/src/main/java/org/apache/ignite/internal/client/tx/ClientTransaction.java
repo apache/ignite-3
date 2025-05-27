@@ -20,6 +20,7 @@ package org.apache.ignite.internal.client.tx;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_ERR;
@@ -135,9 +136,7 @@ public class ClientTransaction implements Transaction {
         this.timeout = timeout;
 
         if (cpm != null) {
-            // If mapping is known, assign commit partition.
-            // However, we don't require direct connection to a commit partition primary replica here because where is a guarantee that
-            // commit partition will be assigned to provided value at the txn beginning.
+            // if commit partition is known, we can attempt to do direct mappings in this transaction.
             this.commitTableId = cpm.tableId();
             this.commitPartition = cpm.partition();
         } else {
@@ -220,18 +219,22 @@ public class ClientTransaction implements Transaction {
             enlistPartitionLock.writeLock().unlock();
         }
 
-        CompletableFuture<Void> finishFut = ch.inflights().finishFuture(txId());
+        boolean enabled = ch.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS);
+        CompletableFuture<Void> finishFut = enabled ? ch.inflights().finishFuture(txId()) : nullCompletedFuture();
 
         CompletableFuture<Void> mainFinishFut = finishFut.thenCompose(ignored -> ch.serviceAsync(ClientOp.TX_COMMIT, w -> {
             w.out().packLong(id);
-            if (!isReadOnly && w.clientChannel().protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS)) {
-                w.out().packLong(tracker.get().longValue());
+
+            if (!isReadOnly && enabled) {
                 w.out().packInt(enlisted.size());
-                for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
-                    w.out().packInt(entry.getKey().tableId());
-                    w.out().packInt(entry.getKey().partitionId());
-                    w.out().packString(entry.getValue().getNow(null).get1());
-                    w.out().packLong(entry.getValue().getNow(null).get2());
+                if (!enlisted.isEmpty()) {
+                    for (Entry<TablePartitionId, CompletableFuture<IgniteBiTuple<String, Long>>> entry : enlisted.entrySet()) {
+                        w.out().packInt(entry.getKey().tableId());
+                        w.out().packInt(entry.getKey().partitionId());
+                        w.out().packString(entry.getValue().getNow(null).get1());
+                        w.out().packLong(entry.getValue().getNow(null).get2());
+                    }
+                    w.out().packLong(tracker.get().longValue());
                 }
             }
         }, r -> null));

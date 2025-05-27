@@ -17,19 +17,24 @@
 
 package org.apache.ignite.internal.storage.pagememory.engine;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.is;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.metrics.MetricManager;
+import org.apache.ignite.internal.pagememory.configuration.schema.PersistentPageMemoryProfileView;
 import org.apache.ignite.internal.pagememory.io.PageIoRegistry;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
+import org.apache.ignite.internal.storage.configurations.StorageProfileView;
 import org.apache.ignite.internal.storage.engine.AbstractStorageEngineTest;
 import org.apache.ignite.internal.storage.engine.StorageEngine;
 import org.apache.ignite.internal.storage.pagememory.PersistentPageMemoryStorageEngine;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
@@ -37,7 +42,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
  */
 @ExtendWith(WorkDirectoryExtension.class)
 public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngineTest {
-    @InjectConfiguration("mock.profiles.default = {engine = \"aipersist\", sizeBytes = 1048576}")
+    @InjectConfiguration("mock.profiles.default.engine = aipersist")
     private StorageConfiguration storageConfig;
 
     @WorkDirectory
@@ -45,6 +50,10 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
 
     @Override
     protected StorageEngine createEngine() {
+        return createEngine(storageConfig);
+    }
+
+    private StorageEngine createEngine(StorageConfiguration configuration) {
         var ioRegistry = new PageIoRegistry();
 
         ioRegistry.loadFromServiceLoader();
@@ -52,7 +61,7 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
         return new PersistentPageMemoryStorageEngine(
                 "test",
                 mock(MetricManager.class),
-                storageConfig,
+                configuration,
                 null,
                 ioRegistry,
                 workDir,
@@ -61,5 +70,26 @@ public class PersistentPageMemoryStorageEngineTest extends AbstractStorageEngine
                 logSyncer,
                 clock
         );
+    }
+
+    @Test
+    void dataRegionSizeGetsInitialized() {
+        for (StorageProfileView view : storageConfig.profiles().value()) {
+            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(StorageEngine.defaultDataRegionSize()));
+        }
+    }
+
+    @Test
+    void dataRegionSizeUsedWhenSet(
+            @InjectConfiguration("mock.profiles.default {engine = aipersist, sizeBytes = 12345}")
+            StorageConfiguration storageConfig
+    ) {
+        StorageEngine anotherEngine = createEngine(storageConfig);
+
+        anotherEngine.start();
+
+        for (StorageProfileView view : storageConfig.profiles().value()) {
+            assertThat(((PersistentPageMemoryProfileView) view).sizeBytes(), is(12345L));
+        }
     }
 }

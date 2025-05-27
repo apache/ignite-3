@@ -24,7 +24,6 @@ import org.apache.ignite.internal.client.table.MutableTupleBinaryTupleAdapter;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaAware;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
-import org.apache.ignite.internal.type.NativeTypeSpec;
 import org.apache.ignite.lang.util.IgniteNameUtils;
 import org.apache.ignite.sql.ColumnType;
 import org.apache.ignite.table.Tuple;
@@ -112,9 +111,7 @@ class ClientHandlerTuple extends MutableTupleBinaryTupleAdapter implements Schem
     /** {@inheritDoc} */
     @Override
     protected ColumnType schemaColumnType(int binaryTupleIndex) {
-        NativeTypeSpec spec = column(binaryTupleIndex).type().spec();
-
-        return ClientTableCommon.getColumnType(spec);
+        return column(binaryTupleIndex).type().spec();
     }
 
     /** {@inheritDoc} */

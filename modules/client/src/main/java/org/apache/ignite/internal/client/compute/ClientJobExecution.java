@@ -121,7 +121,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientJobExecution::unpackJobState,
                 null,
                 null,
-                null,
                 false
         );
     }
@@ -135,7 +134,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientJobExecution::unpackTaskState,
                 null,
                 null,
-                null,
                 false
         );
     }
@@ -147,7 +145,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
                 ClientOp.COMPUTE_CANCEL,
                 w -> w.out().packUuid(jobId),
                 ClientJobExecution::unpackBooleanResult,
-                null,
                 null,
                 null,
                 false
@@ -164,7 +161,6 @@ class ClientJobExecution<R> implements JobExecution<R> {
                     w.out().packInt(newPriority);
                 },
                 ClientJobExecution::unpackBooleanResult,
-                null,
                 null,
                 null,
                 false

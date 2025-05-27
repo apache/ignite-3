@@ -20,6 +20,7 @@ package org.apache.ignite.internal.table.distributed;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
@@ -207,7 +208,7 @@ public class StorageUpdateHandlerTest extends BaseMvStoragesTest {
         storageUpdateHandler.switchWriteIntents(txUuid, true, commitTs, null);
 
         // Those writes resulted in three commits.
-        verify(storage, times(3)).commitWrite(any(), any());
+        verify(storage, times(3)).commitWrite(any(), any(), eq(txUuid));
 
         ReadResult result1 = storage.read(new RowId(partitionId.partitionId(), id1), HybridTimestamp.MAX_VALUE);
         assertEquals(row1, result1.binaryRow());

@@ -598,6 +598,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<Integer> partitionIds
     ) {
         try {
+            assert enabledColocation() : "Zone based replication is unavailable use localTablePartitionStates";
+
             Catalog catalog = catalogLatestVersion();
 
             return localPartitionStatesInternal(
@@ -624,6 +626,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<Integer> partitionIds
     ) {
         try {
+            assert enabledColocation() : "Zone based replication is unavailable use globalTablePartitionStates";
+
             Catalog catalog = catalogLatestVersion();
 
             return localPartitionStatesInternal(
