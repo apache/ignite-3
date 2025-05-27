@@ -126,7 +126,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
             }
         };
 
-        var task = PocoView.StreamDataAsync<object, object, object>(
+        var task = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
@@ -250,7 +250,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     }
 
     private async Task<List<object>> RunEchoReceiver(IEnumerable<object> items, DataStreamerOptions? options = null) =>
-        await PocoView.StreamDataAsync<object, object, object, object>(
+        await PocoView.StreamDataAsync(
             items.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
