@@ -480,8 +480,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             boolean colocationEnabled
     ) {
         try {
-            assert enabledColocation() : "Zone based replication is unavailable use resetTablePartitions";
-
             Catalog catalog = catalogLatestVersion();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
