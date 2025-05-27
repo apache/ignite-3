@@ -121,8 +121,6 @@ import org.apache.ignite.internal.table.distributed.disaster.exceptions.NodesNot
 import org.apache.ignite.internal.table.distributed.disaster.exceptions.ZonesNotFoundException;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.apache.ignite.internal.versioned.VersionedSerialization;
-import org.apache.ignite.lang.ErrorGroups.Common;
-import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftGroupService;
@@ -482,6 +480,8 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             boolean colocationEnabled
     ) {
         try {
+            assert enabledColocation() : "Zone based replication is unavailable use resetTablePartitions";
+
             Catalog catalog = catalogLatestVersion();
 
             CatalogZoneDescriptor zone = zoneDescriptor(catalog, zoneName);
@@ -599,10 +599,6 @@ public class DisasterRecoveryManager implements IgniteComponent, SystemViewProvi
             Set<String> nodeNames,
             Set<Integer> partitionIds
     ) {
-        if (!enabledColocation()) {
-            return failedFuture(new IgniteException(Common.INTERNAL_ERR, ""));
-        }
-
         try {
             assert enabledColocation() : "Zone based replication is unavailable use localTablePartitionStates";
 
