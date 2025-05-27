@@ -56,7 +56,7 @@ public class ClientTupleUpsertRequest {
         return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
                 .thenCompose(req -> req.table().recordView().upsertAsync(req.tx(), req.tuple())
                         .thenApply(v -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                         }));
     }

@@ -53,7 +53,7 @@ public class ClientTupleContainsAllKeysRequest {
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, null, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().containsAllAsync(req.tx(), req.tuples())
                         .thenApply(containsAll -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                             out.packBoolean(containsAll);
                         }));

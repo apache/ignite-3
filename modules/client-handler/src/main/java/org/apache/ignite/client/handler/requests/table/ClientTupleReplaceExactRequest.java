@@ -54,7 +54,7 @@ public class ClientTupleReplaceExactRequest {
         return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false, true)
                 .thenCompose(req -> req.table().recordView().replaceAsync(req.tx(), req.tuple(), req.tuple2())
                         .thenApply(res -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                             out.packBoolean(res);
                         }));

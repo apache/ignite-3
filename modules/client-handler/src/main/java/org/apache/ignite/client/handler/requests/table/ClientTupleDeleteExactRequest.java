@@ -54,7 +54,7 @@ public class ClientTupleDeleteExactRequest {
         return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, false)
                 .thenCompose(req -> req.table().recordView().deleteExactAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             out.packInt(req.table().schemaView().lastKnownSchemaVersion());
                             out.packBoolean(res);
                         }));
