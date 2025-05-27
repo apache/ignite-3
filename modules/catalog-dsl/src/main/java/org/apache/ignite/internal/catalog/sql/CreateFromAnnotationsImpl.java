@@ -100,8 +100,10 @@ class CreateFromAnnotationsImpl extends AbstractCatalogQuery<TableZoneId> {
         if (table != null) {
             String tableName = table.value().isEmpty() ? clazz.getSimpleName() : table.value();
             String schemaName = table.schemaName();
-            createTable.name(schemaName, tableName);
-            this.tableName = QualifiedName.of(schemaName, tableName);
+            QualifiedName qualifiedName = QualifiedName.of(schemaName, tableName);
+
+            this.tableName = qualifiedName;
+            createTable.name(qualifiedName);
 
             processZone(table);
             processTable(table);

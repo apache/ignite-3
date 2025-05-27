@@ -97,10 +97,11 @@ class CreateFromDefinitionImpl extends AbstractCatalogQuery<TableZoneId> {
 
     CreateFromDefinitionImpl from(TableDefinition def) {
         createTable = new CreateTableImpl(sql);
-        String schemaName = def.schemaName();
-        String tableName = def.tableName();
-        this.tableName = def.qualifiedName();
-        createTable.name(schemaName, tableName);
+
+        QualifiedName qualifiedName = def.qualifiedName();
+        this.tableName = qualifiedName;
+        createTable.name(qualifiedName);
+
         if (def.ifNotExists()) {
             createTable.ifNotExists();
         }

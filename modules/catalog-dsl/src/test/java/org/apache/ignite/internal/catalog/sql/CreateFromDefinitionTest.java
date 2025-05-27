@@ -240,6 +240,37 @@ class CreateFromDefinitionTest {
         );
     }
 
+    @Test
+    void createFromDefinitionDifferentCase() {
+        String tableName = "Table";
+        String quoted = String.format("\"%s\"", tableName);
+
+        {
+            TableDefinition definition = TableDefinition.builder(quoted)
+                    .columns(column("id", INTEGER), column("col1", VARCHAR), column("col2", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            assertThat(
+                    createTable(definition),
+                    is("CREATE TABLE PUBLIC.\"Table\" (ID INT, COL1 VARCHAR, COL2 VARCHAR, PRIMARY KEY (ID));")
+            );
+        }
+
+        {
+            TableDefinition definition = TableDefinition.builder(quoted)
+                    .schema("\"Nice\"")
+                    .columns(column("id", INTEGER), column("col1", VARCHAR), column("col2", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            assertThat(
+                    createTable(definition),
+                    is("CREATE TABLE \"Nice\".\"Table\" (ID INT, COL1 VARCHAR, COL2 VARCHAR, PRIMARY KEY (ID));")
+            );
+        }
+    }
+
     @SuppressWarnings("unused")
     private static class PojoKey {
         @Id

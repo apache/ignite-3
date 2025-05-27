@@ -21,12 +21,25 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * SQL identifier.
  */
 class Name extends QueryPart {
     private final List<String> names;
+
+    private final QualifiedName qualifiedName;
+
+    /**
+     * Creates a name from a qualified name.
+     *
+     * @param qualifiedName Qualified name.
+     * @return Name.
+     */
+    static Name qualified(QualifiedName qualifiedName) {
+        return new Name(qualifiedName);
+    }
 
     /**
      * Creates a simple name.
@@ -70,33 +83,45 @@ class Name extends QueryPart {
         }
     }
 
+    private Name(QualifiedName qualifiedName) {
+       this.qualifiedName = qualifiedName;
+       this.names = null;
+    }
+
     private Name(List<String> names) {
         for (String name : names) {
             if (name == null || name.isEmpty()) {
                 throw new IllegalArgumentException("Name parts can not be null or empty: " + names);
             }
         }
+        this.qualifiedName = null;
         this.names = names;
     }
 
     @Override
     protected void accept(QueryContext ctx) {
-        String separator = "";
-        for (String name : names) {
-            // If a name is quoted, we must preserve case sensitivity -> write it as is
-            // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name, write it in uppercase for consistency.
-            // Otherwise we must quote it.
-            if (name.startsWith("\"")) {
-                ctx.sql(separator).sql(name);
-            } else  {
-                String upperCase = name.toUpperCase();
-                if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
-                    ctx.sql(separator).sql(upperCase);
-                } else {
-                    ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
+        if (qualifiedName != null) {
+            ctx.sql(qualifiedName.toCanonicalForm());
+        } else {
+            assert names != null : "Names must be specified";
+
+            String separator = "";
+            for (String name : names) {
+                // If a name is quoted, we must preserve case sensitivity -> write it as is
+                // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name,
+                // write it in uppercase for consistency. Otherwise we must quote it.
+                if (name.startsWith("\"")) {
+                    ctx.sql(separator).sql(name);
+                } else  {
+                    String upperCase = name.toUpperCase();
+                    if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
+                        ctx.sql(separator).sql(upperCase);
+                    } else {
+                        ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
+                    }
                 }
+                separator = ".";
             }
-            separator = ".";
         }
     }
 }
