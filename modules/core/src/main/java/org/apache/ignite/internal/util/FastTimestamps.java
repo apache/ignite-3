@@ -31,20 +31,21 @@ public class FastTimestamps {
     }
 
     private static void startUpdater() {
-        Thread updater = new Thread("FastTimestamps updater") {
-            /** {@inheritDoc} */
-            @Override
-            public void run() {
-                while (true) {
-                    coarseCurrentTimeMillis = System.currentTimeMillis();
-                    try {
-                        Thread.sleep(UPDATE_INTERVAL_MS);
-                    } catch (InterruptedException e) {
-                        break;
-                    }
+        Thread updater = new Thread(() -> {
+            while (true) {
+                coarseCurrentTimeMillis = System.currentTimeMillis();
+
+                // Safe-point-friendly hint.
+                Thread.onSpinWait();
+
+                try {
+                    //noinspection BusyWait
+                    Thread.sleep(UPDATE_INTERVAL_MS);
+                } catch (InterruptedException e) {
+                    break;
                 }
             }
-        };
+        }, "FastTimestamps updater");
 
         updater.setDaemon(true);
         updater.start();
