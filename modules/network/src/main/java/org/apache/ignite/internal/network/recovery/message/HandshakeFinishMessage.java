@@ -23,7 +23,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Handshake finish message, contains the quantity of the received messages.
- * This message is sent from a server to a client as a response to the {@link HandshakeStartResponseMessage}.
+ * This message is sent from an acceptor to an initiator as a response to the {@link HandshakeStartResponseMessage}.
  */
 @Transferable(HANDSHAKE_FINISH)
 public interface HandshakeFinishMessage extends InternalMessage {

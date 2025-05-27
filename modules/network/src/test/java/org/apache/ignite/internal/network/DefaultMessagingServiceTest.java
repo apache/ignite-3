@@ -70,9 +70,9 @@ import org.apache.ignite.internal.network.messages.TestMessageTypes;
 import org.apache.ignite.internal.network.messages.TestMessagesFactory;
 import org.apache.ignite.internal.network.netty.ConnectionManager;
 import org.apache.ignite.internal.network.recovery.AllIdsAreFresh;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.RecoveryDescriptorProvider;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManagerFactory;
 import org.apache.ignite.internal.network.recovery.StaleIdDetector;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorFactory;
 import org.apache.ignite.internal.network.serialization.ClassDescriptorRegistry;
@@ -569,7 +569,7 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
                 bootstrapFactory,
                 staleIdDetector,
                 clusterIdSupplier,
-                clientHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
+                initiatorHandshakeManagerFactoryAdding(beforeHandshake, bootstrapFactory, staleIdDetector, clusterIdSupplier),
                 channelTypeRegistry,
                 new DefaultIgniteProductVersionSource()
         );
@@ -583,20 +583,20 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         return new Services(connectionManager, messagingService, bootstrapFactory);
     }
 
-    private RecoveryClientHandshakeManagerFactory clientHandshakeManagerFactoryAdding(
+    private RecoveryInitiatorHandshakeManagerFactory initiatorHandshakeManagerFactoryAdding(
             Runnable beforeHandshake,
             NettyBootstrapFactory bootstrapFactory,
             StaleIdDetector staleIdDetector,
             ClusterIdSupplier clusterIdSupplier
     ) {
-        return new RecoveryClientHandshakeManagerFactory() {
+        return new RecoveryInitiatorHandshakeManagerFactory() {
             @Override
-            public RecoveryClientHandshakeManager create(
+            public RecoveryInitiatorHandshakeManager create(
                     ClusterNode localNode,
                     short connectionId,
                     RecoveryDescriptorProvider recoveryDescriptorProvider
             ) {
-                return new RecoveryClientHandshakeManager(
+                return new RecoveryInitiatorHandshakeManager(
                         localNode,
                         connectionId,
                         recoveryDescriptorProvider,
