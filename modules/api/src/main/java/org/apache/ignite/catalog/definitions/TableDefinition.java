@@ -36,10 +36,6 @@ import org.jetbrains.annotations.Nullable;
 public class TableDefinition {
     private final QualifiedName qualifiedName;
 
-    private final String tableName;
-
-    private final String schemaName;
-
     private final boolean ifNotExists;
 
     private final List<ColumnDefinition> columns;
@@ -60,8 +56,6 @@ public class TableDefinition {
 
     private TableDefinition(
             QualifiedName qualifiedName,
-            String tableName,
-            String schemaName,
             boolean ifNotExists,
             List<ColumnDefinition> columns,
             IndexType pkType,
@@ -73,8 +67,6 @@ public class TableDefinition {
             List<IndexDefinition> indexes
     ) {
         this.qualifiedName = qualifiedName;
-        this.tableName = tableName;
-        this.schemaName = schemaName;
         this.ifNotExists = ifNotExists;
         this.columns = columns;
         this.pkType = pkType;
@@ -121,9 +113,6 @@ public class TableDefinition {
      * @return Table name.
      */
     public String tableName() {
-        if (tableName != null) {
-            return tableName;
-        }
         return qualifiedName.objectName();
     }
 
@@ -133,9 +122,6 @@ public class TableDefinition {
      * @return Schema name or {@code null} if not specified.
      */
     public @Nullable String schemaName() {
-        if (schemaName != null) {
-            return schemaName;
-        }
         return qualifiedName.schemaName();
     }
 
@@ -258,8 +244,6 @@ public class TableDefinition {
         }
         TableDefinition that = (TableDefinition) o;
         return ifNotExists == that.ifNotExists
-                && Objects.equals(tableName, that.tableName)
-                && Objects.equals(schemaName, that.schemaName)
                 && Objects.equals(qualifiedName, that.qualifiedName)
                 && Objects.equals(columns, that.columns)
                 && pkType == that.pkType
@@ -274,8 +258,6 @@ public class TableDefinition {
     @Override
     public int hashCode() {
         return Objects.hash(
-                tableName,
-                schemaName,
                 qualifiedName,
                 ifNotExists,
                 columns,
@@ -607,8 +589,6 @@ public class TableDefinition {
         public TableDefinition build() {
             return new TableDefinition(
                     qualifiedName,
-                    tableName,
-                    schemaName,
                     ifNotExists,
                     columns,
                     pkType,
@@ -645,10 +625,7 @@ public class TableDefinition {
     private static QualifiedName qualifiedNameWithSchema(QualifiedName name, String schemaName) {
         String objectName = name.objectName();
 
-        // Name
-        if (objectName.startsWith("\"")) {
-            return QualifiedName.of(schemaName, objectName);
-        } else if (!objectName.equals(objectName.toUpperCase(Locale.US))) {
+        if (!objectName.equals(objectName.toUpperCase(Locale.US))) {
             return QualifiedName.of(schemaName, IgniteNameUtils.quoteIfNeeded(objectName));
         } else {
             return QualifiedName.of(schemaName, objectName);

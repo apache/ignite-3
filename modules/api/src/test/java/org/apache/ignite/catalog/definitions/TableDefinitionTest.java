@@ -44,8 +44,8 @@ public class TableDefinitionTest {
                 .build();
 
         assertEquals(expected, def.qualifiedName());
-        // assertEquals(normSchema, def.schemaName());
-        // assertEquals(normTable, def.tableName());
+        assertEquals(normSchema, def.schemaName());
+        assertEquals(normTable, def.tableName());
     }
 
     @ParameterizedTest
@@ -63,8 +63,8 @@ public class TableDefinitionTest {
                 .build();
 
         assertEquals(expected, def.qualifiedName());
-        // assertEquals(normSchema, def.schemaName());
-        // assertEquals(normTable, def.tableName());
+        assertEquals(normSchema, def.schemaName());
+        assertEquals(normTable, def.tableName());
     }
 
     @ParameterizedTest
@@ -83,19 +83,26 @@ public class TableDefinitionTest {
                 .build();
 
         assertEquals(expected, def.qualifiedName());
-        // assertEquals(normSchema, def.schemaName());
-        // assertEquals(normTable, def.tableName());
+        assertEquals(normSchema, def.schemaName());
+        assertEquals(normTable, def.tableName());
     }
 
     private static Stream<Arguments> schemaAndTable() {
         return Stream.of(
                 Arguments.of("s", "a", QualifiedName.of("S", "A"), "S", "A"),
-                Arguments.of("\"a Schema\"", "a",  QualifiedName.of("\"a Schema\"", "A"), "a Schema", "A"),
+                Arguments.of("\"a Schema\"", "a", QualifiedName.of("\"a Schema\"", "A"), "a Schema", "A"),
                 Arguments.of("\"a Schema\"", "\"a table\"", QualifiedName.of("\"a Schema\"", "\"a table\""), "a Schema", "a table"),
                 Arguments.of("\"aSchema\"", "\"aTable\"", QualifiedName.of("\"aSchema\"", "\"aTable\""), "aSchema", "aTable"),
+                Arguments.of("\"a Schema\"", "\"atable\"", QualifiedName.of("\"a Schema\"", "\"atable\""), "a Schema", "atable"),
 
                 Arguments.of("\"aSchema\"", "\"aTable \"\"X\"\"  \"", QualifiedName.of("\"aSchema\"", "\"aTable \"\"X\"\"  \""),
-                        "aSchema", "aTable \"X\"  ")
+                        "aSchema", "aTable \"X\"  "),
+
+                Arguments.of("\"aSchema\"", "\"\"\"atable\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"atable\"\"\""),
+                        "aSchema", "\"atable\""),
+
+                Arguments.of("\"aSchema\"", "\"\"\"aTable\"\"\"", QualifiedName.of("\"aSchema\"", "\"\"\"aTable\"\"\""),
+                        "aSchema", "\"aTable\"")
         );
     }
 
@@ -145,7 +152,9 @@ public class TableDefinitionTest {
                 Arguments.of("A", QualifiedName.of("B", "A")),
                 Arguments.of("Abc", QualifiedName.of("B", "ABC")),
                 Arguments.of("\"Abc\"", QualifiedName.of("B", "\"Abc\"")),
-                Arguments.of("\"Abc \"\"0\"\"  \"", QualifiedName.of("B", "\"Abc \"\"0\"\"  \""))
+                Arguments.of("\"abc\"", QualifiedName.of("B", "\"abc\"")),
+                Arguments.of("\"Abc \"\"0\"\"  \"", QualifiedName.of("B", "\"Abc \"\"0\"\"  \"")),
+                Arguments.of("\"abc \"\"0\"\"  \"", QualifiedName.of("B", "\"abc \"\"0\"\"  \""))
         );
     }
 }

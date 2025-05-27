@@ -55,6 +55,10 @@ class CreateTableTest {
         Query query4 = createTable().name(QualifiedName.parse("\"PUB lic\".\"Tabl e\"")).addColumn("col1", INTEGER);
         sql = query4.toString();
         assertThat(sql, is("CREATE TABLE \"PUB lic\".\"Tabl e\" (COL1 INT);"));
+
+        Query query5 = createTable().name(QualifiedName.parse("\"PUB lic\".\"MyTable\"")).addColumn("col1", INTEGER);
+        sql = query5.toString();
+        assertThat(sql, is("CREATE TABLE \"PUB lic\".\"MyTable\" (COL1 INT);"));
     }
 
     @Test
