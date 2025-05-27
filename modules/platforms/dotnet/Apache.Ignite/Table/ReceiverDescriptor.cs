@@ -44,6 +44,7 @@ public sealed record ReceiverDescriptor<TArg>(
 /// <typeparam name="TArg">Argument type.</typeparam>
 /// <typeparam name="TResult">Result type.</typeparam>
 [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
+[Obsolete("Use ReceiverDescriptor<TItem, TArg, TResult> instead. This type will be removed in a future release.")]
 public sealed record ReceiverDescriptor<TArg, TResult>(
     string ReceiverClassName,
     IEnumerable<DeploymentUnit>? DeploymentUnits = null,
@@ -51,6 +52,45 @@ public sealed record ReceiverDescriptor<TArg, TResult>(
 {
     /// <summary>
     /// Initializes a new instance of the <see cref="ReceiverDescriptor{TArg,TResult}"/> class.
+    /// </summary>
+    /// <param name="type">Receiver type.</param>
+    /// <param name="deploymentUnits">Deployment units.</param>
+    /// <param name="options">Options.</param>
+    public ReceiverDescriptor(
+        Type type,
+        IEnumerable<DeploymentUnit>? deploymentUnits = null,
+        ReceiverExecutionOptions? options = null)
+        : this(
+            type.AssemblyQualifiedName ?? throw new ArgumentException("Type has null AssemblyQualifiedName: " + type),
+            deploymentUnits,
+            EnsureDotNetExecutor(options))
+    {
+        // No-op.
+    }
+
+    private static ReceiverExecutionOptions EnsureDotNetExecutor(ReceiverExecutionOptions? options) =>
+        options == null ?
+            new ReceiverExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar) :
+            options with { ExecutorType = JobExecutorType.DotNetSidecar };
+}
+
+/// <summary>
+/// Stream receiver descriptor with a result type.
+/// </summary>
+/// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
+/// <param name="DeploymentUnits">Deployment units.</param>
+/// <param name="Options">Execution options.</param>
+/// <typeparam name="TItem">Streamer item type.</typeparam>
+/// <typeparam name="TArg">Argument type.</typeparam>
+/// <typeparam name="TResult">Result type.</typeparam>
+[SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "SA1402:File may only contain a single type", Justification = "Reviewed.")]
+public sealed record ReceiverDescriptor<TItem, TArg, TResult>(
+    string ReceiverClassName,
+    IEnumerable<DeploymentUnit>? DeploymentUnits = null,
+    ReceiverExecutionOptions? Options = null)
+{
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ReceiverDescriptor{TItem,TArg,TResult}"/> class.
     /// </summary>
     /// <param name="type">Receiver type.</param>
     /// <param name="deploymentUnits">Deployment units.</param>
@@ -86,6 +126,6 @@ public static class ReceiverDescriptor
     /// <typeparam name="TArg">Argument type.</typeparam>
     /// <typeparam name="TResult">Result type.</typeparam>
     /// <returns>Receiver descriptor.</returns>
-    public static ReceiverDescriptor<TArg, TResult> Of<TItem, TArg, TResult>(IDataStreamerReceiver<TItem, TArg, TResult> receiver) =>
+    public static ReceiverDescriptor<TItem, TArg, TResult> Of<TItem, TArg, TResult>(IDataStreamerReceiver<TItem, TArg, TResult> receiver) =>
         new(receiver.GetType());
 }

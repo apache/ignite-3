@@ -311,7 +311,7 @@ namespace Apache.Ignite.Internal.Table
             IAsyncEnumerable<TSource> data,
             Func<TSource, T> keySelector,
             Func<TSource, TPayload> payloadSelector,
-            ReceiverDescriptor<TArg, TResult> receiver,
+            ReceiverDescriptor<TPayload, TArg, TResult> receiver,
             TArg receiverArg,
             DataStreamerOptions? options,
             [EnumeratorCancellation] CancellationToken cancellationToken = default)

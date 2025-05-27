@@ -168,7 +168,7 @@ internal sealed class KeyValueView<TK, TV> : IKeyValueView<TK, TV>
         IAsyncEnumerable<TSource> data,
         Func<TSource, KeyValuePair<TK, TV>> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor<TArg, TResult> receiver,
+        ReceiverDescriptor<TPayload, TArg, TResult> receiver,
         TArg receiverArg,
         DataStreamerOptions? options,
         CancellationToken cancellationToken = default)
