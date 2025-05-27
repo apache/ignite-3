@@ -203,7 +203,7 @@ public class RandomLruPageReplacementPolicy extends PageReplacementPolicy {
      * @param cap Capacity.
      */
     private long tryToFindSequentially(int cap) throws IgniteInternalCheckedException {
-        assert seg.getWriteHoldCount() > 0;
+        assert seg.isWriteLockedByCurrentThread();
 
         long prevAddr = INVALID_REL_PTR;
 
