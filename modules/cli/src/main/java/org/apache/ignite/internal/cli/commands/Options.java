@@ -321,5 +321,11 @@ public enum Options {
         public static final String CONFIG_FORMAT_OPTION = "--format";
 
         public static final String CONFIG_FORMAT_OPTION_DESC = "Output format. Valid values: ${COMPLETION-CANDIDATES}";
+
+        /** Config update file option long name. */
+        public static final String CONFIG_UPDATE_FILE_OPTION = "--file";
+
+        /** Config update file option description. */
+        public static final String CONFIG_UPDATE_FILE_OPTION_DESC = "Path to file with config update commands to execute";
     }
 }
