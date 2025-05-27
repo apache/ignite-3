@@ -30,6 +30,8 @@ import org.apache.calcite.rel.core.Values;
 import org.apache.calcite.rel.type.RelDataType;
 import org.apache.calcite.rex.RexLiteral;
 import org.apache.ignite.internal.sql.engine.exec.mapping.QuerySplitter;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
+import org.apache.ignite.internal.sql.engine.util.Commons;
 
 /**
  * IgniteValues.
@@ -137,5 +139,10 @@ public class IgniteValues extends Values implements SourceAwareIgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer.addTuples(Commons.cast(tuples));
     }
 }

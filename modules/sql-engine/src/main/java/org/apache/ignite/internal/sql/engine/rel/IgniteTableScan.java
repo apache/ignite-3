@@ -28,6 +28,7 @@ import org.apache.calcite.rel.RelWriter;
 import org.apache.calcite.rel.hint.RelHint;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -172,5 +173,11 @@ public class IgniteTableScan extends ProjectableFilterableTableScan implements S
     /** {@inheritDoc} */
     @Override public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(
+            IgniteRelWriter writer) {
+        return explainAttributes(writer);
     }
 }
