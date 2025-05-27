@@ -41,7 +41,12 @@ public class FastTimestamps {
             return t;
         });
 
-        Runnable updaterTask = () -> coarseCurrentTimeMillis = System.currentTimeMillis();
+        Runnable updaterTask = () -> {
+            coarseCurrentTimeMillis = System.currentTimeMillis();
+
+            // Safe-point-friendly hint.
+            Thread.onSpinWait();
+        };
 
         scheduledExecutor.scheduleAtFixedRate(updaterTask, 0, UPDATE_INTERVAL_MS, TimeUnit.MILLISECONDS);
     }
