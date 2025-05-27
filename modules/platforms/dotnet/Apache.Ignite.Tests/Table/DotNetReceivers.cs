@@ -30,16 +30,16 @@ using Ignite.Table;
 [SuppressMessage("Design", "CA1034:Nested types should not be visible", Justification = "Tests.")]
 public static class DotNetReceivers
 {
-    public static readonly ReceiverDescriptor<object, object> Echo = ReceiverDescriptor.Of(new EchoReceiver());
+    public static readonly ReceiverDescriptor<object, object, object> Echo = ReceiverDescriptor.Of(new EchoReceiver());
 
-    public static readonly ReceiverDescriptor<object, object> EchoArgs = ReceiverDescriptor.Of(new EchoArgsReceiver());
+    public static readonly ReceiverDescriptor<object, object, object> EchoArgs = ReceiverDescriptor.Of(new EchoArgsReceiver());
 
-    public static readonly ReceiverDescriptor<object, object> Error = ReceiverDescriptor.Of(new ErrorReceiver());
+    public static readonly ReceiverDescriptor<object, object, object> Error = ReceiverDescriptor.Of(new ErrorReceiver());
 
-    public static readonly ReceiverDescriptor<string, IIgniteTuple> CreateTableAndUpsert =
+    public static readonly ReceiverDescriptor<int, string, IIgniteTuple> CreateTableAndUpsert =
         ReceiverDescriptor.Of(new CreateTableAndUpsertReceiver());
 
-    public static readonly ReceiverDescriptor<object?, IIgniteTuple> UpdateTuple = ReceiverDescriptor.Of(new UpdateTupleReceiver());
+    public static readonly ReceiverDescriptor<IIgniteTuple, object?, IIgniteTuple> UpdateTuple = ReceiverDescriptor.Of(new UpdateTupleReceiver());
 
     public class EchoReceiver : IDataStreamerReceiver<object, object, object>
     {

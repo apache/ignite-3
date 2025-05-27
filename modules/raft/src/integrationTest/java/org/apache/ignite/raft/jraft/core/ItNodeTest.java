@@ -4254,7 +4254,7 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
     @Test
     public void testLeaseReadAfterSegmentation() throws Exception {
         List<TestPeer> peers = TestUtils.generatePeers(testInfo, 3);
-        cluster = new TestCluster("unittest", dataPath, peers, 3_000, testInfo);
+        cluster = new TestCluster("unittest", dataPath, peers, ELECTION_TIMEOUT_MILLIS, testInfo);
 
         for (TestPeer peer : peers) {
             RaftOptions opts = new RaftOptions();
@@ -4288,8 +4288,16 @@ public class ItNodeTest extends BaseIgniteAbstractTest {
         assertTrue(waitForCondition(() -> {
             Node currentLeader = cluster.getLeader();
 
+            // According to the test scenario new leader might be the same as the previous one since only heartbeats and not vote/prevote
+            // requests are blocked:
+            // 0. Three nodes started [A, B, C].
+            // 1. Node A is a leader.
+            // 2. Heartbeats are blocked, thus A will step down.
+            // 3. New leader will be elected. Any of [A,B,C] might be elected as a new leader.
+            // 4. If [A] will be elected as a new one, corresponding heartbeats being blocked will again leader to [A] step down and thus
+            // it's equivalent to step 3.
             return currentLeader != null && !leader.getNodeId().equals(currentLeader.getNodeId());
-        }, 10_000));
+        }, 20_000));
 
         CompletableFuture<Status> res = new CompletableFuture<>();
 

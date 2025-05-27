@@ -82,6 +82,7 @@ import org.junit.jupiter.api.Test;
  * Class for testing various scenarios with raft log truncation and node restarts that emulate the situation with fsync disabled for raft
  * groups associated with tables.
  */
+// TODO: IGNITE-25501 Fix partition state after snapshot
 public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrationTest {
     private static final IgniteLogger LOG = Loggers.forClass(ItTruncateRaftLogAndRestartNodesTest.class);
 
@@ -94,7 +95,7 @@ public class ItTruncateRaftLogAndRestartNodesTest extends ClusterPerTestIntegrat
         return 0;
     }
 
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-24802")
+    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25502")
     @Test
     void enterNodeWithIndexGreaterThanCurrentMajority() throws Exception {
         cluster.startAndInit(3);
