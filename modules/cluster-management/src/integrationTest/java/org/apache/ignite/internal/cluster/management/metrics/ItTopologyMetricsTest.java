@@ -28,6 +28,9 @@ import org.apache.ignite.internal.metrics.MetricManager;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Tests for the topology metrics.
+ */
 public class ItTopologyMetricsTest extends ClusterPerTestIntegrationTest {
     @Override
     protected int initialNodes() {
