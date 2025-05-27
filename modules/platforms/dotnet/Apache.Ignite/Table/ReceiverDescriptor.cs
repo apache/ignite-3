@@ -109,7 +109,7 @@ public sealed record ReceiverDescriptor<TItem, TArg, TResult>(
 public static class ReceiverDescriptor
 {
     /// <summary>
-    /// Creates a receiver descriptor for the provided job.
+    /// Creates a descriptor for the provided streamer receiver.
     /// </summary>
     /// <param name="receiver">Receiver instance.</param>
     /// <typeparam name="TItem">Item type.</typeparam>
