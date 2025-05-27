@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.raft;
 
+import static java.lang.Math.max;
+import static java.lang.Math.min;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
@@ -54,6 +56,8 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -68,6 +72,7 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
+import org.apache.ignite.internal.util.SlidingAverageValueTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -93,6 +98,8 @@ import org.jetbrains.annotations.Nullable;
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
+
+    private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
 
     private final String groupId;
 
@@ -125,6 +132,14 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     private final IgniteSpinBusyLock busyLock = new IgniteSpinBusyLock();
 
     private static final Supplier<String> NO_DESCRIPTION = () -> null;
+
+    private final SlidingAverageValueTracker averageValueTracker = new SlidingAverageValueTracker(100, 1000, AVERAGE_VALUE_TRACKER_DEFAULT);
+
+    private final AtomicInteger currentInFlights = new AtomicInteger();
+
+    private final double maxInflightOverflowRate = 1.0;
+
+    private AtomicLong adaptiveResponseTimeoutMillis = new AtomicLong();
 
     /**
      * Constructor.
@@ -594,6 +609,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
+        if (currentInFlights.get() >= computeMaxInFlights() * maxInflightOverflowRate) {
+            future.completeExceptionally(new GroupOverloadedException());
+
+            return future;
+        }
+
         long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
         var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
 
@@ -617,15 +638,19 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         try {
-            if (currentTimeMillis() >= retryContext.stopTime()) {
+            long requestStartTime = currentTimeMillis();
+
+            if (requestStartTime >= retryContext.stopTime()) {
                 fut.completeExceptionally(retryContext.createTimeoutException());
 
                 return;
             }
 
+            currentInFlights.incrementAndGet();
+
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
-                            .invoke(node, retryContext.request(), configuration.responseTimeoutMillis().value()))
+                            .invoke(node, retryContext.request(), adaptiveResponseTimeoutMillis.get()))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
@@ -635,6 +660,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     retryContext.targetPeer().consistentId(),
                                     err == null ? null : err.getMessage());
                         }
+
+                        currentInFlights.decrementAndGet();
+
+                        long duration = currentTimeMillis() - requestStartTime;
+                        averageValueTracker.record(duration);
+                        adaptRequestTimeout();
 
                         try {
                             if (err != null) {
@@ -658,6 +689,27 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     });
         } finally {
             busyLock.leaveBusy();
+        }
+    }
+
+    private int computeMaxInFlights() {
+        double avg = averageValueTracker.avg();
+
+        return avg == AVERAGE_VALUE_TRACKER_DEFAULT
+                ? Integer.MAX_VALUE
+                : (int) max(adaptiveResponseTimeoutMillis.get() / avg, 1.0);
+    }
+
+    private void adaptRequestTimeout() {
+        double avg = averageValueTracker.avg();
+        long r = adaptiveResponseTimeoutMillis.get();
+        long defaultResponseTimeout = configuration.responseTimeoutMillis().value();
+        long retryTimeout = configuration.retryTimeoutMillis().value();
+
+        if (avg < r / 2 && r > configuration.responseTimeoutMillis().value()) {
+            adaptiveResponseTimeoutMillis.compareAndSet(r, max(defaultResponseTimeout, r - 1000));
+        } else if (avg >= r && r < retryTimeout) {
+            adaptiveResponseTimeoutMillis.compareAndSet(r, min(retryTimeout, r + 1000));
         }
     }
 
