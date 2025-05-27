@@ -17,18 +17,14 @@
 
 package org.apache.ignite.internal.sql.engine.planner;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
-
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
- * Tests ensures a planner generates optimal plan for TPC-DS queries.
+ * Tests ensures a planner generates optimal plan for TPC-DS queries when the colocation feature is enabled.
  */
 // TODO https://issues.apache.org/jira/browse/IGNITE-21986 validate other query plans and make test parameterized.
 @TpcSuiteInfo(
@@ -36,41 +32,15 @@ import org.junit.jupiter.params.provider.ValueSource;
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
 )
-@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
-public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
-    @ParameterizedTest
-    @ValueSource(strings = "64")
-    public void test(String queryId) {
-        validateQueryPlan(queryId);
-    }
-
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+public class TpcdsColocatedQueryPlannerTest extends TpcdsQueryPlannerTest {
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
     static String getQueryString(String queryId) {
-        return TpcdsHelper.getQuery(queryId);
+        return TpcdsQueryPlannerTest.getQueryString(queryId);
     }
 
     @SuppressWarnings("unused") // used reflectively by AbstractTpcQueryPlannerTest
     static String getQueryPlan(String queryId) {
-        // variant query ends with "v"
-        boolean variant = queryId.endsWith("v");
-        int numericId;
-
-        if (variant) {
-            String idString = queryId.substring(0, queryId.length() - 1);
-            numericId = Integer.parseInt(idString);
-        } else {
-            numericId = Integer.parseInt(queryId);
-        }
-
-        if (variant) {
-            var variantQueryFile = String.format("tpcds/plan/variant_q%d.plan", numericId);
-            return loadFromResource(variantQueryFile);
-        } else {
-            var queryFile = enabledColocation()
-                    ? String.format("tpcds/plan/q%s_colocated.plan", numericId)
-                    : String.format("tpcds/plan/q%s.plan", numericId);
-
-            return loadFromResource(queryFile);
-        }
+        return TpcdsQueryPlannerTest.getQueryPlan(queryId);
     }
 }
