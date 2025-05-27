@@ -104,9 +104,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
+            receiverDesc,
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
-            receiverDesc,
             receiverArg: "arg");
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
@@ -147,9 +147,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     {
         IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
+            DotNetReceivers.Error with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
-            DotNetReceivers.Error with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "hello");
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await resStream.SingleAsync());
@@ -185,9 +185,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         var res = await TupleView.StreamDataAsync(
             data: ids.ToAsyncEnumerable(),
+            receiver: DotNetReceivers.CreateTableAndUpsert with {DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new IgniteTuple { ["key"] = 1L },
             payloadSelector: id => id,
-            receiver: DotNetReceivers.CreateTableAndUpsert with {DeploymentUnits = [_defaultTestUnit] },
             receiverArg: tableName,
             options: new DataStreamerOptions { PageSize = 13 }).ToListAsync();
 
@@ -228,9 +228,9 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await view.StreamDataAsync(
             new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new IgniteTuple { ["ID"] = 1 },
             payloadSelector: _ => "unused",
-            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "test").SingleAsync());
 
         Assert.AreEqual("ReceiverExecutionOptions are not supported by the server.", ex.Message);
@@ -243,20 +243,20 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
 
         return await view.StreamDataAsync(
             new object[] { "unused" }.ToAsyncEnumerable(),
+            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new Poco(),
             payloadSelector: _ => "unused",
-            DotNetReceivers.EchoArgs with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: arg).SingleAsync();
     }
 
     private async Task<List<object>> RunEchoReceiver(IEnumerable<object> items, DataStreamerOptions? options = null) =>
         await PocoView.StreamDataAsync(
             items.ToAsyncEnumerable(),
+            DotNetReceivers.Echo with { DeploymentUnits = [_defaultTestUnit] },
             keySelector: _ => new Poco(),
             payloadSelector: x => x,
-            DotNetReceivers.Echo with { DeploymentUnits = [_defaultTestUnit] },
             receiverArg: "unused",
-            options).ToListAsync();
+            options: options).ToListAsync();
 
     [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "JSON")]
     private record JobInfo(string TypeName, object Arg, List<string> DeploymentUnits, string JobExecutorType);

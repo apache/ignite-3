@@ -103,16 +103,16 @@ public interface IDataStreamerTarget<T>
             receiver.DeploymentUnits,
             receiver.Options);
 
-        return StreamDataAsync(data, keySelector, payloadSelector, newReceiver, receiverArg, options, cancellationToken);
+        return StreamDataAsync(data, newReceiver, keySelector, payloadSelector, receiverArg, options, cancellationToken);
     }
 
     /// <summary>
     /// Streams data into the underlying table with a receiver that returns results.
     /// </summary>
     /// <param name="data">Data.</param>
+    /// <param name="receiver">Streamer receiver descriptor.</param>
     /// <param name="keySelector">Key selector.</param>
     /// <param name="payloadSelector">Payload selector.</param>
-    /// <param name="receiver">Streamer receiver descriptor.</param>
     /// <param name="receiverArg">Receiver argument.</param>
     /// <param name="options">Streamer options.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
@@ -128,16 +128,16 @@ public interface IDataStreamerTarget<T>
     /// <typeparam name="TResult">Result type.</typeparam>
     IAsyncEnumerable<TResult> StreamDataAsync<TSource, TPayload, TArg, TResult>(
         IAsyncEnumerable<TSource> data,
+        ReceiverDescriptor<TPayload, TArg, TResult> receiver,
         Func<TSource, T> keySelector,
         Func<TSource, TPayload> payloadSelector,
-        ReceiverDescriptor<TPayload, TArg, TResult> receiver,
         TArg receiverArg,
         DataStreamerOptions? options = null,
         CancellationToken cancellationToken = default)
         where TPayload : notnull;
 
     /// <summary>
-    /// Streams data into the underlying table with receiver, ignoring receiver results (if any).
+    /// Streams data into the underlying table with a receiver, ignoring receiver results (if any).
     /// </summary>
     /// <param name="data">Data.</param>
     /// <param name="keySelector">Key selector.</param>
