@@ -87,7 +87,10 @@ class OtlpPushMetricExporterTest extends BaseIgniteAbstractTest {
 
     private static final String SRC_NAME = "testSource";
 
-    /** Metric set with all available metric types. */
+    /**
+     * Metric set with all available metric types.
+     * Note that OTLP does not support {@link org.apache.ignite.internal.metrics.ObjectMetric} and its derivatives, in general.
+     **/
     private static final MetricSet metricSet =
             new MetricSet(
                     SRC_NAME,
