@@ -248,8 +248,8 @@ class BinaryTupleComparatorUtils {
         int wordBytes = remaining - remaining % 8;
 
         for (int i = 0; i < wordBytes; i += 8) {
-            long w1 = buf1.getLongLittleEndian(begin1 + i);
-            long w2 = buf2.getLongLittleEndian(begin2 + i);
+            long w1 = Long.reverseBytes(buf1.getLong(begin1 + i));
+            long w2 = Long.reverseBytes(buf2.getLong(begin2 + i));
 
             int cmp = Long.compareUnsigned(w1, w2);
 

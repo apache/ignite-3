@@ -52,6 +52,9 @@ public class BinaryTupleParser {
     /** Byte order of ByteBuffers that contain the tuple. */
     public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
 
+    /** Whether the byte order of the underlying buffer is reversed compared to the native byte order. */
+    private static final boolean REVERSE_BYTE_ORDER = GridUnsafe.NATIVE_BYTE_ORDER != ORDER;
+
     /** UUID size in bytes. */
     private static final int UUID_SIZE = 16;
 
@@ -84,7 +87,7 @@ public class BinaryTupleParser {
         assert buffer.order() == ORDER : "Buffer order must be LITTLE_ENDIAN, actual: " + buffer.order();
         assert buffer.position() == 0 : "Buffer position must be 0, actual: " + buffer.position();
         this.buffer = buffer;
-        byteBufferAccessor = buffer.isDirect() ? new OffHeapByteBufferAccessor(buffer) : new HeapByteBufferAccessor(buffer);
+        byteBufferAccessor = new ByteBufferAccessor(buffer);
 
         byte flags = byteBufferAccessor.get(0);
 
@@ -659,14 +662,32 @@ public class BinaryTupleParser {
      * at specific positions. This interface abstracts the underlying implementation
      * for handling data in either direct or heap-based byte buffers.
      */
-    public interface ByteBufferAccessor {
+    public static class ByteBufferAccessor {
+        private final byte[] bytes;
+        private final long addr;
+        private final int capacity;
+
+        ByteBufferAccessor(ByteBuffer buff) {
+            if (buff.isDirect()) {
+                bytes = null;
+                addr = GridUnsafe.bufferAddress(buff);
+            } else {
+                bytes = buff.array();
+                addr = GridUnsafe.BYTE_ARR_OFF + buff.arrayOffset();
+            }
+
+            capacity = buff.capacity();
+        }
+
         /**
          * Retrieves the byte value from the underlying byte buffer at the specified index.
          *
          * @param p the index in the underlying byte buffer to retrieve the byte from.
          * @return the byte value located at the specified index in the byte buffer.
          */
-        byte get(int p);
+        public byte get(int p) {
+            return GridUnsafe.getByte(bytes, addr + p);
+        }
 
         /**
          * Reads a 32-bit integer value from the underlying byte buffer at the specified index.
@@ -674,7 +695,11 @@ public class BinaryTupleParser {
          * @param p the index in the underlying byte buffer to start reading the 32-bit integer value from.
          * @return the 32-bit integer value located at the specified index in the byte buffer.
          */
-        int getInt(int p);
+        public int getInt(int p) {
+            int value = GridUnsafe.getInt(bytes, addr + p);
+
+            return REVERSE_BYTE_ORDER ? Integer.reverseBytes(value) : value;
+        }
 
         /**
          * Reads a 64-bit long value from the underlying byte buffer at the specified index.
@@ -682,7 +707,11 @@ public class BinaryTupleParser {
          * @param p the index in the underlying byte buffer to start reading the 64-bit long value from.
          * @return the 64-bit long value located at the specified index in the byte buffer.
          */
-        long getLong(int p);
+        public long getLong(int p) {
+            long value = GridUnsafe.getLong(bytes, addr + p);
+
+            return REVERSE_BYTE_ORDER ? Long.reverseBytes(value) : value;
+        }
 
         /**
          * Reads a 16-bit short value from the underlying byte buffer at the specified index.
@@ -690,7 +719,11 @@ public class BinaryTupleParser {
          * @param p the index in the underlying byte buffer to start reading the 16-bit short value from.
          * @return the 16-bit short value located at the specified index in the byte buffer.
          */
-        short getShort(int p);
+        public short getShort(int p) {
+            short value = GridUnsafe.getShort(bytes, addr + p);
+
+            return REVERSE_BYTE_ORDER ? Short.reverseBytes(value) : value;
+        }
 
         /**
          * Reads a 32-bit floating-point value from the underlying byte buffer at the specified index.
@@ -698,7 +731,11 @@ public class BinaryTupleParser {
          * @param p the index in the underlying byte buffer to start reading the 32-bit floating-point value from.
          * @return the 32-bit floating-point value located at the specified index in the byte buffer.
          */
-        float getFloat(int p);
+        public float getFloat(int p) {
+            float value = GridUnsafe.getFloat(bytes, addr + p);
+
+            return REVERSE_BYTE_ORDER ? Float.intBitsToFloat(Integer.reverseBytes(Float.floatToIntBits(value))) : value;
+        }
 
         /**
          * Reads a 64-bit double-precision floating-point value from the underlying
@@ -709,141 +746,17 @@ public class BinaryTupleParser {
          * @return the 64-bit double-precision floating-point value located at
          *         the specified index in the byte buffer.
          */
-        double getDouble(int p);
+        public double getDouble(int p) {
+            double value = GridUnsafe.getDouble(bytes, addr + p);
 
-        /**
-         * Retrieves a 64-bit long value from the underlying byte buffer at the specified index
-         * using little-endian byte order. The method interprets the specified position as the starting
-         * index of an 8-byte region and reads the bytes in little-endian order to construct the long value.
-         *
-         * @param p the index in the underlying byte buffer to start reading the 64-bit long value from.
-         * @return the 64-bit long value interpreted from the 8 bytes starting at the specified index in little-endian byte order.
-         */
-        long getLongLittleEndian(int p);
+            return REVERSE_BYTE_ORDER ? Double.longBitsToDouble(Long.reverseBytes(Double.doubleToLongBits(value))) : value;
+        }
 
         /**
          * Returns the capacity of the underlying byte buffer, representing the total number of bytes it can hold.
          *
          * @return the total capacity of the byte buffer.
          */
-        int capacity();
-    }
-
-    /**
-     * Provides direct and efficient access to the off-heap memory of a direct {@link ByteBuffer}.
-     * This class implements {@link ByteBufferAccessor} to read various data types directly
-     * from memory using low-level unsafe operations.
-     * The accessor relies on the address of the buffer in off-heap memory and is specifically
-     * designed to work with direct buffers.
-     */
-    private static class OffHeapByteBufferAccessor implements ByteBufferAccessor {
-        private final long addr;
-        private final int capacity;
-
-        OffHeapByteBufferAccessor(ByteBuffer buff) {
-            assert buff.isDirect();
-            addr = GridUnsafe.bufferAddress(buff);
-            capacity = buff.capacity();
-        }
-
-        @Override
-        public byte get(int p) {
-            return GridUnsafe.getByte(addr + p);
-        }
-
-        @Override
-        public int getInt(int p) {
-            return GridUnsafe.getInt(addr + p);
-        }
-
-        @Override
-        public long getLong(int p) {
-            return GridUnsafe.getLong(addr + p);
-        }
-
-        @Override
-        public short getShort(int p) {
-            return GridUnsafe.getShort(addr + p);
-        }
-
-        @Override
-        public float getFloat(int p) {
-            return GridUnsafe.getFloat(addr + p);
-        }
-
-        @Override
-        public double getDouble(int p) {
-            return GridUnsafe.getDouble(addr + p);
-        }
-
-        @Override
-        public long getLongLittleEndian(int p) {
-            return GridUnsafe.getLongLittleEndian(addr + p);
-        }
-
-        @Override
-        public int capacity() {
-            return capacity;
-        }
-    }
-
-    /**
-     * A utility class for accessing data stored in a heap-based {@link ByteBuffer}.
-     * This class implements the {@link ByteBufferAccessor} interface and provides methods
-     * to retrieve various types of data (e.g., byte, int, long, etc.) from a byte buffer
-     * backed by a byte array.
-     * This accessor uses the {@link GridUnsafe} utility to read data from the byte array
-     * with an offset calculated from the {@link ByteBuffer} properties, enabling efficient
-     * low-level operations.
-     */
-    private static class HeapByteBufferAccessor implements ByteBufferAccessor {
-        private final byte[] bytes;
-        private final long offset;
-        private final int capacity;
-
-        HeapByteBufferAccessor(ByteBuffer buff) {
-            assert !buff.isDirect();
-            bytes = buff.array();
-            offset = GridUnsafe.BYTE_ARR_OFF + buff.arrayOffset();
-            capacity = buff.capacity();
-        }
-
-        @Override
-        public byte get(int p) {
-            return GridUnsafe.getByte(bytes, offset + p);
-        }
-
-        @Override
-        public int getInt(int p) {
-            return GridUnsafe.getInt(bytes, offset + p);
-        }
-
-        @Override
-        public long getLong(int p) {
-            return GridUnsafe.getLong(bytes, offset + p);
-        }
-
-        @Override
-        public short getShort(int p) {
-            return GridUnsafe.getShort(bytes, offset + p);
-        }
-
-        @Override
-        public float getFloat(int p) {
-            return GridUnsafe.getFloat(bytes, offset + p);
-        }
-
-        @Override
-        public double getDouble(int p) {
-            return GridUnsafe.getDouble(bytes, offset + p);
-        }
-
-        @Override
-        public long getLongLittleEndian(int p) {
-            return GridUnsafe.getLongLittleEndian(bytes, offset + p);
-        }
-
-        @Override
         public int capacity() {
             return capacity;
         }
