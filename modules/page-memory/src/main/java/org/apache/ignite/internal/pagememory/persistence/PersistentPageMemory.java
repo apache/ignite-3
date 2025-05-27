@@ -1416,6 +1416,8 @@ public class PersistentPageMemory implements PageMemory {
          * @param region Memory region.
          */
         private Segment(int idx, DirectMemoryRegion region) {
+            super(4);
+
             long totalMemory = region.size();
 
             int pages = (int) (totalMemory / sysPageSize);
