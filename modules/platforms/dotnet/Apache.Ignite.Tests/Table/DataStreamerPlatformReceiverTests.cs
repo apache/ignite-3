@@ -145,7 +145,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     [Test]
     public void TestReceiverError()
     {
-        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync<object, object, object, object>(
+        IAsyncEnumerable<object> resStream = PocoView.StreamDataAsync(
             new object[] { 1 }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: x => x.ToString()!,
@@ -226,7 +226,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
         var table = await client.Tables.GetTableAsync(FakeServer.ExistingTableName);
         var view = table!.RecordBinaryView;
 
-        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await view.StreamDataAsync<object, object, object, object>(
+        var ex = Assert.ThrowsAsync<DataStreamerException>(async () => await view.StreamDataAsync(
             new object[] { "unused" }.ToAsyncEnumerable(),
             keySelector: _ => new IgniteTuple { ["ID"] = 1 },
             payloadSelector: _ => "unused",
@@ -241,7 +241,7 @@ public class DataStreamerPlatformReceiverTests : IgniteTestsBase
     {
         view ??= PocoView;
 
-        return await view.StreamDataAsync<object, object, object, object>(
+        return await view.StreamDataAsync(
             new object[] { "unused" }.ToAsyncEnumerable(),
             keySelector: _ => new Poco(),
             payloadSelector: _ => "unused",
