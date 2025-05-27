@@ -25,7 +25,7 @@ using Compute;
 /// <summary>
 /// Stream receiver descriptor without results. If the specified receiver returns results, they will be discarded on the server.
 /// </summary>
-/// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
+/// <param name="ReceiverClassName">Name of the streamer receiver class to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Execution options.</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
@@ -36,9 +36,9 @@ public sealed record ReceiverDescriptor<TArg>(
     ReceiverExecutionOptions? Options = null);
 
 /// <summary>
-/// Stream receiver descriptor with result type.
+/// Stream receiver descriptor with a result type.
 /// </summary>
-/// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
+/// <param name="ReceiverClassName">Name of the streamer receiver class to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Execution options.</param>
 /// <typeparam name="TArg">Argument type.</typeparam>
@@ -63,21 +63,16 @@ public sealed record ReceiverDescriptor<TArg, TResult>(
         : this(
             type.AssemblyQualifiedName ?? throw new ArgumentException("Type has null AssemblyQualifiedName: " + type),
             deploymentUnits,
-            EnsureDotNetExecutor(options))
+            ReceiverDescriptor.EnsureDotNetExecutor(options))
     {
         // No-op.
     }
-
-    private static ReceiverExecutionOptions EnsureDotNetExecutor(ReceiverExecutionOptions? options) =>
-        options == null ?
-            new ReceiverExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar) :
-            options with { ExecutorType = JobExecutorType.DotNetSidecar };
 }
 
 /// <summary>
 /// Stream receiver descriptor with a result type.
 /// </summary>
-/// <param name="ReceiverClassName">Java class name of the streamer receiver to execute.</param>
+/// <param name="ReceiverClassName">Name of the streamer receiver class to execute.</param>
 /// <param name="DeploymentUnits">Deployment units.</param>
 /// <param name="Options">Execution options.</param>
 /// <typeparam name="TItem">Streamer item type.</typeparam>
@@ -102,15 +97,10 @@ public sealed record ReceiverDescriptor<TItem, TArg, TResult>(
         : this(
             type.AssemblyQualifiedName ?? throw new ArgumentException("Type has null AssemblyQualifiedName: " + type),
             deploymentUnits,
-            EnsureDotNetExecutor(options))
+            ReceiverDescriptor.EnsureDotNetExecutor(options))
     {
         // No-op.
     }
-
-    private static ReceiverExecutionOptions EnsureDotNetExecutor(ReceiverExecutionOptions? options) =>
-        options == null ?
-            new ReceiverExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar) :
-            options with { ExecutorType = JobExecutorType.DotNetSidecar };
 }
 
 /// <summary>
@@ -128,4 +118,14 @@ public static class ReceiverDescriptor
     /// <returns>Receiver descriptor.</returns>
     public static ReceiverDescriptor<TItem, TArg, TResult> Of<TItem, TArg, TResult>(IDataStreamerReceiver<TItem, TArg, TResult> receiver) =>
         new(receiver.GetType());
+
+    /// <summary>
+    /// Ensures that the provided <see cref="ReceiverExecutionOptions"/> is set to use the .NET executor.
+    /// </summary>
+    /// <param name="options">Options.</param>
+    /// <returns>Receiver execution options with .NET executor type.</returns>
+    internal static ReceiverExecutionOptions EnsureDotNetExecutor(ReceiverExecutionOptions? options) =>
+        options == null ?
+            new ReceiverExecutionOptions(ExecutorType: JobExecutorType.DotNetSidecar) :
+            options with { ExecutorType = JobExecutorType.DotNetSidecar };
 }
