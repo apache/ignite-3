@@ -610,7 +610,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         var future = new CompletableFuture<R>();
 
         if (currentInFlights.get() >= computeMaxInFlights() * maxInflightOverflowRate) {
-            future.completeExceptionally(new GroupOverloadedException());
+            future.completeExceptionally(new GroupOverloadedException(groupId));
 
             return future;
         }

@@ -17,7 +17,14 @@
 
 package org.apache.ignite.internal.raft;
 
+import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
+
 import org.apache.ignite.lang.IgniteException;
 
-public class GroupOverloadedException extends Exception {
+public class GroupOverloadedException extends IgniteException {
+    private static final long serialVersionUID = 2369606399873450609L;
+
+    public GroupOverloadedException(String groupId) {
+        super(GROUP_OVERLOADED_ERR, "Replication group overloaded, the request may be retried later [groupId=" + groupId + "].");
+    }
 }
