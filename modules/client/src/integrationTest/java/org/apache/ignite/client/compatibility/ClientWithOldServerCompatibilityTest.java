@@ -38,7 +38,7 @@ public class ClientWithOldServerCompatibilityTest {
         serverContainer.start();
 
         // TODO: Init the cluster with REST API.
-        System.out.println("Container started with client port: " + serverContainer.clientPort());
+        System.out.println("\n>>>Container started with client port: " + serverContainer.clientPort());
     }
 
     @AfterAll

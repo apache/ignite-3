@@ -35,8 +35,6 @@ import org.testcontainers.utility.DockerImageName;
 public class IgniteServerContainer implements Startable {
     private static final DockerImageName IGNITE_IMAGE = DockerImageName.parse("apacheignite/ignite");
 
-    private static final Logger LOGGER = LogManager.getLogger(IgniteServerContainer.class);
-
     private final GenericContainer<?> container;
 
     public IgniteServerContainer(String tag) {
@@ -45,7 +43,7 @@ public class IgniteServerContainer implements Startable {
 
     @SuppressWarnings("resource")
     private static GenericContainer<?> createIgniteContainer(String tag) {
-        Consumer<OutputFrame> logConsumer = outputFrame -> LOGGER.info(outputFrame.getUtf8String());
+        Consumer<OutputFrame> logConsumer = outputFrame -> System.out.print(outputFrame.getUtf8String());
 
         return new GenericContainer<>(IGNITE_IMAGE.withTag(tag))
                 .withExposedPorts(10800)
