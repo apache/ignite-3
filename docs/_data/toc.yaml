@@ -27,6 +27,11 @@
       url: installation/migration-from-ai2/overview
 - title: Getting Started
   url: quick-start/getting-started-guide
+- title: Start With Ignite 3
+  url: /get-started/start-cluster
+  items:
+    - title: Explore SQL Capabilities
+      url: /get-started/explore-sql
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
