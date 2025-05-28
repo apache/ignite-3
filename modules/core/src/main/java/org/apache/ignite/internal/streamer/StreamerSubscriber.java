@@ -415,6 +415,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     }
 
     private void flushBuffers() {
+        // TODO IGNITE-25509 Data Streamer ignores backpressure in flush timer.
         buffers.values().forEach(StreamerBuffer::flush);
     }
 
