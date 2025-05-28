@@ -26,7 +26,6 @@ import static org.mockito.Mockito.when;
 
 import java.lang.management.ManagementFactory;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -249,8 +248,7 @@ public class JmxExporterTest extends BaseIgniteAbstractTest {
      * Check, that all MBean attributes has the same values as original metric values.
      */
     private void assertThatMbeanAttributeAndMetricValuesAreTheSame()
-            throws ReflectionException, AttributeNotFoundException, MBeanException
-    {
+            throws ReflectionException, AttributeNotFoundException, MBeanException {
         for (Metric metric : metricSet) {
             Object beanAttribute = mbean().getAttribute(metric.name());
 
