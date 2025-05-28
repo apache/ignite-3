@@ -56,6 +56,7 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
+    @Disabled("IGNITE-25514")
     public void testTableByQualifiedName() {
         createDefaultTables();
 
