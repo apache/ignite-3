@@ -34,12 +34,6 @@ KeyValueModify
     type: INSERT
     est: (rows=1)
 
-# https://issues.apache.org/jira/browse/IGNITE-25454
-# at the moment, distribution's printout depends on the state of the catalog because
-# it contains ids of table and zone. This makes the test unstable depending on whether
-# how many catalog objects were created prior to this script. We need to change
-# the way how distribution is rendered in the EXPLAIN output and unmute this test.
-skipif ignite3
 # insert multiple tuples with literals
 plan
 INSERT INTO test_table VALUES (1, 2, 3), (2, 2, 3)
@@ -62,19 +56,13 @@ Project
           type: INSERT
           est: (rows=2)
         TrimExchange
-            distribution: affinity[tableId=18, zoneId=18][0]
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [C1]
             est: (rows=2)
           Values
               fieldNames: [C1, C2, C3]
               tuples: [[1, 2, 3], [2, 2, 3]]
               est: (rows=2)
 
-# https://issues.apache.org/jira/browse/IGNITE-25454
-# at the moment, distribution's printout depends on the state of the catalog because
-# it contains ids of table and zone. This makes the test unstable depending on whether
-# how many catalog objects were created prior to this script. We need to change
-# the way how distribution is rendered in the EXPLAIN output and unmute this test.
-skipif ignite3
 # insert multiple tuples mixed
 plan
 INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3), (2, LENGTH(rand_uuid()::VARCHAR), 3)
@@ -99,7 +87,7 @@ Project
         UnionAll
             est: (rows=2)
           Exchange
-              distribution: affinity[tableId=18, zoneId=18][0]
+              distribution: table PUBLIC.TEST_TABLE in zone "Default" by [EXPR$0]
               est: (rows=1)
             Project
                 fieldNames: [EXPR$0, EXPR$1, EXPR$2]
@@ -110,7 +98,7 @@ Project
                   tuples: [[0]]
                   est: (rows=1)
           Exchange
-              distribution: affinity[tableId=18, zoneId=18][0]
+              distribution: table PUBLIC.TEST_TABLE in zone "Default" by [EXPR$0]
               est: (rows=1)
             Project
                 fieldNames: [EXPR$0, EXPR$1, EXPR$2]
@@ -287,12 +275,6 @@ Project
             projection: [C1, C2, C3, 2]
             est: (rows=1)
 
-# https://issues.apache.org/jira/browse/IGNITE-25454
-# at the moment, distribution's printout depends on the state of the catalog because
-# it contains ids of table and zone. This makes the test unstable depending on whether
-# how many catalog objects were created prior to this script. We need to change
-# the way how distribution is rendered in the EXPLAIN output and unmute this test.
-skipif ignite3
 # merge operator
 plan
 MERGE INTO test_table dst
@@ -319,7 +301,7 @@ Project
           type: MERGE
           est: (rows=1)
         Exchange
-            distribution: affinity[tableId=18, zoneId=18][0]
+            distribution: table PUBLIC.TEST_TABLE in zone "Default" by [$f0]
             est: (rows=1)
           Project
               fieldNames: [$f0, $f1, $f2, C10, C20, C30, $f6]
@@ -334,7 +316,7 @@ Project
                   fieldNames: [C1, C2, C3]
                   est: (rows=1)
               Exchange
-                  distribution: affinity[tableId=18, zoneId=18][1]
+                  distribution: table PUBLIC.TEST_TABLE in zone "Default" by [$f3]
                   est: (rows=1)
                 TableScan
                     table: PUBLIC.TEST_TABLE

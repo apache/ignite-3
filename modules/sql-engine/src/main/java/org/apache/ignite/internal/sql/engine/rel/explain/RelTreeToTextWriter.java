@@ -49,6 +49,7 @@ import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.lang.util.IgniteNameUtils;
@@ -216,7 +217,7 @@ class RelTreeToTextWriter {
 
         @Override
         public IgniteRelWriter addDistribution(IgniteDistribution distribution, RelDataType rowType) {
-            attributes.put(AttributeName.DISTRIBUTION, distribution.toString());
+            attributes.put(AttributeName.DISTRIBUTION, beautifyDistribution(distribution, rowType));
 
             return this;
         }
@@ -431,6 +432,34 @@ class RelTreeToTextWriter {
 
             return sb.toString();
         }).collect(Collectors.toList());
+    }
+
+    private static String beautifyDistribution(IgniteDistribution distribution, RelDataType rowType) {
+        StringBuilder sb = new StringBuilder();
+        if (distribution.function().affinity()) {
+            sb.append(((AffinityDistribution) distribution.function()).label());
+        } else {
+            sb.append(distribution.function().name());
+        }
+
+        if (!distribution.getKeys().isEmpty()) {
+            sb.append(" by [");
+
+            boolean shouldAppendComma = false;
+            for (int idx : distribution.getKeys()) {
+                if (shouldAppendComma) {
+                    sb.append(", ");
+                }
+
+                sb.append(rowType.getFieldNames().get(idx));
+
+                shouldAppendComma = true;
+            }
+
+            sb.append(']');
+        }
+
+        return sb.toString();
     }
 
     private RelTreeToTextWriter() {

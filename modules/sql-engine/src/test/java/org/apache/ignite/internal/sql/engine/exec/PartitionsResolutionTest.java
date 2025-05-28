@@ -110,6 +110,6 @@ public class PartitionsResolutionTest {
 
         RelDataType rowType =  rowTypeBuilder.build();
 
-        return new TestTableDescriptor(() -> IgniteDistributions.affinity(distrKeys, 1, 1), rowType);
+        return new TestTableDescriptor(() -> IgniteDistributions.affinity(distrKeys, 1, 1, "test"), rowType);
     }
 }
