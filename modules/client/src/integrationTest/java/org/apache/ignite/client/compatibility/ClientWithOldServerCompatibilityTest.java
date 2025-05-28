@@ -17,13 +17,20 @@
 
 package org.apache.ignite.client.compatibility;
 
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.compatibility.containers.IgniteServerContainer;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
+import org.apache.ignite.table.Table;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -34,11 +41,15 @@ import org.junit.jupiter.api.Test;
  * Tests that current Java client can work with all older server versions.
  */
 public class ClientWithOldServerCompatibilityTest {
+    private static final String TABLE_NAME_TEST = "test";
+    private static final String TABLE_NAME_ALL_COLUMNS = "all_columns";
+
     private static IgniteServerContainer serverContainer;
     private IgniteClient client;
 
     @BeforeAll
     static void beforeAll() throws Exception {
+        // TODO: Parametrize the server version to test against multiple versions.
         serverContainer = new IgniteServerContainer("3.0.0");
         serverContainer.start();
 
@@ -68,8 +79,44 @@ public class ClientWithOldServerCompatibilityTest {
     }
 
     @Test
-    public void test() {
-        client.clusterNodes();
+    public void testClusterNodes() {
+        assertThat(client.clusterNodes(), Matchers.hasSize(1));
+    }
+
+    @Test
+    public void testTable() {
+        createDefaultTables();
+
+        Table testTable = client.tables().table(TABLE_NAME_TEST);
+        assertNotNull(testTable);
+
+        assertEquals(TABLE_NAME_TEST, testTable.name());
+        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
+        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().schemaName());
+    }
+
+    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    @Test
+    public void testTables() {
+        createDefaultTables();
+
+        List<Table> tables = client.tables().tables();
+
+        var testTable = tables.stream().filter(t -> t.name().equals(TABLE_NAME_TEST)).findFirst().get();
+
+        assertEquals(TABLE_NAME_TEST, testTable.name());
+        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
+        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().schemaName());
+    }
+
+    private void createDefaultTables() {
+        createTable(TABLE_NAME_TEST);
+        createTable(TABLE_NAME_ALL_COLUMNS); // TODO
+    }
+
+    private void createTable(String tableName) {
+        String query = "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT PRIMARY KEY, name VARCHAR)";
+        try (var ignored = client.sql().execute(null, query)) { }
     }
 
     private static void activateCluster(int restPort) throws IOException {
@@ -93,11 +140,11 @@ public class ClientWithOldServerCompatibilityTest {
 
     private static void waitForActivation(int clientPort) throws InterruptedException {
         IgniteTestUtils.waitForCondition(() -> {
-            try (IgniteClient client = IgniteClient.builder()
+            try (IgniteClient ignored = IgniteClient.builder()
                     .connectTimeout(500)
                     .addresses("localhost:" + clientPort)
                     .build()) {
-                return !client.clusterNodes().isEmpty();
+                return true;
             } catch (Exception e) {
                 return false;
             }
