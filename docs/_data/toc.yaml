@@ -25,8 +25,13 @@
       url: installation/installing-using-docker
     - title: Migration From Ignite 2
       url: installation/migration-from-ai2/overview
-- title: Getting Started
+- title: Quick Start
   url: quick-start/getting-started-guide
+- title: Start With Ignite 3
+  url: /get-started/start-cluster
+  items:
+    - title: Start Ignite 3 Cluster
+      url: /get-started/start-cluster
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
