@@ -17,15 +17,50 @@
 
 package org.apache.ignite.client.compatibility;
 
+import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.client.compatibility.containers.IgniteServerContainer;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 /**
  * Tests that current Java client can work with all older server versions.
  */
 public class ClientWithOldServerCompatibilityTest {
+    private static IgniteServerContainer serverContainer;
+    private IgniteClient client;
+
+    @BeforeAll
+    static void beforeAll() {
+        serverContainer = new IgniteServerContainer("3.0.0");
+        serverContainer.start();
+    }
+
+    @AfterAll
+    static void afterAll() {
+        if (serverContainer != null) {
+            serverContainer.stop();
+        }
+    }
+
+    @BeforeEach
+    void beforeEach() {
+        client = IgniteClient.builder()
+                .addresses("localhost:" + serverContainer.clientPort())
+                .build();
+    }
+
+    @AfterEach
+    void afterEach() {
+        if (client != null) {
+            client.close();
+        }
+    }
+
     @Test
     public void test() {
-        // TODO: Docker or Gradle? Docker is better for cleaning up after tests.
-        // See testcontainers in migration tools.
+        client.clusterNodes();
     }
 }

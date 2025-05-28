@@ -61,4 +61,8 @@ public class IgniteServerContainer implements Startable {
     public void stop() {
         container.stop();
     }
+
+    public int clientPort() {
+        return container.getMappedPort(10800);
+    }
 }
