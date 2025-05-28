@@ -53,14 +53,11 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     /** Prefix for event loop group names. */
     private final String eventLoopGroupNamePrefix;
 
-    /** Server boss socket channel handler event loop group. */
+    /** Server boss socket channel handler event loop group (this group accepts connections). */
     private EventLoopGroup bossGroup;
 
-    /** Server work socket channel handler event loop group. */
+    /** Server work socket channel handler event loop group (this group does network I/O). */
     private EventLoopGroup workerGroup;
-
-    /** Client socket channel handler event loop group. */
-    private EventLoopGroup clientWorkerGroup;
 
     /** All event loops with which {@link io.netty.channel.Channel}s might be registered. */
     private volatile List<EventLoop> channelEventLoops;
@@ -88,7 +85,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
         OutboundView clientConfiguration = networkConfiguration.value().outbound();
         Bootstrap clientBootstrap = new Bootstrap();
 
-        clientBootstrap.group(clientWorkerGroup)
+        clientBootstrap.group(workerGroup)
                 .channel(NioSocketChannel.class)
                 // See createServerBootstrap for netty configuration details.
                 .option(ChannelOption.SO_KEEPALIVE, clientConfiguration.soKeepAlive())
@@ -147,17 +144,16 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
      * Returns all event loop groups managed by this factory.
      */
     List<EventLoopGroup> eventLoopGroups() {
-        return List.of(bossGroup, workerGroup, clientWorkerGroup);
+        return List.of(bossGroup, workerGroup);
     }
 
     /** {@inheritDoc} */
     @Override
     public CompletableFuture<Void> startAsync(ComponentContext componentContext) {
-        bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-accept");
-        workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-srv-worker");
-        clientWorkerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-client");
+        bossGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-network-accept");
+        workerGroup = NamedNioEventLoopGroup.create(eventLoopGroupNamePrefix + "-network-worker");
 
-        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup, clientWorkerGroup));
+        this.channelEventLoops = List.copyOf(eventLoopsAt(workerGroup));
 
         return nullCompletedFuture();
     }
@@ -193,7 +189,6 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
         long shutdownTimeout = configurationView.shutdownTimeoutMillis();
 
         try {
-            clientWorkerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
             workerGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
             bossGroup.shutdownGracefully(quietPeriod, shutdownTimeout, MILLISECONDS).sync();
         } catch (InterruptedException e) {
