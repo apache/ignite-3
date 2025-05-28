@@ -69,6 +69,7 @@ import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /**
  * Test for disaster recovery REST commands.
@@ -206,12 +207,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void testLocalPartitionsEmptyResult() {
-        if (enabledColocation()) {
-            // When colocation enabled, empty zones (without tables) still have partitions.
-            return;
-        }
-
         String path = localStatePath();
         HttpResponse<?> response = client.toBlocking().exchange(
                 path + "?zoneNames=" + EMPTY_ZONE,
@@ -222,6 +219,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
         assertEmptyStates(response.body(), true);
     }
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test
     void testLocalPartitionStatesByZones() {
         String path = localStatePath();
@@ -388,12 +387,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void testGlobalPartitionsEmptyResult() {
-        if (enabledColocation()) {
-            // When colocation enabled, empty zones (without tables) still have partitions.
-            return;
-        }
-
         String path = globalStatePath();
 
         HttpResponse<?> response = client.toBlocking().exchange(path + "?zoneNames=" + EMPTY_ZONE, globalStateResponseType());
@@ -470,12 +465,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     public void testResetPartitionTableNotFound() {
-        if (enabledColocation()) {
-            // This test in colocation mode is not relevant.
-            return;
-        }
-
         String tableName = "PUBLIC.unknown_table";
 
         MutableHttpRequest<?> post = resetPartitionsRequest(FIRST_ZONE, tableName, emptySet());
@@ -517,7 +508,8 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
                 )
         ));
     }
-
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test
     void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);
