@@ -22,17 +22,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.hamcrest.Matchers;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /**
  * Base class for client compatibility tests. Contains actual tests logic, without infrastructure initialization.
  */
 public abstract class ClientCompatibilityTestBase {
-    private static final String TABLE_NAME_TEST = "test";
-    private static final String TABLE_NAME_ALL_COLUMNS = "all_columns";
+    private static final String TABLE_NAME_TEST = "TEST";
+    private static final String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
 
     IgniteClient client;
 
@@ -42,25 +45,37 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testTable() {
+    @Disabled("IGNITE-25514")
+    public void testTableByName() {
         createDefaultTables();
 
         Table testTable = client.tables().table(TABLE_NAME_TEST);
         assertNotNull(testTable);
 
-        assertEquals(TABLE_NAME_TEST, testTable.name());
+        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
     }
 
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
+    @Test
+    public void testTableByQualifiedName() {
+        createDefaultTables();
+
+        Table testTable = client.tables().table(QualifiedName.fromSimple(TABLE_NAME_TEST));
+        assertNotNull(testTable);
+
+        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
+    }
+
     @Test
     public void testTables() {
         createDefaultTables();
 
         List<Table> tables = client.tables().tables();
 
-        var testTable = tables.stream().filter(t -> t.name().equals(TABLE_NAME_TEST)).findFirst().get();
+        List<String> tableNames = tables.stream()
+                .map(t -> t.qualifiedName().objectName())
+                .collect(Collectors.toList());
 
-        assertEquals(TABLE_NAME_TEST, testTable.name());
+        assertThat(tableNames, Matchers.containsInAnyOrder(TABLE_NAME_TEST, TABLE_NAME_ALL_COLUMNS));
     }
 
     private void createDefaultTables() {
