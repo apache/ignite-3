@@ -76,6 +76,8 @@ dependencies {
 
     integrationTestImplementation project(':ignite-api')
     integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.testcontainers.core
+    integrationTestImplementation libs.testcontainers.junit
 }
 
 def archTestDir = "$buildDir/archtest"
