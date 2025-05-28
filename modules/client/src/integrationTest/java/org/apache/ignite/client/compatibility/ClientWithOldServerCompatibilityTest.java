@@ -25,6 +25,7 @@ import org.junit.jupiter.api.Test;
 public class ClientWithOldServerCompatibilityTest {
     @Test
     public void test() {
-
+        // TODO: Docker or Gradle? Docker is better for cleaning up after tests.
+        // See testcontainers in migration tools.
     }
 }
