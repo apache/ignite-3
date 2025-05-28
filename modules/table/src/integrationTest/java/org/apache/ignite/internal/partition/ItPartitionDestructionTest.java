@@ -41,7 +41,6 @@ import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.TestWrappers;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partitiondistribution.Assignment;
 import org.apache.ignite.internal.partitiondistribution.TokenizedAssignments;
 import org.apache.ignite.internal.raft.Peer;
@@ -52,12 +51,13 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 import org.apache.ignite.internal.sql.engine.util.SqlTestUtils;
 import org.apache.ignite.internal.table.TableImpl;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.raft.jraft.option.RaftOptions;
 import org.apache.ignite.raft.jraft.storage.LogStorage;
 import org.apache.ignite.table.Table;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
+import org.junit.jupiter.api.condition.EnabledIf;
 import org.junit.jupiter.api.extension.ExtendWith;
 
 @ExtendWith(SystemPropertiesExtension.class)
@@ -82,7 +82,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void partitionIsDestroyedOnTableDestruction() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
@@ -103,7 +103,7 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
 
     @Test
     @Disabled("https://issues.apache.org/jira/browse/IGNITE-24345")
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void partitionIsDestroyedOnZoneDestruction() throws Exception {
         cluster.startAndInit(1, ItPartitionDestructionTest::aggressiveLowWatermarkIncrease);
 
@@ -209,13 +209,13 @@ class ItPartitionDestructionTest extends ClusterPerTestIntegrationTest {
     }
 
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void tablePartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
         testPartitionIsDestroyedWhenItIsEvictedFromNode(tableId -> new TablePartitionId(tableId, PARTITION_ID));
     }
 
     @Test
-    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
+    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void zonePartitionIsDestroyedWhenItIsEvictedFromNode() throws Exception {
         testPartitionIsDestroyedWhenItIsEvictedFromNode(tableId -> new ZonePartitionId(zoneId(tableId), PARTITION_ID));
     }

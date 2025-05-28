@@ -43,5 +43,6 @@ public final class DefaultExceptionHandlers extends ExceptionHandlers {
         addExceptionHandler(new FileNotFoundExceptionHandler());
         addExceptionHandler(new ConfigParseExceptionHandler());
         addExceptionHandler(new ConfigAsPathExceptionHandler());
+        addExceptionHandler(new ConfigurationArgsParseExceptionHandler());
     }
 }

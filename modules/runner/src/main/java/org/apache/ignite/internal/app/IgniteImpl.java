@@ -725,7 +725,8 @@ public class IgniteImpl implements Ignite {
                 nodeAttributesCollector,
                 failureManager,
                 clusterIdService,
-                cmgRaftConfigurer
+                cmgRaftConfigurer,
+                metricManager
         );
 
         logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgMgr);
