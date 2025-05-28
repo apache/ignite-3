@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -435,6 +436,20 @@ public class UpgradingRowAdapter implements Row {
         }
 
         return mappedId < 0 ? (Period) column.defaultValue() : row.periodValue(mappedId);
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Duration durationValue(int colIdx) throws InvalidTypeException {
+        int mappedId = mapColumn(colIdx);
+
+        Column column = mappedId < 0 ? mapper.mappedColumn(colIdx) : row.schema().column(mappedId);
+
+        if (ColumnType.DURATION != column.type().spec()) {
+            throw new SchemaException("Type conversion is not supported yet.");
+        }
+
+        return mappedId < 0 ? (Duration) column.defaultValue() : row.durationValue(mappedId);
     }
 
     @Override

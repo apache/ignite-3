@@ -522,6 +522,7 @@ public final class Commons {
             case DATETIME: return tuple.dateTimeValue(fieldIndex);
             case TIMESTAMP: return tuple.timestampValue(fieldIndex);
             case PERIOD: return tuple.periodValue(fieldIndex);
+            case DURATION: return tuple.durationValue(fieldIndex);
             default: throw new InvalidTypeException("Unknown element type: " + nativeType);
         }
     }

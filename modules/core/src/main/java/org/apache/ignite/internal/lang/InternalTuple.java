@@ -19,6 +19,7 @@ package org.apache.ignite.internal.lang;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -228,6 +229,14 @@ public interface InternalTuple {
      * @return Column value.
      */
     Period periodValue(int col);
+
+    /**
+     * Reads value for specified column.
+     *
+     * @param col Column index.
+     * @return Column value.
+     */
+    Duration durationValue(int col);
 
     /**
      * Returns the representation of this tuple as a Byte Buffer.

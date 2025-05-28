@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -190,6 +191,11 @@ abstract class AbstractProjectedTuple implements InternalTuple {
     @Override
     public Period periodValue(int col) {
         return delegate.periodValue(projection[col]);
+    }
+
+    @Override
+    public Duration durationValue(int col) {
+        return delegate.durationValue(projection[col]);
     }
 
     @Override

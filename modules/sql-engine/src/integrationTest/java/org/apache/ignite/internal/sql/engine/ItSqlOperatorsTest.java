@@ -24,6 +24,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.Period;
@@ -217,6 +218,7 @@ public class ItSqlOperatorsTest extends BaseSqlIntegrationTest {
     public void testDateAndTime() {
         assertExpression("DATE '2021-01-01' + interval (1) days").returns(LocalDate.parse("2021-01-02")).check();
         assertExpression("(DATE '2021-03-01' - DATE '2021-01-01') months").returns(Period.ofMonths(2)).check();
+        assertExpression("(DATE '2021-03-02' - DATE '2021-03-01') hours").returns(Duration.ofHours(24)).check();
         assertExpression("EXTRACT(DAY FROM DATE '2021-01-15')").returns(15L).check();
         assertExpression("FLOOR(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-01-01")).check();
         assertExpression("CEIL(DATE '2021-01-15' TO MONTH)").returns(LocalDate.parse("2021-02-01")).check();
