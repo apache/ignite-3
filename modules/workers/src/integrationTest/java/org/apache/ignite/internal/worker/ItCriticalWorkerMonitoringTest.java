@@ -52,7 +52,7 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
         CountDownLatch blockageDetectedLatch = new CountDownLatch(1);
 
         watchdogLogInspector.addHandler(
-                event -> matchesWithDotall(event, criticalThreadDetectedRegex("srv-worker-")),
+                event -> matchesWithDotall(event, criticalThreadDetectedRegex("network-worker-")),
                 blockageDetectedLatch::countDown
         );
 

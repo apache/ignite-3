@@ -119,7 +119,8 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, desc, "arg");
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
 
-        Assert.AreEqual(".NET job failed: Type 'MyNamespace.MyJob' not found in the specified deployment units.", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Failed to load type 'MyNamespace.MyJob'", ex.Message);
+        StringAssert.Contains("Could not resolve type 'MyNamespace.MyJob' in assembly 'Apache.Ignite", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 
@@ -131,7 +132,8 @@ public class PlatformComputeTests : IgniteTestsBase
         var jobExec = await Client.Compute.SubmitAsync(target, DotNetJobs.Echo, "Hello world!");
 
         var ex = Assert.ThrowsAsync<IgniteException>(async () => await jobExec.GetResultAsync());
-        StringAssert.StartsWith(".NET job failed: Could not load file or assembly 'Apache.Ignite.Tests", ex.Message);
+        StringAssert.StartsWith(".NET job failed: Failed to load type 'Apache.Ignite.Tests.Compute.DotNetJobs+EchoJob", ex.Message);
+        StringAssert.Contains("Could not load file or assembly 'Apache.Ignite.Tests", ex.Message);
         Assert.AreEqual("IGN-COMPUTE-9", ex.CodeAsString);
     }
 

@@ -20,8 +20,10 @@ package org.apache.ignite.internal.sql.engine.planner;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.sql.engine.planner.AbstractTpcQueryPlannerTest.TpcSuiteInfo;
 
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsHelper;
 import org.apache.ignite.internal.sql.engine.util.tpcds.TpcdsTables;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -34,6 +36,7 @@ import org.junit.jupiter.params.provider.ValueSource;
         queryLoader = "getQueryString",
         planLoader = "getQueryPlan"
 )
+@WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
 public class TpcdsQueryPlannerTest extends AbstractTpcQueryPlannerTest {
     @ParameterizedTest
     @ValueSource(strings = "64")

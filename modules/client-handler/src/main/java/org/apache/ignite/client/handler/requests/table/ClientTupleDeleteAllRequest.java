@@ -56,7 +56,7 @@ public class ClientTupleDeleteAllRequest {
         return ClientTuplesRequestBase.readAsync(in, tables, resources, txManager, false, notificationSender, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().deleteAllAsync(req.tx(), req.tuples())
                         .thenApply(skippedTuples -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             writeTuples(out, skippedTuples, TuplePart.KEY, req.table().schemaView());
                         }));
     }

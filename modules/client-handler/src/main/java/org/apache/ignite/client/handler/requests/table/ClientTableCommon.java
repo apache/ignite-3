@@ -19,6 +19,7 @@ package org.apache.ignite.client.handler.requests.table;
 
 import static org.apache.ignite.internal.client.proto.ClientMessageCommon.NO_VALUE;
 import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_DIRECT;
+import static org.apache.ignite.internal.client.proto.tx.ClientTxUtils.TX_ID_FIRST_DIRECT;
 import static org.apache.ignite.lang.ErrorGroups.Client.TABLE_ID_NOT_FOUND_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
@@ -26,6 +27,7 @@ import java.util.BitSet;
 import java.util.Collection;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import org.apache.ignite.client.handler.ClientResource;
 import org.apache.ignite.client.handler.ClientResourceRegistry;
 import org.apache.ignite.client.handler.NotificationSender;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -314,29 +316,61 @@ public class ClientTableCommon {
      * Write tx metadata.
      *
      * @param out Packer.
+     * @param tsTracker Timestamp tracker.
      * @param clockService Clock service.
-     * @param tx The transaction.
+     * @param req Request.
      */
-    public static void writeTxMeta(
-            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, InternalTransaction tx) {
-        if (!tx.remote()) {
-            return;
-        }
+    static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTupleRequestBase req) {
+        writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
+    }
 
-        TxState state = tx.state();
+    /**
+     * Write tx metadata.
+     *
+     * @param out Packer.
+     * @param tsTracker Timestamp tracker.
+     * @param clockService Clock service.
+     * @param req Request.
+     */
+    static void writeTxMeta(
+            ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService, ClientTuplesRequestBase req) {
+        writeTxMeta(out, tsTracker, clockService, req.tx(), req.resourceId());
+    }
 
-        if (state == TxState.ABORTED) {
-            // No-op enlistment.
-            out.packNil();
-        } else {
-            // Remote tx carries operation enlistment info.
-            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
-            out.packString(token.primaryNodeConsistentId());
-            out.packLong(token.consistencyToken());
-        }
+    /**
+     * Write tx metadata.
+     *
+     * @param out Packer.
+     * @param tsTracker Timestamp tracker.
+     * @param clockService Clock service.
+     * @param tx Transaction.
+     * @param resourceId Resource id.
+     */
+    public static void writeTxMeta(ClientMessagePacker out, HybridTimestampTracker tsTracker, @Nullable ClockService clockService,
+            InternalTransaction tx, long resourceId) {
+        if (resourceId != 0) {
+            // Resource id is assigned on a first request in direct mode.
+            out.packLong(resourceId);
+            out.packUuid(tx.id());
+            out.packUuid(tx.coordinatorId());
+            out.packLong(tx.getTimeout());
+        } else if (tx.remote()) {
+            TxState state = tx.state();
 
-        if (clockService != null) {
-            tsTracker.update(clockService.current());
+            if (state == TxState.ABORTED) {
+                // No-op enlistment.
+                out.packNil();
+            } else {
+                // Remote tx carries operation enlistment info.
+                PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+                out.packString(token.primaryNodeConsistentId());
+                out.packLong(token.consistencyToken());
+            }
+
+            if (clockService != null) {
+                tsTracker.update(clockService.current());
+            }
         }
     }
 
@@ -358,6 +392,7 @@ public class ClientTableCommon {
      * @param resources Resource registry.
      * @param txManager Tx manager.
      * @param notificationSender Notification sender.
+     * @param resourceIdHolder Resource id holder.
      * @return Transaction, if present, or null.
      */
     public static @Nullable InternalTransaction readTx(
@@ -365,15 +400,34 @@ public class ClientTableCommon {
             HybridTimestampTracker tsUpdater,
             ClientResourceRegistry resources,
             @Nullable TxManager txManager,
-            @Nullable NotificationSender notificationSender
-    ) {
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder) {
         if (in.tryUnpackNil()) {
             return null;
         }
 
         try {
             long id = in.unpackLong();
-            if (id == TX_ID_DIRECT) {
+            if (id == TX_ID_FIRST_DIRECT) {
+                long observableTs = in.unpackLong();
+
+                // This is first mapping request, which piggybacks transaction creation.
+                boolean readOnly = in.unpackBoolean();
+                long timeoutMillis = in.unpackLong();
+
+                InternalTxOptions txOptions = InternalTxOptions.builder()
+                        .timeoutMillis(timeoutMillis)
+                        .build();
+
+                var tx = startExplicitTx(tsUpdater, txManager, HybridTimestamp.nullableHybridTimestamp(observableTs), readOnly,
+                        txOptions);
+
+                // Attach resource id only on first direct request.
+                resourceIdHolder[0] = resources.put(new ClientResource(tx, tx::rollbackAsync));
+
+                return tx;
+            } else if (id == TX_ID_DIRECT) {
+                // This is direct request mapping.
                 long token = in.unpackLong();
                 UUID txId = in.unpackUuid();
                 int commitTableId = in.unpackInt();
@@ -416,8 +470,9 @@ public class ClientTableCommon {
             ClientResourceRegistry resources,
             TxManager txManager,
             boolean readOnly,
-            @Nullable NotificationSender notificationSender) {
-        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender);
+            @Nullable NotificationSender notificationSender,
+            long[] resourceIdHolder) {
+        InternalTransaction tx = readTx(in, readTs, resources, txManager, notificationSender, resourceIdHolder);
 
         if (tx == null) {
             // Implicit transactions do not use an observation timestamp because RW never depends on it, and implicit RO is always direct.

@@ -71,6 +71,7 @@ import org.apache.ignite.internal.configuration.tree.ConstructableTreeNode;
 import org.apache.ignite.internal.configuration.tree.InnerNode;
 import org.apache.ignite.internal.configuration.tree.NamedListNode;
 import org.apache.ignite.internal.configuration.util.ConfigurationUtil;
+import org.apache.ignite.internal.configuration.util.KeysTrackingConfigurationVisitor;
 import org.apache.ignite.internal.configuration.validation.ConfigurationValidator;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
@@ -274,7 +275,7 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             throw new ConfigurationChangeException("Failed to initialize configuration: " + e.getMessage(), e);
         }
 
-        Map<String, ? extends Serializable> storageValues = data.values();
+        var storageValues = new HashMap<String, Serializable>(data.values());
 
         ignoredKeys = ignoreDeleted(storageValues, keyIgnorer);
 
@@ -635,15 +636,19 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
 
             migrator.migrate(new SuperRootChangeImpl(changes));
 
-            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(localRoots.rootsWithoutDefaults, changes);
-
-            dropUnnecessarilyDeletedKeys(allChanges, localRoots);
+            Map<String, Serializable> allChanges = createFlattenedUpdatesMap(
+                    localRoots.rootsWithoutDefaults,
+                    changes,
+                    localRoots.data.values()
+            );
 
             if (onStartup) {
                 for (String ignoredValue : ignoredKeys) {
                     allChanges.put(ignoredValue, null);
                 }
             }
+
+            dropUnnecessarilyDeletedKeys(allChanges, localRoots);
 
             if (allChanges.isEmpty() && onStartup) {
                 // We don't want an empty storage update if this is the initialization changer.
@@ -695,15 +700,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
             StorageRoots oldStorageRoots = storageRoots;
 
             try {
-                Map<String, ? extends Serializable> changedValues = changedEntries.values();
-
-                // We need to ignore deletion of deprecated values.
-                ignoreDeleted(changedValues, keyIgnorer);
+                var changedValues = new HashMap<String, Serializable>(changedEntries.values());
 
                 SuperRoot oldSuperRoot = oldStorageRoots.roots;
                 SuperRoot oldSuperRootNoDefaults = oldStorageRoots.rootsWithoutDefaults;
                 SuperRoot newSuperRoot = oldSuperRoot.copy();
                 SuperRoot newSuperNoDefaults = oldSuperRootNoDefaults.copy();
+
+                // We need to ignore deletion of deprecated values.
+                ignoreDeleted(changedValues, keyIgnorer);
+                // We need to ignore deletion of legacy values.
+                ignoreLegacyKeys(oldStorageRoots, changedValues);
 
                 Map<String, ?> dataValuesPrefixMap = toPrefixMap(changedValues);
 
@@ -758,6 +765,17 @@ public abstract class ConfigurationChanger implements DynamicConfigurationChange
         }
 
         return new Data(newState, delta.changeId());
+    }
+
+    private static void ignoreLegacyKeys(StorageRoots oldStorageRoots, Map<String, ? extends Serializable> changedValues) {
+        oldStorageRoots.roots.traverseChildren(new KeysTrackingConfigurationVisitor<>() {
+            @Override
+            protected Object doVisitLeafNode(Field field, String key, Serializable val) {
+                processLegacyPaths(changedValues::remove);
+
+                return null;
+            }
+        }, true);
     }
 
     /**

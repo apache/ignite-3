@@ -488,10 +488,13 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             packer.packInt(2); // Client type: general purpose.
 
             BitSet clientFeatures = new BitSet();
-            // Supported feature
+            // Supported features
             clientFeatures.set(1);
+            clientFeatures.set(2);
+            clientFeatures.set(6);
+            clientFeatures.set(7);
             // Unsupported feature
-            clientFeatures.set(3);
+            clientFeatures.set(4);
 
             packer.packBinaryHeader(clientFeatures.toByteArray().length); // Features.);
             packer.writePayload(clientFeatures.toByteArray());
@@ -538,6 +541,7 @@ public class ItClientHandlerTest extends BaseIgniteAbstractTest {
             expected.set(3);
             expected.set(5);
             expected.set(6);
+            expected.set(7);
             assertEquals(expected, supportedFeatures);
 
             var extensionsLen = unpacker.unpackInt();

@@ -40,15 +40,21 @@ class ClientTuplesRequestBase {
     private final InternalTransaction tx;
     private final TableViewInternal table;
     private final List<Tuple> tuples;
+    private final long resourceId;
 
-    private ClientTuplesRequestBase(InternalTransaction tx, TableViewInternal table, List<Tuple> tuples) {
+    private ClientTuplesRequestBase(InternalTransaction tx, TableViewInternal table, List<Tuple> tuples, long resourceId) {
         this.tx = tx;
         this.table = table;
         this.tuples = tuples;
+        this.resourceId = resourceId;
     }
 
     public InternalTransaction tx() {
         return tx;
+    }
+
+    public long resourceId() {
+        return resourceId;
     }
 
     public TableViewInternal table() {
@@ -85,7 +91,9 @@ class ClientTuplesRequestBase {
     ) {
         int tableId = in.unpackInt();
 
-        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender);
+        long[] resIdHolder = {0};
+
+        InternalTransaction tx = readOrStartImplicitTx(in, tsTracker, resources, txManager, txReadOnly, notificationSender, resIdHolder);
 
         int schemaId = in.unpackInt();
 
@@ -108,7 +116,7 @@ class ClientTuplesRequestBase {
                                 tuples.add(readTuple(noValueSet[i], tupleBytes[i], keyOnly, schema));
                             }
 
-                            return new ClientTuplesRequestBase(tx, table, tuples);
+                            return new ClientTuplesRequestBase(tx, table, tuples, resIdHolder[0]);
                         }));
     }
 }

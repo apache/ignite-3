@@ -508,6 +508,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
                 )
         ));
     }
+
     // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
     @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test

@@ -23,6 +23,8 @@ import org.apache.ignite.internal.close.ManuallyCloseable;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -168,24 +170,27 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      *
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
      *
-     * @param rowId Row id.
-     * @return Previous uncommitted row version associated with the row id.
+     * @param rowId Row ID.
+     * @param txId Transaction ID that abort write intent.
+     * @return Result of abort write intent.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#abortWrite(RowId)
+     * @see MvPartitionStorage#abortWrite
      */
-    @Nullable BinaryRow abortWrite(RowId rowId) throws StorageException;
+    AbortResult abortWrite(RowId rowId, UUID txId) throws StorageException;
 
     /**
      * Commits a pending update of the ongoing transaction. Invoked during commit. Committed value will be versioned by the given timestamp.
      *
      * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param timestamp Timestamp to associate with committed value.
+     * @param txId Transaction ID that commit write intent.
+     * @return Result of commit write intent.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#commitWrite(RowId, HybridTimestamp)
+     * @see MvPartitionStorage#commitWrite
      */
-    void commitWrite(RowId rowId, HybridTimestamp timestamp) throws StorageException;
+    CommitResult commitWrite(RowId rowId, HybridTimestamp timestamp, UUID txId) throws StorageException;
 
     /**
      * Scans all versions of a single row.

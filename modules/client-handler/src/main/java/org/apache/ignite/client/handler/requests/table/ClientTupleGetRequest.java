@@ -53,7 +53,7 @@ public class ClientTupleGetRequest {
         return ClientTupleRequestBase.readAsync(in, tables, resources, txManager, true, null, tsTracker, true)
                 .thenCompose(req -> req.table().recordView().getAsync(req.tx(), req.tuple())
                         .thenApply(res -> out -> {
-                            writeTxMeta(out, tsTracker, clockService, req.tx());
+                            writeTxMeta(out, tsTracker, clockService, req);
                             ClientTableCommon.writeTupleOrNil(out, res, TuplePart.KEY_AND_VAL, req.table().schemaView());
                         }));
     }

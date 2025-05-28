@@ -81,7 +81,7 @@ public class ClientSqlExecuteRequest {
         CancelHandle cancelHandle = CancelHandle.create();
         cancelHandles.put(requestId, cancelHandle);
 
-        InternalTransaction tx = readTx(in, tsUpdater, resources, null, null);
+        InternalTransaction tx = readTx(in, tsUpdater, resources, null, null, null);
         ClientSqlProperties props = new ClientSqlProperties(in);
         String statement = in.unpackString();
         Object[] arguments = readArgsNotNull(in);
