@@ -46,7 +46,7 @@ public class IgniteServerContainer implements Startable {
         Consumer<OutputFrame> logConsumer = outputFrame -> System.out.print(outputFrame.getUtf8String());
 
         return new GenericContainer<>(IGNITE_IMAGE.withTag(tag))
-                .withExposedPorts(10800)
+                .withExposedPorts(10300, 10800)
                 .withLogConsumer(logConsumer)
                 .waitingFor(Wait.forLogMessage(".*Joining the cluster.*?", 1));
     }
@@ -63,5 +63,9 @@ public class IgniteServerContainer implements Startable {
 
     public int clientPort() {
         return container.getMappedPort(10800);
+    }
+
+    public int restPort() {
+        return container.getMappedPort(10300);
     }
 }

@@ -17,8 +17,13 @@
 
 package org.apache.ignite.client.compatibility;
 
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.compatibility.containers.IgniteServerContainer;
+import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -33,12 +38,12 @@ public class ClientWithOldServerCompatibilityTest {
     private IgniteClient client;
 
     @BeforeAll
-    static void beforeAll() {
+    static void beforeAll() throws Exception {
         serverContainer = new IgniteServerContainer("3.0.0");
         serverContainer.start();
 
-        // TODO: Init the cluster with REST API.
-        System.out.println("\n>>>Container started with client port: " + serverContainer.clientPort());
+        activateCluster(serverContainer.restPort());
+        waitForActivation(serverContainer.clientPort());
     }
 
     @AfterAll
@@ -65,5 +70,37 @@ public class ClientWithOldServerCompatibilityTest {
     @Test
     public void test() {
         client.clusterNodes();
+    }
+
+    private static void activateCluster(int restPort) throws IOException {
+        URL url = new URL("http://localhost:" + restPort + "/management/v1/cluster/init");
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("POST");
+        conn.setRequestProperty("Content-Type", "application/json");
+        conn.setDoOutput(true);
+
+        String jsonInput = "{\"metaStorageNodes\": [\"defaultNode\"], \"clusterName\": \"myCluster\"}";
+
+        try (OutputStream os = conn.getOutputStream()) {
+            os.write(jsonInput.getBytes());
+            os.flush();
+        }
+
+        int responseCode = conn.getResponseCode();
+        System.out.println("Response Code: " + responseCode);
+        conn.disconnect();
+    }
+
+    private static void waitForActivation(int clientPort) throws InterruptedException {
+        IgniteTestUtils.waitForCondition(() -> {
+            try (IgniteClient client = IgniteClient.builder()
+                    .connectTimeout(500)
+                    .addresses("localhost:" + clientPort)
+                    .build()) {
+                return !client.clusterNodes().isEmpty();
+            } catch (Exception e) {
+                return false;
+            }
+        }, 1_000, 20_000);
     }
 }

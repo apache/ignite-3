@@ -75,6 +75,7 @@ dependencies {
     testImplementation libs.jmh.core
 
     integrationTestImplementation project(':ignite-api')
+    integrationTestImplementation(testFixtures(project(':ignite-core')))
     integrationTestImplementation libs.jetbrains.annotations
     integrationTestImplementation libs.testcontainers.core
     integrationTestImplementation libs.testcontainers.junit
