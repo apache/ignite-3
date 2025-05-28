@@ -50,7 +50,7 @@ public class IgniteServerContainer implements Startable {
         return new GenericContainer<>(IGNITE_IMAGE.withTag(tag))
                 .withExposedPorts(10800)
                 .withLogConsumer(logConsumer)
-                .waitingFor(Wait.forLogMessage("Joining the cluster", 1));
+                .waitingFor(Wait.forLogMessage(".*Joining the cluster.*?", 1));
     }
 
     @Override
