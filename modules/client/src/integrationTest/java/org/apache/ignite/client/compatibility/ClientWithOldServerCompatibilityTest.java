@@ -36,6 +36,9 @@ public class ClientWithOldServerCompatibilityTest {
     static void beforeAll() {
         serverContainer = new IgniteServerContainer("3.0.0");
         serverContainer.start();
+
+        // TODO: Init the cluster with REST API.
+        System.out.println("Container started with client port: " + serverContainer.clientPort());
     }
 
     @AfterAll

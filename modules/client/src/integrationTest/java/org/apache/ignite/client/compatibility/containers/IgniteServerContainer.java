@@ -17,6 +17,7 @@
 
 package org.apache.ignite.client.compatibility.containers;
 
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -54,7 +55,7 @@ public class IgniteServerContainer implements Startable {
 
     @Override
     public void start() {
-        Startables.deepStart(this.container).join();
+        Startables.deepStart(this.container).orTimeout(30, TimeUnit.SECONDS).join();
     }
 
     @Override
