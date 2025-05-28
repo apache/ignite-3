@@ -17,35 +17,23 @@
 
 package org.apache.ignite.client.compatibility;
 
-import static org.hamcrest.MatcherAssert.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.List;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.compatibility.containers.IgniteServerContainer;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
-import org.apache.ignite.table.Table;
-import org.hamcrest.Matchers;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
 
 /**
  * Tests that current Java client can work with all older server versions.
  */
-public class ClientWithOldServerCompatibilityTest {
-    private static final String TABLE_NAME_TEST = "test";
-    private static final String TABLE_NAME_ALL_COLUMNS = "all_columns";
-
+public class ClientWithOldServerCompatibilityTest extends ClientCompatibilityTestBase {
     private static IgniteServerContainer serverContainer;
-    private IgniteClient client;
 
     @BeforeAll
     static void beforeAll() throws Exception {
@@ -76,43 +64,6 @@ public class ClientWithOldServerCompatibilityTest {
         if (client != null) {
             client.close();
         }
-    }
-
-    @Test
-    public void testClusterNodes() {
-        assertThat(client.clusterNodes(), Matchers.hasSize(1));
-    }
-
-    @Test
-    public void testTable() {
-        createDefaultTables();
-
-        Table testTable = client.tables().table(TABLE_NAME_TEST);
-        assertNotNull(testTable);
-
-        assertEquals(TABLE_NAME_TEST, testTable.name());
-    }
-
-    @SuppressWarnings("OptionalGetWithoutIsPresent")
-    @Test
-    public void testTables() {
-        createDefaultTables();
-
-        List<Table> tables = client.tables().tables();
-
-        var testTable = tables.stream().filter(t -> t.name().equals(TABLE_NAME_TEST)).findFirst().get();
-
-        assertEquals(TABLE_NAME_TEST, testTable.name());
-    }
-
-    private void createDefaultTables() {
-        createTable(TABLE_NAME_TEST);
-        createTable(TABLE_NAME_ALL_COLUMNS); // TODO
-    }
-
-    private void createTable(String tableName) {
-        String query = "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT PRIMARY KEY, name VARCHAR)";
-        try (var ignored = client.sql().execute(null, query)) { }
     }
 
     private static void activateCluster(int restPort) throws IOException {
