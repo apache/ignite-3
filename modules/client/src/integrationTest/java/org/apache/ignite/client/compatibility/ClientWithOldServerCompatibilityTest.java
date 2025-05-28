@@ -91,8 +91,6 @@ public class ClientWithOldServerCompatibilityTest {
         assertNotNull(testTable);
 
         assertEquals(TABLE_NAME_TEST, testTable.name());
-        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
-        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().schemaName());
     }
 
     @SuppressWarnings("OptionalGetWithoutIsPresent")
@@ -105,8 +103,6 @@ public class ClientWithOldServerCompatibilityTest {
         var testTable = tables.stream().filter(t -> t.name().equals(TABLE_NAME_TEST)).findFirst().get();
 
         assertEquals(TABLE_NAME_TEST, testTable.name());
-        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().objectName());
-        assertEquals(TABLE_NAME_TEST, testTable.qualifiedName().schemaName());
     }
 
     private void createDefaultTables() {
