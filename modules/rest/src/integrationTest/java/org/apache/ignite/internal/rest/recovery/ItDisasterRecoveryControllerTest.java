@@ -24,7 +24,6 @@ import static org.apache.ignite.internal.TestDefaultProfilesNames.DEFAULT_AIPERS
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.catalog.CatalogManagerImpl.DEFAULT_ZONE_NAME;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.rest.constants.HttpCode.BAD_REQUEST;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
@@ -70,7 +69,7 @@ import org.apache.ignite.internal.rest.api.recovery.ResetZonePartitionsRequest;
 import org.apache.ignite.internal.util.CollectionUtils;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledIfSystemProperty;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /**
  * Test for disaster recovery REST commands.
@@ -208,7 +207,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void testLocalPartitionsEmptyResult() {
         String path = localStatePath();
         HttpResponse<?> response = client.toBlocking().exchange(
@@ -221,7 +220,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
-    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test
     void testLocalPartitionStatesByZones() {
         String path = localStatePath();
@@ -388,7 +387,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     @Test
-    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void testGlobalPartitionsEmptyResult() {
         String path = globalStatePath();
 
@@ -466,7 +465,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
 
     @Test
     // TODO: remove this test when colocation is enabled https://issues.apache.org/jira/browse/IGNITE-22522
-    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     public void testResetPartitionTableNotFound() {
         String tableName = "PUBLIC.unknown_table";
 
@@ -511,7 +510,7 @@ public class ItDisasterRecoveryControllerTest extends ClusterPerClassIntegration
     }
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-25448 Does not work with colocation enabled.
-    @DisabledIfSystemProperty(named = COLOCATION_FEATURE_FLAG, matches = "true")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     @Test
     void testLocalPartitionStatesWithUpdatedEstimatedRows() {
         insertRowToAllTables(1, 1);

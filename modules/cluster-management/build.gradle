@@ -42,6 +42,7 @@ dependencies {
     implementation project(':ignite-security')
     implementation project(':ignite-configuration-root')
     implementation project(':ignite-system-disaster-recovery-api')
+    implementation project(':ignite-metrics')
     implementation libs.jetbrains.annotations
     implementation libs.fastutil.core
     implementation libs.auto.service.annotations

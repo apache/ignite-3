@@ -34,9 +34,9 @@ import java.util.Set;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.cli.CliIntegrationTest;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -231,9 +231,9 @@ public abstract class ItPartitionStatesTest extends CliIntegrationTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     void testPartitionStatesEmptyResult(boolean global) {
         // This test is not applicable for colocation enabled because empty zones are still have partitions.
-        Assumptions.assumeFalse(enabledColocation());
 
         execute(CLUSTER_URL_OPTION, NODE_URL,
                 RECOVERY_ZONE_NAMES_OPTION, EMPTY_ZONE,
