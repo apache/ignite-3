@@ -80,12 +80,12 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     private void createDefaultTables() {
-        createTable(TABLE_NAME_TEST);
-        createTable(TABLE_NAME_ALL_COLUMNS); // TODO
-    }
+        try (var ignored1 = client.sql().execute(null,
+                "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) { }
 
-    private void createTable(String tableName) {
-        String query = "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT PRIMARY KEY, name VARCHAR)";
-        try (var ignored = client.sql().execute(null, query)) { }
+        try (var ignored = client.sql().execute(null,
+                "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
+                        "int INT, long BIGINT, float REAL, double DOUBLE, decimal DECIMAL, " +
+                        "string VARCHAR, uuid UUID, date DATE, time TIME, timestamp TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) { }
     }
 }
