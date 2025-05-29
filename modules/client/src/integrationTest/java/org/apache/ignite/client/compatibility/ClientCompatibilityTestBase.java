@@ -21,10 +21,12 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.network.ClusterNode;
@@ -47,6 +49,8 @@ import org.junit.jupiter.api.Test;
 public abstract class ClientCompatibilityTestBase {
     private static final String TABLE_NAME_TEST = "TEST";
     private static final String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
+
+    private final AtomicInteger idGen = new AtomicInteger(1000);
 
     IgniteClient client;
 
@@ -127,20 +131,37 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     public void testTxCommit() {
+        int id = idGen.incrementAndGet();
+        Tuple key = Tuple.create().set("id", id);
+
         RecordView<Tuple> view = client.tables().table(TABLE_NAME_TEST).recordView();
 
+        assertNull(view.get(null, key));
+
         client.transactions().runInTransaction(tx -> {
-            Tuple tuple = Tuple.create().set("id", 1).set("name", "test1");
+            Tuple tuple = Tuple.create().set("id", id).set("name", "testTxCommit");
             view.insert(tx, tuple);
         });
 
-        Tuple res = view.get(null, Tuple.create().set("id", 1));
+        Tuple res = view.get(null, key);
         assertNotNull(res);
+        assertEquals("testTxCommit", res.stringValue("name"));
     }
 
     @Test
     public void testTxRollback() {
-        assert false : "TODO";
+        int id = idGen.incrementAndGet();
+        Tuple key = Tuple.create().set("id", id);
+
+        RecordView<Tuple> view = client.tables().table(TABLE_NAME_TEST).recordView();
+
+        assertNull(view.get(null, key));
+
+        Transaction tx = client.transactions().begin();
+        view.insert(tx, Tuple.create().set("id", id).set("name", "testTxRollback"));
+        tx.rollback();
+
+        assertNull(view.get(null, key));
     }
 
     @Test
