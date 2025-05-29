@@ -1367,12 +1367,12 @@ public class PersistentPageMemory implements PageMemory {
         /** Index. */
         private static final ThreadLocal<Integer> IDX = ThreadLocal.withInitial(() -> IDX_GEN.incrementAndGet());
 
-        private final int concLvl;
+        private final long concLvl;
         private final long ptr;
 
         private volatile Thread writeLockHolder;
 
-        private int curIdx() {
+        private long curIdx() {
             int idx = IDX.get();
 
             return idx & (concLvl - 1);
@@ -1385,26 +1385,22 @@ public class PersistentPageMemory implements PageMemory {
 
             this.ptr = GridUnsafe.allocateMemory(concLvl * PADDING);
             this.concLvl = concLvl;
-            this.rwLock = new OffheapReadWriteLock(this.concLvl);
+            this.rwLock = new OffheapReadWriteLock(2);
 
             zeroMemory(ptr, concLvl * PADDING);
         }
 
         void readLock() {
-            int idx = curIdx();
-
-            rwLock.readLock(ptr + (long) idx * PADDING, -1);
+            rwLock.readLock(ptr + curIdx() * PADDING, -1);
         }
 
         void readUnlock() {
-            int idx = curIdx();
-
-            rwLock.readUnlock(ptr + (long) idx * PADDING);
+            rwLock.readUnlock(ptr + curIdx() * PADDING);
         }
 
         void writeLock() {
-            for (int i = 0; i < concLvl; i++) {
-                rwLock.writeLock(ptr + (long) i * PADDING, -1);
+            for (long i = 0; i < concLvl; i++) {
+                rwLock.writeLock(ptr + i * PADDING, -1);
             }
 
             writeLockHolder = Thread.currentThread();
@@ -1413,16 +1409,16 @@ public class PersistentPageMemory implements PageMemory {
         void writeUnlock() {
             writeLockHolder = null;
 
-            for (int i = concLvl - 1; i >= 0; i--) {
-                rwLock.writeUnlock(ptr + (long) i * PADDING, -1);
+            for (long i = concLvl - 1; i >= 0; i--) {
+                rwLock.writeUnlock(ptr + i * PADDING, -1);
             }
         }
 
         int getReadHoldCount() {
             int count = 0;
 
-            for (int i = 0; i < concLvl; i++) {
-                count += rwLock.getReadHoldCount(ptr + (long) i * PADDING);
+            for (long i = 0; i < concLvl; i++) {
+                count += rwLock.getReadHoldCount(ptr + i * PADDING);
             }
 
             return count;
