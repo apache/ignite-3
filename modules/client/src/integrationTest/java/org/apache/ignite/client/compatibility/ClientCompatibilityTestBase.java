@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
@@ -85,6 +86,13 @@ public abstract class ClientCompatibilityTestBase {
     @Test
     public void testSqlColumnMeta() {
         createDefaultTables();
+
+        try (var cursor = client.sql().execute(null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
+            ResultSetMetadata meta = cursor.metadata();
+            assertNotNull(meta);
+
+            assertEquals(15, meta.columns().size());
+        }
     }
 
     private void createDefaultTables() {
