@@ -85,7 +85,7 @@ public abstract class ClientCompatibilityTestBase {
 
         try (var ignored = client.sql().execute(null,
                 "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
-                        "int INT, long BIGINT, float REAL, double DOUBLE, decimal DECIMAL, " +
-                        "string VARCHAR, uuid UUID, date DATE, time TIME, timestamp TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) { }
+                        "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL, " +
+                        "string VARCHAR, uuid UUID, dt DATE, tm TIME, ts TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) { }
     }
 }
