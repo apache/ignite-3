@@ -55,7 +55,6 @@ import org.apache.ignite.internal.sql.sqllogic.SqlLogicTestEnvironment.RestartMo
 import org.apache.ignite.internal.sql.sqllogic.SqlScriptRunner.RunnerRuntime;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
-import org.apache.ignite.internal.testframework.SystemPropertiesList;
 import org.apache.ignite.internal.testframework.TestIgnitionManager;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.testframework.WorkDirectory;
@@ -151,10 +150,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith({SystemPropertiesExtension.class, WorkDirectoryExtension.class, FailureManagerExtension.class})
 @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
 // The following is to make sure we unlock LWM on data nodes promptly so that dropped tables are destroyed fast.
-@SystemPropertiesList({
-        @WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000"),
-        @WithSystemProperty(key = "IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE", value = "100")
-})
+@WithSystemProperty(key = ResourceVacuumManager.RESOURCE_VACUUM_INTERVAL_MILLISECONDS_PROPERTY, value = "1000")
 @SqlLogicTestEnvironment(scriptsRoot = "src/integrationTest/sql/group1")
 // TODO: https://issues.apache.org/jira/browse/IGNITE-25191 - remove FailureManager logging mute.
 @MuteFailureManagerLogging
