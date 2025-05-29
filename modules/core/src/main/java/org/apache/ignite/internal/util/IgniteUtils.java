@@ -42,6 +42,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -217,6 +218,17 @@ public class IgniteUtils {
      */
     public static <K, V> HashMap<K, V> newHashMap(int expSize) {
         return new HashMap<>(capacity(expSize));
+    }
+
+    /**
+     * Creates new {@link HashSet} with expected size.
+     *
+     * @param expSize Expected size of the created set.
+     * @param <E> the type of elements maintained by this set.
+     * @return New map.
+     */
+    public static <E> HashSet<E> newHashSet(int expSize) {
+        return new HashSet<>(capacity(expSize));
     }
 
     /**
