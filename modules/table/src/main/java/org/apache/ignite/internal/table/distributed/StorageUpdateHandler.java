@@ -35,12 +35,9 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
-import org.apache.ignite.internal.storage.CommitResult;
-import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
@@ -306,7 +303,7 @@ public class StorageUpdateHandler {
                     // No more data => the write intent we have is actually the first version of this row
                     // and lastCommitTs is the commit timestamp of it.
                     // Action: commit this write intent.
-                    performCommitWriteWithCheckMatchingTxs(item.transactionId(), Set.of(rowId), lastCommitTs);
+                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
                     return;
                 }
                 // Otherwise there are other versions in the chain.
@@ -322,7 +319,7 @@ public class StorageUpdateHandler {
                 if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
                     // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
                     // Action: commit this write intent.
-                    performCommitWriteWithCheckMatchingTxs(item.transactionId(), Set.of(rowId), lastCommitTs);
+                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
                 } else {
                     // lastCommitTs == committedItem.commitTimestamp()
                     // So we see a write intent from a different transaction, which was not committed on primary.
@@ -330,7 +327,7 @@ public class StorageUpdateHandler {
                     // So if we got up to here, it means that the previous transaction was aborted,
                     // but the storage was not cleaned after it.
                     // Action: abort this write intent.
-                    performAbortWriteWithCheckMatchingTxs(item.transactionId(), Set.of(rowId), indexIds);
+                    performAbortWrite(item.transactionId(), Set.of(rowId), indexIds);
                 }
             }
         }
@@ -398,6 +395,7 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable List<Integer> indexIds
     ) {
+        // TODO: IGNITE-25506 Investigate why RowId may appear for which there will be no transaction match on commit or abort
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
@@ -411,9 +409,9 @@ public class StorageUpdateHandler {
                 pendingRowIds.forEach(locker::lock);
 
                 if (commit) {
-                    performCommitWriteWithCheckMatchingTxs(txId, pendingRowIds, commitTimestamp);
+                    performCommitWrite(txId, pendingRowIds, commitTimestamp);
                 } else {
-                    performAbortWriteWithCheckMatchingTxs(txId, pendingRowIds, indexIds);
+                    performAbortWrite(txId, pendingRowIds, indexIds);
                 }
 
                 if (onApplication != null) {
@@ -433,18 +431,11 @@ public class StorageUpdateHandler {
      * @param txId Transaction ID.
      * @param pendingRowIds Row IDs of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
-     * @throws TxIdMismatchException If commit of write intent is performed by a transaction that did not create it.
      */
-    private void performCommitWriteWithCheckMatchingTxs(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
+    private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
         assert commitTimestamp != null : "Commit timestamp is null: " + txId;
 
-        for (RowId rowId : pendingRowIds) {
-            CommitResult commitResult = storage.commitWrite(rowId, commitTimestamp, txId);
-
-            if (commitResult.status() == CommitResultStatus.TX_MISMATCH) {
-                throw new TxIdMismatchException(commitResult.expectedTxId(), txId);
-            }
-        }
+        pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
     }
 
     /**
@@ -455,14 +446,13 @@ public class StorageUpdateHandler {
      * @param txId Transaction ID.
      * @param pendingRowIds Row IDs of write-intents to be aborted.
      * @param indexIds IDs of indexes that will need to be updated, {@code null} for all indexes.
-     * @throws TxIdMismatchException If abort of write intent is performed by a transaction that did not create it.
      */
-    private void performAbortWriteWithCheckMatchingTxs(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
+    private void performAbortWrite(UUID txId, Set<RowId> pendingRowIds, @Nullable List<Integer> indexIds) {
         for (RowId rowId : pendingRowIds) {
             AbortResult abortResult = storage.abortWrite(rowId, txId);
 
             if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
-                throw new TxIdMismatchException(abortResult.expectedTxId(), txId);
+                continue;
             }
 
             if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
