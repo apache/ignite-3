@@ -463,7 +463,7 @@ public class StorageUpdateHandler {
                 throw new TxIdMismatchException(
                         commitResult.expectedTxId(),
                         txId,
-                        "rowId={}, commitTimestamp={}, pendingRowTxHistory={}, commitRowTxHistory",
+                        "[rowId={}, commitTimestamp={}, pendingRowTxHistory={}, commitRowTxHistory={}]",
                         rowId, commitTimestamp, pendingRows.pendingRowTxHistory(rowId), history.snapshotSorted()
                 );
             }
