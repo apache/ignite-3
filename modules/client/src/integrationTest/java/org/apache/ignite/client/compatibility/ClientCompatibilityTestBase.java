@@ -21,12 +21,15 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.QualifiedName;
 import org.apache.ignite.table.Table;
 import org.hamcrest.Matchers;
+import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -79,13 +82,42 @@ public abstract class ClientCompatibilityTestBase {
         assertThat(tableNames, Matchers.containsInAnyOrder(TABLE_NAME_TEST, TABLE_NAME_ALL_COLUMNS));
     }
 
-    private void createDefaultTables() {
-        try (var ignored1 = client.sql().execute(null,
-                "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) { }
+    @Test
+    public void testSqlColumnMeta() {
+        createDefaultTables();
+    }
 
-        try (var ignored = client.sql().execute(null,
-                "CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
-                        "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL, " +
-                        "string VARCHAR, uuid UUID, dt DATE, tm TIME, ts TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) { }
+    private void createDefaultTables() {
+        if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
+            sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
+        }
+
+
+        if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
+                "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL, " +
+                "string VARCHAR, uuid UUID, dt DATE, tm TIME, ts TIMESTAMP, bool BOOLEAN, bytes VARBINARY)")) {
+            sql("INSERT INTO " + TABLE_NAME_ALL_COLUMNS + " (id, byte, short, int, long, float, double, dec, " +
+                    "string, uuid, dt, tm, ts, bool, bytes) VALUES " +
+                    "(1, 1, 2, 3, 4, 5.0, 6.0, 7.0, 'test', '10000000-2000-3000-4000-500000000000'::UUID, " +
+                    "date '2023-01-01', time '12:00:00', timestamp '2023-01-01 12:00:00', true, X'01020304')");
+        }
+    }
+
+    private @Nullable List<SqlRow> sql(String sql) {
+        try (var cursor = client.sql().execute(null, sql)) {
+            if (cursor.hasRowSet()) {
+                List<SqlRow> rows = new ArrayList<>();
+                cursor.forEachRemaining(rows::add);
+                return rows;
+            } else {
+                return null;
+            }
+        }
+    }
+
+    private boolean ddl(String sql) {
+        try (var cursor = client.sql().execute(null, sql)) {
+            return cursor.wasApplied();
+        }
     }
 }
