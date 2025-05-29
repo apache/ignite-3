@@ -1370,7 +1370,7 @@ public class PersistentPageMemory implements PageMemory {
         private final long concLvl;
         private final long ptr;
 
-        private volatile Thread writeLockHolder;
+        private volatile @Nullable Thread writeLockHolder;
 
         private long curIdx() {
             int idx = IDX.get();
@@ -1380,11 +1380,11 @@ public class PersistentPageMemory implements PageMemory {
 
         private final OffheapReadWriteLock rwLock;
 
-        private StripedOffheapReadWriteLock(int concLvl) {
+        private StripedOffheapReadWriteLock(long concLvl) {
             assert isPow2(concLvl) : concLvl;
 
-            this.ptr = GridUnsafe.allocateMemory(concLvl * PADDING);
             this.concLvl = concLvl;
+            this.ptr = GridUnsafe.allocateMemory(concLvl * PADDING);
             this.rwLock = new OffheapReadWriteLock(2);
 
             zeroMemory(ptr, concLvl * PADDING);
@@ -1424,7 +1424,7 @@ public class PersistentPageMemory implements PageMemory {
             return count;
         }
 
-        boolean isWriteLockedByCurrentThread() {
+        public boolean isWriteLockedByCurrentThread() {
             return Thread.currentThread() == writeLockHolder;
         }
     }
