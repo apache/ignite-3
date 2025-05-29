@@ -55,7 +55,7 @@ public class TxIdMismatchException extends IgniteException {
                 "Mismatched transaction id",
                 "expectedTxId", expectedTxId, false,
                 "actualTxId", conflictingTxId, false,
-                "additionInfo", IgniteStringFormatter.format(messageSuffixPattern, params)
+                "additionInfo", IgniteStringFormatter.format(messageSuffixPattern, params), false
         ));
 
         expectedTransactionId = expectedTxId;
