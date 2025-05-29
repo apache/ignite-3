@@ -1308,7 +1308,8 @@ public class ItRebalanceDistributedTest extends BaseIgniteAbstractTest {
                     new NodeAttributesCollector(nodeAttributes, storageConfiguration),
                     failureManager,
                     clusterIdService,
-                    cmgRaftConfigurer
+                    cmgRaftConfigurer,
+                    metricManager
             );
 
             LogicalTopologyServiceImpl logicalTopologyService = new LogicalTopologyServiceImpl(logicalTopology, cmgManager);

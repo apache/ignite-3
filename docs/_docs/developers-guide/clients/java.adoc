@@ -123,7 +123,7 @@ After that, client metrics will be available to any Java monitoring tool, for ex
 |BytesReceived|The amount of bytes received.
 |StreamerBatchesSent|The number of data streamer batches sent.
 |StreamerItemsSent|The number of data streamer items sent.
-|StreamerBatchesActive|The number of existing data streamer batches.
+|StreamerBatchesActive|The number of in-flight data streamer batches.
 |StreamerItemsQueued|The number of queued data streamer items.
 
 |=======================================================================
