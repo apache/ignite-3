@@ -23,9 +23,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
@@ -47,7 +49,9 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     public void testClusterNodes() {
-        assertThat(client.clusterNodes(), Matchers.hasSize(1));
+        Collection<ClusterNode> nodes = client.clusterNodes();
+        assertThat(nodes, Matchers.hasSize(1));
+        assertEquals("defaultNode", nodes.iterator().next().name());
     }
 
     @Test
@@ -111,6 +115,26 @@ public abstract class ClientCompatibilityTestBase {
             assertThat(cols.get(13).toString(), containsString("name=BOOL, type=BOOLEAN, precision=1"));
             assertThat(cols.get(14).toString(), containsString("name=BYTES, type=BYTE_ARRAY, precision=65536"));
         }
+    }
+
+    @Test
+    public void testRecordView() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testTx() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testCompute() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testStreamer() {
+        assert false : "TODO";
     }
 
     private void createDefaultTables() {
