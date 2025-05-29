@@ -20,12 +20,17 @@ package org.apache.ignite.internal.table.distributed;
 import static org.apache.ignite.internal.util.CollectionUtils.nullOrEmpty;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Queue;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
@@ -35,12 +40,16 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
+import org.apache.ignite.internal.storage.CommitResult;
+import org.apache.ignite.internal.storage.CommitResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /** Handler for storage updates that can be performed on processing of primary replica requests and partition replication requests. */
@@ -59,6 +68,8 @@ public class StorageUpdateHandler {
 
     /** Replication configuration. */
     private final ReplicationConfiguration replicationConfiguration;
+
+    private final Map<RowId, RowIdTxCommitHistory> commitTxHistoryByRowId = new ConcurrentHashMap<>();
 
     /**
      * The constructor.
@@ -303,7 +314,7 @@ public class StorageUpdateHandler {
                     // No more data => the write intent we have is actually the first version of this row
                     // and lastCommitTs is the commit timestamp of it.
                     // Action: commit this write intent.
-                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
+                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs, "cleanup_0");
                     return;
                 }
                 // Otherwise there are other versions in the chain.
@@ -319,7 +330,7 @@ public class StorageUpdateHandler {
                 if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
                     // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
                     // Action: commit this write intent.
-                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
+                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs, "cleanup_1");
                 } else {
                     // lastCommitTs == committedItem.commitTimestamp()
                     // So we see a write intent from a different transaction, which was not committed on primary.
@@ -409,7 +420,7 @@ public class StorageUpdateHandler {
                 pendingRowIds.forEach(locker::lock);
 
                 if (commit) {
-                    performCommitWrite(txId, pendingRowIds, commitTimestamp);
+                    performCommitWrite(txId, pendingRowIds, commitTimestamp, "switch");
                 } else {
                     performAbortWrite(txId, pendingRowIds, indexIds);
                 }
@@ -432,10 +443,31 @@ public class StorageUpdateHandler {
      * @param pendingRowIds Row IDs of write-intents to be committed.
      * @param commitTimestamp Commit timestamp.
      */
-    private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp) {
+    private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp, String place) {
         assert commitTimestamp != null : "Commit timestamp is null: " + txId;
 
-        pendingRowIds.forEach(rowId -> storage.commitWrite(rowId, commitTimestamp, txId));
+        for (RowId rowId : pendingRowIds) {
+            RowIdTxCommitHistory history = commitTxHistoryByRowId.compute(rowId, (rowId1, rowIdTxCommitHistory) -> {
+                if (rowIdTxCommitHistory == null) {
+                    rowIdTxCommitHistory = new RowIdTxCommitHistory();
+                }
+
+                rowIdTxCommitHistory.queue.add(new RowIdTxCommitHistoryItem(txId, commitTimestamp, place));
+
+                return rowIdTxCommitHistory;
+            });
+
+            CommitResult commitResult = storage.commitWrite(rowId, commitTimestamp, txId);
+
+            if (commitResult.status() == CommitResultStatus.TX_MISMATCH) {
+                throw new TxIdMismatchException(
+                        commitResult.expectedTxId(),
+                        txId,
+                        "rowId={}, commitTimestamp={}, pendingRowTxHistory={}, commitRowTxHistory",
+                        rowId, commitTimestamp, pendingRows.pendingRowTxHistory(rowId), history.snapshotSorted()
+                );
+            }
+        }
     }
 
     /**
@@ -452,7 +484,7 @@ public class StorageUpdateHandler {
             AbortResult abortResult = storage.abortWrite(rowId, txId);
 
             if (abortResult.status() == AbortResultStatus.TX_MISMATCH) {
-                continue;
+                throw new TxIdMismatchException(abortResult.expectedTxId(), txId);
             }
 
             if (abortResult.status() != AbortResultStatus.SUCCESS || abortResult.previousWriteIntent() == null) {
@@ -463,7 +495,7 @@ public class StorageUpdateHandler {
                 indexUpdateHandler.tryRemoveFromIndexes(
                         abortResult.previousWriteIntent(),
                         rowId,
-                        storage.scanVersions(rowId),
+                        cursor,
                         indexIds
                 );
             }
@@ -473,5 +505,54 @@ public class StorageUpdateHandler {
     /** Returns partition index update handler. */
     public IndexUpdateHandler getIndexUpdateHandler() {
         return indexUpdateHandler;
+    }
+
+    /** No doc. */
+    private static final class RowIdTxCommitHistory {
+        private final Queue<RowIdTxCommitHistoryItem> queue = new ConcurrentLinkedQueue<>();
+
+        private Collection<RowIdTxCommitHistoryItem> snapshotSorted() {
+            var res = new ArrayList<>(queue);
+
+            res.sort(Comparator.comparing(i -> i.commitTimestamp));
+
+            return res;
+        }
+    }
+
+    /** No doc. */
+    private static final class RowIdTxCommitHistoryItem {
+        private final UUID txId;
+
+        private final HybridTimestamp commitTimestamp;
+
+        private final String place;
+
+        private final long coarseTimeMillis;
+
+        private final long nanoTime;
+
+        private RowIdTxCommitHistoryItem(UUID txId, long coarseTimeMillis, long nanoTime, HybridTimestamp commitTimestamp, String place) {
+            this.txId = txId;
+            this.coarseTimeMillis = coarseTimeMillis;
+            this.nanoTime = nanoTime;
+            this.commitTimestamp = commitTimestamp;
+            this.place = place;
+        }
+
+        private RowIdTxCommitHistoryItem(UUID txId, HybridTimestamp commitTimestamp, String place) {
+            this(txId, FastTimestamps.coarseCurrentTimeMillis(), System.nanoTime(), commitTimestamp, place);
+        }
+
+        @Override
+        public String toString() {
+            return "["
+                    + "txId=" + txId
+                    + ", coarseTimeMillis=" + coarseTimeMillis
+                    + ", nanoTime=" + nanoTime
+                    + ", commitTimestamp=" + commitTimestamp
+                    + ", place='" + place + '\''
+                    + ']';
+        }
     }
 }

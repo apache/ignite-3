@@ -17,15 +17,20 @@
 
 package org.apache.ignite.internal.table.distributed.replicator;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.util.FastTimestamps;
 
 /**
  * A container for rows that were inserted, updated or removed.
@@ -38,6 +43,8 @@ public class PendingRows {
     /** Rows that were inserted, updated or removed. All row IDs are sorted in natural order to prevent deadlocks upon commit/abort. */
     private final Map<UUID, SortedSet<RowId>> txsPendingRowIds = new ConcurrentHashMap<>();
 
+    private final Map<RowId, PendingRowTxHistory> txHistoryByRowId = new ConcurrentHashMap<>();
+
     /**
      * Adds row ID to the collection of pending rows.
      *
@@ -45,16 +52,7 @@ public class PendingRows {
      * @param rowId Row ID.
      */
     public void addPendingRowId(UUID txId, RowId rowId) {
-        // We are not using computeIfAbsent here because we want the lambda to be executed atomically.
-        txsPendingRowIds.compute(txId, (k, v) -> {
-            if (v == null) {
-                v = new TreeSet<>();
-            }
-
-            v.add(rowId);
-
-            return v;
-        });
+        addPendingRowIds(txId, List.of(rowId));
     }
 
     /**
@@ -64,6 +62,8 @@ public class PendingRows {
      * @param rowIds Row IDs.
      */
     public void addPendingRowIds(UUID txId, Collection<RowId> rowIds) {
+        var historyItem = new PendingRowTxHistoryItem(txId);
+
         // We are not using computeIfAbsent here because we want the lambda to be executed atomically.
         txsPendingRowIds.compute(txId, (k, v) -> {
             if (v == null) {
@@ -74,6 +74,18 @@ public class PendingRows {
 
             return v;
         });
+
+        for (RowId rowId : rowIds) {
+            txHistoryByRowId.compute(rowId, (rowId1, pendingRowTxHistory) -> {
+                if (pendingRowTxHistory == null) {
+                    pendingRowTxHistory = new PendingRowTxHistory();
+                }
+
+                pendingRowTxHistory.queue.add(historyItem);
+
+                return pendingRowTxHistory;
+            });
+        }
     }
 
     /**
@@ -88,4 +100,52 @@ public class PendingRows {
         return pendingRows == null ? EMPTY_SET : pendingRows;
     }
 
+    /** No doc. */
+    public Collection<PendingRowTxHistoryItem> pendingRowTxHistory(RowId rowId) {
+        PendingRowTxHistory history = txHistoryByRowId.get(rowId);
+
+        return history == null ? List.of() : history.snapshotSorted();
+    }
+
+    /** No doc. */
+    private static final class PendingRowTxHistory {
+        private final Collection<PendingRowTxHistoryItem> queue = new ConcurrentLinkedQueue<>();
+
+        /** No doc. */
+        private Collection<PendingRowTxHistoryItem> snapshotSorted() {
+            var res = new ArrayList<>(queue);
+
+            res.sort(Comparator.comparing(i -> i.coarseTimeMillis));
+
+            return Collections.unmodifiableCollection(res);
+        }
+    }
+
+    /** No doc. */
+    public static final class PendingRowTxHistoryItem {
+        private final long coarseTimeMillis;
+
+        private final long nanoTime;
+
+        private final UUID txId;
+
+        private PendingRowTxHistoryItem(long time, long nanoTime, UUID txId) {
+            this.coarseTimeMillis = time;
+            this.nanoTime = nanoTime;
+            this.txId = txId;
+        }
+
+        private PendingRowTxHistoryItem(UUID txId) {
+            this(FastTimestamps.coarseCurrentTimeMillis(), System.nanoTime(), txId);
+        }
+
+        @Override
+        public String toString() {
+            return "["
+                    + "txId=" + txId
+                    + ", coarseTimeMillis=" + coarseTimeMillis
+                    + ", nanoTime=" + nanoTime
+                    + ']';
+        }
+    }
 }
