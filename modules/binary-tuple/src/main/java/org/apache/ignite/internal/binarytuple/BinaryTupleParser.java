@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
+import java.util.function.Function;
 import org.apache.ignite.internal.util.ByteUtils;
 import org.apache.ignite.internal.util.GridUnsafe;
 
@@ -76,18 +77,28 @@ public class BinaryTupleParser {
     protected final ByteBuffer buffer;
 
     /**
+     * This constructor uses a default `PlainByteBufferAccessor` for accessing the buffer.
+     *
+     * @param numElements The number of elements in the binary tuple.
+     * @param buffer The `ByteBuffer` containing the binary tuple data.
+     */
+    public BinaryTupleParser(int numElements, ByteBuffer buffer) {
+        this(numElements, buffer, PlainByteBufferAccessor::new);
+    }
+
+    /**
      * Constructor.
      *
      * @param numElements Number of tuple elements.
      * @param buffer Buffer with a binary tuple.
      */
-    public BinaryTupleParser(int numElements, ByteBuffer buffer) {
+    public BinaryTupleParser(int numElements, ByteBuffer buffer, Function<ByteBuffer, ByteBufferAccessor> byteBufferAccessorFactory) {
         this.numElements = numElements;
 
         assert buffer.order() == ORDER : "Buffer order must be LITTLE_ENDIAN, actual: " + buffer.order();
         assert buffer.position() == 0 : "Buffer position must be 0, actual: " + buffer.position();
         this.buffer = buffer;
-        byteBufferAccessor = new ByteBufferAccessor(buffer);
+        byteBufferAccessor = byteBufferAccessorFactory.apply(buffer);
 
         byte flags = byteBufferAccessor.get(0);
 
@@ -658,107 +669,49 @@ public class BinaryTupleParser {
     }
 
     /**
-     * An interface for accessing a byte buffer with methods to read various data types
-     * at specific positions. This interface abstracts the underlying implementation
-     * for handling data in either direct or heap-based byte buffers.
+     * A plain implementation of the `ByteBufferAccessor` interface.
+     * This class provides methods to access various data types from a `ByteBuffer`.
      */
-    public static class ByteBufferAccessor {
-        private final byte[] bytes;
-        private final long addr;
-        private final int capacity;
+    private static class PlainByteBufferAccessor implements ByteBufferAccessor {
+        private final ByteBuffer buffer;
 
-        ByteBufferAccessor(ByteBuffer buff) {
-            if (buff.isDirect()) {
-                bytes = null;
-                addr = GridUnsafe.bufferAddress(buff);
-            } else {
-                bytes = buff.array();
-                addr = GridUnsafe.BYTE_ARR_OFF + buff.arrayOffset();
-            }
-
-            capacity = buff.capacity();
+        PlainByteBufferAccessor(ByteBuffer buffer) {
+            this.buffer = buffer;
         }
 
-        /**
-         * Retrieves the byte value from the underlying byte buffer at the specified index.
-         *
-         * @param p the index in the underlying byte buffer to retrieve the byte from.
-         * @return the byte value located at the specified index in the byte buffer.
-         */
-        public byte get(int p) {
-            return GridUnsafe.getByte(bytes, addr + p);
+        @Override
+        public byte get(int index) {
+            return buffer.get(index);
         }
 
-        /**
-         * Reads a 32-bit integer value from the underlying byte buffer at the specified index.
-         *
-         * @param p the index in the underlying byte buffer to start reading the 32-bit integer value from.
-         * @return the 32-bit integer value located at the specified index in the byte buffer.
-         */
-        public int getInt(int p) {
-            int value = GridUnsafe.getInt(bytes, addr + p);
-
-            return REVERSE_BYTE_ORDER ? Integer.reverseBytes(value) : value;
+        @Override
+        public short getShort(int index) {
+            return buffer.getShort(index);
         }
 
-        /**
-         * Reads a 64-bit long value from the underlying byte buffer at the specified index.
-         *
-         * @param p the index in the underlying byte buffer to start reading the 64-bit long value from.
-         * @return the 64-bit long value located at the specified index in the byte buffer.
-         */
-        public long getLong(int p) {
-            long value = GridUnsafe.getLong(bytes, addr + p);
-
-            return REVERSE_BYTE_ORDER ? Long.reverseBytes(value) : value;
+        @Override
+        public int getInt(int index) {
+            return buffer.getInt(index);
         }
 
-        /**
-         * Reads a 16-bit short value from the underlying byte buffer at the specified index.
-         *
-         * @param p the index in the underlying byte buffer to start reading the 16-bit short value from.
-         * @return the 16-bit short value located at the specified index in the byte buffer.
-         */
-        public short getShort(int p) {
-            short value = GridUnsafe.getShort(bytes, addr + p);
-
-            return REVERSE_BYTE_ORDER ? Short.reverseBytes(value) : value;
+        @Override
+        public long getLong(int index) {
+            return buffer.getLong(index);
         }
 
-        /**
-         * Reads a 32-bit floating-point value from the underlying byte buffer at the specified index.
-         *
-         * @param p the index in the underlying byte buffer to start reading the 32-bit floating-point value from.
-         * @return the 32-bit floating-point value located at the specified index in the byte buffer.
-         */
-        public float getFloat(int p) {
-            float value = GridUnsafe.getFloat(bytes, addr + p);
-
-            return REVERSE_BYTE_ORDER ? Float.intBitsToFloat(Integer.reverseBytes(Float.floatToIntBits(value))) : value;
+        @Override
+        public float getFloat(int index) {
+            return buffer.getFloat(index);
         }
 
-        /**
-         * Reads a 64-bit double-precision floating-point value from the underlying
-         * byte buffer at the specified index.
-         *
-         * @param p the index in the underlying byte buffer to start reading the
-         *          64-bit double-precision floating-point value from.
-         * @return the 64-bit double-precision floating-point value located at
-         *         the specified index in the byte buffer.
-         */
-        public double getDouble(int p) {
-            double value = GridUnsafe.getDouble(bytes, addr + p);
-
-            return REVERSE_BYTE_ORDER ? Double.longBitsToDouble(Long.reverseBytes(Double.doubleToLongBits(value))) : value;
+        @Override
+        public double getDouble(int index) {
+            return buffer.getDouble(index);
         }
 
-        /**
-         * Returns the capacity of the underlying byte buffer, representing the total number of bytes it can hold.
-         *
-         * @return the total capacity of the byte buffer.
-         */
+        @Override
         public int capacity() {
-            return capacity;
+            return buffer.capacity();
         }
     }
 }
