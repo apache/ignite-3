@@ -1388,6 +1388,10 @@ public class PersistentPageMemory implements PageMemory {
             this.rwLock = new OffheapReadWriteLock(1);
 
             zeroMemory(ptr, concLvl * PADDING);
+
+            for (long i = 0; i < concLvl; i++) {
+                rwLock.init(ptr + i * PADDING, 1);
+            }
         }
 
         void readLock() {
