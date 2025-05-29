@@ -156,7 +156,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     @Override
     public CompletableFuture<Void> dropTableAsync(TableDefinition definition) {
         return new DropTableImpl(sql)
-                .name(definition.schemaName(), definition.tableName())
+                .name(definition.qualifiedName())
                 .ifExists()
                 .executeAsync()
                 .thenApply(unused -> null);
@@ -165,7 +165,7 @@ public class IgniteCatalogSqlImpl implements IgniteCatalog {
     @Override
     public CompletableFuture<Void> dropTableAsync(QualifiedName name) {
         return new DropTableImpl(sql)
-                .name(name.schemaName(), name.objectName())
+                .name(name)
                 .ifExists()
                 .executeAsync()
                 .thenApply(unused -> null);

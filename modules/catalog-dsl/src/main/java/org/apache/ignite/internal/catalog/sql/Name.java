@@ -17,16 +17,17 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import org.apache.ignite.lang.util.IgniteNameUtils;
+import org.apache.ignite.table.QualifiedName;
 
 /**
  * SQL identifier.
  */
 class Name extends QueryPart {
     private final List<String> names;
+
+    private final QualifiedName qualifiedName;
 
     /**
      * Creates a simple name.
@@ -39,35 +40,18 @@ class Name extends QueryPart {
     }
 
     /**
-     * Creates a compound name (e.g. {@code my_schema.my_table} or {@code my_table}). Accepts both simple and compound names.
+     * Creates a name from a qualified name.
      *
-     * @param names Array of names.
+     * @param qualifiedName Qualified name.
      * @return Name.
      */
-    static Name compound(String... names) {
-        List<String> parts = new ArrayList<>(2);
+    static Name qualified(QualifiedName qualifiedName) {
+        return new Name(qualifiedName);
+    }
 
-        if (names.length == 0) {
-            throw new IllegalArgumentException("Names can not be empty");
-        } else if (names.length == 1) {
-            return new Name(Arrays.asList(names));
-        } else {
-            boolean canSkipEmpty = true;
-            for (String part : names) {
-                if (part == null || part.isEmpty()) {
-                    if (canSkipEmpty) {
-                        canSkipEmpty = false;
-                        continue;
-                    }
-                } else {
-                    // Do not allow non-leading elements to be empty
-                    canSkipEmpty = false;
-                }
-                parts.add(part);
-            }
-
-            return new Name(parts);
-        }
+    private Name(QualifiedName qualifiedName) {
+        this.qualifiedName = qualifiedName;
+        this.names = null;
     }
 
     private Name(List<String> names) {
@@ -76,27 +60,34 @@ class Name extends QueryPart {
                 throw new IllegalArgumentException("Name parts can not be null or empty: " + names);
             }
         }
+        this.qualifiedName = null;
         this.names = names;
     }
 
     @Override
     protected void accept(QueryContext ctx) {
-        String separator = "";
-        for (String name : names) {
-            // If a name is quoted, we must preserve case sensitivity -> write it as is
-            // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name, write it in uppercase for consistency.
-            // Otherwise we must quote it.
-            if (name.startsWith("\"")) {
-                ctx.sql(separator).sql(name);
-            } else  {
-                String upperCase = name.toUpperCase();
-                if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
-                    ctx.sql(separator).sql(upperCase);
+        if (qualifiedName != null) {
+            ctx.sql(qualifiedName.toCanonicalForm());
+        } else {
+            assert names != null : "Names must be specified";
+
+            String separator = "";
+            for (String name : names) {
+                // If a name is quoted, we must preserve case sensitivity -> write it as is
+                // If a name UPPER(name) is a valid normalized id, then this is a case insensitive name,
+                // write it in uppercase for consistency. Otherwise we must quote it.
+                if (name.startsWith("\"")) {
+                    ctx.sql(separator).sql(name);
                 } else {
-                    ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
+                    String upperCase = name.toUpperCase();
+                    if (IgniteNameUtils.isValidNormalizedIdentifier(upperCase)) {
+                        ctx.sql(separator).sql(upperCase);
+                    } else {
+                        ctx.sql(separator).sql(IgniteNameUtils.quoteIfNeeded(name));
+                    }
                 }
+                separator = ".";
             }
-            separator = ".";
         }
     }
 }
