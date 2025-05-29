@@ -57,7 +57,7 @@ class ItMulticastNodeFinderTest extends IgniteAbstractTest {
     private final ClusterIdSupplier clusterIdSupplier = new ConstantClusterIdSupplier(UUID.randomUUID());
 
     /** Created {@link ClusterService}s. Needed for resource management. */
-    private List<ClusterService> services = new ArrayList<>();
+    private final List<ClusterService> services = new ArrayList<>();
     /** Created {@link NodeFinder}s. Needed for resource management. */
     private final List<NodeFinder> finders = new ArrayList<>();
 
