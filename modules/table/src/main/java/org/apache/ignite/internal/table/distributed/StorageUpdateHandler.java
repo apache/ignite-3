@@ -463,7 +463,7 @@ public class StorageUpdateHandler {
                 indexUpdateHandler.tryRemoveFromIndexes(
                         abortResult.previousWriteIntent(),
                         rowId,
-                        storage.scanVersions(rowId),
+                        cursor,
                         indexIds
                 );
             }
