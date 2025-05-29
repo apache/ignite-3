@@ -446,13 +446,15 @@ public class StorageUpdateHandler {
     private void performCommitWrite(UUID txId, Set<RowId> pendingRowIds, HybridTimestamp commitTimestamp, String place) {
         assert commitTimestamp != null : "Commit timestamp is null: " + txId;
 
+        var historyItem = new RowIdTxCommitHistoryItem(txId, commitTimestamp, place);
+
         for (RowId rowId : pendingRowIds) {
             RowIdTxCommitHistory history = commitTxHistoryByRowId.compute(rowId, (rowId1, rowIdTxCommitHistory) -> {
                 if (rowIdTxCommitHistory == null) {
                     rowIdTxCommitHistory = new RowIdTxCommitHistory();
                 }
 
-                rowIdTxCommitHistory.queue.add(new RowIdTxCommitHistoryItem(txId, commitTimestamp, place));
+                rowIdTxCommitHistory.queue.add(historyItem);
 
                 return rowIdTxCommitHistory;
             });
