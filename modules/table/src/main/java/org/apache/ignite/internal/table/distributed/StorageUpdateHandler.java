@@ -514,7 +514,7 @@ public class StorageUpdateHandler {
         private Collection<RowIdTxCommitHistoryItem> snapshotSorted() {
             var res = new ArrayList<>(queue);
 
-            res.sort(Comparator.comparing(i -> i.commitTimestamp));
+            res.sort(Comparator.comparing(i -> i.coarseTimeMillis));
 
             return res;
         }
