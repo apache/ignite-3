@@ -25,9 +25,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.function.Supplier;
+import javax.management.InstanceAlreadyExistsException;
 import javax.management.JMException;
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.metrics.MetricProvider;
@@ -126,8 +128,14 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
             mbeans.add(mbean);
         } catch (JMException e) {
-            log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
+            if (!(e instanceof InstanceAlreadyExistsException) || !ignoreDuplicateJmsMbeansError()) {
+                log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
+            }
         }
+    }
+
+    private static boolean ignoreDuplicateJmsMbeansError() {
+        return IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNORE_DUPLICATE_JMX_MBEANS_ERROR, false);
     }
 
     /**
