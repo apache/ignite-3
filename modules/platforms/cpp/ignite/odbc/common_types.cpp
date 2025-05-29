@@ -218,7 +218,7 @@ sql_state error_code_to_sql_state(error::code code) {
         case error::code::REPLICA_UNAVAILABLE:
         case error::code::REPLICA_MISS:
         case error::code::REPLICA_STOPPING:
-        case error::code::GROUP_OVERLOADED_ERR:
+        case error::code::GROUP_OVERLOADED:
             return sql_state::SHY000_GENERAL_ERROR;
 
         // Storage group. Group code: 9
