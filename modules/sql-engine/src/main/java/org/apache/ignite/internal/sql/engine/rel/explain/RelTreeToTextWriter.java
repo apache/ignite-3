@@ -38,6 +38,7 @@ import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.rel.core.CorrelationId;
 import org.apache.calcite.rel.core.JoinRelType;
+import org.apache.calcite.rel.core.SetOp;
 import org.apache.calcite.rel.core.TableModify;
 import org.apache.calcite.rel.metadata.RelMetadataQuery;
 import org.apache.calcite.rel.type.RelDataType;
@@ -66,14 +67,21 @@ class RelTreeToTextWriter {
             return true;
         }
 
-        // At the moment there are no relations having more than one input and rebuilding a row.
-        // No need to add field names in this case.
-        //noinspection SimplifiableIfStatement
-        if (inputs.size() != 1) {
+        // Set operations doesn't change the row.
+        if (rel instanceof SetOp) {
             return false;
         }
 
-        return !rel.getRowType().getFieldNames().equals(rel.getInputs().get(0).getRowType().getFieldNames());
+        assert inputs.size() == 1 || inputs.size() == 2;
+
+        List<String> inputNames = new ArrayList<>(inputs.get(0).getRowType().getFieldNames());
+
+        // Join might do rename when both side contains the column with the same name.
+        if (inputs.size() == 2) {
+            inputNames.addAll(inputs.get(1).getRowType().getFieldNames());
+        }
+
+        return !rel.getRowType().getFieldNames().equals(inputNames);
     }
 
     private static RelInfoHolder collectRelInfo(IgniteRel rel) {
