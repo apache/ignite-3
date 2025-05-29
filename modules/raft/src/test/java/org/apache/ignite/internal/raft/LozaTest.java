@@ -98,7 +98,7 @@ public class LozaTest extends IgniteAbstractTest {
                         RaftGroupOptions.defaults()
                 )
         );
-        assertThrows(NodeStoppingException.class, () -> loza.startRaftGroupService(raftGroupId, configuration));
+        assertThrows(NodeStoppingException.class, () -> loza.startRaftGroupService(raftGroupId, configuration, false));
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftNode(new RaftNodeId(raftGroupId, serverPeer)));
         assertThrows(NodeStoppingException.class, () -> loza.stopRaftNodes(raftGroupId));
     }

@@ -29,8 +29,8 @@ import com.lmax.disruptor.YieldingWaitStrategy;
 import com.lmax.disruptor.dsl.Disruptor;
 import com.lmax.disruptor.dsl.ProducerType;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Collections;import java.util.HashMap;
+import java.util.List;import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -177,6 +177,18 @@ public class StripedDisruptor<T extends NodeIdAware> {
             queues[i] = disruptor.start();
             disruptors[i] = disruptor;
         }
+    }
+
+    public long pendingCount() {
+        List<Long> l = new ArrayList<>();
+        for (RingBuffer rb : queues) {
+            long cursor = rb.getCursor();
+            long minConsumer = rb.getMinimumGatingSequence();
+            long pending = cursor - minConsumer;
+            l.add(pending);
+        }
+        Collections.sort(l);
+        return l.get(l.size() / 2);
     }
 
     /**

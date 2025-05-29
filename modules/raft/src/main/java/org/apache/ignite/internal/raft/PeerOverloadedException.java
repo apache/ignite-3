@@ -21,10 +21,10 @@ import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR
 
 import org.apache.ignite.lang.IgniteException;
 
-public class GroupOverloadedException extends IgniteException {
+public class PeerOverloadedException extends IgniteException {
     private static final long serialVersionUID = 2369606399873450609L;
 
-    public GroupOverloadedException(String groupId) {
-        super(GROUP_OVERLOADED_ERR, "Replication group overloaded, the request may be retried later [groupId=" + groupId + "].");
+    public PeerOverloadedException(String groupId, Peer peer) {
+        super(GROUP_OVERLOADED_ERR, "Peer is overloaded, the request may be retried later [groupId=" + groupId + "].");
     }
 }

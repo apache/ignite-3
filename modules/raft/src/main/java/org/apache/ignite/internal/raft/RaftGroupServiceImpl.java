@@ -17,11 +17,10 @@
 
 package org.apache.ignite.internal.raft;
 
-import static java.lang.Math.max;
-import static java.lang.Math.min;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -45,6 +44,7 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
+import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -56,8 +56,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.lang.IgniteInternalException;
@@ -72,7 +70,6 @@ import org.apache.ignite.internal.raft.service.LeaderWithTerm;
 import org.apache.ignite.internal.raft.service.RaftGroupService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.util.IgniteSpinBusyLock;
-import org.apache.ignite.internal.util.SlidingAverageValueTracker;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.RaftMessagesFactory;
 import org.apache.ignite.raft.jraft.entity.PeerId;
@@ -98,8 +95,6 @@ import org.jetbrains.annotations.Nullable;
 public class RaftGroupServiceImpl implements RaftGroupService {
     /** The logger. */
     private static final IgniteLogger LOG = Loggers.forClass(RaftGroupServiceImpl.class);
-
-    private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
 
     private final String groupId;
 
@@ -133,13 +128,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private static final Supplier<String> NO_DESCRIPTION = () -> null;
 
-    private final SlidingAverageValueTracker averageValueTracker = new SlidingAverageValueTracker(100, 1000, AVERAGE_VALUE_TRACKER_DEFAULT);
-
-    private final AtomicInteger currentInFlights = new AtomicInteger();
-
-    private final double maxInflightOverflowRate = 1.0;
-
-    private AtomicLong adaptiveResponseTimeoutMillis = new AtomicLong();
+    private final ThrottlingContextHolder throttlingContextHolder;
 
     /**
      * Constructor.
@@ -162,7 +151,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             @Nullable Peer leader,
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
@@ -175,6 +165,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.executor = executor;
         this.commandsMarshaller = commandsMarshaller;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
+        this.throttlingContextHolder = throttlingContextHolder;
     }
 
     /**
@@ -195,7 +186,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
             ScheduledExecutorService executor,
-            Marshaller commandsMarshaller
+            Marshaller commandsMarshaller,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         return start(
                 groupId,
@@ -205,7 +197,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 membersConfiguration,
                 executor,
                 commandsMarshaller,
-                StoppingExceptionFactories.indicateComponentStop()
+                StoppingExceptionFactories.indicateComponentStop(),
+                throttlingContextHolder
         );
     }
 
@@ -229,7 +222,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             PeersAndLearners membersConfiguration,
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
 
@@ -244,7 +238,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     null,
                     executor,
                     commandsMarshaller,
-                    stoppingExceptionFactory
+                    stoppingExceptionFactory,
+                    throttlingContextHolder
             ) {
                 @Override
                 public <R> CompletableFuture<R> run(Command cmd) {
@@ -261,7 +256,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     null,
                     executor,
                     commandsMarshaller,
-                    stoppingExceptionFactory
+                    stoppingExceptionFactory,
+                    throttlingContextHolder
             );
         }
 
@@ -609,8 +605,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
     ) {
         var future = new CompletableFuture<R>();
 
-        if (currentInFlights.get() >= computeMaxInFlights() * maxInflightOverflowRate) {
-            future.completeExceptionally(new GroupOverloadedException(groupId));
+        if (throttlingContextHolder.isOverloaded(peer)) {
+            future.completeExceptionally(new PeerOverloadedException(groupId, peer));
 
             return future;
         }
@@ -646,11 +642,12 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 return;
             }
 
-            currentInFlights.incrementAndGet();
+            throttlingContextHolder.beforeRequest(retryContext.targetPeer());
+            long responseTimeout = throttlingContextHolder.peerRequestTimeoutMillis(retryContext.targetPeer());
 
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
-                            .invoke(node, retryContext.request(), adaptiveResponseTimeoutMillis.get()))
+                            .invoke(node, retryContext.request(), responseTimeout))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
@@ -661,11 +658,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     err == null ? null : err.getMessage());
                         }
 
-                        currentInFlights.decrementAndGet();
-
-                        long duration = currentTimeMillis() - requestStartTime;
-                        averageValueTracker.record(duration);
-                        adaptRequestTimeout();
+                        throttlingContextHolder.afterRequest(retryContext.targetPeer(), requestStartTime, err);
 
                         try {
                             if (err != null) {
@@ -689,27 +682,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     });
         } finally {
             busyLock.leaveBusy();
-        }
-    }
-
-    private int computeMaxInFlights() {
-        double avg = averageValueTracker.avg();
-
-        return avg == AVERAGE_VALUE_TRACKER_DEFAULT
-                ? Integer.MAX_VALUE
-                : (int) max(adaptiveResponseTimeoutMillis.get() / avg, 1.0);
-    }
-
-    private void adaptRequestTimeout() {
-        double avg = averageValueTracker.avg();
-        long r = adaptiveResponseTimeoutMillis.get();
-        long defaultResponseTimeout = configuration.responseTimeoutMillis().value();
-        long retryTimeout = configuration.retryTimeoutMillis().value();
-
-        if (avg < r / 2 && r > configuration.responseTimeoutMillis().value()) {
-            adaptiveResponseTimeoutMillis.compareAndSet(r, max(defaultResponseTimeout, r - 1000));
-        } else if (avg >= r && r < retryTimeout) {
-            adaptiveResponseTimeoutMillis.compareAndSet(r, min(retryTimeout, r + 1000));
         }
     }
 
@@ -752,6 +724,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             );
         }
 
+        if (err instanceof TimeoutException) {
+            LOG.info("qqq timeout, peer={}, timeout={}", retryContext.targetPeer(),
+                    ((ThrottlingContextHolderImpl)throttlingContextHolder).adaptiveResponseTimeoutMillis(retryContext.targetPeer()));
+        }
+
         String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " threw " + err.getClass().getSimpleName();
         scheduleRetry(fut, retryContext.nextAttempt(randomPeer, shortReasonMessage));
     }
@@ -769,7 +746,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EBUSY:
             case EAGAIN:
-                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer(), getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer(), getShortReasonMessage(retryContext, error, resp)));
 
                 break;
 
@@ -789,7 +766,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     newTargetPeer = retryContext.targetPeer();
                 }
 
-                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error, resp)));
 
                 break;
             }
@@ -800,7 +777,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             case ESTOP: {
                 Peer newTargetPeer = randomNode(retryContext);
 
-                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer, getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(
+                        newTargetPeer,
+                        getShortReasonMessage(retryContext, error, resp)
+                ));
 
                 break;
             }
@@ -818,7 +798,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     leader = newTargetPeer;
                 }
 
-                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error, resp)));
 
                 break;
             }
@@ -834,8 +814,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return peer.consistentId() + ":" + peer.idx();
     }
 
-    private static String getShortReasonMessage(RetryContext retryContext, RaftError error) {
-        return "Peer " + shortPeerString(retryContext.targetPeer()) + " returned code " + error;
+    private static String getShortReasonMessage(RetryContext retryContext, RaftError error, ErrorResponse resp) {
+        return format("Peer {} returned code {}: {}", shortPeerString(retryContext.targetPeer()), error, resp.errorMsg());
     }
 
     private static void handleSmErrorResponse(
@@ -870,7 +850,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
         executor.schedule(
-                () -> sendWithRetry(fut, retryContext),
+                () -> {
+                    retryContext.onNewAttempt();
+
+                    sendWithRetry(fut, retryContext);
+                },
                 configuration.retryDelayMillis().value(),
                 TimeUnit.MILLISECONDS
         );
