@@ -18,6 +18,7 @@
 package org.apache.ignite.client.compatibility;
 
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -25,6 +26,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 import org.apache.ignite.client.IgniteClient;
+import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.QualifiedName;
@@ -91,7 +93,23 @@ public abstract class ClientCompatibilityTestBase {
             ResultSetMetadata meta = cursor.metadata();
             assertNotNull(meta);
 
-            assertEquals(15, meta.columns().size());
+            List<ColumnMetadata> cols = meta.columns();
+            assertEquals(15, cols.size());
+            assertThat(cols.get(0).toString(), containsString("name=ID, type=INT32, precision=10"));
+            assertThat(cols.get(1).toString(), containsString("name=BYTE, type=INT8, precision=3"));
+            assertThat(cols.get(2).toString(), containsString("name=SHORT, type=INT16, precision=5"));
+            assertThat(cols.get(3).toString(), containsString("name=INT, type=INT32, precision=10"));
+            assertThat(cols.get(4).toString(), containsString("name=LONG, type=INT64, precision=19"));
+            assertThat(cols.get(5).toString(), containsString("name=FLOAT, type=FLOAT, precision=7"));
+            assertThat(cols.get(6).toString(), containsString("name=DOUBLE, type=DOUBLE, precision=15"));
+            assertThat(cols.get(7).toString(), containsString("name=DEC, type=DECIMAL, precision=32767, scale=0"));
+            assertThat(cols.get(8).toString(), containsString("name=STRING, type=STRING, precision=65536"));
+            assertThat(cols.get(9).toString(), containsString("name=UUID, type=UUID, precision=-1"));
+            assertThat(cols.get(10).toString(), containsString("name=DT, type=DATE, precision=0"));
+            assertThat(cols.get(11).toString(), containsString("name=TM, type=TIME, precision=0"));
+            assertThat(cols.get(12).toString(), containsString("name=TS, type=DATETIME, precision=6"));
+            assertThat(cols.get(13).toString(), containsString("name=BOOL, type=BOOLEAN, precision=1"));
+            assertThat(cols.get(14).toString(), containsString("name=BYTES, type=BYTE_ARRAY, precision=65536"));
         }
     }
 
