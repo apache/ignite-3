@@ -1365,7 +1365,7 @@ public class PersistentPageMemory implements PageMemory {
         private static final AtomicInteger IDX_GEN = new AtomicInteger();
 
         /** Index. */
-        private static final ThreadLocal<Integer> IDX = ThreadLocal.withInitial(() -> IDX_GEN.incrementAndGet());
+        private static final ThreadLocal<Integer> IDX = ThreadLocal.withInitial(IDX_GEN::incrementAndGet);
 
         private final long concLvl;
         private final long ptr;
@@ -1385,7 +1385,7 @@ public class PersistentPageMemory implements PageMemory {
 
             this.concLvl = concLvl;
             this.ptr = GridUnsafe.allocateMemory(concLvl * PADDING);
-            this.rwLock = new OffheapReadWriteLock(2);
+            this.rwLock = new OffheapReadWriteLock(1);
 
             zeroMemory(ptr, concLvl * PADDING);
         }
