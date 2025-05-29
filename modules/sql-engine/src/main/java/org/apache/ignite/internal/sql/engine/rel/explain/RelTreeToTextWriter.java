@@ -72,6 +72,14 @@ class RelTreeToTextWriter {
             return false;
         }
 
+        // In case of rel with single input we can do fast check.
+        // Reference comparison is correct because typeFactory must intern every type.
+        if (inputs.size() == 1 && rel.getRowType() == inputs.get(0).getRowType()) {
+            // We want to include field names only if there were changes in number of columns, their order, or their names.
+            // Therefore if row types are not equal we should double check that changes were not [only] in the column types.
+            return false;
+        }
+
         assert inputs.size() == 1 || inputs.size() == 2;
 
         List<String> inputNames = new ArrayList<>(inputs.get(0).getRowType().getFieldNames());
