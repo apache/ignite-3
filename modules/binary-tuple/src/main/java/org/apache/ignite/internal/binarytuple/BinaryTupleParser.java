@@ -30,7 +30,6 @@ import java.time.Period;
 import java.util.UUID;
 import java.util.function.Function;
 import org.apache.ignite.internal.util.ByteUtils;
-import org.apache.ignite.internal.util.GridUnsafe;
 
 /**
  * Binary tuple parser allows to get bytes of individual elements from entirety of tuple bytes.
@@ -52,9 +51,6 @@ public class BinaryTupleParser {
 
     /** Byte order of ByteBuffers that contain the tuple. */
     public static final ByteOrder ORDER = ByteOrder.LITTLE_ENDIAN;
-
-    /** Whether the byte order of the underlying buffer is reversed compared to the native byte order. */
-    private static final boolean REVERSE_BYTE_ORDER = GridUnsafe.NATIVE_BYTE_ORDER != ORDER;
 
     /** UUID size in bytes. */
     private static final int UUID_SIZE = 16;
