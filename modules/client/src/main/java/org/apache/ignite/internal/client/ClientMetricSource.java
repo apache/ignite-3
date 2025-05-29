@@ -490,7 +490,7 @@ public class ClientMetricSource extends AbstractMetricSource<ClientMetricSource.
                 "StreamerItemsSent", "Total number of data streamer items sent");
 
         private final AtomicLongMetric streamerBatchesActive = new AtomicLongMetric(
-                "StreamerBatchesActive", "Total number of existing data streamer batches");
+                "StreamerBatchesActive", "Total number of in-flight data streamer batches");
 
         private final AtomicLongMetric streamerItemsQueued = new AtomicLongMetric(
                 "StreamerItemsQueued", "Total number of queued data streamer items (rows)");

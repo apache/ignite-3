@@ -22,13 +22,12 @@ import static org.apache.ignite.internal.cli.commands.Options.Constants.CLUSTER_
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_PARTITION_IDS_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_TABLE_NAME_OPTION;
 import static org.apache.ignite.internal.cli.commands.Options.Constants.RECOVERY_ZONE_NAME_OPTION;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.lang.util.IgniteNameUtils.canonicalName;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
-import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.condition.DisabledIf;
 
 /** Base test class for Cluster Recovery reset partitions commands. */
 public abstract class ItResetPartitionsTest extends CliIntegrationTest {
@@ -81,9 +80,9 @@ public abstract class ItResetPartitionsTest extends CliIntegrationTest {
     }
 
     @Test
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
     public void testResetPartitionTableNotFound() {
         // This test in colocation mode is not relevant.
-        Assumptions.assumeFalse(enabledColocation());
 
         String unknownTable = "PUBLIC.unknown_table";
 

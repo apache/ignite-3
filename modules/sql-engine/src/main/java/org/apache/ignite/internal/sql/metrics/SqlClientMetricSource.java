@@ -50,7 +50,7 @@ public class SqlClientMetricSource extends AbstractMetricSource<SqlClientMetricS
     protected class Holder implements AbstractMetricSource.Holder<Holder> {
         private final IntGauge numberOfOpenCursors = new IntGauge(
                 METRIC_OPEN_CURSORS,
-                "Number of current open cursors",
+                "Number of currently open cursors",
                 numberOfOpenCursorsSupplier
         );
 
