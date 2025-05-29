@@ -32,7 +32,10 @@ import org.apache.ignite.sql.ColumnMetadata;
 import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.QualifiedName;
+import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
+import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -123,7 +126,25 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testTx() {
+    public void testTxCommit() {
+        RecordView<Tuple> view = client.tables().table(TABLE_NAME_TEST).recordView();
+
+        client.transactions().runInTransaction(tx -> {
+            Tuple tuple = Tuple.create().set("id", 1).set("name", "test1");
+            view.insert(tx, tuple);
+        });
+
+        Tuple res = view.get(null, Tuple.create().set("id", 1));
+        assertNotNull(res);
+    }
+
+    @Test
+    public void testTxRollback() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testTxReadOnly() {
         assert false : "TODO";
     }
 
