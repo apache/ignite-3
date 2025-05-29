@@ -128,6 +128,7 @@ public class JmxExporter extends BasicMetricExporter<JmxExporterView> {
 
             mbeans.add(mbean);
         } catch (JMException e) {
+            // TODO: https://issues.apache.org/jira/browse/IGNITE-25526 - remove this if.
             if (!(e instanceof InstanceAlreadyExistsException) || !ignoreDuplicateJmsMbeansError()) {
                 log.error("MBean for metric set " + metricSet.name() + " can't be created.", e);
             }
