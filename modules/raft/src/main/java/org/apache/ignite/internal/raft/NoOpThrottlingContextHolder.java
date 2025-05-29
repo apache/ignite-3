@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 public class NoOpThrottlingContextHolder implements ThrottlingContextHolder {
     private final RaftConfiguration configuration;
 
-    public NoOpThrottlingContextHolder(RaftConfiguration configuration) {
+    NoOpThrottlingContextHolder(RaftConfiguration configuration) {
         this.configuration = configuration;
     }
 

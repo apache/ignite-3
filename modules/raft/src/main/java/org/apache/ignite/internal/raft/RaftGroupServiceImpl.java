@@ -44,7 +44,6 @@ import static org.apache.ignite.raft.jraft.rpc.CliRequests.ResetLearnersRequest;
 import static org.apache.ignite.raft.jraft.rpc.CliRequests.TransferLeaderRequest;
 
 import java.io.IOException;
-import java.sql.Time;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -722,11 +721,6 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     randomPeer,
                     retryContext.errorTraceId()
             );
-        }
-
-        if (err instanceof TimeoutException) {
-            LOG.info("qqq timeout, peer={}, timeout={}", retryContext.targetPeer(),
-                    ((ThrottlingContextHolderImpl)throttlingContextHolder).adaptiveResponseTimeoutMillis(retryContext.targetPeer()));
         }
 
         String shortReasonMessage = "Peer " + shortPeerString(retryContext.targetPeer()) + " threw " + err.getClass().getSimpleName();

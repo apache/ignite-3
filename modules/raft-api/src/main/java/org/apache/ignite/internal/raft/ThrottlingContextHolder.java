@@ -19,12 +19,40 @@ package org.apache.ignite.internal.raft;
 
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Context for throttling requests to a peer from a client of a replication group.
+ */
 public interface ThrottlingContextHolder {
+    /**
+     * Whether the peer is overloaded. This is an assumption of the client side this can be based on
+     * the current load on the peer.
+     *
+     * @param peer Peer.
+     * @return Whether the peer is overloaded.
+     */
     boolean isOverloaded(Peer peer);
 
+    /**
+     * Called before sending a request to the peer.
+     *
+     * @param peer Peer.
+     */
     void beforeRequest(Peer peer);
 
+    /**
+     * Called after sending a request to the peer.
+     *
+     * @param peer Peer.
+     * @param requestStartTimestamp Timestamp when the request was sent.
+     * @param err Error if the request failed, {@code null} otherwise.
+     */
     void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Throwable err);
 
+    /**
+     * Returns the timeout for a request to the peer.
+     *
+     * @param peer Peer.
+     * @return Timeout in milliseconds.
+     */
     long peerRequestTimeoutMillis(Peer peer);
 }

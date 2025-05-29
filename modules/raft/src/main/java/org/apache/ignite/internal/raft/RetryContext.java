@@ -31,6 +31,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.util.FastTimestamps;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -88,6 +89,7 @@ class RetryContext {
     private final long startTime;
 
     private long attemptScheduleTime;
+
     private long attemptStartTime;
 
     /**
@@ -156,13 +158,16 @@ class RetryContext {
      * @return {@code this}.
      */
     RetryContext nextAttempt(Peer newTargetPeer, String shortReasonMessage) {
-        long ct = System.currentTimeMillis();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS").withZone(ZoneId.systemDefault());;
-        Instant instant = Instant.ofEpochMilli(attemptStartTime);
-        String attemptStartTimeString = formatter.format(instant);
-        retryReasons.add(new RetryReason(shortReasonMessage + "; attemptWaitDuration=" + (attemptStartTime - attemptScheduleTime)
-                + ", attemptDuration=" + (ct - attemptStartTime) + ", attemptStartTime=" + attemptStartTimeString));
-        attemptScheduleTime = ct;
+        long currentTime = System.currentTimeMillis();
+
+        String reasonMessage = shortReasonMessage
+                + "; attemptWaitDuration=" + (attemptStartTime - attemptScheduleTime)
+                + ", attemptDuration=" + (currentTime - attemptStartTime)
+                + ", attemptStartTime=" + timestampToString(currentTime);
+
+        retryReasons.add(new RetryReason(reasonMessage, currentTime));
+
+        attemptScheduleTime = currentTime;
 
         if (retryReasons.size() > MAX_RETRY_REASONS) {
             retryReasons.remove(0);
@@ -175,6 +180,13 @@ class RetryContext {
         retryCount++;
 
         return this;
+    }
+
+    private static String timestampToString(long timestamp) {
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS")
+                .withZone(ZoneId.systemDefault());;
+        Instant instant = Instant.ofEpochMilli(timestamp);
+        return formatter.format(instant);
     }
 
     /**
@@ -193,7 +205,7 @@ class RetryContext {
 
         return new TimeoutException(format(
                 "Send with retry timed out [retryCount = {}, groupId = {}, traceId = {}, request = {}, originCommand = {},"
-                        + " retryReasons={}, stopTime={}, currentTime={}, startTime={}, duration={}].",
+                        + " retryReasons = {}, stopTime = {}, currentTime = {}, startTime = {}, duration = {}].",
                 retryCount,
                 groupId,
                 errorTraceId,
@@ -207,16 +219,19 @@ class RetryContext {
         ));
     }
 
-    public void onNewAttempt() {
-        attemptStartTime = System.currentTimeMillis();
+    /**
+     * Called when a new attempt is started (sends a request).
+     */
+    void onNewAttempt() {
+        attemptStartTime = FastTimestamps.coarseCurrentTimeMillis();
     }
 
     private static class RetryReason {
         final long timestamp;
         final String reason;
 
-        RetryReason(String reason) {
-            this.timestamp = System.currentTimeMillis();
+        RetryReason(String reason, long currentTime) {
+            this.timestamp = currentTime;
             this.reason = reason;
         }
 

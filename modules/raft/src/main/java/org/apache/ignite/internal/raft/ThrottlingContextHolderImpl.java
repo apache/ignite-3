@@ -34,10 +34,13 @@ import org.apache.ignite.internal.util.SlidingAverageValueTracker;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
+/**
+ * Throttling context holder implementation.
+ * This class has the map storing contexts for each peer, because the {@link org.apache.ignite.raft.jraft.disruptor.StripedDisruptor}
+ * is shared between groups on the peers.
+ */
 public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
     private static final IgniteLogger LOG = Loggers.forClass(ThrottlingContextHolder.class);
-
-    private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
 
     private final RaftConfiguration configuration;
 
@@ -47,9 +50,15 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
     @TestOnly
     public ThrottlingContextHolderImpl(RaftConfiguration configuration) {
-        this(configuration, 1.0);
+        this(configuration, 1.3);
     }
 
+    /**
+     * Constructor.
+     *
+     * @param configuration Raft configuration.
+     * @param maxInflightOverflowRate Maximum inflight overflow multiplier.
+     */
     public ThrottlingContextHolderImpl(
             RaftConfiguration configuration,
             double maxInflightOverflowRate
@@ -84,28 +93,72 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
     private class PeerContextHolder {
         private static final double INCREASE_MULTIPLIER = 2.0;
-        private static final double INCREASE_ON_TIMEOUT_MULTIPLIER = 2.0;
         private static final double DECREASE_MULTIPLIER = 0.99;
 
-        private final SlidingAverageValueTracker averageValueTracker =
-                new SlidingAverageValueTracker(50, 20, AVERAGE_VALUE_TRACKER_DEFAULT);
+        private static final int AVERAGE_VALUE_TRACKER_WINDOW_SIZE = 50;
+        private static final int AVERAGE_VALUE_TRACKER_MINIMIM_VALUES = 20;
+        private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
+
+        private final SlidingAverageValueTracker averageValueTracker = new SlidingAverageValueTracker(
+                AVERAGE_VALUE_TRACKER_WINDOW_SIZE,
+                AVERAGE_VALUE_TRACKER_MINIMIM_VALUES,
+                AVERAGE_VALUE_TRACKER_DEFAULT
+        );
 
         private final Peer peer;
 
+        /**
+         * Delay in milliseconds after which the response timeout is decreased.
+         * It prevents the timeout from decreasing too fast. When {@link TimeoutException} happens, this
+         * may be a sign that the peer is overloaded, and it's better to decrease the timeout slowly
+         * to avoid excessive retries.
+         */
         private final long decreaseDelay;
+
+        /** Counter of current number of requests in-flight. */
+        private final AtomicInteger currentInFlights = new AtomicInteger();
+
+        /**
+         * Response timeout in milliseconds. This value is adapted if the average response time from peer grows or
+         * single {@link TimeoutException} happens. Increasing it prevents the excessive retries of requests to the peer,
+         * which may cause unnecessary stress on the peer and make the situation worse.
+         */
+        private final AtomicLong adaptiveResponseTimeoutMillis;
+
+        /** When the response timeout was last decreased. */
+        private volatile long lastDecreaseTime = System.currentTimeMillis();
 
         PeerContextHolder(Peer peer) {
             this.peer = peer;
 
-            this.decreaseDelay = (long) (configuration.retryTimeoutMillis().value() * 2 / (log (0.5) / log(DECREASE_MULTIPLIER)));
+            // Number of iterations to return to the default response timeout, when each iteration
+            // is multiplication on DECREASE_MULTIPLIER.
+            // i = INCREASE_MULTIPLIER
+            // d = DECREASE_MULTIPLIER
+            // t = default timeout value
+            // n = numberOfIterationsToReturnToDefault
+            // Find n such that:
+            // i * t * d^n <= t
+            // i * d^n <= 1
+            // d^n <= 1/i
+            // ln(d^n) <= ln(1/i)
+            // n * ln(d) <= -ln(i)
+            // 0 < d < 1
+            // n = -ln(i) / ln(d)
+            int numberOfIterationsToReturnToDefault = (int) (- log(INCREASE_MULTIPLIER) / log(DECREASE_MULTIPLIER));
+
+            // The delay after which the response timeout can be decreased. For smooth decreasing, let the total time be 2 * retryTimeout.
+            this.decreaseDelay = 2 * configuration.retryTimeoutMillis().value() / numberOfIterationsToReturnToDefault;
+            this.adaptiveResponseTimeoutMillis = new AtomicLong(configuration.responseTimeoutMillis().value());
         }
 
-        private final AtomicInteger currentInFlights = new AtomicInteger();
-
-        private AtomicLong adaptiveResponseTimeoutMillis = new AtomicLong(3000);
-
-        private volatile long lastDecTime = System.currentTimeMillis();
-
+        /**
+         * Checks if the peer is overloaded. The assumption is based on the number of in-flight requests
+         * and the maximum allowed in-flight requests, calculated from the average request duration and
+         * the value of {@link #adaptiveResponseTimeoutMillis}.
+         *
+         * @return Whether the peer is overloaded or not.
+         */
         boolean isOverloaded() {
             return currentInFlights.get() >= computeMaxInFlights() * maxInflightOverflowRate;
         }
@@ -129,7 +182,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
             if (err == null || err instanceof TimeoutException) {
                 long now = System.currentTimeMillis();
-                long duration = System.currentTimeMillis() - requestStartTimestamp;
+                long duration = now - requestStartTimestamp;
 
                 averageValueTracker.record(duration);
 
@@ -143,30 +196,23 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
             long retryTimeout = configuration.retryTimeoutMillis().value();
             long r = adaptiveResponseTimeoutMillis.get();
 
-            if (avg < r * 0.3 && r > configuration.responseTimeoutMillis().value()) {
-                if (now - lastDecTime > decreaseDelay) {
-                    if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) max(defaultResponseTimeout, r * DECREASE_MULTIPLIER))) {
-                        LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}",
-                                peer.consistentId(), "DECREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg);
-                        lastDecTime = now;
-                    }
+            if (now - lastDecreaseTime > decreaseDelay
+                    && avg < r * 0.3
+                    && r > configuration.responseTimeoutMillis().value()) {
+                if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) max(defaultResponseTimeout, r * DECREASE_MULTIPLIER))) {
+                    LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}",
+                            peer.consistentId(), "DECREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg);
+                    lastDecreaseTime = now;
                 }
             }
 
             while (true) {
                 r = adaptiveResponseTimeoutMillis.get();
 
-                if (avg >= r * 0.7 && r < retryTimeout) {
+                if (avg >= r * 0.7 && r < retryTimeout || timedOut) {
                     if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) min(retryTimeout, r * INCREASE_MULTIPLIER))) {
-                        LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}",
-                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg);
-
-                        break;
-                    }
-                } else if (timedOut) {
-                    if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) min(retryTimeout, r * INCREASE_ON_TIMEOUT_MULTIPLIER))) {
-                        LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}",
-                                peer.consistentId(), "INCREMENTED ON TIMEOUT", r, adaptiveResponseTimeoutMillis.get(), avg);
+                        LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}, timedOut={}",
+                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, timedOut);
 
                         break;
                     }
@@ -175,9 +221,5 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                 }
             }
         }
-    }
-
-    long adaptiveResponseTimeoutMillis(Peer peer) {
-        return peerContext(peer).adaptiveResponseTimeoutMillis.get();
     }
 }

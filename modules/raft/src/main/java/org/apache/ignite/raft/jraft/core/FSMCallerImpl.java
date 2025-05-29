@@ -25,7 +25,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ThreadLocalRandom;import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.raft.jraft.Closure;
@@ -571,11 +571,6 @@ public class FSMCallerImpl implements FSMCaller {
     }
 
     private void doApplyTasks(final IteratorImpl iterImpl) {
-        long pendingCount = disruptor.pendingCount();
-        if (ThreadLocalRandom.current().nextInt(300) == 1 || pendingCount > 5) {
-            //LOG.info("qqq fsmDisruptorPendingSize={}", pendingCount);
-        }
-
         final IteratorWrapper iter = new IteratorWrapper(iterImpl, () -> shuttingDown);
         final long startApplyMs = Utils.monotonicMs();
         final long startIndex = iter.getIndex();
