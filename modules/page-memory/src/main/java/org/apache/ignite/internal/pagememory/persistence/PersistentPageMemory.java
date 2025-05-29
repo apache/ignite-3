@@ -55,6 +55,7 @@ import static org.apache.ignite.internal.util.GridUnsafe.putIntVolatile;
 import static org.apache.ignite.internal.util.GridUnsafe.wrapPointer;
 import static org.apache.ignite.internal.util.GridUnsafe.zeroMemory;
 import static org.apache.ignite.internal.util.IgniteUtils.hash;
+import static org.apache.ignite.internal.util.IgniteUtils.isPow2;
 import static org.apache.ignite.internal.util.IgniteUtils.readableSize;
 import static org.apache.ignite.internal.util.IgniteUtils.safeAbs;
 import static org.apache.ignite.internal.util.OffheapReadWriteLock.TAG_LOCK_ALWAYS;
@@ -72,6 +73,7 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerFieldUpdater;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -102,7 +104,7 @@ import org.apache.ignite.internal.pagememory.persistence.replacement.RandomLruPa
 import org.apache.ignite.internal.pagememory.persistence.replacement.SegmentedLruPageReplacementPolicyFactory;
 import org.apache.ignite.internal.pagememory.persistence.throttling.PagesWriteThrottlePolicy;
 import org.apache.ignite.internal.util.CollectionUtils;
-import org.apache.ignite.internal.util.IgniteStripedReadWriteLock;
+import org.apache.ignite.internal.util.GridUnsafe;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
@@ -402,12 +404,12 @@ public class PersistentPageMemory implements PageMemory {
 
         Segment seg = segment(grpId, pageId);
 
-        seg.readLock().lock();
+        seg.readLock();
 
         try {
             seg.releasePage(page);
         } finally {
-            seg.readLock().unlock();
+            seg.readUnlock();
         }
     }
 
@@ -550,7 +552,7 @@ public class PersistentPageMemory implements PageMemory {
         // because there is no crc inside them.
         Segment seg = segment(grpId, pageId);
 
-        seg.writeLock().lock();
+        seg.writeLock();
 
         try {
             FullPageId fullId = new FullPageId(pageId, grpId);
@@ -611,7 +613,7 @@ public class PersistentPageMemory implements PageMemory {
 
             throw e;
         } finally {
-            seg.writeLock().unlock();
+            seg.writeUnlock();
 
             delayedPageReplacementTracker.delayedPageWrite().flushCopiedPageIfExists();
         }
@@ -680,7 +682,7 @@ public class PersistentPageMemory implements PageMemory {
 
         Segment seg = segment(grpId, pageId);
 
-        seg.readLock().lock();
+        seg.readLock();
 
         try {
             long relPtr = seg.loadedPages.get(
@@ -702,12 +704,12 @@ public class PersistentPageMemory implements PageMemory {
                 return absPtr;
             }
         } finally {
-            seg.readLock().unlock();
+            seg.readUnlock();
         }
 
         FullPageId fullId = new FullPageId(pageId, grpId);
 
-        seg.writeLock().lock();
+        seg.writeLock();
 
         long lockedPageAbsPtr = -1;
         boolean readPageFromStore = false;
@@ -809,7 +811,7 @@ public class PersistentPageMemory implements PageMemory {
 
             return absPtr;
         } finally {
-            seg.writeLock().unlock();
+            seg.writeUnlock();
 
             delayedPageReplacementTracker.delayedPageWrite().flushCopiedPageIfExists();
 
@@ -940,7 +942,7 @@ public class PersistentPageMemory implements PageMemory {
             int tag = 0;
 
             for (Segment segment : segments) {
-                segment.writeLock().lock();
+                segment.writeLock();
 
                 try {
                     int newTag = segment.incrementPartGeneration(grpId, partId);
@@ -951,7 +953,7 @@ public class PersistentPageMemory implements PageMemory {
 
                     assert tag == newTag;
                 } finally {
-                    segment.writeLock().unlock();
+                    segment.writeUnlock();
                 }
             }
 
@@ -966,12 +968,12 @@ public class PersistentPageMemory implements PageMemory {
      */
     public void onGroupDestroyed(int grpId) {
         for (Segment seg : segments) {
-            seg.writeLock().lock();
+            seg.writeLock();
 
             try {
                 seg.resetGroupPartitionsGeneration(grpId);
             } finally {
-                seg.writeLock().unlock();
+                seg.writeUnlock();
             }
         }
     }
@@ -989,7 +991,7 @@ public class PersistentPageMemory implements PageMemory {
                     break;
                 }
 
-                seg.readLock().lock();
+                seg.readLock();
 
                 try {
                     if (seg.closed) {
@@ -998,7 +1000,7 @@ public class PersistentPageMemory implements PageMemory {
 
                     total += seg.loadedPages.size();
                 } finally {
-                    seg.readLock().unlock();
+                    seg.readUnlock();
                 }
             }
         }
@@ -1018,7 +1020,7 @@ public class PersistentPageMemory implements PageMemory {
         long total = 0;
 
         for (Segment seg : segments) {
-            seg.readLock().lock();
+            seg.readLock();
 
             try {
                 if (seg.closed) {
@@ -1027,7 +1029,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 total += seg.acquiredPages();
             } finally {
-                seg.readLock().unlock();
+                seg.readUnlock();
             }
         }
 
@@ -1046,14 +1048,14 @@ public class PersistentPageMemory implements PageMemory {
 
         Segment seg = segment(grpId, pageId);
 
-        seg.readLock().lock();
+        seg.readLock();
 
         try {
             long res = seg.loadedPages.get(grpId, pageId, seg.partGeneration(grpId, partId), INVALID_REL_PTR, INVALID_REL_PTR);
 
             return res != INVALID_REL_PTR;
         } finally {
-            seg.readLock().unlock();
+            seg.readUnlock();
         }
     }
 
@@ -1356,10 +1358,85 @@ public class PersistentPageMemory implements PageMemory {
         return res * 1.0e-4d;
     }
 
+    public static class StripedOffheapReadWriteLock {
+        private static final int PADDING = 128;
+
+        /** Index generator. */
+        private static final AtomicInteger IDX_GEN = new AtomicInteger();
+
+        /** Index. */
+        private static final ThreadLocal<Integer> IDX = ThreadLocal.withInitial(() -> IDX_GEN.incrementAndGet());
+
+        private final int concLvl;
+        private final long ptr;
+
+        private volatile Thread writeLockHolder;
+
+        private int curIdx() {
+            int idx = IDX.get();
+
+            return idx & (concLvl - 1);
+        }
+
+        private final OffheapReadWriteLock rwLock;
+
+        private StripedOffheapReadWriteLock(int concLvl) {
+            assert isPow2(concLvl) : concLvl;
+
+            this.ptr = GridUnsafe.allocateMemory(concLvl * PADDING);
+            this.concLvl = concLvl;
+            this.rwLock = new OffheapReadWriteLock(this.concLvl);
+
+            zeroMemory(ptr, concLvl * PADDING);
+        }
+
+        void readLock() {
+            int idx = curIdx();
+
+            rwLock.readLock(ptr + (long) idx * PADDING, -1);
+        }
+
+        void readUnlock() {
+            int idx = curIdx();
+
+            rwLock.readUnlock(ptr + (long) idx * PADDING);
+        }
+
+        void writeLock() {
+            for (int i = 0; i < concLvl; i++) {
+                rwLock.writeLock(ptr + (long) i * PADDING, -1);
+            }
+
+            writeLockHolder = Thread.currentThread();
+        }
+
+        void writeUnlock() {
+            writeLockHolder = null;
+
+            for (int i = concLvl - 1; i >= 0; i--) {
+                rwLock.writeUnlock(ptr + (long) i * PADDING, -1);
+            }
+        }
+
+        int getReadHoldCount() {
+            int count = 0;
+
+            for (int i = 0; i < concLvl; i++) {
+                count += rwLock.getReadHoldCount(ptr + (long) i * PADDING);
+            }
+
+            return count;
+        }
+
+        boolean isWriteLockedByCurrentThread() {
+            return Thread.currentThread() == writeLockHolder;
+        }
+    }
+
     /**
      * Page segment.
      */
-    public class Segment extends IgniteStripedReadWriteLock {
+    public class Segment extends StripedOffheapReadWriteLock {
         /** Pointer to acquired pages integer counter. */
         private static final int ACQUIRED_PAGES_SIZEOF = 4;
 
@@ -1456,12 +1533,12 @@ public class PersistentPageMemory implements PageMemory {
          * Closes the segment.
          */
         private void close() {
-            writeLock().lock();
+            writeLock();
 
             try {
                 closed = true;
             } finally {
-                writeLock().unlock();
+                writeUnlock();
             }
         }
 
@@ -2034,7 +2111,7 @@ public class PersistentPageMemory implements PageMemory {
 
         boolean pageSingleAcquire = false;
 
-        seg.readLock().lock();
+        seg.readLock();
 
         try {
             if (!isInCheckpoint(fullId)) {
@@ -2059,11 +2136,11 @@ public class PersistentPageMemory implements PageMemory {
                 }
             }
         } finally {
-            seg.readLock().unlock();
+            seg.readUnlock();
         }
 
         if (relPtr == OUTDATED_REL_PTR) {
-            seg.writeLock().lock();
+            seg.writeLock();
 
             try {
                 // Double-check.
@@ -2087,7 +2164,7 @@ public class PersistentPageMemory implements PageMemory {
 
                 return;
             } finally {
-                seg.writeLock().unlock();
+                seg.writeUnlock();
             }
         }
 

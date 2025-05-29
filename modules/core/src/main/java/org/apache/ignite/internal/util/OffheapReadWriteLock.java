@@ -270,6 +270,10 @@ public class OffheapReadWriteLock {
         return lockCount(GridUnsafe.getLongVolatile(null, lock)) > 0;
     }
 
+    public int getReadHoldCount(long lock) {
+        return Math.max(0, lockCount(GridUnsafe.getLongVolatile(null, lock)));
+    }
+
     /**
      * Releases write lock.
      *
