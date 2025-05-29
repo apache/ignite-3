@@ -28,6 +28,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Period;
 import java.util.UUID;
+import java.util.function.Function;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -58,6 +59,17 @@ public class BinaryTupleReader extends BinaryTupleParser implements BinaryTupleP
      */
     public BinaryTupleReader(int numElements, ByteBuffer buffer) {
         super(numElements, buffer);
+    }
+
+    /**
+     * Constructor with a specific factory function for creating a `ByteBufferAccessor`.
+     *
+     * @param numElements Number of tuple elements.
+     * @param buffer Buffer with a binary tuple.
+     * @param byteBufferAccessorFactory A factory function to create a `ByteBufferAccessor` for accessing the buffer.
+     */
+    public BinaryTupleReader(int numElements, ByteBuffer buffer, Function<ByteBuffer, ByteBufferAccessor> byteBufferAccessorFactory) {
+        super(numElements, buffer, byteBufferAccessorFactory);
     }
 
     /** {@inheritDoc} */
