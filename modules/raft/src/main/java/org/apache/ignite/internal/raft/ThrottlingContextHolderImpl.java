@@ -186,7 +186,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
                 averageValueTracker.record(duration);
 
-                adaptRequestTimeout(now, err instanceof TimeoutException);
+                adaptRequestTimeout(now, err != null);
             }
         }
 

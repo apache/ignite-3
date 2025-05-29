@@ -184,7 +184,7 @@ class RetryContext {
 
     private static String timestampToString(long timestamp) {
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss,SSS")
-                .withZone(ZoneId.systemDefault());;
+                .withZone(ZoneId.systemDefault());
         Instant instant = Instant.ofEpochMilli(timestamp);
         return formatter.format(instant);
     }
