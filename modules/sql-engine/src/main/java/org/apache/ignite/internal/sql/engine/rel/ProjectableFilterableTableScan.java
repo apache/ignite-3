@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.sql.engine.rel;
 
 import static org.apache.calcite.sql.validate.SqlValidatorUtil.ATTEMPT_SUGGESTER;
-import static org.apache.ignite.internal.sql.engine.prepare.ExplainUtils.forExplain;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.builder;
 import static org.apache.ignite.internal.sql.engine.util.RexUtils.replaceLocalRefs;
 
@@ -43,10 +42,12 @@ import org.apache.calcite.rex.RexLocalRef;
 import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.rex.RexShuttle;
 import org.apache.calcite.rex.RexUtil;
+import org.apache.calcite.sql.SqlKind;
 import org.apache.calcite.util.ControlFlowException;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
@@ -133,9 +134,8 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         return explainTerms0(pw
-                .itemIf("table", table.getQualifiedName(), !forExplain(pw))
-                .itemIf("table", table, forExplain(pw))
-                .itemIf("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id()), !forExplain(pw)));
+                .item("table", table.getQualifiedName())
+                .item("tableId", Integer.toString(table.unwrap(IgniteDataSource.class).id())));
     }
 
     /** {@inheritDoc} */
@@ -157,10 +157,9 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
                     RexUtil.expandSearch(getCluster().getRexBuilder(), null, condition));
         }
 
-        return pw.itemIf("fields", getRowType().getFieldNames(), forExplain(pw))
-                .itemIf("names", names, names != null && !forExplain(pw))
+        return pw.itemIf("names", names, names != null)
                 .itemIf("projects", projects, projects != null)
-                .itemIf("requiredColumns", requiredColumns, !forExplain(pw) && requiredColumns != null);
+                .itemIf("requiredColumns", requiredColumns, requiredColumns != null);
     }
 
     /** {@inheritDoc} */
@@ -238,5 +237,31 @@ public abstract class ProjectableFilterableTableScan extends TableScan {
         }
 
         return RexUtil.composeConjunction(builder(getCluster()), conjunctions, true);
+    }
+
+    protected IgniteRelWriter explainAttributes(IgniteRelWriter writer) {
+        writer.addTable(table);
+
+        if (condition != null || projects != null) {
+            RelDataType rowType = getTable().getRowType();
+            if (requiredColumns != null && requiredColumns.cardinality() < rowType.getFieldCount()) {
+                RelDataTypeFactory tf = getCluster().getTypeFactory();
+                IgniteDataSource dataSource = getTable().unwrap(IgniteDataSource.class);
+
+                assert dataSource != null;
+
+                rowType = dataSource.getRowType(tf, requiredColumns);
+            }
+
+            if (condition != null) {
+                writer.addPredicate(condition, rowType);
+            }
+
+            if (projects != null && projects.stream().anyMatch(p -> !p.isA(SqlKind.LOCAL_REF))) {
+                writer.addProjection(projects, rowType);
+            }
+        }
+
+        return writer;
     }
 }

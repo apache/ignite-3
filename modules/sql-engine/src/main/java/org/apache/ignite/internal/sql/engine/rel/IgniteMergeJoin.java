@@ -51,7 +51,6 @@ import org.apache.calcite.util.mapping.IntPair;
 import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCostFactory;
-import org.apache.ignite.internal.sql.engine.prepare.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 
@@ -302,8 +301,8 @@ public class IgniteMergeJoin extends AbstractIgniteJoin {
     @Override
     public RelWriter explainTerms(RelWriter pw) {
         return super.explainTerms(pw)
-                .itemIf("leftCollation", leftCollation, !ExplainUtils.forExplain(pw))
-                .itemIf("rightCollation", rightCollation, !ExplainUtils.forExplain(pw));
+                .item("leftCollation", leftCollation)
+                .item("rightCollation", rightCollation);
     }
 
     /** {@inheritDoc} */
