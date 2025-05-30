@@ -309,6 +309,7 @@ Project
               est: (rows=1)
             HashJoin
                 predicate: =(C1, $f3)
+                fieldNames: [C1, C2, C3, C20, $f3]
                 type: right
                 est: (rows=1)
               TableScan
