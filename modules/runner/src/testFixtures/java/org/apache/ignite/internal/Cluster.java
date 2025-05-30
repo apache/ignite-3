@@ -29,6 +29,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -482,6 +483,25 @@ public class Cluster {
      */
     public void stopNode(String name) {
         stopNode(nodeIndex(name));
+    }
+
+    /**
+     * Stops a node by index asynchronously.
+     *
+     * @param index Node index in the cluster.
+     */
+    public CompletableFuture<Void> stopNodeAsync(int index) {
+        IgniteServer server = igniteServers.get(index);
+
+        if (server != null) {
+            return server.shutdownAsync().thenRun(() -> {
+                igniteServers.set(index, null);
+
+                nodes.set(index, null);
+            });
+        }
+
+        return nullCompletedFuture();
     }
 
     /**
