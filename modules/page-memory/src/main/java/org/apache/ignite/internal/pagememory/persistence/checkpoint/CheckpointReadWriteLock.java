@@ -38,7 +38,8 @@ public class CheckpointReadWriteLock {
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     private static final long LONG_LOCK_THRESHOLD_MILLIS = 1000;
-    public static final String LONG_LOCK_THROTTLE_KEY = "long-lock";
+
+    private static final String LONG_LOCK_THROTTLE_KEY = "long-lock";
 
     private final IgniteThrottledLogger log;
 
@@ -54,7 +55,7 @@ public class CheckpointReadWriteLock {
      * Constructor.
      *
      * @param checkpointLock Checkpoint lock.
-     * @param throttledLogExecutor Executor to throttle log.
+     * @param throttledLogExecutor Executor for the throttled logger.
      */
     public CheckpointReadWriteLock(ReentrantReadWriteLockWithTracking checkpointLock, Executor throttledLogExecutor) {
         this.checkpointLock = checkpointLock;
