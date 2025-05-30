@@ -27,6 +27,11 @@
       url: installation/migration-from-ai2/overview
 - title: Getting Started
   url: quick-start/getting-started-guide
+  items:
+    - title: Getting Started
+      url: quick-start/getting-started-guide
+    - title: Explore SQL Capabilities
+      url: quick-start/explore-sql
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
