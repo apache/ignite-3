@@ -85,10 +85,10 @@ import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessage
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverMessagesFactory;
 import org.apache.ignite.internal.placementdriver.message.PlacementDriverReplicaMessage;
 import org.apache.ignite.internal.placementdriver.message.StopLeaseProlongationMessageResponse;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.raft.Loza;
 import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.Peer;
-import org.apache.ignite.internal.raft.PeerOverloadedException;
 import org.apache.ignite.internal.raft.PeersAndLearners;
 import org.apache.ignite.internal.raft.RaftGroupEventsListener;
 import org.apache.ignite.internal.raft.RaftGroupOptionsConfigurer;
@@ -447,7 +447,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         Throwable unwrapped = unwrapCause(ex);
         return !(unwrapped instanceof ExpectedReplicationException)
                 && !(unwrapped instanceof TrackerClosedException)
-                && !(unwrapped instanceof PeerOverloadedException);
+                && !(unwrapped instanceof GroupOverloadedException);
     }
 
     /**
@@ -1107,7 +1107,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                         ComponentStoppingException.class,
                         // Not a problem, there will be a retry.
                         TimeoutException.class,
-                        PeerOverloadedException.class
+                        GroupOverloadedException.class
                 )) {
                     failureProcessor.process(
                             new FailureContext(ex, String.format("Could not advance safe time for %s", replica.groupId())));

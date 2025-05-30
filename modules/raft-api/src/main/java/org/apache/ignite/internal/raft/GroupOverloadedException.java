@@ -24,7 +24,7 @@ import org.apache.ignite.lang.IgniteException;
 /**
  * Exception thrown by a Raft client when a peer is overloaded and wouldn't be able to process the request at the moment.
  */
-public class PeerOverloadedException extends IgniteException {
+public class GroupOverloadedException extends IgniteException {
     private static final long serialVersionUID = 2369606399873450609L;
 
     /**
@@ -33,7 +33,7 @@ public class PeerOverloadedException extends IgniteException {
      * @param groupId Replication group id.
      * @param peer Peer.
      */
-    public PeerOverloadedException(String groupId, Peer peer) {
+    public GroupOverloadedException(String groupId, Peer peer) {
         super(GROUP_OVERLOADED_ERR, "Peer is overloaded, the request may be retried later [groupId=" + groupId + "].");
     }
 }

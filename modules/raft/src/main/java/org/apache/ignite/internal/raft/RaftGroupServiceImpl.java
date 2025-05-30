@@ -605,7 +605,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         var future = new CompletableFuture<R>();
 
         if (throttlingContextHolder.isOverloaded(peer)) {
-            future.completeExceptionally(new PeerOverloadedException(groupId, peer));
+            future.completeExceptionally(new GroupOverloadedException(groupId, peer));
 
             return future;
         }

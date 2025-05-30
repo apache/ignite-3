@@ -40,7 +40,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
-import org.apache.ignite.internal.raft.PeerOverloadedException;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -178,7 +178,7 @@ public class PersistentTxStateVacuumizer {
         return hasCause(e,
                 PrimaryReplicaMissException.class,
                 NodeStoppingException.class,
-                PeerOverloadedException.class
+                GroupOverloadedException.class
         );
     }
 
