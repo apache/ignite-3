@@ -134,7 +134,7 @@ public abstract class ClientCompatibilityTestBase {
         int id = idGen.incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
-        RecordView<Tuple> view = client.tables().table(TABLE_NAME_TEST).recordView();
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
         assertNull(view.get(null, key));
 
@@ -153,7 +153,7 @@ public abstract class ClientCompatibilityTestBase {
         int id = idGen.incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
 
-        RecordView<Tuple> view = client.tables().table(TABLE_NAME_TEST).recordView();
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
 
         assertNull(view.get(null, key));
 
@@ -211,5 +211,10 @@ public abstract class ClientCompatibilityTestBase {
         try (var cursor = client.sql().execute(null, sql)) {
             return cursor.wasApplied();
         }
+    }
+
+    private Table table(String tableName) {
+        // TODO IGNITE-25514 Use client.tables().table().
+        return client.tables().tables().stream().filter(t -> t.name().equals(tableName)).findFirst().orElseThrow();
     }
 }
