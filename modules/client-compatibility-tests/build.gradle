@@ -20,3 +20,11 @@ description = "ignite-client-compatibility-tests"
 apply from: "$rootDir/buildscripts/java-core.gradle"
 apply from: "$rootDir/buildscripts/java-junit5.gradle"
 apply from: "$rootDir/buildscripts/java-integration-test.gradle"
+
+dependencies {
+    integrationTestImplementation group: 'org.apache.ignite', name: 'ignite-client', version: '3.0.0'
+
+    integrationTestImplementation libs.jetbrains.annotations
+    integrationTestImplementation libs.testcontainers.core
+    integrationTestImplementation libs.testcontainers.junit
+}
