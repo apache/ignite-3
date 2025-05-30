@@ -23,6 +23,7 @@ import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
@@ -52,6 +53,7 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -165,7 +167,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
     private final LockManager lockManager;
 
     /** Executor that runs async write intent switch actions. */
-    private final ExecutorService writeIntentSwitchPool;
+    private final ThreadPoolExecutor writeIntentSwitchPool;
 
     private final ClockService clockService;
 
@@ -373,11 +375,12 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
         writeIntentSwitchPool = new ThreadPoolExecutor(
                 cpus,
                 cpus,
-                100,
-                MILLISECONDS,
+                30,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+        writeIntentSwitchPool.allowCoreThreadTimeOut(true);
 
         orphanDetector = new OrphanDetector(
                 topologyService,
@@ -1061,7 +1064,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         transactionExpirationRegistry.abortAllRegistered();
 
-        shutdownAndAwaitTermination(writeIntentSwitchPool, 10, TimeUnit.SECONDS);
+        shutdownAndAwaitTermination(writeIntentSwitchPool, 10, SECONDS);
 
         return nullCompletedFuture();
     }

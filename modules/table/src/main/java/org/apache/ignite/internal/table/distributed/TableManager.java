@@ -26,6 +26,7 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.causality.IncrementalVersionedValue.dependingOn;
@@ -361,7 +362,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final FailureProcessor failureProcessor;
 
     /** Incoming RAFT snapshots executor. */
-    private final ExecutorService incomingSnapshotsExecutor;
+    private final ThreadPoolExecutor incomingSnapshotsExecutor;
 
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
@@ -589,11 +590,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         incomingSnapshotsExecutor = new ThreadPoolExecutor(
                 cpus,
                 cpus,
-                100,
-                TimeUnit.MILLISECONDS,
+                30,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+        incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
 
@@ -1675,9 +1677,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     },
                     mvGc,
                     fullStateTransferIndexChooser,
-                    () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS),
-                    () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, TimeUnit.SECONDS),
+                    () -> shutdownAndAwaitTermination(scanRequestExecutor, shutdownTimeoutSeconds, SECONDS),
+                    () -> shutdownAndAwaitTermination(incomingSnapshotsExecutor, shutdownTimeoutSeconds, SECONDS),
+                    () -> shutdownAndAwaitTermination(rebalanceScheduler, shutdownTimeoutSeconds, SECONDS),
                     () -> {
                         ScheduledExecutorService streamerFlushExecutor;
 
@@ -1685,7 +1687,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                             streamerFlushExecutor = this.streamerFlushExecutor;
                         }
 
-                        shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, TimeUnit.SECONDS);
+                        shutdownAndAwaitTermination(streamerFlushExecutor, shutdownTimeoutSeconds, SECONDS);
                     }
             );
         } catch (Exception e) {
@@ -1724,7 +1726,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         try {
-            allOf(futures.toArray(CompletableFuture[]::new)).get(30, TimeUnit.SECONDS);
+            allOf(futures.toArray(CompletableFuture[]::new)).get(30, SECONDS);
         } catch (InterruptedException | ExecutionException | TimeoutException e) {
             LOG.error("Unable to clean table resources", e);
         }

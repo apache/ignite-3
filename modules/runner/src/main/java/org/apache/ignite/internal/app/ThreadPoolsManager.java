@@ -49,7 +49,7 @@ public class ThreadPoolsManager implements IgniteComponent {
      * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
      * index storage creation...
      */
-    private final ExecutorService tableIoExecutor;
+    private final ThreadPoolExecutor tableIoExecutor;
 
     /**
      * Executor on which partition operations are executed. Might do storage reads and writes (so it's expected to execute disk I/O).
@@ -66,11 +66,12 @@ public class ThreadPoolsManager implements IgniteComponent {
 
         tableIoExecutor = new ThreadPoolExecutor(
                 Math.min(cpus * 3, 25),
-                Integer.MAX_VALUE,
-                100,
-                MILLISECONDS,
+                Math.min(cpus * 3, 25),
+                30,
+                SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
+        tableIoExecutor.allowCoreThreadTimeOut(true);
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
         partitionOperationsExecutor = Executors.newFixedThreadPool(
