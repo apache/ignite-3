@@ -200,18 +200,26 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                     && avg < r * 0.3
                     && r > configuration.responseTimeoutMillis().value()) {
                 if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) max(defaultResponseTimeout, r * DECREASE_MULTIPLIER))) {
-                    LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}",
+                    LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}].",
                             peer.consistentId(), "DECREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg);
+
                     lastDecreaseTime = now;
                 }
             }
 
+            // Case of timeout exception may be dangerous so CAS is performed in loop.
+            long newTimeout = (long) min(retryTimeout, r * INCREASE_MULTIPLIER);
+
             while (true) {
                 r = adaptiveResponseTimeoutMillis.get();
 
+                if (r >= retryTimeout) {
+                    break;
+                }
+
                 if (avg >= r * 0.7 && r < retryTimeout || timedOut) {
-                    if (adaptiveResponseTimeoutMillis.compareAndSet(r, (long) min(retryTimeout, r * INCREASE_MULTIPLIER))) {
-                        LOG.info("Adaptive response timeout changed for peer={}: {} from {} to {}; avg={}, timedOut={}",
+                    if (adaptiveResponseTimeoutMillis.compareAndSet(r, newTimeout)) {
+                        LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}].",
                                 peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, timedOut);
 
                         break;
