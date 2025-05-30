@@ -37,9 +37,13 @@ public class ComputeThreadPoolExecutor {
             long keepAliveTime,
             TimeUnit unit,
             BlockingQueue<Runnable> workQueue,
-            ThreadFactory threadFactory) {
+            ThreadFactory threadFactory,
+            boolean allowCoreThreadTimeOut
+    ) {
         this.workQueue = workQueue;
+
         executor = new ThreadPoolExecutor(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
+        executor.allowCoreThreadTimeOut(allowCoreThreadTimeOut);
     }
 
     /**

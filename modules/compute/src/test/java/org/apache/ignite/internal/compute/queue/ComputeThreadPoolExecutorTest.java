@@ -37,7 +37,7 @@ class ComputeThreadPoolExecutorTest {
         workQueue = new BoundedPriorityBlockingQueue<>(() -> 5);
         computeThreadPoolExecutor = new ComputeThreadPoolExecutor(1, 1, 10, TimeUnit.SECONDS, workQueue,
                 new NamedThreadFactory(NamedThreadFactory.threadPrefix("test", "compute"),
-                        Loggers.forClass(ComputeThreadPoolExecutorTest.class)));
+                        Loggers.forClass(ComputeThreadPoolExecutorTest.class)), true);
     }
 
     @Test

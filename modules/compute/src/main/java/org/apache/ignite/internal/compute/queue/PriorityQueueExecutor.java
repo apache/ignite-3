@@ -56,7 +56,8 @@ public class PriorityQueueExecutor {
                 THREAD_KEEP_ALIVE_SECONDS,
                 TimeUnit.SECONDS,
                 workQueue,
-                threadFactory
+                threadFactory,
+                true
         );
     }
 

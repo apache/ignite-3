@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.gc;
 
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.lowwatermark.event.LowWatermarkEvent.LOW_WATERMARK_CHANGED;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
@@ -67,7 +68,7 @@ public class MvGc implements ManuallyCloseable {
     private final GcConfiguration gcConfig;
 
     /** Garbage collection thread pool. */
-    private volatile ExecutorService executor;
+    private volatile ThreadPoolExecutor executor;
 
     /** Prevents double closing. */
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -107,10 +108,11 @@ public class MvGc implements ManuallyCloseable {
                     threadCount,
                     threadCount,
                     30,
-                    TimeUnit.SECONDS,
+                    SECONDS,
                     new LinkedBlockingQueue<>(),
                     IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
             );
+            executor.allowCoreThreadTimeOut(true);
 
             lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
         });
@@ -173,7 +175,7 @@ public class MvGc implements ManuallyCloseable {
         busyLock.block();
 
         if (executor != null) {
-            shutdownAndAwaitTermination(executor, 10, TimeUnit.SECONDS);
+            shutdownAndAwaitTermination(executor, 10, SECONDS);
         }
     }
 

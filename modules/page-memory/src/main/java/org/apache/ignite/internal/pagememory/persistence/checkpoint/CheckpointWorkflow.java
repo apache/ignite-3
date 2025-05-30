@@ -147,11 +147,12 @@ class CheckpointWorkflow {
             callbackListenerThreadPool = new ThreadPoolExecutor(
                     checkpointThreads,
                     checkpointThreads,
-                    30_000,
-                    MILLISECONDS,
+                    30,
+                    SECONDS,
                     new LinkedBlockingQueue<>(),
                     new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
             );
+            callbackListenerThreadPool.allowCoreThreadTimeOut(true);
         } else {
             callbackListenerThreadPool = null;
         }
