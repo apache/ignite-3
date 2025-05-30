@@ -285,9 +285,31 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = remainingInternal() >= MAX_VAR_SHORT_BYTES;
+        int remainingInternal = remainingInternal();
+        lastFinished = remainingInternal >= MAX_VAR_SHORT_BYTES;
 
-        writeVarInt(Short.toUnsignedInt((short) (val + 1)));
+        if (remainingInternal >= Integer.BYTES) {
+            writeVarIntFast(val + 1);
+        } else {
+            int intVal = Short.toUnsignedInt((short) (val + 1));
+            int pos = buf.position();
+
+            // TODO Refactor :)
+            //  Can't use "writeVarShortFast" here, it requires 4 bytes of space, and we only have 3.
+            if (intVal < 128) {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) intVal);
+                setPosition(pos + 1);
+            } else if (intVal < 128 * 128) {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) (intVal >>> 7));
+                setPosition(pos + 2);
+            } else {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) ((intVal >>> 7) | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 2, (byte) (intVal >>> 14));
+                setPosition(pos + 3);
+            }
+        }
     }
 
     @Override
@@ -508,6 +530,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         GridUnsafe.putInt(heapArr, baseOff + pos, res);
         setPosition(pos + len);
+
+//        assert buf.position() < buf.limit();
     }
 
     /** {@inheritDoc} */
