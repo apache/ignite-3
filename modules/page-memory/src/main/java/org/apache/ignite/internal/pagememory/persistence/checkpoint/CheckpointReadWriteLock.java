@@ -30,7 +30,6 @@ import org.jetbrains.annotations.Nullable;
  * Wrapper of the classic read write lock with checkpoint features.
  */
 public class CheckpointReadWriteLock {
-
     /**
      * Any thread with a such prefix is managed by the checkpoint.
      *
@@ -39,6 +38,7 @@ public class CheckpointReadWriteLock {
     static final String CHECKPOINT_RUNNER_THREAD_PREFIX = "checkpoint-runner";
 
     private static final long LONG_LOCK_THRESHOLD_MILLIS = 1000;
+    public static final String LONG_LOCK_THROTTLE_KEY = "long-lock";
 
     private final IgniteThrottledLogger log;
 
@@ -54,6 +54,7 @@ public class CheckpointReadWriteLock {
      * Constructor.
      *
      * @param checkpointLock Checkpoint lock.
+     * @param throttledLogExecutor Executor to throttle log.
      */
     public CheckpointReadWriteLock(ReentrantReadWriteLockWithTracking checkpointLock, Executor throttledLogExecutor) {
         this.checkpointLock = checkpointLock;
@@ -180,7 +181,7 @@ public class CheckpointReadWriteLock {
         }
 
         if (elapsed > LONG_LOCK_THRESHOLD_MILLIS) {
-            log.warn("long-lock", "Checkpoint read lock took {} ms to acquire.", elapsed);
+            log.warn(LONG_LOCK_THROTTLE_KEY, "Checkpoint read lock took {} ms to acquire.", elapsed);
         }
     }
 }
