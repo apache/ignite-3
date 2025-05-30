@@ -544,41 +544,41 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
     public void schemaMismatch(TestCase testCase) {
         KeyValueView<Tuple, Tuple> view = testCase.view();
 
-//        testCase.checkSchemaMismatchError(
-//                (tx) -> view.get(null, Tuple.create().set("id", 0L)),
-//                "Missed key column: AFFID"
-//        );
-//
-//        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must throw exception
-//        if (!testCase.thin) {
-//            testCase.checkSchemaMismatchError(
-//                    (tx) -> view.get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)),
-//                    "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
-//            );
-//        }
-//
-//        testCase.checkSchemaMismatchError(
-//                (tx) -> view.put(tx, Tuple.create().set("id", 0L), Tuple.create()),
-//                "Missed key column: AFFID"
-//        );
         testCase.checkSchemaMismatchError(
-                (tx) -> view.put(tx, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()),
+                tx -> view.get(null, Tuple.create().set("id", 0L)),
+                "Missed key column: AFFID"
+        );
+
+        // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must throw exception
+        if (!testCase.thin) {
+            testCase.checkSchemaMismatchError(
+                    tx -> view.get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)),
+                    "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
+            );
+        }
+
+        testCase.checkSchemaMismatchError(
+                tx -> view.put(tx, Tuple.create().set("id", 0L), Tuple.create()),
+                "Missed key column: AFFID"
+        );
+        testCase.checkSchemaMismatchError(
+                tx -> view.put(tx, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()),
                 "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Message should be identical
-//        String expectedMessage = testCase.thin
-//                ? "Value type does not match [column='VAL', expected=STRING, actual=INT64]"
-//                : "Value type does not match [column='VAL', expected=STRING(65536), actual=INT64]";
-//
-//        testCase.checkInvalidTypeError(
-//                () -> view.put(
-//                        null,
-//                        Tuple.create().set("id", 0L).set("affId", 1L),
-//                        Tuple.create().set("id", 0L).set("val", 0L)
-//                ),
-//                expectedMessage
-//        );
+        String expectedMessage = testCase.thin
+                ? "Value type does not match [column='VAL', expected=STRING, actual=INT64]"
+                : "Value type does not match [column='VAL', expected=STRING(65536), actual=INT64]";
+
+        testCase.checkInvalidTypeError(
+                () -> view.put(
+                        null,
+                        Tuple.create().set("id", 0L).set("affId", 1L),
+                        Tuple.create().set("id", 0L).set("val", 0L)
+                ),
+                expectedMessage
+        );
     }
 
     private List<Arguments> testCases() {
