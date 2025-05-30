@@ -393,6 +393,9 @@ namespace Apache.Ignite
 
             /// <summary> ReplicaStopping error. </summary>
             public const int ReplicaStopping = (GroupCode << 16) | (8 & 0xFFFF);
+
+            /// <summary> GroupOverloaded error. </summary>
+            public const int GroupOverloaded = (GroupCode << 16) | (9 & 0xFFFF);
         }
 
         /// <summary> Storage errors. </summary>

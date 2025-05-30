@@ -146,7 +146,7 @@ public class ItCmgRaftServiceTest extends BaseIgniteAbstractTest {
                 RaftGroupService raftService;
 
                 if (serverPeer == null) {
-                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration);
+                    raftService = raftManager.startRaftGroupService(CmgGroupId.INSTANCE, configuration, true);
                 } else {
                     var clusterStateStorageMgr = new ClusterStateStorageManager(clusterStateStorage);
 
