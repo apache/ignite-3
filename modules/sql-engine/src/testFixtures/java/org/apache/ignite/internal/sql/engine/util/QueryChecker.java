@@ -45,13 +45,8 @@ public interface QueryChecker {
     Object[] NULL_AS_VARARG = {null};
 
     /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
-    static Matcher<String> containsUnion(boolean all) {
-        return matchesOnce("UnionAll.*?all: " + all);
-    }
-
-    /** Creates a matcher that matches if the examined string contains the specified string anywhere. */
     static Matcher<String> containsUnion() {
-        return matchesOnce("UnionAll.*?all:");
+        return matchesOnce("UnionAll");
     }
 
     /**
@@ -137,7 +132,7 @@ public interface QueryChecker {
      */
     static Matcher<String> containsProject(String schema, String tblName, String... names) {
         return matchesOnce("(Table|Index)Scan.*?table: " + QualifiedName.of(schema, tblName).toCanonicalForm()
-                + ".*?fields: \\[" + String.join(", ", List.of(names)) + "\\]");
+                + ".*?fieldNames: \\[" + String.join(", ", List.of(names)) + "\\]");
     }
 
     /**

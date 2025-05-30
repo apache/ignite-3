@@ -413,15 +413,14 @@ public class TypeUtils {
                 return Instant.ofEpochMilli((Long) val);
             case BOOLEAN:
                 return val;
-            // TODO https://issues.apache.org/jira/browse/IGNITE-23295 Support native types for DURATION and PERIOD
-            // case DURATION: {
-            //     assert val instanceof Long;
-            //    return Duration.ofMillis((Long) val);
-            // }
-            // case PREIOD: {
-            //     assert val instanceof Integer;
-            //     return Period.of((Integer) val / 12, (Integer) val % 12, 0);
-            //     }
+            case DURATION: {
+                assert val instanceof Long;
+                return Duration.ofMillis((Long) val);
+            }
+            case PERIOD: {
+                assert val instanceof Integer;
+                return Period.of((Integer) val / 12, (Integer) val % 12, 0);
+            }
             default: {
                 return SafeCustomTypeInternalConversion.INSTANCE.tryConvertFromInternal(val, spec);
             }
@@ -804,10 +803,10 @@ public class TypeUtils {
 
             if (yearMonth) {
                 // YEAR MONTH interval is stored as number of days in ints.
-                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT32, nullable);
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.PERIOD, nullable);
             } else {
                 // DAY interval is stored as time as long.
-                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.INT64, nullable);
+                return RowSchemaTypes.nativeTypeWithNullability(NativeTypes.DURATION, nullable);
             }
         } else if (SqlTypeUtil.isRow(type)) {
             List<TypeSpec> fields = new ArrayList<>();

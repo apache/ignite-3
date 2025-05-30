@@ -24,8 +24,8 @@ import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import org.apache.ignite.internal.binarytuple.BinaryTupleCommon;
-import org.apache.ignite.internal.binarytuple.BinaryTupleParser.ByteBufferAccessor;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
+import org.apache.ignite.internal.binarytuple.ByteBufferAccessor;
 import org.apache.ignite.sql.ColumnType;
 
 /**

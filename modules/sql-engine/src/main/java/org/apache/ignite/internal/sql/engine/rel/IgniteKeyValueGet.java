@@ -28,6 +28,7 @@ import org.apache.calcite.rex.RexNode;
 import org.apache.calcite.util.ImmutableBitSet;
 import org.apache.ignite.internal.sql.engine.exec.TxAttributes;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.jetbrains.annotations.Nullable;
 
@@ -128,5 +129,11 @@ public class IgniteKeyValueGet extends ProjectableFilterableTableScan implements
      */
     public List<RexNode> keyExpressions() {
         return keyExpressions;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return explainAttributes(writer)
+                .addKeyExpression(keyExpressions);
     }
 }
