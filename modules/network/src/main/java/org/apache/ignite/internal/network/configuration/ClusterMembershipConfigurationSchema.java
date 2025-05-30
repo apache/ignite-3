@@ -32,7 +32,7 @@ public class ClusterMembershipConfigurationSchema {
 
     /** Failure detector ping interval. */
     @Value(hasDefault = true)
-    public final int failurePingIntervalMillis = 1_000;
+    public final int failurePingIntervalMillis = 2_000;
 
     /** ScaleCube-specific configuration. */
     @ConfigValue
