@@ -215,6 +215,9 @@ public abstract class ClientCompatibilityTestBase {
 
     private Table table(String tableName) {
         // TODO IGNITE-25514 Use client.tables().table().
-        return client.tables().tables().stream().filter(t -> t.name().equals(tableName)).findFirst().orElseThrow();
+        return client.tables().tables().stream()
+                .filter(t -> t.qualifiedName().objectName().equals(tableName))
+                .findFirst()
+                .orElseThrow();
     }
 }
