@@ -207,7 +207,7 @@ Sort
                                                           fieldNames: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
                                                           est: (rows=1441548)
                                                       Exchange
-                                                          distribution: affinity[tableId=51, zoneId=51][0, 1]
+                                                          distribution: table PUBLIC.CATALOG_SALES in zone "Default" by [CR_ITEM_SK, CR_ORDER_NUMBER]
                                                           est: (rows=144067)
                                                         TableScan
                                                             table: PUBLIC.CATALOG_RETURNS
@@ -446,7 +446,7 @@ Sort
                                                           fieldNames: [CS_ITEM_SK, CS_ORDER_NUMBER, CS_EXT_LIST_PRICE]
                                                           est: (rows=1441548)
                                                       Exchange
-                                                          distribution: affinity[tableId=51, zoneId=51][0, 1]
+                                                          distribution: table PUBLIC.CATALOG_SALES in zone "Default" by [CR_ITEM_SK, CR_ORDER_NUMBER]
                                                           est: (rows=144067)
                                                         TableScan
                                                             table: PUBLIC.CATALOG_RETURNS
