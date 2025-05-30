@@ -21,7 +21,9 @@ import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
-/** Client socket configuration. See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
+/**
+ * Outbound (TCP client of server-to-server protocol) socket configuration.
+ * See <a href="https://man7.org/linux/man-pages/man7/tcp.7.html">TCP docs</a> and
  * <a href="https://man7.org/linux/man-pages/man7/socket.7.html">socket docs</a>.
  */
 @Config

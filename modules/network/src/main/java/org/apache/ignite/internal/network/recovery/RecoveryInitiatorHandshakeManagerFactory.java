@@ -20,17 +20,21 @@ package org.apache.ignite.internal.network.recovery;
 import org.apache.ignite.network.ClusterNode;
 
 /**
- * Factory producing {@link RecoveryClientHandshakeManager} instances.
+ * Factory producing {@link RecoveryInitiatorHandshakeManager} instances.
  */
 @FunctionalInterface
-public interface RecoveryClientHandshakeManagerFactory {
+public interface RecoveryInitiatorHandshakeManagerFactory {
     /**
-     * Produces a {@link RecoveryClientHandshakeManager} instance.
+     * Produces a {@link RecoveryInitiatorHandshakeManager} instance.
      *
      * @param localNode This node.
      * @param connectionId ID of the connection.
      * @param recoveryDescriptorProvider Provider of recovery descriptors to be used.
      * @return Created manager.
      */
-    RecoveryClientHandshakeManager create(ClusterNode localNode, short connectionId, RecoveryDescriptorProvider recoveryDescriptorProvider);
+    RecoveryInitiatorHandshakeManager create(
+            ClusterNode localNode,
+            short connectionId,
+            RecoveryDescriptorProvider recoveryDescriptorProvider
+    );
 }
