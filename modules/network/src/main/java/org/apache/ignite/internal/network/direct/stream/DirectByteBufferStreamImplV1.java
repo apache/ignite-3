@@ -463,7 +463,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private void writeVarLongFast(long val) {
         long res = val;
 
-        int z = Long.numberOfTrailingZeros(Long.highestOneBit(val));
+        int z = Long.numberOfTrailingZeros(Long.highestOneBit(val | 1L));
         int len = VAR_LONG_LENGTHS[z];
 
         res = res & 0x0FFFFFFFL | (res & 0xFFFFFFF0000000L) << 4;
@@ -485,7 +485,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private void writeVarIntFast(int val) {
         int res = val;
 
-        int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
+        int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val | 1));
         int len = VAR_LONG_LENGTHS[z];
 
         res = res & 0x3FFF | (res & 0xFFFC000) << 2;
