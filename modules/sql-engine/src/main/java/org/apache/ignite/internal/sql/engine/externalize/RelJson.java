@@ -545,6 +545,7 @@ class RelJson {
                 if (function.affinity()) {
                     map.put("zoneId", ((AffinityDistribution) function).zoneId());
                     map.put("tableId", ((AffinityDistribution) function).tableId());
+                    map.put("label", ((AffinityDistribution) function).label());
                 }
 
                 return map;
@@ -698,8 +699,9 @@ class RelJson {
 
                 int tableId = (int) map.get("tableId");
                 int zoneId = (int) map.get("zoneId");
+                String label = (String) map.get("label");
 
-                return IgniteDistributions.affinity(keys, tableId, zoneId);
+                return IgniteDistributions.affinity(keys, tableId, zoneId, label);
             }
         }
     }

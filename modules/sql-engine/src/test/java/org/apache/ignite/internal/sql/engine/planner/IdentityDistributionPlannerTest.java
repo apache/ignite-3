@@ -66,7 +66,7 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinAffinityTableWithIdentityTable() throws Exception {
-        IgniteDistribution affinityDistribution = IgniteDistributions.affinity(0, nextTableId(), 0);
+        IgniteDistribution affinityDistribution = TestBuilders.affinity(0, nextTableId(), 0);
 
         IgniteTable tbl1 = simpleTable("TEST_TBL1", 2 * DEFAULT_TBL_SIZE, IgniteDistributions.identity(0));
         IgniteTable tbl2 = simpleTable("TEST_TBL2", DEFAULT_TBL_SIZE, affinityDistribution);
@@ -93,7 +93,7 @@ public class IdentityDistributionPlannerTest extends AbstractPlannerTest {
      */
     @Test
     public void joinIndentityTableWithAffinityTable() throws Exception {
-        IgniteDistribution affinityDistribution = IgniteDistributions.affinity(0, nextTableId(), 0);
+        IgniteDistribution affinityDistribution = TestBuilders.affinity(0, nextTableId(), 0);
 
         IgniteTable tbl1 = simpleTable("TEST_TBL1", DEFAULT_TBL_SIZE, IgniteDistributions.identity(0));
         IgniteTable tbl2 = simpleTable("TEST_TBL2", 2 * DEFAULT_TBL_SIZE, affinityDistribution);
