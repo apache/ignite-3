@@ -288,10 +288,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         int remainingInternal = remainingInternal();
         lastFinished = remainingInternal >= MAX_VAR_SHORT_BYTES;
 
+        int intVal = Short.toUnsignedInt((short) (val + 1));
+
         if (remainingInternal >= Integer.BYTES) {
-            writeVarIntFast(val + 1);
+            writeVarIntFast(intVal);
         } else {
-            int intVal = Short.toUnsignedInt((short) (val + 1));
             int pos = buf.position();
 
             // TODO Refactor :)
