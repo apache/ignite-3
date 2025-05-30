@@ -17,6 +17,8 @@
 
 package org.apache.ignite.client.compatibility;
 
+import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
+
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.HttpURLConnection;
@@ -25,9 +27,7 @@ import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.client.compatibility.containers.IgniteServerContainer;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
 
 /**
  * Tests that current Java client can work with all older server versions.
@@ -45,28 +45,16 @@ public class ClientWithOldServerCompatibilityTest extends ClientCompatibilityTes
         activateCluster(serverContainer.restPort());
         waitForActivation(serverContainer.clientPort());
 
+        client = IgniteClient.builder()
+                .addresses("localhost:" + serverContainer.clientPort())
+                .build();
+
         super.beforeAll();
     }
 
     @AfterAll
-    void afterAll() {
-        if (serverContainer != null) {
-            serverContainer.stop();
-        }
-    }
-
-    @BeforeEach
-    void beforeEach() {
-        client = IgniteClient.builder()
-                .addresses("localhost:" + serverContainer.clientPort())
-                .build();
-    }
-
-    @AfterEach
-    void afterEach() {
-        if (client != null) {
-            client.close();
-        }
+    void afterAll() throws Exception {
+        closeAll(client, serverContainer);
     }
 
     private static void activateCluster(int restPort) throws IOException {
