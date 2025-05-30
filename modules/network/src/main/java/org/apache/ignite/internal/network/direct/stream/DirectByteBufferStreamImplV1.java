@@ -394,11 +394,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private void writeVarLong(long val) {
         if (lastFinished) {
             if (val >>> 56 == 0L) {
-                if (val >>> 28 == 0L) {
-                    writeVarIntFast((int) val);
-                } else {
-                    writeVarLongFast(val);
-                }
+                writeVarLongFast(val);
 
                 return;
             }
@@ -461,9 +457,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     };
 
     private void writeVarLongFast(long val) {
+        if (val >>> 28 == 0L) {
+            writeVarIntFast((int) val);
+
+            return;
+        }
+
         long res = val;
 
-        int z = Long.numberOfTrailingZeros(Long.highestOneBit(val | 1L));
+        int z = Long.numberOfTrailingZeros(Long.highestOneBit(val));
         int len = VAR_LONG_LENGTHS[z];
 
         res = res & 0x0FFFFFFFL | (res & 0xFFFFFFF0000000L) << 4;
@@ -485,13 +487,18 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private void writeVarIntFast(int val) {
         int res = val;
 
-        int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val | 1));
-        int len = VAR_LONG_LENGTHS[z];
+        int len;
+        if (val < 128) {
+            len = 1;
+        } else {
+            int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
+            len = VAR_LONG_LENGTHS[z];
 
-        res = res & 0x3FFF | (res & 0xFFFC000) << 2;
-        res = res & 0x7F007F | (res & 0x3F803F80) << 1;
+            res = res & 0x3FFF | (res & 0xFFFC000) << 2;
+            res = res & 0x7F007F | (res & 0x3F803F80) << 1;
 
-        res |= 0x00808080 >>> ((4 - len) << 3);
+            res |= 0x00808080 >>> ((4 - len) << 3);
+        }
 
         int pos = buf.position();
 
