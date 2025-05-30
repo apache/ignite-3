@@ -75,6 +75,9 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_UUID = new UUID(100, 200);
     private static final UUID HIGHER_UUID = new UUID(300, 400);
 
+    private static final String INITIATOR = "initiator";
+    private static final String ACCEPTOR = "acceptor";
+
     private static final String ACCEPTOR_HOST = "acceptor-host";
     private static final String INITIATOR_HOST = "initiator-host";
 
@@ -141,7 +144,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         UUID initiatorLaunchId = UUID.randomUUID();
         RecoveryDescriptor acceptorRecoveryDescriptor = acceptorRecovery.getRecoveryDescriptor(
-                "initiator",
+                INITIATOR,
                 initiatorLaunchId,
                 CONNECTION_ID
         );
@@ -149,7 +152,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
                 initiatorSideChannel,
-                "initiator",
+                INITIATOR,
                 initiatorLaunchId,
                 initiatorRecovery
         );
@@ -209,7 +212,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         UUID acceptorLaunchId = UUID.randomUUID();
         RecoveryDescriptor initiatorRecoveryDescriptor = initiatorRecovery.getRecoveryDescriptor(
-                "acceptor",
+                ACCEPTOR,
                 acceptorLaunchId,
                 CONNECTION_ID
         );
@@ -221,7 +224,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         );
         RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
                 acceptorSideChannel,
-                "acceptor",
+                ACCEPTOR,
                 acceptorLaunchId,
                 acceptorRecovery
         );
@@ -282,14 +285,14 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         RecoveryInitiatorHandshakeManager chm1 = createRecoveryInitiatorHandshakeManager(
                 channel1Src,
-                "initiator",
+                INITIATOR,
                 node1Uuid,
                 node1Recovery
         );
-        RecoveryAcceptorHandshakeManager shm1 = createRecoveryAcceptorHandshakeManager(channel2Dst, "initiator", node1Uuid, node1Recovery);
+        RecoveryAcceptorHandshakeManager shm1 = createRecoveryAcceptorHandshakeManager(channel2Dst, INITIATOR, node1Uuid, node1Recovery);
 
-        RecoveryInitiatorHandshakeManager chm2 = createRecoveryInitiatorHandshakeManager(channel2Src, "acceptor", node2Uuid, node2Recovery);
-        RecoveryAcceptorHandshakeManager shm2 = createRecoveryAcceptorHandshakeManager(channel1Dst, "acceptor", node2Uuid, node2Recovery);
+        RecoveryInitiatorHandshakeManager chm2 = createRecoveryInitiatorHandshakeManager(channel2Src, ACCEPTOR, node2Uuid, node2Recovery);
+        RecoveryAcceptorHandshakeManager shm2 = createRecoveryAcceptorHandshakeManager(channel1Dst, ACCEPTOR, node2Uuid, node2Recovery);
 
         // Channel opened from node1 to node2 is channel 1.
         // Channel opened from node2 to node1 is channel 2.
@@ -350,14 +353,14 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         RecoveryInitiatorHandshakeManager chm1 = createRecoveryInitiatorHandshakeManager(
                 channel1Src,
-                "initiator",
+                INITIATOR,
                 node1Uuid,
                 node1Recovery
         );
-        RecoveryAcceptorHandshakeManager shm1 = createRecoveryAcceptorHandshakeManager(channel2Dst, "initiator", node1Uuid, node1Recovery);
+        RecoveryAcceptorHandshakeManager shm1 = createRecoveryAcceptorHandshakeManager(channel2Dst, INITIATOR, node1Uuid, node1Recovery);
 
-        RecoveryInitiatorHandshakeManager chm2 = createRecoveryInitiatorHandshakeManager(channel2Src, "acceptor", node2Uuid, node2Recovery);
-        RecoveryAcceptorHandshakeManager shm2 = createRecoveryAcceptorHandshakeManager(channel1Dst, "acceptor", node2Uuid, node2Recovery);
+        RecoveryInitiatorHandshakeManager chm2 = createRecoveryInitiatorHandshakeManager(channel2Src, ACCEPTOR, node2Uuid, node2Recovery);
+        RecoveryAcceptorHandshakeManager shm2 = createRecoveryAcceptorHandshakeManager(channel1Dst, ACCEPTOR, node2Uuid, node2Recovery);
 
         // Channel opened from node1 to node2 is channel 1.
         // Channel opened from node2 to node1 is channel 2.
@@ -410,9 +413,9 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
      * @throws Exception If failed.
      */
     private void testExactlyOnce(boolean acceptorDidntReceiveAck) throws Exception {
-        var acceptor = "acceptor";
+        var acceptor = ACCEPTOR;
         UUID acceptorLaunchId = UUID.randomUUID();
-        var initiator = "initiator";
+        var initiator = INITIATOR;
         UUID initiatorLaunchId = UUID.randomUUID();
 
         RecoveryDescriptorProvider initiatorRecovery = createRecoveryDescriptorProvider();
@@ -540,7 +543,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
         );
         RecoveryAcceptorHandshakeManager acceptorHandshakeManager = createRecoveryAcceptorHandshakeManager(
                 acceptorSideChannel,
-                "acceptor",
+                ACCEPTOR,
                 UUID.randomUUID(),
                 acceptorRecovery,
                 new AllIdsAreStale()
@@ -579,7 +582,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
 
         RecoveryInitiatorHandshakeManager initiatorHandshakeManager = createRecoveryInitiatorHandshakeManager(
                 initiatorSideChannel,
-                "initiator",
+                INITIATOR,
                 UUID.randomUUID(),
                 initiatorRecovery,
                 new AllIdsAreStale()
@@ -739,7 +742,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             Channel initiatorSideChannel,
             RecoveryDescriptorProvider provider
     ) {
-        return createRecoveryInitiatorHandshakeManager(initiatorSideChannel, "initiator", UUID.randomUUID(), provider);
+        return createRecoveryInitiatorHandshakeManager(initiatorSideChannel, INITIATOR, UUID.randomUUID(), provider);
     }
 
     private RecoveryInitiatorHandshakeManager createRecoveryInitiatorHandshakeManager(
@@ -775,7 +778,7 @@ public class RecoveryHandshakeTest extends BaseIgniteAbstractTest {
             Channel acceptorSideChannel,
             RecoveryDescriptorProvider provider
     ) {
-        return createRecoveryAcceptorHandshakeManager(acceptorSideChannel, "acceptor", UUID.randomUUID(), provider);
+        return createRecoveryAcceptorHandshakeManager(acceptorSideChannel, ACCEPTOR, UUID.randomUUID(), provider);
     }
 
     private RecoveryAcceptorHandshakeManager createRecoveryAcceptorHandshakeManager(
