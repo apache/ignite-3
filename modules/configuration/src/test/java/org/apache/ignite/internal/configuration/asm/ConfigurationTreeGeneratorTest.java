@@ -94,7 +94,7 @@ public class ConfigurationTreeGeneratorTest {
             PolyInst1InjectedNameConfigurationSchema.class
     );
 
-    private static Collection<RootKey<?, ?>> rootKeys = List.of(
+    private static Collection<RootKey<?, ?, ?>> rootKeys = List.of(
             TestRootConfiguration.KEY,
             InjectedNameRootConfiguration.KEY,
             RootFromAbstractConfiguration.KEY

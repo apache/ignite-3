@@ -36,7 +36,7 @@ public class ConfigurationManager implements IgniteComponent {
 
     @TestOnly
     public ConfigurationManager(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator
@@ -55,7 +55,7 @@ public class ConfigurationManager implements IgniteComponent {
      *         schema or its extensions are not valid.
      */
     public ConfigurationManager(
-            Collection<RootKey<?, ?>> rootKeys,
+            Collection<RootKey<?, ?, ?>> rootKeys,
             ConfigurationStorage storage,
             ConfigurationTreeGenerator generator,
             ConfigurationValidator configurationValidator,
