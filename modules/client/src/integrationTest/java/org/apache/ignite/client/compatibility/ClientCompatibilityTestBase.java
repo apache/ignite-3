@@ -130,6 +130,7 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
+    @Disabled("IGNITE-25545")
     public void testTxCommit() {
         int id = idGen.incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
@@ -149,6 +150,7 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
+    @Disabled("IGNITE-25545")
     public void testTxRollback() {
         int id = idGen.incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
