@@ -395,7 +395,6 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable List<Integer> indexIds
     ) {
-        // TODO: IGNITE-25506 Investigate why RowId may appear for which there will be no transaction match on commit or abort
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
@@ -408,6 +407,8 @@ public class StorageUpdateHandler {
             storage.runConsistently(locker -> {
                 pendingRowIds.forEach(locker::lock);
 
+                // Here we don't need to check for mismatch of the transaction that created the write intent and commits it. Since the
+                // commit can happen in #handleUpdate and #handleUpdateAll.
                 if (commit) {
                     performCommitWrite(txId, pendingRowIds, commitTimestamp);
                 } else {
