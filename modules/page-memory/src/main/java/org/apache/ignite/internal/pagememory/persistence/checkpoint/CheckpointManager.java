@@ -94,7 +94,7 @@ public class CheckpointManager {
      * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
      * @param ioRegistry Page IO registry.
-     * @param executorService Executor service.
+     * @param commonExecutorService Executor service for unspecified tasks, i.e. throttling log.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -108,7 +108,7 @@ public class CheckpointManager {
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             PageIoRegistry ioRegistry,
             LogSyncer logSyncer,
-            ExecutorService executorService,
+            ExecutorService commonExecutorService,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -124,7 +124,7 @@ public class CheckpointManager {
 
         CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(
                 reentrantReadWriteLockWithTracking,
-                executorService
+                commonExecutorService
         );
 
         checkpointWorkflow = new CheckpointWorkflow(

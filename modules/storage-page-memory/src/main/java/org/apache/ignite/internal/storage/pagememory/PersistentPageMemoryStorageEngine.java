@@ -29,7 +29,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -122,7 +121,8 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
 
     private final LogSyncer logSyncer;
 
-    private final ScheduledExecutorService commonScheduler;
+    /** For unspecified tasks, i.e. throttling log. */
+    private final ExecutorService commonExecutorService;
 
     /**
      * Constructor.
@@ -135,7 +135,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
      * @param longJvmPauseDetector Long JVM pause detector.
      * @param failureManager Failure processor that is used to handle critical errors.
      * @param logSyncer Write-ahead log synchronizer.
-     * @param executorService Executor service.
+     * @param commonExecutorService Executor service.
      * @param clock Hybrid Logical Clock.
      */
     public PersistentPageMemoryStorageEngine(
@@ -148,7 +148,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
             @Nullable LongJvmPauseDetector longJvmPauseDetector,
             FailureManager failureManager,
             LogSyncer logSyncer,
-            ScheduledExecutorService executorService,
+            ExecutorService commonExecutorService,
             HybridClock clock
     ) {
         super(clock);
@@ -163,7 +163,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
         this.longJvmPauseDetector = longJvmPauseDetector;
         this.failureManager = failureManager;
         this.logSyncer = logSyncer;
-        this.commonScheduler = executorService;
+        this.commonExecutorService = commonExecutorService;
     }
 
     /**
@@ -207,7 +207,7 @@ public class PersistentPageMemoryStorageEngine extends AbstractPageMemoryStorage
                     regions.values(),
                     ioRegistry,
                     logSyncer,
-                    commonScheduler,
+                    commonExecutorService,
                     pageSize
             );
 
