@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -93,6 +94,7 @@ public class CheckpointManager {
      * @param partitionMetaManager Partition meta information manager.
      * @param dataRegions Data regions.
      * @param ioRegistry Page IO registry.
+     * @param commonExecutorService Executor service for unspecified tasks, i.e. throttling log.
      * @param pageSize Page size in bytes.
      * @throws IgniteInternalCheckedException If failed.
      */
@@ -106,6 +108,7 @@ public class CheckpointManager {
             Collection<? extends DataRegion<PersistentPageMemory>> dataRegions,
             PageIoRegistry ioRegistry,
             LogSyncer logSyncer,
+            ExecutorService commonExecutorService,
             // TODO: IGNITE-17017 Move to common config
             int pageSize
     ) throws IgniteInternalCheckedException {
@@ -119,7 +122,10 @@ public class CheckpointManager {
                 ? new ReentrantReadWriteLockWithTracking(Loggers.forClass(CheckpointReadWriteLock.class), logReadLockThresholdTimeout)
                 : new ReentrantReadWriteLockWithTracking();
 
-        CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(reentrantReadWriteLockWithTracking);
+        CheckpointReadWriteLock checkpointReadWriteLock = new CheckpointReadWriteLock(
+                reentrantReadWriteLockWithTracking,
+                commonExecutorService
+        );
 
         checkpointWorkflow = new CheckpointWorkflow(
                 igniteInstanceName,

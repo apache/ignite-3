@@ -23,17 +23,25 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.fail;
 
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link CheckpointReadWriteLock} testing.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class CheckpointReadWriteLockTest {
+    @InjectExecutorService
+    private ExecutorService executorService;
+
     @Test
     void testReadLock() throws Exception {
-        CheckpointReadWriteLock lock0 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock1 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
+        CheckpointReadWriteLock lock0 = newReadWriteLock();
+        CheckpointReadWriteLock lock1 = newReadWriteLock();
 
         lock1.writeLock();
 
@@ -76,9 +84,9 @@ public class CheckpointReadWriteLockTest {
 
     @Test
     void testTryReadLock() throws Exception {
-        CheckpointReadWriteLock lock0 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock1 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock2 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
+        CheckpointReadWriteLock lock0 = newReadWriteLock();
+        CheckpointReadWriteLock lock1 = newReadWriteLock();
+        CheckpointReadWriteLock lock2 = newReadWriteLock();
 
         lock2.writeLock();
 
@@ -155,11 +163,15 @@ public class CheckpointReadWriteLockTest {
         assertEquals(0, lock2.getReadHoldCount());
     }
 
+    private CheckpointReadWriteLock newReadWriteLock() {
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(), executorService);
+    }
+
     @Test
     void testCheckpointLockIsHeldByThread() throws Exception {
-        CheckpointReadWriteLock lock0 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock1 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
-        CheckpointReadWriteLock lock2 = new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking());
+        CheckpointReadWriteLock lock0 = newReadWriteLock();
+        CheckpointReadWriteLock lock1 = newReadWriteLock();
+        CheckpointReadWriteLock lock2 = newReadWriteLock();
 
         assertFalse(lock0.checkpointLockIsHeldByThread());
         assertFalse(lock1.checkpointLockIsHeldByThread());

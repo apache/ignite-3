@@ -45,6 +45,7 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -52,16 +53,23 @@ import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.pagememory.persistence.CheckpointUrgency;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 
 /**
  * For {@link CheckpointTimeoutLock} testing.
  */
+@ExtendWith(ExecutorServiceExtension.class)
 public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     @Nullable
     private CheckpointTimeoutLock timeoutLock;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @AfterEach
     void tearDown() {
@@ -377,7 +385,7 @@ public class CheckpointTimeoutLockTest extends BaseIgniteAbstractTest {
     }
 
     private CheckpointReadWriteLock newReadWriteLock() {
-        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000));
+        return new CheckpointReadWriteLock(new ReentrantReadWriteLockWithTracking(log, 5_000), executorService);
     }
 
     private CheckpointProgress newCheckpointProgress(CompletableFuture<?> future) {

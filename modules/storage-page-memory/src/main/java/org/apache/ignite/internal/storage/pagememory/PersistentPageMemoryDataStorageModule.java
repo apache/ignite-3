@@ -78,6 +78,7 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 longJvmPauseDetector,
                 failureManager,
                 logSyncer,
+                commonScheduler,
                 clock
         );
     }

@@ -26,6 +26,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.mockito.Mockito.mock;
 
 import java.nio.file.Path;
+import java.util.concurrent.ExecutorService;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.failure.FailureManager;
@@ -38,6 +39,8 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.engine.StorageTableDescriptor;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WorkDirectory;
 import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
@@ -51,9 +54,12 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests for {@link PersistentPageMemoryTableStorage} class.
  */
-@ExtendWith(WorkDirectoryExtension.class)
+@ExtendWith({WorkDirectoryExtension.class, ExecutorServiceExtension.class})
 public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStorageTest {
     private PersistentPageMemoryStorageEngine engine;
+
+    @InjectExecutorService
+    ExecutorService executorService;
 
     @BeforeEach
     void setUp(
@@ -75,6 +81,7 @@ public class PersistentPageMemoryMvTableStorageTest extends AbstractMvTableStora
                 null,
                 mock(FailureManager.class),
                 mock(LogSyncer.class),
+                executorService,
                 clock
         );
 
