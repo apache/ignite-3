@@ -33,20 +33,23 @@ import org.junit.jupiter.api.BeforeEach;
  * Tests that current Java client can work with all older server versions.
  */
 public class ClientWithOldServerCompatibilityTest extends ClientCompatibilityTestBase {
-    private static IgniteServerContainer serverContainer;
+    private IgniteServerContainer serverContainer;
 
     @BeforeAll
-    static void beforeAll() throws Exception {
+    @Override
+    public void beforeAll() throws Exception {
         // TODO: Parametrize the server version to test against multiple versions.
         serverContainer = new IgniteServerContainer("3.0.0");
         serverContainer.start();
 
         activateCluster(serverContainer.restPort());
         waitForActivation(serverContainer.clientPort());
+
+        super.beforeAll();
     }
 
     @AfterAll
-    static void afterAll() {
+    void afterAll() {
         if (serverContainer != null) {
             serverContainer.stop();
         }

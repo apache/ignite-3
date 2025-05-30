@@ -40,12 +40,15 @@ import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 
 /**
  * Base class for client compatibility tests. Contains actual tests logic, without infrastructure initialization.
  */
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class ClientCompatibilityTestBase {
     private static final String TABLE_NAME_TEST = "TEST";
     private static final String TABLE_NAME_ALL_COLUMNS = "ALL_COLUMNS";
@@ -53,6 +56,11 @@ public abstract class ClientCompatibilityTestBase {
     private final AtomicInteger idGen = new AtomicInteger(1000);
 
     IgniteClient client;
+
+    @BeforeAll
+    public void beforeAll() throws Exception {
+        createDefaultTables();
+    }
 
     @Test
     public void testClusterNodes() {
@@ -64,8 +72,6 @@ public abstract class ClientCompatibilityTestBase {
     @Test
     @Disabled("IGNITE-25514")
     public void testTableByName() {
-        createDefaultTables();
-
         Table testTable = client.tables().table(TABLE_NAME_TEST);
         assertNotNull(testTable);
 
@@ -75,8 +81,6 @@ public abstract class ClientCompatibilityTestBase {
     @Test
     @Disabled("IGNITE-25514")
     public void testTableByQualifiedName() {
-        createDefaultTables();
-
         Table testTable = client.tables().table(QualifiedName.fromSimple(TABLE_NAME_TEST));
         assertNotNull(testTable);
 
@@ -85,8 +89,6 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     public void testTables() {
-        createDefaultTables();
-
         List<Table> tables = client.tables().tables();
 
         List<String> tableNames = tables.stream()
@@ -98,8 +100,6 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     public void testSqlColumnMeta() {
-        createDefaultTables();
-
         try (var cursor = client.sql().execute(null, "select * from " + TABLE_NAME_ALL_COLUMNS)) {
             ResultSetMetadata meta = cursor.metadata();
             assertNotNull(meta);
@@ -183,7 +183,6 @@ public abstract class ClientCompatibilityTestBase {
         if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_TEST + " (id INT PRIMARY KEY, name VARCHAR)")) {
             sql("INSERT INTO " + TABLE_NAME_TEST + " (id, name) VALUES (1, 'test')");
         }
-
 
         if (ddl("CREATE TABLE IF NOT EXISTS " + TABLE_NAME_ALL_COLUMNS + " (id INT PRIMARY KEY, byte TINYINT, short SMALLINT, " +
                 "int INT, long BIGINT, float REAL, double DOUBLE, dec DECIMAL, " +
