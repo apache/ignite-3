@@ -293,6 +293,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         if (remainingInternal >= Integer.BYTES) {
             writeVarIntFast(intVal);
         } else {
+            if (!lastFinished) {
+                return;
+            }
+
             int pos = buf.position();
 
             // TODO Refactor :)
@@ -531,8 +535,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         GridUnsafe.putInt(heapArr, baseOff + pos, res);
         setPosition(pos + len);
-
-//        assert buf.position() < buf.limit();
     }
 
     /** {@inheritDoc} */

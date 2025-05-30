@@ -59,7 +59,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @Warmup(iterations = 5, time = 2, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 5, time = 1, timeUnit = TimeUnit.SECONDS)
-@Fork(1)
+@Fork(0)
 @BenchmarkMode(Mode.Throughput)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
@@ -76,11 +76,11 @@ public class UpdateCommandsMarshallingMicroBenchmark {
     private static final Marshaller MARSHALLER = new ThreadLocalOptimizedMarshaller(REGISTRY);
 
     /** Binary tuple size in bytes. */
-    @Param({"128", "2048", "8192"})
+    @Param({"128"/*, "2048", "8192"*/})
     private int payloadSize;
 
     /** Whether we create {@link UpdateCommand} or {@link UpdateAllCommand}. */
-    @Param({"false", "true"})
+    @Param({/*"false", */"true"})
     private boolean updateAll;
 
     private NetworkMessage message;
