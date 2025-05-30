@@ -76,11 +76,11 @@ public class UpdateCommandsMarshallingMicroBenchmark {
     private static final Marshaller MARSHALLER = new ThreadLocalOptimizedMarshaller(REGISTRY);
 
     /** Binary tuple size in bytes. */
-    @Param({"128"/*, "2048", "8192"*/})
+    @Param({"128", "2048", "8192"})
     private int payloadSize;
 
     /** Whether we create {@link UpdateCommand} or {@link UpdateAllCommand}. */
-    @Param({/*"false", */"true"})
+    @Param({"false", "true"})
     private boolean updateAll;
 
     private NetworkMessage message;
