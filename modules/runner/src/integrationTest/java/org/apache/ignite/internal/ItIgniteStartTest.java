@@ -147,7 +147,6 @@ class ItIgniteStartTest extends ClusterPerTestIntegrationTest {
         assertThat(cluster.stopNodeAsync(2), willCompleteSuccessfully());
     }
 
-
     private static void waitTill1NodeValidateItselfWithCmg(ServerRegistration registration) throws InterruptedException {
         IgniteImpl ignite = ((IgniteServerImpl) registration.server()).igniteImpl();
 
