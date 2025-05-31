@@ -37,6 +37,7 @@ import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesSerializationRegistryInitializer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -63,6 +64,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 public class UpdateCommandsMarshallingMicroBenchmark {
+    private static final int TABLE_ID = 10_000;
+
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
@@ -84,6 +87,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
 
     static {
         new PartitionReplicationMessagesSerializationRegistryInitializer().registerFactories(REGISTRY);
+        new ReplicaMessagesSerializationRegistryInitializer().registerFactories(REGISTRY);
     }
 
     private byte[] messageBytes;
@@ -116,8 +120,13 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)
                     .requiredCatalogVersion(10_000)
-                    .tableId(10_000)
+                    .tableId(TABLE_ID)
                     .txCoordinatorId(UUID.randomUUID())
+                    .commitPartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+                            .partitionId(50)
+                            .tableId(TABLE_ID)
+                            .build())
+                    .initiatorTime(hybridTimestamp(System.currentTimeMillis()))
                     .messageRowsToUpdate(map)
                     .build();
         } else {
@@ -126,9 +135,14 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)
                     .rowUuid(uuid)
-                    .requiredCatalogVersion(10_000)
-                    .tableId(10_000)
+                    .requiredCatalogVersion(TABLE_ID)
+                    .tableId(TABLE_ID)
                     .txCoordinatorId(UUID.randomUUID())
+                    .commitPartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+                            .partitionId(50)
+                            .tableId(TABLE_ID)
+                            .build())
+                    .initiatorTime(hybridTimestamp(System.currentTimeMillis()))
                     .messageRowToUpdate(timedBinaryRowMessage)
                     .build();
         }

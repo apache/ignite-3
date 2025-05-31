@@ -285,9 +285,36 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        lastFinished = remainingInternal() >= MAX_VAR_SHORT_BYTES;
+        int remainingInternal = remainingInternal();
+        lastFinished = remainingInternal >= MAX_VAR_SHORT_BYTES;
 
-        writeVarInt(Short.toUnsignedInt((short) (val + 1)));
+        int intVal = Short.toUnsignedInt((short) (val + 1));
+
+        if (remainingInternal >= Integer.BYTES) {
+            writeVarIntFast(intVal);
+        } else {
+            if (!lastFinished) {
+                return;
+            }
+
+            int pos = buf.position();
+
+            // TODO Refactor :)
+            //  Can't use "writeVarShortFast" here, it requires 4 bytes of space, and we only have 3.
+            if (intVal < 128) {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) intVal);
+                setPosition(pos + 1);
+            } else if (intVal < 128 * 128) {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) (intVal >> 7));
+                setPosition(pos + 2);
+            } else {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) ((intVal >> 7) | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 2, (byte) (intVal >> 14));
+                setPosition(pos + 3);
+            }
+        }
     }
 
     @Override
@@ -393,6 +420,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private void writeVarLong(long val) {
         if (lastFinished) {
+            if (val >>> 56 == 0L) {
+                writeVarLongFast(val);
+
+                return;
+            }
+
             int pos = buf.position();
 
             // Please check benchmarks if you're going to change this code.
@@ -414,6 +447,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private void writeVarInt(int val) {
         if (lastFinished) {
+            if (val >>> 28 == 0) {
+                writeVarIntFast(val);
+
+                return;
+            }
+
             int pos = buf.position();
 
             // Please check benchmarks if you're going to change this code.
@@ -431,6 +470,71 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
             setPosition(pos);
         }
+    }
+
+    private static final int[] VAR_LONG_LENGTHS = {
+            1, 1, 1, 1, 1, 1, 1,
+            2, 2, 2, 2, 2, 2, 2,
+            3, 3, 3, 3, 3, 3, 3,
+            4, 4, 4, 4, 4, 4, 4,
+            5, 5, 5, 5, 5, 5, 5,
+            6, 6, 6, 6, 6, 6, 6,
+            7, 7, 7, 7, 7, 7, 7,
+            8, 8, 8, 8, 8, 8, 8
+    };
+
+    private void writeVarLongFast(long val) {
+        if (val >>> 28 == 0L) {
+            writeVarIntFast((int) val);
+
+            return;
+        }
+
+        long res = val;
+
+        int z = Long.numberOfTrailingZeros(Long.highestOneBit(val));
+        int len = VAR_LONG_LENGTHS[z];
+
+        res = res & 0x0FFFFFFFL | (res & 0xFFFFFFF0000000L) << 4;
+        res = res & 0x3FFF00003FFFL | (res & 0xFFFFC0000FFFC000L) << 2;
+        res = res & 0x7F007F007F007FL | (res & 0x3F803F803F803F80L) << 1;
+
+        res |= 0x0080808080808080L >>> ((8 - len) << 3);
+
+        int pos = buf.position();
+
+        if (IS_BIG_ENDIAN) {
+            res = Long.reverseBytes(res);
+        }
+
+        GridUnsafe.putLong(heapArr, baseOff + pos, res);
+        setPosition(pos + len);
+    }
+
+    private void writeVarIntFast(int val) {
+        int res = val;
+
+        int len;
+        if (val < 128) {
+            len = 1;
+        } else {
+            int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
+            len = VAR_LONG_LENGTHS[z];
+
+            res = res & 0x3FFF | (res & 0xFFFC000) << 2;
+            res = res & 0x7F007F | (res & 0x3F803F80) << 1;
+
+            res |= 0x00808080 >>> ((4 - len) << 3);
+        }
+
+        int pos = buf.position();
+
+        if (IS_BIG_ENDIAN) {
+            res = Integer.reverseBytes(res);
+        }
+
+        GridUnsafe.putInt(heapArr, baseOff + pos, res);
+        setPosition(pos + len);
     }
 
     /** {@inheritDoc} */
