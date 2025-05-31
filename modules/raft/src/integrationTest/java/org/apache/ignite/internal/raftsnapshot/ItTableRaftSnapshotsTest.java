@@ -209,7 +209,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         cluster.restartNode(2);
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(2);
+        transferLeadershipOnSolePartitionTo(2);
 
         assertThat(getFromNode(2, 1), is("one"));
     }
@@ -301,7 +301,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         // Prepare the scene: force node 0 to be a leader, and node 2 to be a follower.
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(0);
+        transferLeadershipOnSolePartitionTo(0);
 
         knockoutNode(2);
 
@@ -451,11 +451,6 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         cluster.startNode(nodeIndex);
     }
 
-    private void transferLeadershipAndPrimaryOnSolePartitionTo(int nodeIndex) throws InterruptedException {
-        transferLeadershipOnSolePartitionTo(nodeIndex);
-        transferPrimaryOnSolePartitionTo(nodeIndex);
-    }
-
     private void transferLeadershipOnSolePartitionTo(int nodeIndex) throws InterruptedException {
         cluster.transferLeadershipTo(nodeIndex, cluster.solePartitionId(TEST_ZONE_NAME, TEST_TABLE_NAME));
     }
@@ -491,7 +486,11 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
     private void txSemanticsIsMaintainedAfterInstallingSnapshot() throws Exception {
         createTestTableWith3Replicas(DEFAULT_STORAGE_ENGINE);
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(0);
+        // Prepare the scene: first act - force node 0 to be a leader, and node 2 to be a follower.
+        transferLeadershipOnSolePartitionTo(0);
+
+        // Prepare the scene: second act - force node 0 to be a primary.
+        transferPrimaryOnSolePartitionTo(0);
 
         Transaction tx = cluster.node(0).transactions().begin();
 
@@ -506,7 +505,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         reanimateNode2AndWaitForSnapshotInstalled();
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(2);
+        transferLeadershipOnSolePartitionTo(2);
 
         assertThat(getFromNode(2, 1), is("one"));
     }
@@ -520,7 +519,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         putToNode(0, 2, "two");
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(2);
+        transferLeadershipOnSolePartitionTo(2);
 
         assertThat(getFromNode(0, 1), is("one"));
         assertThat(getFromNode(0, 2), is("two"));
@@ -550,7 +549,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         assertThat(loadingFuture, willSucceedIn(30, TimeUnit.SECONDS));
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(2);
+        transferLeadershipOnSolePartitionTo(2);
 
         assertThat(getFromNode(2, 1), is("one"));
 
@@ -572,7 +571,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         // The leader (0) has fed the follower (2). Now, change roles: the new leader will be node 2, it will feed node 0.
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(2);
+        transferLeadershipOnSolePartitionTo(2);
 
         knockoutNode(0);
 
@@ -583,7 +582,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         reanimateNodeAndWaitForSnapshotInstalled(0);
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(0);
+        transferLeadershipOnSolePartitionTo(0);
 
         assertThat(getFromNode(0, 1), is("one"));
         assertThat(getFromNode(0, 2), is("two"));
@@ -709,7 +708,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         });
 
         // Change the leader and truncate its log so that InstallSnapshot occurs instead of AppendEntries.
-        transferLeadershipAndPrimaryOnSolePartitionTo(1);
+        transferLeadershipOnSolePartitionTo(1);
 
         causeLogTruncationOnSolePartitionLeader(1);
 
@@ -724,7 +723,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         assertThat(sentSnapshotMetaResponseFormNode1Future, willSucceedIn(1, TimeUnit.MINUTES));
 
         // Change the leader to node 0.
-        transferLeadershipAndPrimaryOnSolePartitionTo(0);
+        transferLeadershipOnSolePartitionTo(0);
 
         // Waiting for the InstallSnapshot successfully from node 0 to node 2.
         assertThat(installSnapshotSuccessfulFuture, willSucceedIn(1, TimeUnit.MINUTES));
@@ -786,7 +785,7 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         assertThat(sentSnapshotMetaResponseFormNode0Future, willSucceedIn(1, TimeUnit.MINUTES));
 
         // Change the leader to node 1.
-        transferLeadershipAndPrimaryOnSolePartitionTo(1);
+        transferLeadershipOnSolePartitionTo(1);
 
         boolean replicated = waitForCondition(() -> getFromNode(2, 1) != null, 20_000);
 
@@ -813,7 +812,8 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
         final int leaderIndex = 0;
         final int followerIndex = 2;
 
-        transferLeadershipAndPrimaryOnSolePartitionTo(leaderIndex);
+        transferLeadershipOnSolePartitionTo(leaderIndex);
+        transferPrimaryOnSolePartitionTo(leaderIndex);
         cluster.transferLeadershipTo(leaderIndex, MetastorageGroupId.INSTANCE);
 
         // Block AppendEntries from being accepted on the follower so that the leader will have to use a snapshot.
