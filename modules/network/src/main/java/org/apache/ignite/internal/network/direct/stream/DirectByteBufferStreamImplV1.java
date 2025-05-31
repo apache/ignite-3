@@ -306,12 +306,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 setPosition(pos + 1);
             } else if (intVal < 128 * 128) {
                 GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
-                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) (intVal >>> 7));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) (intVal >> 7));
                 setPosition(pos + 2);
             } else {
                 GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
-                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) ((intVal >>> 7) | 0x80));
-                GridUnsafe.putByte(heapArr, baseOff + pos + 2, (byte) (intVal >>> 14));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) ((intVal >> 7) | 0x80));
+                GridUnsafe.putByte(heapArr, baseOff + pos + 2, (byte) (intVal >> 14));
                 setPosition(pos + 3);
             }
         }
