@@ -477,7 +477,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      *     <li>
      *         The encoding algorithm must set upper bit of all bytes except the last one. It can be done with a single bitwise OR with a
      *         carefully chosen constant. This constant looks like {@code 0x80...80L} with a right number of bits. We choose the number of
-     *         bits based on the actual bit-length of the value, which is considered using {@link Long#highestOneBit(long)}.
+     *         bits based on the actual bit-length of the value, which is considered using {@link Long#numberOfLeadingZeros(long)}.
      *     </li>
      * </ul>
      */
