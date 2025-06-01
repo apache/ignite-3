@@ -297,10 +297,10 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 return;
             }
 
+            // Exceptionally rare branch of execution, doesn't have to be fast.
             int pos = buf.position();
 
-            // TODO Refactor :)
-            //  Can't use "writeVarShortFast" here, it requires 4 bytes of space, and we only have 3.
+            // intVal can't be negative here, so we use prettier comparison to increate code clarity.
             if (intVal < 128) {
                 GridUnsafe.putByte(heapArr, baseOff + pos, (byte) intVal);
                 setPosition(pos + 1);
@@ -418,6 +418,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    // https://github.com/protocolbuffers/protobuf/blob/0302c4c43821ac893e8f1071576f80edef5c6398/java/core/src/main/java/com/google/protobuf/CodedOutputStream.java#L2050
     private void writeVarLong(long val) {
         if (lastFinished) {
             if (val >>> 56 == 0L) {
@@ -1357,6 +1358,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /** {@inheritDoc} */
+    // https://github.com/protocolbuffers/protobuf/blob/0302c4c43821ac893e8f1071576f80edef5c6398/java/core/src/main/java/com/google/protobuf/CodedInputStream.java#L1026
     @Override
     public long readLong() {
         lastFinished = false;
