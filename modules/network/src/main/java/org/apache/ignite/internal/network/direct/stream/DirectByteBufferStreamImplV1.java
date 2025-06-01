@@ -495,12 +495,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         long mask = 0x0080808080808080L & (-1L >>> Long.numberOfLeadingZeros(val));
         val |= mask;
 
-        int pos = buf.position();
-
         if (IS_BIG_ENDIAN) {
             val = Long.reverseBytes(val);
         }
 
+        int pos = buf.position();
         GridUnsafe.putLong(heapArr, baseOff + pos, val);
         setPosition(pos + Long.bitCount(mask) + 1);
     }
