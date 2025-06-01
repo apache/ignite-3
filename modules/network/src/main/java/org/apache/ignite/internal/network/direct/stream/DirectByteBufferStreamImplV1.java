@@ -537,12 +537,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         long res = val;
 
         int z = Long.numberOfTrailingZeros(Long.highestOneBit(val));
-        int len = VAR_LONG_LENGTHS[z];
 
         res = res & 0x0FFFFFFFL | (res & 0xFFFFFFF0000000L) << 4;
         res = res & 0x3FFF00003FFFL | (res & 0xFFFFC0000FFFC000L) << 2;
         res = res & 0x7F007F007F007FL | (res & 0x3F803F803F803F80L) << 1;
 
+        int len = VAR_LONG_LENGTHS[z];
         res |= 0x0080808080808080L >>> ((8 - len) << 3);
 
         int pos = buf.position();
@@ -564,16 +564,16 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         int res = val;
 
         int len;
-        if (val < 128) {
+        if (val >> 7 == 0) {
             // Fast-path for small values.
             len = 1;
         } else {
             int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
-            len = VAR_LONG_LENGTHS[z];
 
             res = res & 0x3FFF | (res & 0xFFFC000) << 2;
             res = res & 0x7F007F | (res & 0x3F803F80) << 1;
 
+            len = VAR_LONG_LENGTHS[z];
             res |= 0x00808080 >>> ((4 - len) << 3);
         }
 
