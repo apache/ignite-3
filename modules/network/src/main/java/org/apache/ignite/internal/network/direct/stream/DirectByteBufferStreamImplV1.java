@@ -285,42 +285,19 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        int remainingInternal = remainingInternal();
-        lastFinished = remainingInternal >= MAX_VAR_SHORT_BYTES;
+        // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES for fast int encoding.
+        lastFinished = remainingInternal() >= Integer.BYTES;
 
-        int intVal = Short.toUnsignedInt((short) (val + 1));
-
-        if (remainingInternal >= Integer.BYTES) {
-            writeVarIntFast(intVal);
-        } else {
-            if (!lastFinished) {
-                return;
-            }
-
-            // Exceptionally rare branch of execution, doesn't have to be fast.
-            int pos = buf.position();
-
-            // intVal can't be negative here, so we use prettier comparison to increate code clarity.
-            if (intVal < 128) {
-                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) intVal);
-                setPosition(pos + 1);
-            } else if (intVal < 128 * 128) {
-                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
-                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) (intVal >> 7));
-                setPosition(pos + 2);
-            } else {
-                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (intVal | 0x80));
-                GridUnsafe.putByte(heapArr, baseOff + pos + 1, (byte) ((intVal >> 7) | 0x80));
-                GridUnsafe.putByte(heapArr, baseOff + pos + 2, (byte) (intVal >> 14));
-                setPosition(pos + 3);
-            }
+        if (lastFinished) {
+            writeVarIntFast(Short.toUnsignedInt((short) (val + 1)));
         }
     }
 
     @Override
     public void writeBoxedShort(@Nullable Short val) {
         if (val != null) {
-            lastFinished = remainingInternal() >= 1 + MAX_VAR_SHORT_BYTES;
+            // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES for fast int encoding.
+            lastFinished = remainingInternal() >= 1 + Integer.BYTES;
 
             if (lastFinished) {
                 writeBooleanUnchecked(true);
@@ -538,12 +515,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         long res = val;
 
         int z = Long.numberOfTrailingZeros(Long.highestOneBit(val));
+        int len = VAR_LONG_LENGTHS[z];
 
         res = res & 0x0FFFFFFFL | (res & 0xFFFFFFF0000000L) << 4;
         res = res & 0x3FFF00003FFFL | (res & 0xFFFFC0000FFFC000L) << 2;
         res = res & 0x7F007F007F007FL | (res & 0x3F803F803F803F80L) << 1;
 
-        int len = VAR_LONG_LENGTHS[z];
         res |= 0x0080808080808080L >>> ((8 - len) << 3);
 
         int pos = buf.position();
@@ -570,11 +547,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             len = 1;
         } else {
             int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
+            len = VAR_LONG_LENGTHS[z];
 
             res = res & 0x3FFF | (res & 0xFFFC000) << 2;
             res = res & 0x7F007F | (res & 0x3F803F80) << 1;
 
-            len = VAR_LONG_LENGTHS[z];
             res |= 0x00808080 >>> ((4 - len) << 3);
         }
 
