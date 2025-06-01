@@ -491,7 +491,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     };
 
     /**
-     * Optimized version of ver-long encoding that uses just a single {@link GridUnsafe#putLong(long, long)}'s method call and mostly avoids
+     * Optimized version of var-len encoding that uses just a single {@link GridUnsafe#putLong(long, long)}'s method call and mostly avoids
      * conditional branching.
      *
      * <p>This method can only work when an actual bit-length af the value is less than or equal to {@code 56 = 7 * 8}, in which case the
@@ -556,6 +556,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /**
+     * Optimized version of var-len encoding.
+     *
      * @see #writeVarLongFast(long)
      */
     private void writeVarIntFast(int val) {
