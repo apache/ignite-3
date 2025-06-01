@@ -490,6 +490,43 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             8, 8, 8, 8, 8, 8, 8
     };
 
+    /**
+     * Optimized version of ver-long encoding that uses just a single {@link GridUnsafe#putLong(long, long)}'s method call and mostly avoids
+     * conditional branching.
+     *
+     * <p>This method can only work when an actual bit-length af the value is less than or equal to {@code 56 = 7 * 8}, in which case the
+     * result could be encoded using {@code 8} bytes at most, which fits into a single {@code long} value.
+     *
+     * <p>The second prerequisite for this method is the fact that output buffer has enough space to fit those {@code 8} bytes. By carefully
+     * setting the position of the output buffer, we can ensure that only the required number of least significant bytes from the resulting
+     * value will be interpreted as an encoded var-long value.
+     *
+     * <p>How the algorithm works:
+     * <ul>
+     *     <li>
+     *         First of all, we spread-out the septuples ({@code 7}-bit tuples) inside of the input values. It is done with a little bit of
+     *         bit magic. Let's assume that each {@code N} represents a septuple, and {@code 0} represents a single bit with value
+     *         {@code 0}. The procedure will perform the following set of transformation of our 8 septuples:
+     *         <pre>{@code
+     *              ????????12345678
+     *               v
+     *              ????123400005678
+     *               v
+     *              ??12003400560078
+     *               v
+     *              ?102030405060708
+     *         }</pre>
+     *         Following this procedure, we enrich each septuple with an additional {@code 0} bit, converting it into a byte.
+     *     </li>
+     *     <li>
+     *         The encoding algorithm must set upper bit of all bytes except the last one. It can be done with a single bitwise OR with a
+     *         carefully chosen constant. This constant looks like {@code 0x80...80L} with a right number of bits. We choose the number of
+     *         bits based on the actual bit-length of the value, which is calculated using {@link Long#numberOfTrailingZeros(long)} and
+     *         {@link Long#highestOneBit(long)}. Please keep in mind that we never call {@code Long.highestOneBit(0)}, {@code 0} is avoided
+     *         by preceding checks. After using these functions, we then retrieve the real number of bits using {@link #VAR_LONG_LENGTHS}.
+     *     </li>
+     * </ul>
+     */
     private void writeVarLongFast(long val) {
         if (val >>> 28 == 0L) {
             writeVarIntFast((int) val);
