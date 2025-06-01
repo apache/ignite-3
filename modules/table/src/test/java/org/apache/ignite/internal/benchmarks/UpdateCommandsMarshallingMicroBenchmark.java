@@ -64,8 +64,6 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 @State(Scope.Thread)
 public class UpdateCommandsMarshallingMicroBenchmark {
-    private static final int TABLE_ID = 10_000;
-
     private static final PartitionReplicationMessagesFactory PARTITION_REPLICATION_MESSAGES_FACTORY =
             new PartitionReplicationMessagesFactory();
 
@@ -120,11 +118,11 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)
                     .requiredCatalogVersion(10_000)
-                    .tableId(TABLE_ID)
+                    .tableId(10_000)
                     .txCoordinatorId(UUID.randomUUID())
                     .commitPartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
                             .partitionId(50)
-                            .tableId(TABLE_ID)
+                            .tableId(10_000)
                             .build())
                     .initiatorTime(hybridTimestamp(System.currentTimeMillis()))
                     .messageRowsToUpdate(map)
@@ -135,12 +133,12 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .leaseStartTime(timestamp.longValue())
                     .safeTime(timestamp)
                     .rowUuid(uuid)
-                    .requiredCatalogVersion(TABLE_ID)
-                    .tableId(TABLE_ID)
+                    .requiredCatalogVersion(10_000)
+                    .tableId(10_000)
                     .txCoordinatorId(UUID.randomUUID())
                     .commitPartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
                             .partitionId(50)
-                            .tableId(TABLE_ID)
+                            .tableId(10_000)
                             .build())
                     .initiatorTime(hybridTimestamp(System.currentTimeMillis()))
                     .messageRowToUpdate(timedBinaryRowMessage)
