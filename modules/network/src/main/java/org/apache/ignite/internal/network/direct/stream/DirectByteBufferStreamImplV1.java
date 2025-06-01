@@ -395,7 +395,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
-    // https://github.com/protocolbuffers/protobuf/blob/0302c4c43821ac893e8f1071576f80edef5c6398/java/core/src/main/java/com/google/protobuf/CodedOutputStream.java#L2050
     private void writeVarLong(long val) {
         if (lastFinished) {
             if (val >>> 56 == 0L) {
@@ -451,24 +450,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /**
-     * Lengths table. Converts {@code bit_length - 1} of a long value into the number of bytes that it will occupy in var-len encoding.
-     * Only covers first {@code 56} bits, because after that the number of encoded bytes will exceed {@code 8} and won't fit into a single
-     * {@code long} value.
-     *
-     * <p>Such a table, generally speaking, is faster than calculating the number of bytes on the fly, because it avoids division by 7.
-     */
-    private static final int[] VAR_LONG_LENGTHS = {
-            1, 1, 1, 1, 1, 1, 1,
-            2, 2, 2, 2, 2, 2, 2,
-            3, 3, 3, 3, 3, 3, 3,
-            4, 4, 4, 4, 4, 4, 4,
-            5, 5, 5, 5, 5, 5, 5,
-            6, 6, 6, 6, 6, 6, 6,
-            7, 7, 7, 7, 7, 7, 7,
-            8, 8, 8, 8, 8, 8, 8
-    };
-
-    /**
      * Optimized version of var-len encoding that uses just a single {@link GridUnsafe#putLong(long, long)}'s method call and mostly avoids
      * conditional branching.
      *
@@ -499,9 +480,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      *     <li>
      *         The encoding algorithm must set upper bit of all bytes except the last one. It can be done with a single bitwise OR with a
      *         carefully chosen constant. This constant looks like {@code 0x80...80L} with a right number of bits. We choose the number of
-     *         bits based on the actual bit-length of the value, which is calculated using {@link Long#numberOfTrailingZeros(long)} and
-     *         {@link Long#highestOneBit(long)}. Please keep in mind that we never call {@code Long.highestOneBit(0)}, {@code 0} is avoided
-     *         by preceding checks. After using these functions, we then retrieve the real number of bits using {@link #VAR_LONG_LENGTHS}.
+     *         bits based on the actual bit-length of the value, which is considered using {@link Long#highestOneBit(long)}.
      *     </li>
      * </ul>
      */
@@ -512,25 +491,21 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             return;
         }
 
-        long res = val;
+        val = val & 0x0FFFFFFFL | (val & 0xFFFFFFF0000000L) << 4;
+        val = val & 0x3FFF00003FFFL | (val & 0xFFFFC0000FFFC000L) << 2;
+        val = val & 0x7F007F007F007FL | (val & 0x3F803F803F803F80L) << 1;
 
-        int z = Long.numberOfTrailingZeros(Long.highestOneBit(val));
-        int len = VAR_LONG_LENGTHS[z];
-
-        res = res & 0x0FFFFFFFL | (res & 0xFFFFFFF0000000L) << 4;
-        res = res & 0x3FFF00003FFFL | (res & 0xFFFFC0000FFFC000L) << 2;
-        res = res & 0x7F007F007F007FL | (res & 0x3F803F803F803F80L) << 1;
-
-        res |= 0x0080808080808080L >>> ((8 - len) << 3);
+        long mask = 0x0080808080808080L & (-1L >>> Long.numberOfLeadingZeros(val));
+        val |= mask;
 
         int pos = buf.position();
 
         if (IS_BIG_ENDIAN) {
-            res = Long.reverseBytes(res);
+            val = Long.reverseBytes(val);
         }
 
-        GridUnsafe.putLong(heapArr, baseOff + pos, res);
-        setPosition(pos + len);
+        GridUnsafe.putLong(heapArr, baseOff + pos, val);
+        setPosition(pos + Long.bitCount(mask) + 1);
     }
 
     /**
@@ -539,30 +514,31 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * @see #writeVarLongFast(long)
      */
     private void writeVarIntFast(int val) {
-        int res = val;
-
-        int len;
-        if (val >> 7 == 0) {
-            // Fast-path for small values.
-            len = 1;
-        } else {
-            int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
-            len = VAR_LONG_LENGTHS[z];
-
-            res = res & 0x3FFF | (res & 0xFFFC000) << 2;
-            res = res & 0x7F007F | (res & 0x3F803F80) << 1;
-
-            res |= 0x00808080 >>> ((4 - len) << 3);
-        }
-
         int pos = buf.position();
 
-        if (IS_BIG_ENDIAN) {
-            res = Integer.reverseBytes(res);
-        }
+        if (val >> 7 == 0) {
+            // Fast-path for small values.
+            if (IS_BIG_ENDIAN) {
+                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) val);
+            } else {
+                GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            }
 
-        GridUnsafe.putInt(heapArr, baseOff + pos, res);
-        setPosition(pos + len);
+            setPosition(pos + 1);
+        } else {
+            val = val & 0x3FFF | (val & 0xFFFC000) << 2;
+            val = val & 0x7F007F | (val & 0x3F803F80) << 1;
+
+            int mask = 0x00808080 & (-1 >>> Integer.numberOfLeadingZeros(val));
+            val |= mask;
+
+            if (IS_BIG_ENDIAN) {
+                val = Integer.reverseBytes(val);
+            }
+
+            GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            setPosition(pos + Integer.bitCount(mask) + 1);
+        }
     }
 
     /** {@inheritDoc} */
@@ -1335,7 +1311,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /** {@inheritDoc} */
-    // https://github.com/protocolbuffers/protobuf/blob/0302c4c43821ac893e8f1071576f80edef5c6398/java/core/src/main/java/com/google/protobuf/CodedInputStream.java#L1026
     @Override
     public long readLong() {
         lastFinished = false;
