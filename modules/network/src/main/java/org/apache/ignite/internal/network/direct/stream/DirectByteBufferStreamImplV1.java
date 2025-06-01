@@ -508,13 +508,13 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      *         bit magic. Let's assume that each {@code N} represents a septuple, and {@code 0} represents a single bit with value
      *         {@code 0}. The procedure will perform the following set of transformation of our 8 septuples:
      *         <pre>{@code
-     *              ????????12345678
+     *              0000000012345678
      *               v
-     *              ????123400005678
+     *              0000123400005678
      *               v
-     *              ??12003400560078
+     *              0012003400560078
      *               v
-     *              ?102030405060708
+     *              0102030405060708
      *         }</pre>
      *         Following this procedure, we enrich each septuple with an additional {@code 0} bit, converting it into a byte.
      *     </li>
