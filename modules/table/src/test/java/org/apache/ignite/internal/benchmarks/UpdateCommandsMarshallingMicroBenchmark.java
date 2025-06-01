@@ -124,7 +124,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                             .partitionId(50)
                             .tableId(10_000)
                             .build())
-                    .initiatorTime(hybridTimestamp(System.currentTimeMillis()))
+                    .initiatorTime(timestamp)
                     .messageRowsToUpdate(map)
                     .build();
         } else {
@@ -140,7 +140,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                             .partitionId(50)
                             .tableId(10_000)
                             .build())
-                    .initiatorTime(hybridTimestamp(System.currentTimeMillis()))
+                    .initiatorTime(timestamp)
                     .messageRowToUpdate(timedBinaryRowMessage)
                     .build();
         }
