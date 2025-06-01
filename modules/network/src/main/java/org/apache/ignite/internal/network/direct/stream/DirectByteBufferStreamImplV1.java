@@ -82,9 +82,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Flag that indicates that byte buffer has Big Endinan order. */
     protected static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
-    /** {@code Short.SIZE / 7} rounded up. */
-    private static final int MAX_VAR_SHORT_BYTES = 3;
-
     /** {@code Integer.SIZE / 7} rounded up. */
     private static final int MAX_VAR_INT_BYTES = 5;
 
@@ -285,7 +282,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES for fast int encoding.
+        // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES (3) for fast int encoding.
         lastFinished = remainingInternal() >= Integer.BYTES;
 
         if (lastFinished) {
@@ -296,7 +293,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     @Override
     public void writeBoxedShort(@Nullable Short val) {
         if (val != null) {
-            // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES for fast int encoding.
+            // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES (3) for fast int encoding.
             lastFinished = remainingInternal() >= 1 + Integer.BYTES;
 
             if (lastFinished) {
