@@ -472,6 +472,13 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
     }
 
+    /**
+     * Lengths table. Converts {@code bit_length - 1} of a long value into the number of bytes that it will occupy in var-len encoding.
+     * Only covers first {@code 56} bits, because after that the number of encoded bytes will exceed {@code 8} and won't fit into a single
+     * {@code long} value.
+     *
+     * <p>Such a table, generally speaking, is faster than calculating the number of bytes on the fly, because it avoids division by 7.
+     */
     private static final int[] VAR_LONG_LENGTHS = {
             1, 1, 1, 1, 1, 1, 1,
             2, 2, 2, 2, 2, 2, 2,
@@ -511,11 +518,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         setPosition(pos + len);
     }
 
+    /**
+     * @see #writeVarLongFast(long)
+     */
     private void writeVarIntFast(int val) {
         int res = val;
 
         int len;
         if (val < 128) {
+            // Fast-path for small values.
             len = 1;
         } else {
             int z = Integer.numberOfTrailingZeros(Integer.highestOneBit(val));
