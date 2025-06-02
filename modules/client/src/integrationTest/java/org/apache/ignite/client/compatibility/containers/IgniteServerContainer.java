@@ -19,8 +19,6 @@ package org.apache.ignite.client.compatibility.containers;
 
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.OutputFrame;
 import org.testcontainers.containers.wait.strategy.Wait;
