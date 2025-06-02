@@ -89,8 +89,8 @@ import org.apache.ignite.internal.network.netty.ConnectorKey;
 import org.apache.ignite.internal.network.netty.NettySender;
 import org.apache.ignite.internal.network.netty.OutgoingAcknowledgementSilencer;
 import org.apache.ignite.internal.network.recovery.InMemoryStaleIds;
-import org.apache.ignite.internal.network.recovery.RecoveryClientHandshakeManager;
-import org.apache.ignite.internal.network.recovery.RecoveryServerHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryAcceptorHandshakeManager;
+import org.apache.ignite.internal.network.recovery.RecoveryInitiatorHandshakeManager;
 import org.apache.ignite.internal.network.recovery.message.HandshakeFinishMessage;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
 import org.apache.ignite.internal.properties.IgniteProductVersion;
@@ -1210,12 +1210,12 @@ class ItScaleCubeNetworkMessagingTest {
         Predicate<LogEvent> matcher = evt -> evt.getMessage().getFormattedMessage().startsWith("Handshake rejected by ");
 
         logInspectors.add(new LogInspector(
-                RecoveryClientHandshakeManager.class.getName(),
+                RecoveryInitiatorHandshakeManager.class.getName(),
                 matcher,
                 ready::countDown));
 
         logInspectors.add(new LogInspector(
-                RecoveryServerHandshakeManager.class.getName(),
+                RecoveryAcceptorHandshakeManager.class.getName(),
                 matcher,
                 ready::countDown));
 

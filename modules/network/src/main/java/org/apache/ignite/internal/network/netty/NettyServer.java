@@ -201,7 +201,7 @@ public class NettyServer {
     }
 
     /**
-     * Returns gets the local address of the server.
+     * Returns address to which the server is bound (might be an 'any local'/wildcard address if bound to all interfaces).
      *
      * @return Gets the local address of the server.
      */
