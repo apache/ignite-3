@@ -706,7 +706,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void addWriteReturnsUncommittedVersionIfItExists() {
         RowId rowId = insert(binaryRow, txId);
 
-        BinaryRow returnedRow = addWrite(rowId, binaryRow2, txId);
+        BinaryRow returnedRow = addWrite(rowId, binaryRow2, txId).previousUncommittedRowVersion();
 
         assertThat(returnedRow, isRow(binaryRow));
     }
@@ -716,7 +716,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now(), txId);
 
-        BinaryRow returnedRow = addWrite(rowId, binaryRow2, newTransactionId());
+        BinaryRow returnedRow = addWrite(rowId, binaryRow2, newTransactionId()).previousUncommittedRowVersion();
 
         assertThat(returnedRow, isRow(null));
     }
@@ -784,7 +784,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     void removalReturnsUncommittedRowVersionIfItExists() {
         RowId rowId = insert(binaryRow, txId);
 
-        BinaryRow rowFromRemoval = addWrite(rowId, null, txId);
+        BinaryRow rowFromRemoval = addWrite(rowId, null, txId).previousUncommittedRowVersion();
 
         assertThat(rowFromRemoval, isRow(binaryRow));
     }
@@ -794,7 +794,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         RowId rowId = insert(binaryRow, txId);
         commitWrite(rowId, clock.now(), txId);
 
-        BinaryRow rowFromRemoval = addWrite(rowId, null, newTransactionId());
+        BinaryRow rowFromRemoval = addWrite(rowId, null, newTransactionId()).previousUncommittedRowVersion();
 
         assertThat(rowFromRemoval, isRow(null));
     }

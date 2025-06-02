@@ -65,6 +65,10 @@ import org.apache.ignite.internal.rocksdb.RocksIteratorAdapter;
 import org.apache.ignite.internal.rocksdb.RocksUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultCommittedStatus;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -439,9 +443,16 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException {
         return busy(() -> {
             @SuppressWarnings("resource") WriteBatchWithIndex writeBatch = requireWriteBatch();
 
@@ -486,7 +497,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         writeBatch.put(helper.dataCf, payloadKey, serializeBinaryRow(row));
                     }
 
-                    return previousRow;
+                    return new AddWriteResult(AddWriteResultStatus.SUCCESS, previousRow);
                 } else {
                     ByteBuffer txState = createTxState(rowId, txId, commitTableOrZoneId, commitPartitionId, row == null);
 
@@ -498,7 +509,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         writeBatch.put(helper.dataCf, helper.createPayloadKey(dataId), serializeBinaryRow(row));
                     }
 
-                    return null;
+                    return new AddWriteResult(AddWriteResultStatus.SUCCESS, null);
                 }
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException("Failed to update a row in storage: " + createStorageInfo(), e);
@@ -673,8 +684,14 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         busy(() -> {
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
@@ -709,6 +726,8 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                 throw new IgniteRocksDbException("Failed to update a row in storage: " + createStorageInfo(), e);
             }
         });
+
+        return new AddWriteCommittedResult(AddWriteResultCommittedStatus.SUCCESS);
     }
 
     private static void updateEstimatedSize(boolean isNewValueTombstone, AddResult gcQueueAddResult) throws RocksDBException {

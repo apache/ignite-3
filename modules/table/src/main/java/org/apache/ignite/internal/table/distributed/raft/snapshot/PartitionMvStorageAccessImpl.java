@@ -157,6 +157,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
+            // TODO: IGNITE-25546 Fix usage
             mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
@@ -182,6 +183,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
+            // TODO: IGNITE-25546 Fix usage
             mvPartitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {

@@ -24,6 +24,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -40,8 +42,8 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Provides access to MV (multi-version) data of a table partition.
  *
- * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite(RowId)}
- * and {@link #commitWrite(RowId, HybridTimestamp)}) and TX data storage MUST be invoked under a lock acquired using
+ * <p>Methods writing to MV storage ({@link #addWrite(RowId, BinaryRow, UUID, int, int)}, {@link #abortWrite}
+ * and {@link #commitWrite}) and TX data storage MUST be invoked under a lock acquired using
  * {@link #acquirePartitionSnapshotsReadLock()}.
  *
  * <p>Each MvPartitionStorage instance represents exactly one partition. All RowIds within a partition are sorted consistently with the
@@ -153,8 +155,15 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException;
+    // TODO: IGNITE-25546 Update documentation
+    // TODO: IGNITE-25546 Update exception information
+    AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException;
 
     /**
      * Write and commit the row in one step.
@@ -163,7 +172,9 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @param row Row (null to remove existing)
      * @param commitTs Commit timestamp.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
+    // TODO: IGNITE-25546 Update documentation
+    // TODO: IGNITE-25546 Update exception information
+    AddWriteCommittedResult addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.

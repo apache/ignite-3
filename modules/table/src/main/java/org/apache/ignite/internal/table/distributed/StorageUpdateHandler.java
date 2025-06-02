@@ -158,11 +158,15 @@ public class StorageUpdateHandler {
         performStorageCleanupIfNeeded(txId, rowId, lastCommitTs, indexIds);
 
         if (commitTs != null) {
+            // TODO: IGNITE-25546 Fix usage
             storage.addWriteCommitted(rowId, row, commitTs);
         } else {
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
+            // TODO: IGNITE-25546 Fix usage
+            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId())
+                    .previousUncommittedRowVersion();
 
             if (oldRow != null) {
+                // TODO: IGNITE-25546 Fix assert maybe
                 assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
                 // Previous uncommitted row should be removed from indexes.
                 tryRemovePreviousWritesIndex(rowId, oldRow, indexIds);

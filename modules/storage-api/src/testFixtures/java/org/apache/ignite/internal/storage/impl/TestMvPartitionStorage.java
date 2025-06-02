@@ -34,6 +34,10 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultCommittedStatus;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -230,8 +234,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.groupConfig = Arrays.copyOf(config, config.length);
     }
 
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public synchronized @Nullable BinaryRow addWrite(
+    public synchronized AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
@@ -256,7 +262,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
-        return res[0];
+        return new AddWriteResult(AddWriteResultStatus.SUCCESS, res[0]);
     }
 
     @Override
@@ -323,8 +329,10 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return res;
     }
 
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public synchronized void addWriteCommitted(
+    public synchronized AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
@@ -346,6 +354,8 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     versionChain
             ));
         });
+
+        return new AddWriteCommittedResult(AddWriteResultCommittedStatus.SUCCESS);
     }
 
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {

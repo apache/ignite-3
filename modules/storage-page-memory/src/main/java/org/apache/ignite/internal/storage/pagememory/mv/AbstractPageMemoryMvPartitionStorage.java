@@ -45,6 +45,10 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultCommittedStatus;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -421,9 +425,16 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         return busy(() -> {
@@ -438,7 +449,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 addWrite.afterCompletion();
 
-                return addWrite.getPreviousUncommittedRowVersion();
+                return new AddWriteResult(AddWriteResultStatus.SUCCESS, addWrite.getPreviousUncommittedRowVersion());
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
@@ -523,8 +534,14 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         assert rowId.partitionId() == partitionId : rowId;
 
         busy(() -> {
@@ -547,6 +564,8 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
             }
         });
+
+        return new AddWriteCommittedResult(AddWriteResultCommittedStatus.SUCCESS);
     }
 
     @Override

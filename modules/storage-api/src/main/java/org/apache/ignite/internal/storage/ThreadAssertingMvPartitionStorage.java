@@ -91,9 +91,15 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
         return partitionStorage.read(rowId, timestamp);
     }
 
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException {
         assertThreadAllowsToWrite();
 
         return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
@@ -113,11 +119,16 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
         return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
+    // TODO: IGNITE-25546 Update exception information
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
-        partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override

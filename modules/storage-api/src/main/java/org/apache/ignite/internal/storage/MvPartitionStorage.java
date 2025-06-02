@@ -50,7 +50,7 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Closure for executing write operations on the storage. All write operations, such as
-     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite(RowId, HybridTimestamp)},
+     * {@link #addWrite(RowId, BinaryRow, UUID, int, int)} or {@link #commitWrite},
      * as well as {@link #scanVersions(RowId)}, and operations like {@link #committedGroupConfiguration(byte[])}, must be executed inside
      * of the write closure. Also, each operation that involves modifying rows (and {@link #scanVersions(RowId)}) must hold lock on
      * the corresponding row ID, by either calling {@link Locker#lock(RowId)} or calling {@link Locker#tryLock(RowId)} and checking the
@@ -189,8 +189,18 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
      * @throws StorageException If failed to write data to the storage.
      */
-    @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException;
+    // TODO: IGNITE-25546 Update implementation
+    // TODO: IGNITE-25546 Update documentation
+    // TODO: IGNITE-25546 Add/Update tests
+    // TODO: IGNITE-25546 Check/correct usage
+    // TODO: IGNITE-25546 Update exception information
+    AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws TxIdMismatchException, StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
@@ -225,7 +235,14 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @param commitTimestamp Timestamp to associate with committed value.
      * @throws StorageException If failed to write data to the storage.
      */
-    void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+    // TODO: IGNITE-25546 Update documentation
+    // TODO: IGNITE-25546 Add/Update tests
+    // TODO: IGNITE-25546 Check/correct usage
+    AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException;
 
     /**
      * Scans all versions of a single row.
