@@ -492,7 +492,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         val = val & 0x3FFF00003FFFL | (val & 0xFFFFC0000FFFC000L) << 2;
         val = val & 0x7F007F007F007FL | (val & 0x3F803F803F803F80L) << 1;
 
-        long mask = 0x0080808080808080L & (-1L >>> Long.numberOfLeadingZeros(val));
+        long mask = (val | 0x8080808080808080L) - 0x0101010101010101L;
+        mask |= mask >> 32;
+        mask = (mask >> 8 | mask >> 16 | mask >> 24) & 0x0080808080808080L;
         val |= mask;
 
         if (IS_BIG_ENDIAN) {
@@ -514,18 +516,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         if (val >> 7 == 0) {
             // Fast-path for small values.
-            if (IS_BIG_ENDIAN) {
-                GridUnsafe.putByte(heapArr, baseOff + pos, (byte) val);
-            } else {
-                GridUnsafe.putInt(heapArr, baseOff + pos, val);
-            }
+            GridUnsafe.putByte(heapArr, baseOff + pos, (byte) val);
 
             setPosition(pos + 1);
         } else {
             val = val & 0x3FFF | (val & 0xFFFC000) << 2;
             val = val & 0x7F007F | (val & 0x3F803F80) << 1;
 
-            int mask = 0x00808080 & (-1 >>> Integer.numberOfLeadingZeros(val));
+            int mask = (val | 0x80808080) - 0x01010101;
+            mask = (mask >> 8 | mask >> 16 | mask >> 24) & 0x00808080;
             val |= mask;
 
             if (IS_BIG_ENDIAN) {
