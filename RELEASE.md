@@ -40,8 +40,8 @@ For all the commands going forward:
    git tag -a {version}-rc{rc} -m "{version}-rc{rc}"
    git push --tags
    ```
-7. Setup properties in gradle.properties.
-   You can specify it in project gradle.properties but DO NOT FORGET to revert it before push.
+7. Setup properties in `gradle.properties`.
+   You can specify it in project `gradle.properties` but DO NOT FORGET to revert it before push.
    Better place is gradle.properties in HOME dir, you can read about it here
    https://docs.gradle.org/current/userguide/build_environment.html
    ```
@@ -80,8 +80,7 @@ For all the commands going forward:
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
-   ```
-   
+   ``` 
 14. Put the release on a vote on the developers mailing list.
 
 ## Finalizing the Release
