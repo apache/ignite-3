@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Data streamer receiver descriptor.
  */
-public class ReceiverDescriptor2<T, A, R> {
+public class DataStreamerReceiverDescriptor<T, A, R> {
     private final String receiverClassName;
 
     private final List<DeploymentUnit> units;
@@ -37,7 +37,7 @@ public class ReceiverDescriptor2<T, A, R> {
 
     private final @Nullable Marshaller<R, byte[]> resultMarshaller;
 
-    private ReceiverDescriptor2(
+    private DataStreamerReceiverDescriptor(
             String receiverClassName,
             List<DeploymentUnit> units,
             ReceiverExecutionOptions options,
@@ -170,8 +170,8 @@ public class ReceiverDescriptor2<T, A, R> {
          *
          * @return Receiver descriptor.
          */
-        public ReceiverDescriptor2<T, A, R> build() {
-            return new ReceiverDescriptor2<>(
+        public DataStreamerReceiverDescriptor<T, A, R> build() {
+            return new DataStreamerReceiverDescriptor<>(
                     receiverClassName,
                     units != null ? units : List.of(),
                     options,
