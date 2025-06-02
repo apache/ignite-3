@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.ExplainPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.prepare.SelectCountPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.testframework.SystemPropertiesExtension;
@@ -367,7 +368,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(SelectCountPlan plan, String... expectedExpressions) {
-        List<String> expressions = plan.selectCountNode().expressions().stream()
+        List<String> expressions = ((IgniteSelectCount) plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -376,7 +377,7 @@ public class SelectCountPlannerTest extends AbstractPlannerTest {
                 equalTo(List.of(expectedExpressions))
         );
 
-        RelDataType rowType = plan.selectCountNode().getRowType();
+        RelDataType rowType = plan.getRel().getRowType();
         assertEquals(expectedExpressions.length, rowType.getFieldCount(), "output columns");
     }
 }

@@ -31,6 +31,7 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
+import org.apache.ignite.internal.sql.engine.exec.RelAwarePlan;
 import org.apache.ignite.internal.sql.engine.exec.UpdatableTable;
 import org.apache.ignite.internal.sql.engine.exec.exp.SqlRowProvider;
 import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
@@ -46,7 +47,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 /**
  * Plan representing simple modify operation that can be executed by Key-Value API.
  */
-public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
+public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan, RelAwarePlan {
     private final PlanId id;
     private final int catalogVersion;
     private final IgniteKeyValueModify modifyNode;
@@ -109,10 +110,6 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return ExplainUtils.toString(clonedRoot);
     }
 
-    public IgniteKeyValueModify modifyNode() {
-        return modifyNode;
-    }
-
     private <RowT> InsertExecution<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
         InsertExecution<RowT> operation = cast(this.operation);
 
@@ -148,6 +145,11 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
         return new IteratorToDataCursorAdapter<>(result, Runnable::run);
+    }
+
+    @Override
+    public IgniteRel getRel() {
+        return modifyNode;
     }
 
     private static class InsertExecution<RowT> {

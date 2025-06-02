@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.sql.engine;
 
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
+import static org.apache.ignite.internal.sql.engine.util.QueryChecker.matches;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.await;
@@ -29,6 +30,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Iterator;
 import java.util.List;
@@ -36,6 +38,7 @@ import java.util.NoSuchElementException;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.AsyncCursor.BatchedResult;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
@@ -83,6 +86,35 @@ public class ItSqlMultiStatementTest extends BaseSqlMultiStatementTest {
                 .returns(2, 2)
                 .returns(3, 3)
                 .check();
+    }
+
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-25600 move into FragmentMappingTest
+    @Test
+    void testExplainMappingWithDifferentTx() {
+        assertTrue(initialNodes() > 1);
+
+        sql("CREATE ZONE Z1 (partitions 10, replicas " + initialNodes() + ") storage profiles ['default']");
+        sql("CREATE TABLE t(id INT PRIMARY KEY, col1 INT) ZONE Z1");
+
+        InternalTransaction tx = (InternalTransaction) igniteTx().begin(new TransactionOptions().readOnly(true));
+
+        // rely on fact that all partition replicas will be present on every node
+        // expect single node here, like: exchangeSourceNodes: {1=[node_name]}
+        assertQuery(tx, "EXPLAIN MAPPING FOR SELECT * FROM t")
+                .matches(matches(".*exchangeSourceNodes: \\{1=\\[[^,]*\\]\\}.*"))
+                .check();
+
+        tx.commit();
+
+        tx = (InternalTransaction) igniteTx().begin(new TransactionOptions().readOnly(false));
+
+        // expect multiple nodes, like: exchangeSourceNodes: {1=[node_name1, node_name2]}
+        // sequential call the same query also check mapping cache correctness
+        assertQuery(tx, "EXPLAIN MAPPING FOR SELECT * FROM t")
+                .matches(matches(".*exchangeSourceNodes: \\{1=\\[.*,+.*\\]\\}.*"))
+                .check();
+
+        tx.commit();
     }
 
     /** Checks single statement execution using multi-statement API. */

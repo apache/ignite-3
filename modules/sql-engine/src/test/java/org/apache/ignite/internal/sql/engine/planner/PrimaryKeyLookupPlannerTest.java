@@ -37,6 +37,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueGetPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueGet;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -193,7 +194,7 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertKeyExpressions(KeyValueGetPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.lookupNode().keyExpressions().stream()
+        List<String> keyExpressions = ((IgniteKeyValueGet) plan.getRel()).keyExpressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
@@ -205,20 +206,20 @@ public class PrimaryKeyLookupPlannerTest extends AbstractPlannerTest {
 
     private static void assertCondition(KeyValueGetPlan plan, String expectedCondition) {
         assertThat(
-                plan.lookupNode().condition().toString(),
+                ((IgniteKeyValueGet) plan.getRel()).condition().toString(),
                 equalTo(expectedCondition)
         );
     }
 
     private static void assertEmptyCondition(KeyValueGetPlan plan) {
         assertThat(
-                plan.lookupNode().condition(),
+                ((IgniteKeyValueGet) plan.getRel()).condition(),
                 nullValue()
         );
     }
 
     private static void assertProjection(KeyValueGetPlan plan, String... expectedProjections) {
-        List<String> projections = plan.lookupNode().projects().stream()
+        List<String> projections = ((IgniteKeyValueGet) plan.getRel()).projects().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

@@ -92,6 +92,7 @@ import org.apache.ignite.internal.sql.engine.exec.kill.KillCommand;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.sql.engine.exec.mapping.ColocationGroup;
 import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentDescription;
+import org.apache.ignite.internal.sql.engine.exec.mapping.FragmentPrinter;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappedFragment;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingParameters;
 import org.apache.ignite.internal.sql.engine.exec.mapping.MappingService;
@@ -327,6 +328,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
         boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
         QueryTransactionWrapper txWrapper = txContext.getOrStartSqlManaged(readOnly, false);
+
         InternalTransaction tx = txWrapper.unwrap();
 
         operationContext.notifyTxUsed(txWrapper);
@@ -402,7 +404,7 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                 return executeQuery(operationContext, (MultiStepPlan) plan);
             case EXPLAIN:
-                return completedFuture(executeExplain((ExplainPlan) plan));
+                return completedFuture(executeExplain(operationContext, (ExplainPlan) plan));
             case DDL:
                 return completedFuture(executeDdl(operationContext, (DdlPlan) plan));
             case KILL:
@@ -522,13 +524,56 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
         return new IteratorToDataCursorAdapter<>(ret, Runnable::run);
     }
 
-    @SuppressWarnings("MethodMayBeStatic")
-    private AsyncDataCursor<InternalSqlRow> executeExplain(ExplainPlan plan) {
-        String planString = plan.plan().explain();
+    private AsyncDataCursor<InternalSqlRow> executeExplain(
+            SqlOperationContext operationContext,
+            ExplainPlan plan
+    ) {
+        switch (plan.mode()) {
+            case PLAN: {
+                String planString = plan.plan().explain();
 
-        InternalSqlRow res = new InternalSqlRowSingleString(planString);
+                InternalSqlRow res = new InternalSqlRowSingleString(planString);
 
-        return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
+                return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
+            }
+            case MAPPING:
+                if (plan.plan() instanceof MultiStepPlan) {
+                    QueryTransactionContext txContext = operationContext.txContext();
+
+                    assert txContext != null;
+
+                    boolean readOnly = plan.type().implicitTransactionReadOnlyMode();
+                    QueryTransactionWrapper txWrapper = txContext.explicitTx();
+                    if (txWrapper != null) {
+                        InternalTransaction tx = txWrapper.unwrap();
+                        readOnly = tx.isReadOnly();
+                    }
+
+                    Predicate<String> nodeExclusionFilter = operationContext.nodeExclusionFilter();
+
+                    MappingParameters mappingParameters =
+                            MappingParameters.create(operationContext.parameters(), readOnly, nodeExclusionFilter);
+
+                    CompletableFuture<List<MappedFragment>> mapping = mappingService.map((MultiStepPlan) plan.plan(), mappingParameters);
+
+                    CompletableFuture<InternalSqlRow> fragments = FragmentPrinter.fragmentsToString(mapping);
+
+                    CompletableFuture<Iterator<InternalSqlRow>> fragments0 = fragments.thenApply(List::of)
+                            .thenApply(List::iterator);
+
+                    return new IteratorToDataCursorAdapter<>(fragments0, Runnable::run);
+                } else {
+                    assert plan.plan() instanceof RelAwarePlan : "plan: " + plan.plan();
+
+                    RelAwarePlan planWithRel = (RelAwarePlan) plan.plan();
+
+                    InternalSqlRow res =
+                            new InternalSqlRowSingleString(FragmentPrinter.relAwareToString(planWithRel, localNode.name()));
+                    return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
+                }
+            default:
+                throw new IllegalArgumentException("Unsupported mode: " + plan.mode());
+        }
     }
 
     private void onMessage(ClusterNode node, QueryStartRequest msg) {

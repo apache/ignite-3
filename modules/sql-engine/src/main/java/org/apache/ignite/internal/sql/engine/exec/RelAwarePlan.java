@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.sql.engine.sql;
+package org.apache.ignite.internal.sql.engine.exec;
 
-import org.apache.calcite.sql.Symbolizable;
+import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 
 /**
- * Symbol for an {@code ALL} zone option.
+ * Plan that relies on {@link IgniteRel} in execution implementation.
  */
-public enum IgniteSqlZoneOptionMode implements Symbolizable {
-    ALL
+@FunctionalInterface
+public interface RelAwarePlan {
+    /** Returns rel representation. */
+    IgniteRel getRel();
 }
-

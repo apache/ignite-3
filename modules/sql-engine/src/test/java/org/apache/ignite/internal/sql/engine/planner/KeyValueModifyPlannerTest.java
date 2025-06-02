@@ -36,6 +36,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.prepare.KeyValueModifyPlan;
 import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
+import org.apache.ignite.internal.sql.engine.rel.IgniteKeyValueModify;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
@@ -169,7 +170,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(KeyValueModifyPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.modifyNode().expressions().stream()
+        List<String> keyExpressions = ((IgniteKeyValueModify) plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 
