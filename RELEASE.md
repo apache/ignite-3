@@ -114,3 +114,5 @@ Perform the following actions ONLY after the vote is successful and closed.
 8. Publish NuGet packages:
    * Get API key from https://svn.apache.org/repos/private/pmc/ignite/credentials/nuget.org (PMC only)
    * `for i in *.nupkg; do dotnet nuget push $i -k API_KEY_HERE -s "https://nuget.org/"; done`
+9. Publish Python packages - see modules/platforms/python/README.md
+10. Update https://ignite.apache.org/download.cgi page - see https://cwiki.apache.org/confluence/display/IGNITE/Website+Development
