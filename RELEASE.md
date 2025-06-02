@@ -28,19 +28,19 @@ For all the commands going forward:
 ## Preparing the Release
 
 1. Go to the project home folder.
-2. Create and push new branch for the release `ignite-{version}`.
-3. Update versions in `ignite-{version}` branch to the release version `{version}`:
+2. Update RELEASE_NOTES.txt with the changes since the last release. Commit and push to the `main` branch.
+3. Update versions in `main` branch to the next development version (e.g., `x.y.z-SNAPSHOT`):
    * Update `gradle.properties` manually.
    * Run `./gradlew :platforms:updateVersion` to update platforms versions (.NET, C++, Python, etc.)
    * Commit and push changes.
-3. Set the version in `main` branch to the next development version (e.g., `x.y.z-SNAPSHOT`) - same steps as above.  
-2. 
-3. Create a Git tag from `ignite-{version}` branch head:
+4. Create and push a new branch for the release `ignite-{version}`.
+5. Update versions in `ignite-{version}` branch to the current release version, remove `-SNAPSHOT` suffix - same steps as in point 3.
+6. Create a Git tag from `ignite-{version}` branch head:
    ```
    git tag -a {version}-rc{rc} -m "{version}-rc{rc}"
    git push --tags
    ```
-3. Setup properties in gradle.properties.
+7. Setup properties in gradle.properties.
    You can specify it in project gradle.properties but DO NOT FORGET to revert it before push.
    Better place is gradle.properties in HOME dir, you can read about it here
    https://docs.gradle.org/current/userguide/build_environment.html
@@ -57,32 +57,32 @@ For all the commands going forward:
    ```
    gpg -K
    ```
-4. Build the project, sign the artifact and create a staging repository:
+8. Build the project, sign the artifact and create a staging repository:
    ```
    ./gradlew publishAllPublicationsToMavenRepository
    ```
-5. Login to the Apache Nexus and close the new repository: https://repository.apache.org/#stagingRepositories
-6. Create an empty folder under the development distribution directory:
+9. Login to the Apache Nexus and close the new repository: https://repository.apache.org/#stagingRepositories
+10. Create an empty folder under the development distribution directory:
    ```
    rm -rf {dist.dev}/{version}-rc{rc}
    mkdir {dist.dev}/{version}-rc{rc}
    ```
-7. Create ZIP, DEB, RPM packages, .NET and C++ client, sign them and create checksums:
+11. Create ZIP, DEB, RPM packages, .NET and C++ client, sign them and create checksums:
    ```
    ./gradlew -PprepareRelease prepareRelease
    ```
-8. Copy all packages along with checksums and signatures to the development distribution directory:
+12. Copy all packages along with checksums and signatures to the development distribution directory:
    ```
    cp packaging/build/release/* {dist.dev}/{version}-rc{rc}
    ```
-9. Commit ZIP and DEB\RPM packages:
+13. Commit ZIP and DEB\RPM packages:
    ```
    cd {dist.dev}
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ```
    
-10. Put the release on a vote on the developers mailing list.
+14. Put the release on a vote on the developers mailing list.
 
 ## Finalizing the Release
 
