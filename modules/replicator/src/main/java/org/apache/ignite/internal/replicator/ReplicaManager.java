@@ -444,7 +444,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
         Throwable unwrapped = unwrapCause(ex);
-        return !(unwrapped instanceof ExpectedReplicationException) && !(unwrapped instanceof TrackerClosedException);
+        return !(unwrapped instanceof ExpectedReplicationException)
+                && !hasCause(ex, NodeStoppingException.class, TrackerClosedException.class, ComponentStoppingException.class);
     }
 
     /**
