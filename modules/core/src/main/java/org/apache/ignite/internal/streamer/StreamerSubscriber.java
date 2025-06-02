@@ -305,20 +305,31 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         return resultSubscription;
     }
 
-    private synchronized void close(@Nullable Throwable throwable) {
-        if (closed) {
-            return;
+    private void close(@Nullable Throwable throwable) {
+        Subscription subscription0;
+        ScheduledFuture<?> flushTask0;
+
+        synchronized (this) {
+            if (closed) {
+                return;
+            }
+
+            closed = true;
+            subscription0 = subscription;
+            flushTask0 = flushTask;
         }
 
-        closed = true;
-
-        if (flushTask != null) {
-            flushTask.cancel(false);
+        if (flushTask0 != null) {
+            flushTask0.cancel(false);
         }
 
-        var sub = subscription;
-        if (sub != null) {
-            sub.cancel();
+        if (subscription0 != null) {
+            try {
+                // User code: call outside of lock, handle exceptions.
+                subscription0.cancel();
+            } catch (Throwable e) {
+                log.error("Failed to cancel subscription: " + e.getMessage(), e);
+            }
         }
 
         if (throwable == null) {
@@ -356,24 +367,37 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
         }
     }
 
-    private synchronized void requestMore() {
-        if (closed || subscription == null) {
-            return;
+    private void requestMore() {
+        int toRequest;
+        Subscription subscription0;
+
+        synchronized (this) {
+            if (closed || subscription == null) {
+                return;
+            }
+
+            // This method controls backpressure. We won't get more items than we requested.
+            // The idea is to have perPartitionParallelOperations batches in flight for every connection.
+            var pending = pendingItemCount.get();
+            var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
+            var inFlight = inFlightItemCount.get();
+            toRequest = desiredInFlight - inFlight - pending;
+
+            if (toRequest <= 0) {
+                return;
+            }
+
+            pendingItemCount.addAndGet(toRequest);
+            subscription0 = subscription;
         }
 
-        // This method controls backpressure. We won't get more items than we requested.
-        // The idea is to have perPartitionParallelOperations batches in flight for every connection.
-        var pending = pendingItemCount.get();
-        var desiredInFlight = Math.max(1, buffers.size()) * options.pageSize() * options.perPartitionParallelOperations();
-        var inFlight = inFlightItemCount.get();
-        var count = desiredInFlight - inFlight - pending;
-
-        if (count <= 0) {
-            return;
+        try {
+            // User code: call outside of lock, handle exceptions.
+            subscription0.request(toRequest);
+        } catch (Throwable e) {
+            log.error("Failed to request more items: " + e.getMessage(), e);
+            close(e);
         }
-
-        subscription.request(count);
-        pendingItemCount.addAndGet(count);
     }
 
     private synchronized void initFlushTimer() {
@@ -391,6 +415,7 @@ public class StreamerSubscriber<T, E, V, R, P> implements Subscriber<E> {
     }
 
     private void flushBuffers() {
+        // TODO IGNITE-25509 Data Streamer ignores backpressure in flush timer.
         buffers.values().forEach(StreamerBuffer::flush);
     }
 

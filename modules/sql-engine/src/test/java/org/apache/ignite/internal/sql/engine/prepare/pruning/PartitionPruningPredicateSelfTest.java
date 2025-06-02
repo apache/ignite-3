@@ -44,7 +44,6 @@ import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.PartitionCalculator;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
-import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeFactory;
 import org.apache.ignite.internal.sql.engine.type.IgniteTypeSystem;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -84,7 +83,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
         //  because it allows to support CAST('uuid-str' AS UUID) expressions.
         Assumptions.assumeFalse(columnType == ColumnType.UUID);
 
-        IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
+        IgniteDistribution distribution = TestBuilders.affinity(List.of(0), 1, 1);
 
         NativeType nativeType = getNativeType(columnType);
 
@@ -131,7 +130,7 @@ public class PartitionPruningPredicateSelfTest extends BaseIgniteAbstractTest {
     @ParameterizedTest
     @MethodSource("columnTypes")
     public void testDynamicParam(ColumnType columnType) {
-        IgniteDistribution distribution = IgniteDistributions.affinity(List.of(0), 1, 1);
+        IgniteDistribution distribution = TestBuilders.affinity(List.of(0), 1, 1);
 
         NativeType nativeType = getNativeType(columnType);
 

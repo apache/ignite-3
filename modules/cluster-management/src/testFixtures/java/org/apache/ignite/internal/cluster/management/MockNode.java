@@ -44,6 +44,7 @@ import org.apache.ignite.internal.failure.NoOpFailureManager;
 import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.manager.IgniteComponent;
+import org.apache.ignite.internal.metrics.NoOpMetricManager;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.NodeFinder;
 import org.apache.ignite.internal.network.utils.ClusterServiceTestUtils;
@@ -136,7 +137,8 @@ public class MockNode {
                 new NodeAttributesCollector(nodeAttributes, storageProfilesConfiguration),
                 failureManager,
                 clusterIdHolder,
-                cmgRaftConfigurer
+                cmgRaftConfigurer,
+                new NoOpMetricManager()
         );
 
         components = List.of(

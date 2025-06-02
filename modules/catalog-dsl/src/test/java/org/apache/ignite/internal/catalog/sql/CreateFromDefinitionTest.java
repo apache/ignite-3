@@ -135,9 +135,9 @@ class CreateFromDefinitionTest {
 
     @Test
     void createFromTableBuilderQuoteNames() {
-        TableDefinition table = TableDefinition.builder("builder test")
+        TableDefinition table = TableDefinition.builder("\"builder test\"")
                 .ifNotExists()
-                .schema("sche ma")
+                .schema("\"sche ma\"")
                 .colocateBy("id", "id str")
                 .zone("zone test")
                 .columns(
@@ -238,6 +238,37 @@ class CreateFromDefinitionTest {
                 createTable(tableDefinition),
                 is("CREATE TABLE PUBLIC.PRIMITIVE_TEST (ID INT, PRIMARY KEY (ID));")
         );
+    }
+
+    @Test
+    void createFromDefinitionDifferentCase() {
+        String tableName = "Table";
+        String quoted = String.format("\"%s\"", tableName);
+
+        {
+            TableDefinition definition = TableDefinition.builder(quoted)
+                    .columns(column("id", INTEGER), column("col1", VARCHAR), column("col2", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            assertThat(
+                    createTable(definition),
+                    is("CREATE TABLE PUBLIC.\"Table\" (ID INT, COL1 VARCHAR, COL2 VARCHAR, PRIMARY KEY (ID));")
+            );
+        }
+
+        {
+            TableDefinition definition = TableDefinition.builder(quoted)
+                    .schema("\"Nice\"")
+                    .columns(column("id", INTEGER), column("col1", VARCHAR), column("col2", VARCHAR))
+                    .primaryKey("id")
+                    .build();
+
+            assertThat(
+                    createTable(definition),
+                    is("CREATE TABLE \"Nice\".\"Table\" (ID INT, COL1 VARCHAR, COL2 VARCHAR, PRIMARY KEY (ID));")
+            );
+        }
     }
 
     @SuppressWarnings("unused")

@@ -52,13 +52,13 @@ class ItCriticalWorkerMonitoringTest extends ClusterPerTestIntegrationTest {
         CountDownLatch blockageDetectedLatch = new CountDownLatch(1);
 
         watchdogLogInspector.addHandler(
-                event -> matchesWithDotall(event, criticalThreadDetectedRegex("srv-worker-")),
+                event -> matchesWithDotall(event, criticalThreadDetectedRegex("network-worker-")),
                 blockageDetectedLatch::countDown
         );
 
         CountDownLatch unblockLatch = new CountDownLatch(1);
 
-        unwrapIgniteImpl(cluster.node(0)).nettyBootstrapFactory().serverEventLoopGroup().execute(() -> {
+        unwrapIgniteImpl(cluster.node(0)).nettyBootstrapFactory().workerEventLoopGroup().execute(() -> {
             try {
                 unblockLatch.await(10, TimeUnit.SECONDS);
             } catch (InterruptedException e) {

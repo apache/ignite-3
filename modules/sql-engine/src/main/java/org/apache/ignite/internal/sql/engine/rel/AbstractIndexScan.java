@@ -38,6 +38,7 @@ import org.apache.ignite.internal.sql.engine.externalize.RelInputEx;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.MultiBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -183,5 +184,17 @@ public abstract class AbstractIndexScan extends ProjectableFilterableTableScan {
      */
     public List<SearchBounds> searchBounds() {
         return searchBounds;
+    }
+
+    @Override
+    public IgniteRelWriter explainAttributes(IgniteRelWriter writer) {
+        super.explainAttributes(writer)
+                .addIndex(idxName, type);
+
+        if (searchBounds != null) {
+            writer.addSearchBounds(searchBounds);
+        }
+
+        return writer;
     }
 }
