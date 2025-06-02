@@ -103,3 +103,10 @@ Perform the following actions ONLY after the vote is successful and closed.
    svn add {version}
    svn commit -m “Apache Ignite {version}”
    ```
+5. Build and publish the documentation - see docs/README.adoc
+   * Push to https://github.com/apache/ignite-website/tree/master/docs/ignite3 
+6. Build and publish API docs
+   * Java: `./gradlew aggregateJavadoc`
+   * .NET: `./gradlew :platforms:aggregateDotnetDocs`
+   * C++: `./gradlew :platforms:doxygenCppClient`
+   * Push to https://github.com/apache/ignite-website/tree/master/releases
