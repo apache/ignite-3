@@ -28,7 +28,14 @@ For all the commands going forward:
 ## Preparing the Release
 
 1. Go to the project home folder.
-2. Create a Git tag:
+2. Create and push new branch for the release `ignite-{version}`.
+3. Update versions in `ignite-{version}` branch to the release version `{version}`:
+   * Update `gradle.properties` manually.
+   * Run `./gradlew :platforms:updateVersion` to update platforms versions (.NET, C++, Python, etc.)
+   * Commit and push changes.
+3. Set the version in `main` branch to the next development version (e.g., `x.y.z-SNAPSHOT`) - same steps as above.  
+2. 
+3. Create a Git tag from `ignite-{version}` branch head:
    ```
    git tag -a {version}-rc{rc} -m "{version}-rc{rc}"
    git push --tags
@@ -74,6 +81,7 @@ For all the commands going forward:
    svn add {version}-rc{rc}
    svn commit -m “Apache Ignite {version} RC{rc}”
    ```
+   
 10. Put the release on a vote on the developers mailing list.
 
 ## Finalizing the Release
