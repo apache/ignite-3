@@ -168,6 +168,7 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
+    @Disabled("IGNITE-25545")
     public void testTxReadOnly() {
         int id = idGen.incrementAndGet();
         Tuple key = Tuple.create().set("id", id);
