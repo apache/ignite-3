@@ -10,13 +10,12 @@ This document describes the current procedure for preparing an Ignite 3 release.
    svn checkout https://dist.apache.org/repos/dist/dev/ignite dist-dev
    svn checkout https://dist.apache.org/repos/dist/release/ignite dist-release
    ```
-3. Provide your Apache credentials to Gradle (required for uploading to Apache Nexus):
+3. Provide your Apache credentials to Gradle (required for uploading to Apache Nexus) - create or update `~/.gradle/gradle.properties` file with the following content:
    ```
    staging_user=*INSERT STAGING USERNAME HERE*
    staging_password=*INSERT STAGING PASSWORD HERE*
    ```
-   You can specify it in project gradle.property but DO NOT FORGET revert it before push.
-   Better place is gradle.properties in HOME dir, read about it https://docs.gradle.org/current/userguide/build_environment.html
+   (do NOT put secrets into `gradle.properties` in the project dir - see [Gradle docs](https://docs.gradle.org/current/userguide/build_environment.html) for more details).
 
 For all the commands going forward:
 * Replace `{version}` with the version number being released.
@@ -40,15 +39,13 @@ For all the commands going forward:
    git tag -a {version}-rc{rc} -m "{version}-rc{rc}"
    git push --tags
    ```
-7. Setup properties in `gradle.properties`.
-   You can specify it in project `gradle.properties` but DO NOT FORGET to revert it before push.
-   Better place is gradle.properties in HOME dir, you can read about it here
-   https://docs.gradle.org/current/userguide/build_environment.html
+7. Setup Gradle properties - create or update `~/.gradle/gradle.properties` file with the following content:
    ```
    signing.keyId=*INSERT KEY HERE LAST 8 CHARS*
    signing.password=*INSERT PASSWORD HERE*
    signing.secretKeyRingFile=*INSERT KEY RING ABSOLUTE PATH HERE*
    ```
+   (do NOT put secrets into `gradle.properties` in the project dir - see [Gradle docs](https://docs.gradle.org/current/userguide/build_environment.html) for more details).
    To generate a secret key ring file use the following command
    ```
    gpg --keyring secring.gpg --export-secret-keys > ~/.gnupg/secring.gpg
