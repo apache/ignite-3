@@ -163,7 +163,7 @@ public class StorageUpdateHandler {
         } else {
             // TODO: IGNITE-25546 Fix usage
             BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId())
-                    .previousUncommittedRowVersion();
+                    .previousWriteIntent();
 
             if (oldRow != null) {
                 // TODO: IGNITE-25546 Fix assert maybe

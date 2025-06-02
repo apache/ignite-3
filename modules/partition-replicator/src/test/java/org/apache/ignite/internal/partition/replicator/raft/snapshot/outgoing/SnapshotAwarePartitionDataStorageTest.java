@@ -42,7 +42,6 @@ import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AddWriteResult;
-import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.raft.snapshot.SnapshotAwarePartitionDataStorage;
@@ -164,7 +163,7 @@ class SnapshotAwarePartitionDataStorageTest extends BaseIgniteAbstractTest {
     @Test
     void delegatesAddWrite() {
         BinaryRow resultRow = mock(BinaryRow.class);
-        AddWriteResult addWriteResult = new AddWriteResult(AddWriteResultStatus.SUCCESS, resultRow);
+        AddWriteResult addWriteResult = AddWriteResult.success(resultRow);
 
         when(partitionStorage.addWrite(any(), any(), any(), anyInt(), anyInt())).thenReturn(addWriteResult);
 

@@ -47,8 +47,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.AddWriteResult;
-import org.apache.ignite.internal.storage.AddWriteResultCommittedStatus;
-import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -449,7 +447,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
 
                 addWrite.afterCompletion();
 
-                return new AddWriteResult(AddWriteResultStatus.SUCCESS, addWrite.getPreviousUncommittedRowVersion());
+                return AddWriteResult.success(addWrite.getPreviousUncommittedRowVersion());
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
@@ -565,7 +563,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             }
         });
 
-        return new AddWriteCommittedResult(AddWriteResultCommittedStatus.SUCCESS);
+        return AddWriteCommittedResult.success();
     }
 
     @Override

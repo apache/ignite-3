@@ -17,32 +17,69 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/** Description will be here soon. */
-// TODO: IGNITE-25546 Add documentation
-// TODO: IGNITE-25546 Implement
+/** Result of {@link MvPartitionStorage#addWrite add} of write intent. */
 public class AddWriteResult {
     private final AddWriteResultStatus status;
 
-    private final @Nullable BinaryRow previousUncommittedRowVersion;
+    private final @Nullable BinaryRow previousWriteIntent;
+
+    private final @Nullable UUID currentWriteIntentTxId;
+
+    private final @Nullable HybridTimestamp previousCommitTimestamp;
 
     /** Constructor. */
-    public AddWriteResult(AddWriteResultStatus status, @Nullable BinaryRow previousUncommittedRowVersion) {
+    private AddWriteResult(
+            AddWriteResultStatus status,
+            @Nullable BinaryRow previousWriteIntent,
+            @Nullable UUID currentWriteIntentTxId,
+            @Nullable HybridTimestamp previousCommitTimestamp
+    ) {
         this.status = status;
-        this.previousUncommittedRowVersion = previousUncommittedRowVersion;
+        this.previousWriteIntent = previousWriteIntent;
+        this.currentWriteIntentTxId = currentWriteIntentTxId;
+        this.previousCommitTimestamp = previousCommitTimestamp;
     }
 
-    /** Description will be here soon. */
+    /** Returns result of a successful add of the write intent or replace for same transaction. */
+    public static AddWriteResult success(@Nullable BinaryRow previousWriteIntent) {
+        return new AddWriteResult(AddWriteResultStatus.SUCCESS, previousWriteIntent, null, null);
+    }
+
+    /** Returns result when an uncommitted write intent of another transaction was found while adding a new one. */
+    public static AddWriteResult writeIntentExists(UUID currentWriteIntentTxId, @Nullable HybridTimestamp previousCommitTimestamp) {
+        return new AddWriteResult(AddWriteResultStatus.WRITE_INTENT_EXISTS, null, currentWriteIntentTxId, previousCommitTimestamp);
+    }
+
+    /** Returns the add status of a write intent. */
     public AddWriteResultStatus status() {
         return status;
     }
 
-    /** Description will be here soon. */
-    public @Nullable BinaryRow previousUncommittedRowVersion() {
-        return previousUncommittedRowVersion;
+    /**
+     * Returns the previous write intent. Not {@code null} for a {@link AddWriteResultStatus#SUCCESS successful} result and a write intent
+     * replace occurred for the same transaction.
+     */
+    public @Nullable BinaryRow previousWriteIntent() {
+        return previousWriteIntent;
+    }
+
+    /** Returns the transaction ID of the current write intent. Not {@code null} for {@link AddWriteResultStatus#WRITE_INTENT_EXISTS}. */
+    public @Nullable UUID currentWriteIntentTxId() {
+        return currentWriteIntentTxId;
+    }
+
+    /**
+     * Returns commit timestamp of previous committed version. Not {@code null} for {@link AddWriteResultStatus#WRITE_INTENT_EXISTS} and if
+     * present.
+     */
+    public @Nullable HybridTimestamp previousCommitTimestamp() {
+        return previousCommitTimestamp;
     }
 
     @Override

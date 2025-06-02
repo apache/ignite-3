@@ -36,8 +36,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.AddWriteResult;
-import org.apache.ignite.internal.storage.AddWriteResultCommittedStatus;
-import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -262,7 +260,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
-        return new AddWriteResult(AddWriteResultStatus.SUCCESS, res[0]);
+        return AddWriteResult.success(res[0]);
     }
 
     @Override
@@ -355,7 +353,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             ));
         });
 
-        return new AddWriteCommittedResult(AddWriteResultCommittedStatus.SUCCESS);
+        return AddWriteCommittedResult.success();
     }
 
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {

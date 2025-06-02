@@ -17,9 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
-/** Description will be here soon. */
-// TODO: IGNITE-25546 Add documentation
+/** Status of result {@link MvPartitionStorage#addWrite add} of write intent. */
 public enum AddWriteResultStatus {
-    /** Description will be here soon. */
-    SUCCESS;
+    /** Successful add of write intent or replace for same transaction. */
+    SUCCESS,
+
+    /** Failed to add write intent because it already exists for another transaction. */
+    WRITE_INTENT_EXISTS;
 }

@@ -17,22 +17,70 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.UUID;
+import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.tostring.S;
+import org.jetbrains.annotations.Nullable;
 
-/** Description will be here soon. */
-// TODO: IGNITE-25546 Add documentation
-// TODO: IGNITE-25546 Implement
+/** Result of {@link MvPartitionStorage#addWriteCommitted add} of write intent committed. */
 public class AddWriteCommittedResult {
-    private final AddWriteResultCommittedStatus status;
+    private static final AddWriteCommittedResult SUCCESS_ADD_WRITE_COMMITTED_RESULT = new AddWriteCommittedResult(
+            AddWriteCommittedResultStatus.SUCCESS, null, null
+    );
+
+    private final AddWriteCommittedResultStatus status;
+
+    private final @Nullable UUID currentWriteIntentTxId;
+
+    private final @Nullable HybridTimestamp previousCommitTimestamp;
 
     /** Constructor. */
-    public AddWriteCommittedResult(AddWriteResultCommittedStatus status) {
+    private AddWriteCommittedResult(
+            AddWriteCommittedResultStatus status,
+            @Nullable UUID currentWriteIntentTxId,
+            @Nullable HybridTimestamp previousCommitTimestamp
+    ) {
         this.status = status;
+        this.currentWriteIntentTxId = currentWriteIntentTxId;
+        this.previousCommitTimestamp = previousCommitTimestamp;
     }
 
-    /** Description will be here soon. */
-    public AddWriteResultCommittedStatus status() {
+    /** Returns result of a successful add of the write intent committed. */
+    public static AddWriteCommittedResult success() {
+        return SUCCESS_ADD_WRITE_COMMITTED_RESULT;
+    }
+
+    /** Returns result when an uncommitted write intent was found while adding a new one committed. */
+    public static AddWriteCommittedResult writeIntentExists(
+            UUID currentWriteIntentTxId,
+            @Nullable HybridTimestamp previousCommitTimestamp
+    ) {
+        return new AddWriteCommittedResult(
+                AddWriteCommittedResultStatus.WRITE_INTENT_EXISTS,
+                currentWriteIntentTxId,
+                previousCommitTimestamp
+        );
+    }
+
+    /** Returns the add status of a write intent committed. */
+    public AddWriteCommittedResultStatus status() {
         return status;
+    }
+
+    /**
+     * Returns the transaction ID of the current write intent. Not {@code null} for
+     * {@link AddWriteCommittedResultStatus#WRITE_INTENT_EXISTS}.
+     */
+    public @Nullable UUID currentWriteIntentTxId() {
+        return currentWriteIntentTxId;
+    }
+
+    /**
+     * Returns commit timestamp of previous committed version. Not {@code null} for
+     * {@link AddWriteCommittedResultStatus#WRITE_INTENT_EXISTS} and if present.
+     */
+    public @Nullable HybridTimestamp previousCommitTimestamp() {
+        return previousCommitTimestamp;
     }
 
     @Override

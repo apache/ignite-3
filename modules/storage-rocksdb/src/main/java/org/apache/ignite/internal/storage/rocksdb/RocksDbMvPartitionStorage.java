@@ -67,8 +67,6 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.AddWriteResult;
-import org.apache.ignite.internal.storage.AddWriteResultCommittedStatus;
-import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -497,7 +495,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         writeBatch.put(helper.dataCf, payloadKey, serializeBinaryRow(row));
                     }
 
-                    return new AddWriteResult(AddWriteResultStatus.SUCCESS, previousRow);
+                    return AddWriteResult.success(previousRow);
                 } else {
                     ByteBuffer txState = createTxState(rowId, txId, commitTableOrZoneId, commitPartitionId, row == null);
 
@@ -509,7 +507,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                         writeBatch.put(helper.dataCf, helper.createPayloadKey(dataId), serializeBinaryRow(row));
                     }
 
-                    return new AddWriteResult(AddWriteResultStatus.SUCCESS, null);
+                    return AddWriteResult.success(null);
                 }
             } catch (RocksDBException e) {
                 throw new IgniteRocksDbException("Failed to update a row in storage: " + createStorageInfo(), e);
@@ -727,7 +725,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             }
         });
 
-        return new AddWriteCommittedResult(AddWriteResultCommittedStatus.SUCCESS);
+        return AddWriteCommittedResult.success();
     }
 
     private static void updateEstimatedSize(boolean isNewValueTombstone, AddResult gcQueueAddResult) throws RocksDBException {
