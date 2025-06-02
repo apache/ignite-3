@@ -1261,7 +1261,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 }
             }
 
-            if (candidate.getCause() instanceof GroupOverloadedException) {
+            if (candidate.getCause() instanceof GroupOverloadedException ||
+                    (candidate.getMessage() != null && candidate.getMessage().contains("GroupOverloadedException"))) {
                 return true;
             }
 
