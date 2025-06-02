@@ -27,9 +27,9 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -44,6 +44,7 @@ import org.apache.ignite.internal.util.IgniteUtils;
  */
 public class ThreadPoolsManager implements IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(ThreadPoolsManager.class);
+    private static final IgniteLogger LOG2 = Loggers.forName("com.example.special");
 
     /**
      * Separate executor for IO operations like partition storage initialization, partition raft group meta data persisting,
@@ -70,11 +71,20 @@ public class ThreadPoolsManager implements IgniteComponent {
                 100,
                 MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
+                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)) {
+            @Override
+            protected void afterExecute(Runnable r, Throwable t) {
+                super.afterExecute(r, t);
+                if (t != null) {
+                    LOG2.error("TIO-Missed exception ", t);
+                }
+            }
+        };
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
-        partitionOperationsExecutor = Executors.newFixedThreadPool(
-                partitionsOperationsThreads,
+        partitionOperationsExecutor = new ThreadPoolExecutor(partitionsOperationsThreads, partitionsOperationsThreads,
+                0L, MILLISECONDS,
+                new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(
                         nodeName,
                         "partition-operations",
@@ -83,10 +93,25 @@ public class ThreadPoolsManager implements IgniteComponent {
                         STORAGE_WRITE,
                         TX_STATE_STORAGE_ACCESS,
                         PROCESS_RAFT_REQ
-                )
-        );
+                )) {
+            @Override
+            protected void afterExecute(Runnable r, Throwable t) {
+                super.afterExecute(r, t);
+                if (t != null) {
+                    LOG2.error("POE-Missed exception ", t);
+                }
+            }
+        };
 
-        commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
+        commonScheduler = new ScheduledThreadPoolExecutor(1, NamedThreadFactory.create(nodeName, "common-scheduler", LOG)) {
+            @Override
+            protected void afterExecute(Runnable r, Throwable t) {
+                super.afterExecute(r, t);
+                if (t != null) {
+                    LOG2.error("CMN-Missed exception ", t);
+                }
+            }
+        };
     }
 
     @Override
