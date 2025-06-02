@@ -38,6 +38,7 @@ import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Table;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
+import org.apache.ignite.tx.TransactionOptions;
 import org.hamcrest.Matchers;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.BeforeAll;
@@ -168,7 +169,16 @@ public abstract class ClientCompatibilityTestBase {
 
     @Test
     public void testTxReadOnly() {
-        assert false : "TODO";
+        int id = idGen.incrementAndGet();
+        Tuple key = Tuple.create().set("id", id);
+
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+        Transaction tx = client.transactions().begin(new TransactionOptions().readOnly(true));
+
+        view.insert(null, Tuple.create().set("id", id).set("name", "testTxReadOnly"));
+        assertNull(view.get(tx, key), "Read-only transaction shows snapshot of data in the past.");
+
+        tx.rollback();
     }
 
     @Test
