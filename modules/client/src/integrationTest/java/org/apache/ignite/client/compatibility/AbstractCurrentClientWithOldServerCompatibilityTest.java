@@ -73,7 +73,11 @@ public abstract class AbstractCurrentClientWithOldServerCompatibilityTest extend
         }
 
         int responseCode = conn.getResponseCode();
-        System.out.println("Response Code: " + responseCode);
+
+        if (responseCode != HttpURLConnection.HTTP_OK && responseCode != HttpURLConnection.HTTP_CREATED) {
+            throw new IOException("Failed to activate cluster: " + responseCode + " " + conn.getResponseMessage());
+        }
+
         conn.disconnect();
     }
 
