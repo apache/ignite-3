@@ -422,11 +422,26 @@ public abstract class ClusterPerClassIntegrationTest extends BaseIgniteAbstractT
         return sql.executeBatch(null, statement, batchedArgs);
     }
 
-    protected static List<List<Object>> sql(String sql, Object... args) {
+    /**
+     * Run SQL on the first Ignite instance with implicit transaction and parameters.
+     *
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(String sql, Object... args) {
         return sql(null, sql, args);
     }
 
-    protected static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
+    /**
+     * Run SQL on given Ignite instance with implicit transaction and parameters.
+     *
+     * @param nodeIndex Ignite instance to run a query.
+     * @param sql Query to be run.
+     * @param args Dynamic parameters for a given query.
+     * @return List of lists, where outer list represents a rows, internal lists represents a columns.
+     */
+    public static List<List<Object>> sql(int nodeIndex, String sql, Object... args) {
         return sql(nodeIndex, null, sql, args);
     }
 
