@@ -32,14 +32,15 @@ import org.junit.jupiter.api.BeforeAll;
 /**
  * Tests that current Java client can work with all older server versions.
  */
-public class ClientWithOldServerCompatibilityTest extends ClientCompatibilityTestBase {
+public abstract class AbstractCurrentClientWithOldServerCompatibilityTest extends ClientCompatibilityTestBase {
     private IgniteServerContainer serverContainer;
+
+    abstract String serverVersion();
 
     @BeforeAll
     @Override
     public void beforeAll() throws Exception {
-        // TODO: Parametrize the server version to test against multiple versions.
-        serverContainer = new IgniteServerContainer("3.0.0");
+        serverContainer = new IgniteServerContainer(serverVersion());
         serverContainer.start();
 
         activateCluster(serverContainer.restPort());
