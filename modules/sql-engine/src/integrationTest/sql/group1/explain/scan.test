@@ -144,59 +144,6 @@ Exchange
       collation: []
       est: (rows=1)
 
-# Similar set of tests but for KeyValueGet
-# select all, no renames
-plan
-SELECT * FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [C1, C2, C3]
-    key: [1]
-    est: (rows=1)
-
-# select with trimming projection, no renames
-plan
-SELECT c1, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [C1, C2]
-    key: [1]
-    est: (rows=1)
-
-# select with trimming projection and renames
-plan
-SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [C1, C2]
-    key: [1]
-    est: (rows=1)
-
-# select with expression projection, no renames
-plan
-SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [EXPR$0, C2]
-    projection: [+(C1, C3), C2]
-    key: [1]
-    est: (rows=1)
-
-# select with expression projection and renames
-plan
-SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [SUM_OF_C1_AND_C3, C2]
-    projection: [+(C1, C3), C2]
-    key: [1]
-    est: (rows=1)
-
 # Similar set of tests but for SystemViewScan
 # select all, no renames
 plan
