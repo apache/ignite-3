@@ -20,8 +20,10 @@ package org.apache.ignite.client.compatibility;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -126,7 +128,37 @@ public abstract class ClientCompatibilityTestBase {
     }
 
     @Test
-    public void testRecordView() {
+    public void testRecordViewOperations() {
+        int id = idGen.incrementAndGet();
+        Tuple key = Tuple.create().set("id", id);
+
+        RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
+        assertNull(view.get(null, key));
+
+        // Insert.
+        assertTrue(view.insert(null, Tuple.create().set("id", id).set("name", "v1")));
+        assertEquals("v1", view.get(null, key).stringValue("name"));
+        assertFalse(view.insert(null, Tuple.create().set("id", id).set("name", "v2")));
+
+        // Upsert.
+        view.upsert(null, Tuple.create().set("id", id).set("name", "v2"));
+        assertEquals("v2", view.get(null, key).stringValue("name"));
+
+        // TODO
+    }
+
+    @Test
+    public void testKvViewOperations() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testRecordViewAllColumnTypes() {
+        assert false : "TODO";
+    }
+
+    @Test
+    public void testKeyValueViewAllColumnTypes() {
         assert false : "TODO";
     }
 
