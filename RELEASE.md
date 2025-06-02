@@ -110,3 +110,7 @@ Perform the following actions ONLY after the vote is successful and closed.
    * .NET: `./gradlew :platforms:aggregateDotnetDocs`
    * C++: `./gradlew :platforms:doxygenCppClient`
    * Push to https://github.com/apache/ignite-website/tree/master/releases
+7. Publish Docker images: `./gradlew :packaging:docker` (TODO - see [IGNITE-24408](https://issues.apache.org/jira/browse/IGNITE-24408))
+8. Publish NuGet packages:
+   * Get API key from https://svn.apache.org/repos/private/pmc/ignite/credentials/nuget.org (PMC only)
+   * `for i in *.nupkg; do dotnet nuget push $i -k API_KEY_HERE -s "https://nuget.org/"; done`
