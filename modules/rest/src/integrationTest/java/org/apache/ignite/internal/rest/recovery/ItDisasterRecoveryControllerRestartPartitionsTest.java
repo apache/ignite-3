@@ -47,6 +47,7 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.rest.api.recovery.RestartPartitionsRequest;
 import org.apache.ignite.internal.rest.api.recovery.RestartZonePartitionsRequest;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledIf;
 
@@ -159,7 +160,7 @@ public class ItDisasterRecoveryControllerRestartPartitionsTest extends ClusterPe
         assertThat(response.getStatus().getCode(), is(OK.code()));
     }
 
-    @Test
+    @RepeatedTest(1000)
     public void testRestartSpecifiedPartitions() {
         MutableHttpRequest<?> post = restartPartitionsRequest(Set.of(), FIRST_ZONE, QUALIFIED_TABLE_NAME, Set.of(0, 1));
 
