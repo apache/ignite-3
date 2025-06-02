@@ -85,7 +85,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
                 context.excludeNode(exception.nodeName());
 
                 return true;
-            } else if (lockConflict(th) || replicaMiss(th)) {
+            } else if (lockConflict(th) || replicaMiss(th) || groupOverloaded(th)) {
                 return true;
             }
         }
@@ -107,7 +107,7 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
             return false;
         }
 
-        return nodeLeft(th) || lockConflict(th) || replicaMiss(th);
+        return nodeLeft(th) || lockConflict(th) || replicaMiss(th) || groupOverloaded(th);
     }
 
     private static boolean nodeLeft(Throwable th) {
@@ -120,5 +120,9 @@ class QueryExecutionProgram extends Program<AsyncSqlCursor<InternalSqlRow>> {
 
     private static boolean replicaMiss(Throwable th) {
         return ExceptionUtils.extractCodeFrom(th) == Replicator.REPLICA_MISS_ERR;
+    }
+
+    private static boolean groupOverloaded(Throwable th) {
+        return ExceptionUtils.extractCodeFrom(th) == Replicator.GROUP_OVERLOADED_ERR;
     }
 }

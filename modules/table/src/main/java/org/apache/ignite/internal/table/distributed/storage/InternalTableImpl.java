@@ -54,6 +54,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.apache.ignite.internal.util.ExceptionUtils.withCause;
 import static org.apache.ignite.internal.util.FastTimestamps.coarseCurrentTimeMillis;
 import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Replicator.GROUP_OVERLOADED_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_MISS_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Replicator.REPLICA_UNAVAILABLE_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Transactions.ACQUIRE_LOCK_ERR;
@@ -84,7 +85,6 @@ import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.HybridTimestampTracker;
-import org.apache.ignite.internal.lang.IgnitePentaFunction;
 import org.apache.ignite.internal.lang.IgniteTriFunction;
 import org.apache.ignite.internal.network.ClusterNodeResolver;
 import org.apache.ignite.internal.network.UnresolvableConsistentIdException;
@@ -414,9 +414,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
-            IgnitePentaFunction<
-                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
-                    > fac,
+            ReplicaRequestFactory fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker
     ) {
@@ -437,9 +435,7 @@ public class InternalTableImpl implements InternalTable {
     private <T> CompletableFuture<T> enlistInTx(
             Collection<BinaryRowEx> keyRows,
             @Nullable InternalTransaction tx,
-            IgnitePentaFunction<
-                    Collection<? extends BinaryRow>, InternalTransaction, ReplicationGroupId, Long, Boolean, ReplicaRequest
-                    > fac,
+            ReplicaRequestFactory fac,
             Function<Collection<RowBatch>, CompletableFuture<T>> reducer,
             BiPredicate<T, ReplicaRequest> noOpChecker,
             @Nullable Long txStartTs
@@ -480,7 +476,7 @@ public class InternalTableImpl implements InternalTable {
                         actualTx,
                         partitionId,
                         enlistmentConsistencyToken ->
-                                fac.apply(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, false),
+                                fac.create(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, false),
                         false,
                         enlistment,
                         noOpChecker,
@@ -491,7 +487,7 @@ public class InternalTableImpl implements InternalTable {
                         actualTx,
                         partitionId,
                         enlistmentConsistencyToken ->
-                                fac.apply(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, full),
+                                fac.create(rowBatch.requestedRows, actualTx, replicationGroupId, enlistmentConsistencyToken, full),
                         full,
                         noOpChecker
                 );
@@ -2364,7 +2360,7 @@ public class InternalTableImpl implements InternalTable {
      * @return True if retrying is possible, false otherwise.
      */
     private static boolean exceptionAllowsImplicitTxRetry(Throwable e) {
-        return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR);
+        return matchAny(unwrapCause(e), ACQUIRE_LOCK_ERR, REPLICA_MISS_ERR, GROUP_OVERLOADED_ERR);
     }
 
     private CompletableFuture<ReplicaMeta> awaitPrimaryReplica(ReplicationGroupId replicationGroupId, HybridTimestamp timestamp) {
@@ -2390,5 +2386,16 @@ public class InternalTableImpl implements InternalTable {
                             transaction.isReadOnly()
                     ));
         }
+    }
+
+    @FunctionalInterface
+    private interface ReplicaRequestFactory {
+        ReplicaRequest create(
+                Collection<? extends BinaryRow> keyRows,
+                InternalTransaction tx,
+                ReplicationGroupId groupId,
+                Long enlistmentConsistencyToken,
+                Boolean full
+        );
     }
 }
