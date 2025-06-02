@@ -29,6 +29,7 @@ import org.apache.ignite.catalog.ColumnType;
 import org.apache.ignite.catalog.IndexType;
 import org.apache.ignite.catalog.SortOrder;
 import org.apache.ignite.sql.IgniteSql;
+import org.apache.ignite.table.QualifiedName;
 
 class CreateTableImpl extends AbstractCatalogQuery<Name> {
     private Name tableName;
@@ -59,10 +60,10 @@ class CreateTableImpl extends AbstractCatalogQuery<Name> {
         return tableName;
     }
 
-    CreateTableImpl name(String... names) {
-        Objects.requireNonNull(names, "Table name must not be null.");
+    CreateTableImpl name(QualifiedName name) {
+        Objects.requireNonNull(name, "Table name must not be null.");
 
-        this.tableName = Name.compound(names);
+        this.tableName = Name.qualified(name);
         return this;
     }
 

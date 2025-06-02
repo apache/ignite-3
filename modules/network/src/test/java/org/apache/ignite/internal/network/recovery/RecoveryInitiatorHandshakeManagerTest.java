@@ -76,17 +76,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 @Timeout(10)
-class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
+class RecoveryInitiatorHandshakeManagerTest extends BaseIgniteAbstractTest {
     private static final UUID LOWER_ID = new UUID(1, 1);
     private static final UUID HIGHER_ID = new UUID(2, 2);
 
-    private static final String CLIENT_CONSISTENT_ID = "client";
-    private static final String SERVER_CONSISTENT_ID = "server";
+    private static final String INITIATOR_CONSISTENT_ID = "initiator";
+    private static final String ACCEPTOR_CONSISTENT_ID = "acceptor";
 
     private static final short CONNECTION_INDEX = 0;
 
-    private static final String SERVER_HOST = "server-host";
-    private static final String CLIENT_HOST = "client-host";
+    private static final String ACCEPTOR_HOST = "acceptor-host";
+    private static final String INITIATOR_HOST = "initiator-host";
 
     private static final int PORT = 1000;
 
@@ -125,7 +125,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     private final RecoveryDescriptor recoveryDescriptor = new RecoveryDescriptor(100);
 
-    private final AtomicBoolean clientHandshakeManagerStopping = new AtomicBoolean(false);
+    private final AtomicBoolean initiatorHandshakeManagerStopping = new AtomicBoolean(false);
 
     @BeforeEach
     void initMocks() {
@@ -149,43 +149,43 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     /**
      * This tests the following scenario: two handshakes in the opposite directions are started,
-     * Handshake 1 is faster and it takes both client-side and server-side locks (using recovery descriptors
-     * as locks), and only then Handshake 2 tries to take the first lock (the one on the client side).
+     * Handshake 1 is faster and it takes both initiator-side and acceptor-side locks (using recovery descriptors
+     * as locks), and only then Handshake 2 tries to take the first lock (the one on the initiator side).
      * In such a situation, tie-breaking logic should not be applied (as Handshake 1 could have already
      * established, or almost established, a logical connection); instead, Handshake 2 must stop
      * itself (regardless of what that the Tie Breaker would prescribe).
      */
     @ParameterizedTest
     @ValueSource(booleans = {false, true})
-    void switchesToCompetitorHandshakeWhenCannotAcquireLockAtClientSide(boolean clientLaunchIdIsLower) {
-        UUID clientLaunchId = clientLaunchIdIsLower ? LOWER_ID : HIGHER_ID;
-        UUID serverLaunchId = clientLaunchIdIsLower ? HIGHER_ID : LOWER_ID;
+    void switchesToCompetitorHandshakeWhenCannotAcquireLockAtInitiatorSide(boolean initiatorLaunchIdIsLower) {
+        UUID initiatorLaunchId = initiatorLaunchIdIsLower ? LOWER_ID : HIGHER_ID;
+        UUID acceptorLaunchId = initiatorLaunchIdIsLower ? HIGHER_ID : LOWER_ID;
 
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(clientLaunchId);
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(initiatorLaunchId);
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
         recoveryDescriptor.tryAcquire(thisContext, completedFuture(competitorNettySender));
 
-        manager.onMessage(handshakeStartMessageFrom(serverLaunchId));
+        manager.onMessage(handshakeStartMessageFrom(acceptorLaunchId));
 
         verify(thisChannel, never()).close();
         verify(thisChannel, never()).close(any(ChannelPromise.class));
 
         HandshakeException ex = assertWillThrowFast(localHandshakeFuture, HandshakeException.class);
-        assertThat(ex.getMessage(), is("Stepping aside to allow an incoming handshake from server to finish."));
+        assertThat(ex.getMessage(), is("Stepping aside to allow an incoming handshake from acceptor to finish."));
 
         assertThat(finalHandshakeFuture.toCompletableFuture(), willCompleteSuccessfully());
         assertThat(finalHandshakeFuture.toCompletableFuture().join(), is(competitorNettySender));
     }
 
-    private RecoveryClientHandshakeManager clientHandshakeManager(UUID launchId) {
-        return clientHandshakeManager(launchId, clientHandshakeManagerStopping::get);
+    private RecoveryInitiatorHandshakeManager initiatorHandshakeManager(UUID launchId) {
+        return initiatorHandshakeManager(launchId, initiatorHandshakeManagerStopping::get);
     }
 
-    private RecoveryClientHandshakeManager clientHandshakeManager(UUID launchId, BooleanSupplier stopping) {
-        RecoveryClientHandshakeManager manager = new RecoveryClientHandshakeManager(
-                new ClusterNodeImpl(launchId, CLIENT_CONSISTENT_ID, new NetworkAddress(CLIENT_HOST, PORT)),
+    private RecoveryInitiatorHandshakeManager initiatorHandshakeManager(UUID launchId, BooleanSupplier stopping) {
+        RecoveryInitiatorHandshakeManager manager = new RecoveryInitiatorHandshakeManager(
+                new ClusterNodeImpl(launchId, INITIATOR_CONSISTENT_ID, new NetworkAddress(INITIATOR_HOST, PORT)),
                 CONNECTION_INDEX,
                 recoveryDescriptorProvider,
                 () -> List.of(thisChannel.eventLoop()),
@@ -201,21 +201,21 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         return manager;
     }
 
-    private static HandshakeStartMessage handshakeStartMessageFrom(UUID serverLaunchId) {
-        return handshakeStartMessageFrom(serverLaunchId, CORRECT_CLUSTER_ID);
+    private static HandshakeStartMessage handshakeStartMessageFrom(UUID acceptorLaunchId) {
+        return handshakeStartMessageFrom(acceptorLaunchId, CORRECT_CLUSTER_ID);
     }
 
-    private static HandshakeStartMessage handshakeStartMessageFrom(UUID serverLaunchId, UUID serverClusterId) {
+    private static HandshakeStartMessage handshakeStartMessageFrom(UUID acceptorLaunchId, UUID acceptorClusterId) {
         return MESSAGE_FACTORY.handshakeStartMessage()
-                .serverNode(
+                .acceptorNode(
                         MESSAGE_FACTORY.clusterNodeMessage()
-                                .id(serverLaunchId)
-                                .name(SERVER_CONSISTENT_ID)
-                                .host(SERVER_HOST)
+                                .id(acceptorLaunchId)
+                                .name(ACCEPTOR_CONSISTENT_ID)
+                                .host(ACCEPTOR_HOST)
                                 .port(PORT)
                                 .build()
                 )
-                .serverClusterId(serverClusterId)
+                .acceptorClusterId(acceptorClusterId)
                 .productName(IgniteProductVersion.CURRENT_PRODUCT)
                 .productVersion(IgniteProductVersion.CURRENT_VERSION.toString())
                 .build();
@@ -223,11 +223,11 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void switchesToCompetitorFutureWhenRejectedDueToClinchAndCompetitorIsHere() {
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(randomUUID());
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(randomUUID());
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), SERVER_CONSISTENT_ID, new NetworkAddress(SERVER_HOST, PORT)));
+        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
         recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         DescriptorAcquiry thisAcquiry = recoveryDescriptor.holder();
@@ -247,11 +247,11 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void finishesWithChannelAlreadyExistsExceptionWhenRejectedDueToClinchAndCompetitorIsNotHere() {
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(randomUUID());
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(randomUUID());
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
-        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), SERVER_CONSISTENT_ID, new NetworkAddress(SERVER_HOST, PORT)));
+        manager.setRemoteNode(new ClusterNodeImpl(randomUUID(), ACCEPTOR_CONSISTENT_ID, new NetworkAddress(ACCEPTOR_HOST, PORT)));
         recoveryDescriptor.tryAcquire(thisContext, new CompletableFuture<>());
 
         manager.onMessage(handshakeRejectedMessageDueToClinchFrom());
@@ -269,8 +269,8 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void gettingHandshakeStartMessageWhenStoppingCausesHandshakeToBeFinishedWithNodeStoppingException() {
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(LOWER_ID);
-        clientHandshakeManagerStopping.set(true);
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(LOWER_ID);
+        initiatorHandshakeManagerStopping.set(true);
 
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
@@ -298,7 +298,7 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
         BooleanSupplier stoppingWhenDescriptorAcquired = () -> recoveryDescriptor.holder() != null;
         assertFalse(stoppingWhenDescriptorAcquired.getAsBoolean());
 
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(LOWER_ID, stoppingWhenDescriptorAcquired);
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(LOWER_ID, stoppingWhenDescriptorAcquired);
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 
@@ -313,8 +313,8 @@ class RecoveryClientHandshakeManagerTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    void failsHandshakeIfServerClusterIdDiffersFromOurs() {
-        RecoveryClientHandshakeManager manager = clientHandshakeManager(LOWER_ID);
+    void failsHandshakeIfAcceptorClusterIdDiffersFromOurs() {
+        RecoveryInitiatorHandshakeManager manager = initiatorHandshakeManager(LOWER_ID);
         CompletableFuture<NettySender> localHandshakeFuture = manager.localHandshakeFuture();
         CompletionStage<NettySender> finalHandshakeFuture = manager.finalHandshakeFuture();
 

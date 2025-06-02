@@ -52,6 +52,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
@@ -250,5 +251,10 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
     @Override
     public String getRelTypeName() {
         return REL_TYPE_NAME;
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer.addProjection(exps, getInput().getRowType());
     }
 }

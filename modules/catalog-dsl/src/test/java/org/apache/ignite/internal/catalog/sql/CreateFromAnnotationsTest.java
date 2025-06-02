@@ -370,8 +370,8 @@ class CreateFromAnnotationsTest {
 
     @SuppressWarnings("unused")
     @Table(
-            value = "pojo test",
-            schemaName = "sche ma",
+            value = "\"pojo test\"",
+            schemaName = "\"sche ma\"",
             zone = @Zone(
                     value = "zone test",
                     partitions = 1,

@@ -43,6 +43,7 @@ import org.apache.ignite.internal.sql.engine.exec.exp.SqlProjection;
 import org.apache.ignite.internal.sql.engine.exec.row.RowSchema;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.rel.IgniteSelectCount;
+import org.apache.ignite.internal.sql.engine.rel.explain.ExplainUtils;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.util.Cloner;
 import org.apache.ignite.internal.sql.engine.util.Commons;

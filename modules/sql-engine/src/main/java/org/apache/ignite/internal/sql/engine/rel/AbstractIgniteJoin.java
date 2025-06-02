@@ -46,6 +46,7 @@ import org.apache.calcite.util.Pair;
 import org.apache.calcite.util.Util;
 import org.apache.calcite.util.mapping.IntPair;
 import org.apache.calcite.util.mapping.Mappings;
+import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
@@ -275,5 +276,12 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
                 (left2Right ? left : right).getRowType().getFieldCount(),
                 (left2Right ? right : left).getRowType().getFieldCount()
         );
+    }
+
+    @Override
+    public IgniteRelWriter explain(IgniteRelWriter writer) {
+        return writer
+                .addPredicate(condition, getRowType())
+                .addJoinType(joinType);
     }
 }

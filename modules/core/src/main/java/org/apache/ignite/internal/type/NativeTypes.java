@@ -90,6 +90,16 @@ public class NativeTypes {
     /** Timezone-free three-part value representing a year, month, and day. */
     public static final NativeType DATE = new NativeType(ColumnType.DATE, 3);
 
+    /**
+     * DURATION type.
+     */
+    public static final NativeType DURATION = new NativeType(ColumnType.DURATION, 8);
+
+    /**
+     * PERIOD type.
+     */
+    public static final NativeType PERIOD = new NativeType(ColumnType.PERIOD, 4);
+
     /** Don't allow to create an instance. */
     private NativeTypes() {
     }
