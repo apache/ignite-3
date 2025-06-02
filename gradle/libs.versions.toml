@@ -88,7 +88,7 @@ tree-sitter-sql = "gh-pages-a"
 tree-sitter-hocon = "master-a"
 otel = "1.49.0"
 spring-boot = "3.5.0"
-spring-data = "3.4.5"
+spring-data = "3.5.0"
 testcontainers = "1.21.1"
 
 #Tools
