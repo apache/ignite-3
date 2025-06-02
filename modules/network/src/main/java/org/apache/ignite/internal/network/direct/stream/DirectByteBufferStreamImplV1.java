@@ -476,8 +476,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      *     </li>
      *     <li>
      *         The encoding algorithm must set upper bit of all bytes except the last one. It can be done with a single bitwise OR with a
-     *         carefully chosen constant. This constant looks like {@code 0x80...80L} with a right number of bits. We choose the number of
-     *         bits based on the actual bit-length of the value, which is considered using {@link Long#numberOfLeadingZeros(long)}.
+     *         carefully chosen mask. This mask looks like {@code 0x80...80L} with a right number of bits. We calculate it by finding the
+     *         most significant non-zero byte in the value, and then propagating it to the lower positions using shifts and ORs. After that
+     *         we nullify all unrelated bits using {@code & 0x0080808080808080L}.
      *     </li>
      * </ul>
      */
@@ -494,7 +495,8 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
         long mask = (val | 0x8080808080808080L) - 0x0101010101010101L;
         mask |= mask >> 32;
-        mask = (mask >> 8 | mask >> 16 | mask >> 24) & 0x0080808080808080L;
+        mask |= mask >> 16;
+        mask = (mask >> 8 | mask >> 16) & 0x0080808080808080L;
         val |= mask;
 
         if (IS_BIG_ENDIAN) {
