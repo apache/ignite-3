@@ -133,7 +133,6 @@ public abstract class ClientCompatibilityTestBase {
         Tuple key = Tuple.create().set("id", id);
 
         RecordView<Tuple> view = table(TABLE_NAME_TEST).recordView();
-        assertNull(view.get(null, key));
 
         // Insert.
         assertTrue(view.insert(null, Tuple.create().set("id", id).set("name", "v1")));
@@ -143,6 +142,24 @@ public abstract class ClientCompatibilityTestBase {
         // Upsert.
         view.upsert(null, Tuple.create().set("id", id).set("name", "v2"));
         assertEquals("v2", view.get(null, key).stringValue("name"));
+
+        // Contains.
+        assertTrue(view.contains(null, key));
+        assertFalse(view.contains(null, Tuple.create().set("id", -id)));
+
+        // Contains all.
+        assertTrue(view.containsAll(null, List.of(key)));
+        assertFalse(view.containsAll(null, List.of(key, Tuple.create().set("id", -id))));
+
+        // Get.
+        assertNotNull(view.get(null, key));
+        assertNull(view.get(null, Tuple.create().set("id", -id)));
+
+        // Get all.
+        List<Tuple> keys = List.of(key, Tuple.create().set("id", -id));
+        List<Tuple> results = view.getAll(null, keys);
+        assertEquals(1, results.size());
+        assertEquals("v2", results.get(0).stringValue("name"));
 
         // TODO
     }
