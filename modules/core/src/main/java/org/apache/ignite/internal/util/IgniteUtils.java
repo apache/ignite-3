@@ -1095,6 +1095,17 @@ public class IgniteUtils {
     }
 
     /**
+     * Find any element among the given for which the predicate returns {@code true}.
+     *
+     * @param predicate Predicate to apply to each element.
+     * @param elements Elements to search in.
+     * @return Optional containing element (if present).
+     */
+    public static <T> Optional<T> findAny(@Nullable Predicate<T> predicate, T... elements) {
+        return findAny(Arrays.asList(elements), predicate);
+    }
+
+    /**
      * Iterates over the given collection and applies the given closure to each element using the collection element and its index.
      *
      * @param collection Collection.

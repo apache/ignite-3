@@ -406,8 +406,6 @@ public class MetaStorageWriteHandler {
      * @param context Command operation context.
      */
     private void evictIdempotentCommandsCache(HybridTimestamp evictionTimestamp, KeyValueUpdateContext context) {
-        LOG.info("Idempotent command cache cleanup started [evictionTimestamp={}].", evictionTimestamp);
-
         List<CommandId> evictedCommandIds = evictCommandsFromCache(evictionTimestamp);
 
         if (evictedCommandIds.isEmpty()) {
@@ -416,13 +414,15 @@ public class MetaStorageWriteHandler {
 
         storage.removeAll(toIdempotentCommandKeyBytes(evictedCommandIds), context);
 
-        LOG.info("Idempotent command cache cleanup finished [evictionTimestamp={}, cleanupCompletionTimestamp={},"
-                        + " removedEntriesCount={}, cacheSize={}].",
-                evictionTimestamp,
-                clock.now(),
-                evictedCommandIds.size(),
-                idempotentCommandCache.size()
-        );
+        if (!evictedCommandIds.isEmpty() || !idempotentCommandCache.isEmpty()) {
+            LOG.info("Idempotent command cache cleanup performed [evictionTimestamp={}, cleanupCompletionTimestamp={},"
+                            + " removedEntriesCount={}, cacheSize={}].",
+                    evictionTimestamp,
+                    clock.now(),
+                    evictedCommandIds.size(),
+                    idempotentCommandCache.size()
+            );
+        }
     }
 
     private class ResultCachingClosure implements CommandClosure<WriteCommand> {
