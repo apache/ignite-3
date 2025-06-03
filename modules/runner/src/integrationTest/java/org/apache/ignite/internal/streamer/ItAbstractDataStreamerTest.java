@@ -474,6 +474,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         testWithReceiverDeprecated(view, t -> Map.entry(t.intValue(0), new PersonValPojo()), returnResults);
     }
 
+    @SuppressWarnings("deprecation")
     private static <T> void testWithReceiverDeprecated(DataStreamerTarget<T> target, Function<Tuple, T> keyFunc, boolean returnResults) {
         CompletableFuture<Void> streamerFut;
 
