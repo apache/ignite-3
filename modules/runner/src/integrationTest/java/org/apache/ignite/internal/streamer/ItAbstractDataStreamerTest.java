@@ -829,7 +829,11 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     private static class MarshallingReceiver implements DataStreamerReceiver<String, String, String> {
         @Override
         public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, @Nullable String arg) {
-            return null;
+            var results = page.stream()
+                    .map(s -> s + ":received[arg=" + arg + "]")
+                    .collect(Collectors.toList());
+
+            return CompletableFuture.completedFuture(results);
         }
 
         @Override
