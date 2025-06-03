@@ -21,7 +21,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static java.util.concurrent.Executors.newSingleThreadExecutor;
 import static java.util.concurrent.TimeUnit.SECONDS;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.BUILDING;
 import static org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus.REGISTERED;
@@ -166,8 +165,7 @@ public class ChangeIndexStatusTaskTest extends IgniteAbstractTest {
         );
 
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
-
-        awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         createTable(catalogManager, TABLE_NAME, COLUMN_NAME);
         createIndex(catalogManager, TABLE_NAME, INDEX_NAME, COLUMN_NAME);

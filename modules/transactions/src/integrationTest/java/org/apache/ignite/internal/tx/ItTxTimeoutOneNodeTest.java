@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -63,8 +64,9 @@ abstract class ItTxTimeoutOneNodeTest extends ClusterPerTestIntegrationTest {
 
     private Table createTestTable() throws InterruptedException {
         if (enabledColocation()) {
-            CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
-            CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+            IgniteImpl node = unwrapIgniteImpl(node(0));
+            CatalogManager catalogManager = node.catalogManager();
+            CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
 
             // Generally it's required to await default zone dataNodesAutoAdjustScaleUp timeout in order to treat zone as ready one.
             // In order to eliminate awaiting interval, default zone scaleUp is altered to be immediate.
