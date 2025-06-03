@@ -59,6 +59,6 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
             return CompletableFuture.completedFuture(null);
         }
 
-        return receiverRes.thenApply(StreamerReceiverSerializer::serializeReceiverJobResults);
+        return receiverRes.thenApply(r -> StreamerReceiverSerializer.serializeReceiverJobResults(r, receiver.resultMarshaller()));
     }
 }

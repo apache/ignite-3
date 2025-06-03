@@ -131,6 +131,7 @@ public class StreamerReceiverSerializer {
             throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
         }
 
+        // TODO: Marshallers
         Object receiverArg = readArg(reader, readerIndex);
 
         readerIndex += 3;
