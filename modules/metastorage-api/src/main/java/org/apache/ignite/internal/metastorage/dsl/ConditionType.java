@@ -77,10 +77,10 @@ public enum ConditionType {
     }
 
     /**
-     * Returns the enumerated value from its ordinal.
+     * Returns the enumerated value from its id.
      *
      * @param id Id of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     * @throws IllegalArgumentException If no enumeration constant by id.
      */
     public static ConditionType fromId(int id) throws IllegalArgumentException {
         switch (id) {
