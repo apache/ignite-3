@@ -28,8 +28,8 @@ import org.apache.ignite.lang.AsyncCursor;
 import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.DataStreamerTarget;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.table.criteria.CriteriaQuerySource;
@@ -58,22 +58,22 @@ abstract class PublicApiThreadingViewBase<T> implements DataStreamerTarget<T>, C
     }
 
     @Override
-    public <E, V, R, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R> receiver,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         return executeAsyncOp(() -> streamerTarget.streamData(
                 publisher,
+                receiver,
                 keyFunc,
                 payloadFunc,
-                receiver,
+                receiverArg,
                 resultSubscriber,
-                options,
-                receiverArg));
+                options));
     }
 
     @Override
