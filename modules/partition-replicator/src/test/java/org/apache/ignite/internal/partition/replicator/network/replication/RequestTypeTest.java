@@ -20,54 +20,58 @@ package org.apache.ignite.internal.partition.replicator.network.replication;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
+import java.util.stream.Stream;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /** For {@link RequestType} testing. */
 public class RequestTypeTest {
+    private static Stream<Arguments> requestTypeIds() {
+        return Stream.of(
+                arguments(RequestType.RW_GET, 0),
+                arguments(RequestType.RW_GET_ALL, 1),
+                arguments(RequestType.RW_DELETE, 2),
+                arguments(RequestType.RW_DELETE_ALL, 3),
+                arguments(RequestType.RW_DELETE_EXACT, 4),
+                arguments(RequestType.RW_DELETE_EXACT_ALL, 5),
+                arguments(RequestType.RW_INSERT, 6),
+                arguments(RequestType.RW_INSERT_ALL, 7),
+                arguments(RequestType.RW_UPSERT, 8),
+                arguments(RequestType.RW_UPSERT_ALL, 9),
+                arguments(RequestType.RW_REPLACE, 10),
+                arguments(RequestType.RW_REPLACE_IF_EXIST, 11),
+                arguments(RequestType.RW_GET_AND_DELETE, 12),
+                arguments(RequestType.RW_GET_AND_REPLACE, 13),
+                arguments(RequestType.RW_GET_AND_UPSERT, 14),
+                arguments(RequestType.RW_SCAN, 15),
+                arguments(RequestType.RO_GET, 16),
+                arguments(RequestType.RO_GET_ALL, 17),
+                arguments(RequestType.RO_SCAN, 18)
+        );
+    }
+
+    @ParameterizedTest
+    @MethodSource("requestTypeIds")
+    void testId(RequestType requestType, int expectedId) {
+        assertEquals(expectedId, requestType.id());
+    }
+
     /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    @ParameterizedTest
+    @MethodSource("requestTypeIds")
+    void testFromId(RequestType expectedEnumEntry, int id) {
+        assertEquals(expectedEnumEntry, RequestType.fromId(id));
+
+    }
+
     @Test
-    void testFromOrdinal() {
-        assertEquals(RequestType.RW_GET, RequestType.fromOrdinal(0));
-
-        assertEquals(RequestType.RW_GET_ALL, RequestType.fromOrdinal(1));
-
-        assertEquals(RequestType.RW_DELETE, RequestType.fromOrdinal(2));
-
-        assertEquals(RequestType.RW_DELETE_ALL, RequestType.fromOrdinal(3));
-
-        assertEquals(RequestType.RW_DELETE_EXACT, RequestType.fromOrdinal(4));
-
-        assertEquals(RequestType.RW_DELETE_EXACT_ALL, RequestType.fromOrdinal(5));
-
-        assertEquals(RequestType.RW_INSERT, RequestType.fromOrdinal(6));
-
-        assertEquals(RequestType.RW_INSERT_ALL, RequestType.fromOrdinal(7));
-
-        assertEquals(RequestType.RW_UPSERT, RequestType.fromOrdinal(8));
-
-        assertEquals(RequestType.RW_UPSERT_ALL, RequestType.fromOrdinal(9));
-
-        assertEquals(RequestType.RW_REPLACE, RequestType.fromOrdinal(10));
-
-        assertEquals(RequestType.RW_REPLACE_IF_EXIST, RequestType.fromOrdinal(11));
-
-        assertEquals(RequestType.RW_GET_AND_DELETE, RequestType.fromOrdinal(12));
-
-        assertEquals(RequestType.RW_GET_AND_REPLACE, RequestType.fromOrdinal(13));
-
-        assertEquals(RequestType.RW_GET_AND_UPSERT, RequestType.fromOrdinal(14));
-
-        assertEquals(RequestType.RW_SCAN, RequestType.fromOrdinal(15));
-
-        assertEquals(RequestType.RO_GET, RequestType.fromOrdinal(16));
-
-        assertEquals(RequestType.RO_GET_ALL, RequestType.fromOrdinal(17));
-
-        assertEquals(RequestType.RO_SCAN, RequestType.fromOrdinal(18));
-
-        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(19));
+    void testFromIdThrows() {
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromId(19));
     }
 }

@@ -78,45 +78,45 @@ class RequestTypeTest {
     /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromOrdinal() {
-        assertEquals(RW_GET, RequestType.fromOrdinal(0));
+        assertEquals(RW_GET, RequestType.fromId(0));
 
-        assertEquals(RW_GET_ALL, RequestType.fromOrdinal(1));
+        assertEquals(RW_GET_ALL, RequestType.fromId(1));
 
-        assertEquals(RW_DELETE, RequestType.fromOrdinal(2));
+        assertEquals(RW_DELETE, RequestType.fromId(2));
 
-        assertEquals(RW_DELETE_ALL, RequestType.fromOrdinal(3));
+        assertEquals(RW_DELETE_ALL, RequestType.fromId(3));
 
-        assertEquals(RW_DELETE_EXACT, RequestType.fromOrdinal(4));
+        assertEquals(RW_DELETE_EXACT, RequestType.fromId(4));
 
-        assertEquals(RW_DELETE_EXACT_ALL, RequestType.fromOrdinal(5));
+        assertEquals(RW_DELETE_EXACT_ALL, RequestType.fromId(5));
 
-        assertEquals(RW_INSERT, RequestType.fromOrdinal(6));
+        assertEquals(RW_INSERT, RequestType.fromId(6));
 
-        assertEquals(RW_INSERT_ALL, RequestType.fromOrdinal(7));
+        assertEquals(RW_INSERT_ALL, RequestType.fromId(7));
 
-        assertEquals(RW_UPSERT, RequestType.fromOrdinal(8));
+        assertEquals(RW_UPSERT, RequestType.fromId(8));
 
-        assertEquals(RW_UPSERT_ALL, RequestType.fromOrdinal(9));
+        assertEquals(RW_UPSERT_ALL, RequestType.fromId(9));
 
-        assertEquals(RW_REPLACE, RequestType.fromOrdinal(10));
+        assertEquals(RW_REPLACE, RequestType.fromId(10));
 
-        assertEquals(RW_REPLACE_IF_EXIST, RequestType.fromOrdinal(11));
+        assertEquals(RW_REPLACE_IF_EXIST, RequestType.fromId(11));
 
-        assertEquals(RW_GET_AND_DELETE, RequestType.fromOrdinal(12));
+        assertEquals(RW_GET_AND_DELETE, RequestType.fromId(12));
 
-        assertEquals(RW_GET_AND_REPLACE, RequestType.fromOrdinal(13));
+        assertEquals(RW_GET_AND_REPLACE, RequestType.fromId(13));
 
-        assertEquals(RW_GET_AND_UPSERT, RequestType.fromOrdinal(14));
+        assertEquals(RW_GET_AND_UPSERT, RequestType.fromId(14));
 
-        assertEquals(RW_SCAN, RequestType.fromOrdinal(15));
+        assertEquals(RW_SCAN, RequestType.fromId(15));
 
-        assertEquals(RO_GET, RequestType.fromOrdinal(16));
+        assertEquals(RO_GET, RequestType.fromId(16));
 
-        assertEquals(RO_GET_ALL, RequestType.fromOrdinal(17));
+        assertEquals(RO_GET_ALL, RequestType.fromId(17));
 
-        assertEquals(RO_SCAN, RequestType.fromOrdinal(18));
+        assertEquals(RO_SCAN, RequestType.fromId(18));
 
-        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(-1));
-        assertThrows(IllegalArgumentException.class, () -> RequestType.fromOrdinal(19));
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromId(19));
     }
 }

@@ -52,7 +52,7 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
 
         out.writeBoolean(hasAnyZonePartitionIds);
 
-        out.writeVarInt(meta.txState().ordinal());
+        out.writeVarInt(meta.txState().id());
 
         out.writeVarInt(meta.enlistedPartitions().size());
         for (EnlistedPartitionGroup enlistedPartitionGroup : meta.enlistedPartitions()) {
@@ -85,7 +85,7 @@ public class TxMetaSerializer extends VersionedSerializer<TxMeta> {
             usesZonePartitionIds = false;
         }
 
-        TxState state = TxState.fromOrdinal(in.readVarIntAsInt());
+        TxState state = TxState.fromId(in.readVarIntAsInt());
         List<EnlistedPartitionGroup> enlistedPartitions = readEnlistedPartitions(in, protoVer, usesZonePartitionIds);
         HybridTimestamp commitTimestamp = HybridTimestamp.readNullableFrom(in);
 
