@@ -26,7 +26,6 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import java.util.function.Predicate;
 import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
