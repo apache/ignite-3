@@ -161,26 +161,26 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         String startTxStatement = format("START TRANSACTION {};", txOptions);
 
         {
-            runScript(startTxStatement);
+            assertThrowsSqlException(
+                    RUNTIME_ERR,
+                    "Transaction managed by the script was not completed by the script",
+                    () -> runScript(startTxStatement)
+            );
 
             verifyFinishedTxCount(1);
         }
 
         {
-            List<AsyncSqlCursor<InternalSqlRow>> cursors = fetchAllCursors(
-                    runScript(startTxStatement
-                            + "SELECT * FROM TEST;"
-                            + "SELECT * FROM TEST;"
-                    )
+            assertThrowsSqlException(
+                    RUNTIME_ERR,
+                    "Transaction managed by the script was not completed by the script",
+                    () -> fetchAllCursors(
+                            runScript(startTxStatement
+                                    + "SELECT * FROM TEST;"
+                                    + "SELECT * FROM TEST;"
+                            ))
             );
 
-            assertThat(cursors, hasSize(3));
-
-            // The transaction depends on the cursors of the SELECT statement,
-            // so it waits for them to close.
-            assertEquals(1, txManager().pending());
-
-            cursors.forEach(AsyncSqlCursor::closeAsync);
             verifyFinishedTxCount(2);
         }
     }
@@ -213,13 +213,13 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertNotNull(cur);
 
         // Fetch remaining.
-        cursors = fetchAllCursors(cur);
-        assertThat(cursors, hasSize(4));
+        AsyncSqlCursor<InternalSqlRow> cur0 = cur;
 
-        assertEquals(1, txManager().pending());
-
-        // Rollback is performed asynchronously.
-        cursors.forEach(c -> await(c.closeAsync()));
+        assertThrowsSqlException(
+                RUNTIME_ERR,
+                "Transaction managed by the script was not completed by the script",
+                () -> fetchAllCursors(cur0)
+        );
 
         // 1 COMMIT + 1 ROLLBACK.
         verifyFinishedTxCount(2);
@@ -296,7 +296,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @Test
     void dmlFailsOnReadOnlyTransaction() {
         AsyncSqlCursor<InternalSqlRow> cursor = runScript("START TRANSACTION READ ONLY;"
-                + "SELECT 1;"
+                + "SELECT x FROM TABLE(SYSTEM_RANGE(1, 1000000));"
                 + "INSERT INTO test VALUES(0);"
                 + "COMMIT;");
 
@@ -306,7 +306,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         assertThrowsSqlException(RUNTIME_ERR, "DML cannot be started by using read only transactions.",
                 () -> await(insCur.nextResult()));
 
-        expectQueryCancelled(() -> await(insCur.requestNextAsync(1)));
+        expectQueryCancelled(new DrainCursor(insCur));
 
         verifyFinishedTxCount(1);
     }

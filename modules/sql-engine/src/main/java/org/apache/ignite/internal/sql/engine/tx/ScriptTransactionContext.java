@@ -137,13 +137,11 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
     }
 
-    /** Attempts to rollback a script-driven transaction if it has not finished. */
-    public void rollbackUncommitted() {
+    /** Returns {@code True} if the script transaction exists and its rollback has been initiated by this call. */
+    public boolean rollbackActiveTx() {
         ScriptTransactionWrapperImpl txWrapper = wrapper;
 
-        if (txWrapper != null) {
-            txWrapper.rollbackWhenCursorsClosed();
-        }
+        return txWrapper != null && txWrapper.rollback();
     }
 
     /** Rolls back the script-driven transaction. */

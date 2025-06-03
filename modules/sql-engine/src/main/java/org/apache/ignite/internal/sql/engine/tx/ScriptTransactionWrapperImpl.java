@@ -129,9 +129,19 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         });
     }
 
-    /** Rolls back the transaction when all cursors are closed. */
-    void rollbackWhenCursorsClosed() {
-        changeState(State.ROLLBACK);
+    /**
+     * Rolls back the transaction.
+     *
+     * @return {@code True} if the rollback was initiated by this call, {@code False} if the transaction completion was already initiated.
+     */
+    boolean rollback() {
+        if (changeState(State.ROLLBACK)) {
+            completeTx();
+
+            return true;
+        }
+
+        return false;
     }
 
     /** Registers a new cursor associated with the current transaction. */
@@ -166,20 +176,22 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         });
     }
 
-    private void changeState(State newState) {
+    private boolean changeState(State newState) {
         synchronized (mux) {
             if (txState != null) {
-                return;
+                return false;
             }
 
             txState = newState;
 
             if (!openedCursors.isEmpty()) {
-                return;
+                return true;
             }
         }
 
         completeTx();
+
+        return true;
     }
 
     private void completeTx() {

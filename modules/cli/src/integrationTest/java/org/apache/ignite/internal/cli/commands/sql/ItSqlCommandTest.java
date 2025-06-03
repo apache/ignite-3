@@ -175,4 +175,54 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
                 () -> assertErrOutputDoesNotContain("Unknown error")
         );
     }
+
+    @Test
+    @DisplayName("An error should be displayed indicating that the script transaction was not completed by the script.")
+    void scriptTxNotFinishedByScript() {
+        String expectedError = "Transaction managed by the script was not completed by the script.";
+
+        {
+            execute("sql", "START TRANSACTION;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+
+        {
+            execute("sql", "START TRANSACTION; SELECT 1;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+
+        {
+            execute("sql", "START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+
+        {
+            execute("sql", "START TRANSACTION; SELECT 1; SELECT 2;", "--jdbc-url", JDBC_URL);
+
+            assertAll(
+                    this::assertOutputIsEmpty,
+                    () -> assertErrOutputContains("SQL query execution error"),
+                    () -> assertErrOutputContains(expectedError),
+                    () -> assertErrOutputDoesNotContain("Unknown error")
+            );
+        }
+    }
 }

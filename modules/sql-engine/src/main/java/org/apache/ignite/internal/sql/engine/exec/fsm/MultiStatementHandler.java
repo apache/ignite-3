@@ -20,6 +20,7 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 import static org.apache.ignite.internal.sql.engine.exec.fsm.ValidationHelper.validateDynamicParameters;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.lang.ErrorGroups.Sql.EXECUTION_CANCELLED_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Sql.RUNTIME_ERR;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -180,6 +181,18 @@ class MultiStatementHandler {
                     return;
                 }
 
+                // Check if the script does not have a commit of the active transaction at the end of the script.
+                if (lastStatement && scriptTxContext.rollbackActiveTx()) {
+                    SqlException ex0 = new SqlException(RUNTIME_ERR,
+                            "Transaction managed by the script was not completed by the script.");
+
+                    cursorFuture.completeExceptionally(ex0);
+
+                    cancelAll(ex0);
+
+                    return;
+                }
+
                 cursorFuture.complete(cursor);
 
                 if (!cursor.onClose().isDone()) {
@@ -187,9 +200,6 @@ class MultiStatementHandler {
                 }
 
                 if (lastStatement) {
-                    // Try to rollback script managed transaction, if any.
-                    scriptTxContext.rollbackUncommitted();
-
                     // Main program is completed, therefore it's safe to schedule termination of a query
                     query.resultHolder
                             .thenRun(this::scheduleTermination);
