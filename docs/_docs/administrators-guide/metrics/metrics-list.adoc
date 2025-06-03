@@ -39,15 +39,6 @@ The metrics provided by the client handler and related to active clients.
 |CursorsActive|Active cursors.
 |=======================================================================
 
-== expiration
-
-[width="100%",cols="20%,80%",opts="header"]
-|=======================================================================
-|Metric name | Description
-|TotalDeletedExpiredRowsCount|Total number of deleted expired rows.
-|DetailedExpirationMetrics|Detailed expiration metrics.
-|=======================================================================
-
 == jvm
 
 The metrics for Ignite Java Virtual Machine resource use.
