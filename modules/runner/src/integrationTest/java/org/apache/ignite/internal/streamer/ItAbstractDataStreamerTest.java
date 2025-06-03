@@ -635,12 +635,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TupleReceiver.class).build(),
                     Function.identity(),
                     Function.identity(),
-                    ReceiverDescriptor.builder(TupleReceiver.class).build(),
+                    receiverArg,
                     resultSubscriber,
-                    null,
-                    receiverArg
+                    null
             );
 
             // Tuple payload.
