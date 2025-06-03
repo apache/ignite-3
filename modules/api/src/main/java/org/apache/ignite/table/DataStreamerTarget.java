@@ -17,6 +17,7 @@
 
 package org.apache.ignite.table;
 
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.function.Function;
@@ -59,14 +60,31 @@ public interface DataStreamerTarget<T> {
      * DataStreamerOptions)}.
      */
     @Deprecated
-    <E, V, R, A> CompletableFuture<Void> streamData(
+    default <E, V, R, A> CompletableFuture<Void> streamData(
             Flow.Publisher<E> publisher,
             Function<E, T> keyFunc,
             Function<E, V> payloadFunc,
             ReceiverDescriptor<A> receiver,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg);
+            @Nullable A receiverArg) {
+        Objects.requireNonNull(receiver);
+
+        DataStreamerReceiverDescriptor<V, A, R> desc = DataStreamerReceiverDescriptor
+                .<V, A, R>builder(receiver.receiverClassName())
+                .units(receiver.units())
+                .options(receiver.options())
+                .build();
+
+        return streamData(
+                publisher,
+                desc,
+                keyFunc,
+                payloadFunc,
+                receiverArg,
+                resultSubscriber,
+                options);
+    }
 
     /**
      * Streams data with receiver. The receiver is responsible for processing the data and updating zero or more tables.

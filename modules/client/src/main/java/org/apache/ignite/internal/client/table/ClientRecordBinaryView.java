@@ -39,7 +39,6 @@ import org.apache.ignite.internal.streamer.StreamerBatchSender;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.tx.Transaction;
@@ -452,35 +451,6 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                 null);
 
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public <E, V, R, A> CompletableFuture<Void> streamData(
-            Publisher<E> publisher,
-            Function<E, Tuple> keyFunc,
-            Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
-            @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            A receiverArg) {
-        Objects.requireNonNull(publisher);
-        Objects.requireNonNull(keyFunc);
-        Objects.requireNonNull(payloadFunc);
-        Objects.requireNonNull(receiver);
-
-        return ClientDataStreamer.streamData(
-                publisher,
-                keyFunc,
-                payloadFunc,
-                x -> false,
-                options == null ? DataStreamerOptions.DEFAULT : options,
-                new TupleStreamerPartitionAwarenessProvider(tbl),
-                tbl,
-                resultSubscriber,
-                receiver,
-                receiverArg
-        );
     }
 
     @Override
