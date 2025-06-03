@@ -44,14 +44,18 @@ public class StreamerReceiverJob implements ComputeJob<byte[], byte[]> {
 
         SteamerReceiverInfo receiverInfo = StreamerReceiverSerializer.deserializeReceiverInfo(
                 buf.slice().order(ByteOrder.LITTLE_ENDIAN),
-                payloadElementCount);
+                payloadElementCount,
+                receiverClassName -> {
+                    ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
+                    Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
+                            classLoader, receiverClassName);
 
-        ClassLoader classLoader = ((JobExecutionContextImpl) context).classLoader();
-        Class<DataStreamerReceiver<Object, Object, Object>> receiverClass = ComputeUtils.receiverClass(
-                classLoader, receiverInfo.className());
+                    return ComputeUtils.instantiateReceiver(receiverClass);
+                });
 
-        DataStreamerReceiver<Object, Object, Object> receiver = ComputeUtils.instantiateReceiver(receiverClass);
         DataStreamerReceiverContext receiverContext = context::ignite;
+
+        DataStreamerReceiver<Object, Object, Object> receiver = receiverInfo.receiver();
 
         CompletableFuture<List<Object>> receiverRes = receiver.receive(receiverInfo.items(), receiverContext, receiverInfo.arg());
 

@@ -37,7 +37,6 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
-import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
@@ -45,11 +44,9 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.table.DataStreamerException;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -147,7 +144,7 @@ public class StreamerReceiverSerializer {
 
         readerIndex += 3;
 
-        List<Object> items = readCollectionFromBinaryTuple(reader, readerIndex);
+        List<Object> items = readCollectionFromBinaryTuple(reader, readerIndex, receiver.payloadMarshaller());
 
         return new SteamerReceiverInfo(receiver, receiverArg, items);
     }
@@ -189,7 +186,9 @@ public class StreamerReceiverSerializer {
      * @param results Serialized results.
      * @return Deserialized results.
      */
-    public static <R> List<R> deserializeReceiverJobResults(byte[] results) {
+    public static <R> List<R> deserializeReceiverJobResults(
+            byte[] results,
+            @Nullable Marshaller<R, byte[]> resultsMarshaller) {
         if (results == null || results.length == 0) {
             return List.of();
         }
@@ -199,7 +198,7 @@ public class StreamerReceiverSerializer {
 
         var reader = new BinaryTupleReader(numElements, buf.slice().order(ByteOrder.LITTLE_ENDIAN));
 
-        return readCollectionFromBinaryTuple(reader, 0);
+        return readCollectionFromBinaryTuple(reader, 0, resultsMarshaller);
     }
 
     /**
@@ -230,7 +229,9 @@ public class StreamerReceiverSerializer {
      * @param r Reader.
      * @return Receiver results.
      */
-    public static @Nullable <R> List<R> deserializeReceiverResultsOnClient(ClientMessageUnpacker r) {
+    public static @Nullable <R> List<R> deserializeReceiverResultsOnClient(
+            ClientMessageUnpacker r,
+            @Nullable Marshaller<R, byte[]> resultsMarshaller) {
         if (r.tryUnpackNil()) {
             return null;
         }
@@ -239,7 +240,7 @@ public class StreamerReceiverSerializer {
         byte[] bytes = r.readBinary();
         var reader = new BinaryTupleReader(numElements, bytes);
 
-        return readCollectionFromBinaryTuple(reader, 0);
+        return readCollectionFromBinaryTuple(reader, 0, resultsMarshaller);
     }
 
     /**
