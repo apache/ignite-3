@@ -659,6 +659,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                 .build();
 
         CompletableFuture<Void> streamerFut;
+        var resultSubscriber = new TestSubscriber<String>();
 
         try (var publisher = new SubmissionPublisher<String>()) {
             streamerFut = defaultTable().recordView().streamData(
@@ -667,16 +668,18 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     x -> Tuple.create().set("id", 1),
                     Function.identity(),
                     "arg1",
-                    null,
+                    resultSubscriber,
                     null
             );
 
             publisher.submit("val1");
             publisher.submit("val2");
-            publisher.submit("val3");
         }
 
         assertThat(streamerFut, willCompleteSuccessfully());
+        assertEquals(2, resultSubscriber.items.size());
+
+        assertEquals("val1:received[arg=arg1]", resultSubscriber.items.get(0));
     }
 
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
