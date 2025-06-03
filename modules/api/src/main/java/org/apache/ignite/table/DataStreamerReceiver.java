@@ -51,6 +51,14 @@ public interface DataStreamerReceiver<T, A, R> {
             DataStreamerReceiverContext ctx,
             @Nullable A arg);
 
+    /**
+     * Marshaller for the receiver payload (batch items).
+     *
+     * @return Payload marshaller.
+     */
+    default @Nullable Marshaller<T, byte[]> payloadMarshaller() {
+        return null;
+    }
 
     /**
      * Marshaller for the input argument.

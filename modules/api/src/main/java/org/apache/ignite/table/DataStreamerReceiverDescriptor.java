@@ -33,6 +33,8 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
 
     private final ReceiverExecutionOptions options;
 
+    private final @Nullable Marshaller<T, byte[]> payloadMarshaller;
+
     private final @Nullable Marshaller<A, byte[]> argumentMarshaller;
 
     private final @Nullable Marshaller<R, byte[]> resultMarshaller;
@@ -41,6 +43,7 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
             String receiverClassName,
             List<DeploymentUnit> units,
             ReceiverExecutionOptions options,
+            @Nullable Marshaller<T, byte[]> payloadMarshaller,
             @Nullable Marshaller<A, byte[]> argumentMarshaller,
             @Nullable Marshaller<R, byte[]> resultMarshaller
     ) {
@@ -50,6 +53,7 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
         this.receiverClassName = receiverClassName;
         this.units = units;
         this.options = options;
+        this.payloadMarshaller = payloadMarshaller;
         this.argumentMarshaller = argumentMarshaller;
         this.resultMarshaller = resultMarshaller;
     }
@@ -79,6 +83,15 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
      */
     public ReceiverExecutionOptions options() {
         return options;
+    }
+
+    /**
+     * Payload marshaller.
+     *
+     * @return Payload marshaller.
+     */
+    public @Nullable Marshaller<T, byte[]> payloadMarshaller() {
+        return payloadMarshaller;
     }
 
     /**
@@ -130,6 +143,7 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
         Objects.requireNonNull(receiver);
 
         return new Builder<T, A, R>(receiver.getClass().getName())
+                .payloadMarshaller(receiver.payloadMarshaller())
                 .argumentMarshaller(receiver.argumentMarshaller())
                 .resultMarshaller(receiver.resultMarshaller());
     }
@@ -140,6 +154,7 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
     public static class Builder<T, A, R> {
         private final String receiverClassName;
         private List<DeploymentUnit> units;
+        private @Nullable Marshaller<T, byte[]> payloadMarshaller;
         private @Nullable Marshaller<A, byte[]> argumentMarshaller;
         private @Nullable Marshaller<R, byte[]> resultMarshaller;
         private ReceiverExecutionOptions options = ReceiverExecutionOptions.DEFAULT;
@@ -184,6 +199,17 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
         }
 
         /**
+         * Sets the payload marshaller.
+         *
+         * @param payloadMarshaller Payload marshaller.
+         * @return This builder.
+         */
+        public Builder<T, A, R> payloadMarshaller(@Nullable Marshaller<T, byte[]> payloadMarshaller) {
+            this.payloadMarshaller = payloadMarshaller;
+            return this;
+        }
+
+        /**
          * Sets the argument marshaller.
          *
          * @param argumentMarshaller Argument marshaller.
@@ -215,6 +241,7 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
                     receiverClassName,
                     units != null ? units : List.of(),
                     options,
+                    payloadMarshaller,
                     argumentMarshaller,
                     resultMarshaller
             );
