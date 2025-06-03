@@ -679,7 +679,9 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
         assertEquals(2, resultSubscriber.items.size());
 
-        assertEquals("val1:received[arg=arg1]", resultSubscriber.items.get(0));
+        assertEquals(
+                "received[arg=arg1:beforeMarshal:afterUnmarshal,val=val1:beforeMarshal:afterUnmarshal]:beforeMarshal:afterUnmarshal",
+                resultSubscriber.items.get(0));
     }
 
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
@@ -861,7 +863,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         @Override
         public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, @Nullable String arg) {
             var results = page.stream()
-                    .map(s -> s + ":received[arg=" + arg + "]")
+                    .map(s -> "received[arg=" + arg + ",val=" + s + "]")
                     .collect(Collectors.toList());
 
             return CompletableFuture.completedFuture(results);
