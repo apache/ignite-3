@@ -232,8 +232,6 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         this.groupConfig = Arrays.copyOf(config, config.length);
     }
 
-    // TODO: IGNITE-25546 Update implementation
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public synchronized AddWriteResult addWrite(
             RowId rowId,
@@ -241,26 +239,38 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             UUID txId,
             int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException {
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+
         checkStorageClosed();
 
-        BinaryRow[] res = {null};
+        AddWriteResult[] addWriteResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    throw new TxIdMismatchException(txId, versionChain.txId);
+                    addWriteResult[0] = AddWriteResult.writeIntentExists(versionChain.txId, previousCommitTimestamp(versionChain));
+
+                    return versionChain;
                 }
 
-                res[0] = versionChain.row;
+                addWriteResult[0] = AddWriteResult.success(versionChain.row);
 
                 return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
             }
 
+            addWriteResult[0] = AddWriteResult.success(null);
+
             return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
-        return AddWriteResult.success(res[0]);
+        AddWriteResult res = addWriteResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+
+        return res;
     }
 
     @Override
@@ -857,5 +867,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         return locker != null && locker.isLocked(rowId);
+    }
+
+    private static @Nullable HybridTimestamp previousCommitTimestamp(VersionChain chain) {
+        VersionChain next = chain.next;
+
+        return next == null ? null : next.ts;
     }
 }

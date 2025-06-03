@@ -33,7 +33,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -135,35 +134,32 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      */
     @Nullable RaftGroupConfiguration committedGroupConfiguration();
 
+    // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
-     * In details:
-     * - if there is no uncommitted version, a new uncommitted version is added
-     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
-     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
+     * <p>In details:</p>
+     * <ul>
+     * <li> If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li> If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li> If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * </ul>
      *
-     * <p>This must be called under a lock acquired using {@link #acquirePartitionSnapshotsReadLock()}.
-     *
-     * @param rowId Row id.
-     * @param row Table row to update. Key only row means value removal.
-     * @param txId Transaction id.
-     * @param commitTableId Commit table id.
-     * @param commitPartitionId Commit partitionId.
-     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
-     *     exists before this call
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param rowId Row ID.
+     * @param row Table row to update. {@code null} means value removal.
+     * @param txId Transaction ID.
+     * @param commitTableOrZoneId Commit table/zone ID.
+     * @param commitPartitionId Commit partition ID.
+     * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
-     * @see MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)
+     * @see MvPartitionStorage#addWrite
      */
-    // TODO: IGNITE-25546 Update documentation
-    // TODO: IGNITE-25546 Update exception information
     AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableId,
+            int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException, StorageException;
+    ) throws StorageException;
 
     /**
      * Write and commit the row in one step.

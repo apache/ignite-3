@@ -36,9 +36,12 @@ import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.schema.BinaryRowUpgrader;
 import org.apache.ignite.internal.schema.SchemaRegistry;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.engine.MvPartitionMeta;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -157,8 +160,11 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
         mvPartitionStorage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            // TODO: IGNITE-25546 Fix usage
-            mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+            AddWriteResult result = mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+            if (result.status() == AddWriteResultStatus.WRITE_INTENT_EXISTS) {
+                throw new TxIdMismatchException(result.currentWriteIntentTxId(), txId);
+            }
 
             for (IndexIdAndBinaryRow indexIdAndBinaryRow : indexIdAndBinaryRowList) {
                 indexUpdateHandler.addToIndex(indexIdAndBinaryRow.binaryRow(), rowId, indexIdAndBinaryRow.indexId());

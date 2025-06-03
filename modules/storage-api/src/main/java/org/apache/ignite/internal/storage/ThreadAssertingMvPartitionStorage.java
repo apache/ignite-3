@@ -91,7 +91,6 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
         return partitionStorage.read(rowId, timestamp);
     }
 
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public AddWriteResult addWrite(
             RowId rowId,
@@ -99,7 +98,7 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
             UUID txId,
             int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException, StorageException {
+    ) throws StorageException {
         assertThreadAllowsToWrite();
 
         return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);

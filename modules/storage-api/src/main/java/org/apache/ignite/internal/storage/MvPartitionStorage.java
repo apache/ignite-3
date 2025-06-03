@@ -173,34 +173,29 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     // TODO: https://issues.apache.org/jira/browse/IGNITE-22522 - remove mentions of commit *table*.
     /**
-     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction id.
-     * In details:
-     * - if there is no uncommitted version, a new uncommitted version is added
-     * - if there is an uncommitted version belonging to the same transaction, it gets replaced by the given version
-     * - if there is an uncommitted version belonging to a different transaction, {@link TxIdMismatchException} is thrown
+     * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
+     * <p>In details:</p>
+     * <ul>
+     * <li> If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li> If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li> If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * </ul>
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. {@code null} means value removal.
-     * @param txId Transaction id.
-     * @param commitTableOrZoneId Commit table/zone id.
-     * @param commitPartitionId Commit partitionId.
-     * @return Previous uncommitted row version associated with the row id, or {@code null} if no uncommitted version
-     *     exists before this call
-     * @throws TxIdMismatchException If there's another pending update associated with different transaction id.
+     * @param txId Transaction ID.
+     * @param commitTableOrZoneId Commit table/zone ID.
+     * @param commitPartitionId Commit partition ID.
+     * @return Result of add write intent.
      * @throws StorageException If failed to write data to the storage.
      */
-    // TODO: IGNITE-25546 Update implementation
-    // TODO: IGNITE-25546 Update documentation
-    // TODO: IGNITE-25546 Add/Update tests
-    // TODO: IGNITE-25546 Check/correct usage
-    // TODO: IGNITE-25546 Update exception information
     AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
             int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException, StorageException;
+    ) throws StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.

@@ -98,7 +98,6 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Adds/updates a write-intent inside of consistency closure.
      */
-    // TODO: IGNITE-25546 Fix usage
     protected AddWriteResult addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);

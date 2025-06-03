@@ -35,9 +35,12 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
@@ -161,9 +164,13 @@ public class StorageUpdateHandler {
             // TODO: IGNITE-25546 Fix usage
             storage.addWriteCommitted(rowId, row, commitTs);
         } else {
-            // TODO: IGNITE-25546 Fix usage
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId())
-                    .previousWriteIntent();
+            AddWriteResult result = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
+
+            if (result.status() == AddWriteResultStatus.WRITE_INTENT_EXISTS) {
+                throw new TxIdMismatchException(result.currentWriteIntentTxId(), txId);
+            }
+
+            BinaryRow oldRow = result.previousWriteIntent();
 
             if (oldRow != null) {
                 // TODO: IGNITE-25546 Fix assert maybe

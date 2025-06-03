@@ -34,7 +34,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -118,21 +117,23 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
         return configurationConverter.fromBytes(partitionStorage.committedGroupConfiguration());
     }
 
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
-            int commitTableId,
+            int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException, StorageException {
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    ) throws StorageException {
+        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
     }
 
-    // TODO: IGNITE-25546 Update exception information
     @Override
-    public AddWriteCommittedResult addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTs
+    ) throws StorageException {
         return partitionStorage.addWriteCommitted(rowId, row, commitTs);
     }
 
