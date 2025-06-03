@@ -282,7 +282,13 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = remainingInternal() >= Integer.BYTES;
 
         if (lastFinished) {
-            writeVarIntFast(Short.toUnsignedInt((short) (val + 1)));
+            int intVal = Short.toUnsignedInt((short) (val + 1));
+
+            if (intVal >> 7 == 0) {
+                writeSingleByteValue((byte) intVal);
+            } else {
+                writeVarIntFast(intVal);
+            }
         }
     }
 
