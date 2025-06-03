@@ -37,7 +37,6 @@ import static org.apache.ignite.internal.partition.replicator.network.replicatio
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_SCAN;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT;
 import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.RW_UPSERT_ALL;
-import static org.apache.ignite.internal.partition.replicator.network.replication.RequestType.fromId;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -93,14 +92,14 @@ public class RequestTypeTest {
     @ParameterizedTest
     @MethodSource("requestTypeIds")
     void testFromId(RequestType expectedEnumEntry, int id) {
-        assertEquals(expectedEnumEntry, fromId(id));
+        assertEquals(expectedEnumEntry, RequestType.fromId(id));
 
     }
 
     @Test
     void testFromIdThrows() {
-        assertThrows(IllegalArgumentException.class, () -> fromId(-1));
-        assertThrows(IllegalArgumentException.class, () -> fromId(19));
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromId(-1));
+        assertThrows(IllegalArgumentException.class, () -> RequestType.fromId(19));
     }
 
     @ParameterizedTest
