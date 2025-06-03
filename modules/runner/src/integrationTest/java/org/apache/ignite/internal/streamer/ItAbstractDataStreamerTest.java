@@ -424,6 +424,64 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = target.streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TestReceiver.class).build(),
+                    keyFunc,
+                    t -> t.stringValue(1),
+                    "arg1",
+                    resultSubscriber,
+                    DataStreamerOptions.builder().retryLimit(0).build()
+            );
+
+            // Same ID goes to the same partition.
+            publisher.submit(tuple(1, "val1"));
+            publisher.submit(tuple(1, "val2"));
+            publisher.submit(tuple(1, "val3"));
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+
+        if (returnResults) {
+            assertEquals(1, resultSubscriber.items.size());
+            assertEquals("Received: 3 items, arg1 arg", resultSubscriber.items.iterator().next());
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordBinaryViewDeprecated(boolean returnResults) {
+        testWithReceiverDeprecated(defaultTable().recordView(), Function.identity(), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvBinaryViewDeprecated(boolean returnResults) {
+        testWithReceiverDeprecated(defaultTable().keyValueView(), t -> Map.entry(t, t), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverRecordPojoViewDeprecated(boolean returnResults) {
+        RecordView<PersonPojo> view = defaultTable().recordView(PersonPojo.class);
+
+        testWithReceiverDeprecated(view, t -> new PersonPojo(t.intValue(0)), returnResults);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testWithReceiverKvPojoViewDeprecated(boolean returnResults) {
+        KeyValueView<Integer, PersonValPojo> view = defaultTable().keyValueView(Mapper.of(Integer.class), Mapper.of(PersonValPojo.class));
+
+        testWithReceiverDeprecated(view, t -> Map.entry(t.intValue(0), new PersonValPojo()), returnResults);
+    }
+
+    private static <T> void testWithReceiverDeprecated(DataStreamerTarget<T> target, Function<Tuple, T> keyFunc, boolean returnResults) {
+        CompletableFuture<Void> streamerFut;
+
+        var resultSubscriber = returnResults ? new TestSubscriber<String>() : null;
+
+        try (var publisher = new SubmissionPublisher<Tuple>()) {
+            streamerFut = target.streamData(
+                    publisher,
                     keyFunc,
                     t -> t.stringValue(1),
                     ReceiverDescriptor.builder(TestReceiver.class).build(),
