@@ -153,9 +153,9 @@ public class MessageDeserializerGenerator {
                 if (typeUtils.isEnum(getter.getReturnType())) {
                     checkFromIdMethodExists(getter.getReturnType());
 
-                    // At the beginning we read the shifted ordinal, shifted by +1 to efficiently transfer null (since we use "var int").
+                    // At the beginning we read the shifted ID, shifted by +1 to efficiently transfer null (since we use "var int").
                     // If we read garbage then we should not convert to an enumeration, the check below does this.
-                    method.addStatement("int ordinalShifted = reader.readInt($S)", getterName);
+                    method.addStatement("int shiftedId = reader.readInt($S)", getterName);
                 } else {
                     method.addStatement(readMessageCodeBlock(getter));
                 }
@@ -175,7 +175,7 @@ public class MessageDeserializerGenerator {
 
                     method
                             .addStatement(
-                                    "$T tmp = ordinalShifted == 0 ? null : $T.$L(ordinalShifted - 1)",
+                                    "$T tmp = shiftedId == 0 ? null : $T.$L(shiftedId - 1)",
                                     varType, varType, FROM_ID_METHOD_NAME
                             )
                             .addCode("\n");

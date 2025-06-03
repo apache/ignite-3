@@ -159,9 +159,9 @@ public class MessageSerializerGenerator {
 
             // Let's write the shifted id to efficiently transfer null (since we use "var int").
             writerMethodCallBuilder
-                    .add("int ordinalShifted = message.$L() == null ? 0 : message.$L().id() + 1;", fieldName, fieldName)
+                    .add("int idShifted = message.$L() == null ? 0 : message.$L().id() + 1;", fieldName, fieldName)
                     .add("\n")
-                    .add("boolean written = writer.writeInt($S, ordinalShifted)", fieldName);
+                    .add("boolean written = writer.writeInt($S, idShifted)", fieldName);
         } else {
             writerMethodCallBuilder
                     .add("boolean written = writer.")
