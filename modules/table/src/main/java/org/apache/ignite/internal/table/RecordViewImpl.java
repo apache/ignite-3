@@ -56,7 +56,7 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.RecordView;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
@@ -606,14 +606,14 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
     }
 
     @Override
-    public <E, V, R1, A> CompletableFuture<Void> streamData(
+    public <E, V, A, R1> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R1> receiver,
             Function<E, R> keyFunc,
             Function<E, V> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R1> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);
@@ -625,7 +625,7 @@ public class RecordViewImpl<R> extends AbstractTableView<R> implements RecordVie
                                 .thenCompose(node -> tbl.streamerReceiverRunner().runReceiverAsync(
                                         receiver, receiverArg, rows, node, receiver.units())));
 
-        CompletableFuture<Void> future = DataStreamer.<R, E, V, R1>streamData(
+        CompletableFuture<Void> future = DataStreamer.streamData(
                 publisher,
                 keyFunc,
                 payloadFunc,

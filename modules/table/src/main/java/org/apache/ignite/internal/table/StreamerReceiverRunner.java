@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.network.ClusterNode;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -44,7 +44,7 @@ public interface StreamerReceiverRunner {
      * @param <R> Result type.
      */
     <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
-            ReceiverDescriptor<A> receiver,
+            DataStreamerReceiverDescriptor<I, A, R> receiver,
             @Nullable A receiverArg,
             Collection<I> items,
             ClusterNode node,
