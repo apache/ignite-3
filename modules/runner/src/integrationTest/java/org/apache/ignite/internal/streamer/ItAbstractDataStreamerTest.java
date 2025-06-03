@@ -66,6 +66,7 @@ import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
 import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverContext;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.DataStreamerTarget;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.ReceiverDescriptor;
@@ -649,6 +650,33 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         Tuple resTupleInner2 = resTupleInner.value("inner2");
         assertEquals(2, resTupleInner2.intValue("int"));
+    }
+
+    @Test
+    public void testMarshallingReceiver() {
+        DataStreamerReceiverDescriptor<String, String, String> desc = DataStreamerReceiverDescriptor
+                .builder(new MarshallingReceiver())
+                .build();
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<String>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", 1),
+                    Function.identity(),
+                    "arg1",
+                    null,
+                    null
+            );
+
+            publisher.submit("val1");
+            publisher.submit("val2");
+            publisher.submit("val3");
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
     }
 
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
