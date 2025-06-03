@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemor
 import static org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPartitionStorage.DONT_LOAD_VALUE;
 
 import java.util.UUID;
+import java.util.function.Supplier;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
@@ -92,7 +93,10 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (oldRow.isUncommitted() && !txId.equals(oldRow.transactionId())) {
-            addWriteResult = AddWriteResult.writeIntentExists(oldRow.transactionId(), previousCommitTimestamp(oldRow));
+            addWriteResult = AddWriteResult.writeIntentExists(
+                    oldRow.transactionId(),
+                    previousCommitTimestamp(storage, oldRow, this::addWriteInfo)
+            );
 
             operationType = OperationType.NOOP;
 
@@ -156,14 +160,18 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
     }
 
-    private @Nullable HybridTimestamp previousCommitTimestamp(VersionChain chain) {
+    static @Nullable HybridTimestamp previousCommitTimestamp(
+            AbstractPageMemoryMvPartitionStorage storage,
+            VersionChain chain,
+            Supplier<String> operationInfo
+    ) {
         if (!chain.hasCommittedVersions()) {
             return null;
         }
 
         RowVersion rowVersion = storage.readRowVersion(chain.newestCommittedLink(), DONT_LOAD_VALUE);
 
-        assert rowVersion != null : addWriteInfo() + ", newestCommittedLink=" + chain.newestCommittedLink();
+        assert rowVersion != null : operationInfo.get() + ", newestCommittedLink=" + chain.newestCommittedLink();
 
         return rowVersion.timestamp();
     }

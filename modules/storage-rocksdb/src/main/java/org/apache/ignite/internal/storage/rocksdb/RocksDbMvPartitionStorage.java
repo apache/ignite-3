@@ -468,7 +468,11 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     UUID previousTxId = txId(previousTxStateBuffer);
 
                     if (!txId.equals(previousTxId)) {
-                        return AddWriteResult.writeIntentExists(previousTxId, previousCommitTimestamp(writeBatch, rowId));
+                        AddWriteCommonWriteIntentExistsResult result = getAddWriteCommonWriteIntentExistsResult(writeBatch, rowId);
+
+                        assert result != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+                        return result.toAddWriteResult();
                     }
 
                     ByteBuffer dataId = readDataIdFromTxState(previousTxStateBuffer);
@@ -689,28 +693,36 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         });
     }
 
-    // TODO: IGNITE-25546 Update implementation
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
-        busy(() -> {
+        assert rowId.partitionId() == partitionId : addWriteCommittedInfo(rowId, row, commitTimestamp);
+
+        return busy(() -> {
             WriteBatchWithIndex writeBatch = requireWriteBatch();
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
             boolean isNewValueTombstone = row == null;
 
             try {
                 AddResult addResult = gc.tryAddToGcQueue(writeBatch, rowId, commitTimestamp, isNewValueTombstone);
 
+                if (addResult == AddResult.WAS_WRITE_INTENT) {
+                    AddWriteCommonWriteIntentExistsResult result = getAddWriteCommonWriteIntentExistsResult(writeBatch, rowId);
+
+                    assert result != null : addWriteCommittedInfo(rowId, row, commitTimestamp);
+
+                    return result.toAddWriteCommittedResult();
+                }
+
                 // We only write tombstone if the previous value for the same row id was not a tombstone.
                 // So there won't be consecutive tombstones for the same row id.
                 if (isNewValueTombstone && addResult != AddResult.WAS_VALUE) {
-                    return null;
+                    return AddWriteCommittedResult.success();
                 }
 
                 byte[] dataIdKey = createCommittedDataIdKey(rowId, commitTimestamp);
@@ -726,13 +738,15 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 updateEstimatedSize(isNewValueTombstone, addResult);
 
-                return null;
+                return AddWriteCommittedResult.success();
             } catch (RocksDBException e) {
-                throw new IgniteRocksDbException("Failed to update a row in storage: " + createStorageInfo(), e);
+                throw new IgniteRocksDbException(
+                        "Failed to update a row in storage: [{}]",
+                        e,
+                        addWriteCommittedInfo(rowId, row, commitTimestamp)
+                );
             }
         });
-
-        return AddWriteCommittedResult.success();
     }
 
     private static void updateEstimatedSize(boolean isNewValueTombstone, AddResult gcQueueAddResult) throws RocksDBException {
@@ -1763,7 +1777,34 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private @Nullable HybridTimestamp previousCommitTimestamp(WriteBatchWithIndex writeBatch, RowId rowId) throws RocksDBException {
+    private static class AddWriteCommonWriteIntentExistsResult {
+        final UUID currentWriteIntentTxId;
+
+        final @Nullable HybridTimestamp previousCommittedTimestamp;
+
+
+        private AddWriteCommonWriteIntentExistsResult(
+                UUID currentWriteIntentTxId,
+                @Nullable HybridTimestamp previousCommittedTimestamp
+        ) {
+            this.currentWriteIntentTxId = currentWriteIntentTxId;
+            this.previousCommittedTimestamp = previousCommittedTimestamp;
+        }
+
+        AddWriteResult toAddWriteResult() {
+            return AddWriteResult.writeIntentExists(currentWriteIntentTxId, previousCommittedTimestamp);
+        }
+
+        AddWriteCommittedResult toAddWriteCommittedResult() {
+            return AddWriteCommittedResult.writeIntentExists(currentWriteIntentTxId, previousCommittedTimestamp);
+        }
+    }
+
+    /** Returns {@code null} if the write intent is absent. */
+    private @Nullable AddWriteCommonWriteIntentExistsResult getAddWriteCommonWriteIntentExistsResult(
+            WriteBatchWithIndex writeBatch,
+            RowId rowId
+    ) throws RocksDBException {
         try (
                 // Set next partition as an upper bound.
                 RocksIterator baseIterator = db.newIterator(helper.partCf, helper.upperBoundReadOpts);
@@ -1777,12 +1818,10 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
             // Since timestamps are sorted from newest to oldest, first occurrence will always be the latest version.
             seekIterator.seek(dataIdKeyPrefix);
 
-            while (true) {
-                if (invalid(seekIterator)) {
-                    // No data at all.
-                    return null;
-                }
+            UUID currentWriteIntentTxId = null;
+            HybridTimestamp previousCommittedTimestamp = null;
 
+            while (!invalid(seekIterator)) {
                 ByteBuffer dataIdKey = DIRECT_DATA_ID_KEY_BUFFER.get().clear();
 
                 int keyLength = seekIterator.key(dataIdKey);
@@ -1791,18 +1830,29 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                 if (!matches(rowId, dataIdKey)) {
                     // It is already a different row, so no version exists for our rowId.
-                    return null;
+                    break;
                 }
 
-                // It is write intent, skip it.
                 if (keyLength == ROW_PREFIX_SIZE) {
+                    // It is write intent.
+                    ByteBuffer txState = TX_STATE_BUFFER.get().clear();
+
+                    int valueLength = seekIterator.value(txState);
+
+                    txState.position(0).limit(valueLength);
+
+                    currentWriteIntentTxId = txId(txState);
+
                     seekIterator.next();
+                } else {
+                    previousCommittedTimestamp = readTimestampDesc(dataIdKey);
 
-                    continue;
+                    break;
                 }
-
-                return readTimestampDesc(dataIdKey);
             }
+
+            return currentWriteIntentTxId == null ? null
+                    : new AddWriteCommonWriteIntentExistsResult(currentWriteIntentTxId, previousCommittedTimestamp);
         }
     }
 }

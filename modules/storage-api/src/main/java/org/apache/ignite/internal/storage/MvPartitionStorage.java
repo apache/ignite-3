@@ -176,9 +176,9 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
      * <p>In details:</p>
      * <ul>
-     * <li> If there is no uncommitted version, a new uncommitted version is added.</li>
-     * <li> If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
-     * <li> If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li>If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li>If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
      * </ul>
      *
      * @param rowId Row ID.
@@ -220,19 +220,19 @@ public interface MvPartitionStorage extends ManuallyCloseable {
 
     /**
      * Creates a committed version.
-     * In details:
-     * - if there is no uncommitted version, a new committed version is added
-     * - if there is an uncommitted version, this method may fail with a system exception (this method should not be called if there
-     *   is already something uncommitted for the given row).
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new committed version is added.</li>
+     * <li>f there is an uncommitted version, nothing will happen.</li>
+     * </ul>
      *
-     * @param rowId Row id.
+     * @param rowId Row ID.
      * @param row Table row to update. Key only row means value removal.
      * @param commitTimestamp Timestamp to associate with committed value.
+     * @return Result of add write intent committed.
      * @throws StorageException If failed to write data to the storage.
      */
-    // TODO: IGNITE-25546 Update documentation
     // TODO: IGNITE-25546 Add/Update tests
-    // TODO: IGNITE-25546 Check/correct usage
     AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,

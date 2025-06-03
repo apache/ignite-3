@@ -152,11 +152,11 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     public AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
-            HybridTimestamp commitTs
+            HybridTimestamp commitTimestamp
     ) throws StorageException {
         handleSnapshotInterference(rowId);
 
-        return partitionStorage.addWriteCommitted(rowId, row, commitTs);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override

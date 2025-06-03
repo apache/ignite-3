@@ -23,6 +23,7 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.HYBRID_TIMESTAMP_SI
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.DATA_ID_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.MAX_KEY_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_ID_OFFSET;
+import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.ROW_PREFIX_SIZE;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.deserializeRow;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.getFromBatchAndDb;
 import static org.apache.ignite.internal.storage.rocksdb.PartitionDataHelper.isTombstone;
@@ -101,7 +102,7 @@ class GarbageCollector {
     private final ReadOptions readOpts;
 
     enum AddResult {
-        WAS_TOMBSTONE, WAS_VALUE, WAS_EMPTY
+        WAS_TOMBSTONE, WAS_VALUE, WAS_EMPTY, WAS_WRITE_INTENT
     }
 
     GarbageCollector(PartitionDataHelper helper, RocksDB db, ReadOptions readOpts, ColumnFamilyHandle gcQueueCf) {
@@ -146,8 +147,9 @@ class GarbageCollector {
                 return AddResult.WAS_EMPTY;
             }
 
-            // Found previous value.
-            assert keyLen == MAX_KEY_SIZE; // Can not be write-intent.
+            if (keyLen == ROW_PREFIX_SIZE) {
+                return AddResult.WAS_WRITE_INTENT;
+            }
 
             AddResult result;
 

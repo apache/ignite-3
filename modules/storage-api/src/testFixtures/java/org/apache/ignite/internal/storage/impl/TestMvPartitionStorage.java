@@ -337,20 +337,30 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return res;
     }
 
-    // TODO: IGNITE-25546 Update implementation
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public synchronized AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null)
+                + ", commitTimestamp=" + commitTimestamp;
+
         checkStorageClosed();
+
+        AddWriteCommittedResult[] addWriteCommittedResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.isWriteIntent()) {
-                throw new StorageException("Write intent exists for " + rowId);
+                addWriteCommittedResult[0] = AddWriteCommittedResult.writeIntentExists(
+                        versionChain.txId,
+                        previousCommitTimestamp(versionChain)
+                );
+
+                return versionChain;
             }
+
+            addWriteCommittedResult[0] = AddWriteCommittedResult.success();
 
             return resolveCommittedVersionChain(new VersionChain(
                     rowId,
@@ -363,7 +373,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             ));
         });
 
-        return AddWriteCommittedResult.success();
+        AddWriteCommittedResult res = addWriteCommittedResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", commitTimestamp=" + commitTimestamp;
+
+        return res;
     }
 
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {

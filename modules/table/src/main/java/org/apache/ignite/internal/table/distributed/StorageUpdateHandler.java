@@ -35,11 +35,14 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResultStatus;
 import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
@@ -161,8 +164,11 @@ public class StorageUpdateHandler {
         performStorageCleanupIfNeeded(txId, rowId, lastCommitTs, indexIds);
 
         if (commitTs != null) {
-            // TODO: IGNITE-25546 Fix usage
-            storage.addWriteCommitted(rowId, row, commitTs);
+            AddWriteCommittedResult result = storage.addWriteCommitted(rowId, row, commitTs);
+
+            if (result.status() == AddWriteCommittedResultStatus.WRITE_INTENT_EXISTS) {
+                throw new StorageException("Write intent already exists: [rowId={}]", rowId);
+            }
         } else {
             AddWriteResult result = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
 
@@ -173,8 +179,6 @@ public class StorageUpdateHandler {
             BinaryRow oldRow = result.previousWriteIntent();
 
             if (oldRow != null) {
-                // TODO: IGNITE-25546 Fix assert maybe
-                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
                 // Previous uncommitted row should be removed from indexes.
                 tryRemovePreviousWritesIndex(rowId, oldRow, indexIds);
             }

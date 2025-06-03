@@ -118,7 +118,6 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
         return partitionStorage.commitWrite(rowId, timestamp, txId);
     }
 
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public AddWriteCommittedResult addWriteCommitted(
             RowId rowId,

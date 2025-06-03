@@ -533,38 +533,41 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
         }
     }
 
-    // TODO: IGNITE-25546 Update implementation
-    // TODO: IGNITE-25546 Update exception information
     @Override
     public AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+        assert rowId.partitionId() == partitionId : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
-        busy(() -> {
+        return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
             try {
-                AddWriteCommittedInvokeClosure addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp,
-                        this);
+                var addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
 
                 addWriteCommitted.afterCompletion();
 
-                return null;
+                AddWriteCommittedResult addWriteCommittedResult = addWriteCommitted.addWriteCommittedResult();
+
+                assert addWriteCommittedResult != null : addWriteCommittedInfo(rowId, row, commitTimestamp);
+
+                return addWriteCommittedResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException(
+                        "Error while executing addWriteCommitted: [{}]",
+                        e,
+                        addWriteCommittedInfo(rowId, row, commitTimestamp)
+                );
             }
         });
-
-        return AddWriteCommittedResult.success();
     }
 
     @Override

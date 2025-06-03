@@ -120,13 +120,12 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Creates a committed version inside of consistency closure.
      */
-    protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
-        storage.runConsistently(locker -> {
+    // TODO: IGNITE-25546 Fix usages ?
+    protected AddWriteCommittedResult addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
+        return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWriteCommitted(rowId, row, commitTimestamp);
-
-            return null;
+            return storage.addWriteCommitted(rowId, row, commitTimestamp);
         });
     }
 

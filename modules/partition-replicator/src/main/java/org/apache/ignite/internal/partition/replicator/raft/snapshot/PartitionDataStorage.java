@@ -139,9 +139,9 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * Creates (or replaces) an uncommitted (aka pending) version, assigned to the given transaction ID.
      * <p>In details:</p>
      * <ul>
-     * <li> If there is no uncommitted version, a new uncommitted version is added.</li>
-     * <li> If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
-     * <li> If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
+     * <li>If there is no uncommitted version, a new uncommitted version is added.</li>
+     * <li>If there is an uncommitted version belonging to the same transaction, it gets replaced by the given version.</li>
+     * <li>If there is an uncommitted version belonging to a different transaction, nothing will happen.</li>
      * </ul>
      *
      * @param rowId Row ID.
@@ -162,15 +162,25 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     ) throws StorageException;
 
     /**
-     * Write and commit the row in one step.
+     * Creates a committed version.
+     * <p>In details:</p>
+     * <ul>
+     * <li>If there is no uncommitted version, a new committed version is added.</li>
+     * <li>f there is an uncommitted version, nothing will happen.</li>
+     * </ul>
      *
-     * @param rowId Row id.
-     * @param row Row (null to remove existing)
-     * @param commitTs Commit timestamp.
+     * @param rowId Row ID.
+     * @param row Table row to update. Key only row means value removal.
+     * @param commitTimestamp Timestamp to associate with committed value.
+     * @return Result of add write intent committed.
+     * @throws StorageException If failed to write data to the storage.
+     * @see MvPartitionStorage#addWriteCommitted
      */
-    // TODO: IGNITE-25546 Update documentation
-    // TODO: IGNITE-25546 Update exception information
-    AddWriteCommittedResult addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
+    AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException;
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
