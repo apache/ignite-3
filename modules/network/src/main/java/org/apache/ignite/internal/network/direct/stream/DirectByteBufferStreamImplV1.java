@@ -396,6 +396,18 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private void writeVarLong(long val) {
         if (lastFinished) {
+            if (val >> 7 == 0) {
+                writeSingleByteValue((byte) val);
+
+                return;
+            }
+
+            if (val >>> 28 == 0L) {
+                writeVarIntFast((int) val);
+
+                return;
+            }
+
             if (val >>> 56 == 0L) {
                 writeVarLongFast(val);
 
@@ -491,18 +503,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * </ul>
      */
     private void writeVarLongFast(long val) {
-        if (val >> 7 == 0) {
-            writeSingleByteValue((byte) val);
-
-            return;
-        }
-
-        if (val >>> 28 == 0L) {
-            writeVarIntFast((int) val);
-
-            return;
-        }
-
         val = val & 0x0FFFFFFFL | (val & 0xFFFFFFF0000000L) << 4;
         val = val & 0x3FFF00003FFFL | (val & 0xFFFFC0000FFFC000L) << 2;
         val = val & 0x7F007F007F007FL | (val & 0x3F803F803F803F80L) << 1;
