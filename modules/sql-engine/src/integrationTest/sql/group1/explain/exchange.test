@@ -1,3 +1,9 @@
+# description: Tests for printout of [Trim]Exchange operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
 statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 
