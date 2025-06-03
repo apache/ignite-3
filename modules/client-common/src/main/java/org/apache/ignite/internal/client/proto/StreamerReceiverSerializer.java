@@ -19,6 +19,7 @@ package org.apache.ignite.internal.client.proto;
 
 import static org.apache.ignite.internal.client.proto.ClientBinaryTupleUtils.unsupportedTypeException;
 import static org.apache.ignite.lang.ErrorGroups.Client.PROTOCOL_ERR;
+import static org.apache.ignite.lang.ErrorGroups.Compute.MARSHALLING_TYPE_MISMATCH_ERR;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -36,14 +37,19 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import org.apache.ignite.compute.ComputeException;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
 import org.apache.ignite.internal.binarytuple.BinaryTupleReader;
 import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarshalling;
 import org.apache.ignite.lang.IgniteException;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
+import org.apache.ignite.table.DataStreamerException;
+import org.apache.ignite.table.DataStreamerReceiver;
 import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -119,9 +125,13 @@ public class StreamerReceiverSerializer {
      *
      * @param bytes Bytes.
      * @param elementCount Number of elements in the binary tuple.
+     * @param receiverFactory Function to create a receiver instance from its class name.
      * @return Streamer receiver info.
      */
-    public static SteamerReceiverInfo deserializeReceiverInfo(ByteBuffer bytes, int elementCount) {
+    public static SteamerReceiverInfo deserializeReceiverInfo(
+            ByteBuffer bytes,
+            int elementCount,
+            Function<String, DataStreamerReceiver<Object, Object, Object>> receiverFactory) {
         var reader = new BinaryTupleReader(elementCount, bytes);
 
         int readerIndex = 0;
@@ -131,14 +141,15 @@ public class StreamerReceiverSerializer {
             throw new IgniteException(PROTOCOL_ERR, "Receiver class name is null");
         }
 
-        // TODO: Marshallers
-        Object receiverArg = readArg(reader, readerIndex);
+        DataStreamerReceiver<Object, Object, Object> receiver = receiverFactory.apply(receiverClassName);
+
+        Object receiverArg = readArg(reader, readerIndex, receiver.argumentMarshaller());
 
         readerIndex += 3;
 
         List<Object> items = readCollectionFromBinaryTuple(reader, readerIndex);
 
-        return new SteamerReceiverInfo(receiverClassName, receiverArg, items);
+        return new SteamerReceiverInfo(receiver, receiverArg, items);
     }
 
     /**
@@ -275,14 +286,23 @@ public class StreamerReceiverSerializer {
         }
     }
 
-    private static <R> List<R> readCollectionFromBinaryTuple(BinaryTupleReader reader, int readerIndex) {
+    private static <R> List<R> readCollectionFromBinaryTuple(
+            BinaryTupleReader reader,
+            int readerIndex,
+            @Nullable Marshaller<R, byte[]> itemsMarshaller) {
         int typeId = reader.intValue(readerIndex++);
         Function<Integer, Object> itemReader = readerForType(reader, typeId);
         int itemsCount = reader.intValue(readerIndex++);
 
         List<R> items = new ArrayList<>(itemsCount);
         for (int i = 0; i < itemsCount; i++) {
-            items.add((R) itemReader.apply(readerIndex++));
+            Object itemRaw = itemReader.apply(readerIndex++);
+
+            R item = itemsMarshaller == null
+                    ? (R) itemRaw
+                    : unmarshalBytes(itemsMarshaller, itemRaw);
+
+            items.add(item);
         }
 
         return items;
@@ -441,17 +461,49 @@ public class StreamerReceiverSerializer {
         ClientBinaryTupleUtils.appendObject(builder, arg);
     }
 
-    private static @Nullable Object readArg(BinaryTupleReader reader, int index) {
+    private static @Nullable Object readArg(
+            BinaryTupleReader reader,
+            int index,
+            @Nullable Marshaller<Object, byte[]> receiverArgMarshaller) {
         if (reader.hasNullValue(index)) {
-            return null;
+            return receiverArgMarshaller == null
+                    ? null
+                    : receiverArgMarshaller.unmarshal(null);
         }
 
         if (reader.intValue(index) == TupleWithSchemaMarshalling.TYPE_ID_TUPLE) {
             return readTuple(reader, index + 2);
         }
 
-        return ClientBinaryTupleUtils.readObject(reader, index);
+        var obj = ClientBinaryTupleUtils.readObject(reader, index);
+
+        return receiverArgMarshaller == null
+                ? obj
+                : unmarshalBytes(receiverArgMarshaller, obj);
     }
+
+    private static <T> @Nullable T unmarshalBytes(Marshaller<T, byte[]> marshaller, @Nullable Object input) {
+            try {
+                if (input instanceof byte[]) {
+                    return marshaller.unmarshal((byte[]) input);
+                } else if (input == null) {
+                    return marshaller.unmarshal(null);
+                }
+            } catch (Exception ex) {
+                throw new MarshallerException(
+                        UUID.randomUUID(), MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
+            }
+
+        throw new MarshallerException(
+                UUID.randomUUID(),
+                MARSHALLING_TYPE_MISMATCH_ERR,
+                "Marshaller is defined in the DataStreamerReceiver implementation, "
+                        + "expected argument type: `byte[]`, actual: `" + input.getClass() + "`."
+                        + "Ensure that DataStreamerReceiverDescriptor marshallers match DataStreamerReceiver marshallers.",
+                null
+        );
+    }
+
 
     private static <T> void appendTuple(BinaryTupleBuilder builder, Tuple arg) {
         builder.appendBytes(TupleWithSchemaMarshalling.marshal(arg));
@@ -466,23 +518,23 @@ public class StreamerReceiverSerializer {
      * Streamer receiver info.
      */
     public static class SteamerReceiverInfo {
-        private final String className;
+        private final DataStreamerReceiver<Object, Object, Object> receiver;
         private final @Nullable Object arg;
         private final List<Object> items;
 
-        private SteamerReceiverInfo(String className, @Nullable Object arg, List<Object> items) {
-            this.className = className;
+        private SteamerReceiverInfo(DataStreamerReceiver<Object, Object, Object> receiver, @Nullable Object arg, List<Object> items) {
+            this.receiver = receiver;
             this.arg = arg;
             this.items = items;
         }
 
         /**
-         * Gets receiver class name.
+         * Get receiver instance.
          *
-         * @return Receiver class name.
+         * @return Receiver instance.
          */
-        public String className() {
-            return className;
+        public DataStreamerReceiver<Object, Object, Object> receiver() {
+            return receiver;
         }
 
         /**
