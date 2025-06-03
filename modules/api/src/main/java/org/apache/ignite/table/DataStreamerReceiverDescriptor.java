@@ -81,10 +81,20 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
         return options;
     }
 
+    /**
+     * Argument marshaller.
+     *
+     * @return Argument marshaller.
+     */
     public @Nullable Marshaller<A, byte[]> argumentMarshaller() {
         return argumentMarshaller;
     }
 
+    /**
+     * Result marshaller.
+     *
+     * @return Result marshaller.
+     */
     public @Nullable Marshaller<R, byte[]> resultMarshaller() {
         return resultMarshaller;
     }
@@ -105,10 +115,23 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
      *
      * @return Receiver descriptor builder.
      */
-    public static <T, A, R> Builder<T, A, R> builder(Class<? extends DataStreamerReceiver<?, A, ?>> receiverClass) {
+    public static <T, A, R> Builder<T, A, R> builder(Class<? extends DataStreamerReceiver<T, A, R>> receiverClass) {
         Objects.requireNonNull(receiverClass);
 
         return new Builder<>(receiverClass.getName());
+    }
+
+    /**
+     * Create a new builder.
+     *
+     * @return Receiver descriptor builder.
+     */
+    public static <T, A, R> Builder<T, A, R> builder(DataStreamerReceiver<T, A, R> receiver) {
+        Objects.requireNonNull(receiver);
+
+        return new Builder<T, A, R>(receiver.getClass().getName())
+                .argumentMarshaller(receiver.argumentMarshaller())
+                .resultMarshaller(receiver.resultMarshaller());
     }
 
     /**
@@ -160,8 +183,25 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
             return this;
         }
 
-        public Builder<T, A, R> argumentMarshaller(@Nullable Marshaller<A, byte[]> argumentsMarshaller) {
-            this.argumentMarshaller = argumentsMarshaller;
+        /**
+         * Sets the argument marshaller.
+         *
+         * @param argumentMarshaller Argument marshaller.
+         * @return This builder.
+         */
+        public Builder<T, A, R> argumentMarshaller(@Nullable Marshaller<A, byte[]> argumentMarshaller) {
+            this.argumentMarshaller = argumentMarshaller;
+            return this;
+        }
+
+        /**
+         * Sets the result marshaller.
+         *
+         * @param resultMarshaller Result marshaller.
+         * @return This builder.
+         */
+        public Builder<T, A, R> resultMarshaller(@Nullable Marshaller<R, byte[]> resultMarshaller) {
+            this.resultMarshaller = resultMarshaller;
             return this;
         }
 
