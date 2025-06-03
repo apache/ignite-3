@@ -518,10 +518,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = view.streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(NodeNameReceiver.class).build(),
                     t -> t,
                     t -> t.intValue(0),
-                    ReceiverDescriptor.builder(NodeNameReceiver.class).build(),
-                    null, null, null
+                    null,
+                    null,
+                    null
             );
 
             for (int i = 0; i < count; i++) {
