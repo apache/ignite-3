@@ -652,8 +652,12 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals(2, resTupleInner2.intValue("int"));
     }
 
-    @Test
-    public void testMarshallingReceiver() {
+    @ParameterizedTest
+    @ValueSource(strings = {"arg1", ""})
+    public void testMarshallingReceiver(String arg) {
+        // Check that null arg works.
+        arg = arg.isEmpty() ? null : arg;
+
         DataStreamerReceiverDescriptor<String, String, String> desc = DataStreamerReceiverDescriptor
                 .builder(new MarshallingReceiver())
                 .build();
@@ -667,7 +671,7 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
                     desc,
                     x -> Tuple.create().set("id", 1),
                     Function.identity(),
-                    "arg1",
+                    arg,
                     resultSubscriber,
                     null
             );
@@ -679,9 +683,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertThat(streamerFut, willCompleteSuccessfully());
         assertEquals(2, resultSubscriber.items.size());
 
-        assertEquals(
-                "received[arg=arg1:beforeMarshal:afterUnmarshal,val=val1:beforeMarshal:afterUnmarshal]:beforeMarshal:afterUnmarshal",
-                resultSubscriber.items.get(0));
+        String expected = "received[arg=" + arg + ":beforeMarshal:afterUnmarshal,val=val1:beforeMarshal:afterUnmarshal]"
+                + ":beforeMarshal:afterUnmarshal";
+
+        assertEquals(expected, resultSubscriber.items.get(0));
     }
 
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
