@@ -546,18 +546,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
     public void testReceiverException(boolean async) {
         CompletableFuture<Void> streamerFut;
 
-        Object key = 0;
         Tuple item = tupleKey(1);
 
         try (var publisher = new SubmissionPublisher<Tuple>()) {
             streamerFut = defaultTable().recordView().streamData(
                     publisher,
+                    DataStreamerReceiverDescriptor.builder(TestReceiver.class).build(),
                     t -> t,
-                    t -> key,
-                    ReceiverDescriptor.builder(TestReceiver.class).build(),
+                    t -> "",
+                    async ? "throw-async" : "throw",
                     null,
-                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build(),
-                    async ? "throw-async" : "throw");
+                    DataStreamerOptions.builder().retryLimit(0).pageSize(1).build());
 
             publisher.submit(item);
         }
