@@ -30,6 +30,8 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -143,11 +145,35 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
+    public AddWriteResult addWriteNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        handleSnapshotInterference(rowId);
+
+        return partitionStorage.addWriteNew(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+    }
+
+    @Override
     public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
             throws TxIdMismatchException, StorageException {
         handleSnapshotInterference(rowId);
 
         partitionStorage.addWriteCommitted(rowId, row, commitTs);
+    }
+
+    @Override
+    public AddWriteCommittedResult addWriteCommittedNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        handleSnapshotInterference(rowId);
+
+        return partitionStorage.addWriteCommittedNew(rowId, row, commitTimestamp);
     }
 
     @Override

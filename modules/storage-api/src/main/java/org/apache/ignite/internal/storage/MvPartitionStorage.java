@@ -192,6 +192,19 @@ public interface MvPartitionStorage extends ManuallyCloseable {
     @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
+    /** No doc. */
+    default AddWriteResult addWriteNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        BinaryRow previous = addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+        return AddWriteResult.success(previous);
+    }
+
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.
      *
@@ -226,6 +239,17 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @throws StorageException If failed to write data to the storage.
      */
     void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException;
+
+    /** No doc. */
+    default AddWriteCommittedResult addWriteCommittedNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        addWriteCommitted(rowId, row, commitTimestamp);
+
+        return AddWriteCommittedResult.success();
+    }
 
     /**
      * Scans all versions of a single row.

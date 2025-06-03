@@ -27,6 +27,7 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.tree.IgniteTree.OperationType;
 import org.apache.ignite.internal.pagememory.util.PageIdUtils;
 import org.apache.ignite.internal.schema.BinaryRow;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
@@ -49,11 +50,15 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
+    private final boolean throwExceptionOnExistWriteIntent;
+
     private final GcQueue gcQueue;
 
     private OperationType operationType;
 
     private @Nullable VersionChain newRow;
+
+    private AddWriteCommittedResult addWriteCommittedResult;
 
     /**
      * Row version that will be added to the garbage collection queue when the {@link #afterCompletion() closure completes}.
@@ -70,21 +75,36 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp,
-            AbstractPageMemoryMvPartitionStorage storage
+            AbstractPageMemoryMvPartitionStorage storage,
+            boolean throwExceptionOnExistWriteIntent
     ) {
         this.rowId = rowId;
         this.row = row;
         this.commitTimestamp = commitTimestamp;
         this.storage = storage;
         this.gcQueue = storage.renewableState.gcQueue();
+        this.throwExceptionOnExistWriteIntent = throwExceptionOnExistWriteIntent;
     }
 
     @Override
     public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
         if (oldRow != null && oldRow.isUncommitted()) {
-            // This means that there is a bug in our code as the caller must make sure that no write intent exists below this write.
-            throw new StorageException("Write intent exists: [rowId={}, {}]", oldRow.rowId(), storage.createStorageInfo());
+            if (throwExceptionOnExistWriteIntent) {
+                // This means that there is a bug in our code as the caller must make sure that no write intent exists below this write.
+                throw new StorageException("Write intent exists: [rowId={}, {}]", oldRow.rowId(), storage.createStorageInfo());
+            }
+
+            operationType = OperationType.NOOP;
+
+            addWriteCommittedResult = AddWriteCommittedResult.writeIntentExists(
+                    oldRow.transactionId(),
+                    AddWriteInvokeClosure.previousCommitTimestamp(storage, oldRow)
+            );
+
+            return;
         }
+
+        addWriteCommittedResult = AddWriteCommittedResult.success();
 
         if (row == null && oldRow == null) {
             // If there is only one version, and it is a tombstone, then don't save the chain.
@@ -158,5 +178,9 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
                 }
             }
         }
+    }
+
+    AddWriteCommittedResult addWriteCommittedResult() {
+        return addWriteCommittedResult;
     }
 }

@@ -24,6 +24,8 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -156,6 +158,19 @@ public interface PartitionDataStorage extends ManuallyCloseable {
     @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId, int commitPartitionId)
             throws TxIdMismatchException, StorageException;
 
+    /** No doc. */
+    default AddWriteResult addWriteNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        BinaryRow previous = addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+        return AddWriteResult.success(previous);
+    }
+
     /**
      * Write and commit the row in one step.
      *
@@ -164,6 +179,17 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * @param commitTs Commit timestamp.
      */
     void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs);
+
+    /** No doc. */
+    default AddWriteCommittedResult addWriteCommittedNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        addWriteCommitted(rowId, row, commitTimestamp);
+
+        return AddWriteCommittedResult.success();
+    }
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.

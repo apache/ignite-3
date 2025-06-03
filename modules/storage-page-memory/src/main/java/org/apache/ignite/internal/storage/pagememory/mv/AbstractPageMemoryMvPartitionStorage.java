@@ -45,6 +45,8 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -432,7 +434,7 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId);
 
             try {
-                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this, true);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
@@ -445,6 +447,41 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
                 if (e.getCause() instanceof TxIdMismatchException) {
                     throw (TxIdMismatchException) e.getCause();
                 }
+
+                throw new StorageException("Error while executing addWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+            }
+        });
+    }
+
+    @Override
+    public AddWriteResult addWriteNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : rowId;
+
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            assert rowIsLocked(rowId);
+
+            try {
+                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this, false);
+
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
+
+                addWrite.afterCompletion();
+
+                AddWriteResult addWriteResult = addWrite.addWriteResult();
+
+                assert addWriteResult != null;
+
+                return addWriteResult;
+            } catch (IgniteInternalCheckedException e) {
+                throwStorageExceptionIfItCause(e);
 
                 throw new StorageException("Error while executing addWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
             }
@@ -533,14 +570,46 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
             assert rowIsLocked(rowId);
 
             try {
-                AddWriteCommittedInvokeClosure addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp,
-                        this);
+                var addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this, true);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
 
                 addWriteCommitted.afterCompletion();
 
                 return null;
+            } catch (IgniteInternalCheckedException e) {
+                throwStorageExceptionIfItCause(e);
+
+                throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
+            }
+        });
+    }
+
+    @Override
+    public AddWriteCommittedResult addWriteCommittedNew(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : rowId;
+
+        return busy(() -> {
+            throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
+
+            assert rowIsLocked(rowId);
+
+            try {
+                var addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this, false);
+
+                renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
+
+                addWriteCommitted.afterCompletion();
+
+                AddWriteCommittedResult addWriteCommittedResult = addWriteCommitted.addWriteCommittedResult();
+
+                assert addWriteCommittedResult != null;
+
+                return addWriteCommittedResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
