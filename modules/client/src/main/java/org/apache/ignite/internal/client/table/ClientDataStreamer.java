@@ -34,7 +34,7 @@ import org.apache.ignite.internal.streamer.StreamerSubscriber;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOperationType;
 import org.apache.ignite.table.DataStreamerOptions;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.jetbrains.annotations.Nullable;
 
@@ -71,7 +71,7 @@ class ClientDataStreamer {
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            ReceiverDescriptor<A> receiverDescriptor,
+            DataStreamerReceiverDescriptor<T, A, R> receiverDescriptor,
             A receiverArgs
     ) {
         var opts = receiverDescriptor.options();
@@ -97,6 +97,7 @@ class ClientDataStreamer {
                                             w,
                                             receiverDescriptor.receiverClassName(),
                                             receiverArgs,
+                                            receiverDescriptor.payloadMarshaller(),
                                             receiverDescriptor.argumentMarshaller(),
                                             items);
                                 },

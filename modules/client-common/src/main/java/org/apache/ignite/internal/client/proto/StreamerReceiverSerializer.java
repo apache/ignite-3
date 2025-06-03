@@ -42,7 +42,7 @@ import org.apache.ignite.internal.binarytuple.inlineschema.TupleWithSchemaMarsha
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.sql.ColumnType;
-import org.apache.ignite.table.ReceiverDescriptor;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.Tuple;
 import org.jetbrains.annotations.Nullable;
 
@@ -64,19 +64,20 @@ public class StreamerReceiverSerializer {
      * @param receiverArg Receiver arguments.
      * @param items Items.
      */
-    public static <A> void serializeReceiverInfoOnClient(
+    public static <T, A> void serializeReceiverInfoOnClient(
             ClientMessagePacker w,
             String receiverClassName,
             A receiverArg,
-            @Nullable Marshaller<A, byte[]> receiverArgsMarshaller,
-            Collection<?> items) {
+            @Nullable Marshaller<T, byte[]> itemsMarshaller,
+            @Nullable Marshaller<A, byte[]> receiverArgMarshaller,
+            Collection<T> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiverClassName);
 
-        appendArg(builder, receiverArg);
-        appendCollectionToBinaryTuple(builder, items);
+        appendArg(builder, receiverArg, receiverArgMarshaller);
+        appendCollectionToBinaryTuple(builder, items, itemsMarshaller);
 
         w.packInt(binaryTupleSize);
         w.packBinaryTuple(builder);
@@ -89,17 +90,19 @@ public class StreamerReceiverSerializer {
      * @param receiverArg Receiver arguments.
      * @param items Items.
      */
-    public static <A> byte[] serializeReceiverInfoWithElementCount(
-            ReceiverDescriptor<A> receiver,
+    public static <T, A, R> byte[] serializeReceiverInfoWithElementCount(
+            DataStreamerReceiverDescriptor<T, A, R> receiver,
             @Nullable A receiverArg,
-            Collection<?> items) {
+            @Nullable Marshaller<T, byte[]> itemsMarshaller,
+            @Nullable Marshaller<A, byte[]> receiverArgMarshaller,
+            Collection<T> items) {
         // className + arg + items size + item type + items.
         int binaryTupleSize = 1 + 3 + 1 + 1 + items.size();
         var builder = new BinaryTupleBuilder(binaryTupleSize);
         builder.appendString(receiver.receiverClassName());
 
-        appendArg(builder, receiverArg);
-        appendCollectionToBinaryTuple(builder, items);
+        appendArg(builder, receiverArg, receiverArgMarshaller);
+        appendCollectionToBinaryTuple(builder, items, itemsMarshaller);
 
         ByteBuffer buf = builder.build();
         int bufSize = buf.limit() - buf.position();
@@ -142,14 +145,16 @@ public class StreamerReceiverSerializer {
      *
      * @param receiverResults Receiver results.
      */
-    public static byte @Nullable [] serializeReceiverJobResults(@Nullable List<Object> receiverResults) {
+    public static <T> byte @Nullable [] serializeReceiverJobResults(
+            @Nullable List<T> receiverResults,
+            @Nullable Marshaller<T, byte[]> resultsMarshaller) {
         if (receiverResults == null || receiverResults.isEmpty()) {
             return null;
         }
 
         int numElements = 2 + receiverResults.size();
         var builder = new BinaryTupleBuilder(numElements);
-        appendCollectionToBinaryTuple(builder, receiverResults);
+        appendCollectionToBinaryTuple(builder, receiverResults, resultsMarshaller);
 
         ByteBuffer res = builder.build();
 
@@ -231,10 +236,25 @@ public class StreamerReceiverSerializer {
      * @param builder Target builder.
      * @param items Items.
      */
-    private static <T> void appendCollectionToBinaryTuple(BinaryTupleBuilder builder, Collection<T> items) {
+    private static <T> void appendCollectionToBinaryTuple(
+            BinaryTupleBuilder builder,
+            Collection<T> items,
+            @Nullable Marshaller<T, byte[]> itemsMarshaller) {
         assert items != null : "items can't be null";
         assert !items.isEmpty() : "items can't be empty";
         assert builder != null : "builder can't be null";
+
+        if (itemsMarshaller != null) {
+            builder.appendInt(ColumnType.BYTE_ARRAY.id());
+            builder.appendInt(items.size());
+
+            for (T item : items) {
+                byte[] bytes = itemsMarshaller.marshal(item);
+                builder.appendBytes(bytes);
+            }
+
+            return;
+        }
 
         T firstItem = items.iterator().next();
         Objects.requireNonNull(firstItem);
@@ -399,7 +419,16 @@ public class StreamerReceiverSerializer {
         }
     }
 
-    private static <T> void appendArg(BinaryTupleBuilder builder, @Nullable T arg) {
+    private static <T> void appendArg(
+            BinaryTupleBuilder builder,
+            @Nullable T arg,
+            @Nullable Marshaller<T, byte[]> receiverArgMarshaller) {
+        if (receiverArgMarshaller != null) {
+            byte[] bytes = receiverArgMarshaller.marshal(arg);
+            ClientBinaryTupleUtils.appendObject(builder, bytes);
+            return;
+        }
+
         if (arg instanceof Tuple) {
             builder.appendInt(TupleWithSchemaMarshalling.TYPE_ID_TUPLE);
             builder.appendInt(0); // Scale.
