@@ -74,6 +74,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -750,7 +751,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         )
                                 );
 
-                                preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, onRecovery);
+                                preparePartitionResourcesAndLoadToZoneReplicaBusy(tbl, zonePartitionId, onRecovery);
                             }), ioExecutor)
                             // If the table is already closed, it's not a problem (probably the node is stopping).
                             .exceptionally(ignoreTableClosedException());
@@ -942,7 +943,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
 
                     if (partitionReplicaLifecycleManager.hasLocalPartition(zonePartitionId)) {
-                        preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId, false);
+                        preparePartitionResourcesAndLoadToZoneReplicaBusy(table, zonePartitionId, false);
                     }
                 }
             }), ioExecutor);
@@ -970,7 +971,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Table.
      * @param zonePartitionId Zone Partition ID.
      */
-    private void preparePartitionResourcesAndLoadToZoneReplica(TableImpl table, ZonePartitionId zonePartitionId, boolean onNodeRecovery) {
+    private void preparePartitionResourcesAndLoadToZoneReplicaBusy(
+            TableImpl table, ZonePartitionId zonePartitionId, boolean onNodeRecovery
+    ) {
         int partId = zonePartitionId.partitionId();
 
         int tableId = table.tableId();
@@ -979,106 +982,104 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var tablePartitionId = new TablePartitionId(tableId, partId);
 
-        inBusyLock(busyLock, () -> {
-            var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
+        var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 After switching to the colocation track, the storageIndexTracker
-            //  will no longer need to be transferred to the table listeners.
-            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L) {
-                @Override
-                public void update(Long newValue, @Nullable Void futureResult) {
-                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
-                            + " will be updated.");
-                }
-
-                @Override
-                public CompletableFuture<Void> waitFor(Long valueToWait) {
-                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
-                            + " will be updated.");
-                }
-            };
-
-            PartitionStorages partitionStorages;
-            try {
-                partitionStorages = getPartitionStorages(table, partId);
-            } catch (TableClosedException e) {
-                // The node is probably stopping while we start the table, let's just skip it.
-                return;
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 After switching to the colocation track, the storageIndexTracker
+        //  will no longer need to be transferred to the table listeners.
+        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L) {
+            @Override
+            public void update(Long newValue, @Nullable Void futureResult) {
+                throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                        + " will be updated.");
             }
 
-            PartitionDataStorage partitionDataStorage = partitionDataStorage(
-                    new ZonePartitionKey(zonePartitionId.zoneId(), partId),
-                    tableId,
-                    partitionStorages.getMvPartitionStorage()
-            );
+            @Override
+            public CompletableFuture<Void> waitFor(Long valueToWait) {
+                throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                        + " will be updated.");
+            }
+        };
 
-            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                    partId,
-                    partitionDataStorage,
-                    table,
-                    safeTimeTracker,
-                    replicationConfiguration
-            );
+        PartitionStorages partitionStorages;
+        try {
+            partitionStorages = getPartitionStorages(table, partId);
+        } catch (TableClosedException e) {
+            // The node is probably stopping while we start the table, let's just skip it.
+            return;
+        }
 
-            internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+        PartitionDataStorage partitionDataStorage = partitionDataStorage(
+                new ZonePartitionKey(zonePartitionId.zoneId(), partId),
+                tableId,
+                partitionStorages.getMvPartitionStorage()
+        );
 
-            mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
+        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                partId,
+                partitionDataStorage,
+                table,
+                safeTimeTracker,
+                replicationConfiguration
+        );
 
-            minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
+        internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
-            Function<RaftCommandRunner, ReplicaTableProcessor> createListener = raftClient -> createReplicaListener(
-                    zonePartitionId,
-                    table,
-                    safeTimeTracker,
-                    partitionStorages.getMvPartitionStorage(),
-                    partitionStorages.getTxStateStorage(),
-                    partitionUpdateHandlers,
-                    raftClient
-            );
+        mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
 
-            var tablePartitionRaftListener = new PartitionListener(
-                    txManager,
-                    partitionDataStorage,
-                    partitionUpdateHandlers.storageUpdateHandler,
-                    partitionStorages.getTxStateStorage(),
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    table.schemaView(),
-                    indexMetaStorage,
-                    topologyService.localMember().id(),
-                    minTimeCollectorService,
-                    partitionOperationsExecutor,
-                    executorInclinedPlacementDriver,
-                    clockService,
-                    zonePartitionId
-            );
+        minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
-            var partitionStorageAccess = new PartitionMvStorageAccessImpl(
-                    partId,
-                    table.internalTable().storage(),
-                    mvGc,
-                    partitionUpdateHandlers.indexUpdateHandler,
-                    partitionUpdateHandlers.gcUpdateHandler,
-                    fullStateTransferIndexChooser,
-                    schemaManager.schemaRegistry(tableId),
-                    lowWatermark
-            );
+        Function<RaftCommandRunner, ReplicaTableProcessor> createListener = raftClient -> createReplicaListener(
+                zonePartitionId,
+                table,
+                safeTimeTracker,
+                partitionStorages.getMvPartitionStorage(),
+                partitionStorages.getTxStateStorage(),
+                partitionUpdateHandlers,
+                raftClient
+        );
 
-            partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
-                    zonePartitionId,
-                    tableId,
-                    createListener,
-                    tablePartitionRaftListener,
-                    partitionStorageAccess,
-                    onNodeRecovery
-            );
-        });
+        var tablePartitionRaftListener = new PartitionListener(
+                txManager,
+                partitionDataStorage,
+                partitionUpdateHandlers.storageUpdateHandler,
+                partitionStorages.getTxStateStorage(),
+                safeTimeTracker,
+                storageIndexTracker,
+                catalogService,
+                table.schemaView(),
+                indexMetaStorage,
+                topologyService.localMember().id(),
+                minTimeCollectorService,
+                partitionOperationsExecutor,
+                executorInclinedPlacementDriver,
+                clockService,
+                zonePartitionId
+        );
+
+        var partitionStorageAccess = new PartitionMvStorageAccessImpl(
+                partId,
+                table.internalTable().storage(),
+                mvGc,
+                partitionUpdateHandlers.indexUpdateHandler,
+                partitionUpdateHandlers.gcUpdateHandler,
+                fullStateTransferIndexChooser,
+                schemaManager.schemaRegistry(tableId),
+                lowWatermark
+        );
+
+        partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
+                zonePartitionId,
+                tableId,
+                createListener,
+                tablePartitionRaftListener,
+                partitionStorageAccess,
+                onNodeRecovery
+        );
     }
 
 
     private CompletableFuture<Boolean> onTablePrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
-        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+        if (thisNodeHoldsLease(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
             // We do not wait future in order not to block meta storage updates.
@@ -1090,6 +1091,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return falseCompletedFuture();
+    }
+
+    private boolean thisNodeHoldsLease(@Nullable UUID leaseholderId) {
+        return localNode().id().equals(leaseholderId);
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {

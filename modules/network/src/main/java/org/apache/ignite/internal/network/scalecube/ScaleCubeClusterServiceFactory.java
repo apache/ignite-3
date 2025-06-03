@@ -169,7 +169,7 @@ public class ScaleCubeClusterServiceFactory {
                 connectionMgr.start();
                 messagingService.start();
 
-                Address scalecubeLocalAddress = prepareAddress(connectionMgr.localAddress());
+                Address scalecubeLocalAddress = prepareAddress(connectionMgr.localBindAddress());
 
                 topologyService.addEventHandler(new TopologyEventHandler() {
                     @Override
@@ -186,7 +186,11 @@ public class ScaleCubeClusterServiceFactory {
                 );
 
                 ClusterConfig clusterConfig = clusterConfig(configView.membership());
-                NodeFinder finder = NodeFinderFactory.createNodeFinder(configView.nodeFinder(), nodeName(), connectionMgr.localAddress());
+                NodeFinder finder = NodeFinderFactory.createNodeFinder(
+                        configView.nodeFinder(),
+                        nodeName(),
+                        connectionMgr.localBindAddress()
+                );
                 finder.start();
 
                 ClusterImpl cluster = new ClusterImpl(clusterConfig)
