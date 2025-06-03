@@ -55,6 +55,8 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.marshalling.ByteArrayMarshaller;
+import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
 import org.apache.ignite.raft.jraft.test.TestUtils;
 import org.apache.ignite.sql.IgniteSql;
@@ -809,6 +811,40 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             }
 
             return CompletableFuture.completedFuture(page);
+        }
+    }
+
+    private static class StringSuffixMarshaller implements ByteArrayMarshaller<String> {
+        @Override
+        public byte @Nullable [] marshal(@Nullable String object) {
+            return ByteArrayMarshaller.super.marshal(object + ":beforeMarshal");
+        }
+
+        @Override
+        public @Nullable String unmarshal(byte @Nullable [] raw) {
+            return ByteArrayMarshaller.super.unmarshal(raw) + ":afterUnmarshal";
+        }
+    }
+
+    private static class MarshallingReceiver implements DataStreamerReceiver<String, String, String> {
+        @Override
+        public @Nullable CompletableFuture<List<String>> receive(List<String> page, DataStreamerReceiverContext ctx, @Nullable String arg) {
+            return null;
+        }
+
+        @Override
+        public @Nullable Marshaller<String, byte[]> payloadMarshaller() {
+            return new StringSuffixMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<String, byte[]> argumentMarshaller() {
+            return new StringSuffixMarshaller();
+        }
+
+        @Override
+        public @Nullable Marshaller<String, byte[]> resultMarshaller() {
+            return new StringSuffixMarshaller();
         }
     }
 }
