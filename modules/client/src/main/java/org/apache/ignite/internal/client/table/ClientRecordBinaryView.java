@@ -484,9 +484,30 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
     }
 
     @Override
-    public <E, V, A, R> CompletableFuture<Void> streamData(Publisher<E> publisher, DataStreamerReceiverDescriptor<V, A, R> receiver,
-            Function<E, Tuple> keyFunc, Function<E, V> payloadFunc, @Nullable A receiverArg, @Nullable Flow.Subscriber<R> resultSubscriber,
+    public <E, V, A, R> CompletableFuture<Void> streamData(
+            Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V, A, R> receiver,
+            Function<E, Tuple> keyFunc,
+            Function<E, V> payloadFunc,
+            @Nullable A receiverArg,
+            @Nullable Flow.Subscriber<R> resultSubscriber,
             @Nullable DataStreamerOptions options) {
-        return null;
+        Objects.requireNonNull(publisher);
+        Objects.requireNonNull(keyFunc);
+        Objects.requireNonNull(payloadFunc);
+        Objects.requireNonNull(receiver);
+
+        return ClientDataStreamer.streamData(
+                publisher,
+                keyFunc,
+                payloadFunc,
+                x -> false,
+                options == null ? DataStreamerOptions.DEFAULT : options,
+                new TupleStreamerPartitionAwarenessProvider(tbl),
+                tbl,
+                resultSubscriber,
+                receiver,
+                receiverArg
+        );
     }
 }

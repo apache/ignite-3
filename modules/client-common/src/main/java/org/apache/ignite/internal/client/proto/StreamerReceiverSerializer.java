@@ -70,7 +70,7 @@ public class StreamerReceiverSerializer {
     public static <T, A> void serializeReceiverInfoOnClient(
             ClientMessagePacker w,
             String receiverClassName,
-            A receiverArg,
+            @Nullable A receiverArg,
             @Nullable Marshaller<T, byte[]> itemsMarshaller,
             @Nullable Marshaller<A, byte[]> receiverArgMarshaller,
             Collection<T> items) {

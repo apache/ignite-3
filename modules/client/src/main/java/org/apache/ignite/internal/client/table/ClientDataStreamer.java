@@ -72,7 +72,7 @@ class ClientDataStreamer {
             ClientTable tbl,
             @Nullable Flow.Subscriber<R> resultSubscriber,
             DataStreamerReceiverDescriptor<V, A, R> receiverDescriptor,
-            A receiverArgs
+            @Nullable A receiverArg
     ) {
         var opts = receiverDescriptor.options();
         if (opts != null && !opts.equals(ReceiverExecutionOptions.DEFAULT)) {
@@ -93,10 +93,10 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(receiverDescriptor.units());
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.<V, A>serializeReceiverInfoOnClient(
+                                    StreamerReceiverSerializer.serializeReceiverInfoOnClient(
                                             w,
                                             receiverDescriptor.receiverClassName(),
-                                            receiverArgs,
+                                            receiverArg,
                                             receiverDescriptor.payloadMarshaller(),
                                             receiverDescriptor.argumentMarshaller(),
                                             items);
