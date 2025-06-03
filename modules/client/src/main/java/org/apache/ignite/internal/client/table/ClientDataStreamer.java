@@ -71,7 +71,7 @@ class ClientDataStreamer {
             StreamerPartitionAwarenessProvider<T, Integer> partitionAwarenessProvider,
             ClientTable tbl,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            DataStreamerReceiverDescriptor<T, A, R> receiverDescriptor,
+            DataStreamerReceiverDescriptor<V, A, R> receiverDescriptor,
             A receiverArgs
     ) {
         var opts = receiverDescriptor.options();
@@ -93,7 +93,7 @@ class ClientDataStreamer {
                                     w.packDeploymentUnits(receiverDescriptor.units());
                                     w.packBoolean(resultSubscriber != null); // receiveResults
 
-                                    StreamerReceiverSerializer.serializeReceiverInfoOnClient(
+                                    StreamerReceiverSerializer.<V, A>serializeReceiverInfoOnClient(
                                             w,
                                             receiverDescriptor.receiverClassName(),
                                             receiverArgs,
@@ -102,7 +102,8 @@ class ClientDataStreamer {
                                             items);
                                 },
                                 in -> resultSubscriber != null
-                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(in.in())
+                                        ? StreamerReceiverSerializer.deserializeReceiverResultsOnClient(
+                                                in.in(), receiverDescriptor.resultMarshaller())
                                         : null,
                                 partitionAssignment.get(partitionId),
                                 new RetryLimitPolicy().retryLimit(options.retryLimit()),
