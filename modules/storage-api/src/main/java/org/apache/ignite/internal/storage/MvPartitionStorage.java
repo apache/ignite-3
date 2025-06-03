@@ -232,7 +232,6 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      * @return Result of add write intent committed.
      * @throws StorageException If failed to write data to the storage.
      */
-    // TODO: IGNITE-25546 Add/Update tests
     AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
