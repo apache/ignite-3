@@ -158,14 +158,11 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @ParameterizedTest
     @ValueSource(strings = {"READ ONLY", "READ WRITE"})
     void openedScriptTransactionRollsBackImplicitly(String txOptions) {
+        String expectedError = "Transaction managed by the script was not completed by the script.";
         String startTxStatement = format("START TRANSACTION {};", txOptions);
 
         {
-            assertThrowsSqlException(
-                    RUNTIME_ERR,
-                    "Transaction managed by the script was not completed by the script",
-                    () -> runScript(startTxStatement)
-            );
+            assertThrowsSqlException(RUNTIME_ERR, expectedError, () -> runScript(startTxStatement));
 
             verifyFinishedTxCount(1);
         }
@@ -173,7 +170,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
         {
             assertThrowsSqlException(
                     RUNTIME_ERR,
-                    "Transaction managed by the script was not completed by the script",
+                    expectedError,
                     () -> fetchAllCursors(
                             runScript(startTxStatement
                                     + "SELECT * FROM TEST;"

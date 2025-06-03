@@ -309,14 +309,13 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testBrokenTransaction() throws Exception {
-        boolean res = stmt.execute("START TRANSACTION;");
-        assertFalse(res);
-        assertNull(stmt.getResultSet());
-        assertEquals(0, stmt.getUpdateCount());
-        assertFalse(stmt.getMoreResults());
-        assertEquals(-1, stmt.getUpdateCount());
+        //noinspection ThrowableNotThrown
+        assertThrowsSqlException(
+                "Transaction managed by the script was not completed by the script.",
+                () -> stmt.execute("START TRANSACTION;")
+        );
 
-        res = stmt.execute("COMMIT;");
+        boolean res = stmt.execute("COMMIT;");
         assertFalse(res);
         assertNull(stmt.getResultSet());
         assertEquals(0, stmt.getUpdateCount());
