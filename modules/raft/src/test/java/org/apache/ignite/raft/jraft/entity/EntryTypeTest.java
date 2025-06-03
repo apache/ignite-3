@@ -26,7 +26,7 @@ import org.junit.jupiter.api.Test;
 
 /** For {@link EntryType} testing. */
 public class EntryTypeTest {
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @Test
     void testFromId() {
         assertEquals(EntryType.ENTRY_TYPE_UNKNOWN, EntryType.fromId(0));

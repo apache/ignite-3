@@ -59,7 +59,7 @@ class ConditionTypeTest {
         assertEquals(expectedId, conditionType.id());
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @ParameterizedTest
     @MethodSource("conditionTypeIds")
     void testFromId(ConditionType expectedEnumEntry, int id) {

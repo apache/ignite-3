@@ -46,7 +46,7 @@ class OperationTypeTest {
         assertEquals(expectedId, operationType.id());
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @ParameterizedTest
     @MethodSource("operationIds")
     void testFromId(OperationType expectedOperationType, int id) {

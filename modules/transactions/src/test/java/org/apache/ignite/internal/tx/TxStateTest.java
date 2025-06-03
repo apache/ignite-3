@@ -146,7 +146,7 @@ public class TxStateTest {
         assertEquals(expectedId, txState.id());
     }
 
-    /** Checks that the ordinal does not change, since the enum will be transferred in the {@link NetworkMessage}. */
+    /** Checks that the ID does not change, since the enum will be transferred in the {@link NetworkMessage}. */
     @ParameterizedTest
     @MethodSource("txStateIds")
     void testFromId(TxState expectedEnumEntry, int id) {
