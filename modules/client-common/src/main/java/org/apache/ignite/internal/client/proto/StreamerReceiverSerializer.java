@@ -484,16 +484,16 @@ public class StreamerReceiverSerializer {
     }
 
     private static <T> @Nullable T unmarshalBytes(Marshaller<T, byte[]> marshaller, @Nullable Object input) {
-            try {
-                if (input instanceof byte[]) {
-                    return marshaller.unmarshal((byte[]) input);
-                } else if (input == null) {
-                    return marshaller.unmarshal(null);
-                }
-            } catch (Exception ex) {
-                throw new MarshallerException(
-                        UUID.randomUUID(), MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
+        try {
+            if (input instanceof byte[]) {
+                return marshaller.unmarshal((byte[]) input);
+            } else if (input == null) {
+                return marshaller.unmarshal(null);
             }
+        } catch (Exception ex) {
+            throw new MarshallerException(
+                    UUID.randomUUID(), MARSHALLING_TYPE_MISMATCH_ERR, "Exception in user-defined marshaller: " + ex.getMessage(), ex);
+        }
 
         throw new MarshallerException(
                 UUID.randomUUID(),

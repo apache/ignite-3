@@ -51,11 +51,11 @@ public interface DataStreamerTarget<T> {
      *     from {@link Flow.Subscription#request(long)} calls.
      * @param options Options (can be null).
      * @param receiverArg Receiver arguments.
-     * @return Future that will be completed when the stream is finished.
      * @param <E> Producer item type.
      * @param <V> Payload type.
      * @param <R> Result type.
      * @param <A> Receiver job argument type.
+     * @return Future that will be completed when the stream is finished.
      * @deprecated Use {@link #streamData(Flow.Publisher, DataStreamerReceiverDescriptor, Function, Function, Object, Flow.Subscriber,
      * DataStreamerOptions)}.
      */
