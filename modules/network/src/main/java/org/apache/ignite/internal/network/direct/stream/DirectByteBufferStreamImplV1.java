@@ -256,11 +256,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = remainingInternal() >= 1;
 
         if (lastFinished) {
-            int pos = buf.position();
-
-            GridUnsafe.putByte(heapArr, baseOff + pos, val);
-
-            setPosition(pos + 1);
+            writeSingleByteValue(val);
         }
     }
 
@@ -421,6 +417,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private void writeVarInt(int val) {
         if (lastFinished) {
+            if (val >> 7 == 0) {
+                writeSingleByteValue((byte) val);
+
+                return;
+            }
+
             if (val >>> 28 == 0) {
                 writeVarIntFast(val);
 
@@ -483,6 +485,12 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
      * </ul>
      */
     private void writeVarLongFast(long val) {
+        if (val >> 7 == 0) {
+            writeSingleByteValue((byte) val);
+
+            return;
+        }
+
         if (val >>> 28 == 0L) {
             writeVarIntFast((int) val);
 
@@ -508,6 +516,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         setPosition(pos + Long.bitCount(mask) + 1);
     }
 
+    private void writeSingleByteValue(byte val) {
+        int pos = buf.position();
+
+        GridUnsafe.putByte(heapArr, baseOff + pos, val);
+
+        setPosition(pos + 1);
+    }
+
     /**
      * Optimized version of var-len encoding.
      *
@@ -516,26 +532,19 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     private void writeVarIntFast(int val) {
         int pos = buf.position();
 
-        if (val >> 7 == 0) {
-            // Fast-path for small values.
-            GridUnsafe.putByte(heapArr, baseOff + pos, (byte) val);
+        val = val & 0x3FFF | (val & 0xFFFC000) << 2;
+        val = val & 0x7F007F | (val & 0x3F803F80) << 1;
 
-            setPosition(pos + 1);
-        } else {
-            val = val & 0x3FFF | (val & 0xFFFC000) << 2;
-            val = val & 0x7F007F | (val & 0x3F803F80) << 1;
+        int mask = (val | 0x80808080) - 0x01010101;
+        mask = (mask >>> 8 | mask >>> 16 | mask >>> 24) & 0x80808080;
+        val |= mask;
 
-            int mask = (val | 0x80808080) - 0x01010101;
-            mask = (mask >> 8 | mask >> 16 | mask >> 24) & 0x00808080;
-            val |= mask;
-
-            if (IS_BIG_ENDIAN) {
-                val = Integer.reverseBytes(val);
-            }
-
-            GridUnsafe.putInt(heapArr, baseOff + pos, val);
-            setPosition(pos + Integer.bitCount(mask) + 1);
+        if (IS_BIG_ENDIAN) {
+            val = Integer.reverseBytes(val);
         }
+
+        GridUnsafe.putInt(heapArr, baseOff + pos, val);
+        setPosition(pos + Integer.bitCount(mask) + 1);
     }
 
     /** {@inheritDoc} */
@@ -654,11 +663,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     private void writeBooleanUnchecked(boolean val) {
-        int pos = buf.position();
-
-        GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (val ? 1 : 0));
-
-        setPosition(pos + 1);
+        writeSingleByteValue((byte) (val ? 1 : 0));
     }
 
     protected void setPosition(int pos) {
