@@ -559,7 +559,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             manager.setLocalNode(new ClusterNodeImpl(
                     launchId,
                     consistentId,
-                    new NetworkAddress(manager.localAddress().getHostName(), port)
+                    new NetworkAddress(manager.localBindAddress().getHostName(), port)
             ));
 
             var wrapper = new ConnectionManagerWrapper(manager, bootstrapFactory, launchId);
@@ -604,7 +604,7 @@ public class ItConnectionManagerTest extends BaseIgniteAbstractTest {
             return connectionManager.channel(
                     recipient.launchId,
                     ChannelType.DEFAULT,
-                    recipient.connectionManager.localAddress()
+                    recipient.connectionManager.localBindAddress()
             );
         }
 
