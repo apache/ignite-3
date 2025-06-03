@@ -31,8 +31,6 @@ import org.apache.ignite.internal.compute.state.ComputeStateMachine;
  * Compute job executor with priority mechanism.
  */
 public class PriorityQueueExecutor {
-    private static final long THREAD_KEEP_ALIVE_SECONDS = 60;
-
     private final ComputeThreadPoolExecutor executor;
 
     private final ComputeStateMachine stateMachine;
@@ -53,7 +51,7 @@ public class PriorityQueueExecutor {
         executor = new ComputeThreadPoolExecutor(
                 configuration.threadPoolSize().value(),
                 configuration.threadPoolSize().value(),
-                THREAD_KEEP_ALIVE_SECONDS,
+                0L,
                 TimeUnit.SECONDS,
                 workQueue,
                 threadFactory

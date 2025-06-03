@@ -103,7 +103,7 @@ public class MvGc implements ManuallyCloseable {
         inBusyLock(() -> {
             int threadCount = gcConfig.threads().value();
 
-            executor = new ThreadPoolExecutor(
+            var threadPoolExecutor = new ThreadPoolExecutor(
                     threadCount,
                     threadCount,
                     30,
@@ -111,6 +111,9 @@ public class MvGc implements ManuallyCloseable {
                     new LinkedBlockingQueue<>(),
                     IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
             );
+            threadPoolExecutor.allowCoreThreadTimeOut(true);
+
+            executor = threadPoolExecutor;
 
             lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
         });

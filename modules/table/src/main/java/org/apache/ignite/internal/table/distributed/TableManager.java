@@ -586,14 +586,17 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        incomingSnapshotsExecutor = new ThreadPoolExecutor(
+        var executor = new ThreadPoolExecutor(
                 cpus,
                 cpus,
-                100,
-                TimeUnit.MILLISECONDS,
+                30,
+                TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+        executor.allowCoreThreadTimeOut(true);
+
+        incomingSnapshotsExecutor = executor;
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
 
