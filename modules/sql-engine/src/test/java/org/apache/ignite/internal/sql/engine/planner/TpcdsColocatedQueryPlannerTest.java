@@ -25,7 +25,6 @@ import org.apache.ignite.internal.testframework.WithSystemProperty;
 /**
  * Tests ensures a planner generates optimal plan for TPC-DS queries when the colocation feature is enabled.
  */
-// TODO https://issues.apache.org/jira/browse/IGNITE-21986 validate other query plans and make test parameterized.
 @TpcSuiteInfo(
         tables = TpcdsTables.class,
         queryLoader = "getQueryString",
