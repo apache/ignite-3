@@ -499,7 +499,7 @@ public class StreamerReceiverSerializer {
                 UUID.randomUUID(),
                 MARSHALLING_TYPE_MISMATCH_ERR,
                 "Marshaller is defined in the DataStreamerReceiver implementation, "
-                        + "expected argument type: `byte[]`, actual: `" + input.getClass() + "`."
+                        + "expected argument type: `byte[]`, actual: `" + input.getClass() + "`. "
                         + "Ensure that DataStreamerReceiverDescriptor marshallers match DataStreamerReceiver marshallers.",
                 null
         );

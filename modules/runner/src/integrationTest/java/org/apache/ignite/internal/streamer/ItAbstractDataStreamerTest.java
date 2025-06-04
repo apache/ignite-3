@@ -46,6 +46,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Flow.Subscriber;
 import java.util.concurrent.Flow.Subscription;
 import java.util.concurrent.SubmissionPublisher;
@@ -55,6 +56,7 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
+import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.marshalling.ByteArrayMarshaller;
 import org.apache.ignite.marshalling.Marshaller;
 import org.apache.ignite.network.ClusterNode;
@@ -771,7 +773,17 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
             publisher.submit("val1");
         }
 
-        assertThat(streamerFut, willCompleteSuccessfully());
+        var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(10, TimeUnit.SECONDS).join());
+        DataStreamerException dsEx = (DataStreamerException) ex.getCause();
+        MarshallerException marshallerEx = (MarshallerException) dsEx.getCause();
+
+        assertEquals(
+                "Marshaller is defined in the DataStreamerReceiver implementation, "
+                        + "expected argument type: `byte[]`, actual: `class java.lang.String`. "
+                        + "Ensure that DataStreamerReceiverDescriptor marshallers match DataStreamerReceiver marshallers.",
+                marshallerEx.getMessage());
+
+        assertEquals("IGN-COMPUTE-13", marshallerEx.codeAsString());
     }
 
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
