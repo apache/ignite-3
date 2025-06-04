@@ -152,10 +152,12 @@ import org.apache.ignite.sql.IgniteSql;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
@@ -224,6 +226,8 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
     @AfterEach
     void tearDown() throws Exception {
         stopComponents();
+
+        Mockito.framework().clearInlineMocks();
     }
 
     @Test
@@ -304,8 +308,9 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
         verify(mvTableStorage, timeout(WAIT_TIMEOUT)).destroy();
     }
 
+    /** Test. */
     @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "true")
-    @Test
+    @RepeatedTest(1000)
     public void raftListenersAreRecoveredOnRecovery() throws Exception {
         int defaultZonePartitions = catalogManager.catalog(catalogManager.latestCatalogVersion())
                 .defaultZone()
