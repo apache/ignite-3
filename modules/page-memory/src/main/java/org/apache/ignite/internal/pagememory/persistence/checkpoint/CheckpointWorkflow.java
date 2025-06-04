@@ -145,7 +145,8 @@ class CheckpointWorkflow {
         if (checkpointThreads > 1) {
             callbackListenerThreadPool = Executors.newFixedThreadPool(
                     checkpointThreads,
-                    NamedThreadFactory.create(igniteInstanceName, CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
+                    // TODO IGNITE-25590 Add node name.
+                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
             );
         } else {
             callbackListenerThreadPool = null;
