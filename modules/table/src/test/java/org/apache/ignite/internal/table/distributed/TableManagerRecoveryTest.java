@@ -55,7 +55,6 @@ import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -313,14 +312,14 @@ public class TableManagerRecoveryTest extends IgniteAbstractTest {
 
         createSimpleTable(catalogManager, TABLE_NAME);
 
-        verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
+        verify(partitionReplicaLifecycleManager, timeout(1000).times(defaultZonePartitions))
                 .loadTableListenerToZoneReplica(any(), anyInt(), any(), any(), any(), eq(false));
 
         stopComponents();
         startComponents();
 
         // Verify that the listeners were loaded with the correct recovery flag value.
-        verify(partitionReplicaLifecycleManager, times(defaultZonePartitions))
+        verify(partitionReplicaLifecycleManager, timeout(1000).times(defaultZonePartitions))
                 .loadTableListenerToZoneReplica(any(), anyInt(), any(), any(), any(), eq(true));
     }
 
