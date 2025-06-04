@@ -153,13 +153,15 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="statement">Statement to execute.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
         /// <param name="args">Arguments for the statement.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
         internal async Task<ResultSet<T>> ExecuteAsyncInternal<T>(
             ITransaction? transaction,
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
-            ICollection<object?>? args)
+            ICollection<object?>? args,
+            CancellationToken cancellationToken = default)
         {
             IgniteArgumentCheck.NotNull(statement);
 
@@ -172,7 +174,8 @@ namespace Apache.Ignite.Internal.Sql
 
             try
             {
-                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(ClientOp.SqlExec, tx, bufferWriter).ConfigureAwait(false);
+                (buf, var socket) = await _socket.DoOutInOpAndGetSocketAsync(
+                    ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
                 return new ResultSet<T>(socket, buf, rowReaderFactory);

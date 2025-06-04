@@ -215,7 +215,7 @@ namespace Apache.Ignite.Internal
                 static (_, arg) => arg.clientOp,
                 async static (socket, arg) =>
                 {
-                    var res = await socket.DoOutInOpAsync(
+                    PooledBuffer res = await socket.DoOutInOpAsync(
                         arg.clientOp, arg.request, arg.expectNotifications, arg.cancellationToken).ConfigureAwait(false);
 
                     return (Buffer: res, Socket: socket);
