@@ -775,15 +775,13 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
 
         var ex = assertThrows(CompletionException.class, () -> streamerFut.orTimeout(10, TimeUnit.SECONDS).join());
         DataStreamerException dsEx = (DataStreamerException) ex.getCause();
-        MarshallerException marshallerEx = (MarshallerException) dsEx.getCause();
 
-        assertEquals(
+        assertThat(dsEx.getMessage(), containsString(
                 "Marshaller is defined in the DataStreamerReceiver implementation, "
                         + "expected argument type: `byte[]`, actual: `class java.lang.String`. "
-                        + "Ensure that DataStreamerReceiverDescriptor marshallers match DataStreamerReceiver marshallers.",
-                marshallerEx.getMessage());
+                        + "Ensure that DataStreamerReceiverDescriptor marshallers match DataStreamerReceiver marshallers."));
 
-        assertEquals("IGN-COMPUTE-13", marshallerEx.codeAsString());
+        assertEquals("IGN-COMPUTE-13", dsEx.codeAsString());
     }
 
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
