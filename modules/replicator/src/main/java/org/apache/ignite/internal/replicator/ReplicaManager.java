@@ -840,6 +840,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
 
+        LOG.info("Replica is stopping [replicationGroupId={}].", replicaGrpId);
+
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {
                 failureProcessor.process(new FailureContext(e, "Error when notifying about BEFORE_REPLICA_STOPPED event."));

@@ -28,7 +28,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.function.BiFunction;
+import java.util.function.BiConsumer;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.hlc.ClockService;
@@ -72,7 +72,7 @@ public class PlacementDriverMessageProcessor {
 
     private final ClockService clockService;
 
-    private final BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure;
+    private final BiConsumer<ReplicationGroupId, HybridTimestamp> replicaReservationClosure;
 
     // TODO: IGNITE-20063 Maybe get rid of it
     private final Executor executor;
@@ -113,7 +113,7 @@ public class PlacementDriverMessageProcessor {
             ClusterNode localNode,
             PlacementDriver placementDriver,
             ClockService clockService,
-            BiFunction<ReplicationGroupId, HybridTimestamp, Boolean> replicaReservationClosure,
+            BiConsumer<ReplicationGroupId, HybridTimestamp> replicaReservationClosure,
             Executor executor,
             PendingComparableValuesTracker<Long, Void> storageIndexTracker,
             TopologyAwareRaftGroupService raftClient,
@@ -150,7 +150,8 @@ public class PlacementDriverMessageProcessor {
                                     TrackerClosedException.class,
                                     TimeoutException.class,
                                     ReplicationException.class,
-                                    ReplicationTimeoutException.class
+                                    ReplicationTimeoutException.class,
+                                    ReplicaReservationFailedException.class
                             )) {
                                 String errorMessage = String.format("Failed to process the lease granted message [msg=%s].", msg);
                                 failureProcessor.process(new FailureContext(e, errorMessage));
@@ -278,9 +279,7 @@ public class PlacementDriverMessageProcessor {
     private CompletableFuture<Void> waitForActualState(HybridTimestamp startTime, long expirationTime) {
         LOG.info("Waiting for actual storage state, group=" + groupId);
 
-        if (!replicaReservationClosure.apply(groupId, startTime)) {
-            throw new IllegalStateException("Replica reservation failed [groupId=" + groupId + ", leaseStartTime=" + startTime + "].");
-        }
+        replicaReservationClosure.accept(groupId, startTime);
 
         long timeout = expirationTime - currentTimeMillis();
         if (timeout <= 0) {
