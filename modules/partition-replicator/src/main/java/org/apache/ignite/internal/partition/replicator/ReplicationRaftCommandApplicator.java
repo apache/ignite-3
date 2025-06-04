@@ -17,9 +17,13 @@
 
 package org.apache.ignite.internal.partition.replicator;
 
+import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
+
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.raft.Command;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.raft.service.RaftCommandRunner;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.ReplicationException;
@@ -54,13 +58,7 @@ public class ReplicationRaftCommandApplicator {
     public CompletableFuture<Object> applyCommandWithExceptionHandling(Command command) {
         CompletableFuture<Object> resultFuture = new CompletableFuture<>();
 
-        raftCommandRunner.run(command).whenComplete((res, ex) -> {
-            if (ex != null) {
-                resultFuture.completeExceptionally(ex);
-            } else {
-                resultFuture.complete(res);
-            }
-        });
+        applyCommandWithExceptionHandling(command, resultFuture);
 
         return resultFuture.exceptionally(throwable -> {
             if (throwable instanceof TimeoutException) {
@@ -69,6 +67,23 @@ public class ReplicationRaftCommandApplicator {
                 throw (RuntimeException) throwable;
             } else {
                 throw new ReplicationException(replicationGroupId, throwable);
+            }
+        });
+    }
+
+    private void applyCommandWithExceptionHandling(Command command, CompletableFuture<Object> resultFuture) {
+        raftCommandRunner.run(command).whenComplete((res, ex) -> {
+            if (ex != null) {
+                Throwable cause = unwrapRootCause(ex);
+
+                if (cause instanceof GroupOverloadedException) {
+                    CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS)
+                            .execute(() -> applyCommandWithExceptionHandling(command, resultFuture));
+                } else {
+                    resultFuture.completeExceptionally(ex);
+                }
+            } else {
+                resultFuture.complete(res);
             }
         });
     }

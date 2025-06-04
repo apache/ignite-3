@@ -31,7 +31,7 @@ public class NoOpThrottlingContextHolder implements ThrottlingContextHolder {
     }
 
     @Override
-    public boolean isOverloaded(Peer peer) {
+    public boolean isOverloaded(Peer peer, String requestClassName) {
         return false;
     }
 

@@ -24,6 +24,7 @@ import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -31,6 +32,7 @@ import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.raft.configuration.RaftConfiguration;
 import org.apache.ignite.internal.util.SlidingAverageValueTracker;
+import org.apache.ignite.internal.util.SlidingHistogram;
 import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
@@ -72,8 +74,23 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
     }
 
     @Override
-    public boolean isOverloaded(Peer peer) {
-        return peerContext(peer).isOverloaded();
+    public boolean isOverloaded(Peer peer, String requestClassName) {
+        boolean res = peerContext(peer).isOverloaded();
+
+        if (res) {
+            if (ThreadLocalRandom.current().nextInt(1000) == 1) {
+                var holder = peerContext(peer);
+
+                LOG.info("qqq group is overloaded, req={}, peer={}, timeout={}, percentile98={}",
+                        requestClassName,
+                        peer.consistentId(),
+                        holder.adaptiveResponseTimeoutMillis.get(),
+                        holder.histogram.estimatePercentile(PeerContextHolder.HISTOGRAM_PERCENTILE)
+                );
+            }
+        }
+
+        return res;
     }
 
     @Override
@@ -99,11 +116,17 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         private static final int AVERAGE_VALUE_TRACKER_MINIMIM_VALUES = 20;
         private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
 
+        private static final int HISTOGRAM_WINDOW_SIZE = 1000;
+        private static final double HISTOGRAM_PERCENTILE = 0.98;
+        private static final long HISTOGRAM_ESTIMATION_DEFAULT = 0;
+
         private final SlidingAverageValueTracker averageValueTracker = new SlidingAverageValueTracker(
                 AVERAGE_VALUE_TRACKER_WINDOW_SIZE,
                 AVERAGE_VALUE_TRACKER_MINIMIM_VALUES,
                 AVERAGE_VALUE_TRACKER_DEFAULT
         );
+
+        private final SlidingHistogram histogram = new SlidingHistogram(HISTOGRAM_WINDOW_SIZE, HISTOGRAM_ESTIMATION_DEFAULT);
 
         private final Peer peer;
 
@@ -164,11 +187,11 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         }
 
         int computeMaxInFlights() {
-            double avg = averageValueTracker.avg();
+            long timeForMostOfRequests = histogram.estimatePercentile(HISTOGRAM_PERCENTILE);
 
-            return avg == AVERAGE_VALUE_TRACKER_DEFAULT
+            return timeForMostOfRequests == HISTOGRAM_ESTIMATION_DEFAULT
                     ? Integer.MAX_VALUE
-                    : (int) max(adaptiveResponseTimeoutMillis.get() / avg, 1.0);
+                    : (int) max((double) adaptiveResponseTimeoutMillis.get() / timeForMostOfRequests, 1.0);
         }
 
         void beforeRequest() {
@@ -185,6 +208,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                 long duration = now - requestStartTimestamp;
 
                 averageValueTracker.record(duration);
+                histogram.record(duration);
 
                 adaptRequestTimeout(now, err != null);
             }

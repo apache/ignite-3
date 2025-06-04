@@ -298,7 +298,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<GetLeaderResponse>sendWithRetry(randomNode(), timeout, originDescription, requestFactory)
+        return this.<GetLeaderResponse>sendWithRetry(randomNode(), timeout, originDescription, requestFactory, false)
                 .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
     }
 
@@ -309,7 +309,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory)
+        return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory, false)
                 .thenApply(resp -> {
                     if (resp.leaderId() == null) {
                         return LeaderWithTerm.NO_LEADER;
@@ -337,7 +337,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<GetPeersResponse>sendWithRetry(leader, requestFactory)
+        return this.<GetPeersResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> {
                     this.peers = parsePeerList(resp.peersList());
                     this.learners = parsePeerList(resp.learnersList());
@@ -358,7 +358,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .peerId(peerId(peer))
                 .build();
 
-        return this.<AddPeerResponse>sendWithRetry(leader, requestFactory)
+        return this.<AddPeerResponse>sendWithRetry(leader, requestFactory, true)
                 .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
@@ -376,7 +376,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .peerId(peerId(peer))
                 .build();
 
-        return this.<RemovePeerResponse>sendWithRetry(leader, requestFactory)
+        return this.<RemovePeerResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
@@ -399,7 +399,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         LOG.info("Sending changePeersAndLearners request for group={} to peers={} and learners={} with leader term={}",
                 groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
 
-        return this.<ChangePeersAndLearnersResponse>sendWithRetry(leader, requestFactory)
+        return this.<ChangePeersAndLearnersResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> {
                     this.peers = parsePeerList(resp.newPeersList());
                     this.learners = parsePeerList(resp.newLearnersList());
@@ -426,7 +426,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         LOG.info("Sending changePeersAndLearnersAsync request for group={} to peers={} and learners={} with leader term={}",
                 groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
 
-        return this.<ChangePeersAndLearnersAsyncResponse>sendWithRetry(leader, requestFactory)
+        return this.<ChangePeersAndLearnersAsyncResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> {
                     // We expect that all raft related errors will be handled by sendWithRetry, means that
                     // such responses will initiate a retrying of the original request.
@@ -448,7 +448,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .learnersList(peerIds(learners))
                 .build();
 
-        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
+        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
@@ -466,7 +466,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .learnersList(peerIds(learners))
                 .build();
 
-        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
+        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
@@ -484,7 +484,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .learnersList(peerIds(learners))
                 .build();
 
-        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
+        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
@@ -496,7 +496,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .forced(forced)
                 .build();
 
-        return sendWithRetry(peer, requestFactory)
+        return sendWithRetry(peer, requestFactory, false)
                 .thenAccept(resp -> {});
     }
 
@@ -514,7 +514,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .peerId(peerId(newLeader))
                 .build();
 
-        return sendWithRetry(leader, requestFactory)
+        return sendWithRetry(leader, requestFactory, false)
                 .thenRun(() -> this.leader = newLeader);
     }
 
@@ -549,7 +549,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .build();
         }
 
-        return this.<ActionResponse>sendWithRetry(leader, timeoutMillis, NO_DESCRIPTION, requestFactory)
+        return this.<ActionResponse>sendWithRetry(leader, timeoutMillis, NO_DESCRIPTION, requestFactory, true)
                 .thenApply(resp -> (R) resp.result());
     }
 
@@ -569,7 +569,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         Peer leader = leader();
         Peer node = leader == null ? randomNode() : leader;
-        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory)
+        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory, false)
                 .thenApply(ReadIndexResponse::index);
     }
 
@@ -591,21 +591,27 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
-            Function<Peer, ? extends NetworkMessage> requestFactory
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            boolean throttleOnOverload
     ) {
-        return sendWithRetry(peer, defaultTimeout(), NO_DESCRIPTION, requestFactory);
+        return sendWithRetry(peer, defaultTimeout(), NO_DESCRIPTION, requestFactory, throttleOnOverload);
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
             long timeoutMillis,
             Supplier<String> originDescription,
-            Function<Peer, ? extends NetworkMessage> requestFactory
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            boolean throttleOnOverload
     ) {
         var future = new CompletableFuture<R>();
 
-        if (throttlingContextHolder.isOverloaded(peer)) {
-            future.completeExceptionally(new GroupOverloadedException(groupId, peer));
+        if (throttleOnOverload && throttlingContextHolder.isOverloaded(peer, requestFactory.apply(peer).getClass().getSimpleName())) {
+            executor.schedule(
+                    () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
+                    10,
+                    TimeUnit.MILLISECONDS
+            );
 
             return future;
         }
