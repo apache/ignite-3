@@ -91,7 +91,7 @@ public class LowWatermarkImpl extends AbstractEventProducer<LowWatermarkEvent, L
         IgniteComponent {
     private static final IgniteLogger LOG = Loggers.forClass(LowWatermarkImpl.class);
 
-    static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
+    public static final ByteArray LOW_WATERMARK_VAULT_KEY = new ByteArray("low-watermark");
 
     private static final LowWatermarkMessagesFactory MESSAGES_FACTORY = new LowWatermarkMessagesFactory();
 
