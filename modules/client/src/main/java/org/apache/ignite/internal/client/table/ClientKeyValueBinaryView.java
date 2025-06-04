@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
+import static org.apache.ignite.internal.client.table.PartitionAwarenessProvider.EMPTY_PROVIDER;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyCollectionCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyMapCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -26,6 +28,8 @@ import static org.apache.ignite.internal.util.ViewUtils.sync;
 
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -88,7 +92,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -107,13 +111,23 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyMapCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_GET_ALL,
-                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
-                (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
-                Collections.emptyMap(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keys),
-                tx);
+        return tbl.split(tx, keys, (batch, node) -> {
+                    return tbl.doSchemaOutInOpAsync(
+                            ClientOp.TUPLE_GET_ALL,
+                            (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                            (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
+                            Collections.emptyMap(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            tx);
+                }, (agg, cur) -> { // TODO make static
+                    if (agg == null) {
+                        return new HashMap<>();
+                    } else {
+                        agg.putAll(cur);
+                        return agg;
+                    }
+                },
+                ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -134,7 +148,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -154,7 +168,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 defaultValue,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -173,7 +187,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -192,12 +206,15 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return trueCompletedFuture();
         }
 
-        return tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
-                r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keys),
-                tx);
+        return tbl.split(tx, keys, (batch, node) -> {
+                    return tbl.doSchemaOutOpAsync(
+                            ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                            (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                            r -> r.in().unpackBoolean(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            tx);
+                }, (agg, cur) -> agg == null ? cur : agg && cur,
+                ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -216,7 +233,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 ClientOp.TUPLE_UPSERT,
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -240,12 +257,15 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return nullCompletedFuture();
         }
 
-        return tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w, n) -> ser.writeKvTuples(tx, pairs.entrySet(), s, w, n),
-                r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(pairs.keySet()),
-                tx);
+        return tbl.split(tx, pairs.entrySet(), (batch, node) -> {
+                    return tbl.doSchemaOutOpAsync(
+                            ClientOp.TUPLE_UPSERT_ALL,
+                            (s, w, n) -> ser.writeKvTuples(tx, batch, s, w, n),
+                            r -> null,
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next().getKey()),
+                            tx);
+                }, (agg, cur) -> null,
+                (schema, entry) -> ClientTupleSerializer.getColocationHash(schema, entry.getKey()));
     }
 
     /** {@inheritDoc} */
@@ -265,7 +285,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -288,7 +308,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -308,7 +328,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 ClientOp.TUPLE_INSERT,
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -333,7 +353,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 ClientOp.TUPLE_DELETE,
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -347,7 +367,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -371,13 +391,23 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyCollectionCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_DELETE_ALL,
-                (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
-                (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
-                Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(keys),
-                tx);
+        return tbl.split(tx, keys, (batch, node) -> {
+                    return tbl.doSchemaOutInOpAsync(
+                            ClientOp.TUPLE_DELETE_ALL,
+                            (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
+                            (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
+                            Collections.emptyList(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            tx);
+                }, (agg, cur) -> {
+                    if (agg == null) {
+                        return new HashSet<>();
+                    } else {
+                        agg.addAll(cur);
+                        return agg;
+                    }
+                },
+                ClientTupleSerializer::getColocationHash);
     }
 
     @Override
@@ -401,7 +431,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -423,7 +453,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeTuple(tx, key, s, w, n, true),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -449,7 +479,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 ClientOp.TUPLE_REPLACE,
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -467,7 +497,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                     ser.writeKvTuple(tx, key, newVal, s, w, n, true);
                 },
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -488,7 +518,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> ClientTupleSerializer.readValueTuple(s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 
@@ -511,7 +541,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                 (s, w, n) -> ser.writeKvTuple(tx, key, val, s, w, n, false),
                 (s, r) -> NullableValue.of(ClientTupleSerializer.readValueTuple(s, r.in())),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(key),
+                getPartitionAwarenessProvider(key),
                 tx);
     }
 

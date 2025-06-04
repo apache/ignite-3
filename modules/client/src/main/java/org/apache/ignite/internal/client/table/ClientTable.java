@@ -34,7 +34,12 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR;
 
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -503,8 +508,7 @@ public class ClientTable implements Table {
                     // Direct mode is only possible if:
                     // * a client's connection exists to a corresponding node.
                     // * a transaction has commit partition
-                    @Nullable PartitionMapping pm =
-                            getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema, tx == null || tx.isReadOnly());
+                    @Nullable PartitionMapping pm = getPreferredNodeName(tableId(), provider, partitionsFut.getNow(null), schema);
 
                     // Write context carries request execution details over async chain.
                     WriteContext ctx = new WriteContext(ch.observableTimestamp());
@@ -877,12 +881,167 @@ public class ClientTable implements Table {
         return partitionCount;
     }
 
+    public static class Batch<E> {
+        List<E> batch = new ArrayList<>();
+        List<Integer> originalIndices = new ArrayList<>();
+
+        public void add(E entry, int origIdx) {
+            batch.add(entry);
+            originalIndices.add(origIdx);
+        }
+    }
+
+    static <R> List<R> removeNulls(List<R> res) {
+        List<R> copy = new ArrayList<>();
+        for (R val : res) {
+            if (val != null) {
+                copy.add(val);
+            }
+        }
+
+        return copy;
+    }
+
+    static <R, E> List<R> reducer(@Nullable List<R> agg, List<R> cur, Batch<E> batch, int size) {
+        if (agg == null) {
+            agg = Collections.nCopies(size, null);
+        }
+
+        for (int i = 0; i < batch.batch.size(); i++) {
+            R val = cur.get(i);
+            Integer orig = batch.originalIndices.get(i);
+            agg.set(orig, val);
+        }
+
+        return agg;
+    }
+
+    public <R, E> CompletableFuture<R> split(
+            @Nullable Transaction tx,
+            Collection<E> keys,
+            BiFunction<Collection<E>, String, CompletableFuture<R>> fun,
+            Reducer<R> reducer,
+            BiFunction<ClientSchema, E, Integer> hashFunc
+    ) {
+        if (tx == null) {
+            return fun.apply(keys, null);
+        }
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
+        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    List<E> unmapped = new ArrayList<>();
+                    Map<String, List<E>> mapped = new HashMap<>();
+                    for (E key : keys) {
+                        ClientSchema schema = schemaFut.getNow(null);
+                        @Nullable List<String> aff = partitionsFut.getNow(null);
+                        int hash = hashFunc.apply(schema, key);
+                        String node = aff == null ? null : aff.get(Math.abs(hash % aff.size()));
+                        if (node == null) {
+                            unmapped.add(key);
+                        } else {
+                            mapped.computeIfAbsent(node, k -> new ArrayList<>()).add(key);
+                        }
+                    }
+
+                    List<CompletableFuture<R>> res = new ArrayList<>();
+
+                    if (!unmapped.isEmpty()) {
+                        res.add(fun.apply(unmapped, null));
+                    }
+
+                    for (Entry<String, List<E>> entry : mapped.entrySet()) {
+                        res.add(fun.apply(entry.getValue(), entry.getKey()));
+                    }
+
+                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
+                        R in = null;
+
+                        for (CompletableFuture<R> val : res) {
+                            in = reducer.reduce(in, val.getNow(null));
+                        }
+
+                        return in;
+                    });
+                });
+    }
+
+    public <R, E> CompletableFuture<R> split(
+            @Nullable Transaction tx,
+            Collection<E> keys,
+            BiFunction<Collection<E>, String, CompletableFuture<R>> fun,
+            ReducerWithOrderTracking<R, E> reducer,
+            BiFunction<ClientSchema, E, Integer> hashFunc
+    ) {
+        if (tx == null) {
+            return fun.apply(keys, null);
+        }
+
+        CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
+        CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
+
+        return CompletableFuture.allOf(schemaFut, partitionsFut)
+                .thenCompose(v -> {
+                    Batch<E> unmapped = new Batch<>();
+                    Map<String, Batch<E>> mapped = new HashMap<>();
+                    int idx = 0;
+                    for (E key : keys) {
+                        ClientSchema schema = schemaFut.getNow(null);
+                        @Nullable List<String> aff = partitionsFut.getNow(null);
+                        int hash = hashFunc.apply(schema, key);
+                        String node = aff == null ? null : aff.get(Math.abs(hash % aff.size()));
+                        if (node == null) {
+                            unmapped.add(key, idx);
+                        } else {
+                            mapped.computeIfAbsent(node, k -> new Batch<>()).add(key, idx);
+                        }
+
+                        idx++;
+                    }
+
+                    List<CompletableFuture<R>> res = new ArrayList<>();
+                    List<Batch<E>> batches = new ArrayList<>();
+
+                    if (!unmapped.batch.isEmpty()) {
+                        res.add(fun.apply(unmapped.batch, null));
+                        batches.add(unmapped);
+                    }
+
+                    for (Entry<String, Batch<E>> entry : mapped.entrySet()) {
+                        res.add(fun.apply(entry.getValue().batch, entry.getKey()));
+                        batches.add(entry.getValue());
+                    }
+
+                    return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
+                        R in = null;
+
+                        for (int i = 0; i < res.size(); i++) {
+                            CompletableFuture<R> f = res.get(i);
+                            in = reducer.reduce(in, f.getNow(null), batches.get(i), keys.size());
+                        }
+
+                        return in;
+                    });
+                });
+    }
+
+    @FunctionalInterface
+    interface Reducer<R> {
+        R reduce(@Nullable R agg, R cur);
+    }
+
+    @FunctionalInterface
+    interface ReducerWithOrderTracking<R, E> {
+        R reduce(@Nullable R agg, R cur, Batch<E> batch, int size);
+    }
+
     private static @Nullable PartitionMapping getPreferredNodeName(
             int tableId,
             PartitionAwarenessProvider provider,
             @Nullable List<String> partitions,
-            ClientSchema schema,
-            boolean coord) {
+            ClientSchema schema) {
         assert provider != null;
 
         if (partitions == null || partitions.isEmpty()) {
@@ -899,7 +1058,7 @@ public class ClientTable implements Table {
             return new PartitionMapping(tableId, node, partition);
         }
 
-        Integer hash = provider.getObjectHashCode(schema, coord);
+        Integer hash = provider.getObjectHashCode(schema);
         if (hash == null) {
             return null;
         }
