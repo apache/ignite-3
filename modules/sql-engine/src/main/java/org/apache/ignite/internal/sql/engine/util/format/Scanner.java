@@ -38,7 +38,7 @@ final class Scanner {
     static {
         FIELDS_BY_PATTERN = new HashMap<>();
         for (var field : DateTimeTemplateField.values()) {
-            FIELDS_BY_PATTERN.put(field.asPattern(), field);
+            FIELDS_BY_PATTERN.put(field.pattern(), field);
         }
     }
 
@@ -63,7 +63,7 @@ final class Scanner {
         this.pattern = pattern.toUpperCase(Locale.US);
     }
 
-    List<DateTimeFormatElement> parse() {
+    List<DateTimeFormatElement> scan() {
         while (!atEnd()) {
             start = current;
             scanToken();
@@ -89,47 +89,90 @@ final class Scanner {
             case ';':
             case ':':
             case ' ':
-                addToken(ElementKind.DELIMITER);
+                addDelimiter(c);
                 break;
             default:
                 if (isAlpha(c)) {
-                    field();
+                    addField(c);
                 } else {
                     throw formatError("Unexpected character <{}> in pattern <{}>", c, pattern);
                 }
         }
     }
 
-    private void field() {
-        if (match("YYYY") || match("YYY") || match("YY") || match("Y")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("RRRR") || match("RR")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("MM")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("DDD") || match("DD")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("HH24") || match("HH12") || match("HH")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("MI")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("SSSSS") || match("SS")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("FF1") || match("FF2") || match("FF3")
-                || match("FF4") || match("FF5") || match("FF6")
-                || match("FF7") || match("FF8") || match("FF9")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("A.M.") || match("P.M.")) {
-            addToken(ElementKind.FIELD);
-        } else if (match("TZH") || match("TZM")) {
-            addToken(ElementKind.FIELD);
-        } else {
-            // Consume unexpected field
-            while (isAlphaNumeric(peek())) {
-                advance();
+    private void addField(char c) {
+        switch (c) {
+            case 'Y': {
+                if (match("YYYY") || match("YYY") || match("YY") || match("Y")) {
+                    doAddField();
+                    return;
+                }
+                break;
             }
-            throw formatError("Unexpected element <{}> in pattern <{}>", pattern.substring(start, current), pattern);
+            case 'R': {
+                if (match("RRRR") || match("RR")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            case 'M': {
+                if (match("MM") || match("MI")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            case 'D': {
+                if (match("DDD") || match("DD")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            case 'H': {
+                if (match("HH24") || match("HH12") || match("HH")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            case 'S': {
+                if (match("SSSSS") || match("SS")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            case 'F': {
+                if (match("FF1") || match("FF2") || match("FF3")
+                        || match("FF4") || match("FF5") || match("FF6")
+                        || match("FF7") || match("FF8") || match("FF9")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            case 'T': {
+                if (match("TZH") || match("TZM")) {
+                    doAddField();
+                    return;
+                }
+                break;
+            }
+            default:
+                if (match("A.M.") || match("P.M.")) {
+                    doAddField();
+                    return;
+                }
         }
+
+        // Consume unexpected field
+        while (isAlphaNumeric(peek())) {
+            advance();
+        }
+
+        throw formatError("Unexpected element <{}> in pattern <{}>", pattern.substring(start, current), pattern);
     }
 
     private boolean match(String text) {
@@ -175,24 +218,7 @@ final class Scanner {
         }
     }
 
-    private void addToken(ElementKind elementKind) {
-        String token = pattern.substring(start, current);
-
-        switch (elementKind) {
-            case DELIMITER:
-                addDelimiter(token);
-                break;
-            case FIELD:
-                addField(token);
-                break;
-            default:
-                throw new IllegalStateException("Unexpected element: " + elementKind);
-        }
-    }
-
-    private void addDelimiter(String token) {
-        assert token.length() == 1 : "Delimiter is always a single character";
-
+    private void addDelimiter(char c) {
         // Syntax rules 3) Ensure there are no consecutive delimiters.
         if (!elements.isEmpty()) {
             DateTimeFormatElement e = elements.get(elements.size() - 1);
@@ -201,10 +227,12 @@ final class Scanner {
             }
         }
 
-        elements.add(new DateTimeFormatElement(token.charAt(0)));
+        elements.add(new DateTimeFormatElement(c));
     }
 
-    private void addField(String token) {
+    private void doAddField() {
+        String token = pattern.substring(start, current);
+
         DateTimeTemplateField field = FIELDS_BY_PATTERN.get(token);
         if (field == null) {
             throw formatError("Unexpected field <{}>", token);

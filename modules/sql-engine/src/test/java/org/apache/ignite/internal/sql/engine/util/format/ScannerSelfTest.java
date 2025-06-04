@@ -139,7 +139,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
                 pattern.append(delimiter);
                 expected.add(new DateTimeFormatElement(delimiter));
             }
-            pattern.append(f.asPattern());
+            pattern.append(f.pattern());
             expected.add(new DateTimeFormatElement(f));
         }
 
@@ -161,7 +161,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
     @MethodSource("invalidPatterns")
     public void testRejectInvalidPattern(String pattern, String error) {
         Scanner scanner = new Scanner(pattern);
-        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, scanner::parse);
+        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, scanner::scan);
         assertThat(err.getMessage(), containsString(error));
     }
 
@@ -187,18 +187,18 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         boolean checkConsecutive = field != Y && field != YY && field != RR && field != DD;
 
         if (checkConsecutive) {
-            String pattern = field.asPattern() + field.asPattern();
+            String pattern = field.pattern() + field.pattern();
 
             DateTimeFormatException err = assertThrows(DateTimeFormatException.class,
-                    () -> new Scanner(pattern).parse());
+                    () -> new Scanner(pattern).scan());
             assertThat(err.getMessage(), containsString("Element is already present: " + field.kind()));
         }
 
         {
-            String pattern = field.asPattern() + " " + field.asPattern();
+            String pattern = field.pattern() + " " + field.pattern();
 
             DateTimeFormatException err = assertThrows(DateTimeFormatException.class,
-                    () -> new Scanner(pattern).parse());
+                    () -> new Scanner(pattern).scan());
             assertThat(err.getMessage(), containsString("Element is already present: " + field.kind()));
         }
     }
@@ -213,7 +213,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         Collections.shuffle(shuffledFields, random);
 
         for (DateTimeTemplateField f : shuffledFields) {
-            pattern.append(f.asPattern());
+            pattern.append(f.pattern());
             expected.add(new DateTimeFormatElement(f));
         }
 
@@ -240,7 +240,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
                     expected.add(new DateTimeFormatElement(delimiter));
                 }
             }
-            pattern.append(f.asPattern());
+            pattern.append(f.pattern());
             expected.add(new DateTimeFormatElement(f));
         }
 
@@ -310,7 +310,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
 
     private static void expectParsed(String pattern, List<DateTimeFormatElement> expected) {
         Scanner scanner = new Scanner(pattern);
-        List<DateTimeFormatElement> actual = scanner.parse();
+        List<DateTimeFormatElement> actual = scanner.scan();
         assertEquals(expected, actual);
     }
 
@@ -333,7 +333,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         log.info("Updated pattern: {}", updated);
 
         DateTimeFormatException err = assertThrows(DateTimeFormatException.class,
-                () -> new Scanner(updated).parse());
+                () -> new Scanner(updated).scan());
         assertThat(err.getMessage(), containsString("Unexpected character "));
     }
 
@@ -466,7 +466,7 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
         log.info("Pattern: {}", shuffled);
 
         Scanner scanner = new Scanner(pattern);
-        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, scanner::parse);
+        DateTimeFormatException err = assertThrows(DateTimeFormatException.class, scanner::scan);
         assertThat(err.getMessage(), containsString(error));
     }
 }
