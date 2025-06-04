@@ -19,15 +19,18 @@ package org.apache.ignite.internal.benchmark;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -81,6 +84,12 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Param({"uniquePrefix", "uniquePostfix"})
     private String fieldValueGeneration;
 
+    @Param({"false", "true"})
+    private boolean usePendingRowsTree;
+
+    @Param({"false", "true"})
+    private boolean withTx;
+
     private static final AtomicInteger COUNTER = new AtomicInteger();
 
     private static final ThreadLocal<Integer> GEN = ThreadLocal.withInitial(() -> COUNTER.getAndIncrement() * 20_000_000);
@@ -89,6 +98,7 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     public void nodeSetUp() throws Exception {
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
         System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
+        System.setProperty("IGNITE_USE_PENDING_ROWS_TREE", Boolean.toString(usePendingRowsTree));
         super.nodeSetUp();
     }
 
@@ -137,12 +147,14 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
      */
     @Benchmark
     public void upsert() {
+        Transaction tx = withTx ? igniteImpl.transactions().begin() : null;
+
         List<CompletableFuture<Void>> futs = new ArrayList<>();
 
         for (int i = 0; i < batch - 1; i++) {
             int id = nextId();
 
-            CompletableFuture<Void> fut = kvView.putAsync(null, Tuple.create().set("ycsb_key", id), valueTuple(id));
+            CompletableFuture<Void> fut = kvView.putAsync(tx, Tuple.create().set("ycsb_key", id), valueTuple(id));
             futs.add(fut);
         }
 
@@ -150,7 +162,11 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
         int id = nextId();
 
-        kvView.put(null, Tuple.create().set("ycsb_key", id), valueTuple(id));
+        kvView.put(tx, Tuple.create().set("ycsb_key", id), valueTuple(id));
+
+        if (withTx) {
+            tx.commit();
+        }
     }
 
     private int nextId() {
@@ -190,5 +206,10 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
     @Override
     protected int replicaCount() {
         return 1;
+    }
+
+    @Override
+    protected Path workDir() throws Exception {
+        return Path.of("D:", "tmpDirPrefix" + ThreadLocalRandom.current().nextInt());
     }
 }
