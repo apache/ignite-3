@@ -28,7 +28,7 @@ namespace Apache.Ignite.Sql
     public interface ISql
     {
         /// <summary>
-        /// Executes single SQL statement and returns rows as tuples (<see cref="IIgniteTuple"/>).
+        /// Executes a single SQL statement and returns rows as tuples (<see cref="IIgniteTuple"/>).
         /// </summary>
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="statement">Statement to execute.</param>
@@ -37,7 +37,7 @@ namespace Apache.Ignite.Sql
         Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args);
 
         /// <summary>
-        /// Executes single SQL statement and returns rows deserialized into the specified user type <typeparamref name="T"/>.
+        /// Executes a single SQL statement and returns rows deserialized into the specified user type <typeparamref name="T"/>.
         /// </summary>
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="statement">Statement to execute.</param>
@@ -47,7 +47,7 @@ namespace Apache.Ignite.Sql
         Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args);
 
         /// <summary>
-        /// Executes single SQL statement and returns a <see cref="DbDataReader"/> to consume them in an efficient, forward-only way.
+        /// Executes a single SQL statement and returns a <see cref="DbDataReader"/> to consume them in an efficient, forward-only way.
         /// </summary>
         /// <param name="transaction">Optional transaction.</param>
         /// <param name="statement">Statement to execute.</param>
