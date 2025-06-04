@@ -656,7 +656,8 @@ namespace Apache.Ignite.Internal
         private async Task<PooledBuffer> DoOutInOpAsyncInternal(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             var ex = _exception;
 

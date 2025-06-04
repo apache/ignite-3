@@ -156,12 +156,14 @@ namespace Apache.Ignite.Internal
         /// <param name="request">Request data.</param>
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             var (buffer, _) = await DoOutInOpAndGetSocketAsync(
                     clientOp,
@@ -169,7 +171,8 @@ namespace Apache.Ignite.Internal
                     request,
                     preferredNode,
                     retryPolicyOverride: null,
-                    expectNotifications)
+                    expectNotifications,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
             return buffer;
@@ -184,6 +187,7 @@ namespace Apache.Ignite.Internal
         /// <param name="preferredNode">Preferred node.</param>
         /// <param name="retryPolicyOverride">Retry policy.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data and socket.</returns>
         public async Task<(PooledBuffer Buffer, ClientSocket Socket)> DoOutInOpAndGetSocketAsync(
             ClientOp clientOp,
@@ -191,7 +195,8 @@ namespace Apache.Ignite.Internal
             PooledArrayBuffer? request = null,
             PreferredNode preferredNode = default,
             IRetryPolicy? retryPolicyOverride = null,
-            bool expectNotifications = false)
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default)
         {
             if (tx != null)
             {

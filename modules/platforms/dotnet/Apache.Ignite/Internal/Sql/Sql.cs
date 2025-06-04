@@ -92,7 +92,8 @@ namespace Apache.Ignite.Internal.Sql
 
             try
             {
-                using var buf = await _socket.DoOutInOpAsync(ClientOp.SqlExecScript, bufferWriter).ConfigureAwait(false);
+                using var buf = await _socket.DoOutInOpAsync(
+                    ClientOp.SqlExecScript, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
             catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
             {
