@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Sql
     using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Sql;
     using Ignite.Table;
@@ -457,6 +458,7 @@ namespace Apache.Ignite.Tests.Sql
                 "DELETE FROM TestExecuteScript;" +
                 "INSERT INTO TestExecuteScript VALUES (?, ?); " +
                 "INSERT INTO TestExecuteScript VALUES (?, ?);",
+                CancellationToken.None,
                 id,
                 "a",
                 id + 1,

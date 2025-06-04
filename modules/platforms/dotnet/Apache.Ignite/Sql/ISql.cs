@@ -35,7 +35,18 @@ namespace Apache.Ignite.Sql
         /// <param name="statement">Statement to execute.</param>
         /// <param name="args">Arguments for the statement.</param>
         /// <returns>SQL result set.</returns>
-        Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args);
+        Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args)
+            => ExecuteAsync(transaction, statement, CancellationToken.None, args);
+
+        /// <summary>
+        /// Executes a single SQL statement and returns rows as tuples (<see cref="IIgniteTuple"/>).
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <returns>SQL result set.</returns>
+        Task<IResultSet<IIgniteTuple>> ExecuteAsync(ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args);
 
         /// <summary>
         /// Executes a single SQL statement and returns rows deserialized into the specified user type <typeparamref name="T"/>.
@@ -45,7 +56,21 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments for the statement.</param>
         /// <typeparam name="T">Row type.</typeparam>
         /// <returns>SQL result set.</returns>
-        Task<IResultSet<T>> ExecuteAsync<T>(ITransaction? transaction, SqlStatement statement, params object?[]? args);
+        Task<IResultSet<T>> ExecuteAsync<T>(
+            ITransaction? transaction, SqlStatement statement, params object?[]? args)
+            => ExecuteAsync<T>(transaction, statement, CancellationToken.None, args);
+
+        /// <summary>
+        /// Executes a single SQL statement and returns rows deserialized into the specified user type <typeparamref name="T"/>.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <typeparam name="T">Row type.</typeparam>
+        /// <returns>SQL result set.</returns>
+        Task<IResultSet<T>> ExecuteAsync<T>(
+            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args);
 
         /// <summary>
         /// Executes a single SQL statement and returns a <see cref="DbDataReader"/> to consume them in an efficient, forward-only way.
@@ -54,7 +79,20 @@ namespace Apache.Ignite.Sql
         /// <param name="statement">Statement to execute.</param>
         /// <param name="args">Arguments for the statement.</param>
         /// <returns>Data reader.</returns>
-        Task<IgniteDbDataReader> ExecuteReaderAsync(ITransaction? transaction, SqlStatement statement, params object?[]? args);
+        Task<IgniteDbDataReader> ExecuteReaderAsync(
+            ITransaction? transaction, SqlStatement statement, params object?[]? args)
+            => ExecuteReaderAsync(transaction, statement, CancellationToken.None, args);
+
+        /// <summary>
+        /// Executes a single SQL statement and returns a <see cref="DbDataReader"/> to consume them in an efficient, forward-only way.
+        /// </summary>
+        /// <param name="transaction">Optional transaction.</param>
+        /// <param name="statement">Statement to execute.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="args">Arguments for the statement.</param>
+        /// <returns>Data reader.</returns>
+        Task<IgniteDbDataReader> ExecuteReaderAsync(
+            ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args);
 
         /// <summary>
         /// Executes a multi-statement SQL query.
@@ -62,7 +100,8 @@ namespace Apache.Ignite.Sql
         /// <param name="script">Script.</param>
         /// <param name="args">Arguments.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
-        Task ExecuteScriptAsync(SqlStatement script, params object?[]? args);
+        Task ExecuteScriptAsync(SqlStatement script, params object?[]? args)
+            => ExecuteScriptAsync(script, CancellationToken.None, args);
 
         /// <summary>
         /// Executes a multi-statement SQL query.
