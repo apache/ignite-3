@@ -15,38 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.metastorage.dsl;
+package org.apache.ignite.internal.sql.engine.util.format;
 
 /**
- * Type of compound condition.
+ * Exception indicating an error with a date/time formatting.
  */
-public enum CompoundConditionType {
-    AND(0),
-    OR(1);
+final class DateTimeFormatException extends RuntimeException {
+    private static final long serialVersionUID = 7351496651746646434L;
 
-
-    private final int id;
-
-    CompoundConditionType(int id) {
-        this.id = id;
+    DateTimeFormatException(String message) {
+        super(message);
     }
 
-    /**
-     * Returns the enumerated value from its id.
-     *
-     * @param id Id of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by id.
-     */
-    public static CompoundConditionType fromId(int id) throws IllegalArgumentException {
-        switch (id) {
-            case 0: return AND;
-            case 1: return OR;
-            default:
-                throw new IllegalArgumentException("No enum constant from id: " + id);
-        }
-    }
-
-    public int id() {
-        return id;
+    DateTimeFormatException(String message, Throwable cause) {
+        super(message, cause);
     }
 }

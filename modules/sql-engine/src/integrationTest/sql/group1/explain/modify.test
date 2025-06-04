@@ -1,38 +1,11 @@
+# description: Tests for printout of variants of TableModify operator.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
 statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
-
-# insert single tuple with literals
-plan
-INSERT INTO test_table VALUES (1, 2, 3)
-----
-KeyValueModify
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [ROWCOUNT]
-    sourceExpression: [1, 2, 3]
-    type: INSERT
-    est: (rows=1)
-
-# insert single tuple with literals different order
-plan
-INSERT INTO test_table (c2, c3, c1) VALUES (1, 2, 3)
-----
-KeyValueModify
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [ROWCOUNT]
-    sourceExpression: [3, 1, 2]
-    type: INSERT
-    est: (rows=1)
-
-# insert single tuple mixed
-plan
-INSERT INTO test_table VALUES (1, LENGTH(rand_uuid()::VARCHAR), 3)
-----
-KeyValueModify
-    table: PUBLIC.TEST_TABLE
-    fieldNames: [ROWCOUNT]
-    sourceExpression: [1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL), 3]
-    type: INSERT
-    est: (rows=1)
 
 # insert multiple tuples with literals
 plan

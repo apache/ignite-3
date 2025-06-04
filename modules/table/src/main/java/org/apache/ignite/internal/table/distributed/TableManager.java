@@ -3010,8 +3010,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table) {
         var internalTbl = (InternalTableImpl) table.internalTable();
 
+        destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
+    }
+
+    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, boolean isVolatileStorage) {
         try {
-            replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
+            replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, isVolatileStorage);
         } catch (NodeStoppingException e) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
@@ -3212,20 +3216,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         for (DroppedTableInfo droppedTableInfo : droppedTables(catalogService, lowWatermark.getLowWatermark())) {
             int catalogVersion = droppedTableInfo.tableRemovalCatalogVersion() - 1;
 
-            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(droppedTableInfo.tableId());
+            Catalog catalog = catalogService.catalog(catalogVersion);
 
+            CatalogTableDescriptor tableDescriptor = catalog.table(droppedTableInfo.tableId());
             assert tableDescriptor != null : "tableId=" + droppedTableInfo.tableId() + ", catalogVersion=" + catalogVersion;
 
-            destroyTableStorageOnRecoveryBusy(tableDescriptor);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
+            assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+
+            destroyTableOnRecoveryBusy(tableDescriptor, zoneDescriptor.partitions());
         }
     }
 
-    private void destroyTableStorageOnRecoveryBusy(CatalogTableDescriptor tableDescriptor) {
+    private void destroyTableOnRecoveryBusy(CatalogTableDescriptor tableDescriptor, int partitionCount) {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
-
         assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
         engine.dropMvTable(tableDescriptor.id());
+
+        sharedTxStateStorage.destroyStorage(tableDescriptor.id());
+
+        for (int partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++) {
+            destroyReplicationProtocolStorages(new TablePartitionId(tableDescriptor.id(), partitionIndex), engine.isVolatile());
+        }
     }
 
     private synchronized ScheduledExecutorService streamerFlushExecutor() {

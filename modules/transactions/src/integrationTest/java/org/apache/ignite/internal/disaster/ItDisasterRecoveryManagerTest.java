@@ -41,6 +41,7 @@ import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
 import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.partition.replicator.network.disaster.LocalPartitionStateEnum;
 import org.apache.ignite.internal.placementdriver.ReplicaMeta;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
@@ -56,12 +57,11 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.wrapper.Wrapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.condition.DisabledIf;
-import org.junit.jupiter.api.condition.EnabledIf;
 
 /** For {@link DisasterRecoveryManager} integration testing. */
 // TODO https://issues.apache.org/jira/browse/IGNITE-22332 Add test cases.
@@ -104,7 +104,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
     }
 
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
     @Test
     void testRestartTablePartitions() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -132,7 +132,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     void testRestartZonePartitions() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
@@ -193,7 +193,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
     void testLocalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
@@ -266,7 +266,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
     }
 
     @Test
-    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "true")
     @ZoneParams(nodes = 2, replicas = 2, partitions = 2)
     void testGlobalPartitionStateZone() throws Exception {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
