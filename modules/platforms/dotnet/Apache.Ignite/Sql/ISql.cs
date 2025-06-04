@@ -18,6 +18,7 @@
 namespace Apache.Ignite.Sql
 {
     using System.Data.Common;
+    using System.Threading;
     using System.Threading.Tasks;
     using Table;
     using Transactions;
@@ -62,5 +63,14 @@ namespace Apache.Ignite.Sql
         /// <param name="args">Arguments.</param>
         /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
         Task ExecuteScriptAsync(SqlStatement script, params object?[]? args);
+
+        /// <summary>
+        /// Executes a multi-statement SQL query.
+        /// </summary>
+        /// <param name="script">Script.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <param name="args">Arguments.</param>
+        /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+        Task ExecuteScriptAsync(SqlStatement script, CancellationToken cancellationToken, params object?[]? args);
     }
 }

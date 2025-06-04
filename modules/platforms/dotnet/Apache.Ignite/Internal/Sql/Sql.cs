@@ -19,6 +19,7 @@ namespace Apache.Ignite.Internal.Sql
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -77,6 +78,12 @@ namespace Apache.Ignite.Internal.Sql
 
         /// <inheritdoc/>
         public async Task ExecuteScriptAsync(SqlStatement script, params object?[]? args)
+        {
+            await ExecuteScriptAsync(script, CancellationToken.None, args).ConfigureAwait(false);
+        }
+
+        /// <inheritdoc/>
+        public async Task ExecuteScriptAsync(SqlStatement script, CancellationToken cancellationToken, params object?[]? args)
         {
             IgniteArgumentCheck.NotNull(script);
 
