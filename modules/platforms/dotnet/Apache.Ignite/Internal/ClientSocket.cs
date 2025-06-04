@@ -695,7 +695,7 @@ namespace Apache.Ignite.Internal
 
             try
             {
-                await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+                await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
 
                 await using var cancellation = RegisterCancellation(requestId, cancellationToken);
 
@@ -714,7 +714,7 @@ namespace Apache.Ignite.Internal
 
                 _notificationHandlers.TryRemove(requestId, out _);
 
-                if (e is OperationCanceledException or ObjectDisposedException)
+                if (!cancellationToken.IsCancellationRequested && e is OperationCanceledException or ObjectDisposedException)
                 {
                     // Canceled task means Dispose was called.
                     throw new IgniteClientConnectionException(ErrorGroups.Client.Connection, "Connection closed.", e);
@@ -750,7 +750,11 @@ namespace Apache.Ignite.Internal
             "Microsoft.Design",
             "CA1031:DoNotCatchGeneralExceptionTypes",
             Justification = "Any exception during socket write should be handled to close the socket.")]
-        private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
+        private async ValueTask SendRequestAsync(
+            PooledArrayBuffer? request,
+            ClientOp op,
+            long requestId,
+            CancellationToken cancellationToken = default)
         {
             // Reset heartbeat timer - don't send heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
@@ -758,6 +762,9 @@ namespace Apache.Ignite.Internal
             _logger.LogSendingRequestTrace(requestId, op, ConnectionContext.ClusterNode.Address);
 
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
+
+            // Last chance check for cancellation.
+            cancellationToken.ThrowIfCancellationRequested();
 
             try
             {
