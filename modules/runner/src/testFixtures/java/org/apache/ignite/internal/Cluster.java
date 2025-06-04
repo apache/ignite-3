@@ -355,7 +355,7 @@ public class Cluster {
         return clusterConfiguration.baseHttpPort() + nodeIndex;
     }
 
-    private static <T> void setListAtIndex(List<T> list, int i, T element) {
+    public static <T> void setListAtIndex(List<T> list, int i, T element) {
         if (list.size() < i) {
             list.addAll(nCopies(i - list.size(), null));
         }
