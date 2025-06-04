@@ -145,7 +145,7 @@ class CheckpointWorkflow {
         if (checkpointThreads > 1) {
             callbackListenerThreadPool = Executors.newFixedThreadPool(
                     checkpointThreads,
-                    new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
+                    NamedThreadFactory.create(igniteInstanceName, CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
             );
         } else {
             callbackListenerThreadPool = null;

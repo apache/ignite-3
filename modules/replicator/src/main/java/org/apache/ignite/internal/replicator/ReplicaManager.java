@@ -147,7 +147,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     /** Executor for the throttled log. */
     // TODO: IGNITE-20063 Maybe get rid of it
-    private final Executor throttledLogExecutor;
+    private final ThreadPoolExecutor throttledLogExecutor;
 
     private final IgniteThrottledLogger throttledLog;
 
@@ -292,7 +292,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 NamedThreadFactory.create(nodeName, "scheduled-idle-safe-time-sync-thread", LOG)
         );
 
-        var executor = new ThreadPoolExecutor(
+        throttledLogExecutor = new ThreadPoolExecutor(
                 1,
                 1,
                 30,
@@ -300,9 +300,7 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                 new LinkedBlockingQueue<>(),
                 NamedThreadFactory.create(nodeName, "throttled-log-replica-manager", LOG)
         );
-        executor.allowCoreThreadTimeOut(true);
-
-        throttledLogExecutor = executor;
+        throttledLogExecutor.allowCoreThreadTimeOut(true);
 
         throttledLog = Loggers.toThrottledLogger(LOG, throttledLogExecutor);
     }

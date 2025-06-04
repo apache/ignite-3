@@ -125,7 +125,7 @@ public class Compactor extends IgniteWorker {
                     30,
                     SECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory("compaction-runner-io", log)
+                    NamedThreadFactory.create(igniteInstanceName, "compaction-runner-io", log)
             );
             threadPoolExecutor.allowCoreThreadTimeOut(true);
         } else {

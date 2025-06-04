@@ -361,7 +361,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final FailureProcessor failureProcessor;
 
     /** Incoming RAFT snapshots executor. */
-    private final ExecutorService incomingSnapshotsExecutor;
+    private final ThreadPoolExecutor incomingSnapshotsExecutor;
 
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
@@ -586,7 +586,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        var executor = new ThreadPoolExecutor(
+        incomingSnapshotsExecutor = new ThreadPoolExecutor(
                 cpus,
                 cpus,
                 30,
@@ -594,9 +594,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
         );
-        executor.allowCoreThreadTimeOut(true);
-
-        incomingSnapshotsExecutor = executor;
+        incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
 

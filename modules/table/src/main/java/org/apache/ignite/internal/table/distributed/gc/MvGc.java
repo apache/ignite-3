@@ -29,7 +29,6 @@ import static org.apache.ignite.internal.util.IgniteUtils.shutdownAndAwaitTermin
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -67,7 +66,7 @@ public class MvGc implements ManuallyCloseable {
     private final GcConfiguration gcConfig;
 
     /** Garbage collection thread pool. */
-    private volatile ExecutorService executor;
+    private volatile ThreadPoolExecutor executor;
 
     /** Prevents double closing. */
     private final AtomicBoolean closeGuard = new AtomicBoolean();
@@ -103,7 +102,7 @@ public class MvGc implements ManuallyCloseable {
         inBusyLock(() -> {
             int threadCount = gcConfig.threads().value();
 
-            var threadPoolExecutor = new ThreadPoolExecutor(
+            executor = new ThreadPoolExecutor(
                     threadCount,
                     threadCount,
                     30,
@@ -111,9 +110,7 @@ public class MvGc implements ManuallyCloseable {
                     new LinkedBlockingQueue<>(),
                     IgniteThreadFactory.create(nodeName, "mv-gc", LOG, STORAGE_READ, STORAGE_WRITE)
             );
-            threadPoolExecutor.allowCoreThreadTimeOut(true);
-
-            executor = threadPoolExecutor;
+            executor.allowCoreThreadTimeOut(true);
 
             lowWatermark.listen(LOW_WATERMARK_CHANGED, fromConsumer(this::onLwmChanged));
         });
