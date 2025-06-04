@@ -749,6 +749,31 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         assertEquals(expected, resultSubscriber.items.get(0));
     }
 
+    @Test
+    public void testReceiverMarshallerMismatch() {
+        DataStreamerReceiverDescriptor<String, String, String> desc = DataStreamerReceiverDescriptor
+                .builder(MarshallingReceiver.class)
+                .build();
+
+        CompletableFuture<Void> streamerFut;
+
+        try (var publisher = new SubmissionPublisher<String>()) {
+            streamerFut = defaultTable().recordView().streamData(
+                    publisher,
+                    desc,
+                    x -> Tuple.create().set("id", 1),
+                    Function.identity(),
+                    "arg",
+                    null,
+                    null
+            );
+
+            publisher.submit("val1");
+        }
+
+        assertThat(streamerFut, willCompleteSuccessfully());
+    }
+
     private Tuple receiverTupleRoundTrip(Tuple tuple, boolean asArg) {
         CompletableFuture<Void> streamerFut;
         var resultSubscriber = new TestSubscriber<Tuple>();
