@@ -404,7 +404,7 @@ public class ClientSql implements IgniteSql {
         long correlationToken = ch.requestId();
 
         Runnable cancelAction = () -> ch.clientChannel()
-                .serviceAsync(ClientOp.SQL_CANCEL_EXEC, w -> w.out().packLong(correlationToken), null)
+                .serviceAsync(ClientOp.OPERATION_CANCEL, w -> w.out().packLong(correlationToken), null)
                 .whenComplete((r, e) -> {
                     if (e != null) {
                         cancelFuture.completeExceptionally(e);

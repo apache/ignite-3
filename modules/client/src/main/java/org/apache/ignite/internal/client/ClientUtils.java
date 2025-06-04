@@ -199,7 +199,7 @@ public class ClientUtils {
             case ClientOp.PRIMARY_REPLICAS_GET:
                 return ClientOperationType.PRIMARY_REPLICAS_GET;
 
-            case ClientOp.SQL_CANCEL_EXEC:
+            case ClientOp.OPERATION_CANCEL:
                 // The request is used to cancel queries initiated with a particular connection,
                 // and these requests are terminated when the connection is lost.
                 return null;
