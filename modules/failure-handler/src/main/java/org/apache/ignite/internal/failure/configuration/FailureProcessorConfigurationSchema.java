@@ -45,7 +45,7 @@ public class FailureProcessorConfigurationSchema {
      * The default is 10 seconds. The {@code 0} value means that throttling is disabled.
      */
     @Value(hasDefault = true)
-    public long dumpThreadsThrottlingTimeoutMillis = 10_000;
+    public long dumpThreadsThrottlingTimeoutMillis = 120_000;
 
     @ConfigValue
     public FailureHandlerConfigurationSchema handler;
