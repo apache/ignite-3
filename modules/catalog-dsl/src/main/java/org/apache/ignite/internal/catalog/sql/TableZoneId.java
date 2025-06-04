@@ -17,23 +17,24 @@
 
 package org.apache.ignite.internal.catalog.sql;
 
+import org.apache.ignite.table.QualifiedName;
 import org.jetbrains.annotations.Nullable;
 
 /**
  * Composite class for table and zone names.
  */
 public class TableZoneId {
-    private final String tableName;
+    private final QualifiedName tableName;
 
     @Nullable
     private final String zoneName;
 
-    public TableZoneId(String tableName, @Nullable String zoneName) {
+    public TableZoneId(QualifiedName tableName, @Nullable String zoneName) {
         this.tableName = tableName;
         this.zoneName = zoneName;
     }
 
-    public String tableName() {
+    public QualifiedName tableName() {
         return tableName;
     }
 

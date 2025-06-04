@@ -32,6 +32,7 @@ import java.util.function.UnaryOperator;
 import org.apache.calcite.rel.RelNode;
 import org.apache.calcite.rel.core.AggregateCall;
 import org.apache.calcite.sql.fun.SqlSingleValueAggFunction;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.framework.TestBuilders.TableBuilder;
 import org.apache.ignite.internal.sql.engine.rel.IgniteAggregate;
 import org.apache.ignite.internal.sql.engine.rel.agg.IgniteReduceAggregateBase;
@@ -1029,11 +1030,11 @@ public abstract class AbstractAggregatePlannerTest extends AbstractPlannerTest {
     }
 
     private static IgniteDistribution hash() {
-        return IgniteDistributions.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(0, nextTableId(), DEFAULT_ZONE_ID);
     }
 
     private static IgniteDistribution hash(int... keys) {
-        return IgniteDistributions.affinity(IntList.of(keys), nextTableId(), DEFAULT_ZONE_ID);
+        return TestBuilders.affinity(IntList.of(keys), nextTableId(), DEFAULT_ZONE_ID);
     }
 
     private static IgniteDistribution identity() {

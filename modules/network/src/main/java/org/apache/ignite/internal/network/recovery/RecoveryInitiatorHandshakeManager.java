@@ -42,6 +42,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
+import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -63,10 +64,10 @@ import org.jetbrains.annotations.Nullable;
 import org.jetbrains.annotations.TestOnly;
 
 /**
- * Recovery protocol handshake manager for a client (here, 'client' means 'the side that opens the connection').
+ * Recovery protocol handshake manager for an initiator (here, 'initiator' means 'the side that opens the connection').
  */
-public class RecoveryClientHandshakeManager implements HandshakeManager {
-    private static final IgniteLogger LOG = Loggers.forClass(RecoveryClientHandshakeManager.class);
+public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
+    private static final IgniteLogger LOG = Loggers.forClass(RecoveryInitiatorHandshakeManager.class);
 
     /** Message factory. */
     private static final NetworkMessagesFactory MESSAGE_FACTORY = new NetworkMessagesFactory();
@@ -122,7 +123,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
      * @param stopping Defines whether the corresponding connection manager is stopping.
      * @param productVersionSource Source of product version.
      */
-    public RecoveryClientHandshakeManager(
+    public RecoveryInitiatorHandshakeManager(
             ClusterNode localNode,
             short connectionId,
             RecoveryDescriptorProvider recoveryDescriptorProvider,
@@ -177,13 +178,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     @Override
     public void onConnectionOpen() {
         // Sending a probe to make sure we detect a channel that ends up in a strange state upon creation:
-        // the client sees it as a normally open channel, but the server (at least, Netty) did not even notice that it accepted it.
-        // This happens if the client tries to connect a server that is stopping its network (and closing its server socket) just
+        // the initiator sees it as a normally open channel, but the acceptor (at least, Netty) did not even notice that it accepted it.
+        // This happens if the initiator tries to connect a acceptor that is stopping its network (and closing its server socket) just
         // the same exact moment, but then starts its network (binding to the port again) still staying in the same OS process.
-        sendProbeToServer();
+        sendProbeToAcceptor();
     }
 
-    private void sendProbeToServer() {
+    private void sendProbeToAcceptor() {
         ProbeMessage probe = MESSAGE_FACTORY.probeMessage().build();
 
         toCompletableFuture(channel.writeAndFlush(new OutNetworkObject(probe, List.of(), false))).whenComplete((res, ex) -> {
@@ -213,7 +214,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
-        assert recoveryDescriptor != null : "Wrong client handshake flow, message is " + message;
+        assert recoveryDescriptor != null : "Wrong initiator handshake flow, message is " + message;
         assert recoveryDescriptor.holderChannel() == channel : "Expected " + channel + " but was " + recoveryDescriptor.holderChannel()
                 + ", message is " + message;
 
@@ -261,7 +262,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
             return;
         }
 
-        this.remoteNode = handshakeStartMessage.serverNode().asClusterNode();
+        this.remoteNode = handshakeStartMessage.acceptorNode().asClusterNode();
 
         ChannelKey channelKey = new ChannelKey(remoteNode.name(), remoteNode.id(), connectionId);
         switchEventLoopIfNeeded(channel, channelKey, channelEventLoopsSource, () -> proceedAfterSavingIds(handshakeStartMessage));
@@ -304,19 +305,19 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     }
 
     private boolean possiblyRejectHandshakeStart(HandshakeStartMessage message) {
-        if (message.serverNode().id().equals(localNode.id())) {
+        if (message.acceptorNode().id().equals(localNode.id())) {
             handleLoopConnection(message);
 
             return true;
         }
 
-        if (staleIdDetector.isIdStale(message.serverNode().id())) {
-            handleStaleServerId(message);
+        if (staleIdDetector.isIdStale(message.acceptorNode().id())) {
+            handleStaleAcceptorId(message);
 
             return true;
         }
 
-        if (clusterIdMismatch(message.serverClusterId(), clusterIdSupplier.clusterId())) {
+        if (clusterIdMismatch(message.acceptorClusterId(), clusterIdSupplier.clusterId())) {
             handleClusterIdMismatch(message);
 
             return true;
@@ -345,12 +346,12 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void handleLoopConnection(HandshakeStartMessage msg) {
         String message = String.format(
-                "Got handshake start from self, this should never happen; this is a programming error [localNode=%s, serverNode=%s]",
+                "Got handshake start from self, this should never happen; this is a programming error [localNode=%s, acceptorNode=%s]",
                 localNode,
-                msg.serverNode()
+                msg.acceptorNode()
         );
 
-        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, HandshakeException::new);
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, CriticalHandshakeException::new);
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {
@@ -360,13 +361,13 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         );
     }
 
-    private static boolean clusterIdMismatch(@Nullable UUID serverClusterId, @Nullable UUID clientClusterId) {
-        return serverClusterId != null && clientClusterId != null && !serverClusterId.equals(clientClusterId);
+    private static boolean clusterIdMismatch(@Nullable UUID acceptorClusterId, @Nullable UUID initiatorClusterId) {
+        return acceptorClusterId != null && initiatorClusterId != null && !acceptorClusterId.equals(initiatorClusterId);
     }
 
-    private void handleStaleServerId(HandshakeStartMessage msg) {
-        String message = String.format("%s:%s is stale, server should be restarted so that clients can connect",
-                msg.serverNode().name(), msg.serverNode().id()
+    private void handleStaleAcceptorId(HandshakeStartMessage msg) {
+        String message = String.format("%s:%s is stale, node should be restarted so that other nodes can connect",
+                msg.acceptorNode().name(), msg.acceptorNode().id()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STALE_LAUNCH_ID, HandshakeException::new);
@@ -375,7 +376,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
     private void handleClusterIdMismatch(HandshakeStartMessage msg) {
         String message = String.format(
                 "%s:%s belongs to cluster %s which is different from this one %s, connection rejected; should CMG/MG repair be finished?",
-                msg.serverNode().name(), msg.serverNode().id(), msg.serverClusterId(), clusterIdSupplier.clusterId()
+                msg.acceptorNode().name(), msg.acceptorNode().id(), msg.acceptorClusterId(), clusterIdSupplier.clusterId()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.CLUSTER_ID_MISMATCH, HandshakeException::new);
@@ -383,7 +384,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void handleProductNameMismatch(HandshakeStartMessage msg) {
         String message = String.format("%s:%s runs product '%s' which is different from this one '%s', connection rejected",
-                msg.serverNode().name(), msg.serverNode().id(), msg.productName(), productVersionSource.productName()
+                msg.acceptorNode().name(), msg.acceptorNode().id(), msg.productName(), productVersionSource.productName()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.PRODUCT_MISMATCH, HandshakeException::new);
@@ -391,7 +392,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void handleProductVersionMismatch(HandshakeStartMessage msg) {
         String message = String.format("%s:%s runs product version '%s' which is different from this one '%s', connection rejected",
-                msg.serverNode().name(), msg.serverNode().id(), msg.productVersion(), productVersionSource.productVersion()
+                msg.acceptorNode().name(), msg.acceptorNode().id(), msg.productVersion(), productVersionSource.productVersion()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.VERSION_MISMATCH, HandshakeException::new);
@@ -399,7 +400,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void handleRefusalToEstablishConnectionDueToStopping(HandshakeStartMessage msg) {
         String message = String.format("%s:%s tried to establish a connection with %s, but it's stopping",
-                msg.serverNode().name(), msg.serverNode().id(), localNode.name()
+                msg.acceptorNode().name(), msg.acceptorNode().id(), localNode.name()
         );
 
         sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.STOPPING, m -> new NodeStoppingException());
@@ -421,9 +422,9 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
 
     private void onHandshakeRejectedMessage(HandshakeRejectedMessage msg) {
         if (!stopping.getAsBoolean() && msg.reason().logAsWarn()) {
-            LOG.warn("Handshake rejected by server: {}", msg.message());
+            LOG.warn("Handshake rejected by acceptor: {}", msg.message());
         } else {
-            LOG.debug("Handshake rejected by server: {}", msg.message());
+            LOG.debug("Handshake rejected by acceptor: {}", msg.message());
         }
 
         if (msg.reason() == HandshakeRejectionReason.CLINCH) {
@@ -474,7 +475,7 @@ public class RecoveryClientHandshakeManager implements HandshakeManager {
         PipelineUtils.afterHandshake(ctx.pipeline(), descriptor, createMessageHandler(), MESSAGE_FACTORY);
 
         HandshakeStartResponseMessage response = MESSAGE_FACTORY.handshakeStartResponseMessage()
-                .clientNode(clusterNodeToMessage(localNode))
+                .initiatorNode(clusterNodeToMessage(localNode))
                 .receivedCount(descriptor.receivedCount())
                 .connectionId(connectionId)
                 .build();

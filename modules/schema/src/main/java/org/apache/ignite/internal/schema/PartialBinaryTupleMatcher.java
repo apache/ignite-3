@@ -84,9 +84,10 @@ public class PartialBinaryTupleMatcher {
 
         assert !isBuffer1Prefix : "An inline tuple must not contain a prefix.";
 
-        BinaryTupleReader tuple1 = new BinaryTuple(numElements, buffer1);
+        BinaryTupleReader tuple1 = new BinaryTuple(numElements, buffer1, UnsafeByteBufferAccessor::new);
 
-        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2) : new BinaryTuple(numElements, buffer2);
+        BinaryTupleReader tuple2 = isBuffer2Prefix ? new BinaryTuplePrefix(numElements, buffer2)
+                : new BinaryTuple(numElements, buffer2, UnsafeByteBufferAccessor::new);
 
         int columnsToCompare = Math.min(tuple1.elementCount(), tuple2.elementCount());
 

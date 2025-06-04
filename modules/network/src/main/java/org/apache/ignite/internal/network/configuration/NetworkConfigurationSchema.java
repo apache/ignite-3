@@ -56,11 +56,11 @@ public class NetworkConfigurationSchema {
     @Value(hasDefault = true)
     public final long shutdownTimeoutMillis = 15_000;
 
-    /** Server configuration. */
+    /** Inbound (TCP server) configuration. */
     @ConfigValue
     public InboundConfigurationSchema inbound;
 
-    /** Client configuration. */
+    /** Outbound (TCP client of server-to-server protocol) configuration. */
     @ConfigValue
     public OutboundConfigurationSchema outbound;
 

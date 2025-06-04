@@ -1,3 +1,9 @@
+# description: Tests for printout of various scan operators.
+#     Plan around these operators may change in whatever way,
+#     the only thing that must be held is an invariant described
+#     in comments to every test case.
+# group: [explain]
+
 statement ok
 CREATE TABLE test_table (c1 INT PRIMARY KEY, c2 INT, c3 INT);
 
@@ -10,7 +16,7 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      fields: [C1, C2, C3]
+      fieldNames: [C1, C2, C3]
       est: (rows=1)
 
 # select with trimming projection, no renames
@@ -22,7 +28,7 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      fields: [C1, C2]
+      fieldNames: [C1, C2]
       est: (rows=1)
 
 # select with trimming projection and renames
@@ -34,7 +40,7 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      fields: [RENAMED_C1, C2]
+      fieldNames: [RENAMED_C1, C2]
       est: (rows=1)
 
 # select with expression projection, no renames
@@ -46,8 +52,8 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      fields: [EXPR$0, C2]
-      projects: [+(C1, C3), C2]
+      fieldNames: [EXPR$0, C2]
+      projection: [+(C1, C3), C2]
       est: (rows=1)
 
 # select with expression projection and renames
@@ -59,8 +65,8 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      fields: [SUM_OF_C1_AND_C3, C2]
-      projects: [+(C1, C3), C2]
+      fieldNames: [SUM_OF_C1_AND_C3, C2]
+      projection: [+(C1, C3), C2]
       est: (rows=1)
 
 # Similar set of tests but for IndexScan
@@ -78,7 +84,7 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
-      fields: [C1, C2, C3]
+      fieldNames: [C1, C2, C3]
       collation: [C1 ASC, C2 ASC, C3 ASC]
       est: (rows=1)
 
@@ -93,7 +99,7 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
-      fields: [C1, C2]
+      fieldNames: [C1, C2]
       collation: [C1 ASC, C2 ASC]
       est: (rows=1)
 
@@ -108,8 +114,8 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
-      fields: [RENAMED_C1, C2]
-      collation: [C1 ASC, C2 ASC]
+      fieldNames: [RENAMED_C1, C2]
+      collation: [RENAMED_C1 ASC, C2 ASC]
       est: (rows=1)
 
 # select with expression projection, no renames
@@ -123,8 +129,8 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
-      fields: [EXPR$0, C2]
-      projects: [+(C1, C3), C2]
+      fieldNames: [EXPR$0, C2]
+      projection: [+(C1, C3), C2]
       collation: []
       est: (rows=1)
 
@@ -139,63 +145,10 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
-      fields: [SUM_OF_C1_AND_C3, C2]
-      projects: [+(C1, C3), C2]
+      fieldNames: [SUM_OF_C1_AND_C3, C2]
+      projection: [+(C1, C3), C2]
       collation: []
       est: (rows=1)
-
-# Similar set of tests but for KeyValueGet
-# select all, no renames
-plan
-SELECT * FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fields: [C1, C2, C3]
-    key: [1]
-    est: (rows=1)
-
-# select with trimming projection, no renames
-plan
-SELECT c1, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fields: [C1, C2]
-    key: [1]
-    est: (rows=1)
-
-# select with trimming projection and renames
-plan
-SELECT c1 AS renamed_c1, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fields: [C1, C2]
-    key: [1]
-    est: (rows=1)
-
-# select with expression projection, no renames
-plan
-SELECT c1 + c3, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fields: [EXPR$0, C2]
-    projects: [+(C1, C3), C2]
-    key: [1]
-    est: (rows=1)
-
-# select with expression projection and renames
-plan
-SELECT c1 + c3 AS sum_of_c1_and_c3, c2 FROM test_table WHERE c1 = 1
-----
-KeyValueGet
-    table: PUBLIC.TEST_TABLE
-    fields: [SUM_OF_C1_AND_C3, C2]
-    projects: [+(C1, C3), C2]
-    key: [1]
-    est: (rows=1)
 
 # Similar set of tests but for SystemViewScan
 # select all, no renames
@@ -204,7 +157,7 @@ SELECT * FROM system.system_views
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    fields: [VIEW_ID, SCHEMA_NAME, VIEW_NAME, VIEW_TYPE, ID, SCHEMA, NAME, TYPE]
+    fieldNames: [VIEW_ID, SCHEMA_NAME, VIEW_NAME, VIEW_TYPE, ID, SCHEMA, NAME, TYPE]
     est: (rows=100)
 
 # select with trimming projection, no renames
@@ -213,7 +166,7 @@ SELECT view_id, view_name FROM system.system_views
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    fields: [VIEW_ID, VIEW_NAME]
+    fieldNames: [VIEW_ID, VIEW_NAME]
     est: (rows=100)
 
 # select with trimming projection and renames
@@ -222,7 +175,7 @@ SELECT view_id AS renamed_view_id, view_name FROM system.system_views
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    fields: [RENAMED_VIEW_ID, VIEW_NAME]
+    fieldNames: [RENAMED_VIEW_ID, VIEW_NAME]
     est: (rows=100)
 
 # select with expression projection, no renames
@@ -231,8 +184,8 @@ SELECT view_id + 5, view_name FROM system.system_views
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    fields: [EXPR$0, VIEW_NAME]
-    projects: [+(VIEW_ID, 5), VIEW_NAME]
+    fieldNames: [EXPR$0, VIEW_NAME]
+    projection: [+(VIEW_ID, 5), VIEW_NAME]
     est: (rows=100)
 
 # select with expression projection and renames
@@ -241,8 +194,8 @@ SELECT view_id + 5 AS adjusted_view_id, view_name FROM system.system_views
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    fields: [ADJUSTED_VIEW_ID, VIEW_NAME]
-    projects: [+(VIEW_ID, 5), VIEW_NAME]
+    fieldNames: [ADJUSTED_VIEW_ID, VIEW_NAME]
+    projection: [+(VIEW_ID, 5), VIEW_NAME]
     est: (rows=100)
 
 # Complex query where column of source table is renamed, and this renamed column is referenced by
@@ -256,32 +209,33 @@ SELECT
   FROM (SELECT c1, c1 as renamed_c1 FROM test_table) as t
 ----
 Project
-    fields: [EXPR$0]
-    exprs: [EXPR$0]
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
     est: (rows=1)
   CorrelatedNestedLoopJoin
-      condition: true
-      joinType: left
-      variablesSet: [$cor0]
+      predicate: true
+      type: left
+      correlates: [$cor0]
       est: (rows=1)
     Exchange
         distribution: single
         est: (rows=1)
       TableScan
           table: PUBLIC.TEST_TABLE
-          fields: [RENAMED_C1]
+          fieldNames: [RENAMED_C1]
           est: (rows=1)
     ColocatedHashAggregate
+        fieldNames: [EXPR$0]
         group: []
-        aggs: [EXPR$0=COUNT()]
+        aggregation: [COUNT()]
         est: (rows=1)
       Exchange
           distribution: single
           est: (rows=1)
         TableScan
             table: PUBLIC.TEST_TABLE
-            filters: =(C1, $cor0.RENAMED_C1)
-            fields: [C1]
+            predicate: =(C1, $cor0.RENAMED_C1)
+            fieldNames: [C1]
             est: (rows=1)
 
 # Complex query where expression involving a column of source table is renamed, and this renamed expression is referenced by
@@ -295,33 +249,34 @@ SELECT
   FROM (SELECT c1, c1 * 2 as doubled_c1 FROM test_table) as t
 ----
 Project
-    fields: [EXPR$0]
-    exprs: [EXPR$0]
+    fieldNames: [EXPR$0]
+    projection: [EXPR$0]
     est: (rows=1)
   CorrelatedNestedLoopJoin
-      condition: true
-      joinType: left
-      variablesSet: [$cor0]
+      predicate: true
+      type: left
+      correlates: [$cor0]
       est: (rows=1)
     Exchange
         distribution: single
         est: (rows=1)
       TableScan
           table: PUBLIC.TEST_TABLE
-          fields: [DOUBLED_C1]
-          projects: [*(C1, 2)]
+          fieldNames: [DOUBLED_C1]
+          projection: [*(C1, 2)]
           est: (rows=1)
     ColocatedHashAggregate
+        fieldNames: [EXPR$0]
         group: []
-        aggs: [EXPR$0=COUNT()]
+        aggregation: [COUNT()]
         est: (rows=1)
       Exchange
           distribution: single
           est: (rows=1)
         TableScan
             table: PUBLIC.TEST_TABLE
-            filters: =(C1, $cor0.DOUBLED_C1)
-            fields: [C1]
+            predicate: =(C1, $cor0.DOUBLED_C1)
+            fieldNames: [C1]
             est: (rows=1)
 
 # table scan with simple predicate
@@ -333,9 +288,8 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      filters: =(C3, 1)
-      fields: [C1]
-      projects: [C1]
+      predicate: =(C3, 1)
+      fieldNames: [C1]
       est: (rows=1)
 
 # table scan with complex predicate
@@ -347,9 +301,8 @@ Exchange
     est: (rows=1)
   TableScan
       table: PUBLIC.TEST_TABLE
-      filters: AND(SEARCH(C3, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
-      fields: [C1]
-      projects: [C1]
+      predicate: AND(SEARCH(C3, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+      fieldNames: [C1]
       est: (rows=1)
 
 # index scan with simple predicate
@@ -363,9 +316,9 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
+      predicate: >(C1, 1)
       searchBounds: [RangeBounds [lowerBound=1, upperBound=null:INTEGER, lowerInclude=false, upperInclude=false]]
-      filters: >(C1, 1)
-      fields: [C1]
+      fieldNames: [C1]
       collation: [C1 ASC]
       est: (rows=1)
 
@@ -380,9 +333,9 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_IDX
       type: SORTED
+      predicate: AND(SEARCH(C1, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
       searchBounds: [MultiBounds [bounds=ArrayList [ExactBounds [bound=1], ExactBounds [bound=2], ExactBounds [bound=3]]]]
-      filters: AND(SEARCH(C1, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
-      fields: [C1]
+      fieldNames: [C1]
       collation: [C1 ASC]
       est: (rows=1)
 
@@ -400,10 +353,9 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: HASH_IDX
       type: HASH
+      predicate: =(C2, 10)
       searchBounds: [ExactBounds [bound=10]]
-      filters: =(C2, 10)
-      fields: [C1]
-      projects: [C1]
+      fieldNames: [C1]
       est: (rows=1)
 
 statement ok
@@ -420,7 +372,7 @@ Exchange
       table: PUBLIC.TEST_TABLE
       index: TEST_TABLE_DIFFERENT_COLLATION_IDX
       type: SORTED
-      fields: [C1, C2]
+      fieldNames: [C1, C2]
       collation: [C2 DESC NULLS LAST]
       est: (rows=1)
 
@@ -430,8 +382,8 @@ SELECT view_id, view_name FROM system.system_views WHERE view_id = 5
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    filters: =(VIEW_ID, 5)
-    fields: [VIEW_ID, VIEW_NAME]
+    predicate: =(VIEW_ID, 5)
+    fieldNames: [VIEW_ID, VIEW_NAME]
     est: (rows=33)
 
 # table scan with complex predicate
@@ -440,8 +392,8 @@ SELECT view_id, view_name FROM system.system_views WHERE view_id IN (1, 2, 3) AN
 ----
 SystemViewScan
     table: SYSTEM.SYSTEM_VIEWS
-    filters: AND(SEARCH(VIEW_ID, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
-    fields: [VIEW_ID, VIEW_NAME]
+    predicate: AND(SEARCH(VIEW_ID, Sarg[1, 2, 3]), >(CAST(CURRENT_TIMESTAMP):TIMESTAMP(0) NOT NULL, 1970-01-01 00:00:00))
+    fieldNames: [VIEW_ID, VIEW_NAME]
     est: (rows=38)
 
 # table function scan
@@ -449,8 +401,8 @@ plan
 SELECT * FROM system_range(1, 10)
 ----
 TableFunctionScan
+    fieldNames: [X]
     invocation: SYSTEM_RANGE(1, 10)
-    rowType: RecordType(BIGINT X)
     est: (rows=100)
 
 # another table function scan
@@ -458,6 +410,6 @@ plan
 SELECT * FROM system_range(1, LENGTH(rand_uuid()::VARCHAR))
 ----
 TableFunctionScan
+    fieldNames: [X]
     invocation: SYSTEM_RANGE(1, LENGTH(CAST(RAND_UUID()):VARCHAR CHARACTER SET "UTF-8" NOT NULL))
-    rowType: RecordType(BIGINT X)
     est: (rows=100)

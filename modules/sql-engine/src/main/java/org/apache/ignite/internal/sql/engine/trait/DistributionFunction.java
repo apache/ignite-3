@@ -52,8 +52,8 @@ public abstract class DistributionFunction {
         return false;
     }
 
-    public static DistributionFunction affinity(int tableId, int zoneId) {
-        return new AffinityDistribution(tableId, zoneId);
+    public static DistributionFunction affinity(int tableId, int zoneId, String label) {
+        return new AffinityDistribution(tableId, zoneId, label);
     }
 
     /**
@@ -185,15 +185,19 @@ public abstract class DistributionFunction {
 
         private final int zoneId;
 
+        private final String label;
+
         /**
          * Constructor.
          *
          * @param tableId Table ID.
-         * @param zoneId  Distribution zone ID.
+         * @param zoneId Distribution zone ID.
+         * @param label Human-readable label to show in EXPLAIN printout.
          */
-        private AffinityDistribution(int tableId, int zoneId) {
+        private AffinityDistribution(int tableId, int zoneId, String label) {
             this.zoneId = zoneId;
             this.tableId = tableId;
+            this.label = label;
         }
 
         /** {@inheritDoc} */
@@ -208,6 +212,10 @@ public abstract class DistributionFunction {
 
         public int zoneId() {
             return zoneId;
+        }
+
+        public String label() {
+            return label;
         }
 
         /** {@inheritDoc} */
