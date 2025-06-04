@@ -27,6 +27,7 @@ import static org.apache.ignite.internal.util.ViewUtils.checkCollectionForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -114,7 +115,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
                             tx);
-                }, ClientTable::reducer,
+                },
+                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
+                ClientTable::orderAwareReducer,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -159,7 +162,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                             r -> r.in().unpackBoolean(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> agg == null ? cur : agg && cur,
+                },
+                Boolean.TRUE,
+                (agg, cur) -> agg && cur,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -204,7 +209,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                             r -> null,
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> null,
+                },
+                null,
+                (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -271,7 +278,8 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
                             tx);
                 },
-                ClientTable::reducer,
+                new ArrayList<>(Collections.nCopies(recs.size(), null)),
+                ClientTable::orderAwareReducer,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
 
         return splitFut.thenApply(ClientTable::removeNulls);
@@ -414,7 +422,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.<List<R>, R>split(tx, keyRecs, (batch, node) -> {
+        CompletableFuture<List<R>> splitFut = tbl.split(tx, keyRecs, (batch, node) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
@@ -422,8 +430,12 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
                             tx);
-                }, ClientTable::reducer,
-                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry)).thenApply(ClientTable::removeNulls);
+                },
+                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
+                ClientTable::orderAwareReducer,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
+
+        return splitFut.thenApply(ClientTable::removeNulls);
     }
 
     @Override
@@ -454,7 +466,9 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
                             tx);
-                }, ClientTable::reducer,
+                },
+                new ArrayList<>(Collections.nCopies(recs.size(), null)),
+                ClientTable::orderAwareReducer,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
 
         return splitFut.thenApply(ClientTable::removeNulls);

@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.util.ViewUtils.checkCollectionForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.checkKeysForNulls;
 import static org.apache.ignite.internal.util.ViewUtils.sync;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -106,7 +107,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, ClientTable::reducer,
+                },
+                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
+                ClientTable::orderAwareReducer,
                 ClientTupleSerializer::getColocationHash);
     }
 
@@ -151,7 +154,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             r -> r.in().unpackBoolean(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> agg == null ? cur : agg && cur,
+                },
+                Boolean.TRUE,
+                (agg, cur) -> agg && cur,
                 ClientTupleSerializer::getColocationHash);
     }
 
@@ -196,7 +201,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             r -> null,
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> null,
+                },
+                null,
+                (agg, cur) -> null,
                 ClientTupleSerializer::getColocationHash);
     }
 
@@ -263,7 +270,8 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
                 },
-                ClientTable::reducer,
+                new ArrayList<>(Collections.nCopies(recs.size(), null)),
+                ClientTable::orderAwareReducer,
                 ClientTupleSerializer::getColocationHash);
 
         return splitFut.thenApply(ClientTable::removeNulls);
@@ -417,7 +425,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, ClientTable::reducer,
+                },
+                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
+                ClientTable::orderAwareReducer,
                 ClientTupleSerializer::getColocationHash);
 
         return splitFut.thenApply(ClientTable::removeNulls);
@@ -451,7 +461,9 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, ClientTable::reducer,
+                },
+                new ArrayList<>(Collections.nCopies(recs.size(), null)),
+                ClientTable::orderAwareReducer,
                 ClientTupleSerializer::getColocationHash);
 
         return splitFut.thenApply(ClientTable::removeNulls);

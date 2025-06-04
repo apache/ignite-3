@@ -35,7 +35,6 @@ import static org.apache.ignite.lang.ErrorGroups.Transactions.TX_ALREADY_FINISHE
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -902,11 +901,7 @@ public class ClientTable implements Table {
         return copy;
     }
 
-    static <R, E> List<R> reducer(@Nullable List<R> agg, List<R> cur, Batch<E> batch, int size) {
-        if (agg == null) {
-            agg = Collections.nCopies(size, null);
-        }
-
+    static <R, E> List<R> orderAwareReducer(@Nullable List<R> agg, List<R> cur, Batch<E> batch) {
         for (int i = 0; i < batch.batch.size(); i++) {
             R val = cur.get(i);
             Integer orig = batch.originalIndices.get(i);
@@ -916,10 +911,11 @@ public class ClientTable implements Table {
         return agg;
     }
 
-    public <R, E> CompletableFuture<R> split(
+    <R, E> CompletableFuture<R> split(
             @Nullable Transaction tx,
             Collection<E> keys,
             BiFunction<Collection<E>, String, CompletableFuture<R>> fun,
+            @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
@@ -957,7 +953,7 @@ public class ClientTable implements Table {
                     }
 
                     return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
-                        R in = null;
+                        R in = initialValue;
 
                         for (CompletableFuture<R> val : res) {
                             in = reducer.reduce(in, val.getNow(null));
@@ -968,10 +964,11 @@ public class ClientTable implements Table {
                 });
     }
 
-    public <R, E> CompletableFuture<R> split(
+    <R, E> CompletableFuture<R> split(
             @Nullable Transaction tx,
             Collection<E> keys,
             BiFunction<Collection<E>, String, CompletableFuture<R>> fun,
+            R initialValue,
             ReducerWithOrderTracking<R, E> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
@@ -1015,11 +1012,11 @@ public class ClientTable implements Table {
                     }
 
                     return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
-                        R in = null;
+                        R in = initialValue;
 
                         for (int i = 0; i < res.size(); i++) {
                             CompletableFuture<R> f = res.get(i);
-                            in = reducer.reduce(in, f.getNow(null), batches.get(i), keys.size());
+                            in = reducer.reduce(in, f.getNow(null), batches.get(i));
                         }
 
                         return in;
@@ -1029,12 +1026,12 @@ public class ClientTable implements Table {
 
     @FunctionalInterface
     interface Reducer<R> {
-        R reduce(@Nullable R agg, R cur);
+        R reduce(R agg, R cur);
     }
 
     @FunctionalInterface
     interface ReducerWithOrderTracking<R, E> {
-        R reduce(@Nullable R agg, R cur, Batch<E> batch, int size);
+        R reduce(@Nullable R agg, R cur, Batch<E> batch);
     }
 
     private static @Nullable PartitionMapping getPreferredNodeName(
