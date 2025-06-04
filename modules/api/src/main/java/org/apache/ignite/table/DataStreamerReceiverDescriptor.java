@@ -135,7 +135,8 @@ public class DataStreamerReceiverDescriptor<T, A, R> {
     }
 
     /**
-     * Create a new builder.
+     * Create a new builder from a receiver instance.
+     * Populates {@link #payloadMarshaller()}, {@link #argumentMarshaller()}, and {@link #resultMarshaller()} from the provided receiver.
      *
      * @return Receiver descriptor builder.
      */
