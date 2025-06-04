@@ -41,7 +41,9 @@ public class DataStreamerReceiverDescriptorTest {
     }
 
     private static class IntMarshaller implements ByteArrayMarshaller<Integer> { }
+
     private static class StrMarshaller implements ByteArrayMarshaller<String> { }
+
     private static class UuidMarshaller implements ByteArrayMarshaller<UUID> { }
 
     private static class TestReceiver implements DataStreamerReceiver<Integer, String, UUID> {
