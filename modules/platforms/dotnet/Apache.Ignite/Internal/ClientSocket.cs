@@ -731,7 +731,10 @@ namespace Apache.Ignite.Internal
 
         private async Task CancelRequestAsync(long requestId)
         {
-            // Do not remove from _requests - response might arrive concurrently.
+            // Do not remove from _requests.
+            // - The client sends a cancellation request to the server.
+            // - The server response determines the outcome (canceled or completed).
+            // - Some operations can't be canceled, so the server will ignore the cancellation request.
             if (IsDisposed || !_requests.ContainsKey(requestId))
             {
                 return;
