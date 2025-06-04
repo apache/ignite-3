@@ -27,13 +27,16 @@ import com.squareup.javapoet.ParameterizedTypeName;
 import com.squareup.javapoet.TypeSpec;
 import java.util.List;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
+import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.annotations.Transient;
 import org.apache.ignite.internal.network.processor.MessageClass;
 import org.apache.ignite.internal.network.processor.MessageGroupWrapper;
+import org.apache.ignite.internal.network.processor.ProcessingException;
 import org.apache.ignite.internal.network.processor.TypeUtils;
 import org.apache.ignite.internal.network.serialization.MessageMappingException;
 import org.apache.ignite.internal.network.serialization.MessageSerializer;
@@ -43,6 +46,8 @@ import org.apache.ignite.internal.network.serialization.MessageWriter;
  * Class for generating {@link MessageSerializer} classes.
  */
 public class MessageSerializerGenerator {
+    private static final String ID_METHOD_NAME = "id";
+
     /** Processing environment. */
     private final ProcessingEnvironment processingEnv;
 
@@ -150,11 +155,13 @@ public class MessageSerializerGenerator {
         if (typeUtils.isEnum(getter.getReturnType())) {
             String fieldName = getter.getSimpleName().toString();
 
-            // Let's write the shifted ordinal to efficiently transfer null (since we use "var int").
+            checkIdMethodExists(getter.getReturnType());
+
+            // Let's write the shifted id to efficiently transfer null (since we use "var int").
             writerMethodCallBuilder
-                    .add("int ordinalShifted = message.$L() == null ? 0 : message.$L().ordinal() + 1;", fieldName, fieldName)
+                    .add("int idShifted = message.$L() == null ? 0 : message.$L().id() + 1;", fieldName, fieldName)
                     .add("\n")
-                    .add("boolean written = writer.writeInt($S, ordinalShifted)", fieldName);
+                    .add("boolean written = writer.writeInt($S, idShifted)", fieldName);
         } else {
             writerMethodCallBuilder
                     .add("boolean written = writer.")
@@ -168,5 +175,18 @@ public class MessageSerializerGenerator {
                 .addStatement("return false")
                 .endControlFlow()
                 .build();
+    }
+
+    private void checkIdMethodExists(TypeMirror enumType) {
+        assert typeUtils.isEnum(enumType) : enumType;
+
+        typeUtils.types().asElement(enumType).getEnclosedElements().stream()
+                .filter(element -> element.getKind() == ElementKind.METHOD)
+                .filter(element -> element.getSimpleName().toString().equals(ID_METHOD_NAME))
+                .filter(element -> element.getModifiers().contains(Modifier.PUBLIC))
+                .findAny()
+                .orElseThrow(() -> new ProcessingException(
+                        String.format("Missing public method \"%s\" for enum %s", ID_METHOD_NAME, enumType)
+                ));
     }
 }

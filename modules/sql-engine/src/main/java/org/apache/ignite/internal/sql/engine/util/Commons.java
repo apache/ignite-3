@@ -32,11 +32,6 @@ import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
 import java.io.StringReader;
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -48,7 +43,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -565,66 +559,6 @@ public final class Commons {
             } catch (Exception ignored) {
                 // No-op.
             }
-        }
-    }
-
-    /**
-     * Provide mapping Native types to java classes.
-     *
-     * @param type Native type
-     * @return Java corresponding class.
-     */
-    public static Class<?> nativeTypeToClass(NativeType type) {
-        assert type != null;
-
-        switch (type.spec()) {
-            case BOOLEAN:
-                return Boolean.class;
-
-            case INT8:
-                return Byte.class;
-
-            case INT16:
-                return Short.class;
-
-            case INT32:
-                return Integer.class;
-
-            case INT64:
-                return Long.class;
-
-            case FLOAT:
-                return Float.class;
-
-            case DOUBLE:
-                return Double.class;
-
-            case DECIMAL:
-                return BigDecimal.class;
-
-            case UUID:
-                return UUID.class;
-
-            case STRING:
-                return String.class;
-
-            case BYTE_ARRAY:
-                return byte[].class;
-
-            case DATE:
-                return LocalDate.class;
-
-            case TIME:
-                return LocalTime.class;
-
-            case DATETIME:
-                return LocalDateTime.class;
-
-            case TIMESTAMP:
-                return Instant.class;
-
-            default:
-                throw new IllegalArgumentException("Unsupported type " + type.spec());
         }
     }
 

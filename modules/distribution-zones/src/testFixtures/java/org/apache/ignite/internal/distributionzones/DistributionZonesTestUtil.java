@@ -731,7 +731,7 @@ public class DistributionZonesTestUtil {
 
     /** Returns default distribution zone. */
     public static CatalogZoneDescriptor getDefaultZone(CatalogService catalogService, long timestamp) {
-        Catalog catalog = catalogService.catalog(catalogService.activeCatalogVersion(timestamp));
+        Catalog catalog = catalogService.activeCatalog(timestamp);
 
         requireNonNull(catalog);
 

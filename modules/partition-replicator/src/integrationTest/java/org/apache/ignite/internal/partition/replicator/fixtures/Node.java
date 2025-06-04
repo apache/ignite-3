@@ -33,6 +33,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.internal.util.MockUtil.isMock;
@@ -45,6 +47,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
@@ -151,6 +154,7 @@ import org.apache.ignite.internal.sql.engine.SqlQueryProcessor;
 import org.apache.ignite.internal.sql.engine.exec.kill.KillCommandHandler;
 import org.apache.ignite.internal.storage.DataStorageManager;
 import org.apache.ignite.internal.storage.DataStorageModules;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.configurations.StorageConfiguration;
 import org.apache.ignite.internal.storage.configurations.StorageExtensionConfigurationSchema;
 import org.apache.ignite.internal.storage.engine.MvTableStorage;
@@ -194,6 +198,7 @@ import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.tx.IgniteTransactions;
+import org.jetbrains.annotations.Contract;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.TestInfo;
 
@@ -487,6 +492,21 @@ public class Node {
 
                 return super.invoke(condition, success, failure);
             }
+
+            @Override
+            public CompletableFuture<Boolean> invoke(Condition condition, Operation success, Operation failure) {
+                InvokeInterceptor invokeInterceptor = Node.this.invokeInterceptor;
+
+                if (invokeInterceptor != null) {
+                    Boolean res = invokeInterceptor.invoke(condition, List.of(success), List.of(failure));
+
+                    if (res != null) {
+                        return completedFuture(res);
+                    }
+                }
+
+                return super.invoke(condition, success, failure);
+            }
         };
 
         threadPoolsManager = new ThreadPoolsManager(name);
@@ -655,7 +675,7 @@ public class Node {
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageManager, catalogManager));
 
-        ((MetaStorageManagerImpl) metaStorageManager).addElectionListener(catalogCompactionRunner::updateCoordinator);
+        metaStorageManager.addElectionListener(catalogCompactionRunner::updateCoordinator);
 
         lowWatermark.listen(LowWatermarkEvent.LOW_WATERMARK_CHANGED,
                 params -> catalogCompactionRunner.onLowWatermarkChanged(((ChangeLowWatermarkEventParameters) params).newLowWatermark()));
@@ -763,9 +783,23 @@ public class Node {
 
             @Override
             protected MvTableStorage createTableStorage(CatalogTableDescriptor tableDescriptor, CatalogZoneDescriptor zoneDescriptor) {
-                MvTableStorage storage = super.createTableStorage(tableDescriptor, zoneDescriptor);
+                MvTableStorage storage = createSpy(super.createTableStorage(tableDescriptor, zoneDescriptor));
 
-                return isMock(storage) ? storage : spy(storage);
+                var partitionStorages = new ConcurrentHashMap<Integer, MvPartitionStorage>();
+
+                doAnswer(invocation -> {
+                    Integer partitionId = invocation.getArgument(0);
+
+                    return partitionStorages.computeIfAbsent(partitionId, id -> {
+                        try {
+                            return (MvPartitionStorage) createSpy(invocation.callRealMethod());
+                        } catch (Throwable e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                }).when(storage).getMvPartition(anyInt());
+
+                return storage;
             }
 
             @Override
@@ -773,9 +807,7 @@ public class Node {
                     CatalogTableDescriptor tableDescriptor,
                     CatalogZoneDescriptor zoneDescriptor
             ) {
-                TxStateStorage storage = super.createTxStateTableStorage(tableDescriptor, zoneDescriptor);
-
-                return isMock(storage) ? storage : spy(storage);
+                return createSpy(super.createTxStateTableStorage(tableDescriptor, zoneDescriptor));
             }
         };
 
@@ -996,5 +1028,14 @@ public class Node {
 
         assertThat(primaryReplicaFuture, willCompleteSuccessfully());
         return primaryReplicaFuture.join();
+    }
+
+    @Contract("null -> null")
+    private static <T> @Nullable T createSpy(@Nullable T object) {
+        if (object == null) {
+            return null;
+        }
+
+        return isMock(object) ? object : spy(object);
     }
 }
