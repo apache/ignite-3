@@ -679,7 +679,6 @@ namespace Apache.Ignite.Internal
                     new ObjectDisposedException(nameof(ClientSocket)));
             }
 
-            // TODO: Send cancellation request in token subscription
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
@@ -696,6 +695,10 @@ namespace Apache.Ignite.Internal
             try
             {
                 await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
+
+                await using var cancellationRegistration = cancellationToken.Register(
+                    () => _ = CancelRequestAsync(requestId)).ConfigureAwait(false);
+
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
 
@@ -718,6 +721,14 @@ namespace Apache.Ignite.Internal
                 }
 
                 throw;
+            }
+        }
+
+        private async Task CancelRequestAsync(long requestId)
+        {
+            if (IsDisposed || !_requests.ContainsKey(requestId))
+            {
+                return;
             }
         }
 
