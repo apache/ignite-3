@@ -749,7 +749,7 @@ namespace Apache.Ignite.Internal
             Justification = "Any exception during socket write should be handled to close the socket.")]
         private async ValueTask SendRequestAsync(PooledArrayBuffer? request, ClientOp op, long requestId)
         {
-            // Reset heartbeat timer - don't sent heartbeats when connection is active anyway.
+            // Reset heartbeat timer - don't send heartbeats when connection is active anyway.
             _heartbeatTimer.Change(dueTime: _heartbeatInterval, period: TimeSpan.FromMilliseconds(-1));
 
             _logger.LogSendingRequestTrace(requestId, op, ConnectionContext.ClusterNode.Address);
