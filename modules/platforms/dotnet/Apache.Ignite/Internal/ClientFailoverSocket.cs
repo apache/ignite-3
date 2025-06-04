@@ -206,16 +206,18 @@ namespace Apache.Ignite.Internal
                 }
 
                 // Use tx-specific socket without retry and failover.
-                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications).ConfigureAwait(false);
+                var buffer = await tx.Socket.DoOutInOpAsync(clientOp, request, expectNotifications, cancellationToken).ConfigureAwait(false);
                 return (buffer, tx.Socket);
             }
 
             return await DoWithRetryAsync(
-                (clientOp, request, expectNotifications),
+                (clientOp, request, expectNotifications, cancellationToken),
                 static (_, arg) => arg.clientOp,
                 async static (socket, arg) =>
                 {
-                    var res = await socket.DoOutInOpAsync(arg.clientOp, arg.request, arg.expectNotifications).ConfigureAwait(false);
+                    var res = await socket.DoOutInOpAsync(
+                        arg.clientOp, arg.request, arg.expectNotifications, arg.cancellationToken).ConfigureAwait(false);
+
                     return (Buffer: res, Socket: socket);
                 },
                 preferredNode,
