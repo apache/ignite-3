@@ -128,6 +128,8 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         newRow = VersionChain.createUncommitted(rowId, txId, commitTableId, commitPartitionId, newVersion.link(), newVersion.nextLink());
+
+        operationType = OperationType.PUT;
     }
 
     @Override
