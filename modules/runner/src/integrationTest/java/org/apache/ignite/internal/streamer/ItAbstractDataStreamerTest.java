@@ -721,7 +721,10 @@ public abstract class ItAbstractDataStreamerTest extends ClusterPerClassIntegrat
         arg = arg.isEmpty() ? null : arg;
 
         DataStreamerReceiverDescriptor<String, String, String> desc = DataStreamerReceiverDescriptor
-                .builder(new MarshallingReceiver())
+                .builder(MarshallingReceiver.class)
+                .payloadMarshaller(new StringSuffixMarshaller())
+                .argumentMarshaller(new StringSuffixMarshaller())
+                .resultMarshaller(new StringSuffixMarshaller())
                 .build();
 
         CompletableFuture<Void> streamerFut;
