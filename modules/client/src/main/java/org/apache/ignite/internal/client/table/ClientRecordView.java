@@ -17,6 +17,9 @@
 
 package org.apache.ignite.internal.client.table;
 
+import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getColocationHash;
+import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
+import static org.apache.ignite.internal.client.table.PartitionAwarenessProvider.EMPTY_PROVIDER;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -86,7 +89,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY, true),
                 (s, r) -> ser.readValRec(keyRec, s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRec),
+                getPartitionAwarenessProvider(ser.mapper(), keyRec),
                 tx);
     }
 
@@ -103,14 +106,16 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_GET_ALL,
-                (s, w, n) -> ser.writeRecs(tx, keyRecs, s, w, n, TuplePart.KEY, true),
-                (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
-                Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRecs),
-                tx
-        );
+        return tbl.split(tx, keyRecs, (batch, node) -> {
+                    return tbl.doSchemaOutInOpAsync(
+                            ClientOp.TUPLE_GET_ALL,
+                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                            (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
+                            Collections.emptyList(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            tx);
+                }, ClientTable::reducer,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
     /** {@inheritDoc} */
@@ -128,7 +133,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_CONTAINS_KEY,
                 (s, w, n) -> ser.writeRec(tx, key, s, w, n, TuplePart.KEY, true),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), key),
+                getPartitionAwarenessProvider(ser.mapper(), key),
                 tx);
     }
 
@@ -147,12 +152,15 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return trueCompletedFuture();
         }
 
-        return tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                (s, w, n) -> ser.writeRecs(tx, keys, s, w, n, TuplePart.KEY, true),
-                r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keys),
-                tx);
+        return tbl.split(tx, keys, (batch, node) -> {
+                    return tbl.doSchemaOutOpAsync(
+                            ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                            r -> r.in().unpackBoolean(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            tx);
+                }, (agg, cur) -> agg == null ? cur : agg && cur,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
     /** {@inheritDoc} */
@@ -170,7 +178,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_UPSERT,
                 (s, w, n) -> ser.writeRec(tx, rec, s, w, n, TuplePart.KEY_AND_VAL),
                 r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), rec),
+                getPartitionAwarenessProvider(ser.mapper(), rec),
                 tx);
     }
 
@@ -189,12 +197,15 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return nullCompletedFuture();
         }
 
-        return tbl.doSchemaOutOpAsync(
-                ClientOp.TUPLE_UPSERT_ALL,
-                (s, w, n) -> ser.writeRecs(tx, recs, s, w, n, TuplePart.KEY_AND_VAL),
-                r -> null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), recs),
-                tx);
+        return tbl.split(tx, recs, (batch, node) -> {
+                    return tbl.doSchemaOutOpAsync(
+                            ClientOp.TUPLE_UPSERT_ALL,
+                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
+                            r -> null,
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            tx);
+                }, (agg, cur) -> null,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
     /** {@inheritDoc} */
@@ -213,7 +224,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 (s, w, n) -> ser.writeRec(tx, rec, s, w, n, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readValRec(rec, s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), rec),
+                getPartitionAwarenessProvider(ser.mapper(), rec),
                 tx);
     }
 
@@ -232,7 +243,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_INSERT,
                 (s, w, n) -> ser.writeRec(tx, rec, s, w, n, TuplePart.KEY_AND_VAL),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), rec),
+                getPartitionAwarenessProvider(ser.mapper(), rec),
                 tx);
     }
 
@@ -251,13 +262,19 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_INSERT_ALL,
-                (s, w, n) -> ser.writeRecs(tx, recs, s, w, n, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
-                Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), recs),
-                tx);
+        CompletableFuture<List<R>> splitFut = tbl.split(tx, recs, (batch, node) -> {
+                    return tbl.doSchemaOutInOpAsync(
+                            ClientOp.TUPLE_INSERT_ALL,
+                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
+                            (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
+                            Collections.emptyList(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            tx);
+                },
+                ClientTable::reducer,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
+
+        return splitFut.thenApply(ClientTable::removeNulls);
     }
 
     /** {@inheritDoc} */
@@ -281,7 +298,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_REPLACE,
                 (s, w, n) -> ser.writeRec(tx, rec, s, w, n, TuplePart.KEY_AND_VAL),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), rec),
+                getPartitionAwarenessProvider(ser.mapper(), rec),
                 tx);
     }
 
@@ -295,7 +312,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_REPLACE_EXACT,
                 (s, w, n) -> ser.writeRecs(tx, oldRec, newRec, s, w, n, TuplePart.KEY_AND_VAL),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), oldRec),
+                getPartitionAwarenessProvider(ser.mapper(), oldRec),
                 tx);
     }
 
@@ -315,7 +332,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 (s, w, n) -> ser.writeRec(tx, rec, s, w, n, TuplePart.KEY_AND_VAL),
                 (s, r) -> ser.readValRec(rec, s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), rec),
+                getPartitionAwarenessProvider(ser.mapper(), rec),
                 tx);
     }
 
@@ -334,7 +351,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_DELETE,
                 (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY, true),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRec),
+                getPartitionAwarenessProvider(ser.mapper(), keyRec),
                 tx);
     }
 
@@ -353,7 +370,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 ClientOp.TUPLE_DELETE_EXACT,
                 (s, w, n) -> ser.writeRec(tx, rec, s, w, n, TuplePart.KEY_AND_VAL),
                 r -> r.in().unpackBoolean(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), rec),
+                getPartitionAwarenessProvider(ser.mapper(), rec),
                 tx);
     }
 
@@ -373,7 +390,7 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
                 (s, w, n) -> ser.writeRec(tx, keyRec, s, w, n, TuplePart.KEY, true),
                 (s, r) -> ser.readValRec(keyRec, s, r.in()),
                 null,
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRec),
+                getPartitionAwarenessProvider(ser.mapper(), keyRec),
                 tx);
     }
 
@@ -397,13 +414,16 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_DELETE_ALL,
-                (s, w, n) -> ser.writeRecs(tx, keyRecs, s, w, n, TuplePart.KEY, true),
-                (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
-                Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), keyRecs),
-                tx);
+        return tbl.<List<R>, R>split(tx, keyRecs, (batch, node) -> {
+                    return tbl.doSchemaOutInOpAsync(
+                            ClientOp.TUPLE_DELETE_ALL,
+                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                            (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
+                            Collections.emptyList(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            tx);
+                }, ClientTable::reducer,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry)).thenApply(ClientTable::removeNulls);
     }
 
     @Override
@@ -426,13 +446,18 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.doSchemaOutInOpAsync(
-                ClientOp.TUPLE_DELETE_ALL_EXACT,
-                (s, w, n) -> ser.writeRecs(tx, recs, s, w, n, TuplePart.KEY_AND_VAL),
-                (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
-                Collections.emptyList(),
-                ClientTupleSerializer.getPartitionAwarenessProvider(ser.mapper(), recs),
-                tx);
+        CompletableFuture<List<R>> splitFut = tbl.split(tx, recs, (batch, node) -> {
+                    return tbl.doSchemaOutInOpAsync(
+                            ClientOp.TUPLE_DELETE_ALL_EXACT,
+                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
+                            (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
+                            Collections.emptyList(),
+                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            tx);
+                }, ClientTable::reducer,
+                (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
+
+        return splitFut.thenApply(ClientTable::removeNulls);
     }
 
     /** {@inheritDoc} */
