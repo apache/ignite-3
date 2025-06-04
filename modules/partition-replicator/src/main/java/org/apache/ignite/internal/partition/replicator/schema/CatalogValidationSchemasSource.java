@@ -20,6 +20,7 @@ package org.apache.ignite.internal.partition.replicator.schema;
 import static java.util.stream.Collectors.toList;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -95,6 +96,7 @@ public class CatalogValidationSchemasSource implements ValidationSchemasSource {
     ) {
         return IntStream.rangeClosed(fromCatalogVersionIncluding, toCatalogVersionIncluding)
                 .mapToObj(catalogVersion -> catalogService.catalog(catalogVersion).table(tableId))
+                .takeWhile(Objects::nonNull)
                 .filter(new Predicate<>() {
                     int prevVersion = Integer.MIN_VALUE;
 
