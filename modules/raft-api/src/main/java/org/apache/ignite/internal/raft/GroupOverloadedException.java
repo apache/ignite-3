@@ -34,6 +34,6 @@ public class GroupOverloadedException extends IgniteException {
      * @param peer Peer.
      */
     public GroupOverloadedException(String groupId, Peer peer) {
-        super(GROUP_OVERLOADED_ERR, "Peer is overloaded, the request may be retried later [groupId=" + groupId + "].");
+        super(GROUP_OVERLOADED_ERR, "Group is overloaded, the request may be retried later [groupId=" + groupId + "].");
     }
 }

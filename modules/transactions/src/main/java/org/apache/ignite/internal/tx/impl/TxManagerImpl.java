@@ -795,7 +795,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         ))
                 .handle((res, ex) -> {
                     if (ex != null) {
-                        Throwable cause = ExceptionUtils.unwrapCause(ex);
+                        Throwable cause = ExceptionUtils.unwrapRootCause(ex);
 
                         if (cause instanceof MismatchingTransactionOutcomeInternalException) {
                             MismatchingTransactionOutcomeInternalException transactionException =
@@ -822,7 +822,9 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                         }
 
                         if (TransactionFailureHandler.isRecoverable(cause)) {
-                            LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
+                            if (!(cause instanceof GroupOverloadedException)) {
+                                LOG.warn("Failed to finish Tx. The operation will be retried [txId={}].", ex, txId);
+                            }
 
                             return supplyAsync(() -> durableFinish(
                                     observableTimestampTracker,

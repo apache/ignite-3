@@ -30,7 +30,7 @@ public interface ThrottlingContextHolder {
      * @param peer Peer.
      * @return Whether the peer is overloaded.
      */
-    boolean isOverloaded(Peer peer);
+    boolean isOverloaded(Peer peer, String requestClassName);
 
     /**
      * Called before sending a request to the peer.
