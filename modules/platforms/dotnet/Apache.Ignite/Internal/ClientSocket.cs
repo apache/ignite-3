@@ -285,13 +285,15 @@ namespace Apache.Ignite.Internal
         /// <param name="clientOp">Client op code.</param>
         /// <param name="request">Request data.</param>
         /// <param name="expectNotifications">Whether to expect notifications as a result of the operation.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
         /// <returns>Response data.</returns>
         public Task<PooledBuffer> DoOutInOpAsync(
             ClientOp clientOp,
             PooledArrayBuffer? request = null,
-            bool expectNotifications = false) =>
-            DoOutInOpAsyncInternal(clientOp, request, expectNotifications)
-                .WaitAsync(_operationTimeout);
+            bool expectNotifications = false,
+            CancellationToken cancellationToken = default) =>
+            DoOutInOpAsyncInternal(clientOp, request, expectNotifications, cancellationToken)
+                .WaitAsync(_operationTimeout, cancellationToken);
 
         /// <inheritdoc/>
         public void Dispose()
@@ -677,6 +679,7 @@ namespace Apache.Ignite.Internal
                     new ObjectDisposedException(nameof(ClientSocket)));
             }
 
+            // TODO: Send cancellation request in token subscription
             var requestId = Interlocked.Increment(ref _requestId);
             var taskCompletionSource = new TaskCompletionSource<PooledBuffer>();
             _requests[requestId] = taskCompletionSource;
