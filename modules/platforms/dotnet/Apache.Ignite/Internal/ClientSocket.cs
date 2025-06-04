@@ -26,6 +26,7 @@ namespace Apache.Ignite.Internal
     using System.Linq;
     using System.Net.Security;
     using System.Net.Sockets;
+    using System.Runtime.CompilerServices;
     using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
@@ -696,8 +697,7 @@ namespace Apache.Ignite.Internal
             {
                 await SendRequestAsync(request, clientOp, requestId).ConfigureAwait(false);
 
-                await using var cancellationRegistration = cancellationToken.Register(
-                    () => _ = CancelRequestAsync(requestId)).ConfigureAwait(false);
+                await using var cancellation = RegisterCancellation(requestId, cancellationToken);
 
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);
                 resBuf.Metadata = notificationHandler;
@@ -723,6 +723,11 @@ namespace Apache.Ignite.Internal
                 throw;
             }
         }
+
+        private ConfiguredAsyncDisposable RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
+            cancellationToken == CancellationToken.None
+                ? default
+                : cancellationToken.Register(() => _ = CancelRequestAsync(requestId)).ConfigureAwait(false);
 
         private async Task CancelRequestAsync(long requestId)
         {
