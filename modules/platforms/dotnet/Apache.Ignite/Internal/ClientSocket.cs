@@ -731,10 +731,16 @@ namespace Apache.Ignite.Internal
 
         private async Task CancelRequestAsync(long requestId)
         {
+            // Do not remove from _requests - response might arrive concurrently.
             if (IsDisposed || !_requests.ContainsKey(requestId))
             {
                 return;
             }
+
+            using var buf = ProtoCommon.GetMessageWriter();
+            buf.MessageWriter.Write(requestId);
+
+            using var resBuf = await DoOutInOpAsync(ClientOp.OperationCancel, buf).ConfigureAwait(false);
         }
 
         [SuppressMessage(

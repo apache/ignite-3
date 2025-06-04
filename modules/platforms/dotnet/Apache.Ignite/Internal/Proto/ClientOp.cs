@@ -142,6 +142,9 @@ namespace Apache.Ignite.Internal.Proto
         /** Send streamer batch with receiver. */
         StreamerWithReceiverBatchSend = 66,
 
+        /** Cancel an operation. */
+        OperationCancel = 70,
+
         /** Get tables with qualified names. */
         TablesGetQualified = 71,
 
