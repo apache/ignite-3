@@ -41,4 +41,7 @@ public interface MvPageTypes {
 
     /** Garbage collection queue leaf page IO type. */
     short T_GC_LEAF_IO = 15;
+
+    /** Meta page IO type. */
+    short T_PENDING_ROWS_META_IO = 22;
 }

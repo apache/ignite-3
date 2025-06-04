@@ -27,6 +27,9 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
+import org.apache.ignite.internal.logger.IgniteLogger;
+import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.partition.replicator.network.TimedBinaryRow;
 import org.apache.ignite.internal.partition.replicator.raft.snapshot.PartitionDataStorage;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
@@ -40,6 +43,7 @@ import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
+import org.apache.ignite.internal.thread.ThreadUtils;
 import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
@@ -59,6 +63,8 @@ public class StorageUpdateHandler {
 
     /** Replication configuration. */
     private final ReplicationConfiguration replicationConfiguration;
+
+    private boolean usePendingRowsTree = IgniteSystemProperties.getBoolean("IGNITE_USE_PENDING_ROWS_TREE");
 
     /**
      * The constructor.
@@ -125,7 +131,9 @@ public class StorageUpdateHandler {
             );
 
             if (trackWriteIntent) {
-                pendingRows.addPendingRowId(txId, rowId);
+                if (!usePendingRowsTree) {
+                    pendingRows.addPendingRowId(txId, rowId);
+                }
             }
 
             if (onApplication != null) {
@@ -264,7 +272,9 @@ public class StorageUpdateHandler {
             }
 
             if (trackWriteIntent) {
-                pendingRows.addPendingRowIds(txId, processedRowIds);
+                if (!usePendingRowsTree) {
+                    pendingRows.addPendingRowIds(txId, processedRowIds);
+                }
             }
 
             if (entryToProcess == null && onApplication != null) {
@@ -357,7 +367,9 @@ public class StorageUpdateHandler {
      * @param rowId Row id.
      */
     public void handleWriteIntentRead(UUID txId, RowId rowId) {
-        pendingRows.addPendingRowId(txId, rowId);
+        if (!usePendingRowsTree) {
+            pendingRows.addPendingRowId(txId, rowId);
+        }
     }
 
     /**
@@ -378,6 +390,8 @@ public class StorageUpdateHandler {
         switchWriteIntents(txId, commit, commitTimestamp, null, indexIds);
     }
 
+    private static IgniteLogger LOG = Loggers.forClass(StorageUpdateHandler.class);
+
     /**
      * Switches write intents created by the transaction to regular values if the transaction is committed
      * or removes them if the transaction is aborted.
@@ -395,7 +409,16 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable List<Integer> indexIds
     ) {
-        Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
+        Set<RowId> pendingRowIds;
+
+        if (usePendingRowsTree) {
+            pendingRowIds = storage.scanPendingRows(txId);
+        } else {
+            pendingRowIds = pendingRows.removePendingRowIds(txId);
+        }
+
+        // ThreadUtils.dumpStack(LOG, "Pending row ids for transaction {}: {} usePendingRowsTree={}", txId, pendingRowIds, usePendingRowsTree);
+        // LOG.info("Pending row ids for transaction {}: {} usePendingRowsTree={}", txId, pendingRowIds, usePendingRowsTree);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
         // for example, when primary (PartitionReplicaListener) is collocated with the raft node (PartitionListener)
@@ -417,6 +440,10 @@ public class StorageUpdateHandler {
 
                 if (onApplication != null) {
                     onApplication.run();
+                }
+
+                if (usePendingRowsTree) {
+                    storage.trimPendingRows(txId);
                 }
 
                 return null;

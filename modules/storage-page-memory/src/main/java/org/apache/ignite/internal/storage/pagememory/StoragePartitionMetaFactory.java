@@ -42,7 +42,8 @@ public class StoragePartitionMetaFactory implements PartitionMetaFactory {
                 metaIo.getVersionChainTreeRootPageId(pageAddr),
                 metaIo.getIndexTreeMetaPageId(pageAddr),
                 metaIo.getGcQueueMetaPageId(pageAddr),
-                metaIo.getEstimatedSize(pageAddr)
+                metaIo.getEstimatedSize(pageAddr),
+                metaIo.getPendingRowsTreeRootPageId(pageAddr)
         );
 
         return result.init(checkpointId);
