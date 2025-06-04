@@ -28,10 +28,12 @@
 - title: Getting Started
   url: quick-start/getting-started-guide
   items:
-    - title: Getting Started
+    - title: Quick Start
       url: quick-start/getting-started-guide
-    - title: Explore SQL Capabilities
-      url: quick-start/explore-sql
+    - title: Start Ignite 3 Cluster
+      url: quick-start/start-cluster
+    - title: Persist Your Data
+      url: quick-start/persist-data
 - title: Embedded Mode
   url: quick-start/embedded-mode
 - title: Ignite CLI Tool
