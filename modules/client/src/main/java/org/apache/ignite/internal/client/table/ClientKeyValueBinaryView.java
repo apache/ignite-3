@@ -119,13 +119,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                             Collections.emptyMap(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> { // TODO make static
-                    if (agg == null) {
-                        return new HashMap<>();
-                    } else {
-                        agg.putAll(cur);
-                        return agg;
-                    }
+                }, new HashMap<>(), (agg, cur) -> {
+                    agg.putAll(cur);
+                    return agg;
                 },
                 ClientTupleSerializer::getColocationHash);
     }
@@ -213,7 +209,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                             r -> r.in().unpackBoolean(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> agg == null ? cur : agg && cur,
+                },
+                Boolean.TRUE,
+                (agg, cur) -> agg && cur,
                 ClientTupleSerializer::getColocationHash);
     }
 
@@ -264,7 +262,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                             r -> null,
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next().getKey()),
                             tx);
-                }, (agg, cur) -> null,
+                },
+                null,
+                (agg, cur) -> null,
                 (schema, entry) -> ClientTupleSerializer.getColocationHash(schema, entry.getKey()));
     }
 
@@ -399,13 +399,9 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> {
-                    if (agg == null) {
-                        return new HashSet<>();
-                    } else {
-                        agg.addAll(cur);
-                        return agg;
-                    }
+                }, new HashSet<>(), (agg, cur) -> {
+                    agg.addAll(cur);
+                    return agg;
                 },
                 ClientTupleSerializer::getColocationHash);
     }

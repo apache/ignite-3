@@ -200,11 +200,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                             Collections.emptyMap(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> {
-                    if (agg == null) { // TODO get rid of comparison
-                        agg = new HashMap<>();
-                    }
-
+                },
+                new HashMap<>(),
+                (agg, cur) -> {
                     agg.putAll(cur);
                     return agg;
                 },
@@ -252,7 +250,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                             r -> r.in().unpackBoolean(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> agg == null ? cur : agg && cur,
+                },
+                Boolean.TRUE,
+                (agg, cur) -> agg && cur,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
 
@@ -311,7 +311,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                             r -> null,
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next().getKey()),
                             tx);
-                }, (agg, cur) -> null,
+                }, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry.getKey()));
     }
 
@@ -466,13 +466,9 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                             Collections.emptyList(),
                             node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next()),
                             tx);
-                }, (agg, cur) -> {
-                    if (agg == null) {
-                        return new HashSet<>();
-                    } else {
-                        agg.addAll(cur);
-                        return agg;
-                    }
+                }, new HashSet<>(), (agg, cur) -> {
+                    agg.addAll(cur);
+                    return agg;
                 },
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
