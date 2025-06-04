@@ -23,5 +23,5 @@ public enum AddWriteResultStatus {
     SUCCESS,
 
     /** Failed to add write intent because it already exists for another transaction. */
-    WRITE_INTENT_EXISTS;
+    TX_MISMATCH;
 }

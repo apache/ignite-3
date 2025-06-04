@@ -250,7 +250,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    addWriteResult[0] = AddWriteResult.writeIntentExists(versionChain.txId, previousCommitTimestamp(versionChain));
+                    addWriteResult[0] = AddWriteResult.txMismatch(versionChain.txId, previousCommitTimestamp(versionChain));
 
                     return versionChain;
                 }

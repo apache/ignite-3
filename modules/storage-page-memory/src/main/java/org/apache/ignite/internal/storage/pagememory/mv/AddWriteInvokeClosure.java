@@ -93,7 +93,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
 
         if (oldRow.isUncommitted() && !txId.equals(oldRow.transactionId())) {
-            addWriteResult = AddWriteResult.writeIntentExists(
+            addWriteResult = AddWriteResult.txMismatch(
                     oldRow.transactionId(),
                     previousCommitTimestamp(storage, oldRow, this::addWriteInfo)
             );

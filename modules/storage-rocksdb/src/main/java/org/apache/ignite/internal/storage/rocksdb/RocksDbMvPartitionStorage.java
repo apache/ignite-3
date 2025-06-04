@@ -468,7 +468,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     UUID previousTxId = txId(previousTxStateBuffer);
 
                     if (!txId.equals(previousTxId)) {
-                        return AddWriteResult.writeIntentExists(previousTxId, previousCommitTimestamp(writeBatch, rowId));
+                        return AddWriteResult.txMismatch(previousTxId, previousCommitTimestamp(writeBatch, rowId));
                     }
 
                     ByteBuffer dataId = readDataIdFromTxState(previousTxStateBuffer);

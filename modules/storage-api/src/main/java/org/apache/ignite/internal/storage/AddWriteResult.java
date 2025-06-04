@@ -52,8 +52,8 @@ public class AddWriteResult {
     }
 
     /** Returns result when an uncommitted write intent of another transaction was found while adding a new one. */
-    public static AddWriteResult writeIntentExists(UUID currentWriteIntentTxId, @Nullable HybridTimestamp previousCommitTimestamp) {
-        return new AddWriteResult(AddWriteResultStatus.WRITE_INTENT_EXISTS, null, currentWriteIntentTxId, previousCommitTimestamp);
+    public static AddWriteResult txMismatch(UUID currentWriteIntentTxId, @Nullable HybridTimestamp previousCommitTimestamp) {
+        return new AddWriteResult(AddWriteResultStatus.TX_MISMATCH, null, currentWriteIntentTxId, previousCommitTimestamp);
     }
 
     /** Returns the add status of a write intent. */
@@ -69,13 +69,13 @@ public class AddWriteResult {
         return previousWriteIntent;
     }
 
-    /** Returns the transaction ID of the current write intent. Not {@code null} for {@link AddWriteResultStatus#WRITE_INTENT_EXISTS}. */
+    /** Returns the transaction ID of the current write intent. Not {@code null} for {@link AddWriteResultStatus#TX_MISMATCH}. */
     public @Nullable UUID currentWriteIntentTxId() {
         return currentWriteIntentTxId;
     }
 
     /**
-     * Returns commit timestamp of previous committed version. Not {@code null} for {@link AddWriteResultStatus#WRITE_INTENT_EXISTS} and if
+     * Returns commit timestamp of previous committed version. Not {@code null} for {@link AddWriteResultStatus#TX_MISMATCH} and if
      * present.
      */
     public @Nullable HybridTimestamp previousCommitTimestamp() {

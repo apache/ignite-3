@@ -98,7 +98,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
         // Attempt to write from another transaction.
         assertThat(
                 addWrite(rowId, binaryRow, newTransactionId()),
-                equalsToAddWriteResult(AddWriteResult.writeIntentExists(txId, null))
+                equalsToAddWriteResult(AddWriteResult.txMismatch(txId, null))
         );
 
         // Write from the same transaction.
@@ -173,7 +173,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(
                 addWrite(rowId, binaryRow2, newTransactionId()),
-                equalsToAddWriteResult(AddWriteResult.writeIntentExists(txId, null))
+                equalsToAddWriteResult(AddWriteResult.txMismatch(txId, null))
         );
     }
 
@@ -189,7 +189,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(
                 addWrite(rowId, binaryRow2, newTransactionId()),
-                equalsToAddWriteResult(AddWriteResult.writeIntentExists(newTxId, commitTimestamp))
+                equalsToAddWriteResult(AddWriteResult.txMismatch(newTxId, commitTimestamp))
         );
     }
 
@@ -208,7 +208,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(
                 addWrite(rowId, binaryRow3, newTransactionId()),
-                equalsToAddWriteResult(AddWriteResult.writeIntentExists(newTxIdLatest, newCommitTimestamp))
+                equalsToAddWriteResult(AddWriteResult.txMismatch(newTxIdLatest, newCommitTimestamp))
         );
     }
 
@@ -848,7 +848,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
 
         assertThat(
                 addWrite(rowId, binaryRow2, newTransactionId()),
-                equalsToAddWriteResult(AddWriteResult.writeIntentExists(txId, null))
+                equalsToAddWriteResult(AddWriteResult.txMismatch(txId, null))
         );
     }
 

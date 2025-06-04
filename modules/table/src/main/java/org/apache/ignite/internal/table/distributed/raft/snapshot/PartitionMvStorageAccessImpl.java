@@ -165,7 +165,7 @@ public class PartitionMvStorageAccessImpl implements PartitionMvStorageAccess {
 
             AddWriteResult result = mvPartitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
-            if (result.status() == AddWriteResultStatus.WRITE_INTENT_EXISTS) {
+            if (result.status() == AddWriteResultStatus.TX_MISMATCH) {
                 throw new TxIdMismatchException(result.currentWriteIntentTxId(), txId);
             }
 

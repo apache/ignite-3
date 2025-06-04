@@ -166,7 +166,7 @@ public interface PartitionDataStorage extends ManuallyCloseable {
      * <p>In details:</p>
      * <ul>
      * <li>If there is no uncommitted version, a new committed version is added.</li>
-     * <li>f there is an uncommitted version, nothing will happen.</li>
+     * <li>If there is an uncommitted version, nothing will happen.</li>
      * </ul>
      *
      * @param rowId Row ID.

@@ -172,7 +172,7 @@ public class StorageUpdateHandler {
         } else {
             AddWriteResult result = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
 
-            if (result.status() == AddWriteResultStatus.WRITE_INTENT_EXISTS) {
+            if (result.status() == AddWriteResultStatus.TX_MISMATCH) {
                 throw new TxIdMismatchException(result.currentWriteIntentTxId(), txId);
             }
 
