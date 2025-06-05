@@ -39,7 +39,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -137,15 +136,7 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
-            int commitPartitionId) throws TxIdMismatchException, StorageException {
-        handleSnapshotInterference(rowId);
-
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
-    }
-
-    @Override
-    public AddWriteResult addWriteNew(
+    public AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
@@ -154,26 +145,18 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     ) throws StorageException {
         handleSnapshotInterference(rowId);
 
-        return partitionStorage.addWriteNew(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs)
-            throws TxIdMismatchException, StorageException {
-        handleSnapshotInterference(rowId);
-
-        partitionStorage.addWriteCommitted(rowId, row, commitTs);
-    }
-
-    @Override
-    public AddWriteCommittedResult addWriteCommittedNew(
+    public AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
         handleSnapshotInterference(rowId);
 
-        return partitionStorage.addWriteCommittedNew(rowId, row, commitTimestamp);
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override

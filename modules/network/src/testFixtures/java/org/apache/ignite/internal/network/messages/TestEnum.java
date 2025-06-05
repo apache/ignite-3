@@ -19,24 +19,39 @@ package org.apache.ignite.internal.network.messages;
 
 /** Test enum. */
 public enum TestEnum {
-    ONE,
-    TWO,
-    THREE;
+    ONE(0),
+    TWO(1),
+    THREE(2);
+
+    private final int id;
+
+    TestEnum(int id) {
+        this.id = id;
+    }
 
     /** Cached array with all enum values. */
     private static final TestEnum[] VALUES = values();
 
     /**
-     * Returns the enumerated value from its ordinal.
+     * Returns the enumerated value from its id.
      *
-     * @param ordinal Ordinal of enumeration constant.
-     * @throws IllegalArgumentException If no enumeration constant by ordinal.
+     * @param id Id of enumeration constant.
+     * @throws IllegalArgumentException If no enumeration constant by id.
      */
-    public static TestEnum fromOrdinal(int ordinal) throws IllegalArgumentException {
-        if (ordinal < 0 || ordinal >= VALUES.length) {
-            throw new IllegalArgumentException("No enum constant from ordinal: " + ordinal);
+    public static TestEnum fromId(int id) throws IllegalArgumentException {
+        if (id < 0) {
+            throw new IllegalArgumentException("No enum constant from id: " + id);
         }
 
-        return VALUES[ordinal];
+        for (TestEnum testEnum : VALUES) {
+            if (testEnum.id == id) {
+                return testEnum;
+            }
+        }
+        throw new IllegalArgumentException("No enum constant from id: " + id);
+    }
+
+    public int id() {
+        return id;
     }
 }

@@ -23,7 +23,7 @@ import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.tostring.S;
 import org.jetbrains.annotations.Nullable;
 
-/** No doc. */
+/** Result of {@link MvPartitionStorage#addWrite add} of write intent. */
 public class AddWriteResult {
     private final AddWriteResultStatus status;
 
@@ -31,49 +31,54 @@ public class AddWriteResult {
 
     private final @Nullable UUID currentWriteIntentTxId;
 
-    private final @Nullable HybridTimestamp previousCommitTimestamp;
+    private final @Nullable HybridTimestamp latestCommitTimestamp;
 
     /** Constructor. */
     private AddWriteResult(
             AddWriteResultStatus status,
             @Nullable BinaryRow previousWriteIntent,
             @Nullable UUID currentWriteIntentTxId,
-            @Nullable HybridTimestamp previousCommitTimestamp
+            @Nullable HybridTimestamp latestCommitTimestamp
     ) {
         this.status = status;
         this.previousWriteIntent = previousWriteIntent;
         this.currentWriteIntentTxId = currentWriteIntentTxId;
-        this.previousCommitTimestamp = previousCommitTimestamp;
+        this.latestCommitTimestamp = latestCommitTimestamp;
     }
 
-    /** No doc. */
+    /** Returns result of a successful add of the write intent or replace for same transaction. */
     public static AddWriteResult success(@Nullable BinaryRow previousWriteIntent) {
         return new AddWriteResult(AddWriteResultStatus.SUCCESS, previousWriteIntent, null, null);
     }
 
-    /** No doc. */
-    public static AddWriteResult writeIntentExists(UUID currentWriteIntentTxId, @Nullable HybridTimestamp previousCommitTimestamp) {
-        return new AddWriteResult(AddWriteResultStatus.WRITE_INTENT_EXISTS, null, currentWriteIntentTxId, previousCommitTimestamp);
+    /** Returns result when an uncommitted write intent of another transaction was found while adding a new one. */
+    public static AddWriteResult txMismatch(UUID currentWriteIntentTxId, @Nullable HybridTimestamp latestCommitTimestamp) {
+        return new AddWriteResult(AddWriteResultStatus.TX_MISMATCH, null, currentWriteIntentTxId, latestCommitTimestamp);
     }
 
-    /** No doc. */
+    /** Returns the add status of a write intent. */
     public AddWriteResultStatus status() {
         return status;
     }
 
-    /** No doc. */
+    /**
+     * Returns the previous write intent. Not {@code null} for a {@link AddWriteResultStatus#SUCCESS successful} result and a write intent
+     * replace occurred for the same transaction.
+     */
     public @Nullable BinaryRow previousWriteIntent() {
         return previousWriteIntent;
     }
 
-    /** No doc. */
+    /** Returns the transaction ID of the current write intent. Not {@code null} for {@link AddWriteResultStatus#TX_MISMATCH}. */
     public @Nullable UUID currentWriteIntentTxId() {
         return currentWriteIntentTxId;
     }
 
-    /** No doc. */
-    public @Nullable HybridTimestamp previousCommitTimestamp() {
-        return previousCommitTimestamp;
+    /**
+     * Returns commit timestamp of latest committed version. Not {@code null} for {@link AddWriteResultStatus#TX_MISMATCH} and if present.
+     */
+    public @Nullable HybridTimestamp latestCommitTimestamp() {
+        return latestCommitTimestamp;
     }
 
     @Override

@@ -141,7 +141,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private static final int LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE = 3;
 
-    private static final String RESOURCE_TTL_PROP = "txnResourceTtl";
+    public static final String RESOURCE_TTL_PROP = "txnResourceTtl";
 
     private static final int RESOURCE_TTL_PROP_DEFAULT_VALUE = 30 * 1000;
 

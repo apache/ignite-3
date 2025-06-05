@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
-/** No doc. */
+/** Status of result {@link MvPartitionStorage#addWriteCommitted} add} write intent committed. */
 public enum AddWriteCommittedResultStatus {
-    /** No doc. */
+    /** Successfully add write committed. */
     SUCCESS,
 
-    /** No doc. */
+    /** Failed to add write committed because there is an uncommitted write intent present. */
     WRITE_INTENT_EXISTS;
 }

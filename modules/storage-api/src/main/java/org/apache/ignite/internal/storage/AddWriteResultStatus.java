@@ -17,11 +17,11 @@
 
 package org.apache.ignite.internal.storage;
 
-/** No doc. */
+/** Status of result {@link MvPartitionStorage#addWrite add} of write intent. */
 public enum AddWriteResultStatus {
-    /** No doc. */
+    /** Successful add of write intent or replace for same transaction. */
     SUCCESS,
 
-    /** No doc. */
-    WRITE_INTENT_EXISTS;
+    /** Failed to add write intent because it already exists for another transaction. */
+    TX_MISMATCH;
 }

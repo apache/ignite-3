@@ -500,4 +500,9 @@ public class IgniteServerImpl implements IgniteServer {
             return restartFuture;
         }
     }
+
+    @TestOnly
+    public Path workDir() {
+        return workDir;
+    }
 }

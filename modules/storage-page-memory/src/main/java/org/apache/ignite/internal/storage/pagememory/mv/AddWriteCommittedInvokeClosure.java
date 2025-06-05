@@ -50,15 +50,11 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     private final AbstractPageMemoryMvPartitionStorage storage;
 
-    private final boolean throwExceptionOnExistWriteIntent;
-
     private final GcQueue gcQueue;
 
     private OperationType operationType;
 
     private @Nullable VersionChain newRow;
-
-    private AddWriteCommittedResult addWriteCommittedResult;
 
     /**
      * Row version that will be added to the garbage collection queue when the {@link #afterCompletion() closure completes}.
@@ -71,34 +67,29 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
     @Nullable
     private RowVersion prevRowVersion;
 
+    private AddWriteCommittedResult addWriteCommittedResult;
+
     AddWriteCommittedInvokeClosure(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp,
-            AbstractPageMemoryMvPartitionStorage storage,
-            boolean throwExceptionOnExistWriteIntent
+            AbstractPageMemoryMvPartitionStorage storage
     ) {
         this.rowId = rowId;
         this.row = row;
         this.commitTimestamp = commitTimestamp;
         this.storage = storage;
         this.gcQueue = storage.renewableState.gcQueue();
-        this.throwExceptionOnExistWriteIntent = throwExceptionOnExistWriteIntent;
     }
 
     @Override
     public void call(@Nullable VersionChain oldRow) throws IgniteInternalCheckedException {
         if (oldRow != null && oldRow.isUncommitted()) {
-            if (throwExceptionOnExistWriteIntent) {
-                // This means that there is a bug in our code as the caller must make sure that no write intent exists below this write.
-                throw new StorageException("Write intent exists: [rowId={}, {}]", oldRow.rowId(), storage.createStorageInfo());
-            }
-
             operationType = OperationType.NOOP;
 
             addWriteCommittedResult = AddWriteCommittedResult.writeIntentExists(
                     oldRow.transactionId(),
-                    AddWriteInvokeClosure.previousCommitTimestamp(storage, oldRow)
+                    AddWriteInvokeClosure.previousCommitTimestamp(storage, oldRow, this::addWriteCommittedInfo)
             );
 
             return;
@@ -139,14 +130,15 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     @Override
     public @Nullable VersionChain newRow() {
-        assert operationType == OperationType.PUT ? newRow != null : newRow == null : "newRow=" + newRow + ", op=" + operationType;
+        assert (operationType == OperationType.PUT) == (newRow != null) :
+                addWriteCommittedInfo() + ", newRow=" + newRow + ", op=" + operationType;
 
         return newRow;
     }
 
     @Override
     public OperationType operationType() {
-        assert operationType != null;
+        assert operationType != null : addWriteCommittedInfo();
 
         return operationType;
     }
@@ -182,5 +174,9 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
     AddWriteCommittedResult addWriteCommittedResult() {
         return addWriteCommittedResult;
+    }
+
+    private String addWriteCommittedInfo() {
+        return storage.addWriteCommittedInfo(rowId, row, commitTimestamp);
     }
 }
