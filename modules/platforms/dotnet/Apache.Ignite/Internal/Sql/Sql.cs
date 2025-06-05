@@ -170,7 +170,7 @@ namespace Apache.Ignite.Internal.Sql
             SqlStatement statement,
             RowReaderFactory<T> rowReaderFactory,
             ICollection<object?>? args,
-            CancellationToken cancellationToken = default)
+            CancellationToken cancellationToken)
         {
             IgniteArgumentCheck.NotNull(statement);
 
