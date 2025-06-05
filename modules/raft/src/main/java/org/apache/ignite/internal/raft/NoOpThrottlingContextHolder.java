@@ -41,7 +41,7 @@ public class NoOpThrottlingContextHolder implements ThrottlingContextHolder {
     }
 
     @Override
-    public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Throwable err) {
+    public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError) {
         // No-op.
     }
 

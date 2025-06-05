@@ -44,9 +44,9 @@ public interface ThrottlingContextHolder {
      *
      * @param peer Peer.
      * @param requestStartTimestamp Timestamp when the request was sent.
-     * @param err Error if the request failed, {@code null} otherwise.
+     * @param retriableError Whether the Raft error is retriable. {@code null} if there was no error.
      */
-    void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Throwable err);
+    void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError);
 
     /**
      * Returns the timeout for a request to the peer.

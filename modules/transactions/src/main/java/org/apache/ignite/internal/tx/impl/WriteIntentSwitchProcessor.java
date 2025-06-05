@@ -24,7 +24,7 @@ import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.TopologyService;
-import org.apache.ignite.internal.tx.impl.TxManagerImpl.TransactionFailureHandler;
+import org.apache.ignite.internal.replicator.ReplicatorRecoverableExceptions;
 import org.apache.ignite.internal.tx.message.WriteIntentSwitchReplicatedInfo;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.internal.util.ExceptionUtils;
@@ -92,7 +92,7 @@ public class WriteIntentSwitchProcessor {
                     if (ex != null) {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
-                        if (TransactionFailureHandler.isRecoverable(cause)) {
+                        if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
                             LOG.info("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
 
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);

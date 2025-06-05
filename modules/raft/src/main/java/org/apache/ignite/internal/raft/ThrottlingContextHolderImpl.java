@@ -99,8 +99,8 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
     }
 
     @Override
-    public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Throwable err) {
-        peerContext(peer).afterRequest(requestStartTimestamp, err);
+    public void afterRequest(Peer peer, long requestStartTimestamp, @Nullable Boolean retriableError) {
+        peerContext(peer).afterRequest(requestStartTimestamp, retriableError);
     }
 
     @Override
@@ -198,23 +198,21 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
             currentInFlights.incrementAndGet();
         }
 
-        void afterRequest(long requestStartTimestamp, @Nullable Throwable err) {
+        void afterRequest(long requestStartTimestamp, Boolean retriableError) {
             currentInFlights.decrementAndGet();
 
-            err = unwrapCause(err);
-
-            if (err == null || err instanceof TimeoutException) {
+            if (retriableError == null || retriableError) {
                 long now = System.currentTimeMillis();
                 long duration = now - requestStartTimestamp;
 
                 averageValueTracker.record(duration);
                 histogram.record(duration);
 
-                adaptRequestTimeout(now, err != null);
+                adaptRequestTimeout(now, retriableError);
             }
         }
 
-        private void adaptRequestTimeout(long now, boolean timedOut) {
+        private void adaptRequestTimeout(long now, boolean retriableError) {
             double avg = averageValueTracker.avg();
             long defaultResponseTimeout = configuration.responseTimeoutMillis().value();
             long retryTimeout = configuration.retryTimeoutMillis().value();
@@ -241,10 +239,10 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                     break;
                 }
 
-                if (avg >= r * 0.7 && r < retryTimeout || timedOut) {
+                if (avg >= r * 0.7 && r < retryTimeout || retriableError) {
                     if (adaptiveResponseTimeoutMillis.compareAndSet(r, newTimeout)) {
-                        LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}].",
-                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, timedOut);
+                        LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}, retriableError={}].",
+                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, retriableError);
 
                         break;
                     }

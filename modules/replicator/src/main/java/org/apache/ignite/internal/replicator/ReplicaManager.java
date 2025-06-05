@@ -422,7 +422,9 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
                                 if (ex0 == null) {
                                     msg0 = prepareReplicaResponse(sendTimestamp, new ReplicaResult(res0, null));
                                 } else {
-                                    LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+                                    if (indicatesUnexpectedProblem(ex0)) {
+                                        LOG.warn("Failed to process delayed response [request={}]", ex0, request);
+                                    }
 
                                     msg0 = prepareReplicaErrorResponse(sendTimestamp, ex0);
                                 }

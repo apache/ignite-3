@@ -663,7 +663,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     err == null ? null : err.getMessage());
                         }
 
-                        throttlingContextHolder.afterRequest(retryContext.targetPeer(), requestStartTime, err);
+                        throttlingContextHolder.afterRequest(retryContext.targetPeer(), requestStartTime, retriableError(err, resp));
 
                         try {
                             if (err != null) {
@@ -846,6 +846,23 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         } else {
             assert false : th;
         }
+    }
+
+    @Nullable
+    private static Boolean retriableError(@Nullable Throwable e, NetworkMessage raftResponse) {
+        int errorCode = raftResponse instanceof ErrorResponse ? ((ErrorResponse) raftResponse).errorCode() : 0;
+        RaftError raftError = RaftError.forNumber(errorCode);
+
+        if (raftError == RaftError.SUCCESS && e == null) {
+            return null;
+        }
+
+        Throwable cause = e == null ? null : unwrapCause(e);
+        if (cause instanceof TimeoutException) {
+            return true;
+        }
+
+        return raftError == RaftError.EBUSY || raftError == RaftError.EAGAIN;
     }
 
     private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
