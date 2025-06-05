@@ -127,12 +127,12 @@ namespace Apache.Ignite
         ComputeExecuteMapReduce,
 
         /// <summary>
-        /// SQL (<see cref="ISql.ExecuteAsync"/>, <see cref="ISql.ExecuteAsync{T}"/>).
+        /// SQL (<see cref="ISql"/>).
         /// </summary>
         SqlExecute,
 
         /// <summary>
-        /// SQL script (<see cref="ISql.ExecuteScriptAsync"/>).
+        /// SQL script (<see cref="ISql"/>).
         /// </summary>
         SqlExecuteScript,
 
