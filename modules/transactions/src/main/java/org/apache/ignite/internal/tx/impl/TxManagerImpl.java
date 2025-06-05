@@ -88,6 +88,7 @@ import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEvent;
 import org.apache.ignite.internal.placementdriver.event.PrimaryReplicaEventParameters;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
@@ -1237,7 +1238,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 IOException.class,
                 ReplicationException.class,
                 ReplicationTimeoutException.class,
-                PrimaryReplicaMissException.class
+                PrimaryReplicaMissException.class,
+                GroupOverloadedException.class
         );
 
         /**
@@ -1257,6 +1259,11 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
                 if (recoverableClass.isAssignableFrom(candidate.getClass())) {
                     return true;
                 }
+            }
+
+            if (candidate.getCause() instanceof GroupOverloadedException ||
+                    (candidate.getMessage() != null && candidate.getMessage().contains("GroupOverloadedException"))) {
+                return true;
             }
 
             return false;
