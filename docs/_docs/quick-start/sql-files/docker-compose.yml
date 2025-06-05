@@ -1,0 +1,46 @@
+#  Copyright (C) GridGain Systems. All Rights Reserved.
+#  _________        _____ __________________        _____
+#  __  ____/___________(_)______  /__  ____/______ ____(_)_______
+#  _  / __  __  ___/__  / _  __  / _  / __  _  __ `/__  / __  __ \
+#  / /_/ /  _  /    _  /  / /_/ /  / /_/ /  / /_/ / _  /  _  / / /
+#  \____/   /_/     /_/   \_,__/   \____/   \__,_/  /_/   /_/ /_/
+name: ignite3
+
+x-ignite-def: &ignite-def
+  image: apacheignite/ignite:3.0.0
+  environment:
+    JVM_MAX_MEM: "4g"
+    JVM_MIN_MEM: "4g"
+  configs:
+    - source: node_config
+      target: /opt/ignite/etc/ignite-config.conf
+
+services:
+  node1:
+    <<: *ignite-def
+    command: --node-name node1
+    ports:
+      - "10300:10300"
+      - "10800:10800"
+  node2:
+    <<: *ignite-def
+    command: --node-name node2
+    ports:
+      - "10301:10300"
+      - "10801:10800"
+  node3:
+    <<: *ignite-def
+    command: --node-name node3
+    ports:
+      - "10302:10300"
+      - "10802:10800"
+
+configs:
+  node_config:
+    content: |
+      ignite {
+        network {
+          port: 3344
+          nodeFinder.netClusterNodes = ["node1:3344", "node2:3344", "node3:3344"]
+        }
+      }
