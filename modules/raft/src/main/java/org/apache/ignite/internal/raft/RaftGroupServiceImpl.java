@@ -20,6 +20,7 @@ package org.apache.ignite.internal.raft;
 import static java.lang.System.currentTimeMillis;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.stream.Collectors.toList;
+import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.tostring.IgniteToStringBuilder.includeSensitive;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
@@ -126,6 +127,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private static final Supplier<String> NO_DESCRIPTION = () -> null;
 
+    private final ThrottlingContextHolder throttlingContextHolder;
+
     /**
      * Constructor.
      *
@@ -147,7 +150,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             @Nullable Peer leader,
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         this.cluster = cluster;
         this.configuration = configuration;
@@ -160,6 +164,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         this.executor = executor;
         this.commandsMarshaller = commandsMarshaller;
         this.stoppingExceptionFactory = stoppingExceptionFactory;
+        this.throttlingContextHolder = throttlingContextHolder;
     }
 
     /**
@@ -180,7 +185,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             RaftConfiguration configuration,
             PeersAndLearners membersConfiguration,
             ScheduledExecutorService executor,
-            Marshaller commandsMarshaller
+            Marshaller commandsMarshaller,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         return start(
                 groupId,
@@ -190,7 +196,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 membersConfiguration,
                 executor,
                 commandsMarshaller,
-                StoppingExceptionFactories.indicateComponentStop()
+                StoppingExceptionFactories.indicateComponentStop(),
+                throttlingContextHolder
         );
     }
 
@@ -214,7 +221,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             PeersAndLearners membersConfiguration,
             ScheduledExecutorService executor,
             Marshaller commandsMarshaller,
-            ExceptionFactory stoppingExceptionFactory
+            ExceptionFactory stoppingExceptionFactory,
+            ThrottlingContextHolder throttlingContextHolder
     ) {
         boolean inBenchmark = IgniteSystemProperties.getBoolean(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK);
 
@@ -229,7 +237,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     null,
                     executor,
                     commandsMarshaller,
-                    stoppingExceptionFactory
+                    stoppingExceptionFactory,
+                    throttlingContextHolder
             ) {
                 @Override
                 public <R> CompletableFuture<R> run(Command cmd) {
@@ -246,7 +255,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     null,
                     executor,
                     commandsMarshaller,
-                    stoppingExceptionFactory
+                    stoppingExceptionFactory,
+                    throttlingContextHolder
             );
         }
 
@@ -288,7 +298,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<GetLeaderResponse>sendWithRetry(randomNode(), timeout, originDescription, requestFactory)
+        return this.<GetLeaderResponse>sendWithRetry(randomNode(), timeout, originDescription, requestFactory, false)
                 .thenAccept(resp -> this.leader = parsePeer(resp.leaderId()));
     }
 
@@ -299,7 +309,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory)
+        return this.<GetLeaderResponse>sendWithRetry(randomNode(), requestFactory, false)
                 .thenApply(resp -> {
                     if (resp.leaderId() == null) {
                         return LeaderWithTerm.NO_LEADER;
@@ -327,7 +337,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .groupId(groupId)
                 .build();
 
-        return this.<GetPeersResponse>sendWithRetry(leader, requestFactory)
+        return this.<GetPeersResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> {
                     this.peers = parsePeerList(resp.peersList());
                     this.learners = parsePeerList(resp.learnersList());
@@ -348,7 +358,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .peerId(peerId(peer))
                 .build();
 
-        return this.<AddPeerResponse>sendWithRetry(leader, requestFactory)
+        return this.<AddPeerResponse>sendWithRetry(leader, requestFactory, true)
                 .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
@@ -366,7 +376,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .peerId(peerId(peer))
                 .build();
 
-        return this.<RemovePeerResponse>sendWithRetry(leader, requestFactory)
+        return this.<RemovePeerResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.peers = parsePeerList(resp.newPeersList()));
     }
 
@@ -389,7 +399,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         LOG.info("Sending changePeersAndLearners request for group={} to peers={} and learners={} with leader term={}",
                 groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
 
-        return this.<ChangePeersAndLearnersResponse>sendWithRetry(leader, requestFactory)
+        return this.<ChangePeersAndLearnersResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> {
                     this.peers = parsePeerList(resp.newPeersList());
                     this.learners = parsePeerList(resp.newLearnersList());
@@ -416,7 +426,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         LOG.info("Sending changePeersAndLearnersAsync request for group={} to peers={} and learners={} with leader term={}",
                 groupId, peersAndLearners.peers(), peersAndLearners.learners(), term);
 
-        return this.<ChangePeersAndLearnersAsyncResponse>sendWithRetry(leader, requestFactory)
+        return this.<ChangePeersAndLearnersAsyncResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> {
                     // We expect that all raft related errors will be handled by sendWithRetry, means that
                     // such responses will initiate a retrying of the original request.
@@ -438,7 +448,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .learnersList(peerIds(learners))
                 .build();
 
-        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
+        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
@@ -456,7 +466,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .learnersList(peerIds(learners))
                 .build();
 
-        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
+        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
@@ -474,7 +484,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .learnersList(peerIds(learners))
                 .build();
 
-        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory)
+        return this.<LearnersOpResponse>sendWithRetry(leader, requestFactory, false)
                 .thenAccept(resp -> this.learners = parsePeerList(resp.newLearnersList()));
     }
 
@@ -486,7 +496,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .forced(forced)
                 .build();
 
-        return sendWithRetry(peer, requestFactory)
+        return sendWithRetry(peer, requestFactory, false)
                 .thenAccept(resp -> {});
     }
 
@@ -504,7 +514,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                 .peerId(peerId(newLeader))
                 .build();
 
-        return sendWithRetry(leader, requestFactory)
+        return sendWithRetry(leader, requestFactory, false)
                 .thenRun(() -> this.leader = newLeader);
     }
 
@@ -539,7 +549,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .build();
         }
 
-        return this.<ActionResponse>sendWithRetry(leader, timeoutMillis, NO_DESCRIPTION, requestFactory)
+        return this.<ActionResponse>sendWithRetry(leader, timeoutMillis, NO_DESCRIPTION, requestFactory, true)
                 .thenApply(resp -> (R) resp.result());
     }
 
@@ -559,7 +569,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
         Peer leader = leader();
         Peer node = leader == null ? randomNode() : leader;
-        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory)
+        return this.<ReadIndexResponse>sendWithRetry(node, requestFactory, false)
                 .thenApply(ReadIndexResponse::index);
     }
 
@@ -581,18 +591,30 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
-            Function<Peer, ? extends NetworkMessage> requestFactory
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            boolean throttleOnOverload
     ) {
-        return sendWithRetry(peer, defaultTimeout(), NO_DESCRIPTION, requestFactory);
+        return sendWithRetry(peer, defaultTimeout(), NO_DESCRIPTION, requestFactory, throttleOnOverload);
     }
 
     private <R extends NetworkMessage> CompletableFuture<R> sendWithRetry(
             Peer peer,
             long timeoutMillis,
             Supplier<String> originDescription,
-            Function<Peer, ? extends NetworkMessage> requestFactory
+            Function<Peer, ? extends NetworkMessage> requestFactory,
+            boolean throttleOnOverload
     ) {
         var future = new CompletableFuture<R>();
+
+        if (throttleOnOverload && throttlingContextHolder.isOverloaded(peer, requestFactory.apply(peer).getClass().getSimpleName())) {
+            executor.schedule(
+                    () -> future.completeExceptionally(new GroupOverloadedException(groupId, peer)),
+                    10,
+                    TimeUnit.MILLISECONDS
+            );
+
+            return future;
+        }
 
         long stopTime = timeoutMillis >= 0 ? currentTimeMillis() + timeoutMillis : Long.MAX_VALUE;
         var context = new RetryContext(groupId, peer, originDescription, requestFactory, stopTime);
@@ -617,15 +639,20 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         }
 
         try {
-            if (currentTimeMillis() >= retryContext.stopTime()) {
+            long requestStartTime = currentTimeMillis();
+
+            if (requestStartTime >= retryContext.stopTime()) {
                 fut.completeExceptionally(retryContext.createTimeoutException());
 
                 return;
             }
 
+            throttlingContextHolder.beforeRequest(retryContext.targetPeer());
+            long responseTimeout = throttlingContextHolder.peerRequestTimeoutMillis(retryContext.targetPeer());
+
             resolvePeer(retryContext.targetPeer())
                     .thenCompose(node -> cluster.messagingService()
-                            .invoke(node, retryContext.request(), configuration.responseTimeoutMillis().value()))
+                            .invoke(node, retryContext.request(), responseTimeout))
                     .whenComplete((resp, err) -> {
                         if (LOG.isTraceEnabled()) {
                             LOG.trace("sendWithRetry req={} resp={} from={} to={} err={}",
@@ -635,6 +662,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                                     retryContext.targetPeer().consistentId(),
                                     err == null ? null : err.getMessage());
                         }
+
+                        throttlingContextHolder.afterRequest(retryContext.targetPeer(), requestStartTime, err);
 
                         try {
                             if (err != null) {
@@ -717,7 +746,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
             case EBUSY:
             case EAGAIN:
-                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer(), getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttempt(retryContext.targetPeer(), getShortReasonMessage(retryContext, error, resp)));
 
                 break;
 
@@ -737,7 +766,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     newTargetPeer = retryContext.targetPeer();
                 }
 
-                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error, resp)));
 
                 break;
             }
@@ -748,7 +777,10 @@ public class RaftGroupServiceImpl implements RaftGroupService {
             case ESTOP: {
                 Peer newTargetPeer = randomNode(retryContext);
 
-                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(newTargetPeer, getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttemptForUnavailablePeer(
+                        newTargetPeer,
+                        getShortReasonMessage(retryContext, error, resp)
+                ));
 
                 break;
             }
@@ -766,7 +798,7 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     leader = newTargetPeer;
                 }
 
-                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error)));
+                scheduleRetry(fut, retryContext.nextAttempt(newTargetPeer, getShortReasonMessage(retryContext, error, resp)));
 
                 break;
             }
@@ -782,8 +814,8 @@ public class RaftGroupServiceImpl implements RaftGroupService {
         return peer.consistentId() + ":" + peer.idx();
     }
 
-    private static String getShortReasonMessage(RetryContext retryContext, RaftError error) {
-        return "Peer " + shortPeerString(retryContext.targetPeer()) + " returned code " + error;
+    private static String getShortReasonMessage(RetryContext retryContext, RaftError error, ErrorResponse resp) {
+        return format("Peer {} returned code {}: {}", shortPeerString(retryContext.targetPeer()), error, resp.errorMsg());
     }
 
     private static void handleSmErrorResponse(
@@ -818,7 +850,11 @@ public class RaftGroupServiceImpl implements RaftGroupService {
 
     private void scheduleRetry(CompletableFuture<? extends NetworkMessage> fut, RetryContext retryContext) {
         executor.schedule(
-                () -> sendWithRetry(fut, retryContext),
+                () -> {
+                    retryContext.onNewAttempt();
+
+                    sendWithRetry(fut, retryContext);
+                },
                 configuration.retryDelayMillis().value(),
                 TimeUnit.MILLISECONDS
         );

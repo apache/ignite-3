@@ -40,6 +40,7 @@ import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
+import org.apache.ignite.internal.raft.GroupOverloadedException;
 import org.apache.ignite.internal.replicator.ReplicaService;
 import org.apache.ignite.internal.replicator.ReplicationGroupId;
 import org.apache.ignite.internal.replicator.exception.PrimaryReplicaMissException;
@@ -146,11 +147,11 @@ public class PersistentTxStateVacuumizer {
                                 if (e == null) {
                                     successful.addAll(filteredTxIds);
                                     vacuumizedPersistentTxnStatesCount.addAndGet(filteredTxIds.size());
+                                } else if (expectedException(e)) {
                                     // We can log the exceptions without further handling because failed requests' txns are not added
                                     // to the set of successful and will be retried. PrimaryReplicaMissException can be considered as
                                     // a part of regular flow and doesn't need to be logged. NodeStoppingException should be ignored as
                                     // vacuumization will be retried after restart.
-                                } else if (hasCause(e, PrimaryReplicaMissException.class, NodeStoppingException.class)) {
                                     LOG.debug("Failed to vacuum tx states from the persistent storage.", e);
                                 } else {
                                     failureProcessor.process(new FailureContext(
@@ -171,6 +172,14 @@ public class PersistentTxStateVacuumizer {
 
         return allOf(futures)
                 .handle((unused, unusedEx) -> new PersistentTxStateVacuumResult(successful, vacuumizedPersistentTxnStatesCount.get()));
+    }
+
+    private boolean expectedException(Throwable e) {
+        return hasCause(e,
+                PrimaryReplicaMissException.class,
+                NodeStoppingException.class,
+                GroupOverloadedException.class
+        );
     }
 
     /**

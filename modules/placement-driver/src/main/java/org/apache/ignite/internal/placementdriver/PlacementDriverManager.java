@@ -178,7 +178,8 @@ public class PlacementDriverManager implements IgniteComponent {
                                     PeersAndLearners.fromConsistentIds(placementDriverNodes),
                                     topologyAwareRaftGroupServiceFactory,
                                     null, // Use default commands marshaller.
-                                    StoppingExceptionFactories.indicateNodeStop()
+                                    StoppingExceptionFactories.indicateNodeStop(),
+                                    true
                             );
 
                             return raftClient.subscribeLeader(this::onLeaderChange).thenApply(v -> raftClient);

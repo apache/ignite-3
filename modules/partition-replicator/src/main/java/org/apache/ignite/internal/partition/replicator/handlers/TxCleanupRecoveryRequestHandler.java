@@ -22,8 +22,12 @@ import static org.apache.ignite.internal.tx.TxState.isFinalState;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import org.apache.ignite.internal.failure.FailureContext;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
@@ -44,6 +48,7 @@ import org.apache.ignite.internal.util.Cursor;
  */
 public class TxCleanupRecoveryRequestHandler {
     private static final IgniteLogger LOG = Loggers.forClass(TxCleanupRecoveryRequestHandler.class);
+    private static final IgniteLogger LOG2 = Loggers.forName("com.example.special");
 
     private final TxStatePartitionStorage txStatePartitionStorage;
     private final TxManager txManager;
@@ -70,6 +75,7 @@ public class TxCleanupRecoveryRequestHandler {
      * @return Future completed when the request has been handled.
      */
     public CompletableFuture<Void> handle(TxCleanupRecoveryRequest request) {
+        LOG2.info("Handle TxCleanupRecoveryRequest {}", request);
         runPersistentStorageScan();
 
         return nullCompletedFuture();
@@ -78,7 +84,9 @@ public class TxCleanupRecoveryRequestHandler {
     private void runPersistentStorageScan() {
         int committedCount = 0;
         int abortedCount = 0;
+        List<IgniteBiTuple<UUID, TxMeta>> tasks = new CopyOnWriteArrayList<>();
 
+        long nanostart = System.nanoTime();
         try (Cursor<IgniteBiTuple<UUID, TxMeta>> txs = txStatePartitionStorage.scan()) {
             for (IgniteBiTuple<UUID, TxMeta> tx : txs) {
                 UUID txId = tx.getKey();
@@ -94,17 +102,7 @@ public class TxCleanupRecoveryRequestHandler {
                     abortedCount++;
                 }
 
-                txManager.cleanup(
-                        replicationGroupId,
-                        txMeta.enlistedPartitions(),
-                        txMeta.txState() == COMMITTED,
-                        txMeta.commitTimestamp(),
-                        txId
-                ).exceptionally(throwable -> {
-                    LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
-
-                    return null;
-                });
+                tasks.add(tx);
             }
         } catch (IgniteInternalException e) {
             // TODO: https://issues.apache.org/jira/browse/IGNITE-25302 - remove this IF after proper stop is implemented.
@@ -114,6 +112,48 @@ public class TxCleanupRecoveryRequestHandler {
             }
         }
 
+        long msTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanostart);
+
         LOG.debug("Persistent storage scan finished [committed={}, aborted={}].", committedCount, abortedCount);
+        LOG2.info("Persistent storage scan finished [committed={}, aborted={}, time={}].", committedCount, abortedCount, msTime);
+
+        throttledCleanup(tasks);
+    }
+
+    private void throttledCleanup(List<IgniteBiTuple<UUID, TxMeta>> tasks) {
+        List<IgniteBiTuple<UUID, TxMeta>> igniteBiTuples = tasks.subList(0, Math.min(tasks.size(), 1000));
+        ArrayList<IgniteBiTuple<UUID, TxMeta>> toCleanup = new ArrayList<>(igniteBiTuples);
+        igniteBiTuples.clear();
+        LOG2.info("Throttled cleanup of [pack={}, yet={}].", toCleanup.size(), tasks.size());
+        long nanostart = System.nanoTime();
+        callCleanup(toCleanup).whenComplete((r, e) -> {
+            long msTime = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - nanostart);
+            LOG2.info("Pack cleanup finished [time={}, size={}, yet={}].", msTime, toCleanup.size(), tasks.size());
+            if (!tasks.isEmpty()) {
+                throttledCleanup(tasks);
+            }
+        });
+    }
+
+    private CompletableFuture<?> callCleanup(List<IgniteBiTuple<UUID, TxMeta>> tasks) {
+        CompletableFuture<?>[] array = tasks.stream().map(task -> callCleanup(task.getValue(), task.getKey()))
+                .toArray(CompletableFuture[]::new);
+
+        return CompletableFuture.allOf(array);
+    }
+
+    private CompletableFuture<?> callCleanup(TxMeta txMeta, UUID txId) {
+        return txManager.cleanup(
+                replicationGroupId,
+                txMeta.enlistedPartitions(),
+                txMeta.txState() == COMMITTED,
+                txMeta.commitTimestamp(),
+                txId
+        ).exceptionally(throwable -> {
+            LOG.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+            LOG2.warn("Failed to cleanup transaction [txId={}].", throwable, txId);
+
+            return null;
+        });
     }
 }
