@@ -13,17 +13,13 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-import './code-tabs.js?1'
-import {hideLeftNav, scrollLeftNavToActive} from './docs-menu.js?20201005'
-//import {hideTopNav} from './top-navigation.js'
-import './page-nav.js'
-import './search.js'
+document.addEventListener("DOMContentLoaded", () => {
+  const searchButton = document.getElementById("search-button");
+  const searchWrapper = document.getElementById("search-wrapper");
+  const searchInput = document.querySelector(".pagefind-ui__search-input");
 
-
-
-
-document.addEventListener('topNavigationShow', hideLeftNav)
-// document.addEventListener('leftNavigationShow', hideTopNav)
-window.addEventListener('load', scrollLeftNavToActive);
-
-
+  searchButton.addEventListener("click", () => {
+    searchButton.classList.toggle("open");
+    searchWrapper.classList.toggle("open");
+  });
+});
