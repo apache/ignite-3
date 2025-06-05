@@ -19,7 +19,6 @@ package org.apache.ignite.internal.index;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.catalog.CatalogTestUtils.awaitDefaultZoneCreation;
 import static org.apache.ignite.internal.catalog.CatalogTestUtils.createTestCatalogManager;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.COLUMN_NAME;
 import static org.apache.ignite.internal.index.TestIndexManagementUtils.INDEX_NAME;
@@ -133,8 +132,6 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
         when(mockSchemaManager.schemaRegistry(anyLong(), anyInt())).thenReturn(nullCompletedFuture());
 
         createAndStartComponents();
-
-        awaitDefaultZoneCreation(catalogManager);
 
         createTable(TABLE_NAME);
     }
@@ -276,6 +273,8 @@ public class IndexManagerTest extends BaseIgniteAbstractTest {
                         .thenCompose(unused -> metaStorageManager.deployWatches()),
                 willCompleteSuccessfully()
         );
+
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
     }
 
     private void createTable(String tableName) {

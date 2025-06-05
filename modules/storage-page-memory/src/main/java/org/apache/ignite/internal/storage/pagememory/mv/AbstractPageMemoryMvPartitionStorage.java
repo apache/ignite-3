@@ -45,6 +45,8 @@ import org.apache.ignite.internal.pagememory.tree.IgniteTree.InvokeClosure;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -53,7 +55,6 @@ import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageClosedException;
 import org.apache.ignite.internal.storage.StorageException;
 import org.apache.ignite.internal.storage.StorageRebalanceException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.index.IndexStorage;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
@@ -422,31 +423,40 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
-            throws TxIdMismatchException, StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
         return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
 
             try {
-                AddWriteInvokeClosure addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
+                var addWrite = new AddWriteInvokeClosure(rowId, row, txId, commitTableOrZoneId, commitPartitionId, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWrite);
 
                 addWrite.afterCompletion();
 
-                return addWrite.getPreviousUncommittedRowVersion();
+                AddWriteResult addWriteResult = addWrite.addWriteResult();
+
+                assert addWriteResult != null : addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+                return addWriteResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                if (e.getCause() instanceof TxIdMismatchException) {
-                    throw (TxIdMismatchException) e.getCause();
-                }
-
-                throw new StorageException("Error while executing addWrite: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException(
+                        "Error while executing addWrite: [{}]",
+                        e,
+                        addWriteInfo(rowId, row, txId, commitTableOrZoneId, commitPartitionId)
+                );
             }
         });
     }
@@ -524,27 +534,38 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) throws StorageException {
-        assert rowId.partitionId() == partitionId : rowId;
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
-        busy(() -> {
+        return busy(() -> {
             throwExceptionIfStorageNotInRunnableOrRebalanceState(state.get(), this::createStorageInfo);
 
-            assert rowIsLocked(rowId);
+            assert rowIsLocked(rowId) : addWriteCommittedInfo(rowId, row, commitTimestamp);
 
             try {
-                AddWriteCommittedInvokeClosure addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp,
-                        this);
+                var addWriteCommitted = new AddWriteCommittedInvokeClosure(rowId, row, commitTimestamp, this);
 
                 renewableState.versionChainTree().invoke(new VersionChainKey(rowId), null, addWriteCommitted);
 
                 addWriteCommitted.afterCompletion();
 
-                return null;
+                AddWriteCommittedResult addWriteCommittedResult = addWriteCommitted.addWriteCommittedResult();
+
+                assert addWriteCommittedResult != null : addWriteCommittedInfo(rowId, row, commitTimestamp);
+
+                return addWriteCommittedResult;
             } catch (IgniteInternalCheckedException e) {
                 throwStorageExceptionIfItCause(e);
 
-                throw new StorageException("Error while executing addWriteCommitted: [rowId={}, {}]", e, rowId, createStorageInfo());
+                throw new StorageException(
+                        "Error while executing addWriteCommitted: [{}]",
+                        e,
+                        addWriteCommittedInfo(rowId, row, commitTimestamp)
+                );
             }
         });
     }
@@ -720,6 +741,32 @@ public abstract class AbstractPageMemoryMvPartitionStorage implements MvPartitio
     /** Creates a string with information about the {@link #abortWrite} for logging and errors. */
     String abortWriteInfo(RowId rowId, UUID txId) {
         return IgniteStringFormatter.format("rowId={}, txId={}, {}", rowId, txId, createStorageInfo());
+    }
+
+    /** Creates a string with information about the {@link #addWrite} for logging and errors. */
+    String addWriteInfo(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) {
+        return IgniteStringFormatter.format(
+                "rowId={}, rowIsTombstone={}, txId={}, commitTableOrZoneId={}, commitPartitionId={}, {}",
+                rowId, row == null, txId, commitTableOrZoneId, commitPartitionId, createStorageInfo()
+        );
+    }
+
+    /** Creates a string with information about the {@link #addWriteCommitted} for logging and errors. */
+    String addWriteCommittedInfo(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) {
+        return IgniteStringFormatter.format(
+                "rowId={}, rowIsTombstone={}, commitTimestamp={}, {}",
+                rowId, row == null, commitTimestamp, createStorageInfo()
+        );
     }
 
     /**
