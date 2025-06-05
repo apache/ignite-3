@@ -17,7 +17,12 @@
 
 package org.apache.ignite.internal.cli.commands.cluster.config;
 
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_UPDATE_FILE_OPTION;
+import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_UPDATE_FILE_OPTION_DESC;
+import static org.apache.ignite.internal.cli.util.ConfigUtils.formUpdateConfig;
+
 import jakarta.inject.Inject;
+import java.io.File;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.ClusterConfigUpdateCallInput;
 import org.apache.ignite.internal.cli.commands.BaseCommand;
@@ -28,6 +33,7 @@ import org.apache.ignite.internal.cli.core.exception.handler.ClusterNotInitializ
 import org.apache.ignite.internal.cli.core.flow.builder.Flows;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 /**
  * Command that updates cluster configuration in REPL mode.
@@ -38,9 +44,13 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
     @Mixin
     private ClusterUrlMixin clusterUrl;
 
-    /** Configuration that will be updated. */
+    /** Configuration from CLI that will be updated. */
     @Mixin
-    private SpacedParameterMixin config;
+    private SpacedParameterMixin configFromArgs;
+
+    /** Configuration from file that will be updated. */
+    @Option(names = CONFIG_UPDATE_FILE_OPTION, description = CONFIG_UPDATE_FILE_OPTION_DESC)
+    private File configFile;
 
     @Inject
     ClusterConfigUpdateCall call;
@@ -61,7 +71,7 @@ public class ClusterConfigUpdateReplCommand extends BaseCommand implements Runna
 
     private ClusterConfigUpdateCallInput configUpdateCallInput(String clusterUrl) {
         return ClusterConfigUpdateCallInput.builder()
-                .config(config.toString())
+                .config(formUpdateConfig(configFile, configFromArgs))
                 .clusterUrl(clusterUrl)
                 .build();
     }

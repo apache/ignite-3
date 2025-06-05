@@ -21,6 +21,7 @@ package org.apache.ignite.internal.cli.commands.configuration;
 import static org.junit.jupiter.api.Assertions.assertAll;
 
 import org.apache.ignite.internal.cli.CliIntegrationTest;
+import org.apache.ignite.internal.cli.commands.TopLevelCliCommand;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -157,8 +158,11 @@ class ItConfigCommandTest extends CliIntegrationTest {
     void addConfigFromNonExistingFile() {
         execute("cluster", "config", "update", "--url", NODE_URL, "--file", "wrongPath");
 
+        if (getCommandClass().equals(TopLevelCliCommand.class)) {
+            assertAll(() -> assertExitCodeIs(1));
+        }
+
         assertAll(
-                () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("File ["),
                 () -> assertErrOutputContains("] not found"),
                 this::assertOutputIsEmpty
@@ -281,8 +285,11 @@ class ItConfigCommandTest extends CliIntegrationTest {
     void addNodeConfigFromNonExistingFile() {
         execute("node", "config", "update", "--url", NODE_URL, "--file", "wrongPath");
 
+        if (getCommandClass().equals(TopLevelCliCommand.class)) {
+            assertAll(() -> assertExitCodeIs(1));
+        }
+
         assertAll(
-                () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("File ["),
                 () -> assertErrOutputContains("] not found"),
                 this::assertOutputIsEmpty
@@ -398,16 +405,22 @@ class ItConfigCommandTest extends CliIntegrationTest {
     void updateWithWrongData() {
         execute("node", "config", "update", "--url", NODE_URL, "ignite.network.foo=\"bar\"");
 
+        if (getCommandClass().equals(TopLevelCliCommand.class)) {
+            assertAll(() -> assertExitCodeIs(1));
+        }
+
         assertAll(
-                () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("'ignite.network' configuration doesn't have the 'foo' sub-configuration"),
                 this::assertOutputIsEmpty
         );
 
         execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriodMillis=asd");
 
+        if (getCommandClass().equals(TopLevelCliCommand.class)) {
+            assertAll(() -> assertExitCodeIs(1));
+        }
+
         assertAll(
-                () -> assertExitCodeIs(1),
                 () -> assertErrOutputContains("'long' is expected as a type for the "
                         + "'ignite.network.shutdownQuietPeriodMillis' configuration value"),
                 this::assertOutputIsEmpty
