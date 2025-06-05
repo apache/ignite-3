@@ -128,7 +128,7 @@ public interface MvTableStorage extends ManuallyCloseable {
      *     <li>For a multi-version partition storage and its indexes, methods for reading and writing data will throw
      *     {@link StorageRebalanceException} except:<ul>
      *         <li>{@link MvPartitionStorage#addWrite(RowId, BinaryRow, UUID, int, int)};</li>
-     *         <li>{@link MvPartitionStorage#commitWrite(RowId, HybridTimestamp)};</li>
+     *         <li>{@link MvPartitionStorage#commitWrite};</li>
      *         <li>{@link MvPartitionStorage#addWriteCommitted(RowId, BinaryRow, HybridTimestamp)};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedIndex()};</li>
      *         <li>{@link MvPartitionStorage#lastAppliedTerm()};</li>
