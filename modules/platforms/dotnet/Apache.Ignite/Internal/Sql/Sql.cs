@@ -62,14 +62,20 @@ namespace Apache.Ignite.Internal.Sql
         /// <inheritdoc/>
         public async Task<IResultSet<T>> ExecuteAsync<T>(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args) =>
-            await ExecuteAsyncInternal(transaction, statement, static cols => GetReaderFactory<T>(cols), args)
+            await ExecuteAsyncInternal(
+                    transaction,
+                    statement,
+                    static cols => GetReaderFactory<T>(cols),
+                    args,
+                    cancellationToken)
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
         public async Task<IgniteDbDataReader> ExecuteReaderAsync(
             ITransaction? transaction, SqlStatement statement, CancellationToken cancellationToken, params object?[]? args)
         {
-            var resultSet = await ExecuteAsyncInternal<object>(transaction, statement, _ => null!, args).ConfigureAwait(false);
+            var resultSet = await ExecuteAsyncInternal<object>(
+                transaction, statement, _ => null!, args, cancellationToken).ConfigureAwait(false);
 
             if (!resultSet.HasRowSet)
             {
