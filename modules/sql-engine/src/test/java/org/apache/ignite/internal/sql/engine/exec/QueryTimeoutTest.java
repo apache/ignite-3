@@ -44,6 +44,7 @@ import org.apache.ignite.internal.sql.engine.framework.TestCluster;
 import org.apache.ignite.internal.sql.engine.framework.TestNode;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.InternalTransaction;
 import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.sql.SqlException;
@@ -172,6 +173,7 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(key = "DUMP_QUERY_TRANSITION_LOG", value = "true")
     void testTimeoutDistributedRead() {
         AsyncSqlCursor<?> cursor = gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT * FROM my_table");
 

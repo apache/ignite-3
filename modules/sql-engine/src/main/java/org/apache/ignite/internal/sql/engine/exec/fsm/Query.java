@@ -19,9 +19,12 @@ package org.apache.ignite.internal.sql.engine.exec.fsm;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Queue;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicReference;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.sql.engine.AsyncSqlCursor;
 import org.apache.ignite.internal.sql.engine.InternalSqlRow;
 import org.apache.ignite.internal.sql.engine.QueryCancel;
@@ -31,6 +34,7 @@ import org.apache.ignite.internal.sql.engine.prepare.QueryPlan;
 import org.apache.ignite.internal.sql.engine.sql.ParsedResult;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionContext;
 import org.apache.ignite.internal.sql.engine.tx.QueryTransactionWrapper;
+import org.apache.ignite.internal.util.IgniteUtils;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -41,6 +45,8 @@ import org.jetbrains.annotations.Nullable;
 class Query {
     final CompletableFuture<Void> terminationFuture = new CompletableFuture<>();
     volatile CompletableFuture<Object> resultHolder = new CompletableFuture<>();
+
+    final Queue<String> transitionLog = new ConcurrentLinkedQueue<>(); 
 
     // Below are attributes the query was initialized with
     final Instant createdAt;
@@ -90,6 +96,8 @@ class Query {
         this.parentId = null;
         this.statementNum = -1;
         this.nextCursorFuture = null;
+
+        logPhaseEnter(currentPhase);
     }
 
     /** Constructs the child query. */
@@ -114,11 +122,15 @@ class Query {
         this.params = params;
         this.nextCursorFuture = nextCursorFuture;
         this.parsedResult = parsedResult;
+
+        logPhaseEnter(currentPhase);
     }
 
     /** Moves the query to a given state. */
     void moveTo(ExecutionPhase newPhase) {
         currentPhase = newPhase;
+
+        logPhaseEnter(newPhase);
 
         if (newPhase == ExecutionPhase.TERMINATED) {
             terminationFuture.complete(null);
@@ -159,5 +171,24 @@ class Query {
     void reset() {
         resultHolder = new CompletableFuture<>();
         error.set(null);
+    }
+
+    private void logPhaseEnter(ExecutionPhase phase) {
+        transitionLog.add(phase + ": " + IgniteUtils.monotonicMs());
+    }
+
+    void dumpTransitionLog() {
+        if (!IgniteSystemProperties.getBoolean("DUMP_QUERY_TRANSITION_LOG", false)) {
+            return;
+        }
+
+        StringBuilder sb = new StringBuilder("Query: ")
+                .append(id)
+                .append(error.get() != null ? " (failed)" : "")
+                .append(System.lineSeparator());
+
+        List.copyOf(transitionLog).forEach(step -> sb.append('\t').append(step).append(System.lineSeparator()));
+
+        System.err.println(sb);
     }
 }

@@ -560,6 +560,8 @@ public class QueryExecutor implements LifecycleAware, Debuggable {
         queryTerminationFut.whenComplete((none, ignoredEx) -> {
             runningQueries.remove(query.id);
 
+            query.dumpTransitionLog();
+
             long finishTime = clockService.current().getPhysical();
 
             eventLog.log(IgniteEventType.QUERY_FINISHED.name(),
