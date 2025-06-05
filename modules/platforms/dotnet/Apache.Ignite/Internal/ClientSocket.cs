@@ -726,7 +726,7 @@ namespace Apache.Ignite.Internal
 
         private ConfiguredAsyncDisposable RegisterCancellation(long requestId, CancellationToken cancellationToken) =>
             cancellationToken == CancellationToken.None
-                ? default
+                ? default(CancellationTokenRegistration).ConfigureAwait(false)
                 : cancellationToken.Register(() => _ = CancelRequestAsync(requestId)).ConfigureAwait(false);
 
         private async Task CancelRequestAsync(long requestId)
