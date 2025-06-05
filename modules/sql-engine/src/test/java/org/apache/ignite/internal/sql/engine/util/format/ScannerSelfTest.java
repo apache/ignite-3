@@ -125,6 +125,28 @@ class ScannerSelfTest extends BaseIgniteAbstractTest {
 
     @ParameterizedTest
     @MethodSource("singleElements")
+    public void testPatternCaseInsensitivity(String pattern, List<DateTimeTemplateField> expected) {
+
+        StringBuilder modifiedPattern = new StringBuilder();
+        for (int i = 0; i < pattern.length(); i++) {
+            if (random.nextBoolean()) {
+                modifiedPattern.append(Character.toLowerCase(pattern.charAt(i)));
+            } else {
+                modifiedPattern.append(Character.toUpperCase(pattern.charAt(i)));
+            }
+        }
+        String newPattern = modifiedPattern.toString();
+
+        log.info("Random case pattern: {}", newPattern);
+
+        List<DateTimeFormatElement> elements = expected.stream()
+                .map(DateTimeFormatElement::new)
+                .collect(Collectors.toList());
+        expectParsed(newPattern, elements);
+    }
+
+    @ParameterizedTest
+    @MethodSource("singleElements")
     public void testSingleElementWithDelimiters(String ignore, List<DateTimeTemplateField> fields) {
         StringBuilder pattern = new StringBuilder();
         List<DateTimeFormatElement> expected = new ArrayList<>();

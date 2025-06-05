@@ -21,48 +21,52 @@ package org.apache.ignite.internal.sql.engine.util.format;
  * Supported datetime template fields.
  */
 enum DateTimeTemplateField {
-    YYYY(FieldKind.YEAR),
-    YYY(FieldKind.YEAR),
-    YY(FieldKind.YEAR),
-    Y(FieldKind.YEAR),
-    RRRR(FieldKind.ROUNDED_YEAR),
-    RR(FieldKind.ROUNDED_YEAR),
-    MM(FieldKind.MONTH),
-    DD(FieldKind.DAY_OF_MONTH),
-    DDD(FieldKind.DAY_OF_YEAR),
-    HH(FieldKind.HOUR_12),
-    HH12(FieldKind.HOUR_12),
-    HH24(FieldKind.HOUR_24),
-    MI(FieldKind.MINUTE),
-    SS(FieldKind.SECOND_OF_MINUTE),
-    SSSSS(FieldKind.SECOND_OF_DAY),
-    FF1(FieldKind.FRACTION),
-    FF2(FieldKind.FRACTION),
-    FF3(FieldKind.FRACTION),
-    FF4(FieldKind.FRACTION),
-    FF5(FieldKind.FRACTION),
-    FF6(FieldKind.FRACTION),
-    FF7(FieldKind.FRACTION),
-    FF8(FieldKind.FRACTION),
-    FF9(FieldKind.FRACTION),
+    YYYY(FieldKind.YEAR, 4),
+    YYY(FieldKind.YEAR, 3),
+    YY(FieldKind.YEAR, 2),
+    Y(FieldKind.YEAR, 1),
+    RRRR(FieldKind.ROUNDED_YEAR, 4),
+    RR(FieldKind.ROUNDED_YEAR, 2),
+    MM(FieldKind.MONTH, 2),
+    DD(FieldKind.DAY_OF_MONTH, 2),
+    DDD(FieldKind.DAY_OF_YEAR, 3),
+    HH(FieldKind.HOUR_12, 2),
+    HH12(FieldKind.HOUR_12, 2),
+    HH24(FieldKind.HOUR_24, 2),
+    MI(FieldKind.MINUTE, 2),
+    SS(FieldKind.SECOND_OF_MINUTE, 2),
+    SSSSS(FieldKind.SECOND_OF_DAY, 5),
+    FF1(FieldKind.FRACTION, 1),
+    FF2(FieldKind.FRACTION, 2),
+    FF3(FieldKind.FRACTION, 3),
+    FF4(FieldKind.FRACTION, 4),
+    FF5(FieldKind.FRACTION, 5),
+    FF6(FieldKind.FRACTION, 6),
+    FF7(FieldKind.FRACTION, 7),
+    FF8(FieldKind.FRACTION, 8),
+    FF9(FieldKind.FRACTION, 9),
     PM(FieldKind.AM_PM, "P.M."),
     AM(FieldKind.AM_PM, "A.M."),
-    TZH(FieldKind.TIMEZONE),
-    TZM(FieldKind.TIMEZONE)
+    TZH(FieldKind.TIMEZONE, 2),
+    TZM(FieldKind.TIMEZONE, 2)
     ;
 
     private final FieldKind kind;
 
     private final String pattern;
 
-    DateTimeTemplateField(FieldKind kind) {
+    private int maxDigits;
+
+    DateTimeTemplateField(FieldKind kind, int maxDigits) {
         this.kind = kind;
         this.pattern = this.name();
+        this.maxDigits = maxDigits;
     }
 
     DateTimeTemplateField(FieldKind kind, String pattern) {
         this.kind = kind;
         this.pattern = pattern;
+        this.maxDigits = -1;
     }
 
     String pattern() {
@@ -87,5 +91,12 @@ enum DateTimeTemplateField {
         FRACTION,
         AM_PM,
         TIMEZONE;
+    }
+
+    int maxDigits() {
+        if (maxDigits == -1) {
+            throw new IllegalStateException(this + " has no digits");
+        }
+        return maxDigits;
     }
 }
