@@ -24,6 +24,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,9 +38,14 @@ class ReplicatorUtils {
      * concurrently.</p>
      *
      * @param catalogService Catalog service.
+     * @param indexMetaStorage Storage of index meta.
      * @param tableId Table ID.
      */
-    static @Nullable CatalogIndexDescriptor latestIndexDescriptorInBuildingStatus(CatalogService catalogService, int tableId) {
+    static @Nullable IndexMeta latestIndexMetaInBuildingStatus(CatalogService catalogService,
+            IndexMetaStorage indexMetaStorage, int tableId) {
+        // TODO: https://issues.apache.org/jira/browse/IGNITE-25603 the following comment says the method must be executed
+        // on Metastore thread, but this is not currently true.
+
         // Since we expect to be executed on the metastore thread, it is safe to use these versions.
         int latestCatalogVersion = catalogService.latestCatalogVersion();
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
@@ -46,7 +53,10 @@ class ReplicatorUtils {
         for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
             for (CatalogIndexDescriptor indexDescriptor : catalogService.catalog(catalogVersion).indexes(tableId)) {
                 if (indexDescriptor.status() == BUILDING) {
-                    return indexDescriptor;
+                    IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
+                    if (indexMeta != null) {
+                        return indexMeta;
+                    }
                 }
             }
         }
