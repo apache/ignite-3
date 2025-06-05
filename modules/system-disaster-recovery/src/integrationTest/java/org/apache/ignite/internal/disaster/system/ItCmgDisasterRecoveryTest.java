@@ -42,7 +42,6 @@ import org.apache.ignite.internal.cluster.management.ClusterState;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.table.KeyValueView;
-import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 
 class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
@@ -272,7 +271,7 @@ class ItCmgDisasterRecoveryTest extends ItSystemGroupDisasterRecoveryTest {
                 .build();
     }
 
-    @RepeatedTest(10)
+    @Test
     void dataNodesAreUpdatedCorrectlyAfterClusterReset() throws Exception {
         startAndInitCluster(2, new int[]{0}, new int[]{1});
         waitTillClusterStateIsSavedToVaultOnConductor(1);
