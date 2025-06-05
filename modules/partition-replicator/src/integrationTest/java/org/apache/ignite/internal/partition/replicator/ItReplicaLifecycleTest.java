@@ -26,6 +26,7 @@ import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalan
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.sql.SqlCommon.DEFAULT_SCHEMA_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.dropTable;
@@ -752,6 +753,7 @@ public class ItReplicaLifecycleTest extends ItAbstractColocationTest {
         assertThat(
                 node.partitionReplicaLifecycleManager.stopPartitionInternal(
                         zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
                         AFTER_REPLICA_STOPPED,
                         -1L,
                         replicaWasStopped -> {}

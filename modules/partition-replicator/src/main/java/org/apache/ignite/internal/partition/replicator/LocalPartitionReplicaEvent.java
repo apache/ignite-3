@@ -29,12 +29,22 @@ public enum LocalPartitionReplicaEvent implements Event {
     BEFORE_REPLICA_STARTED,
 
     /**
-     * Fired when partition replica has just been stopped and the related partition shouldn't be destroyed.
+     * Fired before a partition replica is stopped.
+     */
+    BEFORE_REPLICA_STOPPED,
+
+    /**
+     * Fired after a partition replica has been stopped (but not destroyed).
      */
     AFTER_REPLICA_STOPPED,
 
     /**
-     * Fired when partition replica has been destroyed.
+     * Fired before a partition replica is stopped and destroyed ({@link #BEFORE_REPLICA_STOPPED} will not be produced in this case).
+     */
+    BEFORE_REPLICA_DESTROYED,
+
+    /**
+     * Fired after a partition replica has been stopped and destroyed ({@link #AFTER_REPLICA_STOPPED} will not be produced in this case).
      */
     AFTER_REPLICA_DESTROYED
 }
