@@ -31,19 +31,19 @@ public class AddWriteResult {
 
     private final @Nullable UUID currentWriteIntentTxId;
 
-    private final @Nullable HybridTimestamp previousCommitTimestamp;
+    private final @Nullable HybridTimestamp latestCommitTimestamp;
 
     /** Constructor. */
     private AddWriteResult(
             AddWriteResultStatus status,
             @Nullable BinaryRow previousWriteIntent,
             @Nullable UUID currentWriteIntentTxId,
-            @Nullable HybridTimestamp previousCommitTimestamp
+            @Nullable HybridTimestamp latestCommitTimestamp
     ) {
         this.status = status;
         this.previousWriteIntent = previousWriteIntent;
         this.currentWriteIntentTxId = currentWriteIntentTxId;
-        this.previousCommitTimestamp = previousCommitTimestamp;
+        this.latestCommitTimestamp = latestCommitTimestamp;
     }
 
     /** Returns result of a successful add of the write intent or replace for same transaction. */
@@ -52,8 +52,8 @@ public class AddWriteResult {
     }
 
     /** Returns result when an uncommitted write intent of another transaction was found while adding a new one. */
-    public static AddWriteResult txMismatch(UUID currentWriteIntentTxId, @Nullable HybridTimestamp previousCommitTimestamp) {
-        return new AddWriteResult(AddWriteResultStatus.TX_MISMATCH, null, currentWriteIntentTxId, previousCommitTimestamp);
+    public static AddWriteResult txMismatch(UUID currentWriteIntentTxId, @Nullable HybridTimestamp latestCommitTimestamp) {
+        return new AddWriteResult(AddWriteResultStatus.TX_MISMATCH, null, currentWriteIntentTxId, latestCommitTimestamp);
     }
 
     /** Returns the add status of a write intent. */
@@ -75,11 +75,10 @@ public class AddWriteResult {
     }
 
     /**
-     * Returns commit timestamp of previous committed version. Not {@code null} for {@link AddWriteResultStatus#TX_MISMATCH} and if
-     * present.
+     * Returns commit timestamp of latest committed version. Not {@code null} for {@link AddWriteResultStatus#TX_MISMATCH} and if present.
      */
-    public @Nullable HybridTimestamp previousCommitTimestamp() {
-        return previousCommitTimestamp;
+    public @Nullable HybridTimestamp latestCommitTimestamp() {
+        return latestCommitTimestamp;
     }
 
     @Override

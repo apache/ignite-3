@@ -42,7 +42,7 @@ public class AddWriteResultMatcher extends TypeSafeMatcher<AddWriteResult> {
     protected boolean matchesSafely(AddWriteResult actual) {
         return expected.status() == actual.status()
                 && Objects.equals(expected.currentWriteIntentTxId(), actual.currentWriteIntentTxId())
-                && Objects.equals(expected.previousCommitTimestamp(), actual.previousCommitTimestamp())
+                && Objects.equals(expected.latestCommitTimestamp(), actual.latestCommitTimestamp())
                 && binaryRowMatcher.matches(actual.previousWriteIntent());
     }
 

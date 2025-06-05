@@ -33,7 +33,7 @@ public class AddWriteCommittedResultMatcher extends TypeSafeMatcher<AddWriteComm
     protected boolean matchesSafely(AddWriteCommittedResult actual) {
         return expected.status() == actual.status()
                 && Objects.equals(expected.currentWriteIntentTxId(), actual.currentWriteIntentTxId())
-                && Objects.equals(expected.previousCommitTimestamp(), actual.previousCommitTimestamp());
+                && Objects.equals(expected.latestCommitTimestamp(), actual.latestCommitTimestamp());
     }
 
     @Override
