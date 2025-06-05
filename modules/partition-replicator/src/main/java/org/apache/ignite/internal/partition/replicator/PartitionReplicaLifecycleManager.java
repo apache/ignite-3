@@ -1416,7 +1416,7 @@ public class PartitionReplicaLifecycleManager extends
             Set<Assignment> pendingAssignments,
             long revision
     ) {
-        return replicaMgr.replica(replicaGrpId)
+        replicaMgr.replica(replicaGrpId)
                 .thenApply(Replica::raftClient)
                 .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
                         .exceptionally(throwable -> {
@@ -1465,6 +1465,8 @@ public class PartitionReplicaLifecycleManager extends
                                                 .exceptionally(e -> null);
                                     });
                         }));
+
+        return nullCompletedFuture();
     }
 
     private boolean isLocalPeer(Peer peer) {
