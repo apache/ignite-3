@@ -49,8 +49,8 @@ import org.apache.ignite.internal.util.SubscriptionUtils;
 import org.apache.ignite.sql.SqlException;
 import org.jetbrains.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 /** Tests cases for cancellation due to timeout. */
@@ -64,10 +64,15 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
     // query have to make it to the final point which is varied from test to test in
     // order to 1) make sure timeout is handled properly at particular stages of query
     // execution, and 2) to fail with proper exception class.
-    private static final SqlProperties PROPS_WITH_TIMEOUT = new SqlProperties().queryTimeout(2_000L);
+    private static final SqlProperties PROPS_WITH_TIMEOUT = new SqlProperties().queryTimeout(1_000L);
 
     private TestCluster cluster;
     private TestNode gatewayNode;
+
+    @BeforeAll
+    static void warmUpCluster() throws Exception {
+        TestBuilders.warmupTestCluster();
+    }
 
     @BeforeEach
     void startCluster() {
@@ -173,7 +178,6 @@ public class QueryTimeoutTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @Disabled("https://issues.apache.org/jira/browse/IGNITE-25393 ")
     void testTimeoutDistributedRead() {
         AsyncSqlCursor<?> cursor = gatewayNode.executeQuery(PROPS_WITH_TIMEOUT, "SELECT * FROM my_table");
 
