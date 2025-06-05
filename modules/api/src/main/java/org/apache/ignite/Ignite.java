@@ -23,6 +23,7 @@ import org.apache.ignite.catalog.IgniteCatalog;
 import org.apache.ignite.compute.ComputeJob;
 import org.apache.ignite.compute.IgniteCompute;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.sql.IgniteSql;
 import org.apache.ignite.table.IgniteTables;
 import org.apache.ignite.tx.IgniteTransactions;
@@ -73,7 +74,9 @@ public interface Ignite {
      * NOTE: Temporary API to enable Compute until we have proper Cluster API.
      *
      * @return Collection of cluster nodes.
+     * @deprecated Use {@link IgniteCluster#nodes()} instead.
      */
+    @Deprecated
     Collection<ClusterNode> clusterNodes();
 
     /**
@@ -81,7 +84,9 @@ public interface Ignite {
      * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
+     * @deprecated Use {@link IgniteCluster#nodes()} instead.
      */
+    @Deprecated
     CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
 
     /**
@@ -91,4 +96,6 @@ public interface Ignite {
      * @return Catalog object.
      */
     IgniteCatalog catalog();
+
+    IgniteCluster cluster();
 }

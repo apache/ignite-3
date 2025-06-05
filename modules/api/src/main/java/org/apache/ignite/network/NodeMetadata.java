@@ -32,11 +32,14 @@ public class NodeMetadata implements Serializable {
 
     private final int httpsPort;
 
+    private final int clientPort;
+
     /** Constructor. */
-    public NodeMetadata(String restHost, int httpPort, int httpsPort) {
+    public NodeMetadata(String restHost, int httpPort, int httpsPort, int clientPort) {
         this.restHost = restHost;
         this.httpPort = httpPort;
         this.httpsPort = httpsPort;
+        this.clientPort = clientPort;
     }
 
     public String restHost() {
@@ -49,6 +52,10 @@ public class NodeMetadata implements Serializable {
 
     public int httpsPort() {
         return httpsPort;
+    }
+
+    public int clientPort() {
+        return clientPort;
     }
 
     @Override
@@ -68,12 +75,15 @@ public class NodeMetadata implements Serializable {
         if (httpsPort != that.httpsPort) {
             return false;
         }
+        if (clientPort != that.clientPort) {
+            return false;
+        }
         return restHost != null ? restHost.equals(that.restHost) : that.restHost == null;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(restHost, httpPort, httpsPort);
+        return Objects.hash(restHost, httpPort, httpsPort, clientPort);
     }
 
     @Override
@@ -82,6 +92,7 @@ public class NodeMetadata implements Serializable {
                 + "restHost='" + restHost + '\''
                 + ", httpPort=" + httpPort
                 + ", httpsPort=" + httpsPort
+                + ", clientPort=" + clientPort
                 + '}';
     }
 }
