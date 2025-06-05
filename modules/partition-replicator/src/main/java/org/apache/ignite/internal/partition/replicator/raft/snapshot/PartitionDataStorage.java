@@ -161,19 +161,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
             int commitPartitionId
     ) throws StorageException;
 
-    /** No doc. */
-    default AddWriteResult addWriteNew(
-            RowId rowId,
-            @Nullable BinaryRow row,
-            UUID txId,
-            int commitTableOrZoneId,
-            int commitPartitionId
-    ) throws StorageException {
-        BinaryRow previous = addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
-
-        return AddWriteResult.success(previous);
-    }
-
     /**
      * Creates a committed version.
      * <p>In details:</p>
@@ -194,17 +181,6 @@ public interface PartitionDataStorage extends ManuallyCloseable {
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException;
-
-    /** No doc. */
-    default AddWriteCommittedResult addWriteCommittedNew(
-            RowId rowId,
-            @Nullable BinaryRow row,
-            HybridTimestamp commitTimestamp
-    ) throws StorageException {
-        addWriteCommitted(rowId, row, commitTimestamp);
-
-        return AddWriteCommittedResult.success();
-    }
 
     /**
      * Aborts a pending update of the ongoing uncommitted transaction. Invoked during rollback.

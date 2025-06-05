@@ -428,7 +428,7 @@ public class StorageUpdateHandler {
             @Nullable HybridTimestamp lastCommitTs,
             @Nullable List<Integer> indexIds
     ) {
-        AddWriteCommittedResult result = storage.addWriteCommittedNew(rowId, row, commitTs);
+        AddWriteCommittedResult result = storage.addWriteCommitted(rowId, row, commitTs);
 
         if (result.status() == AddWriteCommittedResultStatus.WRITE_INTENT_EXISTS) {
             if (lastCommitTs == null) {
@@ -437,9 +437,9 @@ public class StorageUpdateHandler {
 
             UUID wiTxId = result.currentWriteIntentTxId();
 
-            performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.previousCommitTimestamp(), indexIds);
+            performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.latestCommitTimestamp(), indexIds);
 
-            result = storage.addWriteCommittedNew(rowId, row, commitTs);
+            result = storage.addWriteCommitted(rowId, row, commitTs);
 
             assert result.status() == AddWriteCommittedResultStatus.SUCCESS : "rowId=" + rowId + ", result=" + result;
         }
@@ -459,14 +459,14 @@ public class StorageUpdateHandler {
     ) {
         AddWriteResult result = performAddWrite(rowId, row, txId, commitPartitionId, indexIds);
 
-        if (result.status() == AddWriteResultStatus.WRITE_INTENT_EXISTS) {
+        if (result.status() == AddWriteResultStatus.TX_MISMATCH) {
             UUID wiTxId = result.currentWriteIntentTxId();
 
             if (lastCommitTs == null) {
                 throw new TxIdMismatchException(wiTxId, txId);
             }
 
-            performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.previousCommitTimestamp(), indexIds);
+            performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.latestCommitTimestamp(), indexIds);
 
             result = performAddWrite(rowId, row, txId, commitPartitionId, indexIds);
 
@@ -482,7 +482,7 @@ public class StorageUpdateHandler {
             PartitionGroupId commitPartitionId,
             @Nullable List<Integer> indexIds
     ) {
-        AddWriteResult result = storage.addWriteNew(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
+        AddWriteResult result = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
 
         if (result.status() == AddWriteResultStatus.SUCCESS && result.previousWriteIntent() != null) {
             tryRemovePreviousWritesIndex(rowId, result.previousWriteIntent(), indexIds);
