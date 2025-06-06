@@ -175,6 +175,14 @@ public class TestIgnitionManager {
         writeConfigurationFileApplyingTestDefaults(configStr, configPath, DEFAULT_NODE_CONFIG);
     }
 
+    /**
+     * Applies overrides to the config and writes it to disk.
+     *
+     * @param configStr Config string.
+     * @param configPath Config file path.
+     * @param defaults Map of overrides.
+     * @throws IOException If failed to write the file.
+     */
     public static void writeConfigurationFileApplyingTestDefaults(
             @Nullable String configStr,
             Path configPath,
@@ -190,6 +198,12 @@ public class TestIgnitionManager {
         writeConfigurationFile(configStringToWrite, configPath);
     }
 
+    /**
+     * Writes config to file.
+     *
+     * @param configStr Config string.
+     * @param configPath Config file path.
+     */
     public static void writeConfigurationFile(@Nullable String configStr, Path configPath) throws IOException {
         if (configStr == null && Files.exists(configPath)) {
             // Nothing to do.

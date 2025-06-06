@@ -36,13 +36,16 @@ import java.net.http.HttpRequest.BodyPublishers;
 import java.net.http.HttpRequest.Builder;
 import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.IgniteServer;
 import org.apache.ignite.client.IgniteClient;
@@ -55,8 +58,12 @@ import org.gradle.tooling.GradleConnector;
 import org.gradle.tooling.ProjectConnection;
 import org.gradle.tooling.model.build.BuildEnvironment;
 
-class MixedCluster {
-    private static final IgniteLogger LOG = Loggers.forClass(MixedCluster.class);
+/**
+ * Cluster of nodes. Can be started with nodes of previous Ignite versions running in the external processes or in the embedded mode
+ * using current sources.
+ */
+public class IgniteCluster {
+    private static final IgniteLogger LOG = Loggers.forClass(IgniteCluster.class);
 
     // Embedded nodes
     private final List<IgniteServer> igniteServers = new CopyOnWriteArrayList<>();
@@ -71,11 +78,17 @@ class MixedCluster {
 
     private final ClusterConfiguration clusterConfiguration;
 
-    MixedCluster(ClusterConfiguration clusterConfiguration) {
+    IgniteCluster(ClusterConfiguration clusterConfiguration) {
         this.clusterConfiguration = clusterConfiguration;
     }
 
-    void start(String igniteVersion, int nodesCount) {
+    /**
+     * Starts cluster with nodes of previous version using external process.
+     *
+     * @param igniteVersion Ignite version to run the nodes with.
+     * @param nodesCount Number of nodes in the cluster.
+     */
+    public void start(String igniteVersion, int nodesCount) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
         }
@@ -83,6 +96,11 @@ class MixedCluster {
         runnerNodes = startRunnerNodes(igniteVersion, nodesCount);
     }
 
+    /**
+     * Starts cluster in embedded mode with nodes of current version.
+     *
+     * @param nodesCount Number of nodes in the cluster.
+     */
     public void startEmbedded(int nodesCount) {
         if (started) {
             throw new IllegalStateException("The cluster is already started");
@@ -99,6 +117,112 @@ class MixedCluster {
 
         started = true;
         stopped = false;
+    }
+
+    /**
+     * Stops all the nodes in the cluster.
+     */
+    public void stop() {
+        List<IgniteServer> serversToStop = new ArrayList<>(igniteServers);
+
+        List<String> serverNames = serversToStop.stream()
+                .filter(Objects::nonNull)
+                .map(IgniteServer::name)
+                .collect(toList());
+        LOG.info("Shutting the embedded cluster down [nodes={}]", serverNames);
+
+        Collections.fill(igniteServers, null);
+        Collections.fill(nodes, null);
+
+        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
+
+        LOG.info("Shut the embedded cluster down");
+
+        runnerNodes.forEach(RunnerNode::stop);
+        runnerNodes.clear();
+
+        started = false;
+        stopped = true;
+    }
+
+    /**
+     * Initializes the cluster using REST API on the first node with default settings.
+     */
+    void init() {
+        init(new int[] { 0 });
+    }
+
+    /**
+     * Initializes the cluster using REST API on the first node with specified Metastorage and CMG nodes.
+     *
+     * @param cmgNodes Indices of the CMG nodes (also used as Metastorage group).
+     */
+    void init(int[] cmgNodes) {
+
+        // Wait for the node to start accepting requests
+        await()
+                .ignoreExceptions()
+                .timeout(30, TimeUnit.SECONDS)
+                .until(
+                        () -> send(get("/management/v1/node/state")).body(),
+                        hasJsonPath("$.state", is(equalTo("STARTING")))
+                );
+
+        // Initialize the cluster
+        String metaStorageAndCmgNodes = Arrays.stream(cmgNodes)
+                .mapToObj(this::nodeName)
+                .collect(Collectors.joining(", "));
+
+        String requestBody = "{\n"
+                + "    \"metaStorageNodes\": [\n"
+                + "        \"" + metaStorageAndCmgNodes + "\"\n"
+                + "    ],\n"
+                + "    \"cmgNodes\": [],\n"
+                + "    \"clusterName\": \"cluster\"\n"
+                + "}";
+
+        assertThat(send(post("/management/v1/cluster/init", requestBody)).statusCode(), is(200));
+
+        // Wait for the cluster to be initialized
+        await()
+                .ignoreExceptions()
+                .timeout(30, TimeUnit.SECONDS)
+                .until(
+                        () -> send(get("/management/v1/node/state")).body(),
+                        hasJsonPath("$.state", is(equalTo("STARTED")))
+                );
+
+        started = true;
+        stopped = false;
+    }
+
+    /**
+     * Creates a client connection to the first node of the cluster.
+     *
+     * @return Ignite client instance.
+     */
+    IgniteClient createClient() {
+        return IgniteClient.builder().addresses("localhost:" + clusterConfiguration.baseClientPort()).build();
+    }
+
+    /**
+     * Returns target version embedded node.
+     *
+     * @param index Node index.
+     * @return Embedded node.
+     */
+    public Ignite node(int index) {
+        return Objects.requireNonNull(nodes.get(index), "index=" + index);
+    }
+
+    /**
+     * Returns node name by index.
+     *
+     * @param nodeIndex Index of the node.
+     * @return Node name.
+     */
+    public String nodeName(int nodeIndex) {
+        return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
     }
 
     private ServerRegistration startEmbeddedNode(int nodeIndex) {
@@ -128,78 +252,24 @@ class MixedCluster {
         return new ServerRegistration(node, registrationFuture);
     }
 
-    void stop() {
-        List<IgniteServer> serversToStop = new ArrayList<>(igniteServers);
-
-        List<String> serverNames = serversToStop.stream()
-                .filter(Objects::nonNull)
-                .map(IgniteServer::name)
-                .collect(toList());
-        LOG.info("Shutting the embedded cluster down [nodes={}]", serverNames);
-
-        Collections.fill(igniteServers, null);
-        Collections.fill(nodes, null);
-
-        serversToStop.parallelStream().filter(Objects::nonNull).forEach(IgniteServer::shutdown);
-
-        LOG.info("Shut the embedded cluster down");
-
-        runnerNodes.forEach(RunnerNode::stop);
-        runnerNodes.clear();
-
-        started = false;
-        stopped = true;
-    }
-
-    void init() throws IOException, InterruptedException {
-        await()
-                .ignoreExceptions()
-                .timeout(30, TimeUnit.SECONDS)
-                .until(() -> send(get("/management/v1/node/state")).statusCode(), is(200));
-
-        String requestBody = "{\n"
-                + "    \"metaStorageNodes\": [\n"
-                + "        \"" + nodeName(0) + "\"\n"
-                + "    ],\n"
-                + "    \"cmgNodes\": [],\n"
-                + "    \"clusterName\": \"cluster\"\n"
-                + "}";
-
-        assertThat(send(post("/management/v1/cluster/init", requestBody)).statusCode(), is(200));
-
-        await()
-                .ignoreExceptions()
-                .timeout(30, TimeUnit.SECONDS)
-                .until(
-                        () -> send(get("/management/v1/node/state")).body(),
-                        hasJsonPath("$.state", is(equalTo("STARTED")))
-                );
-
-        started = true;
-        stopped = false;
-    }
-
-    IgniteClient createClient() {
-        return IgniteClient.builder().addresses("localhost:" + clusterConfiguration.baseClientPort()).build();
-    }
-
     private List<RunnerNode> startRunnerNodes(String igniteVersion, int nodesCount) {
         try (ProjectConnection connection = GradleConnector.newConnector()
-                .forProjectDirectory(new File("..\\..")) // we're in modules/compatibility-tests
+                // Current directory is modules/compatibility-tests so get two parents
+                .forProjectDirectory(Path.of("..", "..").normalize().toFile())
                 .connect()
         ) {
             BuildEnvironment environment = connection.model(BuildEnvironment.class).get();
 
             File javaHome = environment.getJava().getJavaHome();
-            File classPathFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion);
+            File argFile = constructArgFile(connection, "org.apache.ignite:ignite-runner:" + igniteVersion);
 
             List<RunnerNode> result = new ArrayList<>();
             for (int nodeIndex = 0; nodeIndex < nodesCount; nodeIndex++) {
-                result.add(RunnerNode.startNode(javaHome, classPathFile, igniteVersion, clusterConfiguration, nodesCount, nodeIndex));
+                result.add(RunnerNode.startNode(javaHome, argFile, igniteVersion, clusterConfiguration, nodesCount, nodeIndex));
             }
 
             return result;
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
@@ -243,11 +313,11 @@ class MixedCluster {
         return HttpRequest.newBuilder(URI.create("http://localhost:" + clusterConfiguration.baseHttpPort() + path));
     }
 
-    private HttpResponse<String> send(HttpRequest request) throws IOException, InterruptedException {
-        return client.send(request, BodyHandlers.ofString());
-    }
-
-    private String nodeName(int nodeIndex) {
-        return clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
+    private HttpResponse<String> send(HttpRequest request) {
+        try {
+            return client.send(request, BodyHandlers.ofString());
+        } catch (IOException | InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

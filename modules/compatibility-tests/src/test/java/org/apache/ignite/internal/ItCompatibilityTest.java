@@ -17,52 +17,28 @@
 
 package org.apache.ignite.internal;
 
-import java.nio.file.Path;
-import org.apache.ignite.client.IgniteClient;
-import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
-import org.apache.ignite.internal.testframework.WorkDirectory;
-import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
-import org.junit.jupiter.api.AfterEach;
+import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.contains;
+
+import java.util.List;
+import org.apache.ignite.Ignite;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.jupiter.api.TestInstance.Lifecycle;
-import org.junit.jupiter.api.extension.ExtendWith;
 
-@ExtendWith(WorkDirectoryExtension.class)
-@TestInstance(Lifecycle.PER_CLASS)
-public class ItCompatibilityTest extends BaseIgniteAbstractTest {
+class ItCompatibilityTest extends PersistenceTestBase {
+    @Override
+    protected String baseVersion() {
+        return "3.0.0";
+    }
 
-    @WorkDirectory
-    private static Path WORK_DIR;
-
-    private MixedCluster cluster;
-
-    @AfterEach
-    void cleanup() {
-        if (cluster != null) {
-            cluster.stop();
-        }
+    @Override
+    protected void setupBaseVersion(Ignite baseIgnite) {
+        baseIgnite.sql().execute(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
+        baseIgnite.sql().execute(null, "INSERT INTO TEST VALUES (1, 'str')");
     }
 
     @Test
-    void upgrade(TestInfo testInfo) throws Exception {
-        ClusterConfiguration clusterConfiguration = ClusterConfiguration.builder(testInfo, WORK_DIR).build();
-
-        int nodesCount = 3;
-        cluster = new MixedCluster(clusterConfiguration);
-        cluster.start( "3.0.0", nodesCount);
-
-        cluster.init();
-
-        try (IgniteClient client = cluster.createClient()) {
-            client.sql().execute(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
-        }
-
-        cluster.stop();
-
-        cluster.startEmbedded(nodesCount);
-
-        cluster.stop();
+    void testCompatibility() {
+        List<List<Object>> result = sql("SELECT * FROM TEST");
+        assertThat(result, contains(contains(1, "str")));
     }
 }

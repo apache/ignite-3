@@ -33,7 +33,10 @@ import java.util.stream.IntStream;
 import org.apache.ignite.internal.app.IgniteRunner;
 import org.apache.ignite.internal.lang.IgniteStringFormatter;
 
-class RunnerNode {
+/**
+ * Represents the Ignite node running in the external process.
+ */
+public class RunnerNode {
     private static final Map<String, String> DEFAULT_NODE_CONFIG_3_0_0 = Map.of(
             "ignite.network.membership.scaleCube.metadataTimeout", Integer.toString(DEFAULT_SCALECUBE_METADATA_TIMEOUT),
             "ignite.storage.profiles.default_aipersist.engine", "aipersist",
@@ -56,14 +59,26 @@ class RunnerNode {
         this.process = process;
     }
 
+    /**
+     * Starts the Ignite in the external process.
+     *
+     * @param javaHome Path to the Java to run the node with.
+     * @param argFile Java arguments file.
+     * @param igniteVersion Version of the Ignite. Used to get the configuration defaults.
+     * @param clusterConfiguration Test cluster configuration.
+     * @param nodesCount Overall number of nodes.
+     * @param nodeIndex Current node index.
+     * @return Instance of the control object.
+     * @throws IOException If an I/O exception occurs.
+     */
     public static RunnerNode startNode(
             File javaHome,
-            File classPathFile,
+            File argFile,
             String igniteVersion,
             ClusterConfiguration clusterConfiguration,
             int nodesCount,
             int nodeIndex
-    ) throws IOException, InterruptedException {
+    ) throws IOException {
         String nodeName = clusterConfiguration.nodeNamingStrategy().nodeName(clusterConfiguration, nodeIndex);
         Path workDir = clusterConfiguration.workDir().resolve(clusterConfiguration.clusterName()).resolve(nodeName);
         String configStr = formatConfig(clusterConfiguration, nodeIndex, nodesCount);
@@ -78,10 +93,13 @@ class RunnerNode {
             writeConfigurationFile(configStr, configPath);
         }
 
-        Process process = executeRunner(javaHome, classPathFile, configPath, workDir, nodeName);
+        Process process = executeRunner(javaHome, argFile, configPath, workDir, nodeName);
         return new RunnerNode(process);
     }
 
+    /**
+     * Stops the node by killing the process.
+     */
     public void stop() {
         process.destroy();
     }
