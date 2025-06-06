@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.util.CompletableFutures;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
@@ -53,7 +52,7 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
  */
 @State(Scope.Benchmark)
 @Fork(1)
-@Threads(1)
+@Threads(32)
 @Warmup(iterations = 10, time = 2)
 @Measurement(iterations = 20, time = 2)
 @BenchmarkMode(Mode.Throughput)
@@ -63,31 +62,34 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     private static KeyValueView<Tuple, Tuple> kvView;
 
-    @Param({"1"})
+    @Param({"1", "10"})
     private int batch;
 
     @Param({"false"})
     private boolean fsync;
 
-    @Param({"8"})
+    @Param({"32"})
     private int partitionCount;
 
-    @Param({"0", "10"})
+    @Param({"0"/*, "10"*/})
     private int idxes;
 
     @Param({"100"})
     private int fieldLength;
 
-    @Param({"HASH", "SORTED"})
+    @Param({"HASH"/*, "SORTED"*/})
     private String indexType;
 
-    @Param({"uniquePrefix", "uniquePostfix"})
+    @Param({"uniquePrefix"/*, "uniquePostfix"*/})
     private String fieldValueGeneration;
 
     @Param({"false", "true"})
     private boolean usePendingRowsTree;
 
     @Param({"false", "true"})
+    private boolean igniteSkipWriteIntentSwitch;
+
+    @Param({/*"false",*/ "true"})
     private boolean withTx;
 
     private static final AtomicInteger COUNTER = new AtomicInteger();
@@ -96,9 +98,10 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
 
     @Override
     public void nodeSetUp() throws Exception {
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
-        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
+//        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_REPLICATION_IN_BENCHMARK, "true");
+//        System.setProperty(IgniteSystemProperties.IGNITE_SKIP_STORAGE_UPDATE_IN_BENCHMARK, "true");
         System.setProperty("IGNITE_USE_PENDING_ROWS_TREE", Boolean.toString(usePendingRowsTree));
+        System.setProperty("IGNITE_SKIP_WRITE_INTENT_SWITCH", Boolean.toString(igniteSkipWriteIntentSwitch));
         super.nodeSetUp();
     }
 
@@ -208,8 +211,8 @@ public class UpsertKvBenchmark extends AbstractMultiNodeBenchmark {
         return 1;
     }
 
-    @Override
-    protected Path workDir() throws Exception {
-        return Path.of("D:", "tmpDirPrefix" + ThreadLocalRandom.current().nextInt());
-    }
+//    @Override
+//    protected Path workDir() throws Exception {
+//        return Path.of("D:", "tmpDirPrefix" + ThreadLocalRandom.current().nextInt());
+//    }
 }
