@@ -365,6 +365,7 @@ namespace Apache.Ignite.Internal.Compute
 
             // Standard cancellation by requestId in ClientSocket does not work for jobs.
             // Compute job can be cancelled from any node, it is not bound to a connection.
+            // TODO: Dispose of registration once job is completed.
             cancellationToken.Register(() => _ = CancelJobAsync(jobId));
 
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
