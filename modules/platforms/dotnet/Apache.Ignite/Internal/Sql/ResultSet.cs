@@ -214,8 +214,9 @@ namespace Apache.Ignite.Internal.Sql
                     using var writer = ProtoCommon.GetMessageWriter();
                     WriteId(writer.MessageWriter);
 
-                    // ReSharper disable once MethodSupportsCancellation (cursor close should not be cancelled).
-                    using var buffer = await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
+                    // Cursor close should never be cancelled.
+                    using var buffer = await _socket.DoOutInOpAsync(
+                        ClientOp.SqlCursorClose, writer, cancellationToken: CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception)
                 {
