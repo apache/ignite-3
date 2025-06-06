@@ -1240,7 +1240,7 @@ public class PartitionReplicaLifecycleManager extends
                     pendingAssignments,
                     revision,
                     isRecovery
-            ).thenAccept(v -> {
+            ).thenRun(() -> {
                 boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
                         zonePartitionId,
                         stableAssignments,
@@ -1416,7 +1416,7 @@ public class PartitionReplicaLifecycleManager extends
             Set<Assignment> pendingAssignments,
             long revision
     ) {
-        // According to the rebalance logic, it's safe to react on pending assignments change in a async manner.
+        // According to the rebalance logic, it's safe to react to pending assignments change in async manner.
         replicaMgr.replica(replicaGrpId)
                 .thenApply(Replica::raftClient)
                 .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
