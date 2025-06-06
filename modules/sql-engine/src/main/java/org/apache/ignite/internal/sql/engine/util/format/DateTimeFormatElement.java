@@ -62,9 +62,9 @@ final class DateTimeFormatElement {
     public String toString() {
         switch (kind) {
             case DELIMITER:
-                return String.format("<%s>", delimiter);
+                return "delimiter <" + delimiter + ">";
             case FIELD:
-                return template.name();
+                return "field " + template.name();
             default:
                 throw new IllegalStateException();
         }
