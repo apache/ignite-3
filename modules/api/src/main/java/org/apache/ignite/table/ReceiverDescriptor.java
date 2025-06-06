@@ -25,7 +25,10 @@ import org.jetbrains.annotations.Nullable;
 
 /**
  * Data streamer receiver descriptor.
+ *
+ * @deprecated Replaced by {@link DataStreamerReceiverDescriptor}.
  */
+@Deprecated
 public class ReceiverDescriptor<A> {
     private final String receiverClassName;
 

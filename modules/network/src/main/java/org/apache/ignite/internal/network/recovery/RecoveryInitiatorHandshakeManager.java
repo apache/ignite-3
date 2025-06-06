@@ -42,6 +42,7 @@ import org.apache.ignite.internal.network.NetworkMessage;
 import org.apache.ignite.internal.network.NetworkMessagesFactory;
 import org.apache.ignite.internal.network.OutNetworkObject;
 import org.apache.ignite.internal.network.handshake.ChannelAlreadyExistsException;
+import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeException;
 import org.apache.ignite.internal.network.handshake.HandshakeManager;
 import org.apache.ignite.internal.network.netty.ChannelCreationListener;
@@ -350,7 +351,7 @@ public class RecoveryInitiatorHandshakeManager implements HandshakeManager {
                 msg.acceptorNode()
         );
 
-        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, HandshakeException::new);
+        sendRejectionMessageAndFailHandshake(message, HandshakeRejectionReason.LOOP, CriticalHandshakeException::new);
     }
 
     private void completeMasterFutureWithCompetitorHandshakeFuture(DescriptorAcquiry competitorAcquiry) {

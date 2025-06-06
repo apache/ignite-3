@@ -286,7 +286,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         tables.put(
                 tableName,
                 new Pair<>(
-                        IgniteDistributions.affinity(-1, -1, -1),
+                        TestBuilders.affinity(-1, -1, -1),
                         nodeNames.stream()
                                 .map(List::of)
                                 .collect(Collectors.toList())
@@ -304,7 +304,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         tables.put(
                 tableName,
                 new Pair<>(
-                        IgniteDistributions.affinity(-1, -1, -1),
+                        TestBuilders.affinity(-1, -1, -1),
                         assignments
                 )
         );
@@ -393,7 +393,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
 
             IgniteDistribution distributionToUse;
             if (distribution.function() instanceof AffinityDistribution) {
-                distributionToUse = IgniteDistributions.affinity(0, objectId, objectId);
+                distributionToUse = TestBuilders.affinity(0, objectId, objectId);
             } else {
                 distributionToUse = distribution;
             }

@@ -2097,6 +2097,11 @@ public class IgniteImpl implements Ignite {
         return partitionReplicaLifecycleManager;
     }
 
+    @TestOnly
+    public TxStateRocksDbSharedStorage sharedTxStateStorage() {
+        return sharedTxStateStorage;
+    }
+
     /** Triggers dumping node components state. This method is used for debugging purposes only. */
     @TestOnly
     public void dumpClusterState() {

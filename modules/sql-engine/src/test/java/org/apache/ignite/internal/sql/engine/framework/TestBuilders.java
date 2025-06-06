@@ -132,6 +132,7 @@ import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptorImpl;
 import org.apache.ignite.internal.sql.engine.sql.ParserServiceImpl;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
+import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -341,6 +342,39 @@ public class TestBuilders {
                 throw new UnsupportedOperationException();
             }
         };
+    }
+
+    /**
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
+     *
+     * @param key Affinity key ordinal.
+     * @param tableId Table ID.
+     * @param zoneId Distribution zone ID.
+     * @return Affinity distribution.
+     */
+    public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
+        return IgniteDistributions.hash(
+                ImmutableIntList.of(key),
+                DistributionFunction.affinity(tableId, zoneId, affinityDistributionLabel(tableId, zoneId))
+        );
+    }
+
+    /**
+     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
+     * based on a hash function which takes into account the key field types of the row.
+     *
+     * @param keys Affinity keys ordinals. Should not be null or empty.
+     * @param tableId Table ID.
+     * @param zoneId  Distribution zone ID.
+     * @return Affinity distribution.
+     */
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId) {
+        return IgniteDistributions.affinity(keys, tableId, zoneId, affinityDistributionLabel(tableId, zoneId));
+    }
+
+    private static String affinityDistributionLabel(int tableId, int zoneId) {
+        return format("affinity [tableId={}, zoneId={}]", tableId, zoneId);
     }
 
     /**

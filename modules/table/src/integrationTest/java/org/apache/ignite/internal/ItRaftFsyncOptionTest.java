@@ -18,13 +18,14 @@
 package org.apache.ignite.internal;
 
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
+import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.getDefaultZone;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import java.util.function.Predicate;
+import org.apache.ignite.internal.app.IgniteImpl;
 import org.apache.ignite.internal.catalog.CatalogManager;
-import org.apache.ignite.internal.catalog.CatalogTestUtils;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
 import org.apache.ignite.internal.cluster.management.CmgGroupId;
 import org.apache.ignite.internal.metastorage.server.raft.MetastorageGroupId;
@@ -95,8 +96,9 @@ class ItRaftFsyncOptionTest extends ClusterPerTestIntegrationTest {
     }
 
     private void setDefaultZoneAutoAdjustScaleUpTimeoutToImmediate() {
-        CatalogManager catalogManager = unwrapIgniteImpl(node(0)).catalogManager();
-        CatalogZoneDescriptor defaultZone = CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        IgniteImpl node = unwrapIgniteImpl(node(0));
+        CatalogManager catalogManager = node.catalogManager();
+        CatalogZoneDescriptor defaultZone = getDefaultZone(catalogManager, node.clock().nowLong());
 
         node(0).sql().executeScript(String.format("ALTER ZONE \"%s\"SET (AUTO SCALE UP 0)", defaultZone.name()));
     }

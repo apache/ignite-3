@@ -68,26 +68,14 @@ public class IgniteDistributions {
      * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
      * based on a hash function which takes into account the key field types of the row.
      *
-     * @param key     Affinity key ordinal.
-     * @param tableId Table ID.
-     * @param zoneId  Distribution zone ID.
-     * @return Affinity distribution.
-     */
-    public static IgniteDistribution affinity(int key, int tableId, int zoneId) {
-        return hash(ImmutableIntList.of(key), DistributionFunction.affinity(tableId, zoneId));
-    }
-
-    /**
-     * Creates an affinity distribution that takes into account the zone ID and calculates the destinations
-     * based on a hash function which takes into account the key field types of the row.
-     *
      * @param keys Affinity keys ordinals. Should not be null or empty.
      * @param tableId Table ID.
      * @param zoneId  Distribution zone ID.
+     * @param label Human-readable label to show in EXPLAIN printout.
      * @return Affinity distribution.
      */
-    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId) {
-        return hash(keys, DistributionFunction.affinity(tableId, zoneId));
+    public static IgniteDistribution affinity(List<Integer> keys, int tableId, int zoneId, String label) {
+        return hash(keys, DistributionFunction.affinity(tableId, zoneId, label));
     }
 
     /**

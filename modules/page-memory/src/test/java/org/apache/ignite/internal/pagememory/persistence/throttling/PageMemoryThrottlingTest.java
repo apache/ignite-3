@@ -41,6 +41,7 @@ import java.nio.file.OpenOption;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
@@ -68,7 +69,9 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.Constants;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
@@ -84,7 +87,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests {@link PersistentPageMemory} and {@link PagesWriteThrottlePolicy} interactions.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private static final int PAGE_SIZE = 4096;
 
@@ -114,6 +117,9 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
     private FileIoFactory fileIoFactory;
 
     private DataRegion<PersistentPageMemory> dataRegion;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @BeforeAll
     static void beforeAll() {
@@ -149,6 +155,7 @@ public class PageMemoryThrottlingTest extends IgniteAbstractTest {
                 dataRegions,
                 ioRegistry,
                 () -> {},
+                executorService,
                 PAGE_SIZE
         );
 

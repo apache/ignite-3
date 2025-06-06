@@ -17,11 +17,9 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
-import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.util.Collections.reverse;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -152,15 +150,7 @@ public class TxStateRocksDbStorage implements TxStateStorage {
 
     @Override
     public void destroy() {
-        byte[] start = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(id).array();
-        byte[] end = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(id + 1).array();
-
-        try {
-            close();
-
-            sharedStorage.db().deleteRange(start, end);
-        } catch (Exception e) {
-            throw new TxStateStorageException("Failed to destroy the transaction state storage [tableId={}]", e, id);
-        }
+        close();
+        sharedStorage.destroyStorage(id);
     }
 }

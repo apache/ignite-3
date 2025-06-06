@@ -445,7 +445,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
 
     private static boolean indicatesUnexpectedProblem(Throwable ex) {
         Throwable unwrapped = unwrapCause(ex);
-        return !(unwrapped instanceof ExpectedReplicationException) && !(unwrapped instanceof TrackerClosedException);
+        return !(unwrapped instanceof ExpectedReplicationException)
+                && !hasCause(ex, NodeStoppingException.class, TrackerClosedException.class, ComponentStoppingException.class);
     }
 
     /**
@@ -839,6 +840,8 @@ public class ReplicaManager extends AbstractEventProducer<LocalReplicaEvent, Loc
         var isRemovedFuture = new CompletableFuture<Boolean>();
 
         var eventParams = new LocalReplicaEventParameters(replicaGrpId);
+
+        LOG.info("Replica is stopping [replicationGroupId={}].", replicaGrpId);
 
         fireEvent(BEFORE_REPLICA_STOPPED, eventParams).whenComplete((v, e) -> {
             if (e != null) {

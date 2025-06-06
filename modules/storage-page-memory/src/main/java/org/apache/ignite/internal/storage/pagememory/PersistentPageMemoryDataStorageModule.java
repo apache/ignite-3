@@ -78,6 +78,8 @@ public class PersistentPageMemoryDataStorageModule implements DataStorageModule 
                 longJvmPauseDetector,
                 failureManager,
                 logSyncer,
+                // TODO https://issues.apache.org/jira/browse/IGNITE-25563 Don't use common scheduler for throttling logs.
+                commonScheduler,
                 clock
         );
     }

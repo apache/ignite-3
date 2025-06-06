@@ -82,6 +82,7 @@ import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.IgniteInternalException;
 import org.apache.ignite.internal.manager.ComponentContext;
 import org.apache.ignite.internal.schema.DefaultValueGenerator;
+import org.apache.ignite.internal.sql.engine.framework.TestBuilders;
 import org.apache.ignite.internal.sql.engine.schema.IgniteIndex.Type;
 import org.apache.ignite.internal.sql.engine.statistic.SqlStatisticManager;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
@@ -473,7 +474,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T1");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+            assertThat(distribution, equalTo(TestBuilders.affinity(
                     List.of(1),
                     table.id(),
                     enabledColocation() ? table.zoneId() : table.id())));
@@ -483,7 +484,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T2");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+            assertThat(distribution, equalTo(TestBuilders.affinity(
                     List.of(3, 1),
                     table.id(),
                     enabledColocation() ? table.zoneId() : table.id())));
@@ -493,7 +494,7 @@ public class SqlSchemaManagerImplTest extends BaseIgniteAbstractTest {
             IgniteTable table = getTable(unwrapSchema(schemaPlus), "T3");
             IgniteDistribution distribution = table.descriptor().distribution();
 
-            assertThat(distribution, equalTo(IgniteDistributions.affinity(
+            assertThat(distribution, equalTo(TestBuilders.affinity(
                     List.of(2, 1, 0),
                     table.id(),
                     enabledColocation() ? table.zoneId() : table.id())));
