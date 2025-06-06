@@ -628,6 +628,8 @@ namespace Apache.Ignite.Tests.Sql
             using var cts = new CancellationTokenSource();
             var cursorTask = Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token);
 
+            // TODO: Figure out where the cancellation comes from in this test.
+            // TODO: File a ticket for SQL - this query can't be cancelled on the server side.
             await Task.Delay(500); // Wait a bit to ensure the query starts executing.
             await cts.CancelAsync();
 
