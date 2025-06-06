@@ -622,11 +622,10 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestCancelQueryExecute()
         {
-            // TODO: Use proxy to delay request processing and test cancellation on the server side.
-            var manyRowsQuery = GenerateCrossJoin(100);
+            // 8x cross join will produce 10^8 rows, which takes a while to execute.
+            var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(8)})";
 
             await using var cursor = await Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery);
-
             await cursor.ToListAsync();
         }
 
