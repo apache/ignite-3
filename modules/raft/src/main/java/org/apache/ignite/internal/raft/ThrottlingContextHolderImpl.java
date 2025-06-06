@@ -20,7 +20,6 @@ package org.apache.ignite.internal.raft;
 import static java.lang.Math.log;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -81,7 +80,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
             if (ThreadLocalRandom.current().nextInt(1000) == 1) {
                 var holder = peerContext(peer);
 
-                LOG.info("qqq group is overloaded, req={}, peer={}, timeout={}, percentile98={}",
+                LOG.info("qqq group is overloaded, req={}, peer={}, timeout={}, percentile99={}",
                         requestClassName,
                         peer.consistentId(),
                         holder.adaptiveResponseTimeoutMillis.get(),
@@ -117,7 +116,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
         private static final double AVERAGE_VALUE_TRACKER_DEFAULT = 0.0;
 
         private static final int HISTOGRAM_WINDOW_SIZE = 1000;
-        private static final double HISTOGRAM_PERCENTILE = 0.98;
+        private static final double HISTOGRAM_PERCENTILE = 0.99;
         private static final long HISTOGRAM_ESTIMATION_DEFAULT = 0;
 
         private final SlidingAverageValueTracker averageValueTracker = new SlidingAverageValueTracker(
