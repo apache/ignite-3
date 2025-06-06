@@ -121,4 +121,56 @@ public class SqlDateTimeParserSelfTest extends BaseIgniteAbstractTest {
 
         return out.stream();
     }
+
+
+    @ParameterizedTest
+    @MethodSource("timestampWithTzValues")
+    public void testTimestampWithTz(String format, String str, LocalDateTime value) {
+        LocalDateTime actual = SqlDateTimeParser.timestampFormatter(format).parseTimestamp(str, CLOCK);
+        assertEquals(value, actual);
+    }
+
+    private static Stream<Arguments> timestampWithTzValues() {
+        return Stream.of(
+                // Positive tz offset
+                // Datetime
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +00:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(19, 30, 0))),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +03:00",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(17, 0, 0))),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +05:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(14, 30, 0))),
+
+                // Time
+
+                Arguments.of("HH24:MI:SS TZH:TZM", "20:00:00 +00:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(19, 30, 0))),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 +03:00",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(17, 0, 0))),
+
+                // Negative tz offset
+                // Date time
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 -00:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 30, 0))),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 -03:00",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(23, 0, 0))),
+
+                Arguments.of("YYYY-MM-DD HH24:MI:SS TZH:TZM", "2017-05-13 20:00:00 -05:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 14), LocalTime.of(1, 30, 0))),
+
+                // Time
+
+                Arguments.of("HH24:MI:SS TZH:TZM", "20:00:00 -00:30",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(20, 30, 0))),
+
+                Arguments.of("HH24:MI:SS TZH:TZM", "20:00:00 -03:00",
+                        LocalDateTime.of(LocalDate.of(2017, 5, 13), LocalTime.of(23, 0, 0)))
+        );
+    }
 }

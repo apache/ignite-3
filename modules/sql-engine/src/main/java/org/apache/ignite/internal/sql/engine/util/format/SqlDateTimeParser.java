@@ -22,6 +22,7 @@ import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -62,7 +63,8 @@ public final class SqlDateTimeParser {
             FieldKind.SECOND_OF_MINUTE,
             FieldKind.SECOND_OF_DAY,
             FieldKind.FRACTION,
-            FieldKind.AM_PM
+            FieldKind.AM_PM,
+            FieldKind.TIMEZONE
     );
 
     private final List<DateTimeFormatElement> elements;
@@ -190,8 +192,15 @@ public final class SqlDateTimeParser {
             ParsedFields fields = parser.parse(input);
             LocalDate date = fields.getDate(clock);
             LocalTime time = fields.getTime();
+            LocalDateTime dateTime = LocalDateTime.of(date, time);
 
-            return LocalDateTime.of(date, time);
+            ZoneOffset zoneOffset = fields.toZoneOffset();
+            if (zoneOffset != null) {
+                return dateTime.minusSeconds(zoneOffset.getTotalSeconds());
+            } else {
+                return dateTime;
+            }
+
         } catch (DateTimeException e) {
             throw new SqlException(Sql.RUNTIME_ERR, e.getMessage(), e);
         }
