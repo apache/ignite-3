@@ -100,7 +100,7 @@ public final class IgniteSystemProperties {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove.
     /* Feature flag for zone based colocation track */
     public static boolean enabledColocation() {
-        return getBoolean(COLOCATION_FEATURE_FLAG, true);
+        return getBoolean(COLOCATION_FEATURE_FLAG, false);
     }
 
     /**

@@ -1430,7 +1430,7 @@ public class PartitionReplicaLifecycleManager extends
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
                             }
 
-                            LOG.info("Failed to get a leader for the RAFT replication group [grp=" + replicaGrpId + "].", throwable);
+                            LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
 
                             return LeaderWithTerm.NO_LEADER;
                         })
@@ -1462,7 +1462,7 @@ public class PartitionReplicaLifecycleManager extends
                 .whenComplete((res, ex) -> {
                     if (ex != null) {
                         // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
-                        LOG.warn("Failed to change peers [grp=" + replicaGrpId + "].", ex);
+                        LOG.warn("Failed to change peers [grp={}].", ex, replicaGrpId);
                     }
                 });
     }
