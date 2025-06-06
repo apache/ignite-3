@@ -709,7 +709,11 @@ namespace Apache.Ignite.Internal
             {
                 if (_requests.TryRemove(requestId, out _))
                 {
-                    AddFailedRequest();
+                    if (!cancellationToken.IsCancellationRequested)
+                    {
+                        AddFailedRequest();
+                    }
+
                     Metrics.RequestsActiveDecrement();
                 }
 
