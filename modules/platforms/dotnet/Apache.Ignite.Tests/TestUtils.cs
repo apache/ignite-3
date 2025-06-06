@@ -23,6 +23,7 @@ namespace Apache.Ignite.Tests
     using System.Linq;
     using System.Reflection;
     using System.Runtime.InteropServices;
+    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Transactions;
     using Internal;
@@ -76,6 +77,24 @@ namespace Apache.Ignite.Tests
             Assert.Fail(message);
         }
 
+        public static void WaitForCancellationRegistrations(CancellationTokenSource cts, int timeoutMs = 1000)
+        {
+            WaitForCondition(
+                condition: HasCallbacks,
+                timeoutMs: timeoutMs,
+                messageFactory: () => "No callbacks registered in CancellationTokenSource");
+
+            bool HasCallbacks()
+            {
+                var cb = cts
+                    .GetFieldValue<object?>("_registrations")?
+                    .GetFieldValue<object?>("Callbacks")?
+                    .GetFieldValue<object?>("Callback");
+
+                return cb != null;
+            }
+        }
+
         public static T GetFieldValue<T>(this object obj, string fieldName) => (T) GetNonPublicField(obj, fieldName).GetValue(obj)!;
 
         public static void SetFieldValue(this object obj, string fieldName, object? value) =>
@@ -111,7 +130,7 @@ namespace Apache.Ignite.Tests
 
         private static FieldInfo GetNonPublicField(object obj, string fieldName)
         {
-            var field = obj.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
+            var field = obj.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             Assert.IsNotNull(field, $"Field '{fieldName}' not found in '{obj.GetType()}'");
 
             return field!;

@@ -629,7 +629,8 @@ namespace Apache.Ignite.Tests.Sql
             using var cts = new CancellationTokenSource();
             var cursorTask = Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token);
 
-            await Task.Delay(500); // Wait a bit to ensure the query starts executing.
+            // Wait for request to be sent and callbacks to be registered, then cancel.
+            TestUtils.WaitForCancellationRegistrations(cts);
             await cts.CancelAsync();
 
             await using var cursor = await cursorTask;
