@@ -208,11 +208,12 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                 averageValueTracker.record(duration);
                 histogram.record(duration);
 
-                adaptRequestTimeout(now, retriableError);
+                boolean timedOut = retriableError != null;
+                adaptRequestTimeout(now, timedOut);
             }
         }
 
-        private void adaptRequestTimeout(long now, boolean retriableError) {
+        private void adaptRequestTimeout(long now, boolean timedOut) {
             double avg = averageValueTracker.avg();
             long defaultResponseTimeout = configuration.responseTimeoutMillis().value();
             long retryTimeout = configuration.retryTimeoutMillis().value();
@@ -239,10 +240,10 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
                     break;
                 }
 
-                if (avg >= r * 0.7 && r < retryTimeout || retriableError) {
+                if (avg >= r * 0.7 || timedOut) {
                     if (adaptiveResponseTimeoutMillis.compareAndSet(r, newTimeout)) {
-                        LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}, retriableError={}].",
-                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, retriableError);
+                        LOG.debug("Adaptive response timeout changed [peer={}, action={}, from={}, to={}, avg={}, timedOut={}].",
+                                peer.consistentId(), "INCREMENTED", r, adaptiveResponseTimeoutMillis.get(), avg, timedOut);
 
                         break;
                     }
