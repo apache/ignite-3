@@ -59,7 +59,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -1431,7 +1430,7 @@ public class PartitionReplicaLifecycleManager extends
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
                             }
 
-                            LOG.info("Failed to get a leader for the RAFT replication group [grp=" + replicaGrpId + "].");
+                            LOG.info("Failed to get a leader for the RAFT replication group [grp=" + replicaGrpId + "].", throwable);
 
                             return LeaderWithTerm.NO_LEADER;
                         })
@@ -1459,10 +1458,11 @@ public class PartitionReplicaLifecycleManager extends
                                         return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
                                                 .exceptionally(e -> null);
                                     });
-                        })).whenComplete((res, ex) -> {
+                        }))
+                .whenComplete((res, ex) -> {
                     if (ex != null) {
                         // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
-                        LOG.warn("Failed to change peers [grp=" + replicaGrpId + "].");
+                        LOG.warn("Failed to change peers [grp=" + replicaGrpId + "].", ex);
                     }
                 });
     }
