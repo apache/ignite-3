@@ -549,7 +549,9 @@ public class RaftGroupServiceImpl implements RaftGroupService {
                     .build();
         }
 
-        return this.<ActionResponse>sendWithRetry(leader, timeoutMillis, NO_DESCRIPTION, requestFactory, true)
+        boolean throttleOnOverload = !cmd.getClass().getSimpleName().contains("PrimaryReplicaChangeCommand");
+
+        return this.<ActionResponse>sendWithRetry(leader, timeoutMillis, NO_DESCRIPTION, requestFactory, throttleOnOverload)
                 .thenApply(resp -> (R) resp.result());
     }
 
