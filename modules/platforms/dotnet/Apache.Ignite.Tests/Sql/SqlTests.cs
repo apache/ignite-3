@@ -592,6 +592,25 @@ namespace Apache.Ignite.Tests.Sql
             AssertInstantSimilar(expectedTime, resTime, $"Offset: {offset}");
         }
 
+        [Test]
+        public async Task TestCancelQuery()
+        {
+            var cts = new CancellationTokenSource();
+            await using var cursor = await Client.Sql.ExecuteAsync(
+                transaction: null,
+                new SqlStatement("SELECT * FROM TEST") { PageSize = 1 },
+                cts.Token);
+
+            cts.Token.Register(() => Console.WriteLine("Cancellation requested."));
+
+            await foreach (var row in cursor)
+            {
+                cts.Cancel();
+            }
+
+            Assert.Fail("TODO");
+        }
+
         private static void AssertInstantSimilar(Instant expected, Instant actual, string message)
         {
             double deltaSeconds = 10;
