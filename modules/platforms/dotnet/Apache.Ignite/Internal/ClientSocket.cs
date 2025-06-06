@@ -293,7 +293,7 @@ namespace Apache.Ignite.Internal
             bool expectNotifications = false,
             CancellationToken cancellationToken = default) =>
             DoOutInOpAsyncInternal(clientOp, request, expectNotifications, cancellationToken)
-                .WaitAsync(_operationTimeout, cancellationToken);
+                .WaitAsync(_operationTimeout, CancellationToken.None); // Do not cancel WaitAsync - wait for server response.
 
         /// <inheritdoc/>
         public void Dispose()
