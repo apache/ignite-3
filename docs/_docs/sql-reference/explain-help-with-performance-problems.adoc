@@ -45,15 +45,16 @@ And possible EXPLAIN output:
 ----
 Exchange
     distribution: single
-    est: (rows=100)
+    est: (rows=1)
   TableScan
       table: PUBLIC.T
-      filters: =(COL1, _UTF-8'1')
-      fields: [ID]
-      projects: [ID]
-      est: (rows=100)
+      predicate: =(COL1, _UTF-8'1')
+      fieldNames: [ID]
+      est: (rows=1)
 ----
-We can see a full scan (*TableScan* operator) instead of expected index (IDX) scan (there still can be some exceptions, check for Note below). Index scan looks more preferable in such a case. It can be fixed manually with HINTS usage approach:
+We can see a full scan (*TableScan* operator) with predicate.
+The choice which scan implementation (**TableScan** or **IndexScan**) need to be used is relates into planner decision.
+But if it is expected that index scan more preferable in such a case, it can be fixed manually with HINTS usage approach:
 [source,sql]
 ----
 SELECT /*+ FORCE_INDEX(t_col1_idx) */ id FROM t WHERE col1 = '1';
@@ -63,20 +64,17 @@ Will show a different plan, like:
 ----
 Exchange
     distribution: single
-    est: (rows=100)
+    est: (rows=1)
   IndexScan
       table: PUBLIC.T
       index: T_COL1_IDX
       type: SORTED
+      predicate: =(COL1, _UTF-8'1')
       searchBounds: [ExactBounds [bound=_UTF-8'1']]
-      filters: =(COL1, _UTF-8'1')
-      fields: [ID]
-      projects: [ID]
+      fieldNames: [ID]
       collation: []
-      est: (rows=100)
+      est: (rows=1)
 ----
-
-NOTE: Plan with full scan can still be preferable for tables with a small number of rows, but for huge numbers of sparse data rows it looks like index scan is a better choice.
 
 == Not optimal indexes are involved
 Indexes with less prediction can be chosen, for example schema and query may look as follows:
@@ -114,7 +112,7 @@ We can also use **HINTS** to achieve it:
 ----
 SELECT /*+ FORCE_INDEX(t_col1_col2_idx) */ id FROM t WHERE col1 = '1' AND col2 = '2';
 ----
-== Unrelated sort ordering
+== Unexpected sort operation
 By default, sorted indexes store their entries in ascending order. You can adjust the ordering of a sorted index by including the options ASC or DESC.
 Lets suppose schema and related query looks like:
 [source,sql]
@@ -122,12 +120,11 @@ Lets suppose schema and related query looks like:
 CREATE TABLE t1 (id INT PRIMARY KEY, col1 VARCHAR);
 CREATE TABLE t2 (id INT PRIMARY KEY, col1 VARCHAR);
 CREATE INDEX t1_col1_desc_idx ON t1(col1 DESC);
-CREATE INDEX t1_col1_idx ON t1(col1);
 CREATE INDEX t2_col1_idx ON t2(col1);
 
 SELECT t1.id as t1id, t2.id as t2id FROM t1 JOIN t2 USING (col1);
 ----
-Expected that **t1_col1_idx** and **t2_col1_idx** will be involved into execution plan, but for some reasons possible plan shows:
+And possible plan:
 [source,sql]
 ----
 Project
@@ -148,14 +145,15 @@ Project
           index: T2_COL1_IDX
           ...
 ----
-We can found here additional **Sort** operator over **IndexScan** it passed here for changing not satisfying ordering from near source (index), it needs to be ASC ordered.
-Extra **Sort** operator brings additional performance costs, we can avoid it also
-with help from **HINTS** side:
+We can found here **Sort** operator over **IndexScan** it passed here for changing not satisfying ordering from near source (index), it needs to be ASC ordered.
+Extra **Sort** operator brings additional performance costs, we can avoid it by appending an index with satisfying sort ordering:
+
 [source,sql]
 ----
-SELECT /*+ FORCE_INDEX(t1_col1_idx, t2_col1_idx) */ t1.id as t1id, t2.id as t2id FROM t1 JOIN t2 USING (col1);
+CREATE INDEX t1_col1_idx ON t1(col1);
 ----
-And possible plan becomes:
+And plan will become like:
+
 [source,sql]
 ----
 Project
@@ -210,10 +208,11 @@ Project
 In Ignite 3 there is present some performance issues related to correlated subqueries and as a result:
 
 - Such subqueries may become bottlenecks.
-- Queries over even small tables can cause high CPU and memory consumption.
+- Queries over even small tables can cause high CPU.
 - Certain queries may perform slower than expected.
 
-Plan shows that **CorrelatedNestedLoopJoin** operator is present. Thus if some performance issues are found in such a case, it would be more
+Plan shows that **CorrelatedNestedLoopJoin** operator is present.
+Thus if some performance issues are found in such a case, it would be more
 efficient to rewrite for equal query but without nested subquery, like:
 [source,sql]
 ----
@@ -490,7 +489,7 @@ Exchange
       searchBounds: [ExactBounds [bound=CAST(SUBSTR(CAST(CURRENT_DATE):VARCHAR CHARACTER SET "UTF-8" NOT NULL, 4)):INTEGER]]
       ...
 ----
-We can see that **searchBounds** are present - thus more performant execution flow is expected here.
+We can see that **searchBounds** are present - thus more productive execution flow is expected here.
 
 
 == Colocation usage
