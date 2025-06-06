@@ -59,7 +59,6 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLockAsync;
-import static org.apache.ignite.lang.ErrorGroups.Common.INTERNAL_ERR;
 import static org.apache.ignite.lang.ErrorGroups.Common.NODE_STOPPING_ERR;
 
 import it.unimi.dsi.fastutil.ints.IntOpenHashSet;
@@ -1240,7 +1239,7 @@ public class PartitionReplicaLifecycleManager extends
                     pendingAssignments,
                     revision,
                     isRecovery
-            ).thenCompose(v -> {
+            ).thenRun(() -> {
                 boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
                         zonePartitionId,
                         stableAssignments,
@@ -1249,7 +1248,7 @@ public class PartitionReplicaLifecycleManager extends
                 );
 
                 if (!isLocalNodeInStableOrPending) {
-                    return nullCompletedFuture();
+                    return;
                 }
 
                 // A node might exist in stable yet we don't want to start the replica
@@ -1259,10 +1258,10 @@ public class PartitionReplicaLifecycleManager extends
                 // Then A and B go back online. In this case
                 // stable = [A, B, C], pending = [C, force] and only C should be started.
                 if (isRecovery && !replicaMgr.isReplicaStarted(zonePartitionId)) {
-                    return nullCompletedFuture();
+                    return;
                 }
 
-                return changePeersOnRebalance(
+                changePeersOnRebalance(
                         replicaMgr,
                         zonePartitionId,
                         pendingAssignments.nodes(),
@@ -1410,13 +1409,14 @@ public class PartitionReplicaLifecycleManager extends
         return zoneDescriptor;
     }
 
-    private CompletableFuture<Void> changePeersOnRebalance(
+    private void changePeersOnRebalance(
             ReplicaManager replicaMgr,
             ZonePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
     ) {
-        return replicaMgr.replica(replicaGrpId)
+        // According to the rebalance logic, it's safe to react to pending assignments change in async manner.
+        replicaMgr.replica(replicaGrpId)
                 .thenApply(Replica::raftClient)
                 .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
                         .exceptionally(throwable -> {
@@ -1425,20 +1425,14 @@ public class PartitionReplicaLifecycleManager extends
                                         "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
                                         replicaGrpId
                                 );
-
-                                return LeaderWithTerm.NO_LEADER;
                             }
                             if (hasCause(throwable, ComponentStoppingException.class)) {
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
-
-                                return LeaderWithTerm.NO_LEADER;
                             }
 
-                            throw new IgniteInternalException(
-                                    INTERNAL_ERR,
-                                    "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
-                                    throwable
-                            );
+                            LOG.info("Failed to get a leader for the RAFT replication group [grp={}].", throwable, replicaGrpId);
+
+                            return LeaderWithTerm.NO_LEADER;
                         })
                         .thenCompose(leaderWithTerm -> {
                             if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
@@ -1464,7 +1458,13 @@ public class PartitionReplicaLifecycleManager extends
                                         return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
                                                 .exceptionally(e -> null);
                                     });
-                        }));
+                        }))
+                .whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
+                        LOG.warn("Failed to change peers [grp={}].", ex, replicaGrpId);
+                    }
+                });
     }
 
     private boolean isLocalPeer(Peer peer) {

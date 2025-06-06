@@ -132,10 +132,7 @@ public class ItDistributionZoneMetaStorageCompactionTest extends ClusterPerTestI
                 10_000
         ));
 
-        // TODO https://issues.apache.org/jira/browse/IGNITE-25277
-        // The timeout was increased due to IGNITE-25277. This change relates to the colocation feature.
-        // Wait for meta storage to be compacted.
-        assertTrue(waitForCondition(() -> ignite.metaStorageManager().getCompactionRevisionLocally() > revisionAfterCreateZone, 10000));
+        assertTrue(waitForCondition(() -> ignite.metaStorageManager().getCompactionRevisionLocally() > revisionAfterCreateZone, 1000));
 
         // Check that old revision is not available after compaction.
         assertThat(
