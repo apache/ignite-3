@@ -311,7 +311,7 @@ public class TxCleanupRequestSender {
                                 return sendCleanupMessageWithRetries(commitPartitionId, commit, commitTimestamp, txId, node, partitions);
                             }
 
-                            LOG.info("qqq retrying the cleanup, ex={}", unwrapRootCause(throwable).getClass().getSimpleName());
+                            //LOG.info("qqq retrying the cleanup, ex={}", unwrapRootCause(throwable).getClass().getSimpleName());
                             // Run a cleanup that finds new primaries for the given partitions.
                             // This covers the case when a partition primary died and we still want to switch write intents.
                             return cleanup(commitPartitionId, partitions, commit, commitTimestamp, txId);
