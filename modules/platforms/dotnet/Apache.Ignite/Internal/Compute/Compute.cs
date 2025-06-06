@@ -351,7 +351,8 @@ namespace Apache.Ignite.Internal.Compute
         private JobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
-            IMarshaller<T>? marshaller)
+            IMarshaller<T>? marshaller,
+            CancellationToken cancellationToken)
         {
             var reader = computeExecuteResult.GetReader();
 
@@ -361,6 +362,11 @@ namespace Apache.Ignite.Internal.Compute
             }
 
             var jobId = reader.ReadGuid();
+
+            // Standard cancellation by requestId in ClientSocket does not work for jobs.
+            // Compute job can be cancelled from any node, it is not bound to a connection.
+            cancellationToken.Register(() => _ = CancelJobAsync(jobId));
+
             var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
             var node = ClusterNode.Read(ref reader);
 
@@ -438,7 +444,7 @@ namespace Apache.Ignite.Internal.Compute
                     PreferredNode.FromName(node.Name))
                 .ConfigureAwait(false);
 
-            return GetJobExecution(buf, readSchema: false, jobDescriptor.ResultMarshaller);
+            return GetJobExecution(buf, readSchema: false, jobDescriptor.ResultMarshaller, cancellationToken);
 
             static void Write(
                 PooledArrayBuffer writer,
@@ -504,7 +510,7 @@ namespace Apache.Ignite.Internal.Compute
                             {
                                 if (CanWriteJobExecType(socket))
                                 {
-                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, args.bufferWriter, expectNotifications: true)
+                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, args.bufferWriter, expectNotifications: true, cancellationToken: args.cancellationToken)
                                         .ConfigureAwait(false);
                                 }
 
@@ -518,7 +524,7 @@ namespace Apache.Ignite.Internal.Compute
                             preferredNode)
                         .ConfigureAwait(false);
 
-                    return GetJobExecution(resBuf, readSchema: true, descriptor.ResultMarshaller);
+                    return GetJobExecution(resBuf, readSchema: true, marshaller: descriptor.ResultMarshaller, cancellationToken);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
