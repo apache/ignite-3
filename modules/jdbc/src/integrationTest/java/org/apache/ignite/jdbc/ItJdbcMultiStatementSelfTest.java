@@ -420,7 +420,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
         conn.setAutoCommit(false);
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; SELECT 1; COMMIT"));
         assertThrowsSqlException(txErrMsg, () -> stmt.execute("COMMIT"));
-        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION"));
+        assertThrowsSqlException(txErrMsg, () -> stmt.execute("START TRANSACTION; COMMIT;"));
 
         boolean res = stmt.execute("SELECT 1;COMMIT");
         assertTrue(res);
