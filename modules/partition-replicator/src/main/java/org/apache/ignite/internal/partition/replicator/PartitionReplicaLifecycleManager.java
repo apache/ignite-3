@@ -1240,7 +1240,7 @@ public class PartitionReplicaLifecycleManager extends
                     pendingAssignments,
                     revision,
                     isRecovery
-            ).thenCompose(v -> {
+            ).thenAccept(v -> {
                 boolean isLocalNodeInStableOrPending = isNodeInReducedStableOrPendingAssignments(
                         zonePartitionId,
                         stableAssignments,
@@ -1249,7 +1249,7 @@ public class PartitionReplicaLifecycleManager extends
                 );
 
                 if (!isLocalNodeInStableOrPending) {
-                    return nullCompletedFuture();
+                    return;
                 }
 
                 // A node might exist in stable yet we don't want to start the replica
@@ -1259,10 +1259,10 @@ public class PartitionReplicaLifecycleManager extends
                 // Then A and B go back online. In this case
                 // stable = [A, B, C], pending = [C, force] and only C should be started.
                 if (isRecovery && !replicaMgr.isReplicaStarted(zonePartitionId)) {
-                    return nullCompletedFuture();
+                    return;
                 }
 
-                return changePeersOnRebalance(
+                changePeersOnRebalance(
                         replicaMgr,
                         zonePartitionId,
                         pendingAssignments.nodes(),
@@ -1410,12 +1410,13 @@ public class PartitionReplicaLifecycleManager extends
         return zoneDescriptor;
     }
 
-    private CompletableFuture<Void> changePeersOnRebalance(
+    private void changePeersOnRebalance(
             ReplicaManager replicaMgr,
             ZonePartitionId replicaGrpId,
             Set<Assignment> pendingAssignments,
             long revision
     ) {
+        // According to the rebalance logic, it's safe to react on pending assignments change in a async manner.
         replicaMgr.replica(replicaGrpId)
                 .thenApply(Replica::raftClient)
                 .thenCompose(raftClient -> raftClient.refreshAndGetLeaderWithTerm()
@@ -1465,8 +1466,6 @@ public class PartitionReplicaLifecycleManager extends
                                                 .exceptionally(e -> null);
                                     });
                         }));
-
-        return nullCompletedFuture();
     }
 
     private boolean isLocalPeer(Peer peer) {
