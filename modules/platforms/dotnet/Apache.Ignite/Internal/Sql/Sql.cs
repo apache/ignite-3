@@ -188,7 +188,7 @@ namespace Apache.Ignite.Internal.Sql
                     ClientOp.SqlExec, tx, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
 
                 // ResultSet will dispose the pooled buffer.
-                return new ResultSet<T>(socket, buf, rowReaderFactory);
+                return new ResultSet<T>(socket, buf, rowReaderFactory, cancellationToken);
             }
             catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
             {
