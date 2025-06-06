@@ -137,13 +137,6 @@ public class ScriptTransactionContext implements QueryTransactionContext {
         }
     }
 
-    /** Returns {@code True} if the script transaction exists and its rollback has been initiated by this call. */
-    public boolean rollbackActiveTx() {
-        ScriptTransactionWrapperImpl txWrapper = wrapper;
-
-        return txWrapper != null && txWrapper.rollback();
-    }
-
     /** Rolls back the script-driven transaction. */
     public void onError(Throwable t) {
         assert t != null;

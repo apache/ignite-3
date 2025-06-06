@@ -129,21 +129,6 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         });
     }
 
-    /**
-     * Rolls back the transaction.
-     *
-     * @return {@code True} if the rollback was initiated by this call, {@code False} if the transaction completion was already initiated.
-     */
-    boolean rollback() {
-        if (changeState(State.ROLLBACK)) {
-            completeTx();
-
-            return true;
-        }
-
-        return false;
-    }
-
     /** Registers a new cursor associated with the current transaction. */
     void registerCursorFuture(CompletableFuture<AsyncSqlCursor<InternalSqlRow>> cursorFut) {
         UUID cursorId = UUID.randomUUID();
@@ -176,22 +161,20 @@ class ScriptTransactionWrapperImpl implements QueryTransactionWrapper {
         });
     }
 
-    private boolean changeState(State newState) {
+    private void changeState(State newState) {
         synchronized (mux) {
             if (txState != null) {
-                return false;
+                return;
             }
 
             txState = newState;
 
             if (!openedCursors.isEmpty()) {
-                return true;
+                return;
             }
         }
 
         completeTx();
-
-        return true;
     }
 
     private void completeTx() {
