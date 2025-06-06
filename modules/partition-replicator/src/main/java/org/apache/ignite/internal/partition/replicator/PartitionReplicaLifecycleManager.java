@@ -1426,20 +1426,14 @@ public class PartitionReplicaLifecycleManager extends
                                         "Node couldn't get the leader within timeout so the changing peers is skipped [grp={}].",
                                         replicaGrpId
                                 );
-
-                                return LeaderWithTerm.NO_LEADER;
                             }
                             if (hasCause(throwable, ComponentStoppingException.class)) {
                                 LOG.info("Replica is being stopped so the changing peers is skipped [grp={}].", replicaGrpId);
-
-                                return LeaderWithTerm.NO_LEADER;
                             }
 
-                            throw new IgniteInternalException(
-                                    INTERNAL_ERR,
-                                    "Failed to get a leader for the RAFT replication group [get=" + replicaGrpId + "].",
-                                    throwable
-                            );
+                            LOG.info("Failed to get a leader for the RAFT replication group [grp=" + replicaGrpId + "].");
+
+                            return LeaderWithTerm.NO_LEADER;
                         })
                         .thenCompose(leaderWithTerm -> {
                             if (leaderWithTerm.isEmpty() || !isLocalPeer(leaderWithTerm.leader())) {
@@ -1465,7 +1459,12 @@ public class PartitionReplicaLifecycleManager extends
                                         return raftClient.changePeersAndLearnersAsync(newConfiguration, leaderWithTerm.term())
                                                 .exceptionally(e -> null);
                                     });
-                        }));
+                        })).whenComplete((res, ex) -> {
+                    if (ex != null) {
+                        // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
+                        LOG.info("Failed to change peers [grp=" + replicaGrpId + "].");
+                    }
+                });
     }
 
     private boolean isLocalPeer(Peer peer) {
