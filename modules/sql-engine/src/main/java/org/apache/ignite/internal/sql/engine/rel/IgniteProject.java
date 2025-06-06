@@ -130,7 +130,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         }
 
         if (srcKeys.size() == keys.size()) {
-            return Pair.of(nodeTraits, List.of(in.replace(IgniteDistributions.clone(distribution, ImmutableIntList.of(srcKeys.elements())))));
+            return Pair.of(nodeTraits, List.of(in.replace(IgniteDistributions.clone(distribution, srcKeys))));
         }
 
         return Pair.of(nodeTraits.replace(single()), List.of(in.replace(single())));
