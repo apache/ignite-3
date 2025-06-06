@@ -48,8 +48,6 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly CancellationToken _cancellationToken;
 
-        private readonly CancellationTokenRegistration _cancellationRegistration;
-
         private bool _resourceClosed;
 
         private int _bufferReleased;
@@ -86,11 +84,6 @@ namespace Apache.Ignite.Internal.Sql
                 buf.Position += reader.Consumed;
                 _buffer = buf;
                 HasRows = reader.ReadInt32() > 0;
-
-                if (_resourceId != null)
-                {
-                    _cancellationRegistration = cancellationToken.Register(() => _ = DisposeAsync().AsTask());
-                }
             }
             else
             {
@@ -216,9 +209,6 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_resourceId != null && !_resourceClosed)
             {
-                _resourceClosed = true;
-                await _cancellationRegistration.DisposeAsync().ConfigureAwait(false);
-
                 try
                 {
                     using var writer = ProtoCommon.GetMessageWriter();
@@ -232,6 +222,8 @@ namespace Apache.Ignite.Internal.Sql
                     // Ignore.
                     // Socket might be disconnected.
                 }
+
+                _resourceClosed = true;
             }
 
             GC.SuppressFinalize(this);
@@ -369,6 +361,8 @@ namespace Apache.Ignite.Internal.Sql
 
                 for (var rowIdx = 0; rowIdx < pageSize; rowIdx++)
                 {
+                    _cancellationToken.ThrowIfCancellationRequested();
+
                     // Can't use ref struct reader from above inside iterator block (CS4013).
                     // Use a new reader for every row (stack allocated).
                     var rowReader = buf.GetReader(offset);

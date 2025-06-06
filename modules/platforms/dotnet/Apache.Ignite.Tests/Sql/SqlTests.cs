@@ -593,7 +593,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQuery()
+        public async Task TestCancelQuery([Values(true, false)] bool beforeIter)
         {
             var cts = new CancellationTokenSource();
             await using var cursor = await Client.Sql.ExecuteAsync(
@@ -601,14 +601,21 @@ namespace Apache.Ignite.Tests.Sql
                 new SqlStatement("SELECT * FROM TEST") { PageSize = 1 },
                 cts.Token);
 
-            cts.Token.Register(() => Console.WriteLine("Cancellation requested."));
-
-            await foreach (var row in cursor)
+            if (beforeIter)
             {
                 cts.Cancel();
             }
 
-            Assert.Fail("TODO");
+            Assert.ThrowsAsync<OperationCanceledException>(async () =>
+            {
+                await foreach (var unused in cursor)
+                {
+                    if (!beforeIter)
+                    {
+                        cts.Cancel();
+                    }
+                }
+            });
         }
 
         private static void AssertInstantSimilar(Instant expected, Instant actual, string message)
