@@ -696,8 +696,6 @@ namespace Apache.Ignite.Internal
             {
                 await SendRequestAsync(request, clientOp, requestId, cancellationToken).ConfigureAwait(false);
 
-                // TODO: Some operations, like SQL_EXEC, require us to keep the cancellation registration while the cursor is alive.
-                // But closing the cursor is the same as canceling the request?
                 await using var cancellation = RegisterCancellation(requestId, cancellationToken).ConfigureAwait(false);
 
                 PooledBuffer resBuf = await taskCompletionSource.Task.ConfigureAwait(false);

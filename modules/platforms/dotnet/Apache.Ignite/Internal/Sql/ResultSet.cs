@@ -46,6 +46,10 @@ namespace Apache.Ignite.Internal.Sql
 
         private readonly RowReader<T>? _rowReader;
 
+        private readonly CancellationToken _cancellationToken;
+
+        private readonly CancellationTokenRegistration _cancellationRegistration;
+
         private bool _resourceClosed;
 
         private int _bufferReleased;
@@ -58,9 +62,11 @@ namespace Apache.Ignite.Internal.Sql
         /// <param name="socket">Socket.</param>
         /// <param name="buf">Buffer to read initial data from.</param>
         /// <param name="rowReaderFactory">Row reader factory.</param>
-        public ResultSet(ClientSocket socket, PooledBuffer buf, RowReaderFactory<T> rowReaderFactory)
+        /// <param name="cancellationToken">Cancellation token.</param>
+        public ResultSet(ClientSocket socket, PooledBuffer buf, RowReaderFactory<T> rowReaderFactory, CancellationToken cancellationToken)
         {
             _socket = socket;
+            _cancellationToken = cancellationToken;
 
             var reader = buf.GetReader();
 
@@ -80,6 +86,11 @@ namespace Apache.Ignite.Internal.Sql
                 buf.Position += reader.Consumed;
                 _buffer = buf;
                 HasRows = reader.ReadInt32() > 0;
+
+                if (_resourceId != null)
+                {
+                    _cancellationRegistration = cancellationToken.Register(() => _ = DisposeAsync().AsTask());
+                }
             }
             else
             {
@@ -127,6 +138,7 @@ namespace Apache.Ignite.Internal.Sql
                 .ConfigureAwait(false);
 
         /// <inheritdoc/>
+        [SuppressMessage("ReSharper", "InconsistentNaming", Justification = "Generics.")]
         public async ValueTask<Dictionary<TK, TV>> ToDictionaryAsync<TK, TV>(
             Func<T, TK> keySelector,
             Func<T, TV> valSelector,
@@ -204,11 +216,15 @@ namespace Apache.Ignite.Internal.Sql
 
             if (_resourceId != null && !_resourceClosed)
             {
+                _resourceClosed = true;
+                await _cancellationRegistration.DisposeAsync().ConfigureAwait(false);
+
                 try
                 {
                     using var writer = ProtoCommon.GetMessageWriter();
                     WriteId(writer.MessageWriter);
 
+                    // ReSharper disable once MethodSupportsCancellation (cursor close should not be cancelled).
                     using var buffer = await _socket.DoOutInOpAsync(ClientOp.SqlCursorClose, writer).ConfigureAwait(false);
                 }
                 catch (Exception)
@@ -216,8 +232,6 @@ namespace Apache.Ignite.Internal.Sql
                     // Ignore.
                     // Socket might be disconnected.
                 }
-
-                _resourceClosed = true;
             }
 
             GC.SuppressFinalize(this);
@@ -377,7 +391,8 @@ namespace Apache.Ignite.Internal.Sql
             using var writer = ProtoCommon.GetMessageWriter();
             WriteId(writer.MessageWriter);
 
-            return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer).ConfigureAwait(false);
+            return await _socket.DoOutInOpAsync(ClientOp.SqlCursorNextPage, writer, cancellationToken: _cancellationToken)
+                .ConfigureAwait(false);
         }
 
         private void WriteId(MsgPackWriter writer)
