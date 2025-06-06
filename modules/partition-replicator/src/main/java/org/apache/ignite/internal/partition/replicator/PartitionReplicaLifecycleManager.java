@@ -1462,7 +1462,7 @@ public class PartitionReplicaLifecycleManager extends
                         })).whenComplete((res, ex) -> {
                     if (ex != null) {
                         // TODO Retry on fail https://issues.apache.org/jira/browse/IGNITE-23633
-                        LOG.info("Failed to change peers [grp=" + replicaGrpId + "].");
+                        LOG.warn("Failed to change peers [grp=" + replicaGrpId + "].");
                     }
                 });
     }
