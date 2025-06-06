@@ -93,8 +93,7 @@ public class WriteIntentSwitchProcessor {
                         Throwable cause = ExceptionUtils.unwrapCause(ex);
 
                         if (ReplicatorRecoverableExceptions.isRecoverable(cause)) {
-                            LOG.info("Failed to switch write intents for Tx. The operation will be retried [txId={}, exception={}].",
-                                    txId, ex.getClass().getSimpleName() + ": " + ex.getMessage());
+                            LOG.info("Failed to switch write intents for Tx. The operation will be retried [txId={}].", txId, ex);
 
                             return switchWriteIntentsWithRetry(commit, commitTimestamp, txId, partition);
                         }
