@@ -13,17 +13,14 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-import './code-tabs.js?1'
-import {hideLeftNav, scrollLeftNavToActive} from './docs-menu.js?20201005'
-//import {hideTopNav} from './top-navigation.js'
-import './page-nav.js'
-import './search.js'
+import rr, * as rrClass from "./railroad.js";
+Object.assign(window, rr);
+window.rrOptions = rrClass.Options;
 
-
-
-
-document.addEventListener('topNavigationShow', hideLeftNav)
-// document.addEventListener('leftNavigationShow', hideTopNav)
-window.addEventListener('load', scrollLeftNavToActive);
-
-
+let elements = document.querySelectorAll('.diagram-container p');
+[].forEach.call(elements, function(el) {
+    let result = eval(el.innerHTML).format();
+    let diagramContainer = el.closest('.diagram-container');
+    diagramContainer.innerHTML = '';
+    result.addTo(diagramContainer);
+})
