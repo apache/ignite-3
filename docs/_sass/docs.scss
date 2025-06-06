@@ -48,6 +48,11 @@ section.page-docs {
             }
         }
 
+        img {
+            max-width: 100%;
+            height: auto;
+        }
+
         @media (max-width: 800px) {
             padding-left: 15px;
             padding-right: 15px
@@ -74,24 +79,27 @@ section.page-docs {
         }
     }
 
-    .toc > ul {
-        margin: 0;
-    }
+	.toc > ul {
+   		 margin: 0;
+	}
 
 
-    .content > .pygments.highlight {
-        margin-top: 0px;
-    }
+	.content > .pygments.highlight {
+	      margin-top: 0px;
+   	}
 
-    .title {
-        font-style: italic;
-    }
+	.title {
+	  	font-style: italic;
+	 }
 
     .checkmark:before {
-        content: '\f14a';
-        visibility: visible;
-        font-family: FontAwesome;
-        color: #00a100;
+       content: ''; 
+       background-image: url("data:image/svg+xml,%3Csvg aria-hidden='true' focusable='false' data-prefix='fas' data-icon='check-square' class='svg-inline--fa fa-check-square fa-w-14' role='img' xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'%3E%3Cpath fill='%2300a100' d='M400 480H48c-26.51 0-48-21.49-48-48V80c0-26.51 21.49-48 48-48h352c26.51 0 48 21.49 48 48v352c0 26.51-21.49 48-48 48zm-204.686-98.059l184-184c6.248-6.248 6.248-16.379 0-22.627l-22.627-22.627c-6.248-6.248-16.379-6.249-22.628 0L184 302.745l-70.059-70.059c-6.248-6.248-16.379-6.248-22.628 0l-22.627 22.627c-6.248 6.248-6.248 16.379 0 22.627l104 104c6.249 6.25 16.379 6.25 22.628.001z'%3E%3C/path%3E%3C/svg%3E");
+       width: 15px;
+       height: 15px;
+       display: inline-block;
+       background-repeat: no-repeat;
+       visibility: visible;
     }
     .checkmark {
         visibility: hidden;
@@ -104,9 +112,9 @@ section.page-docs {
     h2[id] {
         --margin-top: 1.2em;
     }
-    .toc > h2 {
-        --margin-top: 1em;
-    }
+	.toc > h2 {
+	  --margin-top: 1em;
+	}
 
     h3[id] {
         --margin-top: 1.2em;
@@ -129,27 +137,27 @@ section.page-docs {
             max-height: 450px;
         }
     }
-    strong {
-        color: #757575;
-    }
+	strong {
+	  color: #757575;
+	}
 
-    th.valign-top,td.valign-top {
-        vertical-align:top;
-    }
+	th.valign-top,td.valign-top { 
+		vertical-align:top;
+	}
 
     table {
         margin: 16px 0;
     }
 
     table tr td {
-        hyphens: auto;
+      hyphens: auto;
     }
 
-    table thead,table tfoot {
-        background:#f7f8f7;
-        color: #757575;
-    }
-    table tr.even,table tr.alt{background:#f8f8f7}
+	table thead,table tfoot {
+		background:#f7f8f7; 
+	  color: #757575;
+	}
+	table tr.even,table tr.alt{background:#f8f8f7}
     table.stripes-all tr,table.stripes-odd tr:nth-of-type(odd),table.stripes-even tr:nth-of-type(even),table.stripes-hover tr:hover{background:#f8f8f7}
 
 }
@@ -169,14 +177,14 @@ body.hide-left-nav {
 }
 
 .left-nav {
-    top: 0;
+    // top: 0;
     bottom: 0;
     position: -webkit-sticky;
     position: sticky;
 }
 .left-nav {
-    max-height: calc(100vh );
-    grid-area: left-nav;
+    // max-height: calc(100vh );
+    grid-area: left-nav;    
 }
 .right-nav {
     grid-area: right-nav;
@@ -191,6 +199,26 @@ body.hide-left-nav {
     left: 0;
     right: 0;
 }
+
+
+#doc-feedback-btn {
+    background-color: #b02032 !important; // rgb(240, 0, 35) !important;
+    display: block;
+    font-weight: 400;
+    color: white;
+    text-align: center;
+    cursor: pointer;
+    user-select: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    padding: .375rem .75rem;
+    margin: 1rem auto;
+    font-size: 14px;
+    line-height: 1.5;
+    border-radius: .25rem;
+    transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
 @media (max-width: 990px) {
     body:not(.hide-left-nav) {
         .left-nav__overlay {
@@ -216,7 +244,16 @@ body.hide-left-nav {
 }
 @media (max-width: 800px) {
     nav.right-nav {
-        display: none;
+        display: block;
+        width: 100%;
+        height: 80px;
+
+        .toc-wrapper {
+            display: none;
+        }
+    }
+    section.page-docs {
+        display: block;
     }
 }
 
