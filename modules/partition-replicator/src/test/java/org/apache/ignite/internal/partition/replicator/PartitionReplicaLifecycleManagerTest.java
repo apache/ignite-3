@@ -35,6 +35,7 @@ import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFu
 import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
 import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -274,7 +275,9 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_STOPPED, EventListener.fromConsumer(beforeReplicaStoppedFuture::complete));
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_STOPPED, EventListener.fromConsumer(params -> {
-            beforeReplicaStoppedFuture.thenRun(() -> afterReplicaStoppedFuture.complete(params));
+            assertTrue(beforeReplicaStoppedFuture.isDone(), "AFTER_REPLICA_STOPPED event received before BEFORE_REPLICA_STOPPED");
+
+            afterReplicaStoppedFuture.complete(params);
         }));
 
         int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
@@ -292,12 +295,18 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
     @Test
     void producesEventsOnPartitionDestroy() {
-        var beforeReplicaStoppedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
-        var afterReplicaStoppedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
+        var beforeReplicaDestroyedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
+        var afterReplicaDestroyedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
 
-        partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_DESTROYED, EventListener.fromConsumer(beforeReplicaStoppedFuture::complete));
+        partitionReplicaLifecycleManager.listen(
+                BEFORE_REPLICA_DESTROYED,
+                EventListener.fromConsumer(beforeReplicaDestroyedFuture::complete)
+        );
+
         partitionReplicaLifecycleManager.listen(AFTER_REPLICA_DESTROYED, EventListener.fromConsumer(params -> {
-            beforeReplicaStoppedFuture.thenRun(() -> afterReplicaStoppedFuture.complete(params));
+            assertTrue(beforeReplicaDestroyedFuture.isDone(), "AFTER_REPLICA_DESTROYED event received before BEFORE_REPLICA_DESTROYED");
+
+            afterReplicaDestroyedFuture.complete(params);
         }));
 
         int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
@@ -312,7 +321,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
                 willCompleteSuccessfully()
         );
 
-        assertThat(beforeReplicaStoppedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
-        assertThat(afterReplicaStoppedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
+        assertThat(beforeReplicaDestroyedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
+        assertThat(afterReplicaDestroyedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
     }
 }

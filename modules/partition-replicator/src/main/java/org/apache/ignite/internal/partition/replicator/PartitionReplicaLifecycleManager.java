@@ -73,7 +73,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
@@ -1599,21 +1598,21 @@ public class PartitionReplicaLifecycleManager extends
             return fireEvent(beforeReplicaStoppedEvent, eventParameters)
                     .thenCompose(v -> {
                         try {
-                            return replicaMgr.stopReplica(zonePartitionId);
-                        } catch (NodeStoppingException e) {
-                            throw new CompletionException(e);
-                        }
-                    })
-                    .thenCompose(replicaWasStopped -> {
-                        afterReplicaStopAction.accept(replicaWasStopped);
+                            return replicaMgr.stopReplica(zonePartitionId)
+                                    .thenCompose(replicaWasStopped -> {
+                                        afterReplicaStopAction.accept(replicaWasStopped);
 
-                        if (!replicaWasStopped) {
+                                        if (!replicaWasStopped) {
+                                            return nullCompletedFuture();
+                                        }
+
+                                        replicationGroupIds.remove(zonePartitionId);
+
+                                        return fireEvent(afterReplicaStoppedEvent, eventParameters);
+                                    });
+                        } catch (NodeStoppingException e) {
                             return nullCompletedFuture();
                         }
-
-                        replicationGroupIds.remove(zonePartitionId);
-
-                        return fireEvent(afterReplicaStoppedEvent, eventParameters);
                     });
         });
     }
