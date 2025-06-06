@@ -91,7 +91,7 @@ public class Loza implements RaftManager {
      * Default value for max inflights overflow rate. It's used in partitions throttling context.
      * {@code 1.0} is too strict, so we use {@code 1.3}.
      */
-    private static final double IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE_DEFAULT = 5;
+    private static final double IGNITE_REPLICATION_MAX_INFLIGHT_OVERFLOW_RATE_DEFAULT = 100000;
 
     /** Logger. */
     private static final IgniteLogger LOG = Loggers.forClass(Loza.class);
