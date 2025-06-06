@@ -122,10 +122,7 @@ public class PartitionReplicaBuildIndexProcessor {
     }
 
     private void prepareIndexBuilderTxRwOperationTracker() {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25603 the following comment says the method must be executed
-        // on Metastore thread, but this is not currently true.
-
-        // Expected to be executed on the metastore thread.
+        // Expected to be executed on the metastore notification chain or on node start (when Catalog does not change).
         IndexMeta indexMeta = latestIndexMetaInBuildingStatus(catalogService, indexMetaStorage, tableId);
 
         if (indexMeta != null) {

@@ -43,10 +43,7 @@ class ReplicatorUtils {
      */
     static @Nullable IndexMeta latestIndexMetaInBuildingStatus(CatalogService catalogService,
             IndexMetaStorage indexMetaStorage, int tableId) {
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25603 the following comment says the method must be executed
-        // on Metastore thread, but this is not currently true.
-
-        // Since we expect to be executed on the metastore thread, it is safe to use these versions.
+        // Expected to be executed on the metastore notification chain or on node start (when Catalog does not change).
         int latestCatalogVersion = catalogService.latestCatalogVersion();
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
 
