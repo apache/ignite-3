@@ -622,10 +622,16 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestCancelQueryExecute()
         {
-            // 8x cross join will produce 10^8 rows, which takes a while to execute.
-            var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(8)})";
+            // 9x cross join will produce 10^9 rows, which takes a while to execute.
+            var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(9)})";
 
-            await using var cursor = await Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery);
+            using var cts = new CancellationTokenSource();
+            var cursorTask = Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token);
+
+            await Task.Delay(500); // Wait a bit to ensure the query starts executing.
+            await cts.CancelAsync();
+
+            await using var cursor = await cursorTask;
             await cursor.ToListAsync();
         }
 
