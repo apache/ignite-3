@@ -768,11 +768,11 @@ namespace Apache.Ignite.Internal
 
             await _sendLock.WaitAsync(_disposeTokenSource.Token).ConfigureAwait(false);
 
-            // Last chance check for cancellation.
-            cancellationToken.ThrowIfCancellationRequested();
-
             try
             {
+                // Last chance check for cancellation.
+                cancellationToken.ThrowIfCancellationRequested();
+
                 var prefixMem = _prefixBuffer.AsMemory()[4..];
                 var prefixSize = MsgPackWriter.WriteUnsigned(prefixMem.Span, (ulong)op);
                 prefixSize += MsgPackWriter.WriteUnsigned(prefixMem[prefixSize..].Span, (ulong)requestId);
@@ -806,7 +806,7 @@ namespace Apache.Ignite.Internal
 
                 Metrics.RequestsSent.Add(1, MetricsContext.Tags);
             }
-            catch (Exception e)
+            catch (Exception e) when (e is not OperationCanceledException)
             {
                 var message = "Exception while writing to socket, connection closed: " + e.Message;
 
