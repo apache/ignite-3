@@ -169,7 +169,6 @@ import org.jetbrains.annotations.TestOnly;
  *
  * <p>All message handling is sequential, {@link #channelRead} and other handlers are invoked on a single thread.</p>
  */
-@SuppressWarnings({"rawtypes", "unchecked"})
 public class ClientInboundMessageHandler
         extends ChannelInboundHandlerAdapter
         implements EventListener<AuthenticationEventParameters> {
