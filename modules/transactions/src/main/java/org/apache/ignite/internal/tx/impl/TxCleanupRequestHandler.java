@@ -35,6 +35,7 @@ import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
 import java.util.stream.Collectors;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
 import org.apache.ignite.internal.network.ChannelType;
@@ -130,6 +131,8 @@ public class TxCleanupRequestHandler {
     public void stop() {
     }
 
+    private boolean skipWriteIntentSwitch = IgniteSystemProperties.getBoolean("IGNITE_SKIP_WRITE_INTENT_SWITCH");
+
     private void processTxCleanup(TxCleanupMessage txCleanupMessage, ClusterNode sender, @Nullable Long correlationId) {
         assert correlationId != null;
 
@@ -147,15 +150,17 @@ public class TxCleanupRequestHandler {
                     sender
             );
 
-            for (EnlistedPartitionGroup partition : partitions) {
-                CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
-                        partition,
-                        txCleanupMessage.txId(),
-                        txCleanupMessage.commit(),
-                        txCleanupMessage.commitTimestamp()
-                ).thenAccept(this::processWriteIntentSwitchResponse);
+            if (!skipWriteIntentSwitch) {
+                for (EnlistedPartitionGroup partition : partitions) {
+                    CompletableFuture<Void> future = writeIntentSwitchProcessor.switchLocalWriteIntents(
+                            partition,
+                            txCleanupMessage.txId(),
+                            txCleanupMessage.commit(),
+                            txCleanupMessage.commitTimestamp()
+                    ).thenAccept(this::processWriteIntentSwitchResponse);
 
-                writeIntentSwitches.put(partition, future);
+                    writeIntentSwitches.put(partition, future);
+                }
             }
         }
         // First trigger the cleanup to properly release the locks if we know all affected partitions on this node.

@@ -53,6 +53,7 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.row.Row;
 import org.apache.ignite.internal.schema.row.RowAssembler;
+import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.thread.PublicApiThreading;
 import org.apache.ignite.internal.thread.PublicApiThreading.ApiEntryRole;
 import org.apache.ignite.internal.tx.InternalTransaction;
@@ -73,6 +74,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 /**
  * Tests for the internal table API.
  */
+@WithSystemProperty(key = "IGNITE_USE_PENDING_ROWS_TREE", value = "false")
 public class ItInternalTableTest extends ClusterPerClassIntegrationTest {
     private static final String TABLE_NAME = "SOME_TABLE";
 

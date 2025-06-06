@@ -29,6 +29,9 @@ import org.apache.ignite.internal.storage.pagememory.mv.io.BlobFragmentIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainInnerIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainLeafIo;
 import org.apache.ignite.internal.storage.pagememory.mv.io.VersionChainMetaIo;
+import org.apache.ignite.internal.storage.pagememory.pending.PendingRowsInnerIo;
+import org.apache.ignite.internal.storage.pagememory.pending.PendingRowsLeafIo;
+import org.apache.ignite.internal.storage.pagememory.pending.PendingRowsMetaIo;
 
 /**
  * {@link PageIoModule} related to {@link VolatilePageMemoryMvPartitionStorage} and {@link PersistentPageMemoryMvPartitionStorage}
@@ -45,7 +48,10 @@ public class MvPageIoModule implements PageIoModule {
                 BlobFragmentIo.VERSIONS,
                 GcMetaIo.VERSIONS,
                 GcInnerIo.VERSIONS,
-                GcLeafIo.VERSIONS
+                GcLeafIo.VERSIONS,
+                PendingRowsInnerIo.VERSIONS,
+                PendingRowsLeafIo.VERSIONS,
+                PendingRowsMetaIo.VERSIONS
         );
     }
 }

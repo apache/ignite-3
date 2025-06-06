@@ -20,6 +20,7 @@ package org.apache.ignite.internal.storage;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToRead;
 import static org.apache.ignite.internal.worker.ThreadAssertions.assertThreadAllowsToWrite;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -189,5 +190,15 @@ public class ThreadAssertingMvPartitionStorage implements MvPartitionStorage, Wr
     @Override
     public <T> T unwrap(Class<T> classToUnwrap) {
         return classToUnwrap.cast(partitionStorage);
+    }
+
+    @Override
+    public void trimPendingRows(UUID txId) {
+        partitionStorage.trimPendingRows(txId);
+    }
+
+    @Override
+    public Set<RowId> scanPendingRows(UUID txId) {
+        return partitionStorage.scanPendingRows(txId);
     }
 }

@@ -22,7 +22,10 @@ import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptio
 import static org.apache.ignite.internal.storage.util.StorageUtils.throwExceptionIfStorageNotInRunnableOrRebalanceState;
 import static org.apache.ignite.internal.util.ByteUtils.stringToBytes;
 
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
@@ -31,6 +34,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
+import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.pagememory.DataRegion;
 import org.apache.ignite.internal.pagememory.freelist.FreeListImpl;
 import org.apache.ignite.internal.pagememory.persistence.PersistentPageMemory;
@@ -41,8 +45,11 @@ import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointSt
 import org.apache.ignite.internal.pagememory.persistence.checkpoint.CheckpointTimeoutLock;
 import org.apache.ignite.internal.pagememory.tree.BplusTree;
 import org.apache.ignite.internal.pagememory.util.GradualTaskExecutor;
+import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.index.StorageHashIndexDescriptor;
 import org.apache.ignite.internal.storage.index.StorageSortedIndexDescriptor;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
@@ -51,8 +58,11 @@ import org.apache.ignite.internal.storage.pagememory.StoragePartitionMeta;
 import org.apache.ignite.internal.storage.pagememory.configuration.schema.PersistentPageMemoryStorageEngineView;
 import org.apache.ignite.internal.storage.pagememory.index.meta.IndexMetaTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.pending.PendingRowsKey;
+import org.apache.ignite.internal.storage.pagememory.pending.PendingRowsTree;
 import org.apache.ignite.internal.storage.util.LocalLocker;
 import org.apache.ignite.internal.util.ByteUtils;
+import org.apache.ignite.internal.util.Cursor;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -72,6 +82,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
     private final CheckpointListener checkpointListener;
 
     private volatile BlobStorage blobStorage;
+
+    private volatile PendingRowsTree pendingRowsTree;
 
     /** Lock that protects group config read/write. */
     private final ReadWriteLock replicationProtocolGroupConfigReadWriteLock = new ReentrantReadWriteLock();
@@ -107,7 +119,8 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
             IndexMetaTree indexMetaTree,
             GcQueue gcQueue,
             ExecutorService destructionExecutor,
-            FailureProcessor failureProcessor
+            FailureProcessor failureProcessor,
+            PendingRowsTree pendingRowsTree
     ) {
         super(
                 partitionId,
@@ -124,6 +137,7 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
                 failureProcessor
         );
 
+        this.pendingRowsTree = pendingRowsTree;
         checkpointManager = tableStorage.engine().checkpointManager();
         checkpointTimeoutLock = checkpointManager.checkpointTimeoutLock();
 
@@ -443,8 +457,77 @@ public class PersistentPageMemoryMvPartitionStorage extends AbstractPageMemoryMv
 
         resourcesToClose.add(localState.freeList()::close);
         resourcesToClose.add(blobStorage::close);
+        resourcesToClose.add(pendingRowsTree::close);
 
         return resourcesToClose;
+    }
+
+    public void addPendingRow(UUID txId, RowId rowId) {
+        PendingRowsKey row = new PendingRowsKey(txId, rowId);
+
+        try {
+            PendingRowsKey p = pendingRowsTree.put(row);
+
+            if (p != null) {
+                System.out.println();
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error while adding pending row entry: " + e.getMessage(), e);
+        }
+    }
+
+    private boolean usePendingRowsTree = IgniteSystemProperties.getBoolean("IGNITE_USE_PENDING_ROWS_TREE");
+
+    @Override
+    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableOrZoneId, int commitPartitionId)
+            throws TxIdMismatchException, StorageException {
+        var br = super.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
+
+        if (usePendingRowsTree) {
+            addPendingRow(txId, rowId);
+        }
+
+        return br;
+    }
+
+    @Override
+    public void trimPendingRows(UUID txId) {
+        PendingRowsKey upperBound = new PendingRowsKey(txId, RowId.highestRowId(0));
+        PendingRowsKey lowerBound = new PendingRowsKey(txId, RowId.lowestRowId(0));
+
+        List<PendingRowsKey> toRemove = new ArrayList<>();
+
+        try (Cursor<PendingRowsKey> cursor = pendingRowsTree.find(lowerBound, upperBound, true, true, null, null)) {
+            for (PendingRowsKey updateLogKey : cursor) {
+                toRemove.add(updateLogKey);
+            }
+
+            for (PendingRowsKey key : toRemove) {
+                pendingRowsTree.removex(key);
+            }
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error while trimming pending rows tree: " + e.getMessage(), e);
+        }
+    }
+
+    @Override
+    public Set<RowId> scanPendingRows(UUID txId) {
+        PendingRowsKey upperBound = new PendingRowsKey(txId, RowId.highestRowId(0));
+        PendingRowsKey lowerBound = new PendingRowsKey(txId, RowId.lowestRowId(0));
+
+        try (Cursor<PendingRowsKey> cursor = pendingRowsTree.find(lowerBound, upperBound, true, true, null, null)) {
+            Set<RowId> result = new HashSet<>();
+
+            for (PendingRowsKey updateLogKey : cursor) {
+                RowId rowId = updateLogKey.rowId();
+
+                result.add(rowId);
+            }
+
+            return result;
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error while scanning pending rows tree: " + e.getMessage(), e);
+        }
     }
 
     /**

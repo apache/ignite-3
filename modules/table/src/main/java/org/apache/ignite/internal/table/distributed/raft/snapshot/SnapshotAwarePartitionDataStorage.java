@@ -17,6 +17,7 @@
 
 package org.apache.ignite.internal.table.distributed.raft.snapshot;
 
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -251,5 +252,15 @@ public class SnapshotAwarePartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable LeaseInfo leaseInfo() {
         return partitionStorage.leaseInfo();
+    }
+
+    @Override
+    public void trimPendingRows(UUID txId) {
+        partitionStorage.trimPendingRows(txId);
+    }
+
+    @Override
+    public Set<RowId> scanPendingRows(UUID txId) {
+        return partitionStorage.scanPendingRows(txId);
     }
 }

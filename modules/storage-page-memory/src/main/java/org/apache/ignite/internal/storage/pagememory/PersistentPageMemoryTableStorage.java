@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.apache.ignite.internal.failure.FailureProcessor;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
@@ -45,6 +46,7 @@ import org.apache.ignite.internal.storage.pagememory.mv.AbstractPageMemoryMvPart
 import org.apache.ignite.internal.storage.pagememory.mv.PersistentPageMemoryMvPartitionStorage;
 import org.apache.ignite.internal.storage.pagememory.mv.VersionChainTree;
 import org.apache.ignite.internal.storage.pagememory.mv.gc.GcQueue;
+import org.apache.ignite.internal.storage.pagememory.pending.PendingRowsTree;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -123,6 +125,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
 
             GcQueue gcQueue = createGcQueue(partitionId, freeList, pageMemory, meta);
 
+            PendingRowsTree pendingRowsTree = createPendingRowsTree(partitionId, freeList, pageMemory, meta);
+
             return new PersistentPageMemoryMvPartitionStorage(
                     this,
                     partitionId,
@@ -132,7 +136,8 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
                     indexMetaTree,
                     gcQueue,
                     destructionExecutor,
-                    failureProcessor
+                    failureProcessor,
+                    pendingRowsTree
             );
         });
     }
@@ -304,6 +309,36 @@ public class PersistentPageMemoryTableStorage extends AbstractPageMemoryTableSto
             );
         } catch (IgniteInternalCheckedException e) {
             throw new StorageException("Error creating GarbageCollectionTree: [tableId={}, partitionId={}]", e, getTableId(), partitionId);
+        }
+    }
+
+    private PendingRowsTree createPendingRowsTree(
+            int partId,
+            ReuseList reuseList,
+            PersistentPageMemory pageMemory,
+            StoragePartitionMeta meta) {
+        try {
+            boolean initNew = false;
+
+            if (meta.pendingRowsTreeRootPageId() == 0) {
+                long rootPageId = pageMemory.allocatePage(reuseList, getTableId(), partId, FLAG_AUX);
+
+                meta.pendingRowsTreeRootPageId(lastCheckpointId(), rootPageId);
+
+                initNew = true;
+            }
+
+            return new PendingRowsTree(
+                    getTableId(),
+                    Integer.toString(getTableId()),
+                    partId,
+                    pageMemory,
+                    new AtomicLong(),
+                    meta.pendingRowsTreeRootPageId(),
+                    reuseList,
+                    initNew);
+        } catch (IgniteInternalCheckedException e) {
+            throw new StorageException("Error creating PendingRowsTree: [tableId={}, partitionId={}]", e, getTableId(), partId);
         }
     }
 

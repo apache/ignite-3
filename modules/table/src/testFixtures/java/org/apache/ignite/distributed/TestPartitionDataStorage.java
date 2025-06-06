@@ -17,6 +17,8 @@
 
 package org.apache.ignite.distributed;
 
+import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -184,5 +186,14 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     @Override
     public @Nullable LeaseInfo leaseInfo() {
         return partitionStorage.leaseInfo();
+    }
+
+    @Override
+    public void trimPendingRows(UUID txId) {
+    }
+
+    @Override
+    public Set<RowId> scanPendingRows(UUID txId) {
+        return Collections.EMPTY_SET;
     }
 }

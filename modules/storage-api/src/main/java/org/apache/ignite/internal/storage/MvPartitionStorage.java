@@ -17,6 +17,8 @@
 
 package org.apache.ignite.internal.storage;
 
+import java.util.Collections;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.close.ManuallyCloseable;
@@ -317,4 +319,25 @@ public interface MvPartitionStorage extends ManuallyCloseable {
      */
     @Override
     void close();
+
+    /**
+     * Removes all pending rows associated with the given transaction ID from the pending rows tree.
+     *
+     * @param txId The transaction ID whose associated pending rows are to be removed.
+     * @throws StorageException If an error occurs while accessing or modifying the pending rows tree.
+     */
+    default void trimPendingRows(UUID txId) {
+
+    }
+
+    /**
+     * Scans the pending rows tree for all rows associated with the given transaction ID.
+     *
+     * @param txId The transaction ID whose associated rows are to be scanned.
+     * @return A set of {@link RowId} objects representing the rows associated with the given transaction ID.
+     * @throws StorageException If an error occurs while accessing the pending rows tree.
+     */
+    default Set<RowId> scanPendingRows(UUID txId) {
+        return Collections.EMPTY_SET;
+    }
 }

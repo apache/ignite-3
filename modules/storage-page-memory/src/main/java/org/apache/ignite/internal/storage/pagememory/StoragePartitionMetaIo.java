@@ -60,6 +60,8 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     /** Estimated size here is not a size of a meta, but an approximate rows count. */
     private static final int ESTIMATED_SIZE_OFF = PRIMARY_REPLICA_NODE_NAME_FIRST_PAGE_ID_OFF + Long.BYTES;
 
+    private static final int PENDING_ROWS_ROOT_PAGE_ID_OFF = ESTIMATED_SIZE_OFF + Long.BYTES;
+
     /** I/O versions. */
     public static final IoVersions<StoragePartitionMetaIo> VERSIONS = new IoVersions<>(new StoragePartitionMetaIo(1));
 
@@ -89,6 +91,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
         setPrimaryReplicaNodeId(pageAddr, new UUID(0, 0));
         setPrimaryReplicaNodeNameFirstPageId(pageAddr, 0);
         setEstimatedSize(pageAddr, 0);
+        setPendingRowsTreeRootPageId(pageAddr, 0);
     }
 
     /**
@@ -332,6 +335,27 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
     }
 
     /**
+     * Sets pending rows page id.
+     *
+     * @param pageAddr Page address.
+     * @param pageId Meta page id.
+     */
+    public void setPendingRowsTreeRootPageId(long pageAddr, long pageId) {
+        assertPageType(pageAddr);
+
+        putLong(pageAddr, PENDING_ROWS_ROOT_PAGE_ID_OFF, pageId);
+    }
+
+    /**
+     * Returns the pending rows page id.
+     *
+     * @param pageAddr Page address.
+     */
+    public long getPendingRowsTreeRootPageId(long pageAddr) {
+        return getLong(pageAddr, PENDING_ROWS_ROOT_PAGE_ID_OFF);
+    }
+
+    /**
      * Returns the estimated size of this partition.
      *
      * @param pageAddr Page address.
@@ -355,6 +379,7 @@ public class StoragePartitionMetaIo extends PartitionMetaIo {
                 .app("primaryReplicaNodeId=").app(getPrimaryReplicaNodeId(addr)).nl()
                 .app("primaryReplicaNodeNameFirstPageId=").app(getPrimaryReplicaNodeNameFirstPageId(addr)).nl()
                 .app("estimatedSize=").app(getEstimatedSize(addr)).nl()
+                .app("pendingRowsTreeRootPageId=").app(getPendingRowsTreeRootPageId(addr)).nl()
                 .app(']');
     }
 }

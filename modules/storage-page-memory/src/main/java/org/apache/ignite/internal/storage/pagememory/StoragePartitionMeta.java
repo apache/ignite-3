@@ -57,6 +57,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
     private volatile long estimatedSize;
 
+    private volatile long pendingRowsTreeRootPageId;
+
     /**
      * Constructor.
      *
@@ -86,7 +88,8 @@ public class StoragePartitionMeta extends PartitionMeta {
             long versionChainTreeRootPageId,
             long indexTreeMetaPageId,
             long gcQueueMetaPageId,
-            long estimatedSize
+            long estimatedSize,
+            long pendingRowsTreeRootPageId
     ) {
         super(pageCount);
         this.lastAppliedIndex = lastAppliedIndex;
@@ -100,6 +103,7 @@ public class StoragePartitionMeta extends PartitionMeta {
         this.indexTreeMetaPageId = indexTreeMetaPageId;
         this.gcQueueMetaPageId = gcQueueMetaPageId;
         this.estimatedSize = estimatedSize;
+        this.pendingRowsTreeRootPageId = pendingRowsTreeRootPageId;
     }
 
     /**
@@ -262,6 +266,25 @@ public class StoragePartitionMeta extends PartitionMeta {
         ESTIMATED_SIZE_UPDATER.decrementAndGet(this);
     }
 
+    /**
+     * Returns the root page ID of the pending rows tree.
+     */
+    public long pendingRowsTreeRootPageId() {
+        return pendingRowsTreeRootPageId;
+    }
+
+    /**
+     * Sets the root page ID of the pending rows tree.
+     *
+     * @param checkpointId Checkpoint ID.
+     * @param pendingRowsTreeRootPageId Pending rows tree root page ID.
+     */
+    public void pendingRowsTreeRootPageId(@Nullable UUID checkpointId, long pendingRowsTreeRootPageId) {
+        updateSnapshot(checkpointId);
+
+        this.pendingRowsTreeRootPageId = pendingRowsTreeRootPageId;
+    }
+
     @Override
     protected StoragePartitionMetaSnapshot buildSnapshot(@Nullable UUID checkpointId) {
         return new StoragePartitionMetaSnapshot(
@@ -277,7 +300,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 leaseStartTime,
                 primaryReplicaNodeId,
                 primaryReplicaNodeNameFirstPageId,
-                estimatedSize
+                estimatedSize,
+                pendingRowsTreeRootPageId
         );
     }
 
@@ -380,6 +404,8 @@ public class StoragePartitionMeta extends PartitionMeta {
 
         private final long estimatedSize;
 
+        private final long pendingRowsTreeRootPageId;
+
         private StoragePartitionMetaSnapshot(
                 @Nullable UUID checkpointId,
                 long lastAppliedIndex,
@@ -393,7 +419,8 @@ public class StoragePartitionMeta extends PartitionMeta {
                 long leaseStartTime,
                 @Nullable UUID primaryReplicaNodeId,
                 long primaryReplicaNodeNameFistPageId,
-                long estimatedSize
+                long estimatedSize,
+                long pendingRowsTreeRootPageId
         ) {
             this.checkpointId = checkpointId;
             this.lastAppliedIndex = lastAppliedIndex;
@@ -408,6 +435,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             this.primaryReplicaNodeId = primaryReplicaNodeId;
             this.primaryReplicaNodeNameFirstPageId = primaryReplicaNodeNameFistPageId;
             this.estimatedSize = estimatedSize;
+            this.pendingRowsTreeRootPageId = pendingRowsTreeRootPageId;
         }
 
         /**
@@ -481,6 +509,13 @@ public class StoragePartitionMeta extends PartitionMeta {
         }
 
         /**
+         * Returns primary replica node id (might be {@code null} if not saved yet).
+         */
+        public long pendingRowsTreeRootPageId() {
+            return pendingRowsTreeRootPageId;
+        }
+
+        /**
          * Writes the contents of the snapshot to a page of type {@link StoragePartitionMetaIo}.
          *
          * @param metaIo Partition meta IO (which should be of type {@link StoragePartitionMetaIo}).
@@ -501,6 +536,7 @@ public class StoragePartitionMeta extends PartitionMeta {
             storageMetaIo.setPrimaryReplicaNodeId(pageAddr, primaryReplicaNodeId);
             storageMetaIo.setPrimaryReplicaNodeNameFirstPageId(pageAddr, primaryReplicaNodeNameFirstPageId);
             storageMetaIo.setEstimatedSize(pageAddr, estimatedSize);
+            storageMetaIo.setPendingRowsTreeRootPageId(pageAddr, pendingRowsTreeRootPageId);
         }
 
         /**
