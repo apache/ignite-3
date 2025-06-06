@@ -22,6 +22,7 @@ namespace Apache.Ignite.Tests.Sql
     using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
+    using System.Text;
     using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Sql;
@@ -593,7 +594,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQuery([Values(true, false)] bool beforeIter)
+        public async Task TestCancelQueryCursor([Values(true, false)] bool beforeIter)
         {
             var cts = new CancellationTokenSource();
             await using var cursor = await Client.Sql.ExecuteAsync(
@@ -616,6 +617,44 @@ namespace Apache.Ignite.Tests.Sql
                     }
                 }
             });
+        }
+
+        [Test]
+        public async Task TestCancelQueryExecute()
+        {
+            // TODO: Use proxy to delay request processing and test cancellation on the server side.
+            var manyRowsQuery = GenerateCrossJoin(100);
+
+            await using var cursor = await Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery);
+
+            await cursor.ToListAsync();
+        }
+
+        private static string GenerateCrossJoin(int depth)
+        {
+            var sb = new StringBuilder("SELECT ");
+
+            for (var i = 1; i <= depth; i++)
+            {
+                sb.Append($"t{i}.ID AS ID{i}");
+                if (i < depth)
+                {
+                    sb.Append(", ");
+                }
+            }
+
+            sb.Append(" FROM ");
+
+            for (var i = 1; i <= depth; i++)
+            {
+                sb.Append($"TEST t{i}");
+                if (i < depth)
+                {
+                    sb.Append(" CROSS JOIN ");
+                }
+            }
+
+            return sb.ToString();
         }
 
         private static void AssertInstantSimilar(Instant expected, Instant actual, string message)
