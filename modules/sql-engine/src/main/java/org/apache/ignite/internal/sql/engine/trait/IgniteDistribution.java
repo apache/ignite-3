@@ -30,6 +30,18 @@ public interface IgniteDistribution extends RelDistribution {
      */
     DistributionFunction function();
 
+    /** Returns affinity distribution flag value. */
+    boolean isAffinityDistribution();
+
+    /** Returns zone id of affinity distribution. */
+    int zoneId();
+
+    /** Returns table id of affinity distribution. */
+    int tableId();
+
+    /** Returns distribution function label for EXPLAIN plan purposes.  */
+    String label();
+
     /** {@inheritDoc} */
     @Override
     ImmutableIntList getKeys();

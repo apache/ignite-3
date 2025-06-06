@@ -113,7 +113,6 @@ import org.apache.ignite.internal.sql.engine.prepare.bounds.RangeBounds;
 import org.apache.ignite.internal.sql.engine.prepare.bounds.SearchBounds;
 import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionTrait;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -537,15 +536,15 @@ class RelJson {
                     keys.add(toJson(key));
                 }
 
-                map.put("func", distribution.function().name());
                 map.put("keys", keys);
 
-                DistributionFunction function = distribution.function();
-
-                if (function.affinity()) {
-                    map.put("zoneId", ((AffinityDistribution) function).zoneId());
-                    map.put("tableId", ((AffinityDistribution) function).tableId());
-                    map.put("label", ((AffinityDistribution) function).label());
+                if (distribution.isAffinityDistribution()) {
+                    map.put("func", "affinity"); // Use hard coded function name for compatibility reasons.
+                    map.put("zoneId", distribution.zoneId());
+                    map.put("tableId", distribution.tableId());
+                    map.put("label", distribution.label());
+                } else {
+                    map.put("func", distribution.function().name());
                 }
 
                 return map;

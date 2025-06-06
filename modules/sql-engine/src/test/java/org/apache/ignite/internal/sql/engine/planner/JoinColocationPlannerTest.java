@@ -68,7 +68,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isAffinityDistribution(), is(true));
         assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
         assertThat(invalidPlanMsg, join.getRight(), instanceOf(IgniteIndexScan.class));
     }
@@ -96,7 +96,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
 
         assertThat(invalidPlanMsg, joinNodes.size(), equalTo(1));
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isAffinityDistribution(), is(true));
     }
 
     /**
@@ -120,7 +120,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isAffinityDistribution(), is(true));
 
         if (!"MergeJoinConverter".equals(disabledRule)) {
             assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
@@ -150,7 +150,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(true));
+        assertThat(invalidPlanMsg, join.distribution().isAffinityDistribution(), is(true));
 
         if (!"MergeJoinConverter".equals(disabledRule)) {
             assertThat(invalidPlanMsg, join.getLeft(), instanceOf(IgniteIndexScan.class));
@@ -180,7 +180,7 @@ public class JoinColocationPlannerTest extends AbstractPlannerTest {
         String invalidPlanMsg = "Invalid plan:\n" + RelOptUtil.toString(phys);
 
         assertThat(invalidPlanMsg, join, notNullValue());
-        assertThat(invalidPlanMsg, join.distribution().function().affinity(), is(false));
+        assertThat(invalidPlanMsg, join.distribution().isAffinityDistribution(), is(false));
     }
 
     /**

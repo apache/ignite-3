@@ -45,7 +45,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
 import org.apache.ignite.internal.sql.engine.schema.TableDescriptor;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 
 /**
@@ -320,9 +319,8 @@ final class FragmentPrinter extends IgniteRelShuttle {
     }
 
     private static String formatDistribution(IgniteDistribution distribution, TableDescriptorCollector collector) {
-        if (distribution.function() instanceof AffinityDistribution) {
-            AffinityDistribution f = (AffinityDistribution) distribution.function();
-            IgniteTable igniteTable = collector.tables.get(f.tableId());
+        if (distribution.isAffinityDistribution()) {
+            IgniteTable igniteTable = collector.tables.get(distribution.tableId());
 
             if (igniteTable == null) {
                 String error = format("Unknown tableId: {}. Existing: {}", collector.tables.keySet());

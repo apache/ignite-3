@@ -48,7 +48,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteRel;
 import org.apache.ignite.internal.sql.engine.schema.IgniteDataSource;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSchema;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.IdentityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
@@ -392,7 +391,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             }
 
             IgniteDistribution distributionToUse;
-            if (distribution.function() instanceof AffinityDistribution) {
+            if (distribution.isAffinityDistribution()) {
                 distributionToUse = TestBuilders.affinity(0, objectId, objectId);
             } else {
                 distributionToUse = distribution;

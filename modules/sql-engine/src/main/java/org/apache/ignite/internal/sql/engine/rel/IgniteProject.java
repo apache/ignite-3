@@ -20,7 +20,6 @@ package org.apache.ignite.internal.sql.engine.rel;
 import static org.apache.calcite.rel.RelDistribution.Type.HASH_DISTRIBUTED;
 import static org.apache.ignite.internal.sql.engine.sql.fun.IgniteSqlOperatorTable.RAND_UUID;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.broadcast;
-import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.hash;
 import static org.apache.ignite.internal.sql.engine.trait.IgniteDistributions.single;
 import static org.apache.ignite.internal.sql.engine.trait.TraitUtils.changeTraits;
 
@@ -54,6 +53,7 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.metadata.cost.IgniteCost;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 
@@ -130,7 +130,7 @@ public class IgniteProject extends Project implements TraitsAwareIgniteRel {
         }
 
         if (srcKeys.size() == keys.size()) {
-            return Pair.of(nodeTraits, List.of(in.replace(hash(ImmutableIntList.of(srcKeys.elements()), distribution.function()))));
+            return Pair.of(nodeTraits, List.of(in.replace(IgniteDistributions.clone(distribution, ImmutableIntList.of(srcKeys.elements())))));
         }
 
         return Pair.of(nodeTraits.replace(single()), List.of(in.replace(single())));
