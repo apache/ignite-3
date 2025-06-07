@@ -42,8 +42,7 @@ import org.testcontainers.utility.MountableFile;
 
 /** Container of an Ignite 2 cluster. */
 public class Ignite2ClusterContainer implements Startable {
-
-    private static final Logger LOGGER = LogManager.getLogger(Ignite3ClusterContainer.class);
+    private static final Logger LOGGER = LogManager.getLogger(Ignite2ClusterContainer.class);
 
     public final Network network;
 
