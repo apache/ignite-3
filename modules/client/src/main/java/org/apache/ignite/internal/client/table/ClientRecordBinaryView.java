@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
-import static org.apache.ignite.internal.client.table.PartitionAwarenessProvider.EMPTY_PROVIDER;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -99,13 +98,13 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        return tbl.split(tx, keyRecs, (batch, node) -> {
+        return tbl.split(tx, keyRecs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_GET_ALL,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
                             (s, r) -> ClientTupleSerializer.readTuplesNullable(s, r.in()),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
@@ -147,12 +146,12 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return trueCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, node) -> {
+        return tbl.split(tx, keys, (batch, part) -> {
                     return tbl.doSchemaOutOpAsync(
                             ClientOp.TUPLE_CONTAINS_ALL_KEYS,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
                             r -> r.in().unpackBoolean(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 Boolean.TRUE,
@@ -194,12 +193,12 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return nullCompletedFuture();
         }
 
-        return tbl.split(tx, recs, (batch, node) -> {
+        return tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutOpAsync(
                             ClientOp.TUPLE_UPSERT_ALL,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
                             r -> null,
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 null,
@@ -261,13 +260,13 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, recs, (batch, node) -> {
+        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_INSERT_ALL,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
                             (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(recs.size(), null)),
@@ -417,13 +416,13 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, keyRecs, (batch, node) -> {
+        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, keyRecs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
                             (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
@@ -453,13 +452,13 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, recs, (batch, node) -> {
+        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL_EXACT,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
                             (s, r) -> ClientTupleSerializer.readTuples(s, r.in()),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(recs.size(), null)),

@@ -19,7 +19,6 @@ package org.apache.ignite.internal.client.table;
 
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getColocationHash;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
-import static org.apache.ignite.internal.client.table.PartitionAwarenessProvider.EMPTY_PROVIDER;
 import static org.apache.ignite.internal.util.CompletableFutures.emptyListCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
@@ -107,13 +106,13 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.split(tx, keyRecs, (batch, node) -> {
+        return tbl.split(tx, keyRecs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_GET_ALL,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
                             (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
@@ -155,12 +154,12 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return trueCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, node) -> {
+        return tbl.split(tx, keys, (batch, part) -> {
                     return tbl.doSchemaOutOpAsync(
                             ClientOp.TUPLE_CONTAINS_ALL_KEYS,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
                             r -> r.in().unpackBoolean(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 Boolean.TRUE,
@@ -202,12 +201,12 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return nullCompletedFuture();
         }
 
-        return tbl.split(tx, recs, (batch, node) -> {
+        return tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutOpAsync(
                             ClientOp.TUPLE_UPSERT_ALL,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
                             r -> null,
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 null,
@@ -269,13 +268,13 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<R>> splitFut = tbl.split(tx, recs, (batch, node) -> {
+        CompletableFuture<List<R>> splitFut = tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_INSERT_ALL,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
                             (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(recs.size(), null)),
@@ -422,13 +421,13 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<R>> splitFut = tbl.split(tx, keyRecs, (batch, node) -> {
+        CompletableFuture<List<R>> splitFut = tbl.split(tx, keyRecs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
                             (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
@@ -458,13 +457,13 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<R>> splitFut = tbl.split(tx, recs, (batch, node) -> {
+        CompletableFuture<List<R>> splitFut = tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL_EXACT,
                             (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
                             (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(ser.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new ArrayList<>(Collections.nCopies(recs.size(), null)),
