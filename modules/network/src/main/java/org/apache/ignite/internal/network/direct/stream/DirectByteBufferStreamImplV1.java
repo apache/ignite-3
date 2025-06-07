@@ -447,22 +447,19 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 return;
             }
 
+            int origin = val;
             int pos = buf.position();
 
-            // Please check benchmarks if you're going to change this code.
-            int shift;
-            //noinspection NestedAssignment
-            while ((shift = (val >>> 7)) != 0) {
-                byte b = (byte) (val | 0x80);
+            val = val & 0x3FFF | (val & 0xFFFC000) << 2;
+            val = val & 0x7F007F | (val & 0x3F803F80) << 1 | 0x80808080;
 
-                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
-
-                val = shift;
+            if (IS_BIG_ENDIAN) {
+                val = Integer.reverseBytes(val);
             }
 
-            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
-
-            setPosition(pos);
+            GridUnsafe.putInt(heapArr, baseOff + pos, val);
+            GridUnsafe.putByte(heapArr, baseOff + pos + 4, (byte) (origin >>> 28));
+            setPosition(pos + 5);
         }
     }
 
@@ -542,7 +539,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         val = val & 0x7F007F | (val & 0x3F803F80) << 1;
 
         int mask = (val | 0x80808080) - 0x01010101;
-        mask = (mask >>> 8 | mask >>> 16 | mask >>> 24) & 0x80808080;
+        mask = (mask >>> 8 | mask >>> 16 | 0x80) & 0x80808080;
         val |= mask;
 
         if (IS_BIG_ENDIAN) {
