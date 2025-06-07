@@ -28,8 +28,6 @@ import org.jetbrains.annotations.Nullable;
  * 3. Null instance = No partition awareness and no transaction. Use any channel.
  */
 public class PartitionAwarenessProvider {
-    public static PartitionAwarenessProvider EMPTY_PROVIDER = new PartitionAwarenessProvider(null, null);
-
     private final @Nullable Integer partition;
 
     private final @Nullable Function<ClientSchema, Integer> hashFunc;
@@ -39,7 +37,7 @@ public class PartitionAwarenessProvider {
         this.partition = partition;
     }
 
-    public static PartitionAwarenessProvider of(Integer partition) {
+    public static PartitionAwarenessProvider of(@Nullable Integer partition) {
         return new PartitionAwarenessProvider(null, partition);
     }
 

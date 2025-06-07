@@ -20,7 +20,6 @@ package org.apache.ignite.internal.client.table;
 import static org.apache.ignite.internal.client.table.ClientTable.writeTx;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getColocationHash;
 import static org.apache.ignite.internal.client.table.ClientTupleSerializer.getPartitionAwarenessProvider;
-import static org.apache.ignite.internal.client.table.PartitionAwarenessProvider.EMPTY_PROVIDER;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableOperation;
 import static org.apache.ignite.internal.marshaller.ValidationUtils.validateNullableValue;
@@ -192,13 +191,13 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyMapCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, node) -> {
+        return tbl.split(tx, keys, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_GET_ALL,
                             (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
                             this::readGetAllResponse,
                             Collections.emptyMap(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 new HashMap<>(),
@@ -243,12 +242,12 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return trueCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, node) -> {
+        return tbl.split(tx, keys, (batch, part) -> {
                     return tbl.doSchemaOutOpAsync(
                             ClientOp.TUPLE_CONTAINS_ALL_KEYS,
                             (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
                             r -> r.in().unpackBoolean(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 },
                 Boolean.TRUE,
@@ -297,7 +296,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
-        return tbl.split(tx, pairs.entrySet(), (batch, node) -> {
+        return tbl.split(tx, pairs.entrySet(), (batch, part) -> {
                     return tbl.doSchemaOutOpAsync(
                             ClientOp.TUPLE_UPSERT_ALL,
                             (s, w, n) -> {
@@ -309,7 +308,7 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
                                 }
                             },
                             r -> null,
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next().getKey()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 }, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry.getKey()));
@@ -458,13 +457,13 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyCollectionCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, node) -> {
+        return tbl.split(tx, keys, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL,
                             (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
                             (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
                             Collections.emptyList(),
-                            node == null ? EMPTY_PROVIDER : getPartitionAwarenessProvider(keySer.mapper(), batch.iterator().next()),
+                            PartitionAwarenessProvider.of(part),
                             tx);
                 }, new HashSet<>(), (agg, cur) -> {
                     agg.addAll(cur);

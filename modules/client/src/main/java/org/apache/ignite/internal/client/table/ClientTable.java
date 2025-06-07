@@ -914,7 +914,7 @@ public class ClientTable implements Table {
     <R, E> CompletableFuture<R> split(
             @Nullable Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, String, CompletableFuture<R>> fun,
+            BiFunction<Collection<E>, Integer, CompletableFuture<R>> fun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
@@ -929,16 +929,16 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     List<E> unmapped = new ArrayList<>();
-                    Map<String, List<E>> mapped = new HashMap<>();
+                    Map<Integer, List<E>> mapped = new HashMap<>();
                     for (E key : keys) {
                         ClientSchema schema = schemaFut.getNow(null);
                         @Nullable List<String> aff = partitionsFut.getNow(null);
                         int hash = hashFunc.apply(schema, key);
-                        String node = aff == null ? null : aff.get(Math.abs(hash % aff.size()));
-                        if (node == null) {
+                        Integer part = aff == null ? null : Math.abs(hash % aff.size());
+                        if (part == null) {
                             unmapped.add(key);
                         } else {
-                            mapped.computeIfAbsent(node, k -> new ArrayList<>()).add(key);
+                            mapped.computeIfAbsent(part, k -> new ArrayList<>()).add(key);
                         }
                     }
 
@@ -948,7 +948,7 @@ public class ClientTable implements Table {
                         res.add(fun.apply(unmapped, null));
                     }
 
-                    for (Entry<String, List<E>> entry : mapped.entrySet()) {
+                    for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
                         res.add(fun.apply(entry.getValue(), entry.getKey()));
                     }
 
@@ -967,7 +967,7 @@ public class ClientTable implements Table {
     <R, E> CompletableFuture<R> split(
             @Nullable Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, String, CompletableFuture<R>> fun,
+            BiFunction<Collection<E>, Integer, CompletableFuture<R>> fun,
             R initialValue,
             ReducerWithOrderTracking<R, E> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
@@ -982,17 +982,17 @@ public class ClientTable implements Table {
         return CompletableFuture.allOf(schemaFut, partitionsFut)
                 .thenCompose(v -> {
                     Batch<E> unmapped = new Batch<>();
-                    Map<String, Batch<E>> mapped = new HashMap<>();
+                    Map<Integer, Batch<E>> mapped = new HashMap<>();
                     int idx = 0;
                     for (E key : keys) {
                         ClientSchema schema = schemaFut.getNow(null);
                         @Nullable List<String> aff = partitionsFut.getNow(null);
                         int hash = hashFunc.apply(schema, key);
-                        String node = aff == null ? null : aff.get(Math.abs(hash % aff.size()));
-                        if (node == null) {
+                        Integer part = aff == null ? null : Math.abs(hash % aff.size());
+                        if (part == null) {
                             unmapped.add(key, idx);
                         } else {
-                            mapped.computeIfAbsent(node, k -> new Batch<>()).add(key, idx);
+                            mapped.computeIfAbsent(part, k -> new Batch<>()).add(key, idx);
                         }
 
                         idx++;
@@ -1006,7 +1006,7 @@ public class ClientTable implements Table {
                         batches.add(unmapped);
                     }
 
-                    for (Entry<String, Batch<E>> entry : mapped.entrySet()) {
+                    for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
                         res.add(fun.apply(entry.getValue().batch, entry.getKey()));
                         batches.add(entry.getValue());
                     }
