@@ -497,12 +497,12 @@ public class StorageUpdateHandler {
             UUID txId,
             UUID writeIntentTxId,
             HybridTimestamp lastCommitTs,
-            @Nullable HybridTimestamp previousCommittedTs,
+            @Nullable HybridTimestamp latestCommittedTs,
             @Nullable List<Integer> indexIds
     ) {
         assert !txId.equals(writeIntentTxId) : String.format("Transactions must not match: [rowId=%s, txId=%s]", rowId, txId);
 
-        if (previousCommittedTs == null) {
+        if (latestCommittedTs == null) {
             // No more data => the write intent we have is actually the first version of this row
             // and lastCommitTs is the commit timestamp of it.
             // Action: commit this write intent.
@@ -510,15 +510,15 @@ public class StorageUpdateHandler {
             return;
         }
 
-        assert lastCommitTs.compareTo(previousCommittedTs) >= 0 :
-                "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp " + previousCommittedTs;
+        assert lastCommitTs.compareTo(latestCommittedTs) >= 0 :
+                "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp " + latestCommittedTs;
 
-        if (lastCommitTs.compareTo(previousCommittedTs) > 0) {
+        if (lastCommitTs.compareTo(latestCommittedTs) > 0) {
             // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
             // Action: commit this write intent.
             performCommitWrite(writeIntentTxId, Set.of(rowId), lastCommitTs);
         } else {
-            // lastCommitTs == previousCommittedTs
+            // lastCommitTs == latestCommittedTs
             // So we see a write intent from a different transaction, which was not committed on primary.
             // Because of transaction locks we cannot have two transactions creating write intents for the same row.
             // So if we got up to here, it means that the previous transaction was aborted,
