@@ -21,6 +21,7 @@ import static java.util.function.Predicate.not;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toTablePartitionIdMessage;
 import static org.apache.ignite.internal.replicator.message.ReplicaMessageUtils.toZonePartitionIdMessage;
+import static org.apache.ignite.internal.util.ExceptionUtils.hasCause;
 import static org.apache.ignite.internal.util.IgniteUtils.inBusyLock;
 
 import it.unimi.dsi.fastutil.ints.Int2IntMap;
@@ -738,7 +739,9 @@ public class CatalogCompactionRunner implements IgniteComponent {
 
             propagateTimeToLocalReplicas(txBeginTime)
                     .exceptionally(ex -> {
-                        LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                        if (!hasCause(ex, NodeStoppingException.class)) {
+                            LOG.warn("Failed to propagate minimum required time to replicas.", ex);
+                        }
 
                         return null;
                     });
