@@ -352,4 +352,3 @@ public class VarIntMicroBenchmark {
         new Runner(build).run();
     }
 }
-
