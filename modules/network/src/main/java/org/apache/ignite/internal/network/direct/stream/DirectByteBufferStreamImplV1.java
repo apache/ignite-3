@@ -287,7 +287,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             if (intVal >> 7 == 0) {
                 writeSingleByteValue((byte) intVal);
             } else {
-                writeVarIntFast(intVal);
+                write4bytesVarInt(intVal);
             }
         }
     }
@@ -403,7 +403,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             }
 
             if (val >>> 28 == 0L) {
-                writeVarIntFast((int) val);
+                write4bytesVarInt((int) val);
 
                 return;
             }
@@ -441,8 +441,14 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
                 return;
             }
 
+            if (val >> 14 == 0) {
+                write2bytesVarInt(val);
+
+                return;
+            }
+
             if (val >>> 28 == 0) {
-                writeVarIntFast(val);
+                write4bytesVarInt(val);
 
                 return;
             }
@@ -450,8 +456,7 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
             int origin = val;
             int pos = buf.position();
 
-            val = val & 0x3FFF | (val & 0xFFFC000) << 2;
-            val = val & 0x7F007F | (val & 0x3F803F80) << 1 | 0x80808080;
+            val = spreadInt(val) | 0x80808080;
 
             if (IS_BIG_ENDIAN) {
                 val = Integer.reverseBytes(val);
@@ -528,18 +533,37 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     /**
-     * Optimized version of var-len encoding.
+     * Optimized version of var-len encoding for integers that will be encoded with {@code 2} bytes.
      *
      * @see #writeVarLongFast(long)
      */
-    private void writeVarIntFast(int val) {
+    private void write2bytesVarInt(int val) {
         int pos = buf.position();
 
-        val = val & 0x3FFF | (val & 0xFFFC000) << 2;
-        val = val & 0x7F007F | (val & 0x3F803F80) << 1;
+        val = val & 0x7F | (val & 0x3F80) << 1 | 0x80;
+
+        short shortVal = (short) val;
+
+        if (IS_BIG_ENDIAN) {
+            shortVal = Short.reverseBytes(shortVal);
+        }
+
+        GridUnsafe.putShort(heapArr, baseOff + pos, shortVal);
+        setPosition(pos + 2);
+    }
+
+    /**
+     * Optimized version of var-len encoding for integers that will be encoded with either {@code 3} or {@code 4} bytes.
+     *
+     * @see #writeVarLongFast(long)
+     */
+    private void write4bytesVarInt(int val) {
+        int pos = buf.position();
+
+        val = spreadInt(val);
 
         int mask = (val | 0x80808080) - 0x01010101;
-        mask = (mask >>> 8 | mask >>> 16 | 0x80) & 0x80808080;
+        mask = (mask >>> 8 | 0x8080) & 0x80808080;
         val |= mask;
 
         if (IS_BIG_ENDIAN) {
@@ -547,7 +571,13 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         }
 
         GridUnsafe.putInt(heapArr, baseOff + pos, val);
-        setPosition(pos + Integer.bitCount(mask) + 1);
+        setPosition(pos + (mask >> 23) + 3);
+    }
+
+    private static int spreadInt(int val) {
+        val = val & 0x3FFF | (val & 0xFFFC000) << 2;
+
+        return val & 0x7F007F | (val & 0x3F803F80) << 1;
     }
 
     /** {@inheritDoc} */
