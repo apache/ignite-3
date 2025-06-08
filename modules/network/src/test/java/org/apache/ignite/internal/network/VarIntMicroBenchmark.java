@@ -15,12 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.benchmarks;
+package org.apache.ignite.internal.network;
 
 import java.nio.ByteBuffer;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
-import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStream;
 import org.apache.ignite.internal.network.direct.stream.DirectByteBufferStreamImplV1;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -63,6 +62,7 @@ public class VarIntMicroBenchmark {
 
     private ByteBuffer bb;
 
+    /** Initializes the benchmark state. */
     @Setup
     public void setup() {
         if ("heap".equals(bufferType)) {
@@ -86,6 +86,7 @@ public class VarIntMicroBenchmark {
         }
     }
 
+    /** Benchmark for short values that will be encoded as 1 byte. */
     @Benchmark
     public DirectByteBufferStream varShort1() {
         bb.position(0);
@@ -97,6 +98,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for short values that will be encoded as 2 bytes. */
     @Benchmark
     public DirectByteBufferStream varShort2() {
         bb.position(0);
@@ -108,6 +110,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for short values that will be encoded as 3 bytes. */
     @Benchmark
     public DirectByteBufferStream varShort3() {
         bb.position(0);
@@ -119,6 +122,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for short values. */
     @Benchmark
     public DirectByteBufferStream varShortAll() {
         bb.position(0);
@@ -130,6 +134,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for int values that will be encoded as 1 byte. */
     @Benchmark
     public DirectByteBufferStream varInt1() {
         bb.position(0);
@@ -141,6 +146,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for int values that will be encoded as 2 bytes. */
     @Benchmark
     public DirectByteBufferStream varInt2() {
         bb.position(0);
@@ -152,6 +158,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for int values that will be encoded as 3 bytes. */
     @Benchmark
     public DirectByteBufferStream varInt3() {
         bb.position(0);
@@ -163,6 +170,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for int values that will be encoded as 4 bytes. */
     @Benchmark
     public DirectByteBufferStream varInt4() {
         bb.position(0);
@@ -174,6 +182,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for int values that will be encoded as 5 bytes. */
     @Benchmark
     public DirectByteBufferStream varInt5() {
         bb.position(0);
@@ -185,6 +194,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for int values that. */
     @Benchmark
     public DirectByteBufferStream varIntAll() {
         bb.position(0);
@@ -196,6 +206,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 1 byte. */
     @Benchmark
     public DirectByteBufferStream varLong1() {
         bb.position(0);
@@ -207,6 +218,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 2 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong2() {
         bb.position(0);
@@ -218,6 +230,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 3 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong3() {
         bb.position(0);
@@ -229,6 +242,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 4 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong4() {
         bb.position(0);
@@ -240,6 +254,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 5 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong5() {
         bb.position(0);
@@ -251,6 +266,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 6 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong6() {
         bb.position(0);
@@ -262,6 +278,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 7 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong7() {
         bb.position(0);
@@ -273,6 +290,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 8 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong8() {
         bb.position(0);
@@ -284,6 +302,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 9 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong9() {
         bb.position(0);
@@ -295,6 +314,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values that will be encoded as 10 bytes. */
     @Benchmark
     public DirectByteBufferStream varLong10() {
         bb.position(0);
@@ -306,6 +326,7 @@ public class VarIntMicroBenchmark {
         return stream;
     }
 
+    /** Benchmark for long values. */
     @Benchmark
     public DirectByteBufferStream varLongAll() {
         bb.position(0);
