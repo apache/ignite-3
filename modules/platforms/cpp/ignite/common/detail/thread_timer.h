@@ -17,10 +17,11 @@
 
 #pragma once
 
+#include <condition_variable>
+#include <functional>
 #include <memory>
 #include <thread>
 #include <mutex>
-#include <condition_variable>
 #include <queue>
 
 namespace ignite::detail {

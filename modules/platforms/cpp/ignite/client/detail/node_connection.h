@@ -289,9 +289,6 @@ private:
     /** Last message timestamp. */
     std::chrono::steady_clock::time_point m_last_message_ts{};
 
-    /** Timer thread. */
-    std::weak_ptr<thread_timer> m_timer_thread;
-
     /** Request ID generator. */
     std::atomic_int64_t m_req_id_gen{0};
 
@@ -306,6 +303,9 @@ private:
 
     /** Configuration. */
     const ignite_client_configuration &m_configuration;
+
+    /** Timer thread. */
+    std::weak_ptr<thread_timer> m_timer_thread;
 };
 
 } // namespace ignite::detail

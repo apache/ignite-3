@@ -49,8 +49,7 @@ bool node_connection::handshake() {
     static constexpr std::int8_t CLIENT_TYPE = 2;
 
     std::map<std::string, std::string> extensions;
-    auto authenticator = m_configuration.get_authenticator();
-    if (authenticator) {
+    if (const auto authenticator = m_configuration.get_authenticator()) {
         extensions.emplace("authn-type", authenticator->get_type());
         extensions.emplace("authn-identity", authenticator->get_identity());
         extensions.emplace("authn-secret", authenticator->get_secret());
@@ -119,7 +118,7 @@ void node_connection::on_observable_timestamp_changed(int64_t observable_timesta
 
 void node_connection::send_heartbeat() {
     perform_request_wr<void>(
-        protocol::client_operation::HEARTBEAT, [](auto&){}, [self_weak = weak_from_this()](auto) {
+        protocol::client_operation::HEARTBEAT, [](auto&){}, [self_weak = weak_from_this()](const auto&) {
             if (auto self = self_weak.lock()) {
                 self->plan_heartbeat(self->m_heartbeat_interval);
             }
