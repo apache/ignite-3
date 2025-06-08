@@ -82,6 +82,9 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** Flag that indicates that byte buffer has Big Endinan order. */
     protected static final byte BYTE_BUFFER_BIG_ENDIAN_FLAG = 2;
 
+    /** {@code Short.SIZE / 7} rounded up. */
+    private static final int MAX_VAR_SHORT_BYTES = 3;
+
     /** {@code Integer.SIZE / 7} rounded up. */
     private static final int MAX_VAR_INT_BYTES = 5;
 
@@ -256,7 +259,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
         lastFinished = remainingInternal() >= 1;
 
         if (lastFinished) {
-            writeSingleByteValue(val);
+            int pos = buf.position();
+
+            GridUnsafe.putByte(heapArr, baseOff + pos, val);
+
+            setPosition(pos + 1);
         }
     }
 
@@ -278,25 +285,15 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     /** {@inheritDoc} */
     @Override
     public void writeShort(short val) {
-        // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES (3) for fast int encoding.
-        lastFinished = remainingInternal() >= Integer.BYTES;
+        lastFinished = remainingInternal() >= MAX_VAR_SHORT_BYTES;
 
-        if (lastFinished) {
-            int intVal = Short.toUnsignedInt((short) (val + 1));
-
-            if (intVal >> 7 == 0) {
-                writeSingleByteValue((byte) intVal);
-            } else {
-                write4bytesVarInt(intVal);
-            }
-        }
+        writeVarInt(Short.toUnsignedInt((short) (val + 1)));
     }
 
     @Override
     public void writeBoxedShort(@Nullable Short val) {
         if (val != null) {
-            // Reserve 1 extra byte on top of MAX_VAR_SHORT_BYTES (3) for fast int encoding.
-            lastFinished = remainingInternal() >= 1 + Integer.BYTES;
+            lastFinished = remainingInternal() >= 1 + MAX_VAR_SHORT_BYTES;
 
             if (lastFinished) {
                 writeBooleanUnchecked(true);
@@ -396,24 +393,6 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private void writeVarLong(long val) {
         if (lastFinished) {
-            if (val >> 7 == 0) {
-                writeSingleByteValue((byte) val);
-
-                return;
-            }
-
-            if (val >>> 28 == 0L) {
-                write4bytesVarInt((int) val);
-
-                return;
-            }
-
-            if (val >>> 56 == 0L) {
-                writeVarLongFast(val);
-
-                return;
-            }
-
             int pos = buf.position();
 
             // Please check benchmarks if you're going to change this code.
@@ -435,149 +414,23 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
 
     private void writeVarInt(int val) {
         if (lastFinished) {
-            if (val >> 7 == 0) {
-                writeSingleByteValue((byte) val);
-
-                return;
-            }
-
-            if (val >> 14 == 0) {
-                write2bytesVarInt(val);
-
-                return;
-            }
-
-            if (val >>> 28 == 0) {
-                write4bytesVarInt(val);
-
-                return;
-            }
-
-            int origin = val;
             int pos = buf.position();
 
-            val = spreadInt(val) | 0x80808080;
+            // Please check benchmarks if you're going to change this code.
+            int shift;
+            //noinspection NestedAssignment
+            while ((shift = (val >>> 7)) != 0) {
+                byte b = (byte) (val | 0x80);
 
-            if (IS_BIG_ENDIAN) {
-                val = Integer.reverseBytes(val);
+                GridUnsafe.putByte(heapArr, baseOff + pos++, b);
+
+                val = shift;
             }
 
-            GridUnsafe.putInt(heapArr, baseOff + pos, val);
-            GridUnsafe.putByte(heapArr, baseOff + pos + 4, (byte) (origin >>> 28));
-            setPosition(pos + 5);
+            GridUnsafe.putByte(heapArr, baseOff + pos++, (byte) val);
+
+            setPosition(pos);
         }
-    }
-
-    /**
-     * Optimized version of var-len encoding that uses just a single {@link GridUnsafe#putLong(long, long)}'s method call and mostly avoids
-     * conditional branching.
-     *
-     * <p>This method can only work when an actual bit-length af the value is less than or equal to {@code 56 = 7 * 8}, in which case the
-     * result could be encoded using {@code 8} bytes at most, which fits into a single {@code long} value.
-     *
-     * <p>The second prerequisite for this method is the fact that output buffer has enough space to fit those {@code 8} bytes. By carefully
-     * setting the position of the output buffer, we can ensure that only the required number of least significant bytes from the resulting
-     * value will be interpreted as an encoded var-long value.
-     *
-     * <p>How the algorithm works:
-     * <ul>
-     *     <li>
-     *         First of all, we spread-out the septuples ({@code 7}-bit tuples) inside of the input values. It is done with a little bit of
-     *         bit magic. Let's assume that each {@code N} represents a septuple, and {@code 0} represents a single bit with value
-     *         {@code 0}. The procedure will perform the following set of transformation of our 8 septuples:
-     *         <pre>{@code
-     *              0000000012345678
-     *               v
-     *              0000123400005678
-     *               v
-     *              0012003400560078
-     *               v
-     *              0102030405060708
-     *         }</pre>
-     *         Following this procedure, we enrich each septuple with an additional {@code 0} bit, converting it into a byte.
-     *     </li>
-     *     <li>
-     *         The encoding algorithm must set upper bit of all bytes except the last one. It can be done with a single bitwise OR with a
-     *         carefully chosen mask. This mask looks like {@code 0x80...80L} with a right number of bits. We calculate it by finding the
-     *         most significant non-zero byte in the value, and then propagating it to the lower positions using shifts and ORs. After that
-     *         we nullify all unrelated bits using {@code & 0x0080808080808080L}.
-     *     </li>
-     * </ul>
-     */
-    private void writeVarLongFast(long val) {
-        val = val & 0x0FFFFFFFL | (val & 0xFFFFFFF0000000L) << 4;
-        val = val & 0x3FFF00003FFFL | (val & 0xFFFFC0000FFFC000L) << 2;
-        val = val & 0x7F007F007F007FL | (val & 0x3F803F803F803F80L) << 1;
-
-        long mask = (val | 0x8080808080808080L) - 0x0101010101010101L;
-        mask |= mask >> 32;
-        mask |= mask >> 16;
-        mask = (mask >> 8 | mask >> 16) & 0x0080808080808080L;
-        val |= mask;
-
-        if (IS_BIG_ENDIAN) {
-            val = Long.reverseBytes(val);
-        }
-
-        int pos = buf.position();
-        GridUnsafe.putLong(heapArr, baseOff + pos, val);
-        setPosition(pos + Long.bitCount(mask) + 1);
-    }
-
-    private void writeSingleByteValue(byte val) {
-        int pos = buf.position();
-
-        GridUnsafe.putByte(heapArr, baseOff + pos, val);
-
-        setPosition(pos + 1);
-    }
-
-    /**
-     * Optimized version of var-len encoding for integers that will be encoded with {@code 2} bytes.
-     *
-     * @see #writeVarLongFast(long)
-     */
-    private void write2bytesVarInt(int val) {
-        int pos = buf.position();
-
-        val = val & 0x7F | (val & 0x3F80) << 1 | 0x80;
-
-        short shortVal = (short) val;
-
-        if (IS_BIG_ENDIAN) {
-            shortVal = Short.reverseBytes(shortVal);
-        }
-
-        GridUnsafe.putShort(heapArr, baseOff + pos, shortVal);
-        setPosition(pos + 2);
-    }
-
-    /**
-     * Optimized version of var-len encoding for integers that will be encoded with either {@code 3} or {@code 4} bytes.
-     *
-     * @see #writeVarLongFast(long)
-     */
-    private void write4bytesVarInt(int val) {
-        int pos = buf.position();
-
-        val = spreadInt(val);
-
-        int mask = (val | 0x80808080) - 0x01010101;
-        mask = (mask >>> 8 | 0x8080) & 0x80808080;
-        val |= mask;
-
-        if (IS_BIG_ENDIAN) {
-            val = Integer.reverseBytes(val);
-        }
-
-        GridUnsafe.putInt(heapArr, baseOff + pos, val);
-        setPosition(pos + (mask >> 23) + 3);
-    }
-
-    private static int spreadInt(int val) {
-        val = val & 0x3FFF | (val & 0xFFFC000) << 2;
-
-        return val & 0x7F007F | (val & 0x3F803F80) << 1;
     }
 
     /** {@inheritDoc} */
@@ -696,7 +549,11 @@ public class DirectByteBufferStreamImplV1 implements DirectByteBufferStream {
     }
 
     private void writeBooleanUnchecked(boolean val) {
-        writeSingleByteValue((byte) (val ? 1 : 0));
+        int pos = buf.position();
+
+        GridUnsafe.putByte(heapArr, baseOff + pos, (byte) (val ? 1 : 0));
+
+        setPosition(pos + 1);
     }
 
     protected void setPosition(int pos) {
