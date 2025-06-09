@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -60,6 +61,11 @@ class thread_timer final {
 
 public:
     /**
+     * Destructor.
+     */
+    ~thread_timer();
+
+    /**
      * Start.
      *
      * @return A thread timer instance.
@@ -86,7 +92,7 @@ private:
     thread_timer() = default;
 
     /** The stop flag. */
-    bool m_stopping{false};
+    std::atomic_bool m_stopping{false};
 
     /** Thread. */
     std::thread m_thread;

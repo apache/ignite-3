@@ -19,12 +19,16 @@
 
 namespace ignite::detail {
 
+thread_timer::~thread_timer() {
+    stop();
+}
+
 std::shared_ptr<thread_timer> thread_timer::start() {
     std::shared_ptr<thread_timer> res{new thread_timer()};
-    res->m_thread = std::thread([&self = *res.get()] {
+    res->m_thread = std::thread([&self = *res] {
         std::unique_lock<std::mutex> lock(self.m_mutex);
         while (true) {
-            if (self.m_stopping) {
+            if (self.m_stopping.load()) {
                 self.m_condition.notify_one();
                 return;
             }
@@ -34,22 +38,23 @@ std::shared_ptr<thread_timer> thread_timer::start() {
                 continue;
             }
 
+            auto nearest_event_ts = self.m_events.top().timestamp;
             auto now = std::chrono::steady_clock::now();
-            if (self.m_events.top().timestamp < now) {
-                auto event = std::move(self.m_events.top());
+            if (nearest_event_ts < now) {
+                auto func = self.m_events.top().callback;
                 self.m_events.pop();
 
                 lock.unlock();
 
                 try {
-                    event.callback();
+                    func();
                 } catch (...) {
                     // TODO: Process user exceptions
                 }
 
                 lock.lock();
             } else {
-                self.m_condition.wait_until(lock, self.m_events.top().timestamp);
+                self.m_condition.wait_until(lock, nearest_event_ts);
             }
         }
     });
@@ -57,9 +62,11 @@ std::shared_ptr<thread_timer> thread_timer::start() {
 }
 
 void thread_timer::stop() {
-    std::unique_lock<std::mutex> lock(m_mutex);
-    m_stopping = true;
-    m_condition.notify_one();
+    {
+        std::unique_lock<std::mutex> lock(m_mutex);
+        m_stopping.store(true);
+        m_condition.notify_one();
+    }
     m_thread.join();
 }
 
