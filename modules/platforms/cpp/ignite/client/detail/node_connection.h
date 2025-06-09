@@ -167,9 +167,9 @@ public:
      * @return Channel used for the request.
      */
     template<typename T>
-    void perform_request_wr(
+    std::optional<std::int64_t> perform_request_wr(
         protocol::client_operation op, const writer_function_type &wr, ignite_callback<T> callback) {
-        perform_request<T>(
+        return perform_request<T>(
             op, wr, [](protocol::reader &) {}, std::move(callback));
     }
 

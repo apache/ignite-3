@@ -179,7 +179,9 @@ ignite_result<void> node_connection::process_handshake_rsp(bytes_view msg) {
     m_protocol_context = response.context;
     m_handshake_complete = true;
 
-    plan_heartbeat(m_heartbeat_interval);
+    if (heartbeat_ms) {
+        plan_heartbeat(m_heartbeat_interval);
+    }
 
     return {};
 }
