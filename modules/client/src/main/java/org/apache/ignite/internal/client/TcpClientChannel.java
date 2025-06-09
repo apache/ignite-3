@@ -396,7 +396,8 @@ class TcpClientChannel implements ClientChannel, ClientMessageHandler, ClientCon
                 }
             });
 
-            if (PublicApiThreading.executingSyncPublicApi()) {
+            // Allow parallelism for batch operations.
+            if (PublicApiThreading.executingSyncPublicApi() && !ClientOp.isBatch(opCode)) {
                 // We are in the public API (user) thread, deserialize the response here.
                 try {
                     ClientMessageUnpacker unpacker = fut.join();

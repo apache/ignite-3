@@ -31,12 +31,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -491,6 +494,19 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         return keys;
     }
 
+    private static Integer partitions(Collection<Tuple> keys, Table table) {
+        PartitionManager partitionManager = table.partitionManager();
+
+        Set<Partition> count = new HashSet<>();
+
+        for (Tuple key : keys) {
+            Partition part = partitionManager.partitionAsync(key).orTimeout(5, TimeUnit.SECONDS).join();
+            count.add(part);
+        }
+
+        return count.size();
+    }
+
     private List<Tuple> retainSinglePartitionKeys(List<Tuple> list, int count) {
         List<Tuple> keys = new ArrayList<>();
 
@@ -656,11 +672,9 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         List<Tuple> tuples0 = generateKeysForNode(500, 1, map, server0.clusterService().topologyService().localMember(), table);
         List<Tuple> tuples1 = generateKeysForNode(510, 80, map, server1.clusterService().topologyService().localMember(), table);
 
-        Map<Tuple, Tuple> data = new HashMap<>();
-
         ClientLazyTransaction tx0 = (ClientLazyTransaction) client().transactions().begin();
 
-        // First operation is colocated with txn coordinator and not directly mapped.
+        // First operation is colocated with txn coordinator and not enlisted via remote transaction.
         Tuple k = tuples0.get(0);
         Tuple v = val(tuples0.get(0).intValue(0) + "");
 
@@ -690,7 +704,8 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         assertTrue(view.putIfAbsent(tx0, k2, v2)); // Write
         assertFalse(view.putIfAbsent(tx0, k2, v2)); // No-op write.
 
-        view.putAll(tx0, batch0); // Write in proxy mode.
+        int partitions = partitions(batch0.keySet(), table);
+        view.putAll(tx0, batch0); // Write in batch split mode.
         Map<Tuple, Tuple> readBack = view.getAll(tx0, batch0.keySet()); // Read.
         assertEquals(c0, readBack.size());
 
@@ -716,15 +731,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
 
         Tuple keyRmv3 = batch0.keySet().iterator().next();
         batch0.remove(keyRmv3);
-        assertEquals(0, view.removeAll(tx0, batch0.keySet()).size()); // Proxy write
-        assertEquals(2, view.removeAll(tx0, batch0.keySet()).size()); // Proxy no-op write
+        partitions += partitions(batch0.keySet(), table);
+        assertEquals(0, view.removeAll(tx0, batch0.keySet()).size()); // Batch split write
+        partitions += partitions(batch0.keySet(), table);
+        assertEquals(2, view.removeAll(tx0, batch0.keySet()).size()); // Batch split no-op write
 
         assertTrue(view.replace(tx0, keyRmv3, v1)); // Write
         assertFalse(view.replace(tx0, keyRmv2, v1)); // No-op write
 
         assertTrue(view.replace(tx0, keyRmv3, v1, v2)); // Write
         assertFalse(view.replace(tx0, keyRmv3, v1, v2)); // No-op write
-
 
         Tuple rec0 = kv(keyRmv.intValue(0), rmv.stringValue(0));
 
@@ -736,11 +752,16 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         for (Entry<Tuple, Tuple> entry : batch0.entrySet()) {
             recs.add(kv(entry.getKey().intValue(0), entry.getValue().stringValue(0)));
         }
-        assertEquals(0, recView.insertAll(tx0, recs).size()); // Proxy write
-        assertEquals(recs.size(), recView.insertAll(tx0, recs).size()); // Proxy no-op write
 
-        assertEquals(0, recView.deleteAllExact(tx0, recs).size()); // Proxy write
-        assertEquals(recs.size(), recView.deleteAllExact(tx0, recs).size()); // Proxy no-op write
+        partitions += partitions(batch0.keySet(), table);
+        assertEquals(0, recView.insertAll(tx0, recs).size()); // Batch split write
+        partitions += partitions(batch0.keySet(), table);
+        assertEquals(recs.size(), recView.insertAll(tx0, recs).size()); // Batch split no-op write
+
+        partitions += partitions(batch0.keySet(), table);
+        assertEquals(0, recView.deleteAllExact(tx0, recs).size()); // Batch split write
+        partitions += partitions(batch0.keySet(), table);
+        assertEquals(recs.size(), recView.deleteAllExact(tx0, recs).size()); // Batch split no-op write
 
         assertTrue(recView.deleteExact(tx0, rec0)); // Write
         assertFalse(recView.deleteExact(tx0, rec0)); // No-op write
@@ -748,13 +769,128 @@ public class ItThinClientTransactionsTest extends ItAbstractThinClientTest {
         tx0.commit();
 
         // Expecting each write operation to trigger add/remove events.
-        int exp = 20;
+        int exp = 20 + partitions;
         Mockito.verify(spyed, Mockito.times(exp)).addInflight(tx0.startedTx().txId());
         Mockito.verify(spyed, Mockito.times(exp)).removeInflight(Mockito.eq(tx0.startedTx().txId()), Mockito.any());
 
-        for (Entry<Tuple, Tuple> entry : data.entrySet()) {
-            view.put(null, entry.getKey(), entry.getValue());
+        // Check if all locks are released.
+        Map<Tuple, Tuple> batch = new HashMap<>();
+
+        for (Tuple tup : tuples0) {
+            batch.put(tup, val(tup.intValue(0) + ""));
         }
+
+        for (Tuple tup : tuples1) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        view.putAll(null, batch);
+    }
+
+    @Test
+    void testBatchScenarioWithNoopEnlistmentImplicit() {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(600, 50, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(610, 50, map, server1.clusterService().topologyService().localMember(), table);
+
+        Map<Tuple, Tuple> batch = new HashMap<>();
+
+        for (Tuple tup : tuples0) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        for (Tuple tup : tuples1) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        KeyValueView<Tuple, Tuple> view = table.keyValueView();
+        view.putAll(null, batch);
+
+        assertEquals(batch.size(), view.getAll(null, batch.keySet()).size());
+
+        assertEquals(0, view.removeAll(null, batch.keySet()).size());
+        assertEquals(batch.size(), view.removeAll(null, batch.keySet()).size());
+    }
+
+    @Test
+    void testBatchScenarioWithNoopEnlistmentExplicit() {
+        Map<Partition, ClusterNode> map = table().partitionManager().primaryReplicasAsync().join();
+
+        ClientTable table = (ClientTable) table();
+
+        IgniteImpl server0 = TestWrappers.unwrapIgniteImpl(server(0));
+        IgniteImpl server1 = TestWrappers.unwrapIgniteImpl(server(1));
+
+        List<Tuple> tuples0 = generateKeysForNode(700, 50, map, server0.clusterService().topologyService().localMember(), table);
+        List<Tuple> tuples1 = generateKeysForNode(710, 50, map, server1.clusterService().topologyService().localMember(), table);
+
+        Map<Tuple, Tuple> batch = new HashMap<>();
+
+        for (Tuple tup : tuples0) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        for (Tuple tup : tuples1) {
+            batch.put(tup, val(tup.intValue(0) + ""));
+        }
+
+        KeyValueView<Tuple, Tuple> tupleView = table.keyValueView();
+
+        Transaction tx = client().transactions().begin();
+        tupleView.putAll(tx, batch);
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(batch.size(), tupleView.getAll(tx, batch.keySet()).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(0, tupleView.removeAll(tx, batch.keySet()).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(batch.size(), tupleView.removeAll(tx, batch.keySet()).size());
+        tx.commit();
+
+        RecordView<Tuple> recordView = table.recordView();
+        List<Tuple> recs = new ArrayList<>(batch.size());
+        for (Entry<Tuple, Tuple> entry : batch.entrySet()) {
+            recs.add(kv(entry.getKey().intValue(0), entry.getValue().stringValue(0)));
+        }
+
+        tx = client().transactions().begin();
+        assertEquals(0, recordView.insertAll(tx, recs).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(recs.size(), recordView.insertAll(tx, recs).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(0, recordView.deleteAllExact(tx, recs).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(recs.size(), recordView.deleteAllExact(tx, recs).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        tupleView.putAll(tx, batch);
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(0, recordView.deleteAll(tx, batch.keySet()).size());
+        tx.commit();
+
+        tx = client().transactions().begin();
+        assertEquals(batch.size(), recordView.deleteAll(tx, batch.keySet()).size());
+        tx.commit();
     }
 
     @Test

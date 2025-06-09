@@ -393,7 +393,7 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
         return tbl.split(tx, keys, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL,
-                            (s, w, n) -> ser.writeTuples(tx, keys, s, w, n, true),
+                            (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
                             (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
                             Collections.emptyList(),
                             PartitionAwarenessProvider.of(part),
