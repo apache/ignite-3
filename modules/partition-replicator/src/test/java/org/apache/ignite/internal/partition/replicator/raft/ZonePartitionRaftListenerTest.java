@@ -195,7 +195,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         when(writeCommandClosure.index()).thenReturn(25L);
         when(writeCommandClosure.term()).thenReturn(42L);
 
-        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
+        var leaseInfo = new LeaseInfo(123L, randomUUID(), "foo");
 
         when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
         when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
@@ -255,7 +255,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         when(writeCommandClosure.index()).thenReturn(1L);
         when(writeCommandClosure.term()).thenReturn(1L);
 
-        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
+        var leaseInfo = new LeaseInfo(123L, randomUUID(), "foo");
 
         when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
         when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
@@ -308,7 +308,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         PrimaryReplicaChangeCommand command = new ReplicaMessagesFactory()
                 .primaryReplicaChangeCommand()
                 .leaseStartTime(123)
-                .primaryReplicaNodeId(UUID.randomUUID())
+                .primaryReplicaNodeId(randomUUID())
                 .primaryReplicaNodeName("foo")
                 .build();
 
@@ -364,7 +364,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         when(writeCommandClosure.index()).thenReturn(1L);
         when(writeCommandClosure.term()).thenReturn(1L);
 
-        var leaseInfo = new LeaseInfo(123L, UUID.randomUUID(), "foo");
+        var leaseInfo = new LeaseInfo(123L, randomUUID(), "foo");
 
         when(command.leaseStartTime()).thenReturn(leaseInfo.leaseStartTime());
         when(command.primaryReplicaNodeId()).thenReturn(leaseInfo.primaryReplicaNodeId());
@@ -579,7 +579,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 mock(CatalogService.class),
                 mock(SchemaRegistry.class),
                 mock(IndexMetaStorage.class),
-                UUID.randomUUID(),
+                randomUUID(),
                 mock(MinimumRequiredTimeCollectorService.class),
                 mock(Executor.class),
                 placementDriver,

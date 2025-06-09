@@ -475,8 +475,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Mock
     private IndexMetaStorage indexMetaStorage;
 
-    private ExecutorService partitionOperationsExecutor;
-
     private static UUID nodeId(int id) {
         return new UUID(0, id);
     }
@@ -695,21 +693,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 failureHandler
         );
 
-        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L);
-
-        partitionOperationsExecutor = Executors.newFixedThreadPool(
-                25,
-                IgniteThreadFactory.create(
-                        localNode.name(),
-                        "partition-operations",
-                        LOG,
-                        STORAGE_READ,
-                        STORAGE_WRITE,
-                        TX_STATE_STORAGE_ACCESS,
-                        PROCESS_RAFT_REQ
-                )
-        );
-
         kvMarshaller = marshallerFor(schemaDescriptor);
 
         when(lowWatermark.tryLock(any(), any())).thenReturn(true);
@@ -719,8 +702,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @AfterEach
     public void clearMocks() {
-        IgniteUtils.shutdownAndAwaitTermination(partitionOperationsExecutor, 10, SECONDS);
-
         Mockito.framework().clearInlineMocks();
     }
 
@@ -1430,6 +1411,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     }
 
     @Test
+    @WithSystemProperty(value = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, key = "true")
     public void testWriteIntentOnPrimaryReplicaSingleUpdate() {
         zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
 
@@ -1464,6 +1446,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
 
     @Test
+    @WithSystemProperty(value = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, key = "true")
     public void testWriteIntentOnPrimaryReplicaUpdateAll() {
         zonePartitionReplicaListener.addTableReplicaProcessor(TABLE_ID, mocked -> tableReplicaProcessor);
 
@@ -1500,6 +1483,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
     @ParameterizedTest
     @ValueSource(booleans = {true, false})
+    @WithSystemProperty(value = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, key = "true")
     void writeIntentSwitchForCompactedCatalogTimestampWorks(boolean commit) {
         int earliestVersion = 999;
         Catalog mockEarliestCatalog = mock(Catalog.class);
