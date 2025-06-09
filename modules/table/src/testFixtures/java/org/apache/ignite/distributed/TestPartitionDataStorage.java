@@ -25,6 +25,8 @@ import org.apache.ignite.internal.raft.RaftGroupConfiguration;
 import org.apache.ignite.internal.raft.RaftGroupConfigurationConverter;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.MvPartitionStorage.WriteClosure;
@@ -32,7 +34,6 @@ import org.apache.ignite.internal.storage.PartitionTimestampCursor;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
 import org.apache.ignite.internal.storage.StorageException;
-import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.storage.gc.GcEntry;
 import org.apache.ignite.internal.storage.lease.LeaseInfo;
 import org.apache.ignite.internal.util.Cursor;
@@ -117,14 +118,23 @@ public class TestPartitionDataStorage implements PartitionDataStorage {
     }
 
     @Override
-    public @Nullable BinaryRow addWrite(RowId rowId, @Nullable BinaryRow row, UUID txId, int commitTableId,
-            int commitPartitionId) throws TxIdMismatchException, StorageException {
-        return partitionStorage.addWrite(rowId, row, txId, commitTableId, commitPartitionId);
+    public AddWriteResult addWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            int commitTableOrZoneId,
+            int commitPartitionId
+    ) throws StorageException {
+        return partitionStorage.addWrite(rowId, row, txId, commitTableOrZoneId, commitPartitionId);
     }
 
     @Override
-    public void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTs) {
-        partitionStorage.addWriteCommitted(rowId, row, commitTs);
+    public AddWriteCommittedResult addWriteCommitted(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTimestamp
+    ) throws StorageException {
+        return partitionStorage.addWriteCommitted(rowId, row, commitTimestamp);
     }
 
     @Override

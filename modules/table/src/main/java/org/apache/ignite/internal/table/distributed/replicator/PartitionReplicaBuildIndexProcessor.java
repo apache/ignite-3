@@ -19,14 +19,13 @@ package org.apache.ignite.internal.table.distributed.replicator;
 
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.table.distributed.index.MetaIndexStatus.REGISTERED;
-import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexDescriptorInBuildingStatus;
+import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.latestIndexMetaInBuildingStatus;
 import static org.apache.ignite.internal.table.distributed.replicator.ReplicatorUtils.rwTxActiveCatalogVersion;
 import static org.apache.ignite.internal.util.CompletableFutures.falseCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.trueCompletedFuture;
 
 import java.util.concurrent.CompletableFuture;
 import org.apache.ignite.internal.catalog.CatalogService;
-import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.events.CatalogEvent;
 import org.apache.ignite.internal.catalog.events.CatalogEventParameters;
 import org.apache.ignite.internal.catalog.events.StartBuildingIndexEventParameters;
@@ -123,14 +122,10 @@ public class PartitionReplicaBuildIndexProcessor {
     }
 
     private void prepareIndexBuilderTxRwOperationTracker() {
-        // Expected to be executed on the metastore thread.
-        CatalogIndexDescriptor indexDescriptor = latestIndexDescriptorInBuildingStatus(catalogService, tableId);
+        // Expected to be executed on the metastore notification chain or on node start (when Catalog does not change).
+        IndexMeta indexMeta = latestIndexMetaInBuildingStatus(catalogService, indexMetaStorage, tableId);
 
-        if (indexDescriptor != null) {
-            IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
-
-            assert indexMeta != null : indexDescriptor.id();
-
+        if (indexMeta != null) {
             txRwOperationTracker.updateMinAllowedCatalogVersionForStartOperation(indexMeta.statusChange(REGISTERED).catalogVersion());
         }
 

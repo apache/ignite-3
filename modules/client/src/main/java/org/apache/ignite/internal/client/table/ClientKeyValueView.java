@@ -62,8 +62,8 @@ import org.apache.ignite.sql.ResultSetMetadata;
 import org.apache.ignite.sql.SqlRow;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.mapper.Mapper;
 import org.apache.ignite.tx.Transaction;
 import org.jetbrains.annotations.Nullable;
@@ -727,16 +727,15 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
         return ClientDataStreamer.streamData(publisher, opts, batchSender, provider, tbl);
     }
 
-    /** {@inheritDoc} */
     @Override
-    public <E, P, R, A> CompletableFuture<Void> streamData(
+    public <E, P, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<P, A, R> receiver,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, P> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Flow.Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            A receiverArg) {
+            @Nullable DataStreamerOptions options) {
         Objects.requireNonNull(publisher);
         Objects.requireNonNull(keyFunc);
         Objects.requireNonNull(payloadFunc);

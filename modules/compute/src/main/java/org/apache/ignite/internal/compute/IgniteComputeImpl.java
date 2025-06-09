@@ -83,8 +83,8 @@ import org.apache.ignite.lang.ErrorGroups.Compute;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.TableNotFoundException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.QualifiedName;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.ReceiverExecutionOptions;
 import org.apache.ignite.table.Tuple;
 import org.apache.ignite.table.mapper.Mapper;
@@ -587,15 +587,16 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     @Override
     public <A, I, R> CompletableFuture<Collection<R>> runReceiverAsync(
-            ReceiverDescriptor<A> receiver,
+            DataStreamerReceiverDescriptor<I, A, R> receiver,
             @Nullable A receiverArg,
             Collection<I> items,
             ClusterNode node,
             List<DeploymentUnit> deploymentUnits) {
-        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(receiver, receiverArg, items);
+        var payload = StreamerReceiverSerializer.serializeReceiverInfoWithElementCount(
+                receiver, receiverArg, receiver.payloadMarshaller(), receiver.argumentMarshaller(), items);
 
         return runReceiverAsync(payload, node, deploymentUnits, receiver.options())
-                .thenApply(StreamerReceiverSerializer::deserializeReceiverJobResults);
+                .thenApply(r -> StreamerReceiverSerializer.deserializeReceiverJobResults(r, receiver.resultMarshaller()));
     }
 
     @Override
