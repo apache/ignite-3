@@ -414,57 +414,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         readAndCheck(false);
     }
 
-    @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
-    void testSkipWriteCommandByAppliedIndex() {
-        mvPartitionStorage.lastApplied(10L, 1L);
-
-        UpdateCommand updateCommand = mock(UpdateCommand.class);
-        WriteIntentSwitchCommand writeIntentSwitchCommand = mock(WriteIntentSwitchCommand.class);
-        SafeTimeSyncCommand safeTimeSyncCommand = mock(SafeTimeSyncCommand.class);
-        FinishTxCommand finishTxCommand = mock(FinishTxCommand.class);
-        when(finishTxCommand.groupType()).thenReturn(PartitionReplicationMessageGroup.GROUP_TYPE);
-        when(finishTxCommand.messageType()).thenReturn(Commands.FINISH_TX);
-
-        PrimaryReplicaChangeCommand primaryReplicaChangeCommand = mock(PrimaryReplicaChangeCommand.class);
-
-        // Checks for MvPartitionStorage.
-        commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 1, updateCommand, updateCommandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(10, 1, updateCommand, updateCommandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(4, 1, writeIntentSwitchCommand, commandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(6, 1, primaryReplicaChangeCommand, commandClosureResultCaptor, null)
-        ).iterator());
-
-        // Two storage runConsistently runs are expected: one for configuration application and another for primaryReplicaChangeCommand
-        // handling. Both comes from initial configuration preparation in @BeforeEach
-        verify(mvPartitionStorage, times(2)).runConsistently(any(WriteClosure.class));
-        verify(mvPartitionStorage, times(3)).lastApplied(anyLong(), anyLong());
-
-        List<UpdateCommandResult> allValues = updateCommandClosureResultCaptor.getAllValues();
-        assertThat(allValues, containsInAnyOrder(new Throwable[]{null, null}));
-        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null, null}));
-
-        // Checks for TxStateStorage.
-        mvPartitionStorage.lastApplied(1L, 1L);
-        txStatePartitionStorage.lastApplied(10L, 2L);
-
-        commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
-
-        commandListener.onWrite(List.of(
-                writeCommandCommandClosure(2, 1, finishTxCommand, commandClosureResultCaptor, hybridClock.now()),
-                writeCommandCommandClosure(10, 1, finishTxCommand, commandClosureResultCaptor, hybridClock.now())
-        ).iterator());
-
-        verify(txStatePartitionStorage, never())
-                .compareAndSet(any(UUID.class), any(TxState.class), any(TxMeta.class), anyLong(), anyLong());
-        verify(txStatePartitionStorage, times(1)).lastApplied(anyLong(), anyLong());
-
-        assertThat(commandClosureResultCaptor.getAllValues(), containsInAnyOrder(new Throwable[]{null, null}));
-    }
-
     private CommandClosure<WriteCommand> writeCommandCommandClosure(
             long index,
             long term,
@@ -627,26 +576,6 @@ public class PartitionCommandListenerTest extends BaseIgniteAbstractTest {
         ).iterator());
 
         verify(mvPartitionStorage).lastApplied(3, 2);
-    }
-
-    @Test
-    @WithSystemProperty(key = COLOCATION_FEATURE_FLAG, value = "false")
-    // TODO: IGNITE-24770 - remove this test after porting it to ZonePartitionReplicaListenerTest.
-    void updatesLastAppliedForFinishTxCommands() {
-        safeTimeTracker.update(hybridClock.now(), null);
-
-        FinishTxCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
-                .txId(TestTransactionIds.newTransactionId())
-                .initiatorTime(hybridClock.now())
-                .partitions(List.of())
-                .build();
-
-        commandListener.onWrite(List.of(
-                writeCommandCommandClosure(3, 2, command)
-        ).iterator());
-
-        assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
-        assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
     }
 
     @Test
