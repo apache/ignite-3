@@ -80,6 +80,23 @@ public class ItDmlTest extends BaseSqlIntegrationTest {
     }
 
     @Test
+    @WithSystemProperty(key = "IMPLICIT_PK_ENABLED", value = "true")
+    void testOrderSameValue() {
+        sql("CREATE TABLE integers(i INT)");
+        sql("INSERT INTO integers VALUES (0), (0), (0), (0)");
+
+        for (int i = 0; i < 15; i++) {
+            sql("INSERT INTO integers SELECT * FROM integers");
+        }
+
+        assertQuery("SELECT SUM(i) FROM (SELECT i FROM integers ORDER BY i) t1")
+                .returns(0L)
+                .check();
+
+        log.info(">xxx> count " + sql("SELECT COUNT(*) FROM integers"));
+    }
+
+    @Test
     void subqueryInUpdateAndMerge() {
         //noinspection ConcatenationWithEmptyString
         sqlScript("" 
