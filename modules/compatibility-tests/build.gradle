@@ -1,3 +1,5 @@
+import groovy.json.JsonSlurper
+
 /*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements. See the NOTICE file distributed with
@@ -29,6 +31,7 @@ dependencies {
     testImplementation libs.gradle.tooling.api
     testImplementation libs.hamcrest.core
     testImplementation libs.awaitility
+    testImplementation libs.jackson.databind
     testImplementation(libs.jsonpath.assert) {
         //IDEA test runner don't apply Gradle dependency resolve strategy, this is just not implemented
         //So, exclude asm-core transitive dependency to protect of jar-hell.
@@ -65,19 +68,19 @@ private def resolveAllDependencies(String dependencyNotation, String... addition
     return detached.resolve()  // Set<File> of *.jar
 }
 
-ext.compatibilityTestDependencies = [
-        'org.apache.ignite:ignite-runner' : ['3.0.0', ]
-]
-
 // This task should be started as a separate preparation step before running tests so that all the necessary dependencies are resolved and
 // cached locally
 tasks.register('resolveCompatibilityTestDependencies') {
     doLast {
-        compatibilityTestDependencies.each { entry ->
-            entry.value.each { version ->
-                resolveAllDependencies("$entry.key:$version")
+        def versionsFile = file("src/test/resources/versions.json")
+        def versionsJson = new JsonSlurper().parseText(versionsFile.text)
+        versionsJson.each { entry -> {
+            entry.versions.each { version ->
+                entry.artifacts.each { artifact ->
+                    resolveAllDependencies("$artifact:$version.version")
+                }
             }
-        }
+        }}
     }
 }
 

@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal;
 
-import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 import static org.apache.ignite.internal.ClusterConfiguration.configOverrides;
@@ -29,6 +28,7 @@ import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColo
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
@@ -353,20 +353,6 @@ public class Cluster {
      */
     public int httpPort(int nodeIndex) {
         return clusterConfiguration.baseHttpPort() + nodeIndex;
-    }
-
-    public static <T> void setListAtIndex(List<T> list, int i, T element) {
-        if (list.size() < i) {
-            list.addAll(nCopies(i - list.size(), null));
-        }
-
-        if (list.size() < i + 1) {
-            list.add(element);
-        } else {
-            T prev = list.set(i, element);
-
-            assert prev == null : String.format("Found previous value %s at index %d", prev, i);
-        }
     }
 
     private String seedAddressesString() {

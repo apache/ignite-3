@@ -19,8 +19,8 @@ package org.apache.ignite.internal;
 
 import static com.jayway.jsonpath.matchers.JsonPathMatchers.hasJsonPath;
 import static java.util.stream.Collectors.toList;
-import static org.apache.ignite.internal.Cluster.setListAtIndex;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
+import static org.apache.ignite.internal.util.CollectionUtils.setListAtIndex;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
@@ -138,8 +138,10 @@ public class IgniteCluster {
 
         LOG.info("Shut the embedded cluster down");
 
-        runnerNodes.forEach(RunnerNode::stop);
-        runnerNodes.clear();
+        if (runnerNodes != null) {
+            runnerNodes.forEach(RunnerNode::stop);
+            runnerNodes.clear();
+        }
 
         started = false;
         stopped = true;
