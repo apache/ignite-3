@@ -69,6 +69,7 @@ public:
     /**
      * Start.
      *
+     * @param error_handler Error handler for the errors that can occur during the events handling.
      * @return A thread timer instance.
      */
     static std::shared_ptr<thread_timer> start(std::function<void(ignite_error&&)> error_handler);

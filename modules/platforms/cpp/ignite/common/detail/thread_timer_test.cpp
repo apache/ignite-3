@@ -25,6 +25,8 @@
 using namespace ignite;
 using namespace std::chrono_literals;
 
+auto noop_handler = [] (ignite_error &&){};
+
 bool run_with_timeout(std::chrono::milliseconds timeout, std::function<void()> func) {
     auto fut = std::async(std::launch::async, std::move(func));
     auto res = fut.wait_for(timeout);
@@ -33,7 +35,7 @@ bool run_with_timeout(std::chrono::milliseconds timeout, std::function<void()> f
 
 TEST(thread_timer, start_stop) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
         timer->stop();
     });
 
@@ -42,7 +44,7 @@ TEST(thread_timer, start_stop) {
 
 TEST(thread_timer, multiple_stops) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
         timer->stop();
         timer->stop();
         timer->stop();
@@ -53,7 +55,7 @@ TEST(thread_timer, multiple_stops) {
 
 TEST(thread_timer, fast_single_timer_event) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
 
         std::promise<void> promise;
         timer->add(0ms, [&promise]() {
@@ -68,7 +70,7 @@ TEST(thread_timer, fast_single_timer_event) {
 
 TEST(thread_timer, subsequent_timer_events) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
 
         std::mutex mutex;
         std::vector<int> events;
@@ -103,7 +105,7 @@ TEST(thread_timer, subsequent_timer_events) {
 
 TEST(thread_timer, mixed_order_timer_events) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
 
         std::mutex mutex;
         std::vector<int> events;
@@ -140,7 +142,7 @@ TEST(thread_timer, mixed_order_timer_events) {
 
 TEST(thread_timer, stop_non_empty) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
 
         timer->add(400ms, []() {
             // No-op.
@@ -156,7 +158,7 @@ TEST(thread_timer, stop_non_empty) {
 
 TEST(thread_timer, drop_non_empty) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
 
         timer->add(400ms, []() {
             // No-op.
@@ -170,7 +172,7 @@ TEST(thread_timer, drop_non_empty) {
 
 TEST(thread_timer, never_executes_after_stop) {
     auto within_tm = run_with_timeout(1s, [] {
-        auto timer = detail::thread_timer::start();
+        auto timer = detail::thread_timer::start(noop_handler);
 
         std::promise<void> promise;
         timer->add(300ms, [&promise]() {
