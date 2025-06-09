@@ -356,17 +356,10 @@ public class ClientTableCommon {
             out.packUuid(tx.coordinatorId());
             out.packLong(tx.getTimeout());
         } else if (tx.remote()) {
-            TxState state = tx.state();
-
-            if (state == TxState.ABORTED) {
-                // No-op enlistment.
-                out.packNil();
-            } else {
-                // Remote tx carries operation enlistment info.
-                PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
-                out.packString(token.primaryNodeConsistentId());
-                out.packLong(token.consistencyToken());
-            }
+            PendingTxPartitionEnlistment token = tx.enlistedPartition(null);
+            out.packString(token.primaryNodeConsistentId());
+            out.packLong(token.consistencyToken());
+            out.packBoolean(TxState.ABORTED == tx.state()); // No-op enlistment.
 
             if (clockService != null) {
                 tsTracker.update(clockService.current());

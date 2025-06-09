@@ -260,7 +260,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, recs, (batch, part) -> {
+        return tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_INSERT_ALL,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -269,11 +269,12 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             PartitionAwarenessProvider.of(part),
                             tx);
                 },
-                new ArrayList<>(Collections.nCopies(recs.size(), null)),
-                ClientTable::orderAwareReducer,
+                new ArrayList<>(recs.size()),
+                (agg, cur) -> {
+                    agg.addAll(cur);
+                    return agg;
+                },
                 ClientTupleSerializer::getColocationHash);
-
-        return splitFut.thenApply(ClientTable::removeNulls);
     }
 
     /** {@inheritDoc} */
@@ -416,7 +417,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, keyRecs, (batch, part) -> {
+        return tbl.split(tx, keyRecs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
@@ -425,11 +426,12 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             PartitionAwarenessProvider.of(part),
                             tx);
                 },
-                new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
-                ClientTable::orderAwareReducer,
+                new ArrayList<>(keyRecs.size()),
+                (agg, cur) -> {
+                    agg.addAll(cur);
+                    return agg;
+                },
                 ClientTupleSerializer::getColocationHash);
-
-        return splitFut.thenApply(ClientTable::removeNulls);
     }
 
     @Override
@@ -452,7 +454,7 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
             return emptyListCompletedFuture();
         }
 
-        CompletableFuture<List<Tuple>> splitFut = tbl.split(tx, recs, (batch, part) -> {
+        return tbl.split(tx, recs, (batch, part) -> {
                     return tbl.doSchemaOutInOpAsync(
                             ClientOp.TUPLE_DELETE_ALL_EXACT,
                             (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, false),
@@ -461,11 +463,12 @@ public class ClientRecordBinaryView extends AbstractClientView<Tuple> implements
                             PartitionAwarenessProvider.of(part),
                             tx);
                 },
-                new ArrayList<>(Collections.nCopies(recs.size(), null)),
-                ClientTable::orderAwareReducer,
+                new ArrayList<>(recs.size()),
+                (agg, cur) -> {
+                    agg.addAll(cur);
+                    return agg;
+                },
                 ClientTupleSerializer::getColocationHash);
-
-        return splitFut.thenApply(ClientTable::removeNulls);
     }
 
     /** {@inheritDoc} */
