@@ -24,6 +24,11 @@ import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
  */
 public class ItConfigReplCommandTest extends ItConfigCommandTest {
     @Override
+    protected int errorExitCode() {
+        return 0;
+    }
+
+    @Override
     protected Class<?> getCommandClass() {
         return TopLevelCliReplCommand.class;
     }
