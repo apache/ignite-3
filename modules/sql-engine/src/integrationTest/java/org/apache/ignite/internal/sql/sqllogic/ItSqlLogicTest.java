@@ -189,7 +189,7 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
      *
      * <p>This value is chosen empirically (it allows to run the suite as fast as possible at the TC).
      */
-    private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 10;
+    private static final int METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS = 50;
 
     private static final long TX_RW_TIMEOUT = TimeUnit.SECONDS.toMillis(40);
 
@@ -367,11 +367,12 @@ public class ItSqlLogicTest extends BaseIgniteAbstractTest {
                 .clusterConfiguration("ignite {"
                         + "transaction.readWriteTimeoutMillis: " + TX_RW_TIMEOUT + ",\n"
                         + "system.idleSafeTimeSyncIntervalMillis: " + METASTORAGE_IDLE_SYNC_TIME_INTERVAL_MS + ",\n"
+                        + "schemaSync.delayDurationMillis: " + 100 + ",\n"
                         // TODO: Set dataAvailabilityTimeMillis to 5000 after IGNITE-24002 is fixed.
                         + "gc.lowWatermark.dataAvailabilityTimeMillis: 30000,\n"
                         + "gc.lowWatermark.updateIntervalMillis: 1000,\n"
                         + "metrics.exporters.logPush.exporterName: logPush,\n"
-                        + "metrics.exporters.logPush.periodMillis: 5000\n"
+                        + "metrics.exporters.logPush.periodMillis: 30000\n"
                         + "}")
                 .build();
         TestIgnitionManager.init(nodes.get(0), initParameters);
