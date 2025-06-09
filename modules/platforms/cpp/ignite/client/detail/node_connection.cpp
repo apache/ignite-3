@@ -117,13 +117,16 @@ void node_connection::on_observable_timestamp_changed(int64_t observable_timesta
 }
 
 void node_connection::send_heartbeat() {
-    perform_request_wr<void>(
-        protocol::client_operation::HEARTBEAT, [](auto&){}, [self_weak = weak_from_this()](const auto&) {
+    auto res = perform_request_wr<void>(
+        protocol::client_operation::HEARTBEAT, [](auto&, auto&){}, [self_weak = weak_from_this()](const auto&) {
             if (auto self = self_weak.lock()) {
                 self->plan_heartbeat(self->m_heartbeat_interval);
             }
         }
     );
+
+    // We don't care here if we were not able to send a heartbeat due to the connection is dead already.
+    UNUSED_VALUE(res);
 }
 
 void node_connection::on_heartbeat_timeout() {
