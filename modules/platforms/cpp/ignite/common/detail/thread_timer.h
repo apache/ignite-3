@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <atomic>
 #include <condition_variable>
 #include <functional>
 #include <memory>
@@ -56,7 +55,7 @@ class thread_timer final {
         /**
          * Comparison operator for priority_queue.
          */
-        bool operator<(const timed_event& other) const { return timestamp < other.timestamp; }
+        bool operator>(const timed_event& other) const { return timestamp > other.timestamp; }
     };
 
 public:
@@ -92,7 +91,7 @@ private:
     thread_timer() = default;
 
     /** The stop flag. */
-    std::atomic_bool m_stopping{false};
+    bool m_stopping{false};
 
     /** Thread. */
     std::thread m_thread;
@@ -104,7 +103,7 @@ private:
     std::condition_variable m_condition;
 
     /** Timed event. */
-    std::priority_queue<timed_event> m_events;
+    std::priority_queue<timed_event, std::vector<timed_event>, std::greater<>> m_events;
 };
 
 } // namespace ignite::detail

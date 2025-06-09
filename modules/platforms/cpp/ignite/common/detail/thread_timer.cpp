@@ -28,7 +28,7 @@ std::shared_ptr<thread_timer> thread_timer::start() {
     res->m_thread = std::thread([&self = *res] {
         std::unique_lock<std::mutex> lock(self.m_mutex);
         while (true) {
-            if (self.m_stopping.load()) {
+            if (self.m_stopping) {
                 self.m_condition.notify_one();
                 return;
             }
@@ -64,7 +64,10 @@ std::shared_ptr<thread_timer> thread_timer::start() {
 void thread_timer::stop() {
     {
         std::unique_lock<std::mutex> lock(m_mutex);
-        m_stopping.store(true);
+        if (m_stopping)
+            return;
+
+        m_stopping = true;
         m_condition.notify_one();
     }
     m_thread.join();
