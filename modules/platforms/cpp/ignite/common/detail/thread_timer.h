@@ -17,12 +17,14 @@
 
 #pragma once
 
+#include "ignite_result.h"
+
 #include <condition_variable>
 #include <functional>
 #include <memory>
-#include <thread>
 #include <mutex>
 #include <queue>
+#include <thread>
 
 namespace ignite::detail {
 
@@ -69,7 +71,7 @@ public:
      *
      * @return A thread timer instance.
      */
-    static std::shared_ptr<thread_timer> start();
+    static std::shared_ptr<thread_timer> start(std::function<void(ignite_error&&)> error_handler);
 
     /**
      * Stop the thread.

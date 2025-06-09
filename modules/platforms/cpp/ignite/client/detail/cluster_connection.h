@@ -374,9 +374,6 @@ private:
     /** Configuration. */
     const ignite_client_configuration m_configuration;
 
-    /** Timer thread. */
-    std::shared_ptr<thread_timer> m_timer_thread;
-
     /** Callback to call on initial connecting. */
     std::function<void(ignite_result<void>)> m_on_initial_connect;
 
@@ -406,6 +403,9 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Timer thread. */
+    std::shared_ptr<thread_timer> m_timer_thread;
 };
 
 } // namespace ignite::detail

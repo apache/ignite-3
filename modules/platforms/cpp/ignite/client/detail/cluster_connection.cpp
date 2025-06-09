@@ -31,10 +31,11 @@ namespace ignite::detail {
 
 cluster_connection::cluster_connection(ignite_client_configuration configuration)
     : m_configuration(std::move(configuration))
-    , m_timer_thread(thread_timer::start())
     , m_logger(std::make_shared<logger_wrapper>(m_configuration.get_logger()))
-    , m_generator(std::random_device()()) {
-}
+    , m_generator(std::random_device()())
+    , m_timer_thread(thread_timer::start([logger = m_logger] (auto&& err) {
+        logger->log_error("Unhandled timer error: " + err.what_str());
+    })) {}
 
 void cluster_connection::start_async(std::function<void(ignite_result<void>)> callback) {
     using namespace network;

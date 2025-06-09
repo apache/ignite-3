@@ -17,15 +17,17 @@
 
 #include "thread_timer.h"
 
+#include "ignite_result.h"
+
 namespace ignite::detail {
 
 thread_timer::~thread_timer() {
     stop();
 }
 
-std::shared_ptr<thread_timer> thread_timer::start() {
+std::shared_ptr<thread_timer> thread_timer::start(std::function<void(ignite_error&&)> error_handler) {
     std::shared_ptr<thread_timer> res{new thread_timer()};
-    res->m_thread = std::thread([&self = *res] {
+    res->m_thread = std::thread([&self = *res, error_handler = std::move(error_handler)]() {
         std::unique_lock<std::mutex> lock(self.m_mutex);
         while (true) {
             if (self.m_stopping) {
@@ -46,10 +48,9 @@ std::shared_ptr<thread_timer> thread_timer::start() {
 
                 lock.unlock();
 
-                try {
-                    func();
-                } catch (...) {
-                    // TODO: Process user exceptions
+                auto res = result_of_operation(func);
+                if (res.has_error()) {
+                    error_handler(res.error());
                 }
 
                 lock.lock();
