@@ -27,6 +27,7 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.ArgumentsProvider;
 import org.junit.jupiter.params.support.AnnotationConsumer;
+import org.junit.jupiter.params.support.ParameterDeclarations;
 import org.junit.platform.commons.util.ReflectionUtils;
 
 /**
@@ -42,7 +43,7 @@ class VariableArgumentsProvider implements ArgumentsProvider, AnnotationConsumer
     }
 
     @Override
-    public Stream<? extends Arguments> provideArguments(ExtensionContext context) throws Exception {
+    public Stream<? extends Arguments> provideArguments(ParameterDeclarations parameters, ExtensionContext context) throws Exception {
         Class<?> testClass = context.getRequiredTestClass();
 
         Field source = testClass.getField(variableName);
