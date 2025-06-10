@@ -104,13 +104,10 @@ namespace Apache.Ignite.Internal.Sql
                 using var buf = await _socket.DoOutInOpAsync(
                     ClientOp.SqlExecScript, bufferWriter, cancellationToken: cancellationToken).ConfigureAwait(false);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
+            catch (SqlException e)
             {
-                throw new SqlException(
-                    e.TraceId,
-                    ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + script,
-                    e);
+                ConvertExceptionAndThrow(e, script, cancellationToken);
+                throw;
             }
         }
 
@@ -190,21 +187,37 @@ namespace Apache.Ignite.Internal.Sql
                 // ResultSet will dispose the pooled buffer.
                 return new ResultSet<T>(socket, buf, rowReaderFactory, cancellationToken);
             }
-            catch (SqlException e) when (e.Code == ErrorGroups.Sql.StmtParse)
+            catch (SqlException e)
             {
                 buf?.Dispose();
 
-                throw new SqlException(
-                    e.TraceId,
-                    ErrorGroups.Sql.StmtValidation,
-                    "Invalid query, check inner exceptions for details: " + statement,
-                    e);
+                ConvertExceptionAndThrow(e, statement, cancellationToken);
+
+                throw;
             }
             catch (Exception)
             {
                 buf?.Dispose();
 
                 throw;
+            }
+        }
+
+        private static void ConvertExceptionAndThrow(SqlException e, SqlStatement statement, CancellationToken token)
+        {
+            switch (e.Code)
+            {
+                case ErrorGroups.Sql.StmtParse:
+                    throw new SqlException(
+                        e.TraceId,
+                        ErrorGroups.Sql.StmtValidation,
+                        "Invalid query, check inner exceptions for details: " + statement,
+                        e);
+
+                case ErrorGroups.Sql.ExecutionCancelled:
+                    var cancelledToken = token.IsCancellationRequested ? token : CancellationToken.None;
+
+                    throw new OperationCanceledException(e.Message, e, cancelledToken);
             }
         }
 
