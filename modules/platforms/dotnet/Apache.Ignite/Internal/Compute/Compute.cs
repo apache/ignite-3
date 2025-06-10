@@ -136,7 +136,7 @@ namespace Apache.Ignite.Internal.Compute
                     ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
-            return GetTaskExecution<TResult>(res);
+            return GetTaskExecution<TResult>(res, cancellationToken);
 
             void Write()
             {
@@ -206,23 +206,6 @@ namespace Apache.Ignite.Internal.Compute
             return Read(res.GetReader());
 
             TaskState? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadTaskState(reader);
-        }
-
-        /// <summary>
-        /// Cancels the job.
-        /// </summary>
-        /// <param name="jobId">Job id.</param>
-        /// <returns>
-        /// <c>true</c> when the job is cancelled, <c>false</c> when the job couldn't be cancelled
-        /// (either it's not yet started, or it's already completed), or <c> null</c> if there's no job with the specified id.
-        /// </returns>
-        internal async Task<bool?> CancelJobAsync(Guid jobId)
-        {
-            using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(jobId);
-
-            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeCancel, writer).ConfigureAwait(false);
-            return res.GetReader().ReadBooleanNullable();
         }
 
         /// <summary>
@@ -403,28 +386,49 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
-        private TaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult)
+        private TaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult, CancellationToken cancellationToken)
         {
             var reader = computeExecuteResult.GetReader();
 
             var taskId = reader.ReadGuid();
 
-            var jobCount = reader.ReadInt32();
-            List<Guid> jobIds = new(jobCount);
+            // Standard cancellation by requestId in ClientSocket does not work for jobs.
+            // Compute job can be cancelled from any node, it is not bound to a connection.
+            var cancellationTokenRegistration = cancellationToken.Register(() => _ = CancelJobAsync(taskId));
 
-            for (var i = 0; i < jobCount; i++)
+            try
             {
-                jobIds.Add(reader.ReadGuid());
+                var jobCount = reader.ReadInt32();
+                List<Guid> jobIds = new(jobCount);
+
+                for (var i = 0; i < jobCount; i++)
+                {
+                    jobIds.Add(reader.ReadGuid());
+                }
+
+                var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+
+                return new TaskExecution<T>(taskId, jobIds, resultTask, this);
+            }
+            catch (Exception)
+            {
+                cancellationTokenRegistration.Dispose();
+                throw;
             }
 
-            var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
-
-            return new TaskExecution<T>(taskId, jobIds, resultTask, this);
-
-            static async Task<(T, TaskState)> GetResult(NotificationHandler handler)
+            async Task<(T, TaskState)> GetResult(NotificationHandler handler)
             {
-                using var notificationRes = await handler.Task.ConfigureAwait(false);
-                return Read(notificationRes.GetReader());
+                try
+                {
+                    using var notificationRes = await handler.Task.ConfigureAwait(false);
+                    return Read(notificationRes.GetReader());
+                }
+                catch (Exception)
+                {
+                    // ReSharper disable once AccessToDisposedClosure
+                    await cancellationTokenRegistration.DisposeAsync().ConfigureAwait(false);
+                    throw;
+                }
             }
 
             static (T, TaskState) Read(MsgPackReader reader)
@@ -632,6 +636,15 @@ namespace Apache.Ignite.Internal.Compute
                     arg,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        private async Task<bool?> CancelJobAsync(Guid jobId)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeCancel, writer).ConfigureAwait(false);
+            return res.GetReader().ReadBooleanNullable();
         }
     }
 }
