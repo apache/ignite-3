@@ -49,6 +49,7 @@ import org.apache.calcite.util.mapping.Mappings;
 import org.apache.ignite.internal.sql.engine.rel.explain.IgniteRelWriter;
 import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
+import org.apache.ignite.internal.sql.engine.trait.IgniteDistributions;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 import org.apache.ignite.internal.sql.engine.trait.TraitsAwareIgniteRel;
 import org.apache.ignite.internal.sql.engine.util.Commons;
@@ -200,7 +201,7 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
             RelTraitSet nodeTraits,
             List<RelTraitSet> inputTraits
     ) {
-        // Tere are several rules:
+        // There are several rules:
         // 1) any join is possible on broadcast or single distribution
         // 2) hash distributed join is possible when join keys equal to source distribution keys
         // 3) hash and broadcast distributed tables can be joined when join keys equal to hash
@@ -230,15 +231,17 @@ public abstract class AbstractIgniteJoin extends Join implements TraitsAwareIgni
 
                 // We cannot provide random distribution without unique constraint on join keys,
                 // so, we require hash distribution (wich satisfies random distribution) instead.
-                DistributionFunction function = distrType == HASH_DISTRIBUTED
-                        ? distribution.function()
-                        : DistributionFunction.hash();
-
-                IgniteDistribution outDistr = hash(joinInfo.leftKeys, function);
+                IgniteDistribution outDistr = distrType == HASH_DISTRIBUTED
+                        ? IgniteDistributions.clone(distribution, joinInfo.leftKeys)
+                        : hash(joinInfo.leftKeys);
 
                 if (distrType != HASH_DISTRIBUTED || outDistr.satisfies(distribution)) {
+                    IgniteDistribution rightDistribution = distrType == HASH_DISTRIBUTED
+                            ? IgniteDistributions.clone(distribution, joinInfo.rightKeys)
+                            : hash(joinInfo.rightKeys);
+
                     return Pair.of(nodeTraits.replace(outDistr),
-                            List.of(left.replace(outDistr), right.replace(hash(joinInfo.rightKeys, function))));
+                            List.of(left.replace(outDistr), right.replace(rightDistribution)));
                 }
 
                 break;

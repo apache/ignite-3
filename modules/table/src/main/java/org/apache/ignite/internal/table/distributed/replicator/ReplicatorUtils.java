@@ -24,6 +24,8 @@ import org.apache.ignite.internal.catalog.descriptors.CatalogIndexDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogIndexStatus;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.partition.replicator.network.replication.ReadWriteReplicaRequest;
+import org.apache.ignite.internal.table.distributed.index.IndexMeta;
+import org.apache.ignite.internal.table.distributed.index.IndexMetaStorage;
 import org.apache.ignite.internal.tx.TransactionIds;
 import org.jetbrains.annotations.Nullable;
 
@@ -36,17 +38,22 @@ class ReplicatorUtils {
      * concurrently.</p>
      *
      * @param catalogService Catalog service.
+     * @param indexMetaStorage Storage of index meta.
      * @param tableId Table ID.
      */
-    static @Nullable CatalogIndexDescriptor latestIndexDescriptorInBuildingStatus(CatalogService catalogService, int tableId) {
-        // Since we expect to be executed on the metastore thread, it is safe to use these versions.
+    static @Nullable IndexMeta latestIndexMetaInBuildingStatus(CatalogService catalogService,
+            IndexMetaStorage indexMetaStorage, int tableId) {
+        // Expected to be executed on the metastore notification chain or on node start (when Catalog does not change).
         int latestCatalogVersion = catalogService.latestCatalogVersion();
         int earliestCatalogVersion = catalogService.earliestCatalogVersion();
 
         for (int catalogVersion = latestCatalogVersion; catalogVersion >= earliestCatalogVersion; catalogVersion--) {
             for (CatalogIndexDescriptor indexDescriptor : catalogService.catalog(catalogVersion).indexes(tableId)) {
                 if (indexDescriptor.status() == BUILDING) {
-                    return indexDescriptor;
+                    IndexMeta indexMeta = indexMetaStorage.indexMeta(indexDescriptor.id());
+                    if (indexMeta != null) {
+                        return indexMeta;
+                    }
                 }
             }
         }

@@ -98,7 +98,7 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Adds/updates a write-intent inside of consistency closure.
      */
-    protected BinaryRow addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
+    protected AddWriteResult addWrite(RowId rowId, @Nullable BinaryRow binaryRow, UUID txId) {
         return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
@@ -120,13 +120,11 @@ public abstract class BaseMvPartitionStorageTest extends BaseMvStoragesTest {
     /**
      * Creates a committed version inside of consistency closure.
      */
-    protected void addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
-        storage.runConsistently(locker -> {
+    protected AddWriteCommittedResult addWriteCommitted(RowId rowId, @Nullable BinaryRow row, HybridTimestamp commitTimestamp) {
+        return storage.runConsistently(locker -> {
             locker.lock(rowId);
 
-            storage.addWriteCommitted(rowId, row, commitTimestamp);
-
-            return null;
+            return storage.addWriteCommitted(rowId, row, commitTimestamp);
         });
     }
 

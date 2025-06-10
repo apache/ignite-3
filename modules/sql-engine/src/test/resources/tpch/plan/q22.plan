@@ -1,0 +1,87 @@
+Sort
+    collation: [CNTRYCODE ASC]
+    est: (rows=187295496)
+  ColocatedHashAggregate
+      fieldNames: [CNTRYCODE, NUMCUST, TOTACCTBAL]
+      group: [CNTRYCODE]
+      aggregation: [COUNT(), SUM(C_ACCTBAL)]
+      est: (rows=187295496)
+    Project
+        fieldNames: [CNTRYCODE, C_ACCTBAL]
+        projection: [SUBSTR(C_PHONE, 1, 2), C_ACCTBAL]
+        est: (rows=1873125000)
+      Filter
+          predicate: IS NULL(i)
+          est: (rows=1873125000)
+        CorrelatedNestedLoopJoin
+            predicate: true
+            type: left
+            correlates: [$cor1]
+            est: (rows=7492500000)
+          Project
+              fieldNames: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
+              projection: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
+              est: (rows=75000)
+            NestedLoopJoin
+                predicate: >(CAST(C_ACCTBAL):DECIMAL(29, 16) NOT NULL, EXPR$0)
+                type: inner
+                est: (rows=75000)
+              Exchange
+                  distribution: single
+                  est: (rows=150000)
+                TableScan
+                    table: PUBLIC.CUSTOMER
+                    predicate: OR(=(SUBSTR(C_PHONE, 1, 2), _UTF-8'13'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'31'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'23'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'29'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'30'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'18'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'17'))
+                    fieldNames: [C_CUSTKEY, C_PHONE, C_ACCTBAL]
+                    est: (rows=150000)
+              Project
+                  fieldNames: [EXPR$0]
+                  projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(29, 16), DECIMAL_DIVIDE(f0_0, f1_1, 29, 16))]
+                  est: (rows=1)
+                ReduceSortAggregate
+                    fieldNames: [f0_0, f1_1]
+                    collation: []
+                    group: []
+                    aggregation: [SUM(0), $SUM0(1)]
+                    est: (rows=1)
+                  Project
+                      fieldNames: [0, 1]
+                      projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                      est: (rows=1)
+                    Exchange
+                        distribution: single
+                        est: (rows=1)
+                      MapSortAggregate
+                          fieldNames: [_ACC0, _ACC1]
+                          collation: []
+                          group: []
+                          aggregation: [SUM(C_ACCTBAL), COUNT(C_ACCTBAL)]
+                          est: (rows=1)
+                        TableScan
+                            table: PUBLIC.CUSTOMER
+                            predicate: AND(>(C_ACCTBAL, 0.00), OR(=(SUBSTR(C_PHONE, 1, 2), _UTF-8'13'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'31'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'23'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'29'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'30'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'18'), =(SUBSTR(C_PHONE, 1, 2), _UTF-8'17')))
+                            fieldNames: [C_ACCTBAL]
+                            est: (rows=75000)
+          ReduceHashAggregate
+              fieldNames: [i]
+              group: [i]
+              aggregation: []
+              est: (rows=99900)
+            Exchange
+                distribution: single
+                est: (rows=99900)
+              MapHashAggregate
+                  fieldNames: [i, _GROUP_ID]
+                  group: [i]
+                  aggregation: []
+                  est: (rows=99900)
+                IndexScan
+                    table: PUBLIC.ORDERS
+                    index: O_CK
+                    type: SORTED
+                    predicate: =(O_CUSTKEY, $cor1.C_CUSTKEY)
+                    searchBounds: [ExactBounds [bound=$cor1.C_CUSTKEY]]
+                    fieldNames: [i]
+                    projection: [true]
+                    collation: []
+                    est: (rows=499500)
