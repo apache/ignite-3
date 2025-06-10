@@ -350,7 +350,8 @@ Exchange
           table: PUBLIC.DEPT
           ...
 ----
-We can see that both tables are colocated by predicate involved columns, thus no additional cross nodes data transfer is raised in such a case.
+Now, both tables are colocated by predicate involved columns. No more intermediate **Exchange** contained in plan,
+thus no additional cross nodes data transfer is raised in such a case.
 
 == Select count optimization
 Some queries can be optimized to use more optimal plans which brings performance speed up. For example, plan for:
