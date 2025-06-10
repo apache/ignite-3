@@ -28,8 +28,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -71,6 +73,10 @@ import org.junit.jupiter.api.Test;
  *     // Both tables have distribution affinity([0], tableId, zoneId)
  *     addTable("T1", "N1");
  *     addTable("T2", "N2", "N3");
+ *
+ *     // Near semantic defines table T1 with primary partitions on nodes N0 and N1
+ *     // together with backups placed on N1 and N2.
+ *     addTable("T1", List.of(List.of("N0", "N1"), List.of("N1", "N2")));
  *
  *     // Adds table with identity(0) distribution. Can be used to mimic node system views.
  *     addTableIdent("NT1", "N1");
@@ -269,6 +275,8 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         addTable("T2", List.of(List.of("N0", "N1", "N2")));
         addTable("T3", List.of(List.of("N1", "N2")));
 
+        addTable("T4", List.of(List.of("N0", "N1"), List.of("N2", "N1")));
+
         testRunner.runTest(this::initSchema, "test_backup_mapping.test");
     }
 
@@ -298,7 +306,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         String tableName = name;
 
         for (List<String> partitionNodes : assignments) {
-            tableName = formatName(tableName, new TreeSet<>(partitionNodes));
+            tableName = formatName(tableName, new LinkedHashSet<>(partitionNodes));
         }
 
         tables.put(
@@ -439,7 +447,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
         }
     }
 
-    private static String formatName(String name, TreeSet<String> nodeNames) {
+    private static String formatName(String name, Set<String> nodeNames) {
         return name + "_" + String.join("", nodeNames);
     }
 
