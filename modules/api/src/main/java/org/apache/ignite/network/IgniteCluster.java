@@ -18,6 +18,7 @@
 package org.apache.ignite.network;
 
 import java.util.Collection;
+import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -30,6 +31,13 @@ public interface IgniteCluster {
      * @return Collection of cluster nodes.
      */
     Collection<ClusterNode> nodes();
+
+    /**
+     * Gets the cluster nodes.
+     *
+     * @return Collection of cluster nodes.
+     */
+    CompletableFuture<Collection<ClusterNode>> nodesAsync();
 
     /**
      * Gets the local cluster node.

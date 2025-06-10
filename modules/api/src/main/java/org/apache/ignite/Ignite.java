@@ -77,17 +77,21 @@ public interface Ignite {
      * @deprecated Use {@link IgniteCluster#nodes()} instead.
      */
     @Deprecated
-    Collection<ClusterNode> clusterNodes();
+    default Collection<ClusterNode> clusterNodes() {
+        return cluster().nodes();
+    }
 
     /**
      * Returns cluster nodes.
      * NOTE: A temporary API to enable Compute until the permanent Cluster API becomes available.
      *
      * @return Collection of cluster nodes.
-     * @deprecated Use {@link IgniteCluster#nodes()} instead.
+     * @deprecated Use {@link IgniteCluster#nodesAsync()} instead.
      */
     @Deprecated
-    CompletableFuture<Collection<ClusterNode>> clusterNodesAsync();
+    default CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
+        return cluster().nodesAsync();
+    }
 
     /**
      * Returns {@link IgniteCatalog} which can be used to create and execute SQL DDL queries from annotated classes or
