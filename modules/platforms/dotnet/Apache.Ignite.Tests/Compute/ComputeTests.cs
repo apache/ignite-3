@@ -659,6 +659,7 @@ namespace Apache.Ignite.Tests.Compute
 
             await cts.CancelAsync();
 
+            // TODO: Wait for status to avoid flaky
             await AssertJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
 
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
@@ -686,6 +687,7 @@ namespace Apache.Ignite.Tests.Compute
 
             foreach (var jobExec in jobExecution.JobExecutions)
             {
+                // TODO: Wait for status to avoid flaky
                 await AssertJobStatus(jobExec, JobStatus.Canceled, beforeStart);
 
                 var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
