@@ -64,7 +64,10 @@ struct handshake_response {
     protocol_context context{};
 
     /** Observable timestamp. */
-    int64_t observable_timestamp;
+    std::int64_t observable_timestamp;
+
+    /** Observable timestamp in ms. */
+    std::int64_t idle_timeout_ms;
 };
 
 /**
