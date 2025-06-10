@@ -42,6 +42,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.binarytuple.BinaryTupleBuilder;
@@ -191,21 +192,24 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyMapCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_GET_ALL,
-                            (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
-                            this::readGetAllResponse,
-                            Collections.emptyMap(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                new HashMap<>(),
-                (agg, cur) -> {
-                    agg.putAll(cur);
-                    return agg;
-                },
-                (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
+        BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Map<K, V>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_GET_ALL,
+                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    this::readGetAllResponse,
+                    Collections.emptyMap(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, clo, new HashMap<>(), (agg, cur) -> {
+            agg.putAll(cur);
+            return agg;
+        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
 
     /** {@inheritDoc} */
@@ -242,16 +246,20 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return trueCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                            (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
-                            r -> r.in().unpackBoolean(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                Boolean.TRUE,
-                (agg, cur) -> agg && cur,
+        BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Boolean>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    r -> r.in().unpackBoolean(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
 
@@ -296,21 +304,27 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             validateNullableValue(e.getValue(), valSer.mapper().targetType());
         }
 
-        return tbl.split(tx, pairs.entrySet(), (batch, part) -> {
-                    return tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_UPSERT_ALL,
-                            (s, w, n) -> {
-                                writeSchemaAndTx(s, w, n, tx);
-                                w.out().packInt(batch.size());
+        BiFunction<Collection<Entry<K, V>>, PartitionAwarenessProvider, CompletableFuture<Void>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_UPSERT_ALL,
+                    (s, w, n) -> {
+                        writeSchemaAndTx(s, w, n, tx);
+                        w.out().packInt(batch.size());
 
-                                for (Entry<K, V> e : batch) {
-                                    writeKeyValueRaw(s, w, e.getKey(), e.getValue());
-                                }
-                            },
-                            r -> null,
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                }, null, (agg, cur) -> null,
+                        for (Entry<K, V> e : batch) {
+                            writeKeyValueRaw(s, w, e.getKey(), e.getValue());
+                        }
+                    },
+                    r -> null,
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(keySer.mapper(), pairs.keySet().iterator().next()));
+        }
+
+        return tbl.split(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry.getKey()));
     }
 
@@ -457,19 +471,24 @@ public class ClientKeyValueView<K, V> extends AbstractClientView<Entry<K, V>> im
             return emptyCollectionCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_DELETE_ALL,
-                            (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
-                            (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
-                            Collections.emptyList(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                }, new HashSet<>(), (agg, cur) -> {
-                    agg.addAll(cur);
-                    return agg;
-                },
-                (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
+        BiFunction<Collection<K>, PartitionAwarenessProvider, CompletableFuture<Collection<K>>> batchFunc = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_DELETE_ALL,
+                    (s, w, n) -> keySer.writeRecs(tx, batch, s, w, n, TuplePart.KEY),
+                    (s, r) -> keySer.readRecs(s, r.in(), false, TuplePart.KEY),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return batchFunc.apply(keys, getPartitionAwarenessProvider(keySer.mapper(), keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, batchFunc, new HashSet<>(), (agg, cur) -> {
+            agg.addAll(cur);
+            return agg;
+        }, (schema, entry) -> getColocationHash(schema, keySer.mapper(), entry));
     }
 
     @Override

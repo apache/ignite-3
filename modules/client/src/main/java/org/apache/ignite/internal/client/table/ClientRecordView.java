@@ -34,6 +34,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -106,15 +107,21 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.split(tx, keyRecs, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_GET_ALL,
-                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
-                            (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
-                            Collections.emptyList(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
+        BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<List<R>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_GET_ALL,
+                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                    (s, r) -> ser.readRecs(s, r.in(), true, TuplePart.KEY_AND_VAL),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keyRecs, getPartitionAwarenessProvider(ser.mapper(), keyRecs.iterator().next()));
+        }
+
+        return tbl.split(tx, keyRecs, clo,
                 new ArrayList<>(Collections.nCopies(keyRecs.size(), null)),
                 ClientTable::orderAwareReducer,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
@@ -154,16 +161,20 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return trueCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
-                            r -> r.in().unpackBoolean(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                Boolean.TRUE,
-                (agg, cur) -> agg && cur,
+        BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<Boolean>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                    r -> r.in().unpackBoolean(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(ser.mapper(), keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -201,16 +212,20 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return nullCompletedFuture();
         }
 
-        return tbl.split(tx, recs, (batch, part) -> {
-                    return tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_UPSERT_ALL,
-                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
-                            r -> null,
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                null,
-                (agg, cur) -> null,
+        BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<Void>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_UPSERT_ALL,
+                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
+                    r -> null,
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(recs, getPartitionAwarenessProvider(ser.mapper(), recs.iterator().next()));
+        }
+
+        return tbl.split(tx, recs, clo, null, (agg, cur) -> null,
                 (schema, entry) -> getColocationHash(schema, ser.mapper(), entry));
     }
 
@@ -268,16 +283,21 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.split(tx, recs, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_INSERT_ALL,
-                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
-                            (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
-                            Collections.emptyList(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                new ArrayList<>(recs.size()),
+        BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<List<R>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_INSERT_ALL,
+                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
+                    (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(recs, getPartitionAwarenessProvider(ser.mapper(), recs.iterator().next()));
+        }
+
+        return tbl.split(tx, recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -422,16 +442,21 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.split(tx, keyRecs, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_DELETE_ALL,
-                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
-                            (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
-                            Collections.emptyList(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                new ArrayList<>(keyRecs.size()),
+        BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<List<R>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_DELETE_ALL,
+                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY, true),
+                    (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keyRecs, getPartitionAwarenessProvider(ser.mapper(), keyRecs.iterator().next()));
+        }
+
+        return tbl.split(tx, keyRecs, clo, new ArrayList<>(keyRecs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
@@ -459,16 +484,21 @@ public class ClientRecordView<R> extends AbstractClientView<R> implements Record
             return emptyListCompletedFuture();
         }
 
-        return tbl.split(tx, recs, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_DELETE_ALL_EXACT,
-                            (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
-                            (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
-                            Collections.emptyList(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                new ArrayList<>(recs.size()),
+        BiFunction<Collection<R>, PartitionAwarenessProvider, CompletableFuture<List<R>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_DELETE_ALL_EXACT,
+                    (s, w, n) -> ser.writeRecs(tx, batch, s, w, n, TuplePart.KEY_AND_VAL),
+                    (s, r) -> ser.readRecs(s, r.in(), false, TuplePart.KEY_AND_VAL),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(recs, getPartitionAwarenessProvider(ser.mapper(), recs.iterator().next()));
+        }
+
+        return tbl.split(tx, recs, clo, new ArrayList<>(recs.size()),
                 (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
