@@ -622,7 +622,6 @@ namespace Apache.Ignite.Tests.Sql
         [Test]
         public async Task TestCancelQueryExecute()
         {
-            // TODO: File a ticket for SQL - this query can't be properly cancelled on the server side, we wait a lot.
             // Cross join will produce 10^N rows, which takes a while to execute.
             var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(7)})";
 
