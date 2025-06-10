@@ -31,7 +31,7 @@ import static org.apache.ignite.internal.distributionzones.DistributionZonesTest
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.plannedPartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesTestUtil.stablePartitionAssignmentsKey;
 import static org.apache.ignite.internal.distributionzones.DistributionZonesUtil.PARTITION_DISTRIBUTION_RESET_TIMEOUT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_PROP_DURATION;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.assertThrows;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.runRace;
@@ -1788,7 +1788,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void waitForPartitionState(IgniteImpl node0, int partId, GlobalPartitionStateEnum expectedState) throws InterruptedException {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             waitForZonePartitionState(node0, partId, expectedState);
         } else {
             waitForTablePartitionState(node0, partId, expectedState);
@@ -1841,7 +1841,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private void assertLocalState(IgniteImpl node0, int partId, LocalPartitionStateEnum state) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             assertZoneLocalState(node0, partId, state);
         } else {
             assertTableLocalState(node0, partId, state);
@@ -1915,7 +1915,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
     }
 
     private PartitionGroupId partitionGroupId(int partId) {
-        return enabledColocation() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
+        return colocationEnabled() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
     }
 
     private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
@@ -2129,7 +2129,7 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
 
     private @Nullable AssignmentsChain getAssignmentsChain(IgniteImpl node, int partId) {
         CompletableFuture<Entry> chainFut;
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             chainFut = node.metaStorageManager()
                     .get(ZoneRebalanceUtil.assignmentsChainKey(new ZonePartitionId(zoneId, partId)));
         } else {

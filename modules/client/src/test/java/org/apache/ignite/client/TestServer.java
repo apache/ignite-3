@@ -53,6 +53,7 @@ import org.apache.ignite.client.handler.configuration.ClientConnectorExtensionCo
 import org.apache.ignite.internal.client.ClientClusterNode;
 import org.apache.ignite.internal.cluster.management.ClusterTag;
 import org.apache.ignite.internal.cluster.management.network.messages.CmgMessagesFactory;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.compute.IgniteComputeInternal;
 import org.apache.ignite.internal.configuration.ConfigurationRegistry;
 import org.apache.ignite.internal.configuration.ConfigurationTreeGenerator;
@@ -284,6 +285,7 @@ public class TestServer implements AutoCloseable {
                         ignite.placementDriver(),
                         clientConnectorConfiguration,
                         new TestLowWatermark(),
+                        new SystemPropertiesNodeProperties(),
                         Runnable::run
                 );
 

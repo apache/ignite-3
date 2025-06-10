@@ -18,7 +18,7 @@
 package org.apache.ignite.internal.table.distributed.disaster;
 
 import static java.util.Collections.emptySet;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
 
@@ -35,7 +35,7 @@ import org.apache.ignite.internal.replicator.ZonePartitionId;
 public class TestDisasterRecoveryUtils {
 
     /**
-     * Reset partitions depending on {@link IgniteSystemProperties#enabledColocation}.
+     * Reset partitions depending on {@link IgniteSystemProperties#colocationEnabled}.
      *
      * @param disasterRecoveryManager disaster recovery manager.
      * @param zoneName zone name.
@@ -55,7 +55,7 @@ public class TestDisasterRecoveryUtils {
             boolean manualUpdate,
             long triggerRevision
     ) {
-        if (enabledColocation()) {
+        if (colocationEnabled()) {
             return disasterRecoveryManager.resetPartitions(zoneName, partitionIds, manualUpdate, triggerRevision);
         } else {
             return disasterRecoveryManager
@@ -64,7 +64,7 @@ public class TestDisasterRecoveryUtils {
     }
 
     /**
-     * Return assignments based on states of partitions in the cluster depending on {@link IgniteSystemProperties#enabledColocation}. It is
+     * Return assignments based on states of partitions in the cluster depending on {@link IgniteSystemProperties#colocationEnabled}. It is
      * possible that returned value contains nodes from stable and pending, for example, when rebalance is in progress.
      *
      * @param disasterRecoveryManager disaster recovery manager.
@@ -81,7 +81,7 @@ public class TestDisasterRecoveryUtils {
             int tableId,
             int partitionId
     ) {
-        return enabledColocation()
+        return colocationEnabled()
                 ? getZoneRealAssignments(disasterRecoveryManager, zoneName, new ZonePartitionId(zoneId, partitionId))
                 : getTableRealAssignments(disasterRecoveryManager, zoneName, new TablePartitionId(tableId, partitionId));
     }

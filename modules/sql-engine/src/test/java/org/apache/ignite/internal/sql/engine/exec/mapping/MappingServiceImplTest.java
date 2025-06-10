@@ -49,6 +49,8 @@ import org.apache.ignite.internal.catalog.Catalog;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogZoneDescriptor;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.hlc.TestClockService;
@@ -153,7 +155,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> defaultMapping = await(mappingService.map(PLAN, PARAMS));
@@ -164,6 +167,10 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
         assertSame(defaultMapping, await(mappingService.map(PLAN, PARAMS)));
         assertSame(mappingOnBackups, await(mappingService.map(PLAN, MappingParameters.MAP_ON_BACKUPS)));
         assertNotSame(defaultMapping, mappingOnBackups);
+    }
+
+    private static NodeProperties nodeProperties() {
+        return new SystemPropertiesNodeProperties();
     }
 
     @Test
@@ -222,7 +229,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> tableOnlyMapping = await(mappingService.map(PLAN, PARAMS));
@@ -253,7 +261,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     // TODO https://issues.apache.org/jira/browse/IGNITE-22522 Remove this test.
     // The colocation case is covered by {@link #testCacheInvalidationOnPrimaryZoneExpiration()}.
     @Test
-    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @DisabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testCacheInvalidationOnPrimaryExpiration() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
@@ -284,7 +292,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
@@ -303,7 +312,7 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
     }
 
     @Test
-    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#enabledColocation")
+    @EnabledIf("org.apache.ignite.internal.lang.IgniteSystemProperties#colocationEnabled")
     public void testCacheInvalidationOnPrimaryZoneExpiration() {
         String localNodeName = "NODE";
         List<String> nodeNames = List.of(localNodeName, "NODE1");
@@ -331,7 +340,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 100,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         ));
 
         List<MappedFragment> mappedFragments = await(mappingService.map(PLAN, PARAMS));
@@ -364,7 +374,8 @@ public class MappingServiceImplTest extends BaseIgniteAbstractTest {
                 cacheSize,
                 PARTITION_PRUNER,
                 logicalTopologyVerSupplier,
-                execProvider
+                execProvider,
+                nodeProperties()
         );
     }
 

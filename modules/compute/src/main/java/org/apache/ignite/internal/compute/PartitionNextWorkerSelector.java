@@ -17,8 +17,7 @@
 
 package org.apache.ignite.internal.compute;
 
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
-
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.placementdriver.PlacementDriver;
@@ -39,13 +38,14 @@ class PartitionNextWorkerSelector extends PrimaryReplicaNextWorkerSelector {
             PlacementDriver placementDriver,
             TopologyService topologyService,
             HybridClock clock,
+            NodeProperties nodeProperties,
             int zoneId,
             int tableId,
             Partition partition
     ) {
         super(placementDriver, topologyService, clock);
 
-        this.partitionGroupId = enabledColocation()
+        this.partitionGroupId = nodeProperties.colocationEnabled()
                 ? new ZonePartitionId(zoneId, ((HashPartition) partition).partitionId())
                 : new TablePartitionId(tableId, ((HashPartition) partition).partitionId());
     }

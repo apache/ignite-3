@@ -22,7 +22,6 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.CompletableFuture.failedFuture;
 import static org.apache.ignite.internal.compute.ComputeUtils.convertToComputeFuture;
 import static org.apache.ignite.internal.lang.IgniteExceptionMapperUtil.mapToPublicException;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.util.CompletableFutures.allOfToList;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
@@ -64,6 +63,7 @@ import org.apache.ignite.compute.task.MapReduceJob;
 import org.apache.ignite.compute.task.TaskExecution;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.client.proto.StreamerReceiverSerializer;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.streamer.StreamerReceiverJob;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.TopologyService;
@@ -106,17 +106,25 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
 
     private final HybridClock clock;
 
+    private final NodeProperties nodeProperties;
+
     /**
      * Create new instance.
      */
-    public IgniteComputeImpl(PlacementDriver placementDriver, TopologyService topologyService,
-            IgniteTablesInternal tables, ComputeComponent computeComponent,
-            HybridClock clock) {
+    public IgniteComputeImpl(
+            PlacementDriver placementDriver,
+            TopologyService topologyService,
+            IgniteTablesInternal tables,
+            ComputeComponent computeComponent,
+            HybridClock clock,
+            NodeProperties nodeProperties
+    ) {
         this.placementDriver = placementDriver;
         this.topologyService = topologyService;
         this.tables = tables;
         this.computeComponent = computeComponent;
         this.clock = clock;
+        this.nodeProperties = nodeProperties;
 
         tables.setStreamerReceiverRunner(this);
     }
@@ -156,7 +164,15 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                         .thenCompose(table -> primaryReplicaForPartitionByMappedKey(table, key, mapper)
                                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                                         primaryNode,
-                                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key, mapper),
+                                        new NextColocatedWorkerSelector<>(
+                                                placementDriver,
+                                                topologyService,
+                                                clock,
+                                                nodeProperties,
+                                                table,
+                                                key,
+                                                mapper
+                                        ),
                                         descriptor.units(),
                                         descriptor.jobClassName(),
                                         descriptor.options(),
@@ -273,7 +289,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .build();
 
         PartitionNextWorkerSelector nextWorkerSelector = new PartitionNextWorkerSelector(
-                placementDriver, topologyService, clock,
+                placementDriver, topologyService, clock, nodeProperties,
                 zoneId, tableId, partition
         );
         return submitForBroadcast(node, descriptor, options, nextWorkerSelector, argHolder, cancellationToken);
@@ -450,7 +466,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
         return primaryReplicaForPartitionByTupleKey(table, key)
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
-                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, table, key),
+                        new NextColocatedWorkerSelector<>(placementDriver, topologyService, clock, nodeProperties, table, key),
                         units, jobClassName, options, arg, cancellationToken
                 ));
     }
@@ -477,7 +493,8 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
                 .thenCompose(primaryNode -> executeOnOneNodeWithFailover(
                         primaryNode,
                         new PartitionNextWorkerSelector(
-                                placementDriver, topologyService, clock, table.zoneId(), table.tableId(), partition),
+                                placementDriver, topologyService, clock, nodeProperties,
+                                table.zoneId(), table.tableId(), partition),
                         units, jobClassName, options, arg, cancellationToken
                 ));
     }
@@ -501,7 +518,7 @@ public class IgniteComputeImpl implements IgniteComputeInternal, StreamerReceive
     }
 
     private CompletableFuture<ClusterNode> primaryReplicaForPartition(TableViewInternal table, int partitionIndex) {
-        PartitionGroupId replicationGroupId = enabledColocation()
+        PartitionGroupId replicationGroupId = nodeProperties.colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), partitionIndex)
                 : new TablePartitionId(table.tableId(), partitionIndex);
 
