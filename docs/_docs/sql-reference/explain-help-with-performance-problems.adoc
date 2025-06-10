@@ -321,7 +321,8 @@ Exchange
             table: PUBLIC.DEPT
             ...
 ----
-We can see additional **Exchange** operator, which indicates that rows from one node are transferred into another.
+We can see **Exchange** operator between two table scans, which means that predicate involved rows belonging to the same table will be transferred into different nodes, which holds corresponding predicate involved columns but have a different distribution.
+
 After changing 'lost' colocation:
 [source,sql]
 ----
@@ -349,6 +350,8 @@ Exchange
           table: PUBLIC.DEPT
           ...
 ----
+We can see that both tables are colocated by predicate involved columns, thus no additional cross nodes data transfer is raised in such a case.
+
 == Select count optimization
 Some queries can be optimized to use more optimal plans which brings performance speed up. For example, plan for:
 [source,sql]
