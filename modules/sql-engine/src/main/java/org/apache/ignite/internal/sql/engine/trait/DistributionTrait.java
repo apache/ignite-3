@@ -203,7 +203,7 @@ public final class DistributionTrait implements IgniteDistribution {
     public String toString() {
         return function.name()
                 + (function.type() == HASH_DISTRIBUTED ? keys : "")
-                + (isAffinityDistribution() ? "[zone=" + zoneId + ']' : "");
+                + (isAffinityDistribution() ? "[zoneId=" + zoneId + ", tableId=" + tableId + ']' : "");
     }
 
     /** {@inheritDoc} */
