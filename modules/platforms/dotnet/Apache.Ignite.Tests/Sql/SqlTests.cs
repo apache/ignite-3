@@ -632,8 +632,9 @@ namespace Apache.Ignite.Tests.Sql
             TestUtils.WaitForCancellationRegistrations(cts);
             await cts.CancelAsync();
 
-            await using var cursor = await cursorTask;
-            await cursor.ToListAsync();
+            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await cursorTask);
+            Assert.AreEqual("The query was cancelled while executing.", ex!.Message);
+            Assert.IsInstanceOf<SqlException>(ex.InnerException);
         }
 
         private static string GenerateCrossJoin(int depth)
