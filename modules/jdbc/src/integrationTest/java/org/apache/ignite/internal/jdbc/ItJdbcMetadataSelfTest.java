@@ -36,9 +36,7 @@ import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.StringJoiner;
 import java.util.UUID;
 import org.apache.ignite.internal.client.proto.ProtocolVersion;
@@ -60,11 +58,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     @BeforeAll
     public static void createTables() throws SQLException {
         try (Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("CREATE TABLE person(name VARCHAR, age INT, orgid INT PRIMARY KEY)");
-            stmt.executeUpdate("INSERT INTO person (orgid, name, age) VALUES (1, '111', 111)");
-
-            stmt.executeUpdate("CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10))");
-            stmt.executeUpdate("INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10)");
+            stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC;"
+                    + "CREATE SCHEMA IF NOT EXISTS USER1;"
+                    + "CREATE SCHEMA IF NOT EXISTS USER2;"
+                    + "CREATE TABLE person(name VARCHAR, age INT, orgid INT PRIMARY KEY);"
+                    + "CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10));"
+                    + "INSERT INTO person (orgid, name, age) VALUES (1, '111', 111);"
+                    + "INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10);"
+            );
         }
     }
 
@@ -431,17 +432,25 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
     @Test
     public void testSchemasMetadata() throws Exception {
-        ResultSet rs = conn.getMetaData().getSchemas();
+        try (ResultSet rs = conn.getMetaData().getSchemas()) {
+            List<String> schemas = new ArrayList<>();
 
-        Set<String> expectedSchemas = new HashSet<>(Arrays.asList("PUBLIC", "PUBLIC"));
+            while (rs.next()) {
+                schemas.add(rs.getString(1));
+            }
 
-        Set<String> schemas = new HashSet<>();
-
-        while (rs.next()) {
-            schemas.add(rs.getString(1));
+            assertEquals(List.of("PUBLIC", "SYSTEM", "USER1", "USER2"), schemas);
         }
 
-        assertEquals(schemas, expectedSchemas);
+        try (ResultSet rs = conn.getMetaData().getSchemas("IGNITE", "USER%")) {
+            List<String> schemas = new ArrayList<>();
+
+            while (rs.next()) {
+                schemas.add(rs.getString(1));
+            }
+
+            assertEquals(List.of("USER1", "USER2"), schemas);
+        }
     }
 
     @Test

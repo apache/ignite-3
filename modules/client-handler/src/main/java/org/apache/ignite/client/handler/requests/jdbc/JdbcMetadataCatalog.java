@@ -22,15 +22,17 @@ import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 import java.sql.DatabaseMetaData;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import org.apache.ignite.internal.catalog.CatalogService;
+import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
@@ -41,7 +43,6 @@ import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaSyncService;
 import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
-import org.apache.ignite.internal.sql.SqlCommon;
 import org.apache.ignite.internal.sql.engine.util.Commons;
 import org.apache.ignite.internal.type.NativeType;
 import org.apache.ignite.internal.util.Pair;
@@ -101,19 +102,24 @@ public class JdbcMetadataCatalog {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
-        return tablesAtNow()
-                .thenApply(tables -> tables.stream()
-                        .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
-                        .map(this::createPrimaryKeyMeta)
-                        .collect(toSet())
+        return schemasAtNow()
+                .thenApply(schemas ->
+                    schemas.stream()
+                            .filter(schema -> matches(schema.name(), schemaNameRegex))
+                            .flatMap(schema ->
+                                Arrays.stream(schema.tables())
+                                        .filter(table -> matches(table.name(), tlbNameRegex))
+                                        .map(table -> createPrimaryKeyMeta(schema.name(), table))
+                            )
+                            .collect(toSet())
                 );
     }
 
-    private CompletableFuture<Collection<CatalogTableDescriptor>> tablesAtNow() {
+    private CompletableFuture<Collection<CatalogSchemaDescriptor>> schemasAtNow() {
         HybridTimestamp now = clockService.now();
 
         return schemaSyncService.waitForMetadataCompleteness(now)
-                .thenApply(unused -> catalogService.activeCatalog(now.longValue()).tables());
+                .thenApply(unused -> catalogService.activeCatalog(now.longValue()).schemas());
     }
 
     /**
@@ -133,21 +139,18 @@ public class JdbcMetadataCatalog {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
-        return tablesAtNow().thenApply(tables -> {
-            return tables.stream()
-                    .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
-                    .sorted(byTblTypeThenSchemaThenTblName)
-                    .map(t -> new JdbcTableMeta(SqlCommon.DEFAULT_SCHEMA_NAME, t.name(), TBL_TYPE))
-                    .collect(toList());
-        });
-    }
-
-    private static boolean tableNameAndSchemaMatches(
-            CatalogTableDescriptor table,
-            @Nullable String schemaNameRegex,
-            @Nullable String tlbNameRegex
-    ) {
-        return matches(SqlCommon.DEFAULT_SCHEMA_NAME, schemaNameRegex) && matches(table.name(), tlbNameRegex);
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .sorted(Comparator.comparing(CatalogSchemaDescriptor::name))
+                        .flatMap(schema ->
+                                Arrays.stream(schema.tables())
+                                        .filter(table -> matches(table.name(), tlbNameRegex))
+                                        .sorted(byTblTypeThenSchemaThenTblName)
+                                        .map(t -> new JdbcTableMeta(schema.name(), t.name(), TBL_TYPE))
+                        )
+                        .collect(toList())
+        );
     }
 
     /**
@@ -165,19 +168,25 @@ public class JdbcMetadataCatalog {
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
         String colNameRegex = translateSqlWildcardsToRegex(colNamePtrn);
 
-        return tablesAtNow().thenApply(tablesList -> tablesList.stream()
-                .filter(t -> tableNameAndSchemaMatches(t, schemaNameRegex, tlbNameRegex))
-                .flatMap(
-                    tbl -> {
-                        SchemaDescriptor schema = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .sorted(Comparator.comparing(CatalogSchemaDescriptor::name))
+                        .flatMap(schema ->
+                                Arrays.stream(schema.tables())
+                                        .filter(table -> matches(table.name(), tlbNameRegex))
+                                        .flatMap(tbl -> {
+                                            SchemaDescriptor schema0 = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
 
-                        return schema.columns().stream()
-                                .map(column -> new Pair<>(tbl.name(), column));
-                    })
-                .filter(e -> matches(e.getSecond().name(), colNameRegex))
-                .sorted(bySchemaThenTabNameThenColOrder)
-                .map(pair -> createColumnMeta(pair.getFirst(), pair.getSecond()))
-                .collect(toCollection(LinkedHashSet::new)));
+                                            return schema0.columns().stream()
+                                                    .map(column -> new Pair<>(tbl.name(), column));
+                                        })
+                                        .filter(e -> matches(e.getSecond().name(), colNameRegex))
+                                        .sorted(bySchemaThenTabNameThenColOrder)
+                                        .map(pair -> createColumnMeta(schema.name(), pair.getFirst(), pair.getSecond()))
+                        )
+                        .collect(toCollection(LinkedHashSet::new))
+        );
     }
 
     /**
@@ -189,19 +198,13 @@ public class JdbcMetadataCatalog {
      * @return Future of the schema names that matches provided pattern.
      */
     public CompletableFuture<Collection<String>> getSchemasMeta(String schemaNamePtrn) {
-        SortedSet<String> schemas = new TreeSet<>(); // to have values sorted.
-
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
 
-        if (matches(SqlCommon.DEFAULT_SCHEMA_NAME, schemaNameRegex)) {
-            schemas.add(SqlCommon.DEFAULT_SCHEMA_NAME);
-        }
-
-        return tablesAtNow().thenApply(tables ->
-                tables.stream()
-                    .map(tbl -> SqlCommon.DEFAULT_SCHEMA_NAME)
-                    .filter(schema -> matches(schema, schemaNameRegex))
-                    .collect(toCollection(() -> schemas))
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .map(CatalogObjectDescriptor::name)
+                        .filter(name -> matches(name, schemaNameRegex))
+                        .collect(toCollection(TreeSet::new))
         );
     }
 
@@ -211,27 +214,28 @@ public class JdbcMetadataCatalog {
      * @param tbl Table.
      * @return Jdbc primary key metadata.
      */
-    private JdbcPrimaryKeyMeta createPrimaryKeyMeta(CatalogTableDescriptor tbl) {
+    private static JdbcPrimaryKeyMeta createPrimaryKeyMeta(String schemaName, CatalogTableDescriptor tbl) {
         String keyName = PK + tbl.name();
 
         List<String> keyColNames = List.copyOf(tbl.primaryKeyColumns());
 
-        return new JdbcPrimaryKeyMeta(SqlCommon.DEFAULT_SCHEMA_NAME, tbl.name(), keyName, keyColNames);
+        return new JdbcPrimaryKeyMeta(schemaName, tbl.name(), keyName, keyColNames);
     }
 
     /**
      * Creates column metadata from column and table name.
      *
+     * @param schemaName Schema name.
      * @param tblName Table name.
-     * @param col     Column.
+     * @param col Column.
      * @return Column metadata.
      */
-    private JdbcColumnMeta createColumnMeta(String tblName, Column col) {
+    private static JdbcColumnMeta createColumnMeta(String schemaName, String tblName, Column col) {
         NativeType colType = col.type();
 
         return new JdbcColumnMeta(
                 col.name(),
-                SqlCommon.DEFAULT_SCHEMA_NAME,
+                schemaName,
                 tblName,
                 col.name(),
                 colType.spec(),
