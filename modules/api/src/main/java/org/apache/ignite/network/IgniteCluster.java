@@ -20,9 +20,21 @@ package org.apache.ignite.network;
 import java.util.Collection;
 import org.jetbrains.annotations.Nullable;
 
+/**
+ * Ignite cluster. Provides access to cluster nodes and the local node.
+ */
 public interface IgniteCluster {
+    /**
+     * Gets the cluster nodes.
+     *
+     * @return Collection of cluster nodes.
+     */
     Collection<ClusterNode> nodes();
 
-    // Null on client.
+    /**
+     * Gets the local cluster node.
+     *
+     * @return Local cluster node (embedded mode), or {@code null} if not applicable (client side).
+     */
     @Nullable ClusterNode localNode();
 }
