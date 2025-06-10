@@ -59,10 +59,13 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public static void createTables() throws SQLException {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC;"
+                    + "CREATE SCHEMA IF NOT EXISTS META;"
                     + "CREATE SCHEMA IF NOT EXISTS USER1;"
                     + "CREATE SCHEMA IF NOT EXISTS USER2;"
                     + "CREATE TABLE person(name VARCHAR, age INT, orgid INT PRIMARY KEY);"
                     + "CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10));"
+                    + "CREATE TABLE user1.table1(id INT PRIMARY KEY);"
+                    + "CREATE TABLE user2.table2(id INT PRIMARY KEY);"
                     + "INSERT INTO person (orgid, name, age) VALUES (1, '111', 111);"
                     + "INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10);"
             );
@@ -127,7 +130,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             DatabaseMetaData dbMeta = conn.getMetaData();
 
             List<JdbcColumnMeta> columnsMeta = new ArrayList<>();
-            try (ResultSet rs = dbMeta.getColumns(null, "PUBLIC", "METATEST", null)) {
+            try (ResultSet rs = dbMeta.getColumns(null, "META", "TEST", null)) {
                 while (rs.next()) {
                     JdbcColumnMeta meta = new JdbcColumnMeta(
                             rs.getString("COLUMN_NAME"),
@@ -146,7 +149,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             ResultSetMetaData rsMeta = new JdbcResultSetMetadata(columnsMeta);
             checkMeta(rsMeta);
         } finally {
-            stmt.execute("DROP TABLE METATEST;");
+            stmt.execute("DROP TABLE META.TEST;");
         }
     }
 
@@ -214,7 +217,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         createMetaTable();
 
         try {
-            ResultSet rs = stmt.executeQuery("SELECT * FROM PUBLIC.METATEST t");
+            ResultSet rs = stmt.executeQuery("SELECT * FROM META.TEST t");
 
             assertNotNull(rs);
 
@@ -222,7 +225,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
             checkMeta(meta);
         } finally {
-            stmt.execute("DROP TABLE METATEST;");
+            stmt.execute("DROP TABLE META.TEST;");
         }
     }
 
@@ -231,7 +234,8 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         assertEquals(16, meta.getColumnCount());
 
-        assertEquals("METATEST", meta.getTableName(1).toUpperCase());
+        assertEquals("META", meta.getSchemaName(1));
+        assertEquals("TEST", meta.getTableName(1).toUpperCase());
 
         int i = 1;
         checkMeta(meta, i++, "BOOLEAN_COL", Types.BOOLEAN, "BOOLEAN", Boolean.class);
@@ -273,7 +277,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                     });
             joiner.add("id INT PRIMARY KEY");
 
-            stmt.executeUpdate("CREATE TABLE metatest(" + joiner + ")");
+            stmt.executeUpdate("CREATE TABLE meta.test(" + joiner + ")");
         } catch (SQLException ex) {
             throw new RuntimeException(ex);
         }
@@ -283,23 +287,74 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public void testGetTables() throws Exception {
         DatabaseMetaData meta = conn.getMetaData();
 
-        ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "%", new String[]{"TABLE"});
-        assertNotNull(rs);
-        assertTrue(rs.next());
-        assertEquals("TABLE", rs.getString("TABLE_TYPE"));
-        assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
-        assertTrue(rs.next());
-        assertEquals("TABLE", rs.getString("TABLE_TYPE"));
-        assertEquals("PERSON", rs.getString("TABLE_NAME"));
+        // PUBLIC tables.
+        {
+            try (ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "%", new String[]{"TABLE"})) {
+                assertNotNull(rs);
+                assertTrue(rs.next());
+                assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+                assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+                assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
+                assertTrue(rs.next());
+                assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+                assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+                assertEquals("PERSON", rs.getString("TABLE_NAME"));
+            }
 
-        rs = meta.getTables("IGNITE", "PUBLIC", "%", null);
-        assertNotNull(rs);
-        assertTrue(rs.next());
-        assertEquals("TABLE", rs.getString("TABLE_TYPE"));
-        assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
+            try (ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "%", null)) {
+                assertNotNull(rs);
+                assertTrue(rs.next());
+                assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+                assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+                assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
+                assertTrue(rs.next());
+                assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+                assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+                assertEquals("PERSON", rs.getString("TABLE_NAME"));
+            }
 
-        rs = meta.getTables("IGNITE", "PUBLIC", "", new String[]{"WRONG"});
-        assertFalse(rs.next());
+            try (ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "", new String[]{"WRONG"})) {
+                assertFalse(rs.next());
+            }
+        }
+
+        // All tables.
+        try (ResultSet rs = meta.getTables("IGNITE", "%", "%", null)) {
+            assertNotNull(rs);
+            assertTrue(rs.next());
+            assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("ORGANIZATION", rs.getString("TABLE_NAME"));
+            assertTrue(rs.next());
+            assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("PERSON", rs.getString("TABLE_NAME"));
+            assertTrue(rs.next());
+            assertEquals("USER1", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("TABLE1", rs.getString("TABLE_NAME"));
+            assertTrue(rs.next());
+            assertEquals("USER2", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("TABLE2", rs.getString("TABLE_NAME"));
+        }
+
+        // System views.
+        {
+            try (ResultSet rs = meta.getTables("IGNITE", "%", "TABLES", new String[]{"VIEW"})) {
+                assertTrue(rs.next());
+                assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+                assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+                assertEquals("TABLES", rs.getString("TABLE_NAME"));
+            }
+
+            try (ResultSet rs = meta.getTables("IGNITE", "SYSTEM", "TABLES", new String[]{"VIEW"})) {
+                assertTrue(rs.next());
+                assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+                assertEquals("VIEW", rs.getString("TABLE_TYPE"));
+                assertEquals("TABLES", rs.getString("TABLE_NAME"));
+            }
+        }
     }
 
     @Test
@@ -439,7 +494,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 schemas.add(rs.getString(1));
             }
 
-            assertEquals(List.of("PUBLIC", "SYSTEM", "USER1", "USER2"), schemas);
+            assertEquals(List.of("META", "PUBLIC", "SYSTEM", "USER1", "USER2"), schemas);
         }
 
         try (ResultSet rs = conn.getMetaData().getSchemas("IGNITE", "USER%")) {
@@ -481,7 +536,9 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
 
         List<String> expectedPks = Arrays.asList(
                 "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
-                "PUBLIC.PERSON.PK_PERSON.ORGID"
+                "PUBLIC.PERSON.PK_PERSON.ORGID",
+                "USER1.TABLE1.PK_TABLE1.ID",
+                "USER2.TABLE2.PK_TABLE2.ID"
         );
 
         List<String> actualPks = new ArrayList<>(expectedPks.size());

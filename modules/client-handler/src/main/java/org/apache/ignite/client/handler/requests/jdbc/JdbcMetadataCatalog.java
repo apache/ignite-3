@@ -19,7 +19,6 @@ package org.apache.ignite.client.handler.requests.jdbc;
 
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toSet;
 
 import java.sql.DatabaseMetaData;
 import java.util.Arrays;
@@ -30,6 +29,7 @@ import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
+import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
@@ -58,8 +58,11 @@ public class JdbcMetadataCatalog {
     /** Primary key identifier. */
     private static final String PK = "PK_";
 
-    /** Table type. */
-    private static final String TBL_TYPE = "TABLE";
+    /** Name of TABLE type. */
+    private static final String TYPE_TABLE = "TABLE";
+
+    /** Name of system view type. */
+    private static final String TYPE_VIEW = "VIEW";
 
     private final ClockService clockService;
 
@@ -73,8 +76,16 @@ public class JdbcMetadataCatalog {
             .thenComparingInt(o -> o.getSecond().positionInRow());
 
     /** Comparator for {@link JdbcTableMeta} by table name. */
-    private static final Comparator<CatalogTableDescriptor> byTblTypeThenSchemaThenTblName
-            = Comparator.comparing(CatalogTableDescriptor::name);
+    private static final Comparator<JdbcTableMeta> byTblTypeThenSchemaThenTblName
+            = Comparator.comparing(JdbcTableMeta::tableType)
+            .thenComparing(JdbcTableMeta::schemaName)
+            .thenComparing(JdbcTableMeta::tableName);
+
+    /** Comparator for {@link JdbcPrimaryKeyMeta} by table name. */
+    private static final Comparator<JdbcPrimaryKeyMeta> bySchemaThenTblThenKey
+            = Comparator.comparing(JdbcPrimaryKeyMeta::schemaName)
+            .thenComparing(JdbcPrimaryKeyMeta::tableName)
+            .thenComparing(JdbcPrimaryKeyMeta::name);
 
     /**
      * Initializes info.
@@ -102,17 +113,17 @@ public class JdbcMetadataCatalog {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
 
-        return schemasAtNow()
-                .thenApply(schemas ->
-                    schemas.stream()
-                            .filter(schema -> matches(schema.name(), schemaNameRegex))
-                            .flatMap(schema ->
+        return schemasAtNow().thenApply(schemas ->
+                schemas.stream()
+                        .filter(schema -> matches(schema.name(), schemaNameRegex))
+                        .flatMap(schema ->
                                 Arrays.stream(schema.tables())
                                         .filter(table -> matches(table.name(), tlbNameRegex))
                                         .map(table -> createPrimaryKeyMeta(schema.name(), table))
-                            )
-                            .collect(toSet())
-                );
+                        )
+                        .sorted(bySchemaThenTblThenKey)
+                        .collect(toList())
+        );
     }
 
     private CompletableFuture<Collection<CatalogSchemaDescriptor>> schemasAtNow() {
@@ -142,13 +153,17 @@ public class JdbcMetadataCatalog {
         return schemasAtNow().thenApply(schemas ->
                 schemas.stream()
                         .filter(schema -> matches(schema.name(), schemaNameRegex))
-                        .sorted(Comparator.comparing(CatalogSchemaDescriptor::name))
                         .flatMap(schema ->
-                                Arrays.stream(schema.tables())
-                                        .filter(table -> matches(table.name(), tlbNameRegex))
-                                        .sorted(byTblTypeThenSchemaThenTblName)
-                                        .map(t -> new JdbcTableMeta(schema.name(), t.name(), TBL_TYPE))
+                                Stream.concat(
+                                        Arrays.stream(schema.systemViews())
+                                                .filter(view -> matches(view.name(), tlbNameRegex))
+                                                .map(v -> new JdbcTableMeta(schema.name(), v.name(), TYPE_VIEW)),
+                                        Arrays.stream(schema.tables())
+                                                .filter(table -> matches(table.name(), tlbNameRegex))
+                                                .map(t -> new JdbcTableMeta(schema.name(), t.name(), TYPE_TABLE))
+                                )
                         )
+                        .sorted(byTblTypeThenSchemaThenTblName)
                         .collect(toList())
         );
     }
