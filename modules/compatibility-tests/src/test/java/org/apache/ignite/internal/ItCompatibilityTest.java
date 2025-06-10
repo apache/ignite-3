@@ -26,11 +26,6 @@ import org.junit.jupiter.api.Test;
 
 class ItCompatibilityTest extends PersistenceTestBase {
     @Override
-    protected String baseVersion() {
-        return "3.0.0";
-    }
-
-    @Override
     protected void setupBaseVersion(Ignite baseIgnite) {
         baseIgnite.sql().execute(null, "CREATE TABLE TEST(ID INT PRIMARY KEY, VAL VARCHAR)");
         baseIgnite.sql().execute(null, "INSERT INTO TEST VALUES (1, 'str')");
