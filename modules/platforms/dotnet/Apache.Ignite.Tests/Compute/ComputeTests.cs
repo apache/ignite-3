@@ -706,7 +706,8 @@ namespace Apache.Ignite.Tests.Compute
 
             await cts.CancelAsync();
 
-            Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
+            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
+            Assert.IsInstanceOf<ComputeException>(ex?.InnerException);
         }
 
         [Test]
