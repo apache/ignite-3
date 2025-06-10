@@ -146,7 +146,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
     private ExecutorService executor;
 
     @Mock
-    private SafeTimeValuesTracker safeTimeClock;
+    private SafeTimeValuesTracker safeTimeTracker;
 
     private final HybridClock clock = new HybridClockImpl();
 
@@ -437,7 +437,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 .leaseStartTime(HybridTimestamp.MIN_VALUE.addPhysicalTime(1).longValue())
                 .build();
 
-        listener.onWrite(List.of(writeCommandCommandClosure(raftIndex.incrementAndGet(), 1, command, null, null)).iterator());
+        listener.onWrite(List.of(writeCommandClosure(raftIndex.incrementAndGet(), 1, command, null, null)).iterator());
 
         mvPartitionStorage.lastApplied(10L, 1L);
 
@@ -456,17 +456,18 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
         // Checks for MvPartitionStorage.
         listener.onWrite(List.of(
-                writeCommandCommandClosure(3, 1, updateCommand, updateCommandClosureResultCaptor, clock.now()),
-                writeCommandCommandClosure(10, 1, updateCommand, updateCommandClosureResultCaptor, clock.now()),
-                writeCommandCommandClosure(4, 1, writeIntentSwitchCommand, commandClosureResultCaptor, clock.now()),
-                writeCommandCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor, clock.now()),
-                writeCommandCommandClosure(6, 1, primaryReplicaChangeCommand, commandClosureResultCaptor, null)
+                writeCommandClosure(3, 1, updateCommand, updateCommandClosureResultCaptor, clock.now()),
+                writeCommandClosure(10, 1, updateCommand, updateCommandClosureResultCaptor, clock.now()),
+                writeCommandClosure(4, 1, writeIntentSwitchCommand, commandClosureResultCaptor, clock.now()),
+                writeCommandClosure(5, 1, safeTimeSyncCommand, commandClosureResultCaptor, clock.now()),
+                writeCommandClosure(6, 1, primaryReplicaChangeCommand, commandClosureResultCaptor, null)
         ).iterator());
 
-        // Two storage runConsistently runs are expected: one for configuration application and another for primaryReplicaChangeCommand
-        // handling. Both comes from initial configuration preparation in @BeforeEach
+        // Expected runConsistently calls: the first inside listener#onConfigurationCommitted and the second inside listener#onWrite.
         verify(mvPartitionStorage, times(2)).runConsistently(any(WriteClosure.class));
-        verify(mvPartitionStorage, times(3)).lastApplied(anyLong(), anyLong()); // !! 3 vs 1
+        // Expected lastApplied calls places are the same as runConsistently but with the extra one mvPartitionStorage#lastApplied later in
+        // in the test to set to high boundaries index and term for later listener#onWrite with different commands.
+        verify(mvPartitionStorage, times(3)).lastApplied(anyLong(), anyLong());
 
         List<UpdateCommandResult> allValues = updateCommandClosureResultCaptor.getAllValues();
         assertThat(allValues, containsInAnyOrder(new Throwable[]{null, null}));
@@ -479,8 +480,8 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
         commandClosureResultCaptor = ArgumentCaptor.forClass(Throwable.class);
 
         listener.onWrite(List.of(
-                writeCommandCommandClosure(2, 1, finishTxCommand, commandClosureResultCaptor, clock.now()),
-                writeCommandCommandClosure(10, 1, finishTxCommand, commandClosureResultCaptor, clock.now())
+                writeCommandClosure(2, 1, finishTxCommand, commandClosureResultCaptor, clock.now()),
+                writeCommandClosure(10, 1, finishTxCommand, commandClosureResultCaptor, clock.now())
         ).iterator());
 
         verify(txStatePartitionStorage, never())
@@ -495,7 +496,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
 
     @Test
     void updatesLastAppliedForFinishTxCommands() {
-        safeTimeClock.update(clock.now(), null);
+        safeTimeTracker.update(clock.now(), null);
 
         FinishTxCommand command = PARTITION_REPLICATION_MESSAGES_FACTORY.finishTxCommand()
                 .txId(TestTransactionIds.newTransactionId())
@@ -504,19 +505,19 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
                 .build();
 
         listener.onWrite(List.of(
-                writeCommandCommandClosure(3, 2, command)
+                writeCommandClosure(3, 2, command)
         ).iterator());
 
         assertThat(txStatePartitionStorage.lastAppliedIndex(), is(3L));
         assertThat(txStatePartitionStorage.lastAppliedTerm(), is(2L));
     }
 
-    private CommandClosure<WriteCommand> writeCommandCommandClosure(
+    private CommandClosure<WriteCommand> writeCommandClosure(
             long index,
             long term,
             WriteCommand writeCommand
     ) {
-        return writeCommandCommandClosure(index, term, writeCommand, null, clock.now());
+        return writeCommandClosure(index, term, writeCommand, null, clock.now());
     }
 
     /**
@@ -528,7 +529,7 @@ class ZonePartitionRaftListenerTest extends BaseIgniteAbstractTest {
      * @param resultClosureCaptor Captor for {@link CommandClosure#result(Serializable)}
      * @param safeTimestamp The safe timestamp.
      */
-    private static CommandClosure<WriteCommand> writeCommandCommandClosure(
+    private static CommandClosure<WriteCommand> writeCommandClosure(
             long index,
             long term,
             WriteCommand writeCommand,

@@ -280,7 +280,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     @Captor
     private ArgumentCaptor<Command> commandCaptor;
 
-
     private final Function<Command, CompletableFuture<?>> defaultMockRaftFutureClosure = cmd -> {
         if (cmd instanceof WriteIntentSwitchCommand) {
             WriteIntentSwitchCommand switchCommand = (WriteIntentSwitchCommand) cmd;
@@ -366,7 +365,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
     private TopologyService topologySrv;
 
     @Mock
-    private SafeTimeValuesTracker safeTimeClock;
+    private SafeTimeValuesTracker safeTimeTracker;
 
     @Mock
     private ValidationSchemasSource validationSchemasSource;
@@ -486,8 +485,8 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         when(topologySrv.localMember()).thenReturn(localNode);
 
-        when(safeTimeClock.waitFor(any())).thenReturn(nullCompletedFuture());
-        when(safeTimeClock.current()).thenReturn(HybridTimestamp.MIN_VALUE);
+        when(safeTimeTracker.waitFor(any())).thenReturn(nullCompletedFuture());
+        when(safeTimeTracker.current()).thenReturn(HybridTimestamp.MIN_VALUE);
 
         when(validationSchemasSource.waitForSchemaAvailability(anyInt(), anyInt())).thenReturn(nullCompletedFuture());
 
@@ -611,7 +610,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         ZonePartitionId zonePartitionId = new ZonePartitionId(tableDescriptor.zoneId(), PART_ID);
 
-        FailureManager failureHandler = new NoOpFailureManager();
+        FailureManager failureManager = new NoOpFailureManager();
 
         zonePartitionReplicaListener = new ZonePartitionReplicaListener(
                 txStateStorage,
@@ -623,7 +622,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 placementDriver,
                 clusterNodeResolver,
                 mockRaftClient,
-                failureHandler,
+                failureManager,
                 localNode,
                 zonePartitionId
         );
@@ -640,7 +639,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 pkStorageSupplier,
                 () -> Map.of(sortedIndexId, sortedIndexStorage, hashIndexId, hashIndexStorage),
                 clockService,
-                safeTimeClock,
+                safeTimeTracker,
                 txStateStorage,
                 transactionStateResolver,
                 new StorageUpdateHandler(
@@ -659,7 +658,7 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
                 new DummySchemaManagerImpl(schemaDescriptor, schemaDescriptorVersion2),
                 indexMetaStorage,
                 lowWatermark,
-                failureHandler
+                failureManager
         );
 
         kvMarshaller = marshallerFor(schemaDescriptor);
@@ -1490,7 +1489,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
         zonePartitionReplicaListener.removeTableReplicaProcessor(TABLE_ID);
     }
 
-
     @Test
     public void abortsSuccessfully() {
         AtomicReference<Boolean> committed = interceptFinishTxCommand();
@@ -1517,7 +1515,6 @@ public class ZonePartitionReplicaListenerTest extends IgniteAbstractTest {
 
         assertThat(committed.get(), is(true));
     }
-
 
     @Test
     public void commitsOnCompatibleSchemaChangeSuccessfully() {
