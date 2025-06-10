@@ -907,16 +907,14 @@ public class ClientTable implements Table {
     }
 
     <R, E> CompletableFuture<R> split(
-            @Nullable Transaction tx,
+            Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, Integer, CompletableFuture<R>> fun,
+            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
             @Nullable R initialValue,
             Reducer<R> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
     ) {
-        if (tx == null) {
-            return fun.apply(keys, null);
-        }
+        assert tx != null;
 
         CompletableFuture<ClientSchema> schemaFut = getSchema(latestSchemaVer);
         CompletableFuture<List<String>> partitionsFut = getPartitionAssignment();
@@ -944,7 +942,7 @@ public class ClientTable implements Table {
                     }
 
                     for (Entry<Integer, List<E>> entry : mapped.entrySet()) {
-                        res.add(fun.apply(entry.getValue(), entry.getKey()));
+                        res.add(fun.apply(entry.getValue(), PartitionAwarenessProvider.of(entry.getKey())));
                     }
 
                     return CompletableFuture.allOf(res.toArray(new CompletableFuture[0])).thenApply(ignored -> {
@@ -962,7 +960,7 @@ public class ClientTable implements Table {
     <R, E> CompletableFuture<R> split(
             @Nullable Transaction tx,
             Collection<E> keys,
-            BiFunction<Collection<E>, Integer, CompletableFuture<R>> fun,
+            BiFunction<Collection<E>, PartitionAwarenessProvider, CompletableFuture<R>> fun,
             R initialValue,
             ReducerWithOrderTracking<R, E> reducer,
             BiFunction<ClientSchema, E, Integer> hashFunc
@@ -1002,7 +1000,7 @@ public class ClientTable implements Table {
                     }
 
                     for (Entry<Integer, Batch<E>> entry : mapped.entrySet()) {
-                        res.add(fun.apply(entry.getValue().batch, entry.getKey()));
+                        res.add(fun.apply(entry.getValue().batch, PartitionAwarenessProvider.of(entry.getKey())));
                         batches.add(entry.getValue());
                     }
 

@@ -211,7 +211,7 @@ public class ClientOp {
     /** Write mask. */
     private static final BitSet WRITE_MASK = new BitSet(64);
 
-    /** Write mask. */
+    /** Batch mask. */
     private static final BitSet BATCH_MASK = new BitSet(64);
 
     static {

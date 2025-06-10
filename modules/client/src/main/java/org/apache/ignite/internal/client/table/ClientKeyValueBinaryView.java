@@ -35,6 +35,7 @@ import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Flow;
 import java.util.concurrent.Flow.Publisher;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.apache.ignite.client.RetryLimitPolicy;
 import org.apache.ignite.internal.client.proto.ClientOp;
@@ -110,15 +111,21 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyMapCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_GET_ALL,
-                            (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
-                            (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
-                            Collections.emptyMap(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                }, new HashMap<>(), (agg, cur) -> {
+        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Map<Tuple, Tuple>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_GET_ALL,
+                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, r) -> ClientTupleSerializer.readKvTuplesNullable(s, r.in()),
+                    Collections.emptyMap(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, clo, new HashMap<>(), (agg, cur) -> {
                     agg.putAll(cur);
                     return agg;
                 },
@@ -201,17 +208,20 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return trueCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_CONTAINS_ALL_KEYS,
-                            (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
-                            r -> r.in().unpackBoolean(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                Boolean.TRUE,
-                (agg, cur) -> agg && cur,
-                ClientTupleSerializer::getColocationHash);
+        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Boolean>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_CONTAINS_ALL_KEYS,
+                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    r -> r.in().unpackBoolean(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, clo, Boolean.TRUE, (agg, cur) -> agg && cur, ClientTupleSerializer::getColocationHash);
     }
 
     /** {@inheritDoc} */
@@ -254,16 +264,20 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return nullCompletedFuture();
         }
 
-        return tbl.split(tx, pairs.entrySet(), (batch, part) -> {
-                    return tbl.doSchemaOutOpAsync(
-                            ClientOp.TUPLE_UPSERT_ALL,
-                            (s, w, n) -> ser.writeKvTuples(tx, batch, s, w, n),
-                            r -> null,
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                },
-                null,
-                (agg, cur) -> null,
+        BiFunction<Collection<Entry<Tuple, Tuple>>, PartitionAwarenessProvider, CompletableFuture<Void>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutOpAsync(
+                    ClientOp.TUPLE_UPSERT_ALL,
+                    (s, w, n) -> ser.writeKvTuples(tx, batch, s, w, n),
+                    r -> null,
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(pairs.entrySet(), getPartitionAwarenessProvider(pairs.keySet().iterator().next()));
+        }
+
+        return tbl.split(tx, pairs.entrySet(), clo, null, (agg, cur) -> null,
                 (schema, entry) -> ClientTupleSerializer.getColocationHash(schema, entry.getKey()));
     }
 
@@ -390,15 +404,21 @@ public class ClientKeyValueBinaryView extends AbstractClientView<Entry<Tuple, Tu
             return emptyCollectionCompletedFuture();
         }
 
-        return tbl.split(tx, keys, (batch, part) -> {
-                    return tbl.doSchemaOutInOpAsync(
-                            ClientOp.TUPLE_DELETE_ALL,
-                            (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
-                            (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
-                            Collections.emptyList(),
-                            PartitionAwarenessProvider.of(part),
-                            tx);
-                }, new HashSet<>(), (agg, cur) -> {
+        BiFunction<Collection<Tuple>, PartitionAwarenessProvider, CompletableFuture<Collection<Tuple>>> clo = (batch, provider) -> {
+            return tbl.doSchemaOutInOpAsync(
+                    ClientOp.TUPLE_DELETE_ALL,
+                    (s, w, n) -> ser.writeTuples(tx, batch, s, w, n, true),
+                    (s, r) -> ClientTupleSerializer.readTuples(s, r.in(), true),
+                    Collections.emptyList(),
+                    provider,
+                    tx);
+        };
+
+        if (tx == null) {
+            return clo.apply(keys, getPartitionAwarenessProvider(keys.iterator().next()));
+        }
+
+        return tbl.split(tx, keys, clo, new HashSet<>(), (agg, cur) -> {
                     agg.addAll(cur);
                     return agg;
                 },
