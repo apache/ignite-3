@@ -620,7 +620,7 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQueryExecute([Values("sql", "script", "reader")] string mode)
+        public async Task TestCancelQueryExecute([Values("sql", "sql-mapped", "script", "reader")] string mode)
         {
             // Cross join will produce 10^N rows, which takes a while to execute.
             var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(7)})";
@@ -630,6 +630,7 @@ namespace Apache.Ignite.Tests.Sql
             Task task = mode switch
             {
                 "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
+                "sql-mapped" => Client.Sql.ExecuteAsync<int>(transaction: null, manyRowsQuery, cts.Token),
                 "script" => Client.Sql.ExecuteScriptAsync(manyRowsQuery, cts.Token),
                 "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
                 _ => throw new ArgumentException("Invalid mode: " + mode)
