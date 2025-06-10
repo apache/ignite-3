@@ -620,13 +620,20 @@ namespace Apache.Ignite.Tests.Sql
         }
 
         [Test]
-        public async Task TestCancelQueryExecute()
+        public async Task TestCancelQueryExecute([Values("sql", "script", "reader")] string mode)
         {
             // Cross join will produce 10^N rows, which takes a while to execute.
             var manyRowsQuery = $"select count (*) from ({GenerateCrossJoin(7)})";
 
             using var cts = new CancellationTokenSource();
-            var cursorTask = Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token);
+
+            Task cursorTask = mode switch
+            {
+                "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
+                "script" => Client.Sql.ExecuteScriptAsync(manyRowsQuery, cts.Token),
+                "reader" => Client.Sql.ExecuteReaderAsync(transaction: null, manyRowsQuery, cts.Token),
+                _ => throw new ArgumentException("Invalid mode: " + mode)
+            };
 
             // Wait for request to be sent and callbacks to be registered, then cancel.
             TestUtils.WaitForCancellationRegistrations(cts);
