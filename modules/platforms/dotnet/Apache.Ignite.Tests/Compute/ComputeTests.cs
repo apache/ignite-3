@@ -744,6 +744,20 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public void TestMapReduceExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            Assert.CatchAsync<IgniteException>(async () =>
+            {
+                var exec = await Client.Compute.SubmitMapReduceAsync(ReduceExceptionTask, "a", cts.Token);
+                await exec.GetResultAsync();
+            });
+
+            AssertNoCallbacks(cts);
+        }
+
+        [Test]
         public async Task TestChangeJobPriority()
         {
             var jobExecution = await Client.Compute.SubmitAsync(
