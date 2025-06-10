@@ -706,6 +706,19 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-11", cts.Token);
+
+            await exec.GetResultAsync();
+
+            Assert.IsFalse(
+                TestUtils.HasCallbacks(cts),
+                "CancellationTokenSource should not have callbacks registered after job completion.");
+        }
+
+        [Test]
         public async Task TestChangeJobPriority()
         {
             var jobExecution = await Client.Compute.SubmitAsync(

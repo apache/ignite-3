@@ -77,22 +77,20 @@ namespace Apache.Ignite.Tests
             Assert.Fail(message);
         }
 
-        public static void WaitForCancellationRegistrations(CancellationTokenSource cts, int timeoutMs = 1000)
-        {
+        public static void WaitForCancellationRegistrations(CancellationTokenSource cts, int timeoutMs = 1000) =>
             WaitForCondition(
-                condition: HasCallbacks,
+                condition: () => HasCallbacks(cts),
                 timeoutMs: timeoutMs,
                 messageFactory: () => "No callbacks registered in CancellationTokenSource");
 
-            bool HasCallbacks()
-            {
-                var cb = cts
-                    .GetFieldValue<object?>("_registrations")?
-                    .GetFieldValue<object?>("Callbacks")?
-                    .GetFieldValue<object?>("Callback");
+        public static bool HasCallbacks(CancellationTokenSource cts)
+        {
+            var cb = cts
+                .GetFieldValue<object?>("_registrations")?
+                .GetFieldValue<object?>("Callbacks")?
+                .GetFieldValue<object?>("Callback");
 
-                return cb != null;
-            }
+            return cb != null;
         }
 
         public static T GetFieldValue<T>(this object obj, string fieldName) => (T) GetNonPublicField(obj, fieldName).GetValue(obj)!;
