@@ -706,8 +706,7 @@ namespace Apache.Ignite.Tests.Compute
 
             await cts.CancelAsync();
 
-            // ReSharper disable once MethodSupportsCancellation
-            await taskExec.GetResultAsync().WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
         }
 
         [Test]
