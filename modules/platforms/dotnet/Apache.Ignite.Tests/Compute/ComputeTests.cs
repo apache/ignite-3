@@ -711,6 +711,7 @@ namespace Apache.Ignite.Tests.Compute
             var cts = new CancellationTokenSource();
             var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-11", cts.Token);
 
+            // TODO: Test failed job.
             await exec.GetResultAsync();
 
             Assert.IsFalse(

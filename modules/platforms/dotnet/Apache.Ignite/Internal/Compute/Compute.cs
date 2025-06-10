@@ -365,18 +365,33 @@ namespace Apache.Ignite.Internal.Compute
 
             // Standard cancellation by requestId in ClientSocket does not work for jobs.
             // Compute job can be cancelled from any node, it is not bound to a connection.
-            // TODO: Dispose of registration once job is completed.
-            cancellationToken.Register(() => _ = CancelJobAsync(jobId));
+            var cancellationTokenRegistration = cancellationToken.Register(() => _ = CancelJobAsync(jobId));
 
-            var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
-            var node = ClusterNode.Read(ref reader);
+            try
+            {
+                var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+                var node = ClusterNode.Read(ref reader);
 
-            return new JobExecution<T>(jobId, resultTask, this, node);
+                return new JobExecution<T>(jobId, resultTask, this, node);
+            }
+            catch (Exception)
+            {
+                cancellationTokenRegistration.Dispose();
+                throw;
+            }
 
             async Task<(T, JobState)> GetResult(NotificationHandler handler)
             {
-                using var notificationRes = await handler.Task.ConfigureAwait(false);
-                return Read(notificationRes.GetReader());
+                try
+                {
+                    using var notificationRes = await handler.Task.ConfigureAwait(false);
+                    return Read(notificationRes.GetReader());
+                }
+                finally
+                {
+                    // ReSharper disable once AccessToDisposedClosure
+                    await cancellationTokenRegistration.DisposeAsync().ConfigureAwait(false);
+                }
             }
 
             (T, JobState) Read(MsgPackReader reader)
