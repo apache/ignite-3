@@ -410,7 +410,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     @Test
     void testExecuteWithArgs() {
         JobExecution<String> execution = submit(
-                JobTarget.anyNode(client().clusterNodes()), JobDescriptor.builder(ConcatJob.class).build(),
+                JobTarget.anyNode(client().cluster().nodes()), JobDescriptor.builder(ConcatJob.class).build(),
                 "1:2:3.3"
         );
 
@@ -1004,7 +1004,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceNodeNameTask implements MapReduceTask<String, Object, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
@@ -1024,7 +1024,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
     private static class MapReduceArgsTask implements MapReduceTask<String, String, String, String> {
         @Override
         public CompletableFuture<List<MapReduceJob<String, String>>> splitAsync(TaskExecutionContext context, String args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<String, String>builder()
                             .jobDescriptor(JobDescriptor.builder(ConcatJob.class).build())
                             .nodes(Set.of(node))
@@ -1057,7 +1057,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
 
         @Override
         public CompletableFuture<List<MapReduceJob<Object, String>>> splitAsync(TaskExecutionContext context, Object args) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Object, String>builder()
                             .jobDescriptor(JobDescriptor.builder(NodeNameJob.class).build())
                             .nodes(Set.of(node))
@@ -1100,7 +1100,7 @@ public class ItThinClientComputeTest extends ItAbstractThinClientTest {
                     MapReduceJob.<Void, Void>builder()
                             .jobDescriptor(
                                     JobDescriptor.builder(InfiniteMapReduceJob.class).build())
-                            .nodes(taskContext.ignite().clusterNodes())
+                            .nodes(taskContext.ignite().cluster().nodes())
                             .build()
             ));
         }

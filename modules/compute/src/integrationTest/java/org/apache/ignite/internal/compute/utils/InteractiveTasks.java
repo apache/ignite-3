@@ -187,7 +187,7 @@ public final class InteractiveTasks {
                             GLOBAL_CHANNEL.offer(ACK);
                             break;
                         case SPLIT_RETURN_ALL_NODES:
-                            return completedFuture(context.ignite().clusterNodes().stream().map(node ->
+                            return completedFuture(context.ignite().cluster().nodes().stream().map(node ->
                                     MapReduceJob.<String, String>builder()
                                             .jobDescriptor(InteractiveJobs.interactiveJobDescriptor())
                                             .nodes(Set.of(node))

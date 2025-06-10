@@ -877,7 +877,7 @@ public class PlatformTestNodeRunner {
     private static class SleepTask implements MapReduceTask<Integer, Integer, Void, Void> {
         @Override
         public CompletableFuture<List<MapReduceJob<Integer, Void>>> splitAsync(TaskExecutionContext context, Integer input) {
-            return completedFuture(context.ignite().clusterNodes().stream()
+            return completedFuture(context.ignite().cluster().nodes().stream()
                     .map(node -> MapReduceJob.<Integer, Void>builder()
                             .jobDescriptor(JobDescriptor.builder(SleepJob.class).build())
                             .nodes(Set.of(node))
@@ -1025,8 +1025,7 @@ public class PlatformTestNodeRunner {
                     .options(jobOpts)
                     .build();
 
-            ClusterNode targetNode = context.ignite()
-                    .clusterNodes()
+            ClusterNode targetNode = context.ignite().cluster().nodes()
                     .stream()
                     .filter(n -> n.id().equals(arg.nodeId))
                     .findFirst()

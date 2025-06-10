@@ -793,7 +793,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
             ReplicaMeta primaryReplica = IgniteTestUtils.await(
                     ignite.placementDriver().awaitPrimaryReplica(partitionId, ignite.clock().now(), 30, TimeUnit.SECONDS));
 
-            ClusterNode recipientNode = ignite.clusterNodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
+            ClusterNode recipientNode = ignite.cluster().nodes().stream().filter(node -> node.name().equals(primaryReplica.getLeaseholder()))
                     .findFirst().get();
             tx = (InternalTransaction) CLUSTER.aliveNode().transactions().begin(new TransactionOptions().readOnly(true));
 
@@ -843,14 +843,14 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
             if (readOnly) {
                 // Any node from assignments will do it.
-                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().clusterNodes().stream().map(
+                Set<Assignment> assignments = calculateAssignmentForPartition(CLUSTER.aliveNode().cluster().nodes().stream().map(
                         ClusterNode::name).collect(Collectors.toList()), 0, 1, 1, 1);
 
                 assertFalse(assignments.isEmpty());
 
                 String consId = assignments.iterator().next().consistentId();
 
-                ClusterNode node0 = CLUSTER.aliveNode().clusterNodes().stream().filter(n -> n.name().equals(consId)).findAny()
+                ClusterNode node0 = CLUSTER.aliveNode().cluster().nodes().stream().filter(n -> n.name().equals(consId)).findAny()
                         .orElseThrow();
 
                 //noinspection DataFlowIssue
@@ -894,7 +894,7 @@ public class ItTableScanTest extends BaseSqlIntegrationTest {
 
         IgniteImpl ignite = unwrapIgniteImpl(CLUSTER.aliveNode());
 
-        ClusterNode primaryNode = ignite.clusterNodes().stream()
+        ClusterNode primaryNode = ignite.cluster().nodes().stream()
                 .filter(n -> n.name().equals(enlistment.primaryNodeConsistentId()))
                 .findAny()
                 .orElseThrow();
