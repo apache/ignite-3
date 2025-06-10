@@ -331,6 +331,17 @@ namespace Apache.Ignite.Internal.Compute
             return new TaskState(id, status, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
+        private static void ConvertExceptionAndThrow(IgniteException e, CancellationToken token)
+        {
+            switch (e.Code)
+            {
+                case ErrorGroups.Compute.ComputeJobCancelled:
+                    var cancelledToken = token.IsCancellationRequested ? token : CancellationToken.None;
+
+                    throw new OperationCanceledException(e.Message, e, cancelledToken);
+            }
+        }
+
         private JobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
@@ -369,6 +380,11 @@ namespace Apache.Ignite.Internal.Compute
                 {
                     using var notificationRes = await handler.Task.ConfigureAwait(false);
                     return Read(notificationRes.GetReader());
+                }
+                catch (IgniteException e)
+                {
+                    ConvertExceptionAndThrow(e, cancellationToken);
+                    throw;
                 }
                 finally
                 {
@@ -423,11 +439,15 @@ namespace Apache.Ignite.Internal.Compute
                     using var notificationRes = await handler.Task.ConfigureAwait(false);
                     return Read(notificationRes.GetReader());
                 }
-                catch (Exception)
+                catch (IgniteException e)
+                {
+                    ConvertExceptionAndThrow(e, cancellationToken);
+                    throw;
+                }
+                finally
                 {
                     // ReSharper disable once AccessToDisposedClosure
                     await cancellationTokenRegistration.DisposeAsync().ConfigureAwait(false);
-                    throw;
                 }
             }
 
