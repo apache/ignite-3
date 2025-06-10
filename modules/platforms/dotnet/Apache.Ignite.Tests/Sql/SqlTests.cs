@@ -627,7 +627,7 @@ namespace Apache.Ignite.Tests.Sql
 
             using var cts = new CancellationTokenSource();
 
-            Task cursorTask = mode switch
+            Task task = mode switch
             {
                 "sql" => Client.Sql.ExecuteAsync(transaction: null, manyRowsQuery, cts.Token),
                 "script" => Client.Sql.ExecuteScriptAsync(manyRowsQuery, cts.Token),
@@ -639,7 +639,7 @@ namespace Apache.Ignite.Tests.Sql
             TestUtils.WaitForCancellationRegistrations(cts);
             await cts.CancelAsync();
 
-            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await cursorTask);
+            var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
             Assert.AreEqual("The query was cancelled while executing.", ex!.Message);
             Assert.IsInstanceOf<SqlException>(ex.InnerException);
         }
