@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.client.table;
 
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.function.Function.identity;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DELAYED_ACKS;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_DIRECT_MAPPING;
 import static org.apache.ignite.internal.client.proto.ProtocolBitmaskFeature.TX_PIGGYBACK;
@@ -564,75 +563,90 @@ public class ClientTable implements Table {
                                 .thenCompose(t -> loadSchemaAndReadData(t, reader))
                                 .handle((ret, ex) -> {
                                     if (ex != null) {
-                                        // In case of direct mapping failure try to roll back the transaction.
-                                        if (ctx.enlistmentToken != null && !matchAny(unwrapCause(ex), TX_ALREADY_FINISHED_ERR,
-                                                TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR)) {
-                                            assert tx0 != null && !tx0.isReadOnly() : "Invalid transaction for direct mapping " + tx;
+                                        // Retry schema errors, if any.
+                                        Throwable cause = ex;
 
-                                            return tx0.rollbackAsync().handle((ignored, err0) -> {
-                                                if (err0 != null) {
-                                                    ex.addSuppressed(err0);
+                                        if (ctx.firstReqFut != null) {
+                                            // Create failed transaction.
+                                            ClientTransaction failed = new ClientTransaction(ctx.channel, id, ctx.readOnly, null, ctx.pm,
+                                                    null, ch.observableTimestamp(), 0);
+                                            failed.fail();
+                                            ctx.firstReqFut.complete(failed);
+                                            fut.completeExceptionally(unwrapCause(ex));
+                                            return null;
+                                        }
+
+                                        // Don't attempt retrying in case of direct mapping. This may be improved in the future.
+                                        if (ctx.enlistmentToken == null) {
+                                            while (cause != null) {
+                                                if (cause instanceof ClientSchemaVersionMismatchException) {
+                                                    // Retry with specific schema version.
+                                                    int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
+
+                                                    doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired,
+                                                            provider,
+                                                            retryPolicyOverride, expectedVersion, expectNotifications, tx)
+                                                            .whenComplete((res0, err0) -> {
+                                                                if (err0 != null) {
+                                                                    fut.completeExceptionally(err0);
+                                                                } else {
+                                                                    fut.complete(res0);
+                                                                }
+                                                            });
+
+                                                    return null;
+                                                } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
+                                                    // Force load latest schema and revalidate user data against it.
+                                                    // When schemaVersionOverride is not null, we already tried to load the schema.
+                                                    schemas.remove(UNKNOWN_SCHEMA_VERSION);
+
+                                                    doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired,
+                                                            provider,
+                                                            retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications, tx)
+                                                            .whenComplete((res0, err0) -> {
+                                                                if (err0 != null) {
+                                                                    fut.completeExceptionally(err0);
+                                                                } else {
+                                                                    fut.complete(res0);
+                                                                }
+                                                            });
+
+                                                    return null;
                                                 }
 
-                                                sneakyThrow(ex);
+                                                cause = cause.getCause();
+                                            }
 
-                                                return (T) null;
-                                            });
+                                            fut.completeExceptionally(ex);
                                         } else {
-                                            sneakyThrow(ex);
+                                            // In case of direct mapping failure for any reason try to roll back the transaction.
+                                            if (!matchAny(unwrapCause(ex), TX_ALREADY_FINISHED_ERR, TX_ALREADY_FINISHED_WITH_TIMEOUT_ERR)) {
+                                                assert tx0 != null && !tx0.isReadOnly() : "Invalid transaction for direct mapping " + tx;
+
+                                                tx0.rollbackAsync().handle((ignored, err0) -> {
+                                                    if (err0 != null) {
+                                                        ex.addSuppressed(err0);
+                                                    }
+
+                                                    fut.completeExceptionally(ex);
+
+                                                    return (T) null;
+                                                });
+                                            } else {
+                                                fut.completeExceptionally(ex);
+                                            }
                                         }
+                                    } else {
+                                        fut.complete(ret);
                                     }
 
-                                    return completedFuture(ret);
-                                }).thenCompose(identity());
+                                    return null;
+                                });
                     });
-                }).whenComplete((res, err) -> {
-                    if (err == null) {
-                        fut.complete(res);
-                        return;
-                    }
-
-                    // Retry schema errors, if any.
-                    Throwable cause = err;
-
-                    while (cause != null) {
-                        if (cause instanceof ClientSchemaVersionMismatchException) {
-                            // Retry with specific schema version.
-                            int expectedVersion = ((ClientSchemaVersionMismatchException) cause).expectedVersion();
-
-                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, expectedVersion, expectNotifications, tx)
-                                    .whenComplete((res0, err0) -> {
-                                        if (err0 != null) {
-                                            fut.completeExceptionally(err0);
-                                        } else {
-                                            fut.complete(res0);
-                                        }
-                                    });
-
-                            return;
-                        } else if (schemaVersionOverride == null && cause instanceof UnmappedColumnsException) {
-                            // Force load latest schema and revalidate user data against it.
-                            // When schemaVersionOverride is not null, we already tried to load the schema.
-                            schemas.remove(UNKNOWN_SCHEMA_VERSION);
-
-                            doSchemaOutInOpAsync(opCode, writer, reader, defaultValue, responseSchemaRequired, provider,
-                                    retryPolicyOverride, UNKNOWN_SCHEMA_VERSION, expectNotifications, tx)
-                                    .whenComplete((res0, err0) -> {
-                                        if (err0 != null) {
-                                            fut.completeExceptionally(err0);
-                                        } else {
-                                            fut.complete(res0);
-                                        }
-                                    });
-
-                            return;
-                        }
-
-                        cause = cause.getCause();
-                    }
-
-                    fut.completeExceptionally(err);
+                }).exceptionally(ex -> {
+                    fut.completeExceptionally(ex);
+                    sneakyThrow(ex);
+                    return null;
                 });
 
         return fut;
@@ -646,12 +660,6 @@ public class ClientTable implements Table {
         } else {
             return opNode;
         }
-    }
-
-    private static boolean isProxy(@Nullable Transaction tx, @Nullable PartitionMapping pm, ClientChannel opChannel) {
-        return tx == null || tx.isReadOnly() || pm == null
-                || !opChannel.protocolContext().allFeaturesSupported(TX_DIRECT_MAPPING, TX_DELAYED_ACKS, TX_PIGGYBACK)
-                || !pm.nodeConsistentId().equals(opChannel.protocolContext().clusterNode().name());
     }
 
     private static CompletableFuture<Void> enlistDirect(

@@ -101,7 +101,7 @@ public class NettySender {
      */
     public CompletableFuture<Void> send(OutNetworkObject obj, Runnable triggerChannelRecreation) {
         if (!obj.networkMessage().needAck()) {
-            // We don't care that the client might get an exception like ClosedChannelException or that the message
+            // We don't care that the caller might get an exception like ClosedChannelException or that the message
             // will be lost if the channel is closed as it does not require to be acked.
             return toCompletableFuture(channel.writeAndFlush(obj));
         }

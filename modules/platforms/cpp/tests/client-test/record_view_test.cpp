@@ -199,6 +199,9 @@ protected:
 
         m_client = ignite_client::start(cfg, std::chrono::seconds(30));
         auto table = m_client.get_tables().get_table(TABLE_1);
+        if (!table) {
+            throw std::runtime_error("Failed to get table");
+        }
 
         view = table->get_record_view<test_type>();
     }

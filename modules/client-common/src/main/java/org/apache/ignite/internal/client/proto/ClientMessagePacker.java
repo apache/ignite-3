@@ -207,6 +207,29 @@ public class ClientMessagePacker implements AutoCloseable {
     }
 
     /**
+     * Reserve space for int value.
+     *
+     * @return Index of reserved space.
+     */
+    public int reserveInt() {
+        buf.writeByte(Code.INT32);
+        var index = buf.writerIndex();
+
+        buf.writeInt(0);
+        return index;
+    }
+
+    /**
+     * Set int value at reserved index (see {@link #reserveInt()}).
+     *
+     * @param index Index.
+     * @param v Value.
+     */
+    public void setInt(int index, int v) {
+        buf.setInt(index, v);
+    }
+
+    /**
      * Writes a long value.
      *
      * @param v the value to be written.

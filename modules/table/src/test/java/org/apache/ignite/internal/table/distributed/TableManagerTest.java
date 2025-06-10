@@ -290,7 +290,7 @@ public class TableManagerTest extends IgniteAbstractTest {
 
         assertThat(catalogMetastore.deployWatches(), willCompleteSuccessfully());
 
-        CatalogTestUtils.awaitDefaultZoneCreation(catalogManager);
+        assertThat("Catalog initialization", catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
 
         when(clusterService.messagingService()).thenReturn(mock(MessagingService.class));
 

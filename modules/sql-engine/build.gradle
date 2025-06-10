@@ -164,7 +164,7 @@ dependencies {
     testFixturesImplementation libs.junit5.params
 
     constraints {
-        api('com.google.protobuf:protobuf-java:4.31.0'){
+        api('com.google.protobuf:protobuf-java:4.31.1'){
             because 'previous versions have a CVE'
         }
     }

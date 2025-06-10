@@ -35,9 +35,15 @@ import org.apache.ignite.internal.replicator.configuration.ReplicationConfigurat
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
 import org.apache.ignite.internal.storage.AbortResultStatus;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResultStatus;
+import org.apache.ignite.internal.storage.AddWriteResult;
+import org.apache.ignite.internal.storage.AddWriteResultStatus;
 import org.apache.ignite.internal.storage.MvPartitionStorage.Locker;
 import org.apache.ignite.internal.storage.ReadResult;
 import org.apache.ignite.internal.storage.RowId;
+import org.apache.ignite.internal.storage.StorageException;
+import org.apache.ignite.internal.storage.TxIdMismatchException;
 import org.apache.ignite.internal.table.distributed.index.IndexUpdateHandler;
 import org.apache.ignite.internal.table.distributed.replicator.PendingRows;
 import org.apache.ignite.internal.util.Cursor;
@@ -155,18 +161,10 @@ public class StorageUpdateHandler {
             locker.lock(rowId);
         }
 
-        performStorageCleanupIfNeeded(txId, rowId, lastCommitTs, indexIds);
-
         if (commitTs != null) {
-            storage.addWriteCommitted(rowId, row, commitTs);
+            performAddWriteCommittedWithCleanup(rowId, row, commitTs, txId, lastCommitTs, indexIds);
         } else {
-            BinaryRow oldRow = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
-
-            if (oldRow != null) {
-                assert commitTs == null : String.format("Expecting explicit txn: [txId=%s]", txId);
-                // Previous uncommitted row should be removed from indexes.
-                tryRemovePreviousWritesIndex(rowId, oldRow, indexIds);
-            }
+            performAddWriteWithCleanup(rowId, row, txId, commitPartitionId, lastCommitTs, indexIds);
         }
 
         indexUpdateHandler.addToIndexes(row, rowId, indexIds);
@@ -275,64 +273,6 @@ public class StorageUpdateHandler {
         });
     }
 
-    private void performStorageCleanupIfNeeded(
-            UUID txId,
-            RowId rowId,
-            @Nullable HybridTimestamp lastCommitTs,
-            @Nullable List<Integer> indexIds
-    ) {
-        // No previously committed value, this action might be an insert. No need to cleanup.
-        if (lastCommitTs == null) {
-            return;
-        }
-
-        try (Cursor<ReadResult> cursor = storage.scanVersions(rowId)) {
-            // Okay, lastCommitTs is not null. It means that we are changing the previously committed data.
-            // However, we could have previously called cleanup for the same row.
-            // If the previous operation was "delete" and it was executed successfully, no data will be present in the storage.
-            if (!cursor.hasNext()) {
-                return;
-            }
-
-            ReadResult item = cursor.next();
-            // If there is a write intent in the storage and this intent was created by a different transaction
-            // then check the previous entry.
-            // Otherwise exit the check - everything's fine.
-            if (item.isWriteIntent() && !txId.equals(item.transactionId())) {
-                if (!cursor.hasNext()) {
-                    // No more data => the write intent we have is actually the first version of this row
-                    // and lastCommitTs is the commit timestamp of it.
-                    // Action: commit this write intent.
-                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
-                    return;
-                }
-                // Otherwise there are other versions in the chain.
-                ReadResult committedItem = cursor.next();
-
-                // They should be regular entries, not write intents.
-                assert !committedItem.isWriteIntent() : "Cannot have more than one write intent per row";
-
-                assert lastCommitTs.compareTo(committedItem.commitTimestamp()) >= 0 :
-                        "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp "
-                                + committedItem.commitTimestamp();
-
-                if (lastCommitTs.compareTo(committedItem.commitTimestamp()) > 0) {
-                    // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
-                    // Action: commit this write intent.
-                    performCommitWrite(item.transactionId(), Set.of(rowId), lastCommitTs);
-                } else {
-                    // lastCommitTs == committedItem.commitTimestamp()
-                    // So we see a write intent from a different transaction, which was not committed on primary.
-                    // Because of transaction locks we cannot have two transactions creating write intents for the same row.
-                    // So if we got up to here, it means that the previous transaction was aborted,
-                    // but the storage was not cleaned after it.
-                    // Action: abort this write intent.
-                    performAbortWrite(item.transactionId(), Set.of(rowId), indexIds);
-                }
-            }
-        }
-    }
-
     /**
      * Tries to remove a previous write from index.
      *
@@ -395,7 +335,6 @@ public class StorageUpdateHandler {
             @Nullable Runnable onApplication,
             @Nullable List<Integer> indexIds
     ) {
-        // TODO: IGNITE-25506 Investigate why RowId may appear for which there will be no transaction match on commit or abort
         Set<RowId> pendingRowIds = pendingRows.removePendingRowIds(txId);
 
         // `pendingRowIds` might be empty when we have already cleaned up the storage for this transaction,
@@ -408,6 +347,8 @@ public class StorageUpdateHandler {
             storage.runConsistently(locker -> {
                 pendingRowIds.forEach(locker::lock);
 
+                // Here we don't need to check for mismatch of the transaction that created the write intent and commits it. Since the
+                // commit can happen in #handleUpdate and #handleUpdateAll.
                 if (commit) {
                     performCommitWrite(txId, pendingRowIds, commitTimestamp);
                 } else {
@@ -473,5 +414,117 @@ public class StorageUpdateHandler {
     /** Returns partition index update handler. */
     public IndexUpdateHandler getIndexUpdateHandler() {
         return indexUpdateHandler;
+    }
+
+    /**
+     * Performs add of the committed row version. If a write intent is detected on the first attempt and {@code lastCommitTs} is not
+     * {@code null}, it will be cleared before the second attempt. Otherwise, {@link StorageException} will be thrown.
+     */
+    private void performAddWriteCommittedWithCleanup(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            HybridTimestamp commitTs,
+            UUID txId,
+            @Nullable HybridTimestamp lastCommitTs,
+            @Nullable List<Integer> indexIds
+    ) {
+        AddWriteCommittedResult result = storage.addWriteCommitted(rowId, row, commitTs);
+
+        if (result.status() == AddWriteCommittedResultStatus.WRITE_INTENT_EXISTS) {
+            if (lastCommitTs == null) {
+                throw new StorageException("Write intent exists: [rowId={}]", rowId);
+            }
+
+            UUID wiTxId = result.currentWriteIntentTxId();
+
+            performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.latestCommitTimestamp(), indexIds);
+
+            result = storage.addWriteCommitted(rowId, row, commitTs);
+
+            assert result.status() == AddWriteCommittedResultStatus.SUCCESS : "rowId=" + rowId + ", result=" + result;
+        }
+    }
+
+    /**
+     * Performs add write intent. If a write intent from another transaction is detected on the first attempt and {@code lastCommitTs} is
+     * not {@code null}, it will be cleared before the second attempt. Otherwise, {@link TxIdMismatchException} will be thrown.
+     */
+    private void performAddWriteWithCleanup(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            PartitionGroupId commitPartitionId,
+            @Nullable HybridTimestamp lastCommitTs,
+            @Nullable List<Integer> indexIds
+    ) {
+        AddWriteResult result = performAddWrite(rowId, row, txId, commitPartitionId, indexIds);
+
+        if (result.status() == AddWriteResultStatus.TX_MISMATCH) {
+            UUID wiTxId = result.currentWriteIntentTxId();
+
+            if (lastCommitTs == null) {
+                throw new TxIdMismatchException(wiTxId, txId);
+            }
+
+            performWriteIntentCleanup(rowId, txId, wiTxId, lastCommitTs, result.latestCommitTimestamp(), indexIds);
+
+            result = performAddWrite(rowId, row, txId, commitPartitionId, indexIds);
+
+            assert result.status() == AddWriteResultStatus.SUCCESS : "rowId=" + rowId + ", result=" + result;
+        }
+    }
+
+    /** Performs add write intent, if successful and there is a previous intent (for same transaction) will clear the indexes from it. */
+    private AddWriteResult performAddWrite(
+            RowId rowId,
+            @Nullable BinaryRow row,
+            UUID txId,
+            PartitionGroupId commitPartitionId,
+            @Nullable List<Integer> indexIds
+    ) {
+        AddWriteResult result = storage.addWrite(rowId, row, txId, commitPartitionId.objectId(), commitPartitionId.partitionId());
+
+        if (result.status() == AddWriteResultStatus.SUCCESS && result.previousWriteIntent() != null) {
+            tryRemovePreviousWritesIndex(rowId, result.previousWriteIntent(), indexIds);
+        }
+
+        return result;
+    }
+
+    /** Performs cleanup of a write intent created by another transaction. */
+    private void performWriteIntentCleanup(
+            RowId rowId,
+            UUID txId,
+            UUID writeIntentTxId,
+            HybridTimestamp lastCommitTs,
+            @Nullable HybridTimestamp latestCommittedTs,
+            @Nullable List<Integer> indexIds
+    ) {
+        assert !txId.equals(writeIntentTxId) : String.format("Transactions must not match: [rowId=%s, txId=%s]", rowId, txId);
+
+        if (latestCommittedTs == null) {
+            // No more data => the write intent we have is actually the first version of this row
+            // and lastCommitTs is the commit timestamp of it.
+            // Action: commit this write intent.
+            performCommitWrite(writeIntentTxId, Set.of(rowId), lastCommitTs);
+            return;
+        }
+
+        assert lastCommitTs.compareTo(latestCommittedTs) >= 0 :
+                "Primary commit timestamp " + lastCommitTs + " is earlier than local commit timestamp " + latestCommittedTs;
+
+        if (lastCommitTs.compareTo(latestCommittedTs) > 0) {
+            // We see that lastCommitTs is later than the timestamp of the committed value => we need to commit the write intent.
+            // Action: commit this write intent.
+            performCommitWrite(writeIntentTxId, Set.of(rowId), lastCommitTs);
+        } else {
+            // lastCommitTs == latestCommittedTs
+            // So we see a write intent from a different transaction, which was not committed on primary.
+            // Because of transaction locks we cannot have two transactions creating write intents for the same row.
+            // So if we got up to here, it means that the previous transaction was aborted,
+            // but the storage was not cleaned after it.
+            // Action: abort this write intent.
+            performAbortWrite(writeIntentTxId, Set.of(rowId), indexIds);
+        }
     }
 }

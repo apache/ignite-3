@@ -43,6 +43,7 @@ import java.util.ArrayList;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutorService;
 import java.util.function.BooleanSupplier;
 import org.apache.ignite.internal.components.LogSyncer;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
@@ -69,7 +70,9 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.storage.configurations.StorageProfileConfiguration;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
 import org.apache.ignite.internal.testframework.IgniteAbstractTest;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.OffheapReadWriteLock;
 import org.junit.jupiter.api.AfterEach;
@@ -80,7 +83,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 /**
  * Base class for testing various page replacement policies.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
     private static final String NODE_NAME = "test";
 
@@ -116,6 +119,9 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
 
     private PersistentPageMemory pageMemory;
 
+    @InjectExecutorService
+    private ExecutorService executorService;
+
     protected abstract String replacementMode();
 
     @BeforeEach
@@ -148,6 +154,7 @@ public abstract class AbstractPageReplacementTest extends IgniteAbstractTest {
                 dataRegionList,
                 ioRegistry,
                 mock(LogSyncer.class),
+                executorService,
                 PAGE_SIZE
         );
 

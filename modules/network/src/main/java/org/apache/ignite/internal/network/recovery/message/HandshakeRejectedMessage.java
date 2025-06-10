@@ -23,7 +23,7 @@ import org.apache.ignite.internal.network.annotations.Transferable;
 
 /**
  * Handshake rejected message, contains the reason for a rejection.
- * This message is sent from a server to a client or wise versa.
+ * This message is sent from an acceptor to an initiator or wise versa.
  */
 @Transferable(HANDSHAKE_REJECTED)
 public interface HandshakeRejectedMessage extends InternalMessage {

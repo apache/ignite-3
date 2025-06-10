@@ -41,6 +41,7 @@ import static org.mockito.Mockito.when;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.IntFunction;
 import java.util.function.Supplier;
@@ -61,6 +62,8 @@ import org.apache.ignite.internal.pagememory.persistence.store.DeltaFilePageStor
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStore;
 import org.apache.ignite.internal.pagememory.persistence.store.FilePageStoreManager;
 import org.apache.ignite.internal.testframework.BaseIgniteAbstractTest;
+import org.apache.ignite.internal.testframework.ExecutorServiceExtension;
+import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.invocation.InvocationOnMock;
@@ -68,10 +71,13 @@ import org.mockito.invocation.InvocationOnMock;
 /**
  * For {@link CheckpointManager} testing.
  */
-@ExtendWith(ConfigurationExtension.class)
+@ExtendWith({ConfigurationExtension.class, ExecutorServiceExtension.class})
 public class CheckpointManagerTest extends BaseIgniteAbstractTest {
     @InjectConfiguration
     private PageMemoryCheckpointConfiguration checkpointConfig;
+
+    @InjectExecutorService
+    private ExecutorService executorService;
 
     @Test
     void testSimple() throws Exception {
@@ -89,6 +95,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 List.of(dataRegion),
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
+                executorService,
                 1024
         );
 
@@ -201,6 +208,7 @@ public class CheckpointManagerTest extends BaseIgniteAbstractTest {
                 List.of(),
                 mock(PageIoRegistry.class),
                 mock(LogSyncer.class),
+                executorService,
                 1024
         ));
 

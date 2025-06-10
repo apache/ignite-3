@@ -28,9 +28,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.schema.Column;
 import org.apache.ignite.internal.schema.InvalidTypeException;
 import org.apache.ignite.internal.schema.SchemaDescriptor;
@@ -42,6 +44,7 @@ import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.lang.MarshallerException;
 import org.apache.ignite.table.KeyValueView;
 import org.apache.ignite.table.Tuple;
+import org.apache.ignite.tx.Transaction;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.function.Executable;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -61,7 +64,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
 
     private static final String TABLE_NAME_FOR_SCHEMA_VALIDATION = "test_schema";
 
-    private Map<String, TestTableDefinition> createdTables;
+    Map<String, TestTableDefinition> createdTables;
 
     @BeforeAll
     void createTables() {
@@ -542,24 +545,24 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         KeyValueView<Tuple, Tuple> view = testCase.view();
 
         testCase.checkSchemaMismatchError(
-                () -> view.get(null, Tuple.create().set("id", 0L)),
+                tx -> view.get(null, Tuple.create().set("id", 0L)),
                 "Missed key column: AFFID"
         );
 
         // TODO https://issues.apache.org/jira/browse/IGNITE-21793 Thin client must throw exception
         if (!testCase.thin) {
             testCase.checkSchemaMismatchError(
-                    () -> view.get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)),
+                    tx -> view.get(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L)),
                     "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
             );
         }
 
         testCase.checkSchemaMismatchError(
-                () -> view.put(null, Tuple.create().set("id", 0L), Tuple.create()),
+                tx -> view.put(tx, Tuple.create().set("id", 0L), Tuple.create()),
                 "Missed key column: AFFID"
         );
         testCase.checkSchemaMismatchError(
-                () -> view.put(null, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()),
+                tx -> view.put(tx, Tuple.create().set("id", 0L).set("affId", 1L).set("val", 0L), Tuple.create()),
                 "Key tuple doesn't match schema: schemaVersion=1, extraColumns=[VAL]"
         );
 
@@ -611,7 +614,7 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
                     view = new AsyncApiKeyValueViewAdapter<>(view);
                 }
 
-                return (BaseTestCase<K, V>) new TestCase(async, thin, view, createdTables.get(name));
+                return (BaseTestCase<K, V>) new TestCase(async, thin, view, createdTables.get(name), thin ? client : CLUSTER.aliveNode());
             }
         };
     }
@@ -622,6 +625,8 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         final List<String> valueColumns;
 
         final SchemaDescriptor schema;
+
+        final Ignite ignite;
 
         String keyColumnName(int index) {
             return keyColumns.get(index);
@@ -635,12 +640,18 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
             return schema;
         }
 
-        TestCase(boolean async, boolean thin, KeyValueView<Tuple, Tuple> view, TestTableDefinition tableDefinition) {
+        TestCase(boolean async, boolean thin, KeyValueView<Tuple, Tuple> view, TestTableDefinition tableDefinition, Ignite ignite) {
             super(async, thin, view);
+
+            this.ignite = ignite;
 
             this.keyColumns = quoteOrLowercaseNames(tableDefinition.schemaDescriptor.keyColumns());
             this.valueColumns = quoteOrLowercaseNames(tableDefinition.schemaDescriptor.valueColumns());
             this.schema = tableDefinition.schemaDescriptor;
+        }
+
+        protected Executable wrap(Consumer<Transaction> run) {
+            return () -> run.accept(null);
         }
 
         @SuppressWarnings("ThrowableNotThrown")
@@ -649,11 +660,13 @@ public class ItKeyValueBinaryViewApiTest extends ItKeyValueViewApiBaseTest {
         }
 
         @SuppressWarnings("ThrowableNotThrown")
-        void checkSchemaMismatchError(Executable run, String expectedMessage) {
+        void checkSchemaMismatchError(Consumer<Transaction> run, String expectedMessage) {
+            Executable e = wrap(run);
+
             if (thin) {
-                IgniteTestUtils.assertThrows(IgniteException.class, run, expectedMessage);
+                IgniteTestUtils.assertThrows(IgniteException.class, e, expectedMessage);
             } else {
-                IgniteTestUtils.assertThrowsWithCause(run::execute, SchemaMismatchException.class, expectedMessage);
+                IgniteTestUtils.assertThrowsWithCause(e::execute, SchemaMismatchException.class, expectedMessage);
             }
         }
 

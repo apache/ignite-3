@@ -53,10 +53,10 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
     /** Prefix for event loop group names. */
     private final String eventLoopGroupNamePrefix;
 
-    /** Server boss socket channel handler event loop group (this group accepts connections). */
+    /** Boss socket channel handler event loop group (this group accepts connections). */
     private EventLoopGroup bossGroup;
 
-    /** Server work socket channel handler event loop group (this group does network I/O). */
+    /** Work socket channel handler event loop group (this group does network I/O). */
     private EventLoopGroup workerGroup;
 
     /** All event loops with which {@link io.netty.channel.Channel}s might be registered. */
@@ -81,18 +81,18 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
      *
      * @return Bootstrap.
      */
-    public Bootstrap createClientBootstrap() {
-        OutboundView clientConfiguration = networkConfiguration.value().outbound();
-        Bootstrap clientBootstrap = new Bootstrap();
+    public Bootstrap createOutboundBootstrap() {
+        OutboundView outboundConfiguration = networkConfiguration.value().outbound();
+        Bootstrap outboundBootstrap = new Bootstrap();
 
-        clientBootstrap.group(workerGroup)
+        outboundBootstrap.group(workerGroup)
                 .channel(NioSocketChannel.class)
                 // See createServerBootstrap for netty configuration details.
-                .option(ChannelOption.SO_KEEPALIVE, clientConfiguration.soKeepAlive())
-                .option(ChannelOption.SO_LINGER, clientConfiguration.soLinger())
-                .option(ChannelOption.TCP_NODELAY, clientConfiguration.tcpNoDelay());
+                .option(ChannelOption.SO_KEEPALIVE, outboundConfiguration.soKeepAlive())
+                .option(ChannelOption.SO_LINGER, outboundConfiguration.soLinger())
+                .option(ChannelOption.TCP_NODELAY, outboundConfiguration.tcpNoDelay());
 
-        return clientBootstrap;
+        return outboundBootstrap;
     }
 
     /**
@@ -208,7 +208,7 @@ public class NettyBootstrapFactory implements IgniteComponent, ChannelEventLoops
      * Returns worker event loop group.
      */
     @TestOnly
-    public EventLoopGroup serverEventLoopGroup() {
+    public EventLoopGroup workerEventLoopGroup() {
         return workerGroup;
     }
 }

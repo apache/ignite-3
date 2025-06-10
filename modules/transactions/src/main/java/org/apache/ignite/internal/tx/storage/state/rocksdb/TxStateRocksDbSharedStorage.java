@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.tx.storage.state.rocksdb;
 
+import static java.nio.ByteOrder.BIG_ENDIAN;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.CompletableFuture.failedFuture;
+import static org.apache.ignite.internal.tx.storage.state.rocksdb.TxStateRocksDbStorage.TABLE_PREFIX_SIZE_BYTES;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
 import static org.apache.ignite.internal.util.IgniteUtils.closeAll;
 
+import java.nio.ByteBuffer;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -262,5 +265,21 @@ public class TxStateRocksDbSharedStorage implements IgniteComponent {
 
     public ColumnFamily txStateMetaColumnFamily() {
         return txStateMetaColumnFamily;
+    }
+
+    /**
+     * Destroys tx state storage for table or zone by its ID.
+     *
+     * @param tableOrZoneId ID of the table or zone.
+     */
+    public void destroyStorage(int tableOrZoneId) {
+        byte[] start = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(tableOrZoneId).array();
+        byte[] end = ByteBuffer.allocate(TABLE_PREFIX_SIZE_BYTES).order(BIG_ENDIAN).putInt(tableOrZoneId + 1).array();
+
+        try {
+            db.deleteRange(start, end);
+        } catch (Exception e) {
+            throw new TxStateStorageException("Failed to destroy the transaction state storage [tableOrZoneId={}]", e, tableOrZoneId);
+        }
     }
 }

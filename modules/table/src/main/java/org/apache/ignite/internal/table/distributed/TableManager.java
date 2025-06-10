@@ -44,6 +44,9 @@ import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUt
 import static org.apache.ignite.internal.event.EventListener.fromConsumer;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.LOGICAL_TIME_BITS_SIZE;
 import static org.apache.ignite.internal.hlc.HybridTimestamp.hybridTimestamp;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.raft.PeersAndLearners.fromAssignments;
 import static org.apache.ignite.internal.table.distributed.TableUtils.droppedTables;
@@ -74,6 +77,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -142,7 +146,6 @@ import org.apache.ignite.internal.metastorage.WatchListener;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.TopologyService;
 import org.apache.ignite.internal.network.serialization.MessageSerializationRegistry;
-import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent;
 import org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEventParameters;
 import org.apache.ignite.internal.partition.replicator.NaiveAsyncReadWriteLock;
 import org.apache.ignite.internal.partition.replicator.PartitionReplicaLifecycleManager;
@@ -361,7 +364,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private final FailureProcessor failureProcessor;
 
     /** Incoming RAFT snapshots executor. */
-    private final ExecutorService incomingSnapshotsExecutor;
+    private final ThreadPoolExecutor incomingSnapshotsExecutor;
 
     /** Meta storage listener for pending assignments. */
     private final WatchListener pendingAssignmentsRebalanceListener;
@@ -589,11 +592,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         incomingSnapshotsExecutor = new ThreadPoolExecutor(
                 cpus,
                 cpus,
-                100,
-                TimeUnit.MILLISECONDS,
+                30,
+                TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "incoming-raft-snapshot", LOG, STORAGE_READ, STORAGE_WRITE)
         );
+        incomingSnapshotsExecutor.allowCoreThreadTimeOut(true);
 
         pendingAssignmentsRebalanceListener = createPendingAssignmentsRebalanceListener();
 
@@ -624,6 +628,14 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         );
 
         assignmentsService = new TableAssignmentsService(metaStorageMgr, catalogService, distributionZoneManager, failureProcessor);
+
+        // Register event listeners in the constructor to avoid races with "partitionReplicaLifecycleManager"'s recovery.
+        // We rely on the "readyToProcessReplicaStarts" future to block event handling until "startAsync" is completed.
+        if (enabledColocation) {
+            partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_STARTED, onBeforeZoneReplicaStartedListener);
+            partitionReplicaLifecycleManager.listen(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
+            partitionReplicaLifecycleManager.listen(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
+        }
     }
 
     @Override
@@ -638,15 +650,6 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
             rebalanceRetryDelayConfiguration.init();
 
             cleanUpResourcesForDroppedTablesOnRecoveryBusy();
-
-            if (enabledColocation) {
-                partitionReplicaLifecycleManager.listen(
-                        LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED,
-                        onBeforeZoneReplicaStartedListener
-                );
-                partitionReplicaLifecycleManager.listen(LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
-                partitionReplicaLifecycleManager.listen(LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
-            }
 
             if (!enabledColocation) {
                 metaStorageMgr.registerPrefixWatch(
@@ -750,7 +753,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                                         )
                                 );
 
-                                preparePartitionResourcesAndLoadToZoneReplica(tbl, zonePartitionId, onRecovery);
+                                preparePartitionResourcesAndLoadToZoneReplicaBusy(tbl, zonePartitionId, onRecovery);
                             }), ioExecutor)
                             // If the table is already closed, it's not a problem (probably the node is stopping).
                             .exceptionally(ignoreTableClosedException());
@@ -942,7 +945,7 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
                     var zonePartitionId = new ZonePartitionId(zoneDescriptor.id(), i);
 
                     if (partitionReplicaLifecycleManager.hasLocalPartition(zonePartitionId)) {
-                        preparePartitionResourcesAndLoadToZoneReplica(table, zonePartitionId, false);
+                        preparePartitionResourcesAndLoadToZoneReplicaBusy(table, zonePartitionId, false);
                     }
                 }
             }), ioExecutor);
@@ -970,7 +973,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
      * @param table Table.
      * @param zonePartitionId Zone Partition ID.
      */
-    private void preparePartitionResourcesAndLoadToZoneReplica(TableImpl table, ZonePartitionId zonePartitionId, boolean onNodeRecovery) {
+    private void preparePartitionResourcesAndLoadToZoneReplicaBusy(
+            TableImpl table, ZonePartitionId zonePartitionId, boolean onNodeRecovery
+    ) {
         int partId = zonePartitionId.partitionId();
 
         int tableId = table.tableId();
@@ -979,106 +984,104 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
 
         var tablePartitionId = new TablePartitionId(tableId, partId);
 
-        inBusyLock(busyLock, () -> {
-            var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
+        var safeTimeTracker = new SafeTimeValuesTracker(HybridTimestamp.MIN_VALUE);
 
-            // TODO https://issues.apache.org/jira/browse/IGNITE-22522 After switching to the colocation track, the storageIndexTracker
-            //  will no longer need to be transferred to the table listeners.
-            var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L) {
-                @Override
-                public void update(Long newValue, @Nullable Void futureResult) {
-                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
-                            + " will be updated.");
-                }
-
-                @Override
-                public CompletableFuture<Void> waitFor(Long valueToWait) {
-                    throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
-                            + " will be updated.");
-                }
-            };
-
-            PartitionStorages partitionStorages;
-            try {
-                partitionStorages = getPartitionStorages(table, partId);
-            } catch (TableClosedException e) {
-                // The node is probably stopping while we start the table, let's just skip it.
-                return;
+        // TODO https://issues.apache.org/jira/browse/IGNITE-22522 After switching to the colocation track, the storageIndexTracker
+        //  will no longer need to be transferred to the table listeners.
+        var storageIndexTracker = new PendingComparableValuesTracker<Long, Void>(0L) {
+            @Override
+            public void update(Long newValue, @Nullable Void futureResult) {
+                throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                        + " will be updated.");
             }
 
-            PartitionDataStorage partitionDataStorage = partitionDataStorage(
-                    new ZonePartitionKey(zonePartitionId.zoneId(), partId),
-                    tableId,
-                    partitionStorages.getMvPartitionStorage()
-            );
+            @Override
+            public CompletableFuture<Void> waitFor(Long valueToWait) {
+                throw new UnsupportedOperationException("It's not expected that in case of enabled colocation table storageIndexTracker"
+                        + " will be updated.");
+            }
+        };
 
-            PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
-                    partId,
-                    partitionDataStorage,
-                    table,
-                    safeTimeTracker,
-                    replicationConfiguration
-            );
+        PartitionStorages partitionStorages;
+        try {
+            partitionStorages = getPartitionStorages(table, partId);
+        } catch (TableClosedException e) {
+            // The node is probably stopping while we start the table, let's just skip it.
+            return;
+        }
 
-            internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
+        PartitionDataStorage partitionDataStorage = partitionDataStorage(
+                new ZonePartitionKey(zonePartitionId.zoneId(), partId),
+                tableId,
+                partitionStorages.getMvPartitionStorage()
+        );
 
-            mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
+        PartitionUpdateHandlers partitionUpdateHandlers = createPartitionUpdateHandlers(
+                partId,
+                partitionDataStorage,
+                table,
+                safeTimeTracker,
+                replicationConfiguration
+        );
 
-            minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
+        internalTbl.updatePartitionTrackers(partId, safeTimeTracker, storageIndexTracker);
 
-            Function<RaftCommandRunner, ReplicaTableProcessor> createListener = raftClient -> createReplicaListener(
-                    zonePartitionId,
-                    table,
-                    safeTimeTracker,
-                    partitionStorages.getMvPartitionStorage(),
-                    partitionStorages.getTxStateStorage(),
-                    partitionUpdateHandlers,
-                    raftClient
-            );
+        mvGc.addStorage(tablePartitionId, partitionUpdateHandlers.gcUpdateHandler);
 
-            var tablePartitionRaftListener = new PartitionListener(
-                    txManager,
-                    partitionDataStorage,
-                    partitionUpdateHandlers.storageUpdateHandler,
-                    partitionStorages.getTxStateStorage(),
-                    safeTimeTracker,
-                    storageIndexTracker,
-                    catalogService,
-                    table.schemaView(),
-                    indexMetaStorage,
-                    topologyService.localMember().id(),
-                    minTimeCollectorService,
-                    partitionOperationsExecutor,
-                    executorInclinedPlacementDriver,
-                    clockService,
-                    zonePartitionId
-            );
+        minTimeCollectorService.addPartition(new TablePartitionId(tableId, partId));
 
-            var partitionStorageAccess = new PartitionMvStorageAccessImpl(
-                    partId,
-                    table.internalTable().storage(),
-                    mvGc,
-                    partitionUpdateHandlers.indexUpdateHandler,
-                    partitionUpdateHandlers.gcUpdateHandler,
-                    fullStateTransferIndexChooser,
-                    schemaManager.schemaRegistry(tableId),
-                    lowWatermark
-            );
+        Function<RaftCommandRunner, ReplicaTableProcessor> createListener = raftClient -> createReplicaListener(
+                zonePartitionId,
+                table,
+                safeTimeTracker,
+                partitionStorages.getMvPartitionStorage(),
+                partitionStorages.getTxStateStorage(),
+                partitionUpdateHandlers,
+                raftClient
+        );
 
-            partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
-                    zonePartitionId,
-                    tableId,
-                    createListener,
-                    tablePartitionRaftListener,
-                    partitionStorageAccess,
-                    onNodeRecovery
-            );
-        });
+        var tablePartitionRaftListener = new PartitionListener(
+                txManager,
+                partitionDataStorage,
+                partitionUpdateHandlers.storageUpdateHandler,
+                partitionStorages.getTxStateStorage(),
+                safeTimeTracker,
+                storageIndexTracker,
+                catalogService,
+                table.schemaView(),
+                indexMetaStorage,
+                topologyService.localMember().id(),
+                minTimeCollectorService,
+                partitionOperationsExecutor,
+                executorInclinedPlacementDriver,
+                clockService,
+                zonePartitionId
+        );
+
+        var partitionStorageAccess = new PartitionMvStorageAccessImpl(
+                partId,
+                table.internalTable().storage(),
+                mvGc,
+                partitionUpdateHandlers.indexUpdateHandler,
+                partitionUpdateHandlers.gcUpdateHandler,
+                fullStateTransferIndexChooser,
+                schemaManager.schemaRegistry(tableId),
+                lowWatermark
+        );
+
+        partitionReplicaLifecycleManager.loadTableListenerToZoneReplica(
+                zonePartitionId,
+                tableId,
+                createListener,
+                tablePartitionRaftListener,
+                partitionStorageAccess,
+                onNodeRecovery
+        );
     }
 
 
     private CompletableFuture<Boolean> onTablePrimaryReplicaExpired(PrimaryReplicaEventParameters parameters) {
-        if (topologyService.localMember().id().equals(parameters.leaseholderId())) {
+        if (thisNodeHoldsLease(parameters.leaseholderId())) {
             TablePartitionId groupId = (TablePartitionId) parameters.groupId();
 
             // We do not wait future in order not to block meta storage updates.
@@ -1090,6 +1093,10 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         return falseCompletedFuture();
+    }
+
+    private boolean thisNodeHoldsLease(@Nullable UUID leaseholderId) {
+        return localNode().id().equals(leaseholderId);
     }
 
     private CompletableFuture<Void> processAssignmentsOnRecovery(long recoveryRevision) {
@@ -1649,19 +1656,9 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         }
 
         if (enabledColocation) {
-            partitionReplicaLifecycleManager.removeListener(
-                    LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
-                    onZoneReplicaDestroyedListener
-            );
-
-            partitionReplicaLifecycleManager.removeListener(
-                    LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED,
-                    onZoneReplicaStoppedListener);
-
-            partitionReplicaLifecycleManager.removeListener(
-                    LocalPartitionReplicaEvent.BEFORE_REPLICA_STARTED,
-                    onBeforeZoneReplicaStartedListener
-            );
+            partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_DESTROYED, onZoneReplicaDestroyedListener);
+            partitionReplicaLifecycleManager.removeListener(AFTER_REPLICA_STOPPED, onZoneReplicaStoppedListener);
+            partitionReplicaLifecycleManager.removeListener(BEFORE_REPLICA_STARTED, onBeforeZoneReplicaStartedListener);
         }
 
         int shutdownTimeoutSeconds = 10;
@@ -3005,8 +3002,12 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
     private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, TableImpl table) {
         var internalTbl = (InternalTableImpl) table.internalTable();
 
+        destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
+    }
+
+    private void destroyReplicationProtocolStorages(TablePartitionId tablePartitionId, boolean isVolatileStorage) {
         try {
-            replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, internalTbl.storage().isVolatile());
+            replicaMgr.destroyReplicationProtocolStorages(tablePartitionId, isVolatileStorage);
         } catch (NodeStoppingException e) {
             throw new IgniteInternalException(NODE_STOPPING_ERR, e);
         }
@@ -3207,20 +3208,29 @@ public class TableManager implements IgniteTablesInternal, IgniteComponent {
         for (DroppedTableInfo droppedTableInfo : droppedTables(catalogService, lowWatermark.getLowWatermark())) {
             int catalogVersion = droppedTableInfo.tableRemovalCatalogVersion() - 1;
 
-            CatalogTableDescriptor tableDescriptor = catalogService.catalog(catalogVersion).table(droppedTableInfo.tableId());
+            Catalog catalog = catalogService.catalog(catalogVersion);
 
+            CatalogTableDescriptor tableDescriptor = catalog.table(droppedTableInfo.tableId());
             assert tableDescriptor != null : "tableId=" + droppedTableInfo.tableId() + ", catalogVersion=" + catalogVersion;
 
-            destroyTableStorageOnRecoveryBusy(tableDescriptor);
+            CatalogZoneDescriptor zoneDescriptor = catalog.zone(tableDescriptor.zoneId());
+            assert zoneDescriptor != null : "zoneId=" + tableDescriptor.zoneId() + ", catalogVersion=" + catalogVersion;
+
+            destroyTableOnRecoveryBusy(tableDescriptor, zoneDescriptor.partitions());
         }
     }
 
-    private void destroyTableStorageOnRecoveryBusy(CatalogTableDescriptor tableDescriptor) {
+    private void destroyTableOnRecoveryBusy(CatalogTableDescriptor tableDescriptor, int partitionCount) {
         StorageEngine engine = dataStorageMgr.engineByStorageProfile(tableDescriptor.storageProfile());
-
         assert engine != null : "tableId=" + tableDescriptor.id() + ", storageProfile=" + tableDescriptor.storageProfile();
 
         engine.dropMvTable(tableDescriptor.id());
+
+        sharedTxStateStorage.destroyStorage(tableDescriptor.id());
+
+        for (int partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++) {
+            destroyReplicationProtocolStorages(new TablePartitionId(tableDescriptor.id(), partitionIndex), engine.isVolatile());
+        }
     }
 
     private synchronized ScheduledExecutorService streamerFlushExecutor() {

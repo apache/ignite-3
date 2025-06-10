@@ -874,11 +874,11 @@ public class ClientInboundMessageHandler
 
             case ClientOp.TX_COMMIT:
                 return ClientTransactionCommitRequest.process(in, resources, metrics, clockService, igniteTables,
-                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS), tsTracker);
+                        clientContext.hasFeature(TX_PIGGYBACK), tsTracker);
 
             case ClientOp.TX_ROLLBACK:
                 return ClientTransactionRollbackRequest.process(in, resources, metrics, igniteTables,
-                        clientContext.hasAllFeatures(TX_DIRECT_MAPPING, TX_DELAYED_ACKS));
+                        clientContext.hasFeature(TX_PIGGYBACK));
 
             case ClientOp.COMPUTE_EXECUTE:
                 return ClientComputeExecuteRequest.process(in, compute, clusterService, notificationSender(requestId),

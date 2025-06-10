@@ -37,6 +37,7 @@ import org.apache.ignite.internal.raft.Marshaller;
 import org.apache.ignite.internal.raft.util.OptimizedMarshaller;
 import org.apache.ignite.internal.raft.util.ThreadLocalOptimizedMarshaller;
 import org.apache.ignite.internal.replicator.message.ReplicaMessagesFactory;
+import org.apache.ignite.internal.replicator.message.ReplicaMessagesSerializationRegistryInitializer;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -84,6 +85,7 @@ public class UpdateCommandsMarshallingMicroBenchmark {
 
     static {
         new PartitionReplicationMessagesSerializationRegistryInitializer().registerFactories(REGISTRY);
+        new ReplicaMessagesSerializationRegistryInitializer().registerFactories(REGISTRY);
     }
 
     private byte[] messageBytes;
@@ -118,6 +120,11 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .requiredCatalogVersion(10_000)
                     .tableId(10_000)
                     .txCoordinatorId(UUID.randomUUID())
+                    .commitPartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+                            .partitionId(50)
+                            .tableId(10_000)
+                            .build())
+                    .initiatorTime(timestamp)
                     .messageRowsToUpdate(map)
                     .build();
         } else {
@@ -129,6 +136,11 @@ public class UpdateCommandsMarshallingMicroBenchmark {
                     .requiredCatalogVersion(10_000)
                     .tableId(10_000)
                     .txCoordinatorId(UUID.randomUUID())
+                    .commitPartitionId(REPLICA_MESSAGES_FACTORY.tablePartitionIdMessage()
+                            .partitionId(50)
+                            .tableId(10_000)
+                            .build())
+                    .initiatorTime(timestamp)
                     .messageRowToUpdate(timedBinaryRowMessage)
                     .build();
         }

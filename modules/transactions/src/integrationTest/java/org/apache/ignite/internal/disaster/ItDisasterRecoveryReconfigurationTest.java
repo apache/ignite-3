@@ -1075,9 +1075,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         List<String> nodesNamesForFinalAssignments = new ArrayList<>(blockedNodes);
         nodesNamesForFinalAssignments.add(leaderName);
 
-        // Unblock raft.
-        blockedNodes.clear();
-
         // Given block of assignment stable switch halts rebalances and thus provides an ability to verify pending and planned assignments.
         // Without the block test may fail because rebalance may finish prior to corresponding check. In other words given block eliminates
         // the race between rebalance and assignments verifications that we do below.
@@ -1089,6 +1086,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
         assertThat(updateFuture, willCompleteSuccessfully());
+
+        // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
+        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phaze target instead of
+        // expected within test leaderName = findLeader(1, partId);
+
+        // Unblock raft.
+        blockedNodes.clear();
 
         // Pending is the one with the most up to date log index.
         Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(leaderName)), timestamp);
@@ -1205,9 +1209,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         logger().info("Stopping nodes [id={}]", Arrays.toString(nodesToStop));
         stopNodesInParallel(nodesToStop);
 
-        // Unblock raft.
-        blockedNodes.clear();
-
         // Two nodes should have the most up to date data, one falls behind.
         waitForPartitionState(node0, partId, GlobalPartitionStateEnum.READ_ONLY);
 
@@ -1228,6 +1229,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         CompletableFuture<?> updateFuture =
                 TestDisasterRecoveryUtils.resetPartitions(disasterRecoveryManager, zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), false, 1);
         assertThat(updateFuture, willCompleteSuccessfully());
+
+        // It's important to unblock appendEntries requests after resetPartitions, otherwise 2 or even all 3 nodes may align by data/index
+        // and thus GroupUpdateRequestHandler#nextAssignment may evaluate second or third node as reset first phaze target instead of
+        // expected within test leaderName = findLeader(1, partId);
+
+        // Unblock raft.
+        blockedNodes.clear();
 
         // Pending is the one with the most up to date log index.
         Assignments assignmentPending = Assignments.forced(Set.of(Assignment.forPeer(pendingNodeName)), timestamp);

@@ -108,9 +108,15 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
     }
 
     private void mockCatalogWithSingleTable(int catalogVersion, int tableId) {
-        Catalog catalogV3 = mock(Catalog.class);
-        when(catalogService.catalog(catalogVersion)).thenReturn(catalogV3);
-        when(catalogV3.table(tableId)).thenReturn(tableVersion(tableId, catalogVersion));
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(catalogVersion)).thenReturn(catalog);
+        when(catalog.table(tableId)).thenReturn(tableVersion(tableId, catalogVersion));
+    }
+
+    private void mockCatalogWithoutTable(int catalogVersion, int tableId) {
+        Catalog catalog = mock(Catalog.class);
+        when(catalogService.catalog(catalogVersion)).thenReturn(catalog);
+        when(catalog.table(tableId)).thenReturn(null);
     }
 
     private static CatalogTableDescriptor tableVersion(int tableId, int tableVersion) {
@@ -208,5 +214,26 @@ class CatalogValidationSchemasSourceTest extends BaseIgniteAbstractTest {
         assertThat(fullSchemas1.size(), is(fullSchemas2.size()));
 
         verify(catalogService.catalog(3), times(1)).table(tableId);
+    }
+
+    @Test
+    void tableSchemaVersionsBetweenTimestampAndVersionWorksIfTableWasDropped() {
+        int tableId = 1;
+
+        HybridTimestamp from = clock.now();
+
+        when(catalogService.latestCatalogVersion()).thenReturn(5);
+        when(catalogService.activeCatalogVersion(from.longValue())).thenReturn(3);
+
+        mockCatalogWithSingleTable(3, tableId);
+        mockCatalogWithSingleTable(4, tableId);
+        // In version 5, the table is dropped.
+        mockCatalogWithoutTable(5, tableId);
+
+        List<FullTableSchema> fullSchemas = schemas.tableSchemaVersionsBetween(tableId, from, 4);
+
+        assertThat(fullSchemas, hasSize(2));
+        assertThat(fullSchemas.get(0).schemaVersion(), is(3));
+        assertThat(fullSchemas.get(1).schemaVersion(), is(4));
     }
 }
