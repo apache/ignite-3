@@ -117,6 +117,15 @@ public class ClientTransactionInflights {
     }
 
     /**
+     * Cleanup inflights context for this transaction.
+     *
+     * @param uuid Tx id.
+     */
+    public void erase(UUID uuid) {
+        txCtxMap.remove(uuid);
+    }
+
+    /**
      * Transaction inflights context.
      */
     public static class TxContext {
