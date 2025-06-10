@@ -39,6 +39,7 @@ import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeN
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willSucceedIn;
+import static org.apache.ignite.internal.tx.test.ItTransactionTestUtils.table;
 import static org.apache.ignite.internal.util.ByteUtils.toByteArray;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapCause;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -58,6 +59,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -111,6 +113,10 @@ import org.apache.ignite.internal.raft.server.impl.JraftServerImpl;
 import org.apache.ignite.internal.replicator.PartitionGroupId;
 import org.apache.ignite.internal.replicator.TablePartitionId;
 import org.apache.ignite.internal.replicator.ZonePartitionId;
+import org.apache.ignite.internal.replicator.message.PrimaryReplicaChangeCommand;
+import org.apache.ignite.internal.storage.MvPartitionStorage;
+import org.apache.ignite.internal.storage.lease.LeaseInfo;
+import org.apache.ignite.internal.table.InternalTable;
 import org.apache.ignite.internal.table.TableViewInternal;
 import org.apache.ignite.internal.table.distributed.TableManager;
 import org.apache.ignite.internal.table.distributed.disaster.DisasterRecoveryManager;
@@ -122,6 +128,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartition
 import org.apache.ignite.internal.table.distributed.disaster.TestDisasterRecoveryUtils;
 import org.apache.ignite.internal.testframework.failure.FailureManagerExtension;
 import org.apache.ignite.internal.testframework.failure.MuteFailureManagerLogging;
+import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
 import org.apache.ignite.internal.util.ExceptionUtils;
 import org.apache.ignite.lang.ErrorGroups.Replicator;
 import org.apache.ignite.lang.IgniteException;
@@ -1700,6 +1707,163 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertAssignmentsChain(node0, partId, AssignmentsChain.of(finalAssignments));
     }
 
+    @Test
+    @ZoneParams(nodes = 5, replicas = 5, partitions = 1)
+    void testLeaseStartTimeOnMajorityDown() throws Exception {
+        int partId = 0;
+        int replicaCount = 5;
+
+        IgniteImpl node0 = igniteImpl(0);
+        int catalogVersion = node0.catalogManager().latestCatalogVersion();
+        long timestamp = node0.catalogManager().catalog(catalogVersion).time();
+
+        assertRealAssignments(node0, partId, 0, 1, 2, 3, 4);
+
+        PartitionGroupId partitionGroupId = partitionGroupId(partId);
+
+        CompletableFuture<Long> primaryChosen = new CompletableFuture<>();
+
+        AtomicBoolean firstPrimaryReplicaChange = new AtomicBoolean(true);
+        AtomicBoolean primaryReplicaChangedBlocked = new AtomicBoolean(true);
+
+        blockMessage((nodeName, msg) -> {
+            Long primaryReplicaMessageTime = primaryReplicaMessageTime(msg);
+            if (primaryReplicaMessageTime != null) {
+                if (firstPrimaryReplicaChange.getAndSet(false)) {
+                    // Check that the lease is not in the storages before the PrimaryReplicaChangeCommand is sent.
+                    assertNull(leaseInTxStateStorage(node0, partId));
+                    assertNull(leaseInMvPartitionStorage(node0, partId));
+
+                    primaryChosen.complete(primaryReplicaMessageTime);
+                }
+                return primaryReplicaChangedBlocked.get();
+            }
+            return false;
+        });
+
+        Assignments initialAssignments = Assignments.of(Set.of(
+                Assignment.forPeer(node(0).name()),
+                Assignment.forPeer(node(1).name()),
+                Assignment.forPeer(node(2).name()),
+                Assignment.forPeer(node(3).name()),
+                Assignment.forPeer(node(4).name())
+        ), timestamp);
+
+        assertStableAssignments(node0, partId, initialAssignments);
+
+        // Wait for PrimaryReplicaChangeCommand to be sent and block it immediately.
+        assertThat(primaryChosen, willSucceedIn(60, SECONDS));
+
+        long leaseStartTime = primaryChosen.get();
+
+        // Find the current leader.
+        String leader = findLeader(0, partId);
+        logger().info("Partition leader is {}", leader);
+
+        // Immediately transfer leadership to the other node.
+        int leaderIdx = nodeIndex(leader);
+
+        int leaderAfterTransferIdx = (leaderIdx + 1) % replicaCount;
+        // Make sure we don't kill node 0 later.
+        if (leaderAfterTransferIdx == 0) {
+            leaderAfterTransferIdx = 1;
+        }
+
+        cluster.transferLeadershipTo(leaderAfterTransferIdx, partitionGroupId);
+
+        String leaderAfterTransfer = findLeader(0, partId);
+        logger().info("Partition leader after transfer is {}", leaderAfterTransfer);
+
+        // Get the nodes to stop. We want to stop the majority - 3 nodes, excluding the primary but including the new leader. Additionally,
+        // we don't want to kill node 0 (however if the primary was on node 0, we'll pick another random one).
+        Set<Integer> candidates = new HashSet<>(replicaCount);
+        for (int i = 0; i < replicaCount; i++) {
+            candidates.add(i);
+        }
+        // Primary.
+        candidates.remove(leaderIdx);
+        // Keep the zero node as well.
+        candidates.remove(0);
+        if (candidates.size() > 3) {
+            candidates.remove((leaderAfterTransferIdx + 1) % replicaCount);
+        }
+
+        logger().info("Stopping nodes {}", candidates);
+
+        stopNodesInParallel(candidates.stream().mapToInt(Integer::intValue).toArray());
+
+        // Assert still no data in the storages.
+        assertNull(leaseInTxStateStorage(node0, partId));
+        assertNull(leaseInMvPartitionStorage(node0, partId));
+        // Unblock PrimaryReplicaChangeCommand.
+        primaryReplicaChangedBlocked.set(false);
+
+        // Reset the partition to make it operable.
+        CompletableFuture<?> updateFuture2 =
+                TestDisasterRecoveryUtils.resetPartitions(node0.disasterRecoveryManager(), zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+
+        assertThat(updateFuture2, willCompleteSuccessfully());
+
+        ReplicaMeta primary = awaitPrimaryReplica(node0, partId);
+        logger().info("Primary replica is {}", primary.getLeaseholder());
+
+        LeaseInfo leaseInfoTxState = leaseInTxStateStorage(node0, partId);
+        LeaseInfo leaseInfoMvState = leaseInMvPartitionStorage(node0, partId);
+        logger().info("Lease in tx storage is {}, in mv storage is {}", leaseInfoTxState, leaseInfoMvState);
+
+        assertNotNull(leaseInfoMvState);
+        logger().info("Start time before is {}, after {}", leaseStartTime, leaseInfoMvState.leaseStartTime());
+    }
+
+    private static @Nullable LeaseInfo leaseInTxStateStorage(IgniteImpl node, int partId) {
+        return persistentTxStorage(node, TABLE_NAME, partId).leaseInfo();
+    }
+    private static @Nullable LeaseInfo leaseInMvPartitionStorage(IgniteImpl node, int partId) {
+        return mvPartitionStorage(node, TABLE_NAME, partId).leaseInfo();
+    }
+
+    private static MvPartitionStorage mvPartitionStorage(IgniteImpl node, String tableName, int partId) {
+        InternalTable internalTable = table(node, tableName).internalTable();
+
+        MvPartitionStorage mvPartitionStorage = internalTable.storage().getMvPartition(partId);
+
+        assertNotNull(mvPartitionStorage);
+
+        return mvPartitionStorage;
+    }
+
+    private static TxStatePartitionStorage persistentTxStorage(IgniteImpl node, String tableName, int partId) {
+        InternalTable internalTable = table(node, tableName).internalTable();
+
+        TxStatePartitionStorage txStatePartitionStorage =
+                enabledColocation()
+                        ? node.partitionReplicaLifecycleManager().txStatePartitionStorage(internalTable.zoneId(), partId)
+                        : internalTable.txStateStorage().getPartitionStorage(partId);
+
+        assertNotNull(txStatePartitionStorage);
+
+        return txStatePartitionStorage;
+    }
+
+    private @Nullable Long primaryReplicaMessageTime(
+            NetworkMessage msg
+    ) {
+        if (msg instanceof WriteActionRequest) {
+            var writeActionRequest = (WriteActionRequest) msg;
+            WriteCommand command = writeActionRequest.deserializedCommand();
+
+            if (command instanceof PrimaryReplicaChangeCommand) {
+                PrimaryReplicaChangeCommand primaryReplicaChangeCommand = (PrimaryReplicaChangeCommand) command;
+
+                logger().info("Received PrimaryReplicaChangeCommand: {}", primaryReplicaChangeCommand);
+
+                return primaryReplicaChangeCommand.leaseStartTime();
+
+            }
+        }
+        return null;
+    }
+
     private void setDistributionResetTimeout(IgniteImpl node, long timeout) {
         CompletableFuture<Void> changeFuture = node
                 .clusterConfiguration()
@@ -1870,7 +2034,6 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         assertEquals(state, localPartitionStateByNode.values().iterator().next().state);
     }
 
-
     private String findLeader(int nodeIdx, int partId) {
         IgniteImpl node = igniteImpl(nodeIdx);
 
@@ -1918,11 +2081,13 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         return enabledColocation() ? new ZonePartitionId(zoneId, partId) : new TablePartitionId(tableId, partId);
     }
 
-    private void awaitPrimaryReplica(IgniteImpl node0, int partId) {
+    private ReplicaMeta awaitPrimaryReplica(IgniteImpl node0, int partId) throws ExecutionException, InterruptedException {
         CompletableFuture<ReplicaMeta> awaitPrimaryReplicaFuture = node0.placementDriver()
                 .awaitPrimaryReplica(partitionGroupId(partId), node0.clock().now(), 60, SECONDS);
 
         assertThat(awaitPrimaryReplicaFuture, willSucceedIn(60, SECONDS));
+
+        return awaitPrimaryReplicaFuture.get();
     }
 
     private void assertRealAssignments(IgniteImpl node0, int partId, Integer... expected) throws InterruptedException {
