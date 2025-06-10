@@ -18,7 +18,6 @@
 package org.apache.ignite.internal.pagememory.persistence.checkpoint;
 
 import static java.util.concurrent.ConcurrentHashMap.newKeySet;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toList;
@@ -45,11 +44,11 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ForkJoinTask;
 import java.util.concurrent.ForkJoinWorkerThread;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.lang.IgniteBiTuple;
 import org.apache.ignite.internal.lang.IgniteInternalCheckedException;
 import org.apache.ignite.internal.logger.IgniteLogger;
@@ -104,7 +103,7 @@ class CheckpointWorkflow {
      * Thread pool for {@link CheckpointListener} callbacks, when a read or write {@link #checkpointReadWriteLock lock} is taken, {@code
      * null} if it should run on a checkpoint thread.
      */
-    private final @Nullable ThreadPoolExecutor callbackListenerThreadPool;
+    private final @Nullable ExecutorService callbackListenerThreadPool;
 
     /**
      * Contains meta-page IDs for all partitions, that were explicitly marked dirty by {@link #markPartitionAsDirty(DataRegion, int, int)}.
@@ -144,12 +143,9 @@ class CheckpointWorkflow {
         );
 
         if (checkpointThreads > 1) {
-            callbackListenerThreadPool = new ThreadPoolExecutor(
+            callbackListenerThreadPool = Executors.newFixedThreadPool(
                     checkpointThreads,
-                    checkpointThreads,
-                    30_000,
-                    MILLISECONDS,
-                    new LinkedBlockingQueue<>(),
+                    // TODO IGNITE-25590 Add node name.
                     new NamedThreadFactory(CHECKPOINT_RUNNER_THREAD_PREFIX + "-io", LOG)
             );
         } else {

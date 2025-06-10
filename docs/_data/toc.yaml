@@ -32,6 +32,8 @@
       url: quick-start/getting-started-guide
     - title: Start Ignite 3 Cluster
       url: quick-start/start-cluster
+    - title: Explore SQL Capabilities
+      url: quick-start/explore-sql
     - title: Persist Your Data
       url: quick-start/persist-data
 - title: Embedded Mode

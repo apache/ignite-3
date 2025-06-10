@@ -1294,7 +1294,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    void testReadingTombstoneIfPreviousCommitExists() {
+    void testReadingTombstoneIfLatestCommitExists() {
         RowId rowId = new RowId(PARTITION_ID);
 
         HybridTimestamp commitTs = clock.now();
@@ -1316,7 +1316,7 @@ public abstract class AbstractMvPartitionStorageTest extends BaseMvPartitionStor
     }
 
     @Test
-    void testReadingTombstoneIfPreviousCommitNotExists() {
+    void testReadingTombstoneIfLatestCommitNotExists() {
         RowId rowId = new RowId(PARTITION_ID);
 
         storage.runConsistently(locker -> {

@@ -89,7 +89,7 @@ class AddWriteCommittedInvokeClosure implements InvokeClosure<VersionChain> {
 
             addWriteCommittedResult = AddWriteCommittedResult.writeIntentExists(
                     oldRow.transactionId(),
-                    AddWriteInvokeClosure.previousCommitTimestamp(storage, oldRow, this::addWriteCommittedInfo)
+                    AddWriteInvokeClosure.latestCommitTimestamp(storage, oldRow, this::addWriteCommittedInfo)
             );
 
             return;

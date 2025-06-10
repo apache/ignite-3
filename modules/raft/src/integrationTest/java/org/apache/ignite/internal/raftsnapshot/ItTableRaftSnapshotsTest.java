@@ -573,12 +573,6 @@ class ItTableRaftSnapshotsTest extends ClusterPerTestIntegrationTest {
 
         transferLeadershipOnSolePartitionTo(2);
 
-        // TODO: https://issues.apache.org/jira/browse/IGNITE-25277 - without colocation, primary is obtained within its timeout,
-        // but with colocation, we have to wait for data nodes longer, so we fail with a timeout on attempt to get primary replica.
-        // The following line fixes the problem by explicitly transferring the primary; this line should be removed after IGNITE-25277
-        // is sorted out.
-        transferPrimaryOnSolePartitionTo(2);
-
         knockoutNode(0);
 
         putToNode(2, 2, "two");
