@@ -179,7 +179,7 @@ class ItSqlCommandTest extends CliSqlCommandTestBase {
     @Test
     @DisplayName("An error should be displayed indicating that the script transaction was not completed by the script.")
     void scriptTxNotFinishedByScript() {
-        String expectedError = "Transaction managed by the script was not completed by the script.";
+        String expectedError = "Transaction block doesn't have a COMMIT statement at the end.";
 
         {
             execute("sql", "START TRANSACTION;", "--jdbc-url", JDBC_URL);

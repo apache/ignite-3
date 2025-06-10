@@ -158,7 +158,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
     @ParameterizedTest
     @ValueSource(strings = {"READ ONLY", "READ WRITE"})
     void startTransactionWithoutCommitThrowsException(String txOptions) {
-        String expectedError = "Transaction managed by the script was not completed by the script.";
+        String expectedError = "Transaction block doesn't have a COMMIT statement at the end.";
         String startTxStatement = format("START TRANSACTION {};", txOptions);
 
         {
@@ -215,7 +215,7 @@ public class ItSqlMultiStatementTxTest extends BaseSqlMultiStatementTest {
 
         assertThrowsSqlException(
                 RUNTIME_ERR,
-                "Transaction managed by the script was not completed by the script",
+                "Transaction block doesn't have a COMMIT statement at the end",
                 () -> await(cur0.nextResult())
         );
 

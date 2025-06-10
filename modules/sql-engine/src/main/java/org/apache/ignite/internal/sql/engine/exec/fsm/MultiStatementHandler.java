@@ -152,7 +152,7 @@ class MultiStatementHandler {
                 if (scriptStatement.unfinishedTxBlock) {
                     // Stop script execution because the transaction block is not complete.
                     fut = CompletableFuture.failedFuture(new SqlException(RUNTIME_ERR,
-                            "Transaction managed by the script was not completed by the script."));
+                            "Transaction block doesn't have a COMMIT statement at the end."));
                 } else {
                     // Return an empty cursor.
                     fut = scriptTxContext.handleControlStatement(parsedResult.parsedTree())

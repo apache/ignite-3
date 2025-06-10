@@ -311,7 +311,7 @@ public class ItJdbcMultiStatementSelfTest extends AbstractJdbcSelfTest {
     public void testBrokenTransaction() throws Exception {
         //noinspection ThrowableNotThrown
         assertThrowsSqlException(
-                "Transaction managed by the script was not completed by the script.",
+                "Transaction block doesn't have a COMMIT statement at the end.",
                 () -> stmt.execute("START TRANSACTION;")
         );
 
