@@ -22,6 +22,7 @@ import static org.apache.ignite.internal.table.TableTestUtils.INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.PK_INDEX_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.TABLE_NAME;
 import static org.apache.ignite.internal.table.TableTestUtils.createSimpleHashIndex;
+import static org.apache.ignite.internal.table.TableTestUtils.createSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.dropSimpleIndex;
 import static org.apache.ignite.internal.table.TableTestUtils.dropSimpleTable;
 import static org.apache.ignite.internal.table.TableTestUtils.makeIndexAvailable;
@@ -63,11 +64,15 @@ import org.apache.ignite.internal.testframework.WorkDirectoryExtension;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /** For testing recovery of {@link IndexMetaStorage}. */
 @ExtendWith(WorkDirectoryExtension.class)
 @ExtendWith(ExecutorServiceExtension.class)
 public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
+    private static final String ANOTHER_TABLE_NAME = "ANOTHER_TABLE";
+
     @WorkDirectory
     private Path workDir;
 
@@ -492,6 +497,96 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         checkFields(fromMetastore, indexId, tableId, tableVersion, INDEX_NAME, READ_ONLY, expectedStatuses, removingIndexCatalogVersion);
     }
 
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testRemoveStoppingIndexMissingPreRestartLwmUpdate(boolean dropVersionIsNotLast) throws Exception {
+        executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
+
+        int indexId = indexId(INDEX_NAME);
+
+        executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
+        executeCatalogUpdate(() -> makeIndexAvailable(catalogManager, indexId));
+        executeCatalogUpdate(() -> dropSimpleIndex(catalogManager, INDEX_NAME));
+
+        updateTableVersion(TABLE_NAME);
+
+        removeIndex(catalogManager, indexId);
+        if (dropVersionIsNotLast) {
+            createAnotherCatalogVersion();
+        }
+
+        restartComponentsSimulatingMissedLwmUpdate();
+
+        assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromMetastore(indexId));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testDropTableMissingPreRestartLwmUpdate(boolean dropVersionIsNotLast) throws Exception {
+        int indexId = indexId(PK_INDEX_NAME);
+
+        dropSimpleTable(catalogManager, TABLE_NAME);
+        if (dropVersionIsNotLast) {
+            createAnotherCatalogVersion();
+        }
+
+        restartComponentsSimulatingMissedLwmUpdate();
+
+        assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromMetastore(indexId));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testDropRegisteredIndexMissingPreRestartLwmUpdate(boolean dropVersionIsNotLast) throws Exception {
+        executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
+
+        int indexId = indexId(INDEX_NAME);
+
+        updateTableVersion(TABLE_NAME);
+
+        dropSimpleIndex(catalogManager, INDEX_NAME);
+        if (dropVersionIsNotLast) {
+            createAnotherCatalogVersion();
+        }
+
+        restartComponentsSimulatingMissedLwmUpdate();
+
+        assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromMetastore(indexId));
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void testDropBuildingIndexMissingPreRestartLwmUpdate(boolean dropVersionIsNotLast) throws Exception {
+        executeCatalogUpdate(() -> createSimpleHashIndex(catalogManager, TABLE_NAME, INDEX_NAME));
+
+        int indexId = indexId(INDEX_NAME);
+
+        executeCatalogUpdate(() -> startBuildingIndex(catalogManager, indexId));
+
+        updateTableVersion(TABLE_NAME);
+
+        dropSimpleIndex(catalogManager, INDEX_NAME);
+        if (dropVersionIsNotLast) {
+            createAnotherCatalogVersion();
+        }
+
+        restartComponentsSimulatingMissedLwmUpdate();
+
+        assertNull(indexMetaStorage.indexMeta(indexId));
+        assertNull(fromMetastore(indexId));
+    }
+
+    private void createAnotherCatalogVersion() {
+        createSimpleTable(catalogManager, ANOTHER_TABLE_NAME);
+    }
+
+    private void restartComponentsSimulatingMissedLwmUpdate() throws Exception {
+        restartComponents(true);
+    }
+
     private void executeCatalogUpdateWithDropEvents(RunnableX task) {
         CompletableFuture<Void> startDropEventsFuture = interceptor.startDropEvents();
 
@@ -501,6 +596,10 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
     }
 
     private void restartComponents() throws Exception {
+        restartComponents(false);
+    }
+
+    private void restartComponents(boolean updateLwmToTriggerDestruction) throws Exception {
         var componentContext = new ComponentContext();
 
         IgniteUtils.closeAll(
@@ -522,6 +621,10 @@ public class IndexMetaStorageRecoveryTest extends BaseIndexMetaStorageTest {
         assertThat(metastore.deployWatches(), willCompleteSuccessfully());
 
         assertThat(catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
+
+        if (updateLwmToTriggerDestruction) {
+            updateLwm(clock.now().addPhysicalTime(DELTA_TO_TRIGGER_DESTROY));
+        }
 
         assertThat(startAsync(componentContext, indexMetaStorage), willCompleteSuccessfully());
     }

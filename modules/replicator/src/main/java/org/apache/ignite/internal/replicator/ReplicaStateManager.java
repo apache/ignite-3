@@ -375,9 +375,8 @@ class ReplicaStateManager {
      * Reserve replica as primary.
      *
      * @param groupId Group id.
-     * @return Whether the replica was successfully reserved.
      */
-    boolean reserveReplica(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
+    void reserveReplica(ReplicationGroupId groupId, HybridTimestamp leaseStartTime) {
         ReplicaStateContext context = getContext(groupId);
 
         synchronized (context) {
@@ -395,7 +394,9 @@ class ReplicaStateManager {
                 context.reserve(groupId, leaseStartTime);
             }
 
-            return context.reservedForPrimary;
+            if (!context.reservedForPrimary) {
+                throw new ReplicaReservationFailedException(groupId, leaseStartTime, state.name());
+            }
         }
     }
 

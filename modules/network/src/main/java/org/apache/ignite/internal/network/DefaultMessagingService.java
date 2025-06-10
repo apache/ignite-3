@@ -56,7 +56,7 @@ import org.apache.ignite.internal.lang.IgniteSystemProperties;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
-import org.apache.ignite.internal.network.handshake.HandshakeException;
+import org.apache.ignite.internal.network.handshake.CriticalHandshakeException;
 import org.apache.ignite.internal.network.message.ClassDescriptorMessage;
 import org.apache.ignite.internal.network.message.InvokeRequest;
 import org.apache.ignite.internal.network.message.InvokeResponse;
@@ -120,6 +120,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
     // TODO: IGNITE-18493 - remove/move this
     @Nullable
     private volatile BiPredicate<String, NetworkMessage> dropMessagesPredicate;
+
+    private final LocalIpAddresses localIpAddresses = new LocalIpAddresses();
 
     /**
      * Cache of {@link RecipientInetAddress} of recipient nodes ({@link ClusterNode}) by {@link ClusterNode#id} that are in the topology
@@ -371,13 +373,11 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             () -> triggerChannelCreation(nodeId, type, addr)
                     );
                 })
-                // TODO: IGNITE-25375 - consider removing logging after the fix as it might be too much
-                // (the caller also gets the exception).
                 .whenComplete((res, ex) -> {
-                    if (ex != null && hasCause(ex, HandshakeException.class)) {
+                    if (ex != null && hasCause(ex, CriticalHandshakeException.class)) {
                         LOG.error(
-                                "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localAddr={}]", ex,
-                                nodeId, type, addr, connectionManager.localAddress()
+                                "Handshake failed [destNodeId={}, channelType={}, destAddr={}, localBindAddr={}]", ex,
+                                nodeId, type, addr, connectionManager.localBindAddress()
                         );
                     }
                 });
@@ -642,6 +642,8 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * Starts the service.
      */
     public void start() {
+        localIpAddresses.start();
+
         new IgniteThread(timeoutWorker).start();
 
         criticalWorkerRegistry.register(outboundExecutor);
@@ -763,18 +765,18 @@ public class DefaultMessagingService extends AbstractMessagingService {
      * @param recipientNode Target cluster node.
      */
     @Nullable InetSocketAddress resolveRecipientAddress(ClusterNode recipientNode) {
-        // Node name is {@code null} if the node has not been added to the topology.
-        if (recipientNode.name() != null) {
+        // Node ID is {@code null} if this is a Scalecube request when the node does not know yet whose this address is.
+        if (recipientNode.id() != null) {
             return connectionManager.nodeId().equals(recipientNode.id()) ? null : getFromCacheOrCreateResolved(recipientNode);
         }
 
-        return RecipientInetAddress.create(connectionManager.localAddress(), recipientNode.address()).address();
+        return RecipientInetAddress.create(connectionManager.localBindAddress(), recipientNode.address(), localIpAddresses).address();
     }
 
     private @Nullable InetSocketAddress getFromCacheOrCreateResolved(ClusterNode recipientNode) {
-        assert recipientNode.name() != null : "Node has not been added to the topology: " + recipientNode.id();
+        assert recipientNode.id() != null : "Node has not been added to the topology: " + recipientNode.id();
 
-        InetSocketAddress localAddress = connectionManager.localAddress();
+        InetSocketAddress localBindAddress = connectionManager.localBindAddress();
         NetworkAddress recipientAddress = recipientNode.address();
 
         RecipientInetAddress address = recipientInetAddrByNodeId.compute(recipientNode.id(), (nodeId, existingAddress) -> {
@@ -782,11 +784,12 @@ public class DefaultMessagingService extends AbstractMessagingService {
                 return null;
             }
 
-            return existingAddress != null ? existingAddress : RecipientInetAddress.create(localAddress, recipientAddress);
+            return existingAddress != null ? existingAddress
+                    : RecipientInetAddress.create(localBindAddress, recipientAddress, localIpAddresses);
         });
 
         if (address == null) {
-            address = RecipientInetAddress.create(localAddress, recipientAddress);
+            address = RecipientInetAddress.create(localBindAddress, recipientAddress, localIpAddresses);
         }
 
         return address.address();

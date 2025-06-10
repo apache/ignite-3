@@ -40,6 +40,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
@@ -618,6 +620,14 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         };
     }
 
+    private static String localHostName() {
+        try {
+            return InetAddress.getLocalHost().getHostName();
+        } catch (UnknownHostException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     private static class Services implements AutoCloseable {
         private final ConnectionManager connectionManager;
         private final DefaultMessagingService messagingService;
@@ -696,15 +706,30 @@ class DefaultMessagingServiceTest extends BaseIgniteAbstractTest {
         CHANGE_ID_ONLY((node, services) -> new ClusterNodeImpl(randomUUID(), node.name(), node.address())),
         CHANGE_NAME_ONLY((node, services) -> new ClusterNodeImpl(node.id(), node.name() + "_", node.address())),
         CHANGE_NAME((node, services) -> new ClusterNodeImpl(randomUUID(), node.name() + "_", node.address())),
-        SET_IP_LOCALHOST((node, services) -> new ClusterNodeImpl(
+        SET_IPV4_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
                 new NetworkAddress("127.0.0.1", node.address().port())
         )),
-        SET_IPV6_LOCALHOST((node, services) -> new ClusterNodeImpl(
+        SET_IPV6_LOOPBACK((node, services) -> new ClusterNodeImpl(
                 randomUUID(),
                 node.name(),
-                new NetworkAddress(services.connectionManager.localAddress().getHostName(), node.address().port())
+                new NetworkAddress("::1", node.address().port())
+        )),
+        SET_IPV4_ANYLOCAL((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress("0.0.0.0", node.address().port())
+        )),
+        SET_IPV6_ANYLOCAL((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress("0:0:0:0:0:0:0:0", node.address().port())
+        )),
+        SET_LOCALHOST((node, services) -> new ClusterNodeImpl(
+                randomUUID(),
+                node.name(),
+                new NetworkAddress(localHostName(), node.address().port())
         ));
 
         private final BiFunction<ClusterNode, Services, ClusterNode> changer;

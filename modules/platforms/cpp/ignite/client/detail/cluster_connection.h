@@ -25,13 +25,13 @@
 #include "ignite/protocol/protocol_context.h"
 
 #include "ignite/common/ignite_result.h"
+#include "ignite/common/detail/thread_timer.h"
 #include "ignite/network/async_client_pool.h"
 #include "ignite/protocol/client_operation.h"
 #include "ignite/protocol/reader.h"
 #include "ignite/protocol/writer.h"
 
 #include <functional>
-#include <future>
 #include <memory>
 #include <mutex>
 #include <random>
@@ -403,6 +403,9 @@ private:
 
     /** Observable timestamp. */
     std::atomic_int64_t m_observable_timestamp{0};
+
+    /** Timer thread. */
+    std::shared_ptr<thread_timer> m_timer_thread;
 };
 
 } // namespace ignite::detail

@@ -222,6 +222,22 @@ public class IndexMeta {
         }
     }
 
+    /** Returns {@code true} if the index was already removed from the Catalog (it can still exist and function though). */
+    public boolean isRemovedFromCatalog() {
+        switch (currentStatus) {
+            case REMOVED:
+            case READ_ONLY:
+                return true;
+            case REGISTERED:
+            case BUILDING:
+            case AVAILABLE:
+            case STOPPING:
+                return false;
+            default:
+                throw new AssertionError(String.format("Unknown status: [indexId=%s, currentStatus=%s]", indexId, currentStatus));
+        }
+    }
+
     @Override
     public String toString() {
         return S.toString(this);

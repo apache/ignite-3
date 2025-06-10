@@ -1,0 +1,489 @@
+Project
+    fieldNames: [BUCKET1, BUCKET2, BUCKET3, BUCKET4, BUCKET5]
+    projection: [CASE(>(EXPR$0, 98972190), EXPR$00, EXPR$01), CASE(>(EXPR$02, 160856845), EXPR$03, EXPR$04), CASE(>(EXPR$05, 12733327), EXPR$06, EXPR$07), CASE(>(EXPR$08, 96251173), EXPR$09, EXPR$010), CASE(>(EXPR$011, 80049606), EXPR$012, EXPR$013)]
+    est: (rows=1)
+  NestedLoopJoin
+      predicate: true
+      fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010, EXPR$011, EXPR$012, EXPR$013]
+      type: left
+      est: (rows=1)
+    NestedLoopJoin
+        predicate: true
+        fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010, EXPR$011, EXPR$012]
+        type: left
+        est: (rows=1)
+      NestedLoopJoin
+          predicate: true
+          fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010, EXPR$011]
+          type: left
+          est: (rows=1)
+        NestedLoopJoin
+            predicate: true
+            fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09, EXPR$010]
+            type: left
+            est: (rows=1)
+          NestedLoopJoin
+              predicate: true
+              fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08, EXPR$09]
+              type: left
+              est: (rows=1)
+            NestedLoopJoin
+                predicate: true
+                fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07, EXPR$08]
+                type: left
+                est: (rows=1)
+              NestedLoopJoin
+                  predicate: true
+                  fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06, EXPR$07]
+                  type: left
+                  est: (rows=1)
+                NestedLoopJoin
+                    predicate: true
+                    fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05, EXPR$06]
+                    type: left
+                    est: (rows=1)
+                  NestedLoopJoin
+                      predicate: true
+                      fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04, EXPR$05]
+                      type: left
+                      est: (rows=1)
+                    NestedLoopJoin
+                        predicate: true
+                        fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03, EXPR$04]
+                        type: left
+                        est: (rows=1)
+                      NestedLoopJoin
+                          predicate: true
+                          fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02, EXPR$03]
+                          type: left
+                          est: (rows=1)
+                        NestedLoopJoin
+                            predicate: true
+                            fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01, EXPR$02]
+                            type: left
+                            est: (rows=1)
+                          NestedLoopJoin
+                              predicate: true
+                              fieldNames: [R_REASON_SK, EXPR$0, EXPR$00, EXPR$01]
+                              type: left
+                              est: (rows=1)
+                            NestedLoopJoin
+                                predicate: true
+                                fieldNames: [R_REASON_SK, EXPR$0, EXPR$00]
+                                type: left
+                                est: (rows=1)
+                              NestedLoopJoin
+                                  predicate: true
+                                  type: left
+                                  est: (rows=1)
+                                Exchange
+                                    distribution: single
+                                    est: (rows=1)
+                                  IndexScan
+                                      table: PUBLIC.REASON
+                                      index: REASON_PK
+                                      type: HASH
+                                      predicate: =(R_REASON_SK, 1)
+                                      searchBounds: [ExactBounds [bound=1]]
+                                      fieldNames: [R_REASON_SK]
+                                      est: (rows=1)
+                                Project
+                                    fieldNames: [EXPR$0]
+                                    projection: [CAST(f0_0):BIGINT NOT NULL]
+                                    est: (rows=1)
+                                  ReduceSortAggregate
+                                      fieldNames: [f0_0]
+                                      collation: []
+                                      group: []
+                                      aggregation: [$SUM0(_ACC0)]
+                                      est: (rows=1)
+                                    Exchange
+                                        distribution: single
+                                        est: (rows=1)
+                                      MapSortAggregate
+                                          fieldNames: [_ACC0]
+                                          collation: []
+                                          group: []
+                                          aggregation: [COUNT()]
+                                          est: (rows=1)
+                                        TableScan
+                                            table: PUBLIC.STORE_SALES
+                                            predicate: SEARCH(SS_QUANTITY, Sarg[[1..20]])
+                                            fieldNames: [SS_QUANTITY]
+                                            est: (rows=720101)
+                              Project
+                                  fieldNames: [EXPR$0]
+                                  projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                                  est: (rows=1)
+                                ReduceSortAggregate
+                                    fieldNames: [f0_0, f1_1]
+                                    collation: []
+                                    group: []
+                                    aggregation: [SUM(0), $SUM0(1)]
+                                    est: (rows=1)
+                                  Project
+                                      fieldNames: [0, 1]
+                                      projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                                      est: (rows=1)
+                                    Exchange
+                                        distribution: single
+                                        est: (rows=1)
+                                      MapSortAggregate
+                                          fieldNames: [_ACC0, _ACC1]
+                                          collation: []
+                                          group: []
+                                          aggregation: [SUM(SS_EXT_DISCOUNT_AMT), COUNT(SS_EXT_DISCOUNT_AMT)]
+                                          est: (rows=1)
+                                        TableScan
+                                            table: PUBLIC.STORE_SALES
+                                            predicate: SEARCH(SS_QUANTITY, Sarg[[1..20]])
+                                            fieldNames: [SS_EXT_DISCOUNT_AMT]
+                                            est: (rows=720101)
+                            Project
+                                fieldNames: [EXPR$0]
+                                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                                est: (rows=1)
+                              ReduceSortAggregate
+                                  fieldNames: [f0_0, f1_1]
+                                  collation: []
+                                  group: []
+                                  aggregation: [SUM(0), $SUM0(1)]
+                                  est: (rows=1)
+                                Project
+                                    fieldNames: [0, 1]
+                                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                                    est: (rows=1)
+                                  Exchange
+                                      distribution: single
+                                      est: (rows=1)
+                                    MapSortAggregate
+                                        fieldNames: [_ACC0, _ACC1]
+                                        collation: []
+                                        group: []
+                                        aggregation: [SUM(SS_NET_PROFIT), COUNT(SS_NET_PROFIT)]
+                                        est: (rows=1)
+                                      TableScan
+                                          table: PUBLIC.STORE_SALES
+                                          predicate: SEARCH(SS_QUANTITY, Sarg[[1..20]])
+                                          fieldNames: [SS_NET_PROFIT]
+                                          est: (rows=720101)
+                          Project
+                              fieldNames: [EXPR$0]
+                              projection: [CAST(f0_0):BIGINT NOT NULL]
+                              est: (rows=1)
+                            ReduceSortAggregate
+                                fieldNames: [f0_0]
+                                collation: []
+                                group: []
+                                aggregation: [$SUM0(_ACC0)]
+                                est: (rows=1)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=1)
+                                MapSortAggregate
+                                    fieldNames: [_ACC0]
+                                    collation: []
+                                    group: []
+                                    aggregation: [COUNT()]
+                                    est: (rows=1)
+                                  TableScan
+                                      table: PUBLIC.STORE_SALES
+                                      predicate: SEARCH(SS_QUANTITY, Sarg[[21..40]])
+                                      fieldNames: [SS_QUANTITY]
+                                      est: (rows=720101)
+                        Project
+                            fieldNames: [EXPR$0]
+                            projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                            est: (rows=1)
+                          ReduceSortAggregate
+                              fieldNames: [f0_0, f1_1]
+                              collation: []
+                              group: []
+                              aggregation: [SUM(0), $SUM0(1)]
+                              est: (rows=1)
+                            Project
+                                fieldNames: [0, 1]
+                                projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                                est: (rows=1)
+                              Exchange
+                                  distribution: single
+                                  est: (rows=1)
+                                MapSortAggregate
+                                    fieldNames: [_ACC0, _ACC1]
+                                    collation: []
+                                    group: []
+                                    aggregation: [SUM(SS_EXT_DISCOUNT_AMT), COUNT(SS_EXT_DISCOUNT_AMT)]
+                                    est: (rows=1)
+                                  TableScan
+                                      table: PUBLIC.STORE_SALES
+                                      predicate: SEARCH(SS_QUANTITY, Sarg[[21..40]])
+                                      fieldNames: [SS_EXT_DISCOUNT_AMT]
+                                      est: (rows=720101)
+                      Project
+                          fieldNames: [EXPR$0]
+                          projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                          est: (rows=1)
+                        ReduceSortAggregate
+                            fieldNames: [f0_0, f1_1]
+                            collation: []
+                            group: []
+                            aggregation: [SUM(0), $SUM0(1)]
+                            est: (rows=1)
+                          Project
+                              fieldNames: [0, 1]
+                              projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                              est: (rows=1)
+                            Exchange
+                                distribution: single
+                                est: (rows=1)
+                              MapSortAggregate
+                                  fieldNames: [_ACC0, _ACC1]
+                                  collation: []
+                                  group: []
+                                  aggregation: [SUM(SS_NET_PROFIT), COUNT(SS_NET_PROFIT)]
+                                  est: (rows=1)
+                                TableScan
+                                    table: PUBLIC.STORE_SALES
+                                    predicate: SEARCH(SS_QUANTITY, Sarg[[21..40]])
+                                    fieldNames: [SS_NET_PROFIT]
+                                    est: (rows=720101)
+                    Project
+                        fieldNames: [EXPR$0]
+                        projection: [CAST(f0_0):BIGINT NOT NULL]
+                        est: (rows=1)
+                      ReduceSortAggregate
+                          fieldNames: [f0_0]
+                          collation: []
+                          group: []
+                          aggregation: [$SUM0(_ACC0)]
+                          est: (rows=1)
+                        Exchange
+                            distribution: single
+                            est: (rows=1)
+                          MapSortAggregate
+                              fieldNames: [_ACC0]
+                              collation: []
+                              group: []
+                              aggregation: [COUNT()]
+                              est: (rows=1)
+                            TableScan
+                                table: PUBLIC.STORE_SALES
+                                predicate: SEARCH(SS_QUANTITY, Sarg[[41..60]])
+                                fieldNames: [SS_QUANTITY]
+                                est: (rows=720101)
+                  Project
+                      fieldNames: [EXPR$0]
+                      projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                      est: (rows=1)
+                    ReduceSortAggregate
+                        fieldNames: [f0_0, f1_1]
+                        collation: []
+                        group: []
+                        aggregation: [SUM(0), $SUM0(1)]
+                        est: (rows=1)
+                      Project
+                          fieldNames: [0, 1]
+                          projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                          est: (rows=1)
+                        Exchange
+                            distribution: single
+                            est: (rows=1)
+                          MapSortAggregate
+                              fieldNames: [_ACC0, _ACC1]
+                              collation: []
+                              group: []
+                              aggregation: [SUM(SS_EXT_DISCOUNT_AMT), COUNT(SS_EXT_DISCOUNT_AMT)]
+                              est: (rows=1)
+                            TableScan
+                                table: PUBLIC.STORE_SALES
+                                predicate: SEARCH(SS_QUANTITY, Sarg[[41..60]])
+                                fieldNames: [SS_EXT_DISCOUNT_AMT]
+                                est: (rows=720101)
+                Project
+                    fieldNames: [EXPR$0]
+                    projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                    est: (rows=1)
+                  ReduceSortAggregate
+                      fieldNames: [f0_0, f1_1]
+                      collation: []
+                      group: []
+                      aggregation: [SUM(0), $SUM0(1)]
+                      est: (rows=1)
+                    Project
+                        fieldNames: [0, 1]
+                        projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                        est: (rows=1)
+                      Exchange
+                          distribution: single
+                          est: (rows=1)
+                        MapSortAggregate
+                            fieldNames: [_ACC0, _ACC1]
+                            collation: []
+                            group: []
+                            aggregation: [SUM(SS_NET_PROFIT), COUNT(SS_NET_PROFIT)]
+                            est: (rows=1)
+                          TableScan
+                              table: PUBLIC.STORE_SALES
+                              predicate: SEARCH(SS_QUANTITY, Sarg[[41..60]])
+                              fieldNames: [SS_NET_PROFIT]
+                              est: (rows=720101)
+              Project
+                  fieldNames: [EXPR$0]
+                  projection: [CAST(f0_0):BIGINT NOT NULL]
+                  est: (rows=1)
+                ReduceSortAggregate
+                    fieldNames: [f0_0]
+                    collation: []
+                    group: []
+                    aggregation: [$SUM0(_ACC0)]
+                    est: (rows=1)
+                  Exchange
+                      distribution: single
+                      est: (rows=1)
+                    MapSortAggregate
+                        fieldNames: [_ACC0]
+                        collation: []
+                        group: []
+                        aggregation: [COUNT()]
+                        est: (rows=1)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          predicate: SEARCH(SS_QUANTITY, Sarg[[61..80]])
+                          fieldNames: [SS_QUANTITY]
+                          est: (rows=720101)
+            Project
+                fieldNames: [EXPR$0]
+                projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+                est: (rows=1)
+              ReduceSortAggregate
+                  fieldNames: [f0_0, f1_1]
+                  collation: []
+                  group: []
+                  aggregation: [SUM(0), $SUM0(1)]
+                  est: (rows=1)
+                Project
+                    fieldNames: [0, 1]
+                    projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                    est: (rows=1)
+                  Exchange
+                      distribution: single
+                      est: (rows=1)
+                    MapSortAggregate
+                        fieldNames: [_ACC0, _ACC1]
+                        collation: []
+                        group: []
+                        aggregation: [SUM(SS_EXT_DISCOUNT_AMT), COUNT(SS_EXT_DISCOUNT_AMT)]
+                        est: (rows=1)
+                      TableScan
+                          table: PUBLIC.STORE_SALES
+                          predicate: SEARCH(SS_QUANTITY, Sarg[[61..80]])
+                          fieldNames: [SS_EXT_DISCOUNT_AMT]
+                          est: (rows=720101)
+          Project
+              fieldNames: [EXPR$0]
+              projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+              est: (rows=1)
+            ReduceSortAggregate
+                fieldNames: [f0_0, f1_1]
+                collation: []
+                group: []
+                aggregation: [SUM(0), $SUM0(1)]
+                est: (rows=1)
+              Project
+                  fieldNames: [0, 1]
+                  projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+                  est: (rows=1)
+                Exchange
+                    distribution: single
+                    est: (rows=1)
+                  MapSortAggregate
+                      fieldNames: [_ACC0, _ACC1]
+                      collation: []
+                      group: []
+                      aggregation: [SUM(SS_NET_PROFIT), COUNT(SS_NET_PROFIT)]
+                      est: (rows=1)
+                    TableScan
+                        table: PUBLIC.STORE_SALES
+                        predicate: SEARCH(SS_QUANTITY, Sarg[[61..80]])
+                        fieldNames: [SS_NET_PROFIT]
+                        est: (rows=720101)
+        Project
+            fieldNames: [EXPR$0]
+            projection: [CAST(f0_0):BIGINT NOT NULL]
+            est: (rows=1)
+          ReduceSortAggregate
+              fieldNames: [f0_0]
+              collation: []
+              group: []
+              aggregation: [$SUM0(_ACC0)]
+              est: (rows=1)
+            Exchange
+                distribution: single
+                est: (rows=1)
+              MapSortAggregate
+                  fieldNames: [_ACC0]
+                  collation: []
+                  group: []
+                  aggregation: [COUNT()]
+                  est: (rows=1)
+                TableScan
+                    table: PUBLIC.STORE_SALES
+                    predicate: SEARCH(SS_QUANTITY, Sarg[[81..100]])
+                    fieldNames: [SS_QUANTITY]
+                    est: (rows=720101)
+      Project
+          fieldNames: [EXPR$0]
+          projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+          est: (rows=1)
+        ReduceSortAggregate
+            fieldNames: [f0_0, f1_1]
+            collation: []
+            group: []
+            aggregation: [SUM(0), $SUM0(1)]
+            est: (rows=1)
+          Project
+              fieldNames: [0, 1]
+              projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+              est: (rows=1)
+            Exchange
+                distribution: single
+                est: (rows=1)
+              MapSortAggregate
+                  fieldNames: [_ACC0, _ACC1]
+                  collation: []
+                  group: []
+                  aggregation: [SUM(SS_EXT_DISCOUNT_AMT), COUNT(SS_EXT_DISCOUNT_AMT)]
+                  est: (rows=1)
+                TableScan
+                    table: PUBLIC.STORE_SALES
+                    predicate: SEARCH(SS_QUANTITY, Sarg[[81..100]])
+                    fieldNames: [SS_EXT_DISCOUNT_AMT]
+                    est: (rows=720101)
+    Project
+        fieldNames: [EXPR$0]
+        projection: [CASE(=(f0_0, 0:DECIMAL(32767, 0)), null:DECIMAL(21, 16), DECIMAL_DIVIDE(f0_0, f1_1, 21, 16))]
+        est: (rows=1)
+      ReduceSortAggregate
+          fieldNames: [f0_0, f1_1]
+          collation: []
+          group: []
+          aggregation: [SUM(0), $SUM0(1)]
+          est: (rows=1)
+        Project
+            fieldNames: [0, 1]
+            projection: [_ACC0, CAST(_ACC1):DECIMAL(32767, 0) NOT NULL]
+            est: (rows=1)
+          Exchange
+              distribution: single
+              est: (rows=1)
+            MapSortAggregate
+                fieldNames: [_ACC0, _ACC1]
+                collation: []
+                group: []
+                aggregation: [SUM(SS_NET_PROFIT), COUNT(SS_NET_PROFIT)]
+                est: (rows=1)
+              TableScan
+                  table: PUBLIC.STORE_SALES
+                  predicate: SEARCH(SS_QUANTITY, Sarg[[81..100]])
+                  fieldNames: [SS_NET_PROFIT]
+                  est: (rows=720101)

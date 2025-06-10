@@ -17,11 +17,7 @@
 
 package org.apache.ignite.internal.cli.commands.node.config;
 
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_UPDATE_FILE_OPTION;
-import static org.apache.ignite.internal.cli.commands.Options.Constants.CONFIG_UPDATE_FILE_OPTION_DESC;
-
 import jakarta.inject.Inject;
-import java.io.File;
 import java.util.concurrent.Callable;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCall;
 import org.apache.ignite.internal.cli.call.configuration.NodeConfigUpdateCallInput;
@@ -29,10 +25,8 @@ import org.apache.ignite.internal.cli.commands.BaseCommand;
 import org.apache.ignite.internal.cli.commands.SpacedParameterMixin;
 import org.apache.ignite.internal.cli.commands.node.NodeUrlProfileMixin;
 import org.apache.ignite.internal.cli.core.call.CallExecutionPipeline;
-import org.apache.ignite.internal.cli.util.ConfigUtils;
 import picocli.CommandLine.Command;
 import picocli.CommandLine.Mixin;
-import picocli.CommandLine.Option;
 
 /**
  * Command that updates node configuration.
@@ -43,13 +37,9 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     @Mixin
     private NodeUrlProfileMixin nodeUrl;
 
-    /** Configuration from CLI that will be updated. */
+    /** Configuration that will be updated. */
     @Mixin
-    private SpacedParameterMixin configFromArgs;
-
-    /** Configuration from file that will be updated. */
-    @Option(names = CONFIG_UPDATE_FILE_OPTION, description = CONFIG_UPDATE_FILE_OPTION_DESC)
-    private File configFile;
+    private SpacedParameterMixin configFromArgsAndFile;
 
     @Inject
     private NodeConfigUpdateCall call;
@@ -65,7 +55,7 @@ public class NodeConfigUpdateCommand extends BaseCommand implements Callable<Int
     private NodeConfigUpdateCallInput buildCallInput() {
         return NodeConfigUpdateCallInput.builder()
                 .nodeUrl(nodeUrl.getNodeUrl())
-                .config(ConfigUtils.formUpdateConfig(configFile, configFromArgs))
+                .config(configFromArgsAndFile.formUpdateConfig())
                 .build();
     }
 }

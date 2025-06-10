@@ -31,10 +31,11 @@ namespace ignite::detail {
 
 cluster_connection::cluster_connection(ignite_client_configuration configuration)
     : m_configuration(std::move(configuration))
-    , m_pool()
     , m_logger(std::make_shared<logger_wrapper>(m_configuration.get_logger()))
-    , m_generator(std::random_device()()) {
-}
+    , m_generator(std::random_device()())
+    , m_timer_thread(thread_timer::start([logger = m_logger] (auto&& err) {
+        logger->log_error("Unhandled timer error: " + err.what_str());
+    })) {}
 
 void cluster_connection::start_async(std::function<void(ignite_result<void>)> callback) {
     using namespace network;
@@ -92,7 +93,8 @@ void cluster_connection::on_connection_success(const end_point &addr, uint64_t i
     m_logger->log_info("Established connection with remote host " + addr.to_string());
     m_logger->log_debug("Connection ID: " + std::to_string(id));
 
-    auto connection = node_connection::make_new(id, m_pool, weak_from_this(), m_logger, m_configuration);
+    auto connection = node_connection::make_new(
+        id, m_pool, weak_from_this(), m_logger, m_configuration, m_timer_thread);
     {
         [[maybe_unused]] std::unique_lock<std::recursive_mutex> lock(m_connections_mutex);
 

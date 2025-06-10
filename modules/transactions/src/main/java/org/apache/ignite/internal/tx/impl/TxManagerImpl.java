@@ -50,11 +50,10 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.LongAdder;
@@ -137,7 +136,7 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
     private static final int LOCK_RETRY_COUNT_PROP_DEFAULT_VALUE = 3;
 
-    private static final String RESOURCE_TTL_PROP = "txnResourceTtl";
+    public static final String RESOURCE_TTL_PROP = "txnResourceTtl";
 
     private static final int RESOURCE_TTL_PROP_DEFAULT_VALUE = 30 * 1000;
 
@@ -366,12 +365,8 @@ public class TxManagerImpl implements TxManager, NetworkMessageHandler, SystemVi
 
         int cpus = Runtime.getRuntime().availableProcessors();
 
-        writeIntentSwitchPool = new ThreadPoolExecutor(
+        writeIntentSwitchPool = Executors.newFixedThreadPool(
                 cpus,
-                cpus,
-                100,
-                MILLISECONDS,
-                new LinkedBlockingQueue<>(),
                 IgniteThreadFactory.create(nodeName, "tx-async-write-intent", LOG, STORAGE_READ, STORAGE_WRITE)
         );
 
