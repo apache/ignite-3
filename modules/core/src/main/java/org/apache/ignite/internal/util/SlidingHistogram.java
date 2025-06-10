@@ -21,6 +21,7 @@ import static java.lang.Math.ceil;
 import static java.lang.Math.min;
 import static java.lang.Math.sqrt;
 
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
 /**
@@ -33,8 +34,8 @@ public class SlidingHistogram {
     private final int[] circularBuffer;
     private final int windowSize;
     private final long estimationDefault;
-    private volatile int index = 0;
-    private volatile int currentSize = 0;
+    private final AtomicInteger index = new AtomicInteger(0);
+    private final AtomicInteger currentSize = new AtomicInteger(0);
 
     /**
      * Constructor for SlidingHistogram.
@@ -56,17 +57,17 @@ public class SlidingHistogram {
     public synchronized void record(long value) {
         int bucket = mapToBucket(value);
 
-        if (currentSize == windowSize) {
-            int oldBucket = circularBuffer[index];
+        if (currentSize.get() == windowSize) {
+            int oldBucket = circularBuffer[index.get()];
             bucketCounters.decrementAndGet(oldBucket);
         } else {
-            currentSize++;
+            currentSize.incrementAndGet();
         }
 
-        circularBuffer[index] = bucket;
+        circularBuffer[index.get()] = bucket;
         bucketCounters.incrementAndGet(bucket);
 
-        index = (index + 1) % windowSize;
+        index.updateAndGet(v -> (v + 1) % windowSize);
     }
 
     /**
@@ -77,12 +78,12 @@ public class SlidingHistogram {
      * @return The estimated value at the given percentile, or the default value if not enough data is available.
      */
     public synchronized long estimatePercentile(double percentile) {
-        if (currentSize < windowSize) {
+        if (currentSize.get() < windowSize) {
             // Not enough data to estimate, return default value.
             return estimationDefault;
         }
 
-        int target = (int) ceil(currentSize * percentile);
+        int target = (int) ceil(currentSize.get() * percentile);
         int cumulative = 0;
 
         for (int i = 0; i < BUCKET_COUNT; i++) {
