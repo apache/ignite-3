@@ -15,19 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.tx.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.OneOf;
 
-/** Extension for local system configuration schema. */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+/**
+ * Configuration schema for deadlock prevention policy.
+ */
+@Config
+public class DeadlockPreventionPolicyConfigurationSchema {
+    @OneOf({"NATURAL", "REVERSED", "NONE"})
+    @Value(hasDefault = true)
+    public String txIdComparator = "NATURAL";
 
-    @ConfigValue
-    @Deprecated
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+    @Value(hasDefault = true)
+    public long waitTimeout = 0;
 }

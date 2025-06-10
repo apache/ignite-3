@@ -15,36 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.network.configuration;
+package org.apache.ignite.internal.configuration;
+
+import static org.apache.ignite.internal.configuration.SystemDistributedConfigurationSchema.DEFAULT_IDLE_SAFE_TIME_SYNC_INTERVAL_MILLIS;
 
 import org.apache.ignite.configuration.annotation.Config;
-import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Range;
 
 /**
- * File transferring configuration.
+ * Configuration schema for the Meta Storage module.
  */
 @Config
-public class FileTransferConfigurationSchema {
-    @Range(min = 0)
+public class MetaStorageConfigurationSchema {
+    /**
+     * Duration (in milliseconds) used to determine how often to issue time sync commands when the Meta Storage is idle
+     * (no writes are being issued).
+     *
+     * <p>Making this value too small increases the network load, while making this value too large can lead to increased latency of
+     * Meta Storage reads.
+     */
     @Value(hasDefault = true)
-    @PublicName(legacyNames = "responseTimeout")
-    public final long responseTimeoutMillis = 10_000;
-
-    /** Chunk size in bytes. */
     @Range(min = 1)
-    @Value(hasDefault = true)
-    @PublicName(legacyNames = "chunkSize")
-    public final int chunkSizeBytes = 1024 * 1024;
-
-    /** File sender thread pool size. */
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final int threadPoolSize = 8;
-
-    /** Max concurrent requests. */
-    @Range(min = 1)
-    @Value(hasDefault = true)
-    public final int maxConcurrentRequests = 4;
+    public long idleSyncTimeInterval = DEFAULT_IDLE_SAFE_TIME_SYNC_INTERVAL_MILLIS;
 }
