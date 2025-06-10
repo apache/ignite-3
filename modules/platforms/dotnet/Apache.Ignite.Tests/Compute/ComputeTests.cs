@@ -706,17 +706,41 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCancellationTokenRegistrationCleanup()
+        public async Task TestJobCancellationTokenRegistrationCleanup()
         {
             var cts = new CancellationTokenSource();
-            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "-11", cts.Token);
 
-            // TODO: Test failed job.
+            var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "x", cts.Token);
             await exec.GetResultAsync();
 
-            Assert.IsFalse(
-                TestUtils.HasCallbacks(cts),
-                "CancellationTokenSource should not have callbacks registered after job completion.");
+            AssertNoCallbacks(cts);
+        }
+
+        [Test]
+        public async Task TestBroadcastCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()), NodeNameJob, "x", cts.Token);
+
+            foreach (var jobExec in exec.JobExecutions)
+            {
+                await jobExec.GetResultAsync();
+            }
+
+            AssertNoCallbacks(cts);
+        }
+
+        [Test]
+        public async Task TestMapReduceCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "a", cts.Token);
+            await exec.GetResultAsync();
+
+            AssertNoCallbacks(cts);
         }
 
         [Test]
@@ -1014,6 +1038,11 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.IsNull(state.FinishTime);
             }
         }
+
+        private static void AssertNoCallbacks(CancellationTokenSource cts) =>
+            Assert.IsFalse(
+                TestUtils.HasCallbacks(cts),
+                "CancellationTokenSource should not have callbacks registered after job completion.");
 
         private static Instant GetCurrentInstant()
         {
