@@ -730,7 +730,7 @@ namespace Apache.Ignite.Tests.Compute
             var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "x", cts.Token);
             await exec.GetResultAsync();
 
-            AssertNoCallbacks(cts);
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -744,7 +744,7 @@ namespace Apache.Ignite.Tests.Compute
                 await exec.GetResultAsync();
             });
 
-            AssertNoCallbacks(cts);
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -760,7 +760,7 @@ namespace Apache.Ignite.Tests.Compute
                 await jobExec.GetResultAsync();
             }
 
-            AssertNoCallbacks(cts);
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -776,7 +776,7 @@ namespace Apache.Ignite.Tests.Compute
                 Assert.CatchAsync<ComputeException>(async () => await jobExec.GetResultAsync());
             }
 
-            AssertNoCallbacks(cts);
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -787,7 +787,7 @@ namespace Apache.Ignite.Tests.Compute
             var exec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "a", cts.Token);
             await exec.GetResultAsync();
 
-            AssertNoCallbacks(cts);
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -801,7 +801,7 @@ namespace Apache.Ignite.Tests.Compute
                 await exec.GetResultAsync();
             });
 
-            AssertNoCallbacks(cts);
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -1072,11 +1072,6 @@ namespace Apache.Ignite.Tests.Compute
 
             await AssertJobStatus(jobExecution, status, beforeStart);
         }
-
-        private static void AssertNoCallbacks(CancellationTokenSource cts) =>
-            Assert.IsFalse(
-                TestUtils.HasCallbacks(cts),
-                "CancellationTokenSource should not have callbacks registered after job completion.");
 
         private static Instant GetCurrentInstant()
         {

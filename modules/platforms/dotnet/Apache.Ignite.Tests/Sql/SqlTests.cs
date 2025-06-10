@@ -617,6 +617,8 @@ namespace Apache.Ignite.Tests.Sql
                     }
                 }
             });
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         [Test]
@@ -643,6 +645,8 @@ namespace Apache.Ignite.Tests.Sql
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await task);
             Assert.AreEqual("The query was cancelled while executing.", ex!.Message);
             Assert.IsInstanceOf<SqlException>(ex.InnerException);
+
+            Assert.IsFalse(TestUtils.HasCallbacks(cts));
         }
 
         private static string GenerateCrossJoin(int depth)
