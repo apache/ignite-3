@@ -539,7 +539,7 @@ class RelJson {
                 map.put("keys", keys);
 
                 if (distribution.isAffinityDistribution()) {
-                    map.put("func", "affinity"); // Use hard coded function name for compatibility reasons.
+                    map.put("func", "affinity");
                     map.put("zoneId", distribution.zoneId());
                     map.put("tableId", distribution.tableId());
                     map.put("label", distribution.label());
