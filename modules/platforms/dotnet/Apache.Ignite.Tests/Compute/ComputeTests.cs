@@ -644,14 +644,18 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestJobExecutionCancel()
+        public async Task TestCancelJob()
         {
             const int sleepMs = 10_000;
             var beforeStart = GetCurrentInstant();
 
             var cts = new CancellationTokenSource();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs, cts.Token);
+            IJobExecution<string> jobExecution = await Client.Compute.SubmitAsync(
+                await GetNodeAsync(1),
+                SleepJob,
+                sleepMs,
+                cts.Token);
 
             await cts.CancelAsync();
 
@@ -662,6 +666,41 @@ namespace Apache.Ignite.Tests.Compute
             Assert.AreEqual(
                 "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
                 ex.Message);
+        }
+
+        [Test]
+        public async Task TestCancelBroadcast()
+        {
+            const int sleepMs = 10_000;
+            var beforeStart = GetCurrentInstant();
+
+            var cts = new CancellationTokenSource();
+
+            IBroadcastExecution<string> jobExecution = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()),
+                SleepJob,
+                sleepMs,
+                cts.Token);
+
+            await cts.CancelAsync();
+
+            foreach (var jobExec in jobExecution.JobExecutions)
+            {
+                await AssertJobStatus(jobExec, JobStatus.Canceled, beforeStart);
+
+                var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
+
+                Assert.AreEqual(
+                    "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
+                    ex.Message);
+            }
+        }
+
+        [Test]
+        public async Task TestCancelMapReduce()
+        {
+            // TODO
+            await Task.Delay(1);
         }
 
         [Test]
