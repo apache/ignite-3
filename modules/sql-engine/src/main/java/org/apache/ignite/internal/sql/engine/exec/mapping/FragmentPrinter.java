@@ -28,13 +28,10 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexNode;
-import org.apache.ignite.internal.sql.engine.InternalSqlRow;
-import org.apache.ignite.internal.sql.engine.InternalSqlRowSingleString;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
 import org.apache.ignite.internal.sql.engine.exec.RelAwarePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
@@ -95,14 +92,8 @@ public final class FragmentPrinter extends IgniteRelShuttle {
         return output.builder.toString();
     }
 
-    /** Wrapper. */
-    public static CompletableFuture<InternalSqlRow> fragmentsToString(CompletableFuture<List<MappedFragment>> fragments) {
-        return fragments.thenApply(FragmentPrinter::fragmentsToString)
-                .thenApply(InternalSqlRowSingleString::new)
-                .thenApply(InternalSqlRow.class::cast);
-    }
-
-    static String fragmentsToString(List<MappedFragment> mappedFragments) {
+    /** Wraps mapped fragments into string representation.  */
+    public static String fragmentsToString(List<MappedFragment> mappedFragments) {
         TableDescriptorCollector collector = new TableDescriptorCollector();
 
         for (MappedFragment mappedFragment : mappedFragments) {

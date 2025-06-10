@@ -556,10 +556,12 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     CompletableFuture<List<MappedFragment>> mapping = mappingService.map((MultiStepPlan) plan.plan(), mappingParameters);
 
-                    CompletableFuture<InternalSqlRow> fragments = FragmentPrinter.fragmentsToString(mapping);
-
-                    CompletableFuture<Iterator<InternalSqlRow>> fragments0 = fragments.thenApply(List::of)
-                            .thenApply(List::iterator);
+                    CompletableFuture<Iterator<InternalSqlRow>> fragments0 =
+                            mapping.thenApply(FragmentPrinter::fragmentsToString)
+                                    .thenApply(InternalSqlRowSingleString::new)
+                                    .thenApply(InternalSqlRow.class::cast)
+                                    .thenApply(List::of)
+                                    .thenApply(List::iterator);
 
                     return new IteratorToDataCursorAdapter<>(fragments0, Runnable::run);
                 } else {
