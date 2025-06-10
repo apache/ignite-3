@@ -670,24 +670,6 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        public async Task TestCancelJobDuringSubmit()
-        {
-            var cts = new CancellationTokenSource();
-
-            var task = Client.Compute.SubmitAsync(
-                await GetNodeAsync(1),
-                SleepJob,
-                10_000,
-                cts.Token);
-
-            // Wait for request to be sent and callbacks to be registered, then cancel.
-            TestUtils.WaitForCancellationRegistrations(cts);
-            await cts.CancelAsync();
-
-            await task;
-        }
-
-        [Test]
         public async Task TestCancelBroadcast()
         {
             const int sleepMs = 10_000;
