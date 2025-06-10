@@ -733,6 +733,22 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public async Task TestBroadcastExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            var exec = await Client.Compute.SubmitBroadcastAsync(
+                BroadcastJobTarget.Nodes(await Client.GetClusterNodesAsync()), ExceptionJob, "x", cts.Token);
+
+            foreach (var jobExec in exec.JobExecutions)
+            {
+                Assert.CatchAsync<ComputeException>(async () => await jobExec.GetResultAsync());
+            }
+
+            AssertNoCallbacks(cts);
+        }
+
+        [Test]
         public async Task TestMapReduceCancellationTokenRegistrationCleanup()
         {
             var cts = new CancellationTokenSource();
