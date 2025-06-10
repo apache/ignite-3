@@ -23,7 +23,6 @@ import static java.lang.Math.min;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -74,22 +73,7 @@ public class ThrottlingContextHolderImpl implements ThrottlingContextHolder {
 
     @Override
     public boolean isOverloaded(Peer peer, String requestClassName) {
-        boolean res = peerContext(peer).isOverloaded();
-
-        if (res) {
-            if (ThreadLocalRandom.current().nextInt(1000) == 1) {
-                var holder = peerContext(peer);
-
-                LOG.info("qqq group is overloaded, req={}, peer={}, timeout={}, percentile98={}",
-                        requestClassName,
-                        peer.consistentId(),
-                        holder.adaptiveResponseTimeoutMillis.get(),
-                        holder.histogram.estimatePercentile(PeerContextHolder.HISTOGRAM_PERCENTILE)
-                );
-            }
-        }
-
-        return res;
+        return peerContext(peer).isOverloaded();
     }
 
     @Override
