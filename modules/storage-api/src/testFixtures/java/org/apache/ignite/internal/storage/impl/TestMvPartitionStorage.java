@@ -250,7 +250,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    addWriteResult[0] = AddWriteResult.txMismatch(versionChain.txId, previousCommitTimestamp(versionChain));
+                    addWriteResult[0] = AddWriteResult.txMismatch(versionChain.txId, latestCommitTimestamp(versionChain));
 
                     return versionChain;
                 }
@@ -354,7 +354,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
             if (versionChain != null && versionChain.isWriteIntent()) {
                 addWriteCommittedResult[0] = AddWriteCommittedResult.writeIntentExists(
                         versionChain.txId,
-                        previousCommitTimestamp(versionChain)
+                        latestCommitTimestamp(versionChain)
                 );
 
                 return versionChain;
@@ -883,7 +883,7 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         return locker != null && locker.isLocked(rowId);
     }
 
-    private static @Nullable HybridTimestamp previousCommitTimestamp(VersionChain chain) {
+    private static @Nullable HybridTimestamp latestCommitTimestamp(VersionChain chain) {
         VersionChain next = chain.next;
 
         return next == null ? null : next.ts;

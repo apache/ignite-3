@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.pagememory.persistence.compaction;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.toCollection;
 import static org.apache.ignite.internal.failure.FailureType.SYSTEM_WORKER_TERMINATION;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
@@ -121,11 +122,12 @@ public class Compactor extends IgniteWorker {
             threadPoolExecutor = new ThreadPoolExecutor(
                     threadCount,
                     threadCount,
-                    30_000,
-                    MILLISECONDS,
+                    30,
+                    SECONDS,
                     new LinkedBlockingQueue<>(),
-                    new NamedThreadFactory("compaction-runner-io", log)
+                    NamedThreadFactory.create(igniteInstanceName, "compaction-runner-io", log)
             );
+            threadPoolExecutor.allowCoreThreadTimeOut(true);
         } else {
             threadPoolExecutor = null;
         }

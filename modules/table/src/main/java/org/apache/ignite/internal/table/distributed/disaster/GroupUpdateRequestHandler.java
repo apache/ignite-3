@@ -393,7 +393,11 @@ abstract class GroupUpdateRequestHandler<T extends PartitionGroupId> {
                 break;
             }
 
-            partAssignments.add(calcAssignment);
+            // It's required to add calcAssignment if there's no such in partAssignments already either in peer or learner form.
+            if (!partAssignments.contains(Assignment.forPeer(calcAssignment.consistentId()))
+                    && !partAssignments.contains(Assignment.forLearner(calcAssignment.consistentId()))) {
+                partAssignments.add(calcAssignment);
+            }
         }
     }
 

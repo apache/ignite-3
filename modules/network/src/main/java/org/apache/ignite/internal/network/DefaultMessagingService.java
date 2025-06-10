@@ -373,8 +373,6 @@ public class DefaultMessagingService extends AbstractMessagingService {
                             () -> triggerChannelCreation(nodeId, type, addr)
                     );
                 })
-                // TODO: IGNITE-25375 - consider removing logging after the fix as it might be too much
-                // (the caller also gets the exception).
                 .whenComplete((res, ex) -> {
                     if (ex != null && hasCause(ex, CriticalHandshakeException.class)) {
                         LOG.error(
