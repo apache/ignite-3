@@ -34,6 +34,8 @@ import java.util.concurrent.atomic.AtomicLongFieldUpdater;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.schema.BinaryRow;
 import org.apache.ignite.internal.storage.AbortResult;
+import org.apache.ignite.internal.storage.AddWriteCommittedResult;
+import org.apache.ignite.internal.storage.AddWriteResult;
 import org.apache.ignite.internal.storage.CommitResult;
 import org.apache.ignite.internal.storage.MvPartitionStorage;
 import org.apache.ignite.internal.storage.PartitionTimestampCursor;
@@ -231,32 +233,44 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized @Nullable BinaryRow addWrite(
+    public synchronized AddWriteResult addWrite(
             RowId rowId,
             @Nullable BinaryRow row,
             UUID txId,
             int commitTableOrZoneId,
             int commitPartitionId
-    ) throws TxIdMismatchException {
+    ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+
         checkStorageClosed();
 
-        BinaryRow[] res = {null};
+        AddWriteResult[] addWriteResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.ts == null) {
                 if (!txId.equals(versionChain.txId)) {
-                    throw new TxIdMismatchException(txId, versionChain.txId);
+                    addWriteResult[0] = AddWriteResult.txMismatch(versionChain.txId, latestCommitTimestamp(versionChain));
+
+                    return versionChain;
                 }
 
-                res[0] = versionChain.row;
+                addWriteResult[0] = AddWriteResult.success(versionChain.row);
 
                 return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain.next);
             }
 
+            addWriteResult[0] = AddWriteResult.success(null);
+
             return VersionChain.forWriteIntent(rowId, row, txId, commitTableOrZoneId, commitPartitionId, versionChain);
         });
 
-        return res[0];
+        AddWriteResult res = addWriteResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", txId=" + txId
+                + ", commitTableOrZoneId=" + commitTableOrZoneId + ", commitPartitionId=" + commitPartitionId;
+
+        return res;
     }
 
     @Override
@@ -324,17 +338,29 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
     }
 
     @Override
-    public synchronized void addWriteCommitted(
+    public synchronized AddWriteCommittedResult addWriteCommitted(
             RowId rowId,
             @Nullable BinaryRow row,
             HybridTimestamp commitTimestamp
     ) throws StorageException {
+        assert rowId.partitionId() == partitionId : "rowId=" + rowId + ", rowIsTombstone=" + (row == null)
+                + ", commitTimestamp=" + commitTimestamp;
+
         checkStorageClosed();
+
+        AddWriteCommittedResult[] addWriteCommittedResult = {null};
 
         map.compute(rowId, (ignored, versionChain) -> {
             if (versionChain != null && versionChain.isWriteIntent()) {
-                throw new StorageException("Write intent exists for " + rowId);
+                addWriteCommittedResult[0] = AddWriteCommittedResult.writeIntentExists(
+                        versionChain.txId,
+                        latestCommitTimestamp(versionChain)
+                );
+
+                return versionChain;
             }
+
+            addWriteCommittedResult[0] = AddWriteCommittedResult.success();
 
             return resolveCommittedVersionChain(new VersionChain(
                     rowId,
@@ -346,6 +372,12 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
                     versionChain
             ));
         });
+
+        AddWriteCommittedResult res = addWriteCommittedResult[0];
+
+        assert res != null : "rowId=" + rowId + ", rowIsTombstone=" + (row == null) + ", commitTimestamp=" + commitTimestamp;
+
+        return res;
     }
 
     private @Nullable VersionChain resolveCommittedVersionChain(VersionChain committedVersionChain) {
@@ -849,5 +881,11 @@ public class TestMvPartitionStorage implements MvPartitionStorage {
         LocalLocker locker = THREAD_LOCAL_LOCKER.get();
 
         return locker != null && locker.isLocked(rowId);
+    }
+
+    private static @Nullable HybridTimestamp latestCommitTimestamp(VersionChain chain) {
+        VersionChain next = chain.next;
+
+        return next == null ? null : next.ts;
     }
 }

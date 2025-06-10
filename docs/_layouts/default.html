@@ -1,79 +1,112 @@
-<!--
-  Licensed to the Apache Software Foundation (ASF) under one or more
-  contributor license agreements.  See the NOTICE file distributed with
-  this work for additional information regarding copyright ownership.
-  The ASF licenses this file to You under the Apache License, Version 2.0
-  (the "License"); you may not use this file except in compliance with
-  the License.  You may obtain a copy of the License at
-
-       http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
--->
 <!DOCTYPE html>
 
-      {% assign doc_var = page.leftNav | append: "_var" %}
-      
+{% assign doc_var = page.leftNav | append: "_var" %}
+
 <html lang="en">
 <head>
-    {% if page.content == nil or page.content == ""  %}
-<META NAME="ROBOTS" CONTENT="NOINDEX">
-{% endif %}
-
     <meta charset="UTF-8">
+    <!-- Bugyard widget embed -->
+    <script type="text/javascript">
+        !function(){
+            if("function" != typeof window.bugyard){
+                var a = function(){ a.c(arguments) };
+                a.q = [], a.c = function(b){ a.q.push(b) };
+                window.bugyard = a;
+
+                var b = document.createElement("script");
+                b.setAttribute("data-bugyard", "610961912c35ff001493163a");
+                b.setAttribute("async", "async");
+                b.setAttribute("defer", "defer");
+                b.setAttribute("src", "/assets/js/bugyard.min.js");
+                document.getElementsByTagName("head")[0].appendChild(b);
+            }
+        }();
+        window.bugyard("hideButton");
+    </script>
+    <!-- Bugyard widget embed -->
+
+    <link rel="preload" href='{{"assets/js/code-tabs.js?1" | relative_url}}' as="script" crossorigin>
+    <link rel="preload" href='{{"assets/js/page-nav.js" | relative_url}}' as="script" crossorigin>
+    <link rel="preload" href='{{"assets/js/docs-menu.js?20201005" | relative_url}}' as="script" crossorigin>
+
+    {% include criticalCSS.html %}
+
+    {% if page.content == nil or page.content == ""  %}
+    <META NAME="ROBOTS" CONTENT="NOINDEX">
+    {% endif %}
+
+
+    <meta name="ignite-version" content="{{site.attrs.version}}" />
     <title>{{page.title}} | Ignite Documentation</title>
     {% if site.attrs.base_url contains "/latest" %}
-    <link rel="canonical" href="{{page.id | replace_first: site.version, 'latest' }}" />
+    <link rel="canonical" href="{{page.id | replace_first: site.attrs.version, 'latest' }}" />
     {% else %}
     <link rel="canonical" href="{{page.id}}" />
+    <META NAME="ROBOTS" CONTENT="NOINDEX" />
     {% endif %}
-	{% capture timestamp %}{{"now"| date: '%s'}}{% endcapture %}
-	<link rel="stylesheet" href="{{'assets/css/styles.css?'|append: timestamp |relative_url}}">
-    <link rel="stylesheet" href="{{'assets/css/asciidoc-pygments.css'|relative_url}}">
+    {% capture timestamp %}{{"now"| date: '%s'}}{% endcapture %}
     <link rel="shortcut icon" href="{{'/favicon.ico'|relative_url}}">
     <meta name='viewport' content='width=device-width, height=device-height, initial-scale=1.0, minimum-scale=1.0'>
 
-	<link rel="stylesheet"
-	  href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-
-    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js"></script>
-    <script type="text/javascript" src="{{'assets/js/jquery.swiftype.autocomplete.js?' |append: timestamp |relative_url}}"></script>
-    <script type="text/javascript" src="{{'assets/js/anchor.min.js?'|append: timestamp|relative_url}}"></script>
-    
-    <!-- Matomo -->
+    <link rel="preload" as="style" href="/assets/css/fonts.css" />
+    <link rel="stylesheet" href="/assets/css/fonts.css" media="print" onload="this.media='all'">
+    <noscript>
+        <link rel="stylesheet" href="/assets/css/fonts.css">
+    </noscript>
+    <link href="/docs/pagefind/pagefind-ui.css" rel="stylesheet">
+    <script src="/docs/pagefind/pagefind-ui.js"></script>
     <script>
-      var _paq = window._paq = window._paq || [];
-      /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
-      _paq.push(["setDoNotTrack", true]);
-      _paq.push(["disableCookies"]);
-      _paq.push(['trackPageView']);
-      _paq.push(['enableLinkTracking']);
-      (function() {
-        var u="https://analytics.apache.org/";
-        _paq.push(['setTrackerUrl', u+'matomo.php']);
-        _paq.push(['setSiteId', '77']);
-        var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
-        g.async=true; g.src=u+'matomo.js'; s.parentNode.insertBefore(g,s);
-      })();
+        window.addEventListener('DOMContentLoaded', () => {
+            new PagefindUI({
+                element: "#search",
+                showSubResults: true,
+                showImages: false,
+            });
+        });
     </script>
-    <!-- End Matomo Code -->
+    <script src="/assets/js/mermaid.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const blocks = document.querySelectorAll('.mermaid');
+            if (blocks.length) {
+                mermaid.initialize({ startOnLoad: false });
+                mermaid.run();
+            }
+        });
+    </script>
+
+    <script>
+        // AnchorJS - v4.2.0 - 2019-01-01
+        // https://github.com/bryanbraun/anchorjs
+        // Copyright (c) 2019 Bryan Braun; Licensed MIT
+        !function(A,e){"use strict";"function"==typeof define&&define.amd?define([],e):"object"==typeof module&&module.exports?module.exports=e():(A.AnchorJS=e(),A.anchors=new A.AnchorJS)}(this,function(){"use strict";return function(A){function f(A){A.icon=A.hasOwnProperty("icon")?A.icon:"",A.visible=A.hasOwnProperty("visible")?A.visible:"hover",A.placement=A.hasOwnProperty("placement")?A.placement:"right",A.ariaLabel=A.hasOwnProperty("ariaLabel")?A.ariaLabel:"Anchor",A.class=A.hasOwnProperty("class")?A.class:"",A.base=A.hasOwnProperty("base")?A.base:"",A.truncate=A.hasOwnProperty("truncate")?Math.floor(A.truncate):64,A.titleText=A.hasOwnProperty("titleText")?A.titleText:""}function p(A){var e;if("string"==typeof A||A instanceof String)e=[].slice.call(document.querySelectorAll(A));else{if(!(Array.isArray(A)||A instanceof NodeList))throw new Error("The selector provided to AnchorJS was invalid.");e=[].slice.call(A)}return e}this.options=A||{},this.elements=[],f(this.options),this.isTouchDevice=function(){return!!("ontouchstart"in window||window.DocumentTouch&&document instanceof DocumentTouch)},this.add=function(A){var e,t,i,n,o,s,a,r,c,h,l,u,d=[];if(f(this.options),"touch"===(l=this.options.visible)&&(l=this.isTouchDevice()?"always":"hover"),A||(A="h2, h3, h4, h5, h6"),0===(e=p(A)).length)return this;for(function(){if(null===document.head.querySelector("style.anchorjs")){var A,e=document.createElement("style");e.className="anchorjs",e.appendChild(document.createTextNode("")),void 0===(A=document.head.querySelector('[rel="stylesheet"], style'))?document.head.appendChild(e):document.head.insertBefore(e,A),e.sheet.insertRule(" .anchorjs-link {   opacity: 0;   text-decoration: none;   -webkit-font-smoothing: antialiased;   -moz-osx-font-smoothing: grayscale; }",e.sheet.cssRules.length),e.sheet.insertRule(" *:hover > .anchorjs-link, .anchorjs-link:focus  {   opacity: 1; }",e.sheet.cssRules.length),e.sheet.insertRule(" [data-anchorjs-icon]::after {   content: attr(data-anchorjs-icon); }",e.sheet.cssRules.length),e.sheet.insertRule(' @font-face {   font-family: "anchorjs-icons";   src: url(data:n/a;base64,AAEAAAALAIAAAwAwT1MvMg8yG2cAAAE4AAAAYGNtYXDp3gC3AAABpAAAAExnYXNwAAAAEAAAA9wAAAAIZ2x5ZlQCcfwAAAH4AAABCGhlYWQHFvHyAAAAvAAAADZoaGVhBnACFwAAAPQAAAAkaG10eASAADEAAAGYAAAADGxvY2EACACEAAAB8AAAAAhtYXhwAAYAVwAAARgAAAAgbmFtZQGOH9cAAAMAAAAAunBvc3QAAwAAAAADvAAAACAAAQAAAAEAAHzE2p9fDzz1AAkEAAAAAADRecUWAAAAANQA6R8AAAAAAoACwAAAAAgAAgAAAAAAAAABAAADwP/AAAACgAAA/9MCrQABAAAAAAAAAAAAAAAAAAAAAwABAAAAAwBVAAIAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAMCQAGQAAUAAAKZAswAAACPApkCzAAAAesAMwEJAAAAAAAAAAAAAAAAAAAAARAAAAAAAAAAAAAAAAAAAAAAQAAg//0DwP/AAEADwABAAAAAAQAAAAAAAAAAAAAAIAAAAAAAAAIAAAACgAAxAAAAAwAAAAMAAAAcAAEAAwAAABwAAwABAAAAHAAEADAAAAAIAAgAAgAAACDpy//9//8AAAAg6cv//f///+EWNwADAAEAAAAAAAAAAAAAAAAACACEAAEAAAAAAAAAAAAAAAAxAAACAAQARAKAAsAAKwBUAAABIiYnJjQ3NzY2MzIWFxYUBwcGIicmNDc3NjQnJiYjIgYHBwYUFxYUBwYGIwciJicmNDc3NjIXFhQHBwYUFxYWMzI2Nzc2NCcmNDc2MhcWFAcHBgYjARQGDAUtLXoWOR8fORYtLTgKGwoKCjgaGg0gEhIgDXoaGgkJBQwHdR85Fi0tOAobCgoKOBoaDSASEiANehoaCQkKGwotLXoWOR8BMwUFLYEuehYXFxYugC44CQkKGwo4GkoaDQ0NDXoaShoKGwoFBe8XFi6ALjgJCQobCjgaShoNDQ0NehpKGgobCgoKLYEuehYXAAAADACWAAEAAAAAAAEACAAAAAEAAAAAAAIAAwAIAAEAAAAAAAMACAAAAAEAAAAAAAQACAAAAAEAAAAAAAUAAQALAAEAAAAAAAYACAAAAAMAAQQJAAEAEAAMAAMAAQQJAAIABgAcAAMAAQQJAAMAEAAMAAMAAQQJAAQAEAAMAAMAAQQJAAUAAgAiAAMAAQQJAAYAEAAMYW5jaG9yanM0MDBAAGEAbgBjAGgAbwByAGoAcwA0ADAAMABAAAAAAwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAH//wAP) format("truetype"); }',e.sheet.cssRules.length)}}(),t=document.querySelectorAll("[id]"),i=[].map.call(t,function(A){return A.id}),o=0;o<e.length;o++)if(this.hasAnchorJSLink(e[o]))d.push(o);else{if(e[o].hasAttribute("id"))n=e[o].getAttribute("id");else if(e[o].hasAttribute("data-anchor-id"))n=e[o].getAttribute("data-anchor-id");else{for(c=r=this.urlify(e[o].textContent),a=0;void 0!==s&&(c=r+"-"+a),a+=1,-1!==(s=i.indexOf(c)););s=void 0,i.push(c),e[o].setAttribute("id",c),n=c}n.replace(/-/g," "),(h=document.createElement("a")).className="anchorjs-link "+this.options.class,h.setAttribute("aria-label",this.options.ariaLabel),h.setAttribute("data-anchorjs-icon",this.options.icon),this.options.titleText&&(h.title=this.options.titleText),u=document.querySelector("base")?window.location.pathname+window.location.search:"",u=this.options.base||u,h.href=u+"#"+n,"always"===l&&(h.style.opacity="1"),""===this.options.icon&&(h.style.font="1em/1 anchorjs-icons","left"===this.options.placement&&(h.style.lineHeight="inherit")),"left"===this.options.placement?(h.style.position="absolute",h.style.marginLeft="-1em",h.style.paddingRight="0.5em",e[o].insertBefore(h,e[o].firstChild)):(h.style.paddingLeft="0.375em",e[o].appendChild(h))}for(o=0;o<d.length;o++)e.splice(d[o]-o,1);return this.elements=this.elements.concat(e),this},this.remove=function(A){for(var e,t,i=p(A),n=0;n<i.length;n++)(t=i[n].querySelector(".anchorjs-link"))&&(-1!==(e=this.elements.indexOf(i[n]))&&this.elements.splice(e,1),i[n].removeChild(t));return this},this.removeAll=function(){this.remove(this.elements)},this.urlify=function(A){return this.options.truncate||f(this.options),A.trim().replace(/\'/gi,"").replace(/[& +$,:;=?@"#{}|^~[`%!'<>\]\.\/\(\)\*\\\n\t\b\v]/g,"-").replace(/-{2,}/g,"-").substring(0,this.options.truncate).replace(/^-+|-+$/gm,"").toLowerCase()},this.hasAnchorJSLink=function(A){var e=A.firstChild&&-1<(" "+A.firstChild.className+" ").indexOf(" anchorjs-link "),t=A.lastChild&&-1<(" "+A.lastChild.className+" ").indexOf(" anchorjs-link ");return e||t||!1}}});
+    </script>
 
 </head>
 <body>
-    {% include header.html %}
-    {{content}}
-    <script>
+{% include header.html %}
+{{content}}
+<script>
     // inits deep anchors -- needs to be done here because of https://www.bryanbraun.com/anchorjs/#dont-run-it-too-late 
     anchors.add('.page-docs h1, .page-docs h2, .page-docs h3:not(.discrete), .page-docs h4, .page-docs h5');
     anchors.options = {
         placement: 'right',
         visible: 'always'
     };
-    </script>
+</script>
+
+<script type='module' src='{{"assets/js/index.js?"|append: timestamp | relative_url}}' async crossorigin></script>
+<script type='module' src='{{"assets/js/versioning.js?"|append: timestamp | relative_url}}' async crossorigin></script>
+<script type='module' src='{{"assets/js/railroad-diagram.js?"|append: timestamp | relative_url}}' async></script>
+<script type='module' src='{{"assets/js/search.js?"|append: timestamp | relative_url}}' defer crossorigin></script>
+
+<link rel="stylesheet" href="{{'assets/css/styles.css?'|append: timestamp |relative_url}}" media="print" onload="this.media='all'">
+<noscript><link media="all" rel="stylesheet" href="{{'assets/css/styles.css?'|append: timestamp |relative_url}}"></noscript>
+
+<link rel="stylesheet" href="/assets/css/docsearch.min.css" media="print" onload="this.media='all'">
+<noscript><link media="all" rel="stylesheet" href="/assets/css/docsearch.min.css"></noscript>
+
+
 </body>
-<script type='module' src='{{"assets/js/index.js?"|append: timestamp | relative_url}}' async></script>
+
 </html>

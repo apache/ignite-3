@@ -30,8 +30,8 @@ import org.apache.ignite.lang.Cursor;
 import org.apache.ignite.lang.NullableValue;
 import org.apache.ignite.table.DataStreamerItem;
 import org.apache.ignite.table.DataStreamerOptions;
+import org.apache.ignite.table.DataStreamerReceiverDescriptor;
 import org.apache.ignite.table.KeyValueView;
-import org.apache.ignite.table.ReceiverDescriptor;
 import org.apache.ignite.table.criteria.Criteria;
 import org.apache.ignite.table.criteria.CriteriaQueryOptions;
 import org.apache.ignite.tx.Transaction;
@@ -272,16 +272,15 @@ class RestartProofKeyValueView<K, V> extends RestartProofApiObject<KeyValueView<
     }
 
     @Override
-    public <E, V1, R, A> CompletableFuture<Void> streamData(
+    public <E, V1, A, R> CompletableFuture<Void> streamData(
             Publisher<E> publisher,
+            DataStreamerReceiverDescriptor<V1, A, R> receiver,
             Function<E, Entry<K, V>> keyFunc,
             Function<E, V1> payloadFunc,
-            ReceiverDescriptor<A> receiver,
+            @Nullable A receiverArg,
             @Nullable Subscriber<R> resultSubscriber,
-            @Nullable DataStreamerOptions options,
-            @Nullable A receiverArg
-    ) {
-        return attachedAsync(view -> view.streamData(publisher, keyFunc, payloadFunc, receiver, resultSubscriber, options, receiverArg));
+            @Nullable DataStreamerOptions options) {
+        return attachedAsync(view -> view.streamData(publisher, receiver, keyFunc, payloadFunc, receiverArg, resultSubscriber, options));
     }
 
     // TODO: IGNITE-23011 - support cursor transparency?

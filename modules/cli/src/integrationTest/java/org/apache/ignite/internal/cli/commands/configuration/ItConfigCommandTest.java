@@ -158,7 +158,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         execute("cluster", "config", "update", "--url", NODE_URL, "--file", "wrongPath");
 
         assertAll(
-                () -> assertExitCodeIs(1),
+                this::assertExitCodeIsError,
                 () -> assertErrOutputContains("File ["),
                 () -> assertErrOutputContains("] not found"),
                 this::assertOutputIsEmpty
@@ -282,7 +282,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         execute("node", "config", "update", "--url", NODE_URL, "--file", "wrongPath");
 
         assertAll(
-                () -> assertExitCodeIs(1),
+                this::assertExitCodeIsError,
                 () -> assertErrOutputContains("File ["),
                 () -> assertErrOutputContains("] not found"),
                 this::assertOutputIsEmpty
@@ -399,7 +399,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         execute("node", "config", "update", "--url", NODE_URL, "ignite.network.foo=\"bar\"");
 
         assertAll(
-                () -> assertExitCodeIs(1),
+                this::assertExitCodeIsError,
                 () -> assertErrOutputContains("'ignite.network' configuration doesn't have the 'foo' sub-configuration"),
                 this::assertOutputIsEmpty
         );
@@ -407,7 +407,7 @@ class ItConfigCommandTest extends CliIntegrationTest {
         execute("node", "config", "update", "--url", NODE_URL, "ignite.network.shutdownQuietPeriodMillis=asd");
 
         assertAll(
-                () -> assertExitCodeIs(1),
+                this::assertExitCodeIsError,
                 () -> assertErrOutputContains("'long' is expected as a type for the "
                         + "'ignite.network.shutdownQuietPeriodMillis' configuration value"),
                 this::assertOutputIsEmpty
