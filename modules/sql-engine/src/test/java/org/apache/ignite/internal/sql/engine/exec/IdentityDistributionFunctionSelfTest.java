@@ -21,7 +21,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.containsInAnyOrder;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.instanceOf;
-import static org.hamcrest.Matchers.is;
 
 import it.unimi.dsi.fastutil.ints.Int2ObjectMaps;
 import it.unimi.dsi.fastutil.longs.LongList;
@@ -65,7 +64,6 @@ public class IdentityDistributionFunctionSelfTest {
         IdentityDistribution function = new IdentityDistribution();
 
         assertThat(function.type(), equalTo(Type.HASH_DISTRIBUTED));
-        assertThat(function.affinity(), is(false));
         assertThat(function.name(), equalTo("identity"));
     }
 

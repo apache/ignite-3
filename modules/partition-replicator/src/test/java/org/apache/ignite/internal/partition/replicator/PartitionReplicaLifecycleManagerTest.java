@@ -23,21 +23,31 @@ import static org.apache.ignite.internal.catalog.CatalogTestUtils.TEST_DELAY_DUR
 import static org.apache.ignite.internal.distributionzones.rebalance.ZoneRebalanceUtil.stablePartAssignmentsKey;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.COLOCATION_FEATURE_FLAG;
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.THREAD_ASSERTIONS_ENABLED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_DESTROYED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.testNodeName;
+import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.apache.ignite.internal.util.CompletableFutures.emptySetCompletedFuture;
 import static org.apache.ignite.internal.util.CompletableFutures.nullCompletedFuture;
+import static org.apache.ignite.internal.util.IgniteUtils.startAsync;
+import static org.apache.ignite.internal.util.IgniteUtils.stopAsync;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import org.apache.ignite.internal.catalog.CatalogManager;
@@ -48,8 +58,11 @@ import org.apache.ignite.internal.configuration.SystemDistributedConfiguration;
 import org.apache.ignite.internal.configuration.testframework.ConfigurationExtension;
 import org.apache.ignite.internal.configuration.testframework.InjectConfiguration;
 import org.apache.ignite.internal.distributionzones.DistributionZoneManager;
+import org.apache.ignite.internal.event.EventListener;
 import org.apache.ignite.internal.failure.FailureManager;
 import org.apache.ignite.internal.hlc.ClockService;
+import org.apache.ignite.internal.hlc.HybridClock;
+import org.apache.ignite.internal.hlc.HybridClockImpl;
 import org.apache.ignite.internal.lang.NodeStoppingException;
 import org.apache.ignite.internal.lowwatermark.LowWatermark;
 import org.apache.ignite.internal.manager.ComponentContext;
@@ -80,7 +93,6 @@ import org.apache.ignite.internal.testframework.InjectExecutorService;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.tx.TxManager;
 import org.apache.ignite.internal.tx.storage.state.TxStatePartitionStorage;
-import org.apache.ignite.internal.util.IgniteUtils;
 import org.apache.ignite.internal.util.PendingComparableValuesTracker;
 import org.apache.ignite.network.NetworkAddress;
 import org.junit.jupiter.api.AfterEach;
@@ -106,23 +118,13 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
     private PartitionReplicaLifecycleManager partitionReplicaLifecycleManager;
 
+    private final HybridClock clock = new HybridClockImpl();
+
     @Mock
     private Loza raftManager;
 
     @Mock
     private ZoneResourcesManager zoneResourcesManager;
-
-    @Mock
-    private TopologyAwareRaftGroupService topologyAwareRaftGroupService;
-
-    @InjectExecutorService
-    private ExecutorService executorService;
-
-    @InjectExecutorService
-    private ScheduledExecutorService scheduledExecutorService;
-
-    @InjectConfiguration
-    private SystemDistributedConfiguration systemDistributedConfiguration;
 
     @BeforeEach
     void setUp(
@@ -132,6 +134,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock LowWatermark lowWatermark,
             @Mock ClockService clockService,
             @Mock PlacementDriver placementDriver,
+            @Mock TopologyAwareRaftGroupService topologyAwareRaftGroupService,
             @Mock SchemaSyncService schemaSyncService,
             @Mock TxManager txManager,
             @Mock SchemaManager schemaManager,
@@ -142,14 +145,18 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
             @Mock PartitionSnapshotStorage partitionSnapshotStorage,
             @Mock TxStatePartitionStorage txStatePartitionStorage,
             @Mock ZonePartitionRaftListener raftGroupListener,
-            @Mock DataStorageManager dataStorageManager
+            @Mock DataStorageManager dataStorageManager,
+            @InjectExecutorService ExecutorService executorService,
+            @InjectExecutorService ScheduledExecutorService scheduledExecutorService,
+            @InjectConfiguration SystemDistributedConfiguration systemDistributedConfiguration
+
     ) throws NodeStoppingException {
         String nodeName = testNodeName(testInfo, 0);
 
         when(clusterService.topologyService().localMember())
                 .thenReturn(new ClusterNodeImpl(randomUUID(), nodeName, new NetworkAddress("localhost", 0)));
 
-        when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(nullCompletedFuture());
+        lenient().when(placementDriver.getPrimaryReplica(any(), any())).thenReturn(nullCompletedFuture());
 
         when(cmgManager.metaStorageNodes()).thenReturn(emptySetCompletedFuture());
 
@@ -165,6 +172,8 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         when(raftManager.startRaftGroupNode(any(), any(), any(), any(), any(RaftGroupOptions.class), any()))
                 .thenReturn(topologyAwareRaftGroupService);
+
+        lenient().when(schemaSyncService.waitForMetadataCompleteness(any())).thenReturn(nullCompletedFuture());
 
         metaStorageManager = StandaloneMetaStorageManager.create();
 
@@ -217,15 +226,13 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         var componentContext = new ComponentContext();
 
-        assertThat(metaStorageManager.startAsync(componentContext), willCompleteSuccessfully());
-        assertThat(metaStorageManager.recoveryFinishedFuture(), willCompleteSuccessfully());
+        CompletableFuture<Void> startFuture = metaStorageManager.startAsync(componentContext)
+                .thenCompose(v -> metaStorageManager.recoveryFinishedFuture())
+                .thenCompose(v -> startAsync(componentContext, catalogManager, replicaManager, partitionReplicaLifecycleManager))
+                .thenCompose(v -> metaStorageManager.deployWatches())
+                .thenCompose(v -> catalogManager.catalogInitializationFuture());
 
-        assertThat(catalogManager.startAsync(componentContext), willCompleteSuccessfully());
-        assertThat(replicaManager.startAsync(componentContext), willCompleteSuccessfully());
-        assertThat(partitionReplicaLifecycleManager.startAsync(componentContext), willCompleteSuccessfully());
-
-        assertThat(metaStorageManager.deployWatches(), willCompleteSuccessfully());
-        assertThat(catalogManager.catalogInitializationFuture(), willCompleteSuccessfully());
+        assertThat(startFuture, willCompleteSuccessfully());
     }
 
     @AfterEach
@@ -234,7 +241,7 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
 
         components.forEach(IgniteComponent::beforeNodeStop);
 
-        IgniteUtils.stopAsync(new ComponentContext(), components);
+        assertThat(stopAsync(new ComponentContext(), components), willCompleteSuccessfully());
     }
 
     /**
@@ -259,5 +266,62 @@ class PartitionReplicaLifecycleManagerTest extends BaseIgniteAbstractTest {
         inOrder.verify(raftManager, timeout(1_000)).stopRaftNodes(zonePartitionId);
         inOrder.verify(zoneResourcesManager, timeout(1_000)).destroyZonePartitionResources(zonePartitionId);
         inOrder.verify(replicaManager, timeout(1_000)).destroyReplicationProtocolStorages(zonePartitionId, false);
+    }
+
+    @Test
+    void producesEventsOnPartitionRestart() {
+        var beforeReplicaStoppedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
+        var afterReplicaStoppedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
+
+        partitionReplicaLifecycleManager.listen(BEFORE_REPLICA_STOPPED, EventListener.fromConsumer(beforeReplicaStoppedFuture::complete));
+        partitionReplicaLifecycleManager.listen(AFTER_REPLICA_STOPPED, EventListener.fromConsumer(params -> {
+            assertTrue(beforeReplicaStoppedFuture.isDone(), "AFTER_REPLICA_STOPPED event received before BEFORE_REPLICA_STOPPED");
+
+            afterReplicaStoppedFuture.complete(params);
+        }));
+
+        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        assertThat(
+                partitionReplicaLifecycleManager.restartPartition(zonePartitionId, Long.MAX_VALUE, clock.nowLong()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(beforeReplicaStoppedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
+        assertThat(afterReplicaStoppedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
+    }
+
+    @Test
+    void producesEventsOnPartitionDestroy() {
+        var beforeReplicaDestroyedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
+        var afterReplicaDestroyedFuture = new CompletableFuture<LocalPartitionReplicaEventParameters>();
+
+        partitionReplicaLifecycleManager.listen(
+                BEFORE_REPLICA_DESTROYED,
+                EventListener.fromConsumer(beforeReplicaDestroyedFuture::complete)
+        );
+
+        partitionReplicaLifecycleManager.listen(AFTER_REPLICA_DESTROYED, EventListener.fromConsumer(params -> {
+            assertTrue(beforeReplicaDestroyedFuture.isDone(), "AFTER_REPLICA_DESTROYED event received before BEFORE_REPLICA_DESTROYED");
+
+            afterReplicaDestroyedFuture.complete(params);
+        }));
+
+        int zoneId = catalogManager.catalog(catalogManager.latestCatalogVersion()).defaultZone().id();
+
+        var zonePartitionId = new ZonePartitionId(zoneId, 0);
+
+        // Put empty stable assignments to force the replica manager to stop the running replicas.
+        Assignments assignments = Assignments.of(Set.of(), 1);
+
+        assertThat(
+                metaStorageManager.put(stablePartAssignmentsKey(zonePartitionId), assignments.toBytes()),
+                willCompleteSuccessfully()
+        );
+
+        assertThat(beforeReplicaDestroyedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
+        assertThat(afterReplicaDestroyedFuture.thenApply(LocalPartitionReplicaEventParameters::zonePartitionId), willBe(zonePartitionId));
     }
 }

@@ -468,7 +468,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
                     UUID previousTxId = txId(previousTxStateBuffer);
 
                     if (!txId.equals(previousTxId)) {
-                        return AddWriteResult.txMismatch(previousTxId, previousCommitTimestamp(writeBatch, rowId));
+                        return AddWriteResult.txMismatch(previousTxId, latestCommitTimestamp(writeBatch, rowId));
                     }
 
                     ByteBuffer dataId = readDataIdFromTxState(previousTxStateBuffer);
@@ -714,7 +714,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
 
                     return AddWriteCommittedResult.writeIntentExists(
                             txId(previousTxStateBuffer),
-                            previousCommitTimestamp(writeBatch, rowId)
+                            latestCommitTimestamp(writeBatch, rowId)
                     );
                 }
 
@@ -1778,7 +1778,7 @@ public class RocksDbMvPartitionStorage implements MvPartitionStorage {
         }
     }
 
-    private @Nullable HybridTimestamp previousCommitTimestamp(WriteBatchWithIndex writeBatch, RowId rowId) throws RocksDBException {
+    private @Nullable HybridTimestamp latestCommitTimestamp(WriteBatchWithIndex writeBatch, RowId rowId) throws RocksDBException {
         try (
                 // Set next partition as an upper bound.
                 RocksIterator baseIterator = db.newIterator(helper.partCf, helper.upperBoundReadOpts);

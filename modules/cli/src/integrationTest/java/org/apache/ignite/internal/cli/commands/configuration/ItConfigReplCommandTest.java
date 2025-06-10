@@ -15,17 +15,21 @@
  * limitations under the License.
  */
 
-#include "ignite/client/transaction/transaction.h"
-#include "ignite/client/detail/transaction/transaction_impl.h"
+package org.apache.ignite.internal.cli.commands.configuration;
 
-namespace ignite {
+import org.apache.ignite.internal.cli.commands.TopLevelCliReplCommand;
 
-void transaction::commit_async(const ignite_callback<void> &callback) {
-    m_impl->commit_async(callback);
+/**
+ * Tests for cluster/node repl config commands.
+ */
+public class ItConfigReplCommandTest extends ItConfigCommandTest {
+    @Override
+    protected int errorExitCode() {
+        return 0;
+    }
+
+    @Override
+    protected Class<?> getCommandClass() {
+        return TopLevelCliReplCommand.class;
+    }
 }
-
-void transaction::rollback_async(const ignite_callback<void> &callback) {
-    m_impl->rollback_async(callback);
-}
-
-} // namespace ignite

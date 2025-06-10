@@ -48,7 +48,10 @@ import static org.apache.ignite.internal.hlc.HybridTimestamp.nullableHybridTimes
 import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.metastorage.dsl.Conditions.notExists;
 import static org.apache.ignite.internal.metastorage.dsl.Operations.put;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED;
 import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.AFTER_REPLICA_STOPPED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_DESTROYED;
+import static org.apache.ignite.internal.partition.replicator.LocalPartitionReplicaEvent.BEFORE_REPLICA_STOPPED;
 import static org.apache.ignite.internal.partitiondistribution.Assignments.assignmentListToString;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignmentForPartition;
 import static org.apache.ignite.internal.partitiondistribution.PartitionDistributionUtils.calculateAssignments;
@@ -648,8 +651,8 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localAssignment} is not
-     * null, meaning that the local node is part of the assignment.
+     * Start a replica for the corresponding {@code zoneId} and {@code partId} on the local node if {@code localAssignment} is not null,
+     * meaning that the local node is part of the assignment.
      *
      * @param zonePartitionId Zone Partition ID.
      * @param localAssignment Assignment of the local member, or null if local member is not part of the assignment.
@@ -1197,7 +1200,7 @@ public class PartitionReplicaLifecycleManager extends
         return replicaMgr.weakStopReplica(
                 zonePartitionId,
                 WeakReplicaStopReason.RESTART,
-                () -> stopPartitionInternal(zonePartitionId, AFTER_REPLICA_STOPPED, revision, replica -> {})
+                () -> stopPartitionInternal(zonePartitionId, BEFORE_REPLICA_STOPPED, AFTER_REPLICA_STOPPED, revision, replica -> {})
         );
     }
 
@@ -1576,47 +1579,41 @@ public class PartitionReplicaLifecycleManager extends
     }
 
     /**
-     * Stops zone replica, executes a given action and fires a given local event after.
+     * Stops zone replica, executes a given action and fires given local events.
      *
-     * @param zonePartitionId Zone's replication group identifier.
-     * @param afterReplicaStopAction A consumer that will be executed if it is not null after zone replica stop process will be finished and
-     *      stopping result will be given to the consumer.
-     * @param afterReplicaStoppedEvent A local event type that if not null should be fired in the end of the method.
-     * @param afterReplicaStoppedEventRevision A revision parameter of the local event if the last is presented. Must not be null if the
-     *      event isn't null too.
-     *
-     * @return Future that will be completed after zone replica was stopped and all given non-null actions are done, the future's result
-     *      answers was replica was stopped correctly or not.
+     * @return Future that will be completed after zone replica was stopped and event handling was finished.
      */
     @VisibleForTesting
     public CompletableFuture<Void> stopPartitionInternal(
             ZonePartitionId zonePartitionId,
+            LocalPartitionReplicaEvent beforeReplicaStoppedEvent,
             LocalPartitionReplicaEvent afterReplicaStoppedEvent,
-            long afterReplicaStoppedEventRevision,
+            long eventRevision,
             Consumer<Boolean> afterReplicaStopAction
     ) {
+        // Not using the busy lock here, because this method is called on component stop.
         return executeUnderZoneWriteLock(zonePartitionId.zoneId(), () -> {
-            try {
-                return replicaMgr.stopReplica(zonePartitionId)
-                        .thenCompose(replicaWasStopped -> {
-                            afterReplicaStopAction.accept(replicaWasStopped);
+            var eventParameters = new LocalPartitionReplicaEventParameters(zonePartitionId, eventRevision, false);
 
-                            if (!replicaWasStopped) {
-                                return nullCompletedFuture();
-                            }
+            return fireEvent(beforeReplicaStoppedEvent, eventParameters)
+                    .thenCompose(v -> {
+                        try {
+                            return replicaMgr.stopReplica(zonePartitionId)
+                                    .thenCompose(replicaWasStopped -> {
+                                        afterReplicaStopAction.accept(replicaWasStopped);
 
-                            replicationGroupIds.remove(zonePartitionId);
+                                        if (!replicaWasStopped) {
+                                            return nullCompletedFuture();
+                                        }
 
-                            assert afterReplicaStoppedEvent != null;
+                                        replicationGroupIds.remove(zonePartitionId);
 
-                            return fireEvent(
-                                    afterReplicaStoppedEvent,
-                                    new LocalPartitionReplicaEventParameters(zonePartitionId, afterReplicaStoppedEventRevision, false)
-                            );
-                        });
-            } catch (NodeStoppingException e) {
-                return nullCompletedFuture();
-            }
+                                        return fireEvent(afterReplicaStoppedEvent, eventParameters);
+                                    });
+                        } catch (NodeStoppingException e) {
+                            return nullCompletedFuture();
+                        }
+                    });
         });
     }
 
@@ -1627,7 +1624,13 @@ public class PartitionReplicaLifecycleManager extends
      */
     private void cleanUpPartitionsResources(Set<ZonePartitionId> partitionIds) {
         CompletableFuture<?>[] stopPartitionsFuture = partitionIds.stream()
-                .map(zonePartitionId -> stopPartitionInternal(zonePartitionId, AFTER_REPLICA_STOPPED, -1L, replicaWasStopped -> {}))
+                .map(zonePartitionId -> stopPartitionInternal(
+                        zonePartitionId,
+                        BEFORE_REPLICA_STOPPED,
+                        AFTER_REPLICA_STOPPED,
+                        -1L,
+                        replicaWasStopped -> {}
+                ))
                 .toArray(CompletableFuture[]::new);
 
         try {
@@ -1703,7 +1706,6 @@ public class PartitionReplicaLifecycleManager extends
      *
      * @param zonePartitionId Zone partition id.
      * @param tableId Table's identifier.
-     *
      * @return A future that gets completed after all resources have been unloaded.
      */
     public CompletableFuture<Void> unloadTableResourcesFromZoneReplica(ZonePartitionId zonePartitionId, int tableId) {
@@ -1781,7 +1783,8 @@ public class PartitionReplicaLifecycleManager extends
     private CompletableFuture<Void> stopAndDestroyPartition(ZonePartitionId zonePartitionId, long revision) {
         return stopPartitionInternal(
                 zonePartitionId,
-                LocalPartitionReplicaEvent.AFTER_REPLICA_DESTROYED,
+                BEFORE_REPLICA_DESTROYED,
+                AFTER_REPLICA_DESTROYED,
                 revision,
                 replicaWasStopped -> {
                     if (replicaWasStopped) {

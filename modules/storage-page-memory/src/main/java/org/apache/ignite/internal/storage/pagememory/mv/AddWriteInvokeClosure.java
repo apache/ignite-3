@@ -95,7 +95,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         if (oldRow.isUncommitted() && !txId.equals(oldRow.transactionId())) {
             addWriteResult = AddWriteResult.txMismatch(
                     oldRow.transactionId(),
-                    previousCommitTimestamp(storage, oldRow, this::addWriteInfo)
+                    latestCommitTimestamp(storage, oldRow, this::addWriteInfo)
             );
 
             operationType = OperationType.NOOP;
@@ -160,7 +160,7 @@ class AddWriteInvokeClosure implements InvokeClosure<VersionChain> {
         }
     }
 
-    static @Nullable HybridTimestamp previousCommitTimestamp(
+    static @Nullable HybridTimestamp latestCommitTimestamp(
             AbstractPageMemoryMvPartitionStorage storage,
             VersionChain chain,
             Supplier<String> operationInfo
