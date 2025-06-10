@@ -700,8 +700,14 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestCancelMapReduce()
         {
-            // TODO
-            await Task.Delay(1);
+            var cts = new CancellationTokenSource();
+
+            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 10_000, cts.Token);
+
+            await cts.CancelAsync();
+
+            // ReSharper disable once MethodSupportsCancellation
+            await taskExec.GetResultAsync().WaitAsync(TimeSpan.FromSeconds(1));
         }
 
         [Test]
