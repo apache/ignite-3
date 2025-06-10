@@ -25,6 +25,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Linq;
     using System.Net;
     using System.Text;
+    using System.Threading;
     using System.Threading.Tasks;
     using Ignite.Compute;
     using Ignite.Marshalling;
@@ -643,16 +644,24 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [Ignore("IGNITE-23495")]
         public async Task TestJobExecutionCancel()
         {
-            const int sleepMs = 5000;
+            const int sleepMs = 10_000;
             var beforeStart = GetCurrentInstant();
 
-            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
+            var cts = new CancellationTokenSource();
 
-            // await jobExecution.CancelAsync();
+            var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs, cts.Token);
+
+            await cts.CancelAsync();
+
             await AssertJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+
+            var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
+
+            Assert.AreEqual(
+                "Job execution failed: java.lang.RuntimeException: java.lang.InterruptedException: sleep interrupted",
+                ex.Message);
         }
 
         [Test]
