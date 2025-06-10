@@ -17,7 +17,6 @@
 
 package org.apache.ignite.internal.app;
 
-import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.configuration.IgnitePaths.cmgPath;
@@ -178,12 +177,14 @@ import org.apache.ignite.internal.network.ChannelType;
 import org.apache.ignite.internal.network.ChannelTypeRegistryProvider;
 import org.apache.ignite.internal.network.ClusterService;
 import org.apache.ignite.internal.network.DefaultMessagingService;
+import org.apache.ignite.internal.network.IgniteClusterImpl;
 import org.apache.ignite.internal.network.JoinedNodes;
 import org.apache.ignite.internal.network.MessageSerializationRegistryImpl;
 import org.apache.ignite.internal.network.MessagingService;
 import org.apache.ignite.internal.network.NettyBootstrapFactory;
 import org.apache.ignite.internal.network.NettyWorkersRegistrar;
 import org.apache.ignite.internal.network.NetworkMessage;
+import org.apache.ignite.internal.network.PublicApiThreadingIgniteCluster;
 import org.apache.ignite.internal.network.configuration.NetworkConfiguration;
 import org.apache.ignite.internal.network.configuration.NetworkExtensionConfiguration;
 import org.apache.ignite.internal.network.recovery.VaultStaleIds;
@@ -289,6 +290,7 @@ import org.apache.ignite.internal.worker.CriticalWorkerWatchdog;
 import org.apache.ignite.internal.worker.ThreadAssertions;
 import org.apache.ignite.lang.IgniteException;
 import org.apache.ignite.network.ClusterNode;
+import org.apache.ignite.network.IgniteCluster;
 import org.apache.ignite.network.NetworkAddress;
 import org.apache.ignite.network.NodeMetadata;
 import org.apache.ignite.raft.jraft.rpc.impl.RaftGroupEventsClientListener;
@@ -477,6 +479,7 @@ public class IgniteImpl implements Ignite {
     private final IgniteSql publicSql;
     private final IgniteCompute publicCompute;
     private final IgniteCatalog publicCatalog;
+    private final IgniteCluster publicCluster;
 
     /** Partitions log storage factory for raft. */
     private final LogStorageFactory partitionsLogStorageFactory;
@@ -1248,6 +1251,7 @@ public class IgniteImpl implements Ignite {
         publicSql = new PublicApiThreadingIgniteSql(sql, asyncContinuationExecutor);
         publicCompute = new AntiHijackIgniteCompute(compute, asyncContinuationExecutor);
         publicCatalog = new PublicApiThreadingIgniteCatalog(new IgniteCatalogSqlImpl(sql, distributedTblMgr), asyncContinuationExecutor);
+        publicCluster = new PublicApiThreadingIgniteCluster(new IgniteClusterImpl(clusterSvc.topologyService()));
     }
 
     private GroupStoragesContextResolver createGroupStoragesContextResolver() {
@@ -1750,21 +1754,14 @@ public class IgniteImpl implements Ignite {
         return publicCompute;
     }
 
-    /** {@inheritDoc} */
-    @Override
-    public Collection<ClusterNode> clusterNodes() {
-        return clusterSvc.topologyService().allMembers();
-    }
-
-    /** {@inheritDoc} */
-    @Override
-    public CompletableFuture<Collection<ClusterNode>> clusterNodesAsync() {
-        return completedFuture(clusterNodes());
-    }
-
     @Override
     public IgniteCatalog catalog() {
         return publicCatalog;
+    }
+
+    @Override
+    public IgniteCluster cluster() {
+        return publicCluster;
     }
 
     public Path workDir() {
