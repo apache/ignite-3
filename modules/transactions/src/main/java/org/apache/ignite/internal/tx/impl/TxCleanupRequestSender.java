@@ -22,7 +22,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
 import static org.apache.ignite.internal.tx.impl.TxCleanupExceptionUtils.writeIntentSwitchFailureShouldBeLogged;
-import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 
 import java.util.ArrayList;
 import java.util.Collection;

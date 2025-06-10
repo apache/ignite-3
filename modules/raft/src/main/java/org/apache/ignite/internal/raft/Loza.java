@@ -182,7 +182,9 @@ public class Loza implements RaftManager {
         );
 
         partitionThrottlingContextHolder = new ThrottlingContextHolderImpl(raftConfiguration, maxInflightOverflowRate);
-        systemGroupsThrottlingContextHolder = new ThrottlingContextHolderImpl(raftConfiguration, 1_000_000);
+
+        // Throttler for system groups doesn't limit requests, but may adapt the request timeout if needed.
+        systemGroupsThrottlingContextHolder = new ThrottlingContextHolderImpl(raftConfiguration, Integer.MAX_VALUE);
 
         this.raftServer = new JraftServerImpl(
                 clusterNetSvc,

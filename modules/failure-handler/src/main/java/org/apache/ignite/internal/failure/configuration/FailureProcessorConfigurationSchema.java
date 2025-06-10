@@ -38,7 +38,7 @@ public class FailureProcessorConfigurationSchema {
 
     /** Enables threads dumping on critical node failure. */
     @Value(hasDefault = true)
-    public boolean dumpThreadsOnFailure = false;
+    public boolean dumpThreadsOnFailure = true;
 
     /**
      * Throttling time out for thread dump generation during failure handling in milliseconds.

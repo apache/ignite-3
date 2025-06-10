@@ -23,6 +23,10 @@ import static java.lang.Math.sqrt;
 
 import java.util.concurrent.atomic.AtomicIntegerArray;
 
+/**
+ * An utility class that implements a sliding histogram for recording and estimating percentiles of long values.
+ * Uses {@code sqrt(x)} as mapping function to map long values to buckets.
+ */
 public class SlidingHistogram {
     private static final int BUCKET_COUNT = 500;
     private final AtomicIntegerArray bucketCounters = new AtomicIntegerArray(BUCKET_COUNT);
@@ -32,12 +36,23 @@ public class SlidingHistogram {
     private volatile int index = 0;
     private volatile int currentSize = 0;
 
+    /**
+     * Constructor for SlidingHistogram.
+     *
+     * @param windowSize Window size.
+     * @param estimationDefault Default value to return when there is not enough data to estimate.
+     */
     public SlidingHistogram(int windowSize, long estimationDefault) {
         this.windowSize = windowSize;
         this.estimationDefault = estimationDefault;
         this.circularBuffer = new int[windowSize];
     }
 
+    /**
+     * Records a value into the sliding histogram.
+     *
+     * @param value The value to record.
+     */
     public synchronized void record(long value) {
         int bucket = mapToBucket(value);
 
@@ -54,6 +69,13 @@ public class SlidingHistogram {
         index = (index + 1) % windowSize;
     }
 
+    /**
+     * Estimates the value at a given percentile based on the recorded values. Gives a value that (percentile * 100)% of the recorded
+     * values are less than or equal to. If there is not enough data to estimate, returns the default value.
+     *
+     * @param percentile The percentile to estimate (0.0 to 1.0).
+     * @return The estimated value at the given percentile, or the default value if not enough data is available.
+     */
     public synchronized long estimatePercentile(double percentile) {
         if (currentSize < windowSize) {
             // Not enough data to estimate, return default value.
@@ -74,7 +96,10 @@ public class SlidingHistogram {
     }
 
     private static int mapToBucket(long value) {
-        if (value <= 0) return 0;
+        if (value <= 0) {
+            return 0;
+        }
+
         long b = mappingFunc(value);
 
         // Last bucket is for overflow.
@@ -82,9 +107,14 @@ public class SlidingHistogram {
     }
 
     private static long estimateValueFromBucket(int bucket) {
-        if (bucket == BUCKET_COUNT - 1) return Long.MAX_VALUE; // overflown bucket
+        // Return the left border of the next bucket, which is the right border of the current bucket.
+        int nextBucket = bucket + 1;
 
-        return mappingFuncReverse(bucket);
+        if (nextBucket == BUCKET_COUNT - 1) {
+            return Long.MAX_VALUE; // overflown bucket
+        }
+
+        return mappingFuncReverse(nextBucket);
     }
 
     private static long mappingFunc(long value) {

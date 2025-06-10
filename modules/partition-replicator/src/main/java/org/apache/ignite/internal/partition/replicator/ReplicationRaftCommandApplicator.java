@@ -20,7 +20,6 @@ package org.apache.ignite.internal.partition.replicator;
 import static org.apache.ignite.internal.util.ExceptionUtils.unwrapRootCause;
 
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import org.apache.ignite.internal.raft.Command;
 import org.apache.ignite.internal.raft.GroupOverloadedException;
@@ -77,8 +76,8 @@ public class ReplicationRaftCommandApplicator {
                 Throwable cause = unwrapRootCause(ex);
 
                 if (cause instanceof GroupOverloadedException) {
-                    CompletableFuture.delayedExecutor(10, TimeUnit.MILLISECONDS)
-                            .execute(() -> applyCommandWithExceptionHandling(command, resultFuture));
+                    // Retry on overload. There is a delay on raft client side, so we can retry immediately.
+                    applyCommandWithExceptionHandling(command, resultFuture);
                 } else {
                     resultFuture.completeExceptionally(ex);
                 }

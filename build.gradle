@@ -31,13 +31,7 @@ plugins {
 apply from: "$rootDir/buildscripts/javadoc.gradle"
 
 repositories {
-    mavenCentral {
-        metadataSources {
-            mavenPom()
-            artifact()
-            ignoreGradleMetadataRedirection()
-        }
-    }
+    mavenCentral()
 }
 
 ext {
