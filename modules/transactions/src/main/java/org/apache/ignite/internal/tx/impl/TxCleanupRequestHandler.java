@@ -121,9 +121,7 @@ public class TxCleanupRequestHandler {
                 message -> cleanupExecutor,
                 (msg, sender, correlationId) -> {
                     if (msg instanceof TxCleanupMessage) {
-                        cleanupExecutor.execute(() -> {
-                            processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
-                        });
+                        processTxCleanup((TxCleanupMessage) msg, sender, correlationId);
                     }
                 }
         );

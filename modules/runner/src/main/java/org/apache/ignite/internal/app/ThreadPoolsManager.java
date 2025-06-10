@@ -30,7 +30,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadPoolExecutor;
 import org.apache.ignite.internal.logger.IgniteLogger;
 import org.apache.ignite.internal.logger.Loggers;
@@ -71,20 +70,11 @@ public class ThreadPoolsManager implements IgniteComponent {
                 100,
                 MILLISECONDS,
                 new LinkedBlockingQueue<>(),
-                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE)) {
-            @Override
-            protected void afterExecute(Runnable r, Throwable t) {
-                super.afterExecute(r, t);
-                if (t != null) {
-                    LOG.error("qqq TIO-Missed exception ", t);
-                }
-            }
-        };
+                IgniteThreadFactory.create(nodeName, "tableManager-io", LOG, STORAGE_READ, STORAGE_WRITE));
 
         int partitionsOperationsThreads = Math.min(cpus * 3, 25);
-        partitionOperationsExecutor = new ThreadPoolExecutor(partitionsOperationsThreads, partitionsOperationsThreads,
-                0L, MILLISECONDS,
-                new LinkedBlockingQueue<>(),
+        partitionOperationsExecutor = Executors.newFixedThreadPool(
+                partitionsOperationsThreads,
                 IgniteThreadFactory.create(
                         nodeName,
                         "partition-operations",
@@ -93,25 +83,10 @@ public class ThreadPoolsManager implements IgniteComponent {
                         STORAGE_WRITE,
                         TX_STATE_STORAGE_ACCESS,
                         PROCESS_RAFT_REQ
-                )) {
-            @Override
-            protected void afterExecute(Runnable r, Throwable t) {
-                super.afterExecute(r, t);
-                if (t != null) {
-                    LOG.error("qqq POE-Missed exception ", t);
-                }
-            }
-        };
+                )
+        );
 
-        commonScheduler = new ScheduledThreadPoolExecutor(1, NamedThreadFactory.create(nodeName, "common-scheduler", LOG)) {
-            @Override
-            protected void afterExecute(Runnable r, Throwable t) {
-                super.afterExecute(r, t);
-                if (t != null) {
-                    LOG.error("qqq CMN-Missed exception ", t);
-                }
-            }
-        };
+        commonScheduler = Executors.newSingleThreadScheduledExecutor(NamedThreadFactory.create(nodeName, "common-scheduler", LOG));
     }
 
     @Override
