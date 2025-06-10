@@ -715,7 +715,7 @@ public class PartitionPruningMetadataExtractor extends IgniteRelShuttle {
 
     private static IntList distributionKeys(IgniteTable table) {
         IgniteDistribution distribution = table.distribution();
-        if (!distribution.isAffinityDistribution()) {
+        if (!distribution.isTableDistribution()) {
             return IntArrayList.of();
         }
 

@@ -391,7 +391,7 @@ public class FragmentMappingTest extends AbstractPlannerTest {
             }
 
             IgniteDistribution distributionToUse;
-            if (distribution.isAffinityDistribution()) {
+            if (distribution.isTableDistribution()) {
                 distributionToUse = TestBuilders.affinity(0, objectId, objectId);
             } else {
                 distributionToUse = distribution;

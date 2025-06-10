@@ -536,15 +536,13 @@ class RelJson {
                     keys.add(toJson(key));
                 }
 
+                map.put("func", distribution.function().name());
                 map.put("keys", keys);
 
-                if (distribution.isAffinityDistribution()) {
-                    map.put("func", "affinity");
+                if (distribution.isTableDistribution()) {
                     map.put("zoneId", distribution.zoneId());
                     map.put("tableId", distribution.tableId());
                     map.put("label", distribution.label());
-                } else {
-                    map.put("func", distribution.function().name());
                 }
 
                 return map;
@@ -691,16 +689,19 @@ class RelJson {
 
                 return IgniteDistributions.identity(keys.get(0));
             }
-            case "hash":
-                return IgniteDistributions.hash(keys, DistributionFunction.hash());
-            default: {
-                assert functionName.startsWith("affinity");
+            case "hash": {
+                if (map.get("tableId") == null) {
+                    return IgniteDistributions.hash(keys, DistributionFunction.hash());
+                }
 
                 int tableId = (int) map.get("tableId");
                 int zoneId = (int) map.get("zoneId");
                 String label = (String) map.get("label");
 
                 return IgniteDistributions.affinity(keys, tableId, zoneId, label);
+            }
+            default: {
+                throw new IllegalStateException("Unsupported distribution function: " + functionName);
             }
         }
     }

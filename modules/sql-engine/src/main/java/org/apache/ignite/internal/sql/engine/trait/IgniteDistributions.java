@@ -125,7 +125,7 @@ public class IgniteDistributions {
         assert !nullOrEmpty(keys) : "Hash-based distribution must have at least one key";
         assert trait.function().type() == Type.HASH_DISTRIBUTED;
 
-        DistributionTrait distributionTrait = trait.isAffinityDistribution()
+        DistributionTrait distributionTrait = trait.isTableDistribution()
                 ? new DistributionTrait(keys, trait.tableId(), trait.zoneId(), trait.label(), trait.function())
                 : new DistributionTrait(keys, trait.function());
 

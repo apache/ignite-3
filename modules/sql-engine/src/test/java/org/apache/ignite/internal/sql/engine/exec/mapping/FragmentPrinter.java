@@ -319,7 +319,7 @@ final class FragmentPrinter extends IgniteRelShuttle {
     }
 
     private static String formatDistribution(IgniteDistribution distribution, TableDescriptorCollector collector) {
-        if (distribution.isAffinityDistribution()) {
+        if (distribution.isTableDistribution()) {
             IgniteTable igniteTable = collector.tables.get(distribution.tableId());
 
             if (igniteTable == null) {

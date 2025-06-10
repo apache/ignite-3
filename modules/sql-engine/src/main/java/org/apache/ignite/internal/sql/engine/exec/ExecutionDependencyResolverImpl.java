@@ -114,7 +114,7 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             }
 
             private void resolveDistributionFunction(IgniteDistribution distribution) {
-                if (distribution.isAffinityDistribution()) {
+                if (distribution.isTableDistribution()) {
                     int tableId = distribution.tableId();
 
                     resolveTable(catalogVersion, tableId);

@@ -30,13 +30,13 @@ public interface IgniteDistribution extends RelDistribution {
      */
     DistributionFunction function();
 
-    /** Returns affinity distribution flag value. */
-    boolean isAffinityDistribution();
+    /** Returns {@code true} if this is table distribution, {@code false} otherwise. */
+    boolean isTableDistribution();
 
-    /** Returns zone id of affinity distribution. */
+    /** Returns zone id of table distribution. */
     int zoneId();
 
-    /** Returns table id of affinity distribution. */
+    /** Returns table id of table distribution. */
     int tableId();
 
     /** Returns distribution function label for EXPLAIN plan purposes.  */

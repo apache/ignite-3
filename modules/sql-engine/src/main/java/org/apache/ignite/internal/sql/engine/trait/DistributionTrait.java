@@ -147,7 +147,7 @@ public final class DistributionTrait implements IgniteDistribution {
     }
 
     @Override
-    public boolean isAffinityDistribution() {
+    public boolean isTableDistribution() {
         return affinityFlag;
     }
 
@@ -195,7 +195,7 @@ public final class DistributionTrait implements IgniteDistribution {
     /** {@inheritDoc} */
     @Override
     public int hashCode() {
-        return Objects.hash(function, keys, zoneId);
+        return Objects.hash(function, keys, zoneId, tableId);
     }
 
     /** {@inheritDoc} */
@@ -203,7 +203,7 @@ public final class DistributionTrait implements IgniteDistribution {
     public String toString() {
         return function.name()
                 + (function.type() == HASH_DISTRIBUTED ? keys : "")
-                + (isAffinityDistribution() ? "[zoneId=" + zoneId + ", tableId=" + tableId + ']' : "");
+                + (isTableDistribution() ? "[zoneId=" + zoneId + ", tableId=" + tableId + ']' : "");
     }
 
     /** {@inheritDoc} */
@@ -283,7 +283,7 @@ public final class DistributionTrait implements IgniteDistribution {
             }
 
             if (cmp == 0) {
-                cmp = Boolean.compare(affinityFlag, distribution.isAffinityDistribution());
+                cmp = Boolean.compare(affinityFlag, distribution.isTableDistribution());
             }
 
             if (cmp == 0 && affinityFlag) {

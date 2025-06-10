@@ -91,7 +91,7 @@ class DestinationFactory<RowT> {
                     return new Identity<>(rowHandler, keys.get(0), group.nodeNames());
                 }
 
-                if (distribution.isAffinityDistribution()) {
+                if (distribution.isTableDistribution()) {
                     assert !nullOrEmpty(group.assignments());
 
                     int tableId = distribution.tableId();
