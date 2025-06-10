@@ -21,6 +21,7 @@ namespace Apache.Ignite.Tests.Compute
     using System.Buffers;
     using System.Collections;
     using System.Collections.Generic;
+    using System.Diagnostics.CodeAnalysis;
     using System.Globalization;
     using System.Linq;
     using System.Net;
@@ -717,6 +718,20 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
+        public void TestJobExceptionCancellationTokenRegistrationCleanup()
+        {
+            var cts = new CancellationTokenSource();
+
+            Assert.CatchAsync<ComputeException>(async () =>
+            {
+                var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "x", cts.Token);
+                await exec.GetResultAsync();
+            });
+
+            AssertNoCallbacks(cts);
+        }
+
+        [Test]
         public async Task TestBroadcastCancellationTokenRegistrationCleanup()
         {
             var cts = new CancellationTokenSource();
@@ -1090,6 +1105,7 @@ namespace Apache.Ignite.Tests.Compute
 
         private record Nested(Guid Id, decimal Price);
 
+        [SuppressMessage("ReSharper", "NotAccessedPositionalProperty.Local", Justification = "Tests.")]
         private record MyArg(int Id, string Name, Nested Nested);
 
         private record MyResult(string Data, Nested Nested);
