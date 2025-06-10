@@ -709,7 +709,14 @@ namespace Apache.Ignite.Tests.Compute
             var ex = Assert.ThrowsAsync<OperationCanceledException>(async () => await taskExec.GetResultAsync());
             Assert.IsInstanceOf<ComputeException>(ex?.InnerException);
 
-            var state = await taskExec.GetStateAsync();
+            IList<JobState?> jobStates = await taskExec.GetJobStatesAsync();
+
+            foreach (var jobState in jobStates)
+            {
+                Assert.AreEqual(JobStatus.Canceled, jobState?.Status);
+            }
+
+            TaskState? state = await taskExec.GetStateAsync();
 
             // TODO IGNITE-25640: must be TaskStatus.Canceled.
             Assert.AreEqual(TaskStatus.Failed, state?.Status);
