@@ -660,8 +660,7 @@ namespace Apache.Ignite.Tests.Compute
 
             await cts.CancelAsync();
 
-            // TODO: Wait for status to avoid flaky
-            await AssertJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
+            await AssertWaitJobStatus(jobExecution, JobStatus.Canceled, beforeStart);
 
             var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExecution.GetResultAsync());
 
@@ -688,8 +687,7 @@ namespace Apache.Ignite.Tests.Compute
 
             foreach (var jobExec in jobExecution.JobExecutions)
             {
-                // TODO: Wait for status to avoid flaky
-                await AssertJobStatus(jobExec, JobStatus.Canceled, beforeStart);
+                await AssertWaitJobStatus(jobExec, JobStatus.Canceled, beforeStart);
 
                 var ex = Assert.ThrowsAsync<ComputeException>(async () => await jobExec.GetResultAsync());
 
@@ -724,7 +722,7 @@ namespace Apache.Ignite.Tests.Compute
 
             Assert.CatchAsync<ComputeException>(async () =>
             {
-                var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), NodeNameJob, "x", cts.Token);
+                var exec = await Client.Compute.SubmitAsync(await GetNodeAsync(0), ExceptionJob, "x", cts.Token);
                 await exec.GetResultAsync();
             });
 
@@ -940,40 +938,6 @@ namespace Apache.Ignite.Tests.Compute
         }
 
         [Test]
-        [Ignore("IGNITE-23495")]
-        public async Task TestCancelCompletedTask()
-        {
-            var taskExec = await Client.Compute.SubmitMapReduceAsync(NodeNameTask, "arg");
-
-            await taskExec.GetResultAsync();
-
-            // var cancelRes = await taskExec.CancelAsync();
-            var state = await taskExec.GetStateAsync();
-
-            // Assert.IsFalse(cancelRes);
-            Assert.AreEqual(TaskStatus.Completed, state!.Status);
-        }
-
-        [Test]
-        [Ignore("IGNITE-23495")]
-        public async Task TestCancelExecutingTask()
-        {
-            var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
-
-            var state1 = await taskExec.GetStateAsync();
-            Assert.AreEqual(TaskStatus.Executing, state1!.Status);
-
-            // var cancelRes = await taskExec.CancelAsync();
-            var state2 = await taskExec.GetStateAsync();
-
-            // Assert.IsTrue(cancelRes);
-            Assert.AreEqual(TaskStatus.Failed, state2!.Status);
-
-            var ex = Assert.ThrowsAsync<ComputeException>(async () => await taskExec.GetResultAsync());
-            StringAssert.Contains("CancellationException", ex.Message);
-        }
-
-        [Test]
         public async Task TestChangeTaskPriority()
         {
             var taskExec = await Client.Compute.SubmitMapReduceAsync(SleepTask, 3000);
@@ -1082,6 +1046,13 @@ namespace Apache.Ignite.Tests.Compute
             {
                 Assert.IsNull(state.FinishTime);
             }
+        }
+
+        private static async Task AssertWaitJobStatus<T>(IJobExecution<T> jobExecution, JobStatus status, Instant beforeStart)
+        {
+            await TestUtils.WaitForConditionAsync(async () => (await jobExecution.GetStateAsync())!.Status == status);
+
+            await AssertJobStatus(jobExecution, status, beforeStart);
         }
 
         private static void AssertNoCallbacks(CancellationTokenSource cts) =>
