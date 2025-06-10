@@ -29,8 +29,6 @@ import org.apache.ignite.internal.sql.engine.rel.IgniteTableScan;
 import org.apache.ignite.internal.sql.engine.rel.IgniteTrimExchange;
 import org.apache.ignite.internal.sql.engine.schema.IgniteSystemView;
 import org.apache.ignite.internal.sql.engine.schema.IgniteTable;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction;
-import org.apache.ignite.internal.sql.engine.trait.DistributionFunction.AffinityDistribution;
 import org.apache.ignite.internal.sql.engine.trait.IgniteDistribution;
 import org.apache.ignite.internal.sql.engine.trait.TraitUtils;
 
@@ -116,10 +114,8 @@ public class ExecutionDependencyResolverImpl implements ExecutionDependencyResol
             }
 
             private void resolveDistributionFunction(IgniteDistribution distribution) {
-                DistributionFunction function = distribution.function();
-
-                if (function.affinity()) {
-                    int tableId = ((AffinityDistribution) function).tableId();
+                if (distribution.isTableDistribution()) {
+                    int tableId = distribution.tableId();
 
                     resolveTable(catalogVersion, tableId);
                 }

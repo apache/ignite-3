@@ -30,6 +30,18 @@ public interface IgniteDistribution extends RelDistribution {
      */
     DistributionFunction function();
 
+    /** Returns {@code true} if this is table distribution, {@code false} otherwise. */
+    boolean isTableDistribution();
+
+    /** Returns zone id of table distribution. */
+    int zoneId();
+
+    /** Returns table id of table distribution. */
+    int tableId();
+
+    /** Returns distribution function label for EXPLAIN plan purposes.  */
+    String label();
+
     /** {@inheritDoc} */
     @Override
     ImmutableIntList getKeys();
