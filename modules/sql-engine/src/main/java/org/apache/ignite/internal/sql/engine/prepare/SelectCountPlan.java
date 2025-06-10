@@ -135,7 +135,7 @@ public class SelectCountPlan implements ExplainablePlan, ExecutablePlan, RelAwar
     }
 
     @Override
-    public IgniteRel getRel() {
+    public IgniteSelectCount getRel() {
         return selectCountNode;
     }
 

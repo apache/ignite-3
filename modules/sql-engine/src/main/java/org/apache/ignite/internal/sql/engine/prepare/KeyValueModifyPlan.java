@@ -148,7 +148,7 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan, RelA
     }
 
     @Override
-    public IgniteRel getRel() {
+    public IgniteKeyValueModify getRel() {
         return modifyNode;
     }
 

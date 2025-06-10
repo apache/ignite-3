@@ -177,7 +177,7 @@ public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan, RelAwar
     }
 
     @Override
-    public IgniteRel getRel() {
+    public IgniteKeyValueGet getRel() {
         return lookupNode;
     }
 

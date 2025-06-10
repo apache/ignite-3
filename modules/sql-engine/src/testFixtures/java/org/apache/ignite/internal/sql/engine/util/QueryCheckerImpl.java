@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
@@ -321,7 +320,7 @@ abstract class QueryCheckerImpl implements QueryChecker {
                 .defaultSchema(defaultSchema);
 
         String qry = queryTemplate.createQuery();
-        boolean containExplain = qry.toUpperCase(Locale.ROOT).startsWith("EXPLAIN ");
+        boolean containExplain = "EXPLAIN ".equalsIgnoreCase(qry.substring(0, 8));
         String queryToLog;
         if (qry.length() < MAX_QUERY_DISPLAY_LENGTH) {
             queryToLog = qry;

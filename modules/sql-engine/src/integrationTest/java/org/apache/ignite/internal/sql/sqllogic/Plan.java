@@ -38,17 +38,18 @@ final class Plan extends Command {
 
         var sqlString = new IgniteStringBuilder();
 
-        if (cmd.length == 2) {
-            String explainType = cmd[1];
-            switch (explainType) {
-                case "mapping":
-                    mapping = true;
-                    break;
-                default:
-                    throw script.reportInvalidCommand("Unsupported explain type", cmd);
-            }
-        } else {
-            mapping = false;
+        assert cmd.length == 2 : "unexpected line: " + cmd;
+
+        String explainType = cmd[1];
+        switch (explainType) {
+            case "mapping":
+                mapping = true;
+                break;
+            case "plan":
+                mapping = false;
+                break;
+            default:
+                throw script.reportInvalidCommand("Unsupported explain type", cmd);
         }
 
         // Read SQL query
