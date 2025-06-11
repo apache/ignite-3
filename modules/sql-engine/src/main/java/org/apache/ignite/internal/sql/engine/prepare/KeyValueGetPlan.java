@@ -40,7 +40,6 @@ import org.apache.ignite.internal.sql.engine.exec.ExecutablePlan;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTable;
 import org.apache.ignite.internal.sql.engine.exec.ExecutableTableRegistry;
 import org.apache.ignite.internal.sql.engine.exec.ExecutionContext;
-import org.apache.ignite.internal.sql.engine.exec.RelAwarePlan;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler;
 import org.apache.ignite.internal.sql.engine.exec.RowHandler.RowFactory;
 import org.apache.ignite.internal.sql.engine.exec.ScannableTable;
@@ -63,7 +62,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Plan representing single lookup by a primary key.
  */
-public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan, RelAwarePlan {
+public class KeyValueGetPlan implements ExplainablePlan, ExecutablePlan {
     private static final IgniteLogger LOG = Loggers.forClass(KeyValueGetPlan.class);
 
     private final PlanId id;

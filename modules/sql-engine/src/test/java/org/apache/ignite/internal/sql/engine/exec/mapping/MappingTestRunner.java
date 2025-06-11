@@ -217,7 +217,7 @@ final class MappingTestRunner {
             mappedFragments = await(mappingService.map(plan, MappingParameters.EMPTY));
         } catch (Exception e) {
             String explanation = System.lineSeparator()
-                    + RelOptUtil.toString(plan.root())
+                    + RelOptUtil.toString(plan.getRel())
                     + System.lineSeparator();
 
             Throwable cause = e instanceof CompletionException ? e.getCause() : e;

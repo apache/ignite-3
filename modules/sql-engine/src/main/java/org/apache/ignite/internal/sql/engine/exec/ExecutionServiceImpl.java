@@ -565,12 +565,8 @@ public class ExecutionServiceImpl<RowT> implements ExecutionService, TopologyEve
 
                     return new IteratorToDataCursorAdapter<>(fragments0, Runnable::run);
                 } else {
-                    assert plan.plan() instanceof RelAwarePlan : "plan: " + plan.plan();
-
-                    RelAwarePlan planWithRel = (RelAwarePlan) plan.plan();
-
                     InternalSqlRow res =
-                            new InternalSqlRowSingleString(FragmentPrinter.relAwareToString(planWithRel, localNode.name()));
+                            new InternalSqlRowSingleString(FragmentPrinter.relAwareToString(plan.plan(), localNode.name()));
                     return new IteratorToDataCursorAdapter<>(List.of(res).iterator());
                 }
             default:

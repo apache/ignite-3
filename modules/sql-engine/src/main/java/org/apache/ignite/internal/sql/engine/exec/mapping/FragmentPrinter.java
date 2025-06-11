@@ -33,7 +33,7 @@ import java.util.stream.Collectors;
 import org.apache.calcite.plan.RelOptTable;
 import org.apache.calcite.rex.RexNode;
 import org.apache.ignite.internal.sql.engine.exec.PartitionWithConsistencyToken;
-import org.apache.ignite.internal.sql.engine.exec.RelAwarePlan;
+import org.apache.ignite.internal.sql.engine.prepare.ExplainablePlan;
 import org.apache.ignite.internal.sql.engine.prepare.Fragment;
 import org.apache.ignite.internal.sql.engine.prepare.IgniteRelShuttle;
 import org.apache.ignite.internal.sql.engine.prepare.pruning.PartitionPruningMetadata;
@@ -68,7 +68,7 @@ public final class FragmentPrinter extends IgniteRelShuttle {
     }
 
     /** Print optimized plan in common fragment printer format. */
-    public static String relAwareToString(RelAwarePlan plan, String localNode) {
+    public static String relAwareToString(ExplainablePlan plan, String localNode) {
         Output output = new Output(String::valueOf);
 
         FragmentPrinter printer = new FragmentPrinter(output);
