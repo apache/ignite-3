@@ -24,7 +24,6 @@ import io.scalecube.cluster.metadata.MetadataCodec;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
