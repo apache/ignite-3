@@ -26,7 +26,6 @@ import static org.apache.ignite.internal.configuration.IgnitePaths.partitionsPat
 import static org.apache.ignite.internal.configuration.IgnitePaths.vaultPath;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.REBALANCE_SCHEDULER_POOL_SIZE;
 import static org.apache.ignite.internal.distributionzones.rebalance.RebalanceUtil.pendingPartAssignmentsQueueKey;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_READ;
 import static org.apache.ignite.internal.thread.ThreadOperation.STORAGE_WRITE;
 import static org.apache.ignite.internal.util.CompletableFutures.copyStateTo;
@@ -94,6 +93,7 @@ import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopolog
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologySnapshot;
 import org.apache.ignite.internal.components.LongJvmPauseDetector;
+import org.apache.ignite.internal.components.NodeProperties;
 import org.apache.ignite.internal.compute.AntiHijackIgniteCompute;
 import org.apache.ignite.internal.compute.ComputeComponentImpl;
 import org.apache.ignite.internal.compute.IgniteComputeImpl;
@@ -227,6 +227,7 @@ import org.apache.ignite.internal.rest.configuration.RestExtensionConfiguration;
 import org.apache.ignite.internal.rest.deployment.CodeDeploymentRestFactory;
 import org.apache.ignite.internal.rest.metrics.MetricRestFactory;
 import org.apache.ignite.internal.rest.node.NodeManagementRestFactory;
+import org.apache.ignite.internal.rest.node.NodePropertiesFactory;
 import org.apache.ignite.internal.rest.recovery.DisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.recovery.system.SystemDisasterRecoveryFactory;
 import org.apache.ignite.internal.rest.sql.SqlQueryRestFactory;
@@ -323,6 +324,8 @@ public class IgniteImpl implements Ignite {
 
     /** Vault manager. */
     private final VaultManager vaultMgr;
+
+    private final NodePropertiesImpl nodeProperties;
 
     /** Sql query engine. */
     private final SqlQueryProcessor qryEngine;
@@ -526,9 +529,9 @@ public class IgniteImpl implements Ignite {
 
         vaultMgr = new VaultManager(new PersistentVaultService(vaultPath(workDir)));
 
-        metricManager = new MetricManagerImpl();
+        nodeProperties = new NodePropertiesImpl(vaultMgr);
 
-        LOG.info("Zone based replication: {}", enabledColocation());
+        metricManager = new MetricManagerImpl();
 
         ConfigurationModules modules = loadConfigurationModules(serviceProviderClassLoader);
 
@@ -841,6 +844,7 @@ public class IgniteImpl implements Ignite {
                 topologyAwareRaftGroupServiceFactory,
                 clockService,
                 failureManager,
+                nodeProperties,
                 replicationConfig
         );
 
@@ -923,6 +927,7 @@ public class IgniteImpl implements Ignite {
                 new UpdateLogImpl(metaStorageMgr, failureManager),
                 clockService,
                 failureManager,
+                nodeProperties,
                 delayDurationMsSupplier
         );
 
@@ -959,7 +964,8 @@ public class IgniteImpl implements Ignite {
                 failureManager,
                 catalogManager,
                 systemDistributedConfiguration,
-                clockService
+                clockService,
+                nodeProperties
         );
 
         indexNodeFinishedRwTransactionsChecker = new IndexNodeFinishedRwTransactionsChecker(
@@ -980,6 +986,7 @@ public class IgniteImpl implements Ignite {
                 clockService,
                 schemaSyncService,
                 clusterSvc.topologyService(),
+                nodeProperties,
                 indexNodeFinishedRwTransactionsChecker,
                 minTimeCollectorService,
                 new RebalanceMinimumRequiredTimeProviderImpl(metaStorageMgr, catalogManager)
@@ -1018,7 +1025,8 @@ public class IgniteImpl implements Ignite {
                 transactionInflights,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
-                failureManager
+                failureManager,
+                nodeProperties
         );
 
         sharedTxStateStorage = new TxStateRocksDbSharedStorage(
@@ -1037,6 +1045,7 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 lowWatermark,
                 failureManager,
+                nodeProperties,
                 threadPoolsManager.tableIoExecutor(),
                 rebalanceScheduler,
                 threadPoolsManager.partitionOperationsExecutor(),
@@ -1101,6 +1110,7 @@ public class IgniteImpl implements Ignite {
                 indexMetaStorage,
                 partitionsLogStorageFactory,
                 partitionReplicaLifecycleManager,
+                nodeProperties,
                 minTimeCollectorService,
                 systemDistributedConfiguration
         );
@@ -1116,10 +1126,10 @@ public class IgniteImpl implements Ignite {
                 distributedTblMgr,
                 metricManager,
                 failureManager,
-                partitionReplicaLifecycleManager
+                partitionReplicaLifecycleManager,
+                nodeProperties,
+                systemViewManager
         );
-
-        systemViewManager.register(disasterRecoveryManager);
 
         indexManager = new IndexManager(
                 schemaManager,
@@ -1142,6 +1152,7 @@ public class IgniteImpl implements Ignite {
                 logicalTopologyService,
                 clockService,
                 failureManager,
+                nodeProperties,
                 lowWatermark
         );
 
@@ -1163,6 +1174,7 @@ public class IgniteImpl implements Ignite {
                 nodeConfigRegistry.getConfiguration(SqlNodeExtensionConfiguration.KEY).sql(),
                 transactionInflights,
                 txManager,
+                nodeProperties,
                 lowWatermark,
                 threadPoolsManager.commonScheduler(),
                 killCommandHandler,
@@ -1205,7 +1217,8 @@ public class IgniteImpl implements Ignite {
                 clusterSvc.topologyService(),
                 distributedTblMgr,
                 computeComponent,
-                clock
+                clock,
+                nodeProperties
         );
 
         killCommandHandler.register(computeKillHandler(compute));
@@ -1232,6 +1245,7 @@ public class IgniteImpl implements Ignite {
                 placementDriverMgr.placementDriver(),
                 clientConnectorConfiguration,
                 lowWatermark,
+                nodeProperties,
                 threadPoolsManager.partitionOperationsExecutor()
         );
 
@@ -1342,6 +1356,7 @@ public class IgniteImpl implements Ignite {
         Supplier<RestFactory> disasterRecoveryFactory = () -> new DisasterRecoveryFactory(disasterRecoveryManager);
         Supplier<RestFactory> systemDisasterRecoveryFactory = () -> new SystemDisasterRecoveryFactory(systemDisasterRecoveryManager);
         Supplier<RestFactory> sqlQueryRestFactory = () -> new SqlQueryRestFactory(sql, killCommandHandler);
+        Supplier<RestFactory> nodePropertiesRestFactory = () -> new NodePropertiesFactory(nodeProperties);
 
         RestConfiguration restConfiguration = nodeCfgMgr.configurationRegistry().getConfiguration(RestExtensionConfiguration.KEY).rest();
 
@@ -1356,7 +1371,8 @@ public class IgniteImpl implements Ignite {
                         computeRestFactory,
                         disasterRecoveryFactory,
                         systemDisasterRecoveryFactory,
-                        sqlQueryRestFactory
+                        sqlQueryRestFactory,
+                        nodePropertiesRestFactory
                 ),
                 restManager,
                 restConfiguration
@@ -1414,6 +1430,7 @@ public class IgniteImpl implements Ignite {
                     componentContext,
                     longJvmPauseDetector,
                     vaultMgr,
+                    nodeProperties,
                     threadPoolsManager,
                     clockWaiter,
                     failureManager,
@@ -2100,6 +2117,11 @@ public class IgniteImpl implements Ignite {
     @TestOnly
     public TxStateRocksDbSharedStorage sharedTxStateStorage() {
         return sharedTxStateStorage;
+    }
+
+    @TestOnly
+    public NodeProperties nodeProperties() {
+        return nodeProperties;
     }
 
     /** Triggers dumping node components state. This method is used for debugging purposes only. */

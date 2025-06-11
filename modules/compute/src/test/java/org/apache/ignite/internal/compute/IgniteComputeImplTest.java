@@ -51,6 +51,8 @@ import org.apache.ignite.compute.JobState;
 import org.apache.ignite.compute.JobTarget;
 import org.apache.ignite.deployment.DeploymentUnit;
 import org.apache.ignite.internal.cluster.management.topology.api.LogicalTopologyService;
+import org.apache.ignite.internal.components.NodeProperties;
+import org.apache.ignite.internal.components.SystemPropertiesNodeProperties;
 import org.apache.ignite.internal.hlc.HybridClock;
 import org.apache.ignite.internal.network.ClusterNodeImpl;
 import org.apache.ignite.internal.network.TopologyService;
@@ -72,6 +74,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
@@ -95,6 +98,9 @@ class IgniteComputeImplTest extends BaseIgniteAbstractTest {
 
     @Mock
     private HybridClock clock;
+
+    @Spy
+    private final NodeProperties nodeProperties = new SystemPropertiesNodeProperties();
 
     @InjectMocks
     private IgniteComputeImpl compute;

@@ -21,7 +21,7 @@ import static java.util.stream.Collectors.toSet;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureExceptionMatcher.willThrow;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willBe;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
@@ -410,7 +410,7 @@ public abstract class ItWorkerShutdownTest extends ClusterPerTestIntegrationTest
 
         HybridClock clock = igniteImpl.clock();
         TableImpl table = unwrapTableImpl(node.tables().table(TABLE_NAME));
-        PartitionGroupId replicationGroupId = enabledColocation()
+        PartitionGroupId replicationGroupId = colocationEnabled()
                 ? new ZonePartitionId(table.zoneId(), table.partitionId(Tuple.create(1).set("K", 1)))
                 : new TablePartitionId(table.tableId(), table.partitionId(Tuple.create(1).set("K", 1)));
 

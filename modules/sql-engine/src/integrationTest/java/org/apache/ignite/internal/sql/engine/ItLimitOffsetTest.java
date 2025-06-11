@@ -21,7 +21,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableImpl;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_PARTITION_COUNT;
 import static org.apache.ignite.internal.catalog.commands.CatalogUtils.DEFAULT_REPLICA_COUNT;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.SqlTestUtils.assertThrowsSqlException;
 import static org.apache.ignite.internal.testframework.matchers.CompletableFutureMatcher.willCompleteSuccessfully;
 import static org.hamcrest.MatcherAssert.assertThat;
@@ -245,7 +245,7 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
     private static void awaitAssignmentsStabilization(Ignite node) throws InterruptedException {
         IgniteImpl igniteImpl = unwrapIgniteImpl(node);
         TableImpl table = unwrapTableImpl(node.tables().table("test"));
-        int tableOrZoneId = enabledColocation() ? table.zoneId() : table.tableId();
+        int tableOrZoneId = colocationEnabled() ? table.zoneId() : table.tableId();
 
         HybridTimestamp timestamp = igniteImpl.clock().now();
 
@@ -255,7 +255,7 @@ public class ItLimitOffsetTest extends BaseSqlIntegrationTest {
             // Within given test default zone is used.
             for (int p = 0; p < DEFAULT_PARTITION_COUNT; p++) {
                 CompletableFuture<TokenizedAssignments> assignmentsFuture = igniteImpl.placementDriver().getAssignments(
-                        enabledColocation()
+                        colocationEnabled()
                                 ? new ZonePartitionId(tableOrZoneId, p)
                                 : new TablePartitionId(tableOrZoneId, p),
                         timestamp);

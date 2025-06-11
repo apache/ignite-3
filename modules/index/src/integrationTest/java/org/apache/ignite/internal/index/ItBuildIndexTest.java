@@ -25,7 +25,7 @@ import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
 import static org.apache.ignite.internal.catalog.CatalogService.DEFAULT_STORAGE_PROFILE;
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
-import static org.apache.ignite.internal.lang.IgniteSystemProperties.enabledColocation;
+import static org.apache.ignite.internal.lang.IgniteSystemProperties.colocationEnabled;
 import static org.apache.ignite.internal.sql.engine.util.QueryChecker.containsIndexScan;
 import static org.apache.ignite.internal.table.distributed.storage.InternalTableImpl.AWAIT_PRIMARY_REPLICA_TIMEOUT;
 import static org.apache.ignite.internal.testframework.IgniteTestUtils.waitForCondition;
@@ -187,7 +187,7 @@ public class ItBuildIndexTest extends BaseSqlIntegrationTest {
 
         assertNotNull(tableDescriptor, String.format("Table %s not found", tableName));
 
-        return enabledColocation() ? new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex)
+        return colocationEnabled() ? new ZonePartitionId(tableDescriptor.zoneId(), partitionIndex)
                 : new TablePartitionId(tableDescriptor.id(), partitionIndex);
     }
 
