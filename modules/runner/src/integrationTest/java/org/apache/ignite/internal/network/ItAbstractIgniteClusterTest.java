@@ -42,7 +42,7 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
 
     protected abstract Ignite ignite();
 
-    protected boolean hasNodeMeta(){
+    protected boolean hasNodeMeta() {
         return true;
     }
 
