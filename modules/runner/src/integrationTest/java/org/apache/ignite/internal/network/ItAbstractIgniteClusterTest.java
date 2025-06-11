@@ -30,6 +30,8 @@ import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.internal.testframework.IgniteTestUtils;
 import org.apache.ignite.network.ClusterNode;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * Tests for {@link org.apache.ignite.network.IgniteCluster} API.
@@ -50,10 +52,13 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
         return IgniteTestUtils.shortTestMethodName(this.getClass().getSimpleName()) + "_n_";
     }
 
-    @SuppressWarnings("DataFlowIssue")
-    @Test
-    public void testNodes() {
-        Collection<ClusterNode> nodes = ignite().cluster().nodes();
+    @SuppressWarnings({"DataFlowIssue", "deprecation"})
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    public void testNodes(boolean deprecated) {
+        Collection<ClusterNode> nodes = deprecated
+                ? ignite().clusterNodes()
+                : ignite().cluster().nodes();
 
         assertEquals(2, nodes.size());
 
@@ -78,7 +83,7 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
     }
 
     @Test
-    public void testLocalNode() {
+    public void testLocalNode(boolean deprecated) {
         ClusterNode localNode = ignite().cluster().localNode();
         assertNotNull(localNode);
 
