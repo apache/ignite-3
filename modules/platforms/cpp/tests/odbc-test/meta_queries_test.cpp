@@ -596,7 +596,7 @@ TEST_F(meta_queries_test, get_data_with_tables) {
     SQLCHAR any[] = "%";
     auto table = to_sqlchar(to_upper(TABLE_NAME_ALL_COLUMNS_SQL));
 
-    SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table.data(), SQL_NTS, any, SQL_NTS);
+    SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table.data(), SQL_NTS, nullptr, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -667,7 +667,7 @@ TEST_F(meta_queries_test, ddl_tables_meta) {
     SQLCHAR any[] = "%";
     SQLCHAR table[] = "META_QUERIES_TEST";
 
-    SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, any, SQL_NTS);
+    SQLRETURN ret = SQLTables(m_statement, any, SQL_NTS, any, SQL_NTS, table, SQL_NTS, nullptr, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
@@ -690,7 +690,7 @@ TEST_F(meta_queries_test, ddl_tables_meta) {
 TEST_F(meta_queries_test, ddl_tables_meta_table_type_list) {
     odbc_connect(get_basic_connection_string());
 
-    SQLCHAR *type_lists[] = {(SQLCHAR *) "'TABLE'", (SQLCHAR *) "TABLE,VIEW"};
+    SQLCHAR *type_lists[] = {(SQLCHAR *) "TABLE", (SQLCHAR *) "TABLE,VIEW"};
     for (auto &type_list : type_lists) {
         SQLCHAR any[] = "%";
         SQLCHAR table[] = "META_QUERIES_TEST";
@@ -754,10 +754,9 @@ TEST_F(meta_queries_test, tables_meta) {
     SQLCHAR catalog_pattern[] = "%";
     SQLCHAR schema_pattern[] = "%";
     SQLCHAR table_pattern[] = "TBL_ALL_COLUMNS%";
-    SQLCHAR table_type_pattern[] = "%";
 
     ret = SQLTables(m_statement, catalog_pattern, SQL_NTS, schema_pattern, SQL_NTS, table_pattern, SQL_NTS,
-        table_type_pattern, SQL_NTS);
+        nullptr, SQL_NTS);
 
     if (!SQL_SUCCEEDED(ret))
         FAIL() << (get_odbc_error_message(SQL_HANDLE_STMT, m_statement));
