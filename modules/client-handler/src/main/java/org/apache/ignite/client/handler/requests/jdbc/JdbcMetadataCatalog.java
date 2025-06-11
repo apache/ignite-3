@@ -28,24 +28,21 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.stream.Stream;
 import org.apache.ignite.internal.catalog.CatalogService;
 import org.apache.ignite.internal.catalog.descriptors.CatalogObjectDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogSchemaDescriptor;
+import org.apache.ignite.internal.catalog.descriptors.CatalogTableColumnDescriptor;
 import org.apache.ignite.internal.catalog.descriptors.CatalogTableDescriptor;
 import org.apache.ignite.internal.hlc.ClockService;
 import org.apache.ignite.internal.hlc.HybridTimestamp;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcColumnMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcPrimaryKeyMeta;
 import org.apache.ignite.internal.jdbc.proto.event.JdbcTableMeta;
-import org.apache.ignite.internal.schema.Column;
-import org.apache.ignite.internal.schema.SchemaDescriptor;
 import org.apache.ignite.internal.schema.SchemaSyncService;
-import org.apache.ignite.internal.schema.catalog.CatalogToSchemaDescriptorConverter;
 import org.apache.ignite.internal.sql.engine.util.Commons;
+import org.apache.ignite.internal.sql.engine.util.TypeUtils;
 import org.apache.ignite.internal.type.NativeType;
-import org.apache.ignite.internal.util.Pair;
 import org.apache.ignite.table.IgniteTables;
 import org.jetbrains.annotations.Nullable;
 
@@ -70,10 +67,10 @@ public class JdbcMetadataCatalog {
 
     private final CatalogService catalogService;
 
-    /** Comparator for {@link Column} by schema then table name then column order. */
-    private static final Comparator<Pair<String, Column>> bySchemaThenTabNameThenColOrder
-            = Comparator.comparing((Function<Pair<String, Column>, String>) Pair::getFirst)
-            .thenComparingInt(o -> o.getSecond().positionInRow());
+    /** Comparator for {@link JdbcColumnMeta} by schema then table name. */
+    private static final Comparator<JdbcColumnMeta> bySchemaThenTabName
+            = Comparator.comparing(JdbcColumnMeta::schemaName)
+            .thenComparing(JdbcColumnMeta::tableName);
 
     /** Comparator for {@link JdbcTableMeta} by table name. */
     private static final Comparator<JdbcTableMeta> byTblTypeThenSchemaThenTblName
@@ -186,20 +183,24 @@ public class JdbcMetadataCatalog {
         return schemasAtNow().thenApply(schemas ->
                 schemas.stream()
                         .filter(schema -> matches(schema.name(), schemaNameRegex))
-                        .sorted(Comparator.comparing(CatalogSchemaDescriptor::name))
                         .flatMap(schema ->
-                                Arrays.stream(schema.tables())
-                                        .filter(table -> matches(table.name(), tlbNameRegex))
-                                        .flatMap(tbl -> {
-                                            SchemaDescriptor schema0 = CatalogToSchemaDescriptorConverter.convert(tbl, tbl.tableVersion());
-
-                                            return schema0.columns().stream()
-                                                    .map(column -> new Pair<>(tbl.name(), column));
-                                        })
-                                        .filter(e -> matches(e.getSecond().name(), colNameRegex))
-                                        .sorted(bySchemaThenTabNameThenColOrder)
-                                        .map(pair -> createColumnMeta(schema.name(), pair.getFirst(), pair.getSecond()))
+                                Stream.concat(
+                                        Arrays.stream(schema.systemViews())
+                                                .filter(view -> matches(view.name(), tlbNameRegex))
+                                                .flatMap(view -> view.columns().stream()
+                                                        .filter(col -> matches(col.name(), colNameRegex))
+                                                        .map(col -> createColumnMeta(schema.name(), view.name(), col))
+                                                ),
+                                        Arrays.stream(schema.tables())
+                                                .filter(table -> matches(table.name(), tlbNameRegex))
+                                                .sorted(Comparator.comparing(CatalogTableDescriptor::name))
+                                                .flatMap(tbl -> tbl.columns().stream()
+                                                        .filter(col -> matches(col.name(), colNameRegex))
+                                                        .map(col -> createColumnMeta(schema.name(), tbl.name(), col))
+                                                )
+                                )
                         )
+                        .sorted(bySchemaThenTabName)
                         .collect(toCollection(LinkedHashSet::new))
         );
     }
@@ -242,18 +243,18 @@ public class JdbcMetadataCatalog {
      *
      * @param schemaName Schema name.
      * @param tblName Table name.
-     * @param col Column.
+     * @param col Column descriptor.
      * @return Column metadata.
      */
-    private static JdbcColumnMeta createColumnMeta(String schemaName, String tblName, Column col) {
-        NativeType colType = col.type();
+    private static JdbcColumnMeta createColumnMeta(String schemaName, String tblName, CatalogTableColumnDescriptor col) {
+        NativeType colType = TypeUtils.columnType2NativeType(col.type(), col.precision(), col.scale(), col.length());
 
         return new JdbcColumnMeta(
                 col.name(),
                 schemaName,
                 tblName,
                 col.name(),
-                colType.spec(),
+                col.type(),
                 Commons.nativeTypePrecision(colType),
                 Commons.nativeTypeScale(colType),
                 col.nullable()

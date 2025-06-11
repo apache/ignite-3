@@ -35,7 +35,6 @@ import java.sql.Statement;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.List;
 import java.util.StringJoiner;
 import java.util.UUID;
@@ -60,12 +59,12 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         try (Statement stmt = conn.createStatement()) {
             stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC;"
                     + "CREATE SCHEMA IF NOT EXISTS META;"
-                    + "CREATE SCHEMA IF NOT EXISTS USER1;"
                     + "CREATE SCHEMA IF NOT EXISTS USER2;"
-                    + "CREATE TABLE person(name VARCHAR, age INT, orgid INT PRIMARY KEY);"
+                    + "CREATE SCHEMA IF NOT EXISTS USER1;"
+                    + "CREATE TABLE person(name VARCHAR(32), age INT, orgid INT PRIMARY KEY);"
                     + "CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10));"
-                    + "CREATE TABLE user1.table1(id INT PRIMARY KEY);"
                     + "CREATE TABLE user2.table2(id INT PRIMARY KEY);"
+                    + "CREATE TABLE user1.table1(id INT PRIMARY KEY);"
                     + "INSERT INTO person (orgid, name, age) VALUES (1, '111', 111);"
                     + "INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10);"
             );
@@ -361,21 +360,48 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     public void testGetColumns() throws Exception {
         DatabaseMetaData meta = conn.getMetaData();
 
-        ResultSet rs = meta.getColumns("IGNITE", "PUBLIC", "PERSON", "%");
+        // Tables.
+        {
+            ResultSet rs = meta.getColumns("IGNITE", "PUBLIC", "%", "%");
 
-        checkPersonTableColumns(rs);
+            checkOrgTableColumns(rs);
+            checkPersonTableColumns(rs);
+            assertFalse(rs.next());
 
-        rs = meta.getColumns(null, "PUBLIC", "PERSON", null);
+            rs = meta.getColumns("IGNITE", "PUBLIC", "PERSON", "%");
 
-        checkPersonTableColumns(rs);
+            checkPersonTableColumns(rs);
+            assertFalse(rs.next());
 
-        rs = meta.getColumns("IGNITE", "PUBLIC", "ORGANIZATION", "%");
+            rs = meta.getColumns(null, "PUBLIC", "PERSON", null);
 
-        checkOrgTableColumns(rs);
+            checkPersonTableColumns(rs);
+            assertFalse(rs.next());
 
-        rs = meta.getColumns(null, "PUBLIC", "ORGANIZATION", null);
+            rs = meta.getColumns("IGNITE", "PUBLIC", "ORGANIZATION", "%");
 
-        checkOrgTableColumns(rs);
+            checkOrgTableColumns(rs);
+            assertFalse(rs.next());
+
+            rs = meta.getColumns(null, "PUBLIC", "ORGANIZATION", null);
+
+            checkOrgTableColumns(rs);
+            assertFalse(rs.next());
+
+            rs = meta.getColumns(null, "USER%", "%", null);
+
+            checkUser1Columns(rs);
+            checkUser2Columns(rs);
+
+            assertFalse(rs.next());
+        }
+
+        // System view.
+        {
+            ResultSet rs = meta.getColumns("IGNITE", "SYSTEM", "TRANSACTIONS", "TRANSACTION_%");
+
+            checkTxViewColumns(rs);
+        }
     }
 
     /**
@@ -383,43 +409,28 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      *
      * @param rs ResultSet.
      * */
-    private void checkOrgTableColumns(ResultSet rs) throws SQLException {
+    private static void checkOrgTableColumns(ResultSet rs) throws SQLException {
         assertNotNull(rs);
 
-        Collection<String> names = new ArrayList<>();
+        assertTrue(rs.next());
+        assertEquals("ID", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
+        assertEquals("INTEGER", rs.getString("TYPE_NAME"));
+        assertEquals(0, rs.getInt("NULLABLE"));
 
-        names.add("ID");
-        names.add("NAME");
-        names.add("BIGDATA");
+        assertTrue(rs.next());
+        assertEquals("NAME", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
 
-        int cnt = 0;
-
-        while (rs.next()) {
-            String name = rs.getString("COLUMN_NAME");
-
-            assertTrue(names.remove(name));
-
-            if ("ID".equals(name)) {
-                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
-                assertEquals("INTEGER", rs.getString("TYPE_NAME"));
-                assertEquals(0, rs.getInt("NULLABLE"));
-            } else if ("NAME".equals(name)) {
-                assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
-                assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
-                assertEquals(1, rs.getInt("NULLABLE"));
-            } else if ("BIGDATA".equals(name)) {
-                assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"));
-                assertEquals("DECIMAL", rs.getString("TYPE_NAME"));
-                assertEquals(1, rs.getInt("NULLABLE"));
-                assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
-                assertEquals(20, rs.getInt("COLUMN_SIZE"));
-            }
-
-            cnt++;
-        }
-
-        assertTrue(names.isEmpty());
-        assertEquals(3, cnt);
+        assertTrue(rs.next());
+        assertEquals("BIGDATA", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.DECIMAL, rs.getInt("DATA_TYPE"));
+        assertEquals("DECIMAL", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(10, rs.getInt("DECIMAL_DIGITS"));
+        assertEquals(20, rs.getInt("COLUMN_SIZE"));
     }
 
     /**
@@ -427,41 +438,105 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
      *
      * @param rs ResultSet.
      * */
-    private void checkPersonTableColumns(ResultSet rs) throws SQLException {
+    private static void checkPersonTableColumns(ResultSet rs) throws SQLException {
         assertNotNull(rs);
 
-        Collection<String> names = new ArrayList<>(3);
+        assertTrue(rs.next());
+        assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+        assertEquals("PERSON", rs.getString("TABLE_NAME"));
+        assertEquals("NAME", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(32, rs.getInt("COLUMN_SIZE"));
 
-        names.add("NAME");
-        names.add("AGE");
-        names.add("ORGID");
+        assertTrue(rs.next());
 
-        int cnt = 0;
+        assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+        assertEquals("PERSON", rs.getString("TABLE_NAME"));
+        assertEquals("AGE", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
+        assertEquals("INTEGER", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(10, rs.getInt("COLUMN_SIZE"));
 
-        while (rs.next()) {
-            String name = rs.getString("COLUMN_NAME");
+        assertTrue(rs.next());
+        assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
+        assertEquals("PERSON", rs.getString("TABLE_NAME"));
+        assertEquals("ORGID", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
+        assertEquals("INTEGER", rs.getString("TYPE_NAME"));
+        assertEquals(0, rs.getInt("NULLABLE"));
+        assertEquals(10, rs.getInt("COLUMN_SIZE"));
+    }
 
-            assertTrue(names.remove(name));
+    private static void checkUser1Columns(ResultSet rs) throws SQLException {
+        assertTrue(rs.next());
+        assertEquals("USER1", rs.getString("TABLE_SCHEM"));
+        assertEquals("TABLE1", rs.getString("TABLE_NAME"));
+        assertEquals("ID", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
+        assertEquals("INTEGER", rs.getString("TYPE_NAME"));
+        assertEquals(0, rs.getInt("NULLABLE"));
+    }
 
-            if ("NAME".equals(name)) {
-                assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
-                assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
-                assertEquals(1, rs.getInt("NULLABLE"));
-            } else if ("AGE".equals(name)) {
-                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
-                assertEquals("INTEGER", rs.getString("TYPE_NAME"));
-                assertEquals(1, rs.getInt("NULLABLE"));
-            } else if ("ORGID".equals(name)) {
-                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
-                assertEquals(rs.getString("TYPE_NAME"), "INTEGER");
-                assertEquals(0, rs.getInt("NULLABLE"));
+    private static void checkUser2Columns(ResultSet rs) throws SQLException {
+        assertTrue(rs.next());
+        assertEquals("USER2", rs.getString("TABLE_SCHEM"));
+        assertEquals("TABLE2", rs.getString("TABLE_NAME"));
+        assertEquals("ID", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
+        assertEquals("INTEGER", rs.getString("TYPE_NAME"));
+        assertEquals(0, rs.getInt("NULLABLE"));
+    }
 
-            }
-            cnt++;
-        }
+    private static void checkTxViewColumns(ResultSet rs) throws SQLException {
+        assertTrue(rs.next());
+        assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+        assertEquals("TRANSACTIONS", rs.getString("TABLE_NAME"));
+        assertEquals("TRANSACTION_STATE", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(64, rs.getInt("COLUMN_SIZE"));
 
-        assertTrue(names.isEmpty());
-        assertEquals(3, cnt);
+        assertTrue(rs.next());
+        assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+        assertEquals("TRANSACTIONS", rs.getString("TABLE_NAME"));
+        assertEquals("TRANSACTION_ID", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(64, rs.getInt("COLUMN_SIZE"));
+
+        assertTrue(rs.next());
+        assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+        assertEquals("TRANSACTIONS", rs.getString("TABLE_NAME"));
+        assertEquals("TRANSACTION_START_TIME", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.OTHER, rs.getInt("DATA_TYPE"));
+        assertEquals("TIMESTAMP WITH LOCAL TIME ZONE", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(9, rs.getInt("COLUMN_SIZE"));
+
+        assertTrue(rs.next());
+        assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+        assertEquals("TRANSACTIONS", rs.getString("TABLE_NAME"));
+        assertEquals("TRANSACTION_TYPE", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(64, rs.getInt("COLUMN_SIZE"));
+
+        assertTrue(rs.next());
+        assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
+        assertEquals("TRANSACTIONS", rs.getString("TABLE_NAME"));
+        assertEquals("TRANSACTION_PRIORITY", rs.getString("COLUMN_NAME"));
+        assertEquals(Types.VARCHAR, rs.getInt("DATA_TYPE"));
+        assertEquals("VARCHAR", rs.getString("TYPE_NAME"));
+        assertEquals(1, rs.getInt("NULLABLE"));
+        assertEquals(64, rs.getInt("COLUMN_SIZE"));
+
+        assertFalse(rs.next());
     }
 
     /**
