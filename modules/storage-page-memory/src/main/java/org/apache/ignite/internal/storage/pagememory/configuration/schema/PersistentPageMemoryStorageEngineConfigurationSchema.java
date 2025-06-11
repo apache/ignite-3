@@ -19,6 +19,7 @@ package org.apache.ignite.internal.storage.pagememory.configuration.schema;
 
 import org.apache.ignite.configuration.annotation.Config;
 import org.apache.ignite.configuration.annotation.ConfigValue;
+import org.apache.ignite.configuration.annotation.PublicName;
 import org.apache.ignite.configuration.annotation.Value;
 import org.apache.ignite.configuration.validation.Immutable;
 import org.apache.ignite.configuration.validation.PowerOfTwo;
@@ -35,6 +36,7 @@ public class PersistentPageMemoryStorageEngineConfigurationSchema {
     @PowerOfTwo
     @Range(min = 1024, max = 16 * 1024)
     @Value(hasDefault = true)
+    @PublicName(legacyNames = "pageSize")
     public int pageSizeBytes = 16 * 1024;
 
     /* Checkpoint configuration for persistent data regions. */

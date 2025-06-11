@@ -23,6 +23,7 @@ namespace Apache.Ignite.Internal.Compute
     using System.Collections.Generic;
     using System.Diagnostics.CodeAnalysis;
     using System.Linq;
+    using System.Threading;
     using System.Threading.Tasks;
     using Buffers;
     using Common;
@@ -66,7 +67,8 @@ namespace Apache.Ignite.Internal.Compute
         public Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
             IJobTarget<TTarget> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
             where TTarget : notnull
         {
             IgniteArgumentCheck.NotNull(target);
@@ -74,9 +76,9 @@ namespace Apache.Ignite.Internal.Compute
 
             return target switch
             {
-                JobTarget.SingleNodeTarget singleNode => SubmitAsync([singleNode.Data], jobDescriptor, arg),
-                JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg),
-                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg),
+                JobTarget.SingleNodeTarget singleNode => SubmitAsync([singleNode.Data], jobDescriptor, arg, cancellationToken),
+                JobTarget.AnyNodeTarget anyNode => SubmitAsync(anyNode.Data, jobDescriptor, arg, cancellationToken),
+                JobTarget.ColocatedTarget<TTarget> colocated => SubmitColocatedAsync(colocated, jobDescriptor, arg, cancellationToken),
 
                 _ => throw new ArgumentException("Unsupported job target: " + target)
             };
@@ -86,7 +88,8 @@ namespace Apache.Ignite.Internal.Compute
         public async Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TTarget, TArg, TResult>(
             IBroadcastJobTarget<TTarget> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
             where TTarget : notnull
         {
             IgniteArgumentCheck.NotNull(target);
@@ -107,7 +110,8 @@ namespace Apache.Ignite.Internal.Compute
 
                 foreach (var node in nodes)
                 {
-                    IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg).ConfigureAwait(false);
+                    IJobExecution<TResult> jobExec = await ExecuteOnNodes([node], jobDescriptor, arg, cancellationToken)
+                        .ConfigureAwait(false);
 
                     jobExecutions.Add(jobExec);
                 }
@@ -119,7 +123,8 @@ namespace Apache.Ignite.Internal.Compute
         /// <inheritdoc/>
         public async Task<ITaskExecution<TResult>> SubmitMapReduceAsync<TArg, TResult>(
             TaskDescriptor<TArg, TResult> taskDescriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
         {
             IgniteArgumentCheck.NotNull(taskDescriptor);
             IgniteArgumentCheck.NotNull(taskDescriptor.TaskClassName);
@@ -128,10 +133,10 @@ namespace Apache.Ignite.Internal.Compute
             Write();
 
             using PooledBuffer res = await _socket.DoOutInOpAsync(
-                    ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true)
+                    ClientOp.ComputeExecuteMapReduce, writer, expectNotifications: true, cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
 
-            return GetTaskExecution<TResult>(res);
+            return GetTaskExecution<TResult>(res, cancellationToken);
 
             void Write()
             {
@@ -201,23 +206,6 @@ namespace Apache.Ignite.Internal.Compute
             return Read(res.GetReader());
 
             TaskState? Read(MsgPackReader reader) => reader.TryReadNil() ? null : ReadTaskState(reader);
-        }
-
-        /// <summary>
-        /// Cancels the job.
-        /// </summary>
-        /// <param name="jobId">Job id.</param>
-        /// <returns>
-        /// <c>true</c> when the job is cancelled, <c>false</c> when the job couldn't be cancelled
-        /// (either it's not yet started, or it's already completed), or <c> null</c> if there's no job with the specified id.
-        /// </returns>
-        internal async Task<bool?> CancelJobAsync(Guid jobId)
-        {
-            using var writer = ProtoCommon.GetMessageWriter();
-            writer.MessageWriter.Write(jobId);
-
-            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeCancel, writer).ConfigureAwait(false);
-            return res.GetReader().ReadBooleanNullable();
         }
 
         /// <summary>
@@ -343,10 +331,22 @@ namespace Apache.Ignite.Internal.Compute
             return new TaskState(id, status, createTime.GetValueOrDefault(), startTime, endTime);
         }
 
+        private static void ConvertExceptionAndThrow(IgniteException e, CancellationToken token)
+        {
+            switch (e.Code)
+            {
+                case ErrorGroups.Compute.ComputeJobCancelled:
+                    var cancelledToken = token.IsCancellationRequested ? token : CancellationToken.None;
+
+                    throw new OperationCanceledException(e.Message, e, cancelledToken);
+            }
+        }
+
         private JobExecution<T> GetJobExecution<T>(
             PooledBuffer computeExecuteResult,
             bool readSchema,
-            IMarshaller<T>? marshaller)
+            IMarshaller<T>? marshaller,
+            CancellationToken cancellationToken)
         {
             var reader = computeExecuteResult.GetReader();
 
@@ -356,15 +356,41 @@ namespace Apache.Ignite.Internal.Compute
             }
 
             var jobId = reader.ReadGuid();
-            var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
-            var node = ClusterNode.Read(ref reader);
 
-            return new JobExecution<T>(jobId, resultTask, this, node);
+            // Standard cancellation by requestId in ClientSocket does not work for jobs.
+            // Compute job can be cancelled from any node, it is not bound to a connection.
+            var cancellationTokenRegistration = cancellationToken.Register(() => _ = CancelJobAsync(jobId));
+
+            try
+            {
+                var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+                var node = ClusterNode.Read(ref reader);
+
+                return new JobExecution<T>(jobId, resultTask, this, node);
+            }
+            catch (Exception)
+            {
+                cancellationTokenRegistration.Dispose();
+                throw;
+            }
 
             async Task<(T, JobState)> GetResult(NotificationHandler handler)
             {
-                using var notificationRes = await handler.Task.ConfigureAwait(false);
-                return Read(notificationRes.GetReader());
+                try
+                {
+                    using var notificationRes = await handler.Task.ConfigureAwait(false);
+                    return Read(notificationRes.GetReader());
+                }
+                catch (IgniteException e)
+                {
+                    ConvertExceptionAndThrow(e, cancellationToken);
+                    throw;
+                }
+                finally
+                {
+                    // ReSharper disable once AccessToDisposedClosure
+                    await cancellationTokenRegistration.DisposeAsync().ConfigureAwait(false);
+                }
             }
 
             (T, JobState) Read(MsgPackReader reader)
@@ -376,28 +402,53 @@ namespace Apache.Ignite.Internal.Compute
             }
         }
 
-        private TaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult)
+        private TaskExecution<T> GetTaskExecution<T>(PooledBuffer computeExecuteResult, CancellationToken cancellationToken)
         {
             var reader = computeExecuteResult.GetReader();
 
             var taskId = reader.ReadGuid();
 
-            var jobCount = reader.ReadInt32();
-            List<Guid> jobIds = new(jobCount);
+            // Standard cancellation by requestId in ClientSocket does not work for jobs.
+            // Compute job can be cancelled from any node, it is not bound to a connection.
+            var cancellationTokenRegistration = cancellationToken.Register(() => _ = CancelJobAsync(taskId));
 
-            for (var i = 0; i < jobCount; i++)
+            try
             {
-                jobIds.Add(reader.ReadGuid());
+                var jobCount = reader.ReadInt32();
+                List<Guid> jobIds = new(jobCount);
+
+                for (var i = 0; i < jobCount; i++)
+                {
+                    jobIds.Add(reader.ReadGuid());
+                }
+
+                var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
+
+                return new TaskExecution<T>(taskId, jobIds, resultTask, this);
+            }
+            catch (Exception)
+            {
+                cancellationTokenRegistration.Dispose();
+                throw;
             }
 
-            var resultTask = GetResult((NotificationHandler)computeExecuteResult.Metadata!);
-
-            return new TaskExecution<T>(taskId, jobIds, resultTask, this);
-
-            static async Task<(T, TaskState)> GetResult(NotificationHandler handler)
+            async Task<(T, TaskState)> GetResult(NotificationHandler handler)
             {
-                using var notificationRes = await handler.Task.ConfigureAwait(false);
-                return Read(notificationRes.GetReader());
+                try
+                {
+                    using var notificationRes = await handler.Task.ConfigureAwait(false);
+                    return Read(notificationRes.GetReader());
+                }
+                catch (IgniteException e)
+                {
+                    ConvertExceptionAndThrow(e, cancellationToken);
+                    throw;
+                }
+                finally
+                {
+                    // ReSharper disable once AccessToDisposedClosure
+                    await cancellationTokenRegistration.DisposeAsync().ConfigureAwait(false);
+                }
             }
 
             static (T, TaskState) Read(MsgPackReader reader)
@@ -413,28 +464,31 @@ namespace Apache.Ignite.Internal.Compute
         private async Task<IJobExecution<TResult>> ExecuteOnNodes<TArg, TResult>(
             ICollection<IClusterNode> nodes,
             JobDescriptor<TArg, TResult> jobDescriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
         {
             IClusterNode node = GetRandomNode(nodes);
 
             using var buf = await _socket.DoWithRetryAsync(
-                    (nodes, jobDescriptor, arg),
+                    (nodes, jobDescriptor, arg, cancellationToken),
                     static (_, _) => ClientOp.ComputeExecute,
                     async static (socket, args) =>
                     {
                         using var writer = ProtoCommon.GetMessageWriter();
                         Write(writer, args, CanWriteJobExecType(socket));
 
-                        return await socket.DoOutInOpAsync(ClientOp.ComputeExecute, writer, expectNotifications: true).ConfigureAwait(false);
+                        return await socket.DoOutInOpAsync(
+                            ClientOp.ComputeExecute, writer, expectNotifications: true, cancellationToken: args.cancellationToken)
+                            .ConfigureAwait(false);
                     },
                     PreferredNode.FromName(node.Name))
                 .ConfigureAwait(false);
 
-            return GetJobExecution(buf, readSchema: false, jobDescriptor.ResultMarshaller);
+            return GetJobExecution(buf, readSchema: false, jobDescriptor.ResultMarshaller, cancellationToken);
 
             static void Write(
                 PooledArrayBuffer writer,
-                (ICollection<IClusterNode> Nodes, JobDescriptor<TArg, TResult> Desc, TArg Arg) args,
+                (ICollection<IClusterNode> Nodes, JobDescriptor<TArg, TResult> Desc, TArg Arg, CancellationToken Ct) args,
                 bool canWriteJobExecType)
             {
                 WriteNodeNames(writer, args.Nodes);
@@ -471,7 +525,8 @@ namespace Apache.Ignite.Internal.Compute
             TKey key,
             Func<Table, IRecordSerializerHandler<TKey>> serializerHandlerFunc,
             JobDescriptor<TArg, TResult> descriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
             where TKey : notnull
         {
             int? schemaVersion = null;
@@ -489,13 +544,13 @@ namespace Apache.Ignite.Internal.Compute
                     var preferredNode = await table.GetPreferredNode(colocationHash, null).ConfigureAwait(false);
 
                     using var resBuf = await _socket.DoWithRetryAsync(
-                            (table, schema, key, serializerHandlerFunc, descriptor, arg, bufferWriter),
+                            (table, schema, key, serializerHandlerFunc, descriptor, arg, bufferWriter, cancellationToken),
                             static (_, _) => ClientOp.ComputeExecuteColocated,
                             async static (socket, args) =>
                             {
                                 if (CanWriteJobExecType(socket))
                                 {
-                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, args.bufferWriter, expectNotifications: true)
+                                    return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, args.bufferWriter, expectNotifications: true, cancellationToken: args.cancellationToken)
                                         .ConfigureAwait(false);
                                 }
 
@@ -503,13 +558,13 @@ namespace Apache.Ignite.Internal.Compute
                                 using var writer = ProtoCommon.GetMessageWriter();
                                 Write(writer, args.table, args.schema, args.key, args.serializerHandlerFunc, args.descriptor, args.arg, false);
 
-                                return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, writer, expectNotifications: true)
+                                return await socket.DoOutInOpAsync(ClientOp.ComputeExecuteColocated, writer, expectNotifications: true, cancellationToken: args.cancellationToken)
                                     .ConfigureAwait(false);
                             },
                             preferredNode)
                         .ConfigureAwait(false);
 
-                    return GetJobExecution(resBuf, readSchema: true, descriptor.ResultMarshaller);
+                    return GetJobExecution(resBuf, readSchema: true, marshaller: descriptor.ResultMarshaller, cancellationToken);
                 }
                 catch (IgniteException e) when (e.Code == ErrorGroups.Client.TableIdNotFound)
                 {
@@ -559,7 +614,8 @@ namespace Apache.Ignite.Internal.Compute
         private async Task<IJobExecution<TResult>> SubmitAsync<TArg, TResult>(
             IEnumerable<IClusterNode> nodes,
             JobDescriptor<TArg, TResult> jobDescriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
         {
             IgniteArgumentCheck.NotNull(nodes);
             IgniteArgumentCheck.NotNull(jobDescriptor);
@@ -568,13 +624,14 @@ namespace Apache.Ignite.Internal.Compute
             ICollection<IClusterNode> nodesCol = GetNodesCollection(nodes);
             IgniteArgumentCheck.Ensure(nodesCol.Count > 0, nameof(nodes), "Nodes can't be empty.");
 
-            return await ExecuteOnNodes(nodesCol, jobDescriptor, arg).ConfigureAwait(false);
+            return await ExecuteOnNodes(nodesCol, jobDescriptor, arg, cancellationToken).ConfigureAwait(false);
         }
 
         private async Task<IJobExecution<TResult>> SubmitColocatedAsync<TArg, TResult, TKey>(
             JobTarget.ColocatedTarget<TKey> target,
             JobDescriptor<TArg, TResult> jobDescriptor,
-            TArg arg)
+            TArg arg,
+            CancellationToken cancellationToken)
             where TKey : notnull
         {
             IgniteArgumentCheck.NotNull(jobDescriptor);
@@ -586,7 +643,8 @@ namespace Apache.Ignite.Internal.Compute
                         tuple,
                         static _ => TupleSerializerHandler.Instance,
                         jobDescriptor,
-                        arg)
+                        arg,
+                        cancellationToken)
                     .ConfigureAwait(false);
             }
 
@@ -595,8 +653,18 @@ namespace Apache.Ignite.Internal.Compute
                     target.Data,
                     static table => table.GetRecordViewInternal<TKey>().RecordSerializer.Handler,
                     jobDescriptor,
-                    arg)
+                    arg,
+                    cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        private async Task<bool?> CancelJobAsync(Guid jobId)
+        {
+            using var writer = ProtoCommon.GetMessageWriter();
+            writer.MessageWriter.Write(jobId);
+
+            using var res = await _socket.DoOutInOpAsync(ClientOp.ComputeCancel, writer).ConfigureAwait(false);
+            return res.GetReader().ReadBooleanNullable();
         }
     }
 }

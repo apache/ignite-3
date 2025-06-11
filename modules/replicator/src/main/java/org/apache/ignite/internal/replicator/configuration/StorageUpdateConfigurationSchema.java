@@ -15,19 +15,24 @@
  * limitations under the License.
  */
 
-package org.apache.ignite.internal.configuration;
+package org.apache.ignite.internal.replicator.configuration;
 
-import org.apache.ignite.configuration.annotation.ConfigValue;
-import org.apache.ignite.configuration.annotation.ConfigurationExtension;
-import org.apache.ignite.internal.worker.configuration.CriticalWorkersConfigurationSchema;
+import static org.apache.ignite.internal.replicator.configuration.ReplicationConfigurationSchema.DEFAULT_BATCH_SIZE_BYTES;
 
-/** Extension for local system configuration schema. */
-@ConfigurationExtension
-public class SystemLocalExtensionConfigurationSchema extends NodeConfigurationSchema {
-    @ConfigValue
-    public SystemLocalConfigurationSchema system;
+import org.apache.ignite.configuration.annotation.Config;
+import org.apache.ignite.configuration.annotation.Value;
+import org.apache.ignite.configuration.validation.Range;
 
-    @ConfigValue
-    @Deprecated
-    public CriticalWorkersConfigurationSchema criticalWorkers;
+/**
+ * Configuration schema for StorageUpdateHandler.
+ */
+@Config
+public class StorageUpdateConfigurationSchema {
+
+    /**
+     * Maximum allowed length (in bytes) of a batch to write into physical storage.
+     **/
+    @Range(min = 1)
+    @Value(hasDefault = true)
+    public int batchByteLength = DEFAULT_BATCH_SIZE_BYTES;
 }

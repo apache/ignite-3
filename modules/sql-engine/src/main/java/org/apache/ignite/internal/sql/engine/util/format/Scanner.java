@@ -19,6 +19,7 @@ package org.apache.ignite.internal.sql.engine.util.format;
 
 import static org.apache.ignite.internal.lang.IgniteStringFormatter.format;
 
+import java.time.DateTimeException;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -26,6 +27,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.apache.ignite.internal.sql.engine.util.format.DateTimeFormatElement.ElementKind;
 import org.apache.ignite.internal.sql.engine.util.format.DateTimeTemplateField.FieldKind;
 
@@ -44,6 +46,12 @@ final class Scanner {
 
     private final String pattern;
 
+    /** Allowed fields. */
+    private final Set<FieldKind> allowedFields;
+
+    /** Format name for error reporting. */
+    private final String formatName;
+
     /** Encountered elements. */
     private final List<DateTimeFormatElement> elements = new ArrayList<>();
 
@@ -58,9 +66,17 @@ final class Scanner {
     private int current;
 
     Scanner(String pattern) {
+        this(pattern, "ALL_FIELDS", EnumSet.allOf(FieldKind.class));
+    }
+
+    Scanner(String pattern, String formatName, Set<FieldKind> allowedFields) {
         Objects.requireNonNull(pattern, "pattern");
+        Objects.requireNonNull(formatName, "formatName");
+        Objects.requireNonNull(allowedFields, "allowedFields");
         // the SQL date time format is case-insensitive.
         this.pattern = pattern.toUpperCase(Locale.US);
+        this.formatName = formatName;
+        this.allowedFields = allowedFields;
     }
 
     List<DateTimeFormatElement> scan() {
@@ -242,6 +258,10 @@ final class Scanner {
         FieldKind dtField = field.kind();
         boolean alreadyPresent = !groups.add(dtField);
 
+        if (!allowedFields.contains(dtField)) {
+            throw formatError("Illegal field <{}> for format {}", field, formatName);
+        }
+
         if (dtField == FieldKind.TIMEZONE) {
             alreadyPresent = !fields.add(field);
         }
@@ -303,7 +323,7 @@ final class Scanner {
         }
     }
 
-    private static DateTimeFormatException formatError(String message, Object... elements) {
-        return new DateTimeFormatException(format(message, elements));
+    private static DateTimeException formatError(String message, Object... elements) {
+        return new DateTimeException(format(message, elements));
     }
 }
