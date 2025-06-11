@@ -60,11 +60,14 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             stmt.execute("CREATE SCHEMA IF NOT EXISTS PUBLIC;"
                     + "CREATE SCHEMA IF NOT EXISTS META;"
                     + "CREATE SCHEMA IF NOT EXISTS USER2;"
+                    + "CREATE SCHEMA IF NOT EXISTS \"user0\";"
                     + "CREATE SCHEMA IF NOT EXISTS USER1;"
                     + "CREATE TABLE person(name VARCHAR(32), age INT, orgid INT PRIMARY KEY);"
                     + "CREATE TABLE organization(id INT PRIMARY KEY, name VARCHAR, bigdata DECIMAL(20, 10));"
-                    + "CREATE TABLE user2.table2(id INT PRIMARY KEY);"
                     + "CREATE TABLE user1.table1(id INT PRIMARY KEY);"
+                    + "CREATE TABLE user2.\"table2\"(id INT PRIMARY KEY);"
+                    + "CREATE TABLE \"user0\".\"table0\"(\"id\" INT PRIMARY KEY);"
+                    + "CREATE TABLE \"user0\".table0(id INT PRIMARY KEY);"
                     + "INSERT INTO person (orgid, name, age) VALUES (1, '111', 111);"
                     + "INSERT INTO organization (id, name, bigdata) VALUES (1, 'AAA', 10);"
             );
@@ -322,7 +325,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
         }
 
         // All tables.
-        try (ResultSet rs = meta.getTables("IGNITE", "%", "%", null)) {
+        try (ResultSet rs = meta.getTables("IGNITE", "%", "%", new String[]{"TABLE"})) {
             assertNotNull(rs);
             assertTrue(rs.next());
             assertEquals("PUBLIC", rs.getString("TABLE_SCHEM"));
@@ -339,7 +342,38 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             assertTrue(rs.next());
             assertEquals("USER2", rs.getString("TABLE_SCHEM"));
             assertEquals("TABLE", rs.getString("TABLE_TYPE"));
-            assertEquals("TABLE2", rs.getString("TABLE_NAME"));
+            assertEquals("table2", rs.getString("TABLE_NAME"));
+            assertTrue(rs.next());
+            assertEquals("user0", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("TABLE0", rs.getString("TABLE_NAME"));
+            assertTrue(rs.next());
+            assertEquals("user0", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("table0", rs.getString("TABLE_NAME"));
+            assertFalse(rs.next());
+        }
+
+        // Case sensitive table name.
+        try (ResultSet rs = meta.getTables("IGNITE", "USER2", "table%", null)) {
+            assertTrue(rs.next());
+            assertEquals("USER2", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("table2", rs.getString("TABLE_NAME"));
+            assertFalse(rs.next());
+        }
+
+        // Case sensitive schema name.
+        try (ResultSet rs = meta.getTables("IGNITE", "user%", "%", null)) {
+            assertTrue(rs.next());
+            assertEquals("user0", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("TABLE0", rs.getString("TABLE_NAME"));
+            assertTrue(rs.next());
+            assertEquals("user0", rs.getString("TABLE_SCHEM"));
+            assertEquals("TABLE", rs.getString("TABLE_TYPE"));
+            assertEquals("table0", rs.getString("TABLE_NAME"));
+            assertFalse(rs.next());
         }
 
         // System views.
@@ -402,6 +436,20 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
             checkUser2Columns(rs);
 
             assertFalse(rs.next());
+
+            // Case sensitive column name.
+            {
+                rs = meta.getColumns(null, "user%", "%", "id");
+
+                assertTrue(rs.next());
+                assertEquals("user0", rs.getString("TABLE_SCHEM"));
+                assertEquals("table0", rs.getString("TABLE_NAME"));
+                assertEquals("id", rs.getString("COLUMN_NAME"));
+                assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
+                assertEquals("INTEGER", rs.getString("TYPE_NAME"));
+                assertEquals(0, rs.getInt("NULLABLE"));
+                assertFalse(rs.next());
+            }
         }
 
         // System view.
@@ -491,7 +539,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
     private static void checkUser2Columns(ResultSet rs) throws SQLException {
         assertTrue(rs.next());
         assertEquals("USER2", rs.getString("TABLE_SCHEM"));
-        assertEquals("TABLE2", rs.getString("TABLE_NAME"));
+        assertEquals("table2", rs.getString("TABLE_NAME"));
         assertEquals("ID", rs.getString("COLUMN_NAME"));
         assertEquals(Types.INTEGER, rs.getInt("DATA_TYPE"));
         assertEquals("INTEGER", rs.getString("TYPE_NAME"));
@@ -577,7 +625,7 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 schemas.add(rs.getString(1));
             }
 
-            assertEquals(List.of("META", "PUBLIC", "SYSTEM", "USER1", "USER2"), schemas);
+            assertEquals(List.of("META", "PUBLIC", "SYSTEM", "USER1", "USER2", "user0"), schemas);
         }
 
         try (ResultSet rs = conn.getMetaData().getSchemas("IGNITE", "USER%")) {
@@ -621,7 +669,9 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 "PUBLIC.ORGANIZATION.PK_ORGANIZATION.ID",
                 "PUBLIC.PERSON.PK_PERSON.ORGID",
                 "USER1.TABLE1.PK_TABLE1.ID",
-                "USER2.TABLE2.PK_TABLE2.ID"
+                "USER2.table2.PK_table2.ID",
+                "user0.TABLE0.PK_TABLE0.ID",
+                "user0.table0.PK_table0.id"
         );
 
         List<String> actualPks = new ArrayList<>(expectedPks.size());
