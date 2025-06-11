@@ -54,7 +54,7 @@ public class ClientCluster implements IgniteCluster {
             List<ClusterNode> res = new ArrayList<>(cnt);
 
             for (int i = 0; i < cnt; i++) {
-                // TODO: Propagate node metadata to client - separate ticket.
+                // TODO IGNITE-25660 Propagate node metadata to client.
                 ClusterNode clusterNode = unpackClusterNode(r);
 
                 res.add(clusterNode);
