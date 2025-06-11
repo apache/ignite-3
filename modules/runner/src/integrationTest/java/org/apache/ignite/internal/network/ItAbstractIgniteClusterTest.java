@@ -20,6 +20,9 @@ package org.apache.ignite.internal.network;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Collectors;
 import org.apache.ignite.Ignite;
 import org.apache.ignite.internal.ClusterPerClassIntegrationTest;
 import org.apache.ignite.network.ClusterNode;
@@ -40,7 +43,14 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
     public void testNodes() {
         Collection<ClusterNode> nodes = ignite().cluster().nodes();
 
-        // TODO
         assertEquals(2, nodes.size());
+
+        List<ClusterNode> nodes0 = nodes.stream().sorted(Comparator.comparing(ClusterNode::name)).collect(Collectors.toList());
+
+        assertEquals("ieict_n_3344", nodes0.get(0).name());
+        assertEquals("ieict_n_3345", nodes0.get(1).name());
+
+        assertEquals(3344, nodes0.get(0).address().port());
+        assertEquals(3345, nodes0.get(1).address().port());
     }
 }
