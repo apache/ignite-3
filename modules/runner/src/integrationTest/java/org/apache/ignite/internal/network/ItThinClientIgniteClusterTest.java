@@ -17,11 +17,14 @@
 
 package org.apache.ignite.internal.network;
 
+import static org.junit.jupiter.api.Assertions.assertNull;
+
 import org.apache.ignite.Ignite;
 import org.apache.ignite.client.IgniteClient;
 import org.apache.ignite.internal.util.IgniteUtils;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link org.apache.ignite.network.IgniteCluster} API.
@@ -49,5 +52,11 @@ public class ItThinClientIgniteClusterTest extends ItAbstractIgniteClusterTest {
     @Override
     protected Ignite ignite() {
         return client;
+    }
+
+    @Test
+    @Override
+    public void testLocalNode() {
+        assertNull(ignite().cluster().localNode());
     }
 }

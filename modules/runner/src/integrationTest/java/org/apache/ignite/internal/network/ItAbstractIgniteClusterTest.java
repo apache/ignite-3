@@ -71,5 +71,20 @@ public abstract class ItAbstractIgniteClusterTest extends ClusterPerClassIntegra
             assertNull(nodes0.get(1).nodeMetadata());
         }
     }
-}
 
+    @Test
+    public void testLocalNode() {
+        ClusterNode localNode = ignite().cluster().localNode();
+        assertNotNull(localNode);
+
+        assertEquals("ieict_n_3344", localNode.name());
+        assertEquals(3344, localNode.address().port());
+
+        if (hasNodeMeta()) {
+            assertNotNull(localNode.nodeMetadata());
+            assertEquals(10300, localNode.nodeMetadata().httpPort());
+        } else {
+            assertNull(localNode.nodeMetadata());
+        }
+    }
+}
