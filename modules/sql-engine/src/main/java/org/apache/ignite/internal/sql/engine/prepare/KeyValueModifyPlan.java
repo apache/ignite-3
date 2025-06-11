@@ -109,10 +109,6 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         return ExplainUtils.toString(clonedRoot);
     }
 
-    public IgniteKeyValueModify modifyNode() {
-        return modifyNode;
-    }
-
     private <RowT> InsertExecution<RowT> operation(ExecutionContext<RowT> ctx, ExecutableTableRegistry tableRegistry) {
         InsertExecution<RowT> operation = cast(this.operation);
 
@@ -148,6 +144,11 @@ public class KeyValueModifyPlan implements ExplainablePlan, ExecutablePlan {
         CompletableFuture<Iterator<InternalSqlRow>> result = operation.perform(ctx, tx);
 
         return new IteratorToDataCursorAdapter<>(result, Runnable::run);
+    }
+
+    @Override
+    public IgniteKeyValueModify getRel() {
+        return modifyNode;
     }
 
     private static class InsertExecution<RowT> {
