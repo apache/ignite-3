@@ -22,8 +22,10 @@ import io.scalecube.cluster.Member;
 import io.scalecube.cluster.membership.MembershipEvent;
 import io.scalecube.cluster.metadata.MetadataCodec;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -244,7 +246,17 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     /** {@inheritDoc} */
     @Override
     public Collection<ClusterNode> logicalTopologyMembers() {
-        return Collections.unmodifiableCollection(membersByConsistentIdInLogicalTopology.values());
+        List<ClusterNode> res = new ArrayList<>(membersByConsistentIdInLogicalTopology.size());
+
+        // membersByConsistentIdInLogicalTopology does not have node metadata,
+        // so we get nodes from the physical topology map and filter by logical topology membership.
+        for (ClusterNode node : members.values()) {
+            if (membersByConsistentIdInLogicalTopology.containsKey(node.name())) {
+                res.add(node);
+            }
+        }
+
+        return res;
     }
 
     /** {@inheritDoc} */
