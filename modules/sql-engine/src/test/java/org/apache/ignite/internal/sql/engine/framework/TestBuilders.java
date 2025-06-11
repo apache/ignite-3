@@ -1978,6 +1978,11 @@ public class TestBuilders {
         }
     }
 
+    /**
+     * Creates a cluster and runs a simple query to facilitate loading of necessary classes to prepare and execute sql queries.
+     *
+     * @throws Exception An exception if something goes wrong.
+     */
     public static void warmupTestCluster() throws Exception {
         TestCluster cluster = cluster()
                 .nodes("N1")
