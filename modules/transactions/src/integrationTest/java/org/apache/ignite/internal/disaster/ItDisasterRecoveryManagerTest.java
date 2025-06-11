@@ -18,6 +18,7 @@
 package org.apache.ignite.internal.disaster;
 
 import static java.util.Collections.emptySet;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.apache.ignite.internal.TestWrappers.unwrapIgniteImpl;
 import static org.apache.ignite.internal.TestWrappers.unwrapTableViewInternal;
@@ -30,6 +31,8 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.aMapWithSize;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.lang.annotation.Retention;
@@ -39,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.stream.IntStream;
 import org.apache.ignite.internal.ClusterPerTestIntegrationTest;
 import org.apache.ignite.internal.app.IgniteImpl;
@@ -66,6 +70,7 @@ import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionState
 import org.apache.ignite.internal.table.distributed.disaster.LocalPartitionStateByNode;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionState;
 import org.apache.ignite.internal.table.distributed.disaster.LocalTablePartitionStateByNode;
+import org.apache.ignite.internal.table.distributed.disaster.exceptions.DisasterRecoveryException;
 import org.apache.ignite.internal.testframework.WithSystemProperty;
 import org.apache.ignite.internal.type.NativeTypes;
 import org.apache.ignite.internal.wrapper.Wrapper;
@@ -116,7 +121,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
         ));
 
         executeSql(String.format(
-                "CREATE TABLE %s (id INT PRIMARY KEY, val INT) ZONE %s",
+                "CREATE TABLE %s (id INT PRIMARY KEY, valInt INT) ZONE %s",
                 TABLE_NAME,
                 ZONE_NAME
         ));
@@ -151,7 +156,7 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
 
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
     @Test
-    void testRestartTablePartitionsWithCleanUpFails() throws InterruptedException {
+    void testRestartTablePartitionsWithCleanUpFails() {
         IgniteImpl node = unwrapIgniteImpl(cluster.aliveNode());
 
         insert(0, 0);
@@ -167,13 +172,14 @@ public class ItDisasterRecoveryManagerTest extends ClusterPerTestIntegrationTest
                 Set.of(partitionId)
         );
 
-        assertThat(restartPartitionsWithCleanupFuture, willCompleteSuccessfully());
-        assertThat(awaitPrimaryReplicaForNow(node, new TablePartitionId(tableId(node), partitionId)), willCompleteSuccessfully());
+        ExecutionException exception = assertThrows(
+                ExecutionException.class,
+                () -> restartPartitionsWithCleanupFuture.get(10_000, MILLISECONDS)
+        );
 
-        insert(2, 2);
-        insert(3, 3);
+        assertInstanceOf(DisasterRecoveryException.class, exception.getCause());
 
-        assertThat(selectAll(), hasSize(4));
+        assertThat(exception.getCause().getMessage(), is("Not enough alive node to perform reset with clean up."));
     }
 
     @WithSystemProperty(key = IgniteSystemProperties.COLOCATION_FEATURE_FLAG, value = "false")
