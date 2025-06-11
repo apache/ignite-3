@@ -254,8 +254,10 @@ class ItComputeTestEmbedded extends ItComputeBaseTest {
     void executesNullReturningJobViaSyncBroadcast() {
         Ignite entryNode = node(0);
 
-        Collection<Object> results = entryNode.compute()
-                .execute(BroadcastJobTarget.nodes(entryNode.cluster().nodes()), JobDescriptor.builder(NullReturningJob.class).build(), null);
+        Collection<Object> results = entryNode.compute().execute(
+                BroadcastJobTarget.nodes(entryNode.cluster().nodes()),
+                JobDescriptor.builder(NullReturningJob.class).build(),
+                null);
 
         assertThat(results, everyItem(nullValue()));
     }
