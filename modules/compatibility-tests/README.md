@@ -25,3 +25,7 @@ In case there's a need for the specific node configuration override for that ver
   }
 }
 ```
+
+## Running from TeamCity
+Before executing `test` task, `resolveCompatibilityTestDependencies` task should be started to download all necessary dependencies from the
+Maven repository.
