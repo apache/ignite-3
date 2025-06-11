@@ -1977,4 +1977,31 @@ public class TestBuilders {
             return nullCompletedFuture();
         }
     }
+
+    /**
+     * Creates a cluster and runs a simple query to facilitate loading of necessary classes to prepare and execute sql queries.
+     *
+     * @throws Exception An exception if something goes wrong.
+     */
+    public static void warmupTestCluster() throws Exception {
+        TestCluster cluster = cluster()
+                .nodes("N1")
+                .defaultDataProvider(tableName -> tableScan(DataProvider.fromCollection(List.of())))
+                .defaultAssignmentsProvider(tableName -> (partitionsCount, includeBackups) -> IntStream.range(0, partitionsCount)
+                        .mapToObj(i -> List.of("N1"))
+                        .collect(Collectors.toList()))
+                .build();
+
+        cluster.start();
+
+        try {
+            TestNode node = cluster.node("N1");
+
+            node.initSchema("CREATE TABLE t (id INT PRIMARY KEY, val INT)");
+
+            await(node.executeQuery("SELECT * FROM t").requestNextAsync(1));
+        } finally {
+            cluster.stop();
+        }
+    }
 }

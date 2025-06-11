@@ -83,8 +83,7 @@ import org.junit.jupiter.params.provider.ValueSource;
  */
 public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends StorageIndexDescriptor> extends BaseIgniteAbstractTest {
     /** Definitions of all supported column types. */
-    @SuppressWarnings("WeakerAccess") // May be used in "@VariableSource", that's why it's public.
-    public static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
+    static final List<ColumnParams> ALL_TYPES_COLUMN_PARAMS = allTypesColumnParams();
 
     protected static final int TEST_PARTITION = 12;
 
@@ -96,7 +95,7 @@ public abstract class AbstractIndexStorageTest<S extends IndexStorage, D extends
 
     protected static final String INDEX_NAME = "TEST_IDX";
 
-    private static List<ColumnParams> allTypesColumnParams() {
+    static List<ColumnParams> allTypesColumnParams() {
         return List.of(
                 columnParamsBuilder(ColumnType.INT8).nullable(true).build(),
                 columnParamsBuilder(ColumnType.INT16).nullable(true).build(),

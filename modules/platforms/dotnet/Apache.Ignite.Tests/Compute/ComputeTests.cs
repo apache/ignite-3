@@ -602,12 +602,12 @@ namespace Apache.Ignite.Tests.Compute
         [Test]
         public async Task TestJobExecutionStatusExecuting()
         {
-            const int sleepMs = 3000;
+            const int sleepMs = 5_000;
             var beforeStart = GetCurrentInstant();
 
             var jobExecution = await Client.Compute.SubmitAsync(await GetNodeAsync(1), SleepJob, sleepMs);
 
-            await AssertJobStatus(jobExecution, JobStatus.Executing, beforeStart);
+            await AssertWaitJobStatus(jobExecution, JobStatus.Executing, beforeStart);
         }
 
         [Test]
