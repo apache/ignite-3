@@ -169,7 +169,7 @@ public class KeyValueModifyPlannerTest extends AbstractPlannerTest {
     }
 
     private static void assertExpressions(KeyValueModifyPlan plan, String... expectedExpressions) {
-        List<String> keyExpressions = plan.modifyNode().expressions().stream()
+        List<String> keyExpressions = (plan.getRel()).expressions().stream()
                 .map(RexNode::toString)
                 .collect(toList());
 

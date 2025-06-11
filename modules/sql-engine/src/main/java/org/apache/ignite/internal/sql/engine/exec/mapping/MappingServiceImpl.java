@@ -371,7 +371,7 @@ public class MappingServiceImpl implements MappingService {
 
             RelOptCluster cluster = Commons.cluster();
 
-            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.root());
+            List<Fragment> fragments = new QuerySplitter(idGenerator, cluster).split(plan.getRel());
 
             return new FragmentsTemplate(
                     idGenerator.nextId(), cluster, fragments

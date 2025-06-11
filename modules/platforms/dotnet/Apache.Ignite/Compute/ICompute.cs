@@ -17,6 +17,7 @@
 
 namespace Apache.Ignite.Compute;
 
+using System.Threading;
 using System.Threading.Tasks;
 
 /// <summary>
@@ -24,6 +25,24 @@ using System.Threading.Tasks;
 /// </summary>
 public interface ICompute
 {
+    /// <summary>
+    /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
+    /// </summary>
+    /// <param name="target">Job execution target. See factory methods in <see cref="JobTarget"/>.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
+    /// <param name="arg">Job argument.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <typeparam name="TTarget">Job target type.</typeparam>
+    /// <typeparam name="TArg">Job argument type.</typeparam>
+    /// <typeparam name="TResult">Job result type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<IJobExecution<TResult>> SubmitAsync<TTarget, TArg, TResult>(
+        IJobTarget<TTarget> target,
+        JobDescriptor<TArg, TResult> jobDescriptor,
+        TArg arg,
+        CancellationToken cancellationToken)
+        where TTarget : notnull;
+
     /// <summary>
     /// Submits a compute job represented by the given class for an execution on one of the specified nodes.
     /// </summary>
@@ -38,6 +57,25 @@ public interface ICompute
         IJobTarget<TTarget> target,
         JobDescriptor<TArg, TResult> jobDescriptor,
         TArg arg)
+        where TTarget : notnull
+        => SubmitAsync(target, jobDescriptor, arg, CancellationToken.None);
+
+    /// <summary>
+    /// Submits a compute job represented by the given class for an execution on the specified target.
+    /// </summary>
+    /// <param name="target">Job target. See factory methods in <see cref="BroadcastJobTarget"/>.</param>
+    /// <param name="jobDescriptor">Job descriptor.</param>
+    /// <param name="arg">Job argument.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <typeparam name="TTarget">Job target type.</typeparam>
+    /// <typeparam name="TArg">Job argument type.</typeparam>
+    /// <typeparam name="TResult">Job result type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<IBroadcastExecution<TResult>> SubmitBroadcastAsync<TTarget, TArg, TResult>(
+        IBroadcastJobTarget<TTarget> target,
+        JobDescriptor<TArg, TResult> jobDescriptor,
+        TArg arg,
+        CancellationToken cancellationToken)
         where TTarget : notnull;
 
     /// <summary>
@@ -54,7 +92,22 @@ public interface ICompute
         IBroadcastJobTarget<TTarget> target,
         JobDescriptor<TArg, TResult> jobDescriptor,
         TArg arg)
-        where TTarget : notnull;
+        where TTarget : notnull
+        => SubmitBroadcastAsync(target, jobDescriptor, arg, CancellationToken.None);
+
+    /// <summary>
+    /// Submits a compute map-reduce task represented by the given class.
+    /// </summary>
+    /// <param name="taskDescriptor">Task descriptor.</param>
+    /// <param name="arg">Job arguments.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <typeparam name="TArg">Task argument type.</typeparam>
+    /// <typeparam name="TResult">Task result type.</typeparam>
+    /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
+    Task<ITaskExecution<TResult>> SubmitMapReduceAsync<TArg, TResult>(
+        TaskDescriptor<TArg, TResult> taskDescriptor,
+        TArg arg,
+        CancellationToken cancellationToken);
 
     /// <summary>
     /// Submits a compute map-reduce task represented by the given class.
@@ -66,5 +119,6 @@ public interface ICompute
     /// <returns>A <see cref="Task"/> representing the asynchronous operation.</returns>
     Task<ITaskExecution<TResult>> SubmitMapReduceAsync<TArg, TResult>(
         TaskDescriptor<TArg, TResult> taskDescriptor,
-        TArg arg);
+        TArg arg)
+        => SubmitMapReduceAsync(taskDescriptor, arg, CancellationToken.None);
 }
