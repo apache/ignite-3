@@ -22,27 +22,27 @@ import java.util.concurrent.CompletableFuture;
 import org.jetbrains.annotations.Nullable;
 
 /**
- * Ignite cluster. Provides access to cluster nodes and the local node.
+ * Represents an Ignite cluster, providing access to the cluster nodes and the local node.
  */
 public interface IgniteCluster {
     /**
-     * Gets the cluster nodes that are members of the logical topology, including the local node (if applicable).
+     * Returns all cluster nodes that are part of the logical topology, including the local node if applicable.
      *
-     * @return Collection of cluster nodes.
+     * @return A collection of all cluster nodes.
      */
     Collection<ClusterNode> nodes();
 
     /**
-     * Gets the cluster nodes that are members of the logical topology, including the local node (if applicable).
+     * Asynchronously retrieves all cluster nodes that are part of the logical topology, including the local node if applicable.
      *
-     * @return Collection of cluster nodes.
+     * @return A future that will complete with a collection of all cluster nodes.
      */
     CompletableFuture<Collection<ClusterNode>> nodesAsync();
 
     /**
-     * Gets the local cluster node, if applicable.
+     * Returns the local cluster node if available.
      *
-     * @return Local cluster node (embedded mode), or {@code null} if not applicable (client side).
+     * @return The local cluster node (in embedded mode), or {@code null} if not applicable (e.g., on the client side).
      */
     @Nullable ClusterNode localNode();
 }
