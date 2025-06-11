@@ -61,6 +61,12 @@ public class JdbcMetadataCatalog {
     /** Name of system view type. */
     private static final String TYPE_VIEW = "VIEW";
 
+    /** Index to quickly identify that the search should be performed with this type. */
+    private static final int TYPE_TABLE_IDX = 0;
+
+    /** Index to quickly identify that the search should be performed with this type. */
+    private static final int TYPE_VIEW_IDX = 1;
+
     private final ClockService clockService;
 
     private final SchemaSyncService schemaSyncService;
@@ -143,26 +149,64 @@ public class JdbcMetadataCatalog {
      * @param tblTypes       Requested table types.
      * @return Future of the list of metadatas of tables that matches.
      */
-    public CompletableFuture<List<JdbcTableMeta>> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, String[] tblTypes) {
+    public CompletableFuture<List<JdbcTableMeta>> getTablesMeta(String schemaNamePtrn, String tblNamePtrn, @Nullable String[] tblTypes) {
         String schemaNameRegex = translateSqlWildcardsToRegex(schemaNamePtrn);
         String tlbNameRegex = translateSqlWildcardsToRegex(tblNamePtrn);
+        boolean[] includedTblTypes = resolveTableTypes(tblTypes);
 
         return schemasAtNow().thenApply(schemas ->
                 schemas.stream()
                         .filter(schema -> matches(schema.name(), schemaNameRegex))
-                        .flatMap(schema ->
-                                Stream.concat(
-                                        Arrays.stream(schema.systemViews())
-                                                .filter(view -> matches(view.name(), tlbNameRegex))
-                                                .map(v -> new JdbcTableMeta(schema.name(), v.name(), TYPE_VIEW)),
-                                        Arrays.stream(schema.tables())
-                                                .filter(table -> matches(table.name(), tlbNameRegex))
-                                                .map(t -> new JdbcTableMeta(schema.name(), t.name(), TYPE_TABLE))
-                                )
-                        )
+                        .flatMap(schema -> {
+                            Stream<JdbcTableMeta> tablesStream = includedTblTypes[TYPE_TABLE_IDX]
+                                    ? Arrays.stream(schema.tables())
+                                    .filter(table -> matches(table.name(), tlbNameRegex))
+                                    .map(t -> new JdbcTableMeta(schema.name(), t.name(), TYPE_TABLE))
+                                    : Stream.empty();
+
+                            Stream<JdbcTableMeta> viewsStream = includedTblTypes[TYPE_VIEW_IDX]
+                                    ? Arrays.stream(schema.systemViews())
+                                    .filter(view -> matches(view.name(), tlbNameRegex))
+                                    .map(v -> new JdbcTableMeta(schema.name(), v.name(), TYPE_VIEW))
+                                    : Stream.empty();
+
+                            return Stream.concat(tablesStream, viewsStream);
+                        })
                         .sorted(byTblTypeThenSchemaThenTblName)
                         .collect(toList())
         );
+    }
+
+    /**
+     * Returns a boolean array indicating which table types to include.
+     *
+     * @see #TYPE_TABLE_IDX
+     * @see #TYPE_VIEW_IDX
+     */
+    private static boolean[] resolveTableTypes(@Nullable String[] tblTypes) {
+        if (tblTypes == null) {
+            return new boolean[]{true, true};
+        }
+
+        boolean[] includedTypes = new boolean[2];
+
+        for (String tblType : tblTypes) {
+            if (TYPE_TABLE.equals(tblType)) {
+                includedTypes[TYPE_TABLE_IDX] = true;
+
+                continue;
+            }
+
+            if (TYPE_VIEW.equals(tblType)) {
+                includedTypes[TYPE_VIEW_IDX] = true;
+
+                continue;
+            }
+
+            throw new IllegalArgumentException("Unsupported table type: " + tblType);
+        }
+
+        return includedTypes;
     }
 
     /**

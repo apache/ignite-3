@@ -312,6 +312,10 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 assertEquals("PERSON", rs.getString("TABLE_NAME"));
             }
 
+            try (ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "ORGANIZATION", new String[]{"VIEW"})) {
+                assertFalse(rs.next());
+            }
+
             try (ResultSet rs = meta.getTables("IGNITE", "PUBLIC", "", new String[]{"WRONG"})) {
                 assertFalse(rs.next());
             }
@@ -352,6 +356,10 @@ public class ItJdbcMetadataSelfTest extends AbstractJdbcSelfTest {
                 assertEquals("SYSTEM", rs.getString("TABLE_SCHEM"));
                 assertEquals("VIEW", rs.getString("TABLE_TYPE"));
                 assertEquals("TABLES", rs.getString("TABLE_NAME"));
+            }
+
+            try (ResultSet rs = meta.getTables("IGNITE", "%", "TABLES", new String[]{"TABLE"})) {
+                assertFalse(rs.next());
             }
         }
     }
