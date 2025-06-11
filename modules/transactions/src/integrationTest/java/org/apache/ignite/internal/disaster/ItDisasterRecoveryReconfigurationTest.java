@@ -1745,8 +1745,15 @@ public class ItDisasterRecoveryReconfigurationTest extends ClusterPerTestIntegra
         });
 
         // Reset the partition to make it operable.
-        CompletableFuture<?> updateFuture2 =
-                TestDisasterRecoveryUtils.resetPartitions(node0.disasterRecoveryManager(), zoneName, SCHEMA_NAME, TABLE_NAME, emptySet(), true, -1);
+        CompletableFuture<?> updateFuture2 = TestDisasterRecoveryUtils.resetPartitions(
+                node0.disasterRecoveryManager(),
+                zoneName,
+                SCHEMA_NAME,
+                TABLE_NAME,
+                emptySet(),
+                true,
+                -1
+        );
 
         assertThat(updateFuture2, willCompleteSuccessfully());
 
