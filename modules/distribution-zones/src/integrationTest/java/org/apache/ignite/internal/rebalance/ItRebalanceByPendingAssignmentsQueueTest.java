@@ -192,7 +192,9 @@ class ItRebalanceByPendingAssignmentsQueueTest extends ClusterPerTestIntegration
     }
 
     private void createZoneAndTable(int replicas, int quorum) {
-        executeSql(format("CREATE ZONE {} (PARTITIONS 1, REPLICAS {}, QUORUM SIZE {}, AUTO SCALE DOWN {}, AUTO SCALE UP {}) STORAGE PROFILES ['default']",
+        executeSql(format("CREATE ZONE {} ("
+                        + "PARTITIONS 1, REPLICAS {}, QUORUM SIZE {}, AUTO SCALE DOWN {}, AUTO SCALE UP {}"
+                        + ") STORAGE PROFILES ['default']",
                 ZONE_NAME, replicas, quorum, AUTO_SCALE_TIMEOUT_SECONDS, AUTO_SCALE_TIMEOUT_SECONDS));
         executeSql(format("CREATE TABLE {} (id INT PRIMARY KEY, name INT) ZONE {}", TABLE_NAME, ZONE_NAME));
         executeSql(format("INSERT INTO {} VALUES (0, 0)", TABLE_NAME));
