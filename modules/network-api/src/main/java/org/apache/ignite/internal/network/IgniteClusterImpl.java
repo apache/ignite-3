@@ -37,7 +37,7 @@ public class IgniteClusterImpl implements IgniteCluster {
 
     @Override
     public Collection<ClusterNode> nodes() {
-        return topologyService.allMembers();
+        return topologyService.logicalTopologyMembers();
     }
 
     @Override

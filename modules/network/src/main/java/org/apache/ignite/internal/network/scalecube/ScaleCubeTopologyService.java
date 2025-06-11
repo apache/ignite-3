@@ -24,6 +24,7 @@ import io.scalecube.cluster.metadata.MetadataCodec;
 import java.nio.ByteBuffer;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.UUID;
@@ -203,6 +204,12 @@ final class ScaleCubeTopologyService extends AbstractTopologyService {
     @Override
     public Collection<ClusterNode> allMembers() {
         return Collections.unmodifiableCollection(members.values());
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public Collection<ClusterNode> logicalTopologyMembers() {
+        return Collections.unmodifiableCollection(membersByConsistentIdInLogicalTopology.values());
     }
 
     /** {@inheritDoc} */
