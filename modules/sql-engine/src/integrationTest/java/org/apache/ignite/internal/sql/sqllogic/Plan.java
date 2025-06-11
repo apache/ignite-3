@@ -104,7 +104,7 @@ final class Plan extends Command {
         actualPlan = actualPlan.strip();
         if (!expectedPlan.equals(actualPlan)) {
             throw new AssertionError("Invalid plan at: " + posDesc + "." + System.lineSeparator()
-                    + "Expected: " + System.lineSeparator() + expectedPlan
+                    + "Expected: " + System.lineSeparator() + expectedPlan + System.lineSeparator()
                     + "Actual: " + System.lineSeparator() + actualPlan);
         }
     }
